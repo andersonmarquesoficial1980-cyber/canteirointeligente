@@ -332,6 +332,33 @@ export type Database = {
           },
         ]
       }
+      maquinas_frota: {
+        Row: {
+          created_at: string | null
+          frota: string
+          id: string
+          nome: string
+          status: string
+          tipo: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          frota: string
+          id?: string
+          nome: string
+          status?: string
+          tipo?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          frota?: string
+          id?: string
+          nome?: string
+          status?: string
+          tipo?: string | null
+        }
+        Relationships: []
+      }
       ogs_reference: {
         Row: {
           cliente: string
