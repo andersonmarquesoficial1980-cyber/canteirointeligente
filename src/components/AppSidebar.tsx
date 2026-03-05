@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, Plus } from "lucide-react";
+import { LayoutDashboard, FileText, Truck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -6,7 +6,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -14,27 +13,40 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Painel Geral", url: "/", icon: LayoutDashboard },
   { title: "Novo RDO", url: "/rdo", icon: FileText },
-  { title: "Cadastrar Máquina", url: "/frota/novo", icon: Plus },
+  { title: "Gestão de Frota", url: "/frota/novo", icon: Truck },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
 
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
+        {/* Logo area */}
+        <div className="px-4 py-5 border-b border-sidebar-border flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+            <img
+              src="/placeholder.svg"
+              alt="Logo"
+              className="w-6 h-6 opacity-80"
+            />
+          </div>
+          {!collapsed && (
+            <div>
+              <p className="font-display font-bold text-sm text-sidebar-foreground leading-tight">
+                Pavimentação
+              </p>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                Sistema de Gestão
+              </p>
+            </div>
+          )}
+        </div>
+
         <SidebarGroup>
-          <SidebarGroupLabel>
-            {!collapsed && (
-              <span className="font-display font-bold text-sm tracking-tight">
-                Painel <span className="text-primary">RDO</span>
-              </span>
-            )}
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
@@ -43,7 +55,7 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end
-                      className="hover:bg-sidebar-accent/50"
+                      className="hover:bg-sidebar-accent/60"
                       activeClassName="bg-sidebar-accent text-primary font-medium"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
