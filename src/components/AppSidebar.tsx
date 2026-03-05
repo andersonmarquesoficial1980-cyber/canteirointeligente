@@ -27,7 +27,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        <SidebarGroup defaultOpen>
+        <SidebarGroup>
           <SidebarGroupLabel>
             {!collapsed && (
               <span className="font-display font-bold text-sm tracking-tight">
