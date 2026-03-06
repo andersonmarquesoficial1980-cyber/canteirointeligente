@@ -63,7 +63,7 @@ export default function RdoForm() {
   }]);
 
   const [efetivo, setEfetivo] = useState<EfetivoEntry[]>([{
-    id: crypto.randomUUID(), funcao: "", quantidade: "1", entrada: "", saida: "",
+    id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
   }]);
 
   const handleSubmit = async () => {
