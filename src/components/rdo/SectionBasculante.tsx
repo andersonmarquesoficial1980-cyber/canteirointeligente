@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 
 export interface BasculanteEntry {
@@ -15,6 +16,8 @@ interface Props {
   entries: BasculanteEntry[];
   onChange: (entries: BasculanteEntry[]) => void;
 }
+
+const MATERIAIS_BASCULANTE = ["Fresado", "RAP", "BGS", "Rachão", "Limpeza"];
 
 const emptyBasc = (): BasculanteEntry => ({
   id: crypto.randomUUID(), placa: "", material: "", viagens: "", empresa_dona: "",
@@ -50,14 +53,19 @@ export default function SectionBasculante({ entries, onChange }: Props) {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Material</Label>
-              <Input value={entry.material} onChange={e => update(entry.id, "material", e.target.value)} className="h-11 bg-secondary border-border" />
+              <Select value={entry.material} onValueChange={v => update(entry.id, "material", v)}>
+                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {MATERIAIS_BASCULANTE.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Viagens</Label>
               <Input type="number" inputMode="numeric" value={entry.viagens} onChange={e => update(entry.id, "viagens", e.target.value)} className="h-11 bg-secondary border-border" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Empresa Dona</Label>
+              <Label className="text-xs text-muted-foreground">Empresa</Label>
               <Input value={entry.empresa_dona} onChange={e => update(entry.id, "empresa_dona", e.target.value)} className="h-11 bg-secondary border-border" />
             </div>
           </div>
