@@ -40,7 +40,7 @@ export default function RdoForm() {
 
   // CAUQ
   const [nfMassa, setNfMassa] = useState<NotaFiscalMassaEntry[]>([{
-    id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "",
+    id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "", tipo_material_outro: "",
   }]);
 
   // Canteiro
@@ -63,7 +63,7 @@ export default function RdoForm() {
   }]);
 
   const [efetivo, setEfetivo] = useState<EfetivoEntry[]>([{
-    id: crypto.randomUUID(), funcao: "", quantidade: "1", entrada: "", saida: "",
+    id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
   }]);
 
   const handleSubmit = async () => {
@@ -116,7 +116,7 @@ export default function RdoForm() {
         .map(e => ({
           rdo_id: rdoId,
           funcao: e.funcao,
-          quantidade: parseInt(e.quantidade) || 1,
+          quantidade: 1,
           entrada: e.entrada || null,
           saida: e.saida || null,
         }));

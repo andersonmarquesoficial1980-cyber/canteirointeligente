@@ -11,6 +11,7 @@ export interface NotaFiscalMassaEntry {
   nf: string;
   tonelagem: string;
   tipo_material: string;
+  tipo_material_outro: string;
 }
 
 interface Props {
@@ -18,10 +19,16 @@ interface Props {
   onChange: (entries: NotaFiscalMassaEntry[]) => void;
 }
 
-const MATERIAIS = ["Binder", "SMA", "FX-1", "FX-2", "FX-3", "CBUQ", "PMF", "Outro"];
+const USINAS = [
+  "CLD", "USINAS 2A", "PAVMASS", "USIPAV", "AUPAV", "USICITY",
+  "USINAS SP", "ENPAVI", "PEDRIX", "BASALTO PERUS", "USIVIX",
+  "GALVANI", "SERVENG", "JOFEGE",
+];
+
+const MATERIAIS = ["Binder", "SMA", "FX-1", "Outro"];
 
 const emptyNF = (): NotaFiscalMassaEntry => ({
-  id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "",
+  id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "", tipo_material_outro: "",
 });
 
 export default function SectionCauq({ entries, onChange }: Props) {
@@ -56,7 +63,12 @@ export default function SectionCauq({ entries, onChange }: Props) {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Usina</Label>
-              <Input value={entry.usina} onChange={e => update(entry.id, "usina", e.target.value)} className="h-11 bg-secondary border-border" />
+              <Select value={entry.usina} onValueChange={v => update(entry.id, "usina", v)}>
+                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent className="max-h-[250px]">
+                  {USINAS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nº NF</Label>
@@ -69,13 +81,22 @@ export default function SectionCauq({ entries, onChange }: Props) {
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Tipo Material</Label>
-            <Select value={entry.tipo_material} onValueChange={v => update(entry.id, "tipo_material", v)}>
+            <Select value={entry.tipo_material} onValueChange={v => {
+              const updated = entries.map(e => e.id === entry.id ? { ...e, tipo_material: v, tipo_material_outro: v !== "Outro" ? "" : e.tipo_material_outro } : e);
+              onChange(updated);
+            }}>
               <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
                 {MATERIAIS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
+          {entry.tipo_material === "Outro" && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Especifique o Material</Label>
+              <Input value={entry.tipo_material_outro} onChange={e => update(entry.id, "tipo_material_outro", e.target.value)} className="h-11 bg-secondary border-border" placeholder="Digite o material..." />
+            </div>
+          )}
         </div>
       ))}
 
