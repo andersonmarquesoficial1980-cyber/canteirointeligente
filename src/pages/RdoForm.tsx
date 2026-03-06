@@ -116,7 +116,7 @@ export default function RdoForm() {
         .map(e => ({
           rdo_id: rdoId,
           funcao: e.funcao,
-          quantidade: parseInt(e.quantidade) || 1,
+          quantidade: 1,
           entrada: e.entrada || null,
           saida: e.saida || null,
         }));
