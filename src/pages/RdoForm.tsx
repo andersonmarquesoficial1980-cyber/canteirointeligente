@@ -40,7 +40,7 @@ export default function RdoForm() {
 
   // CAUQ
   const [nfMassa, setNfMassa] = useState<NotaFiscalMassaEntry[]>([{
-    id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "",
+    id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "", tipo_material_outro: "",
   }]);
 
   // Canteiro
