@@ -76,7 +76,7 @@ export default function SectionEquipamentos({ entries, onChange }: Props) {
                   <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent className="max-h-[250px]">
                     {maquinas.map((m: any) => (
-                      <SelectItem key={m.id} value={m.frota}>{m.frota} — {m.nome}</SelectItem>
+                      <SelectItem key={m.id} value={m.frota}>{m.frota} - {m.tipo ? `${m.tipo} ` : ""}({m.nome})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
