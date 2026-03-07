@@ -27,10 +27,10 @@ export default function NfPhotoCapture({ tipo, onExtracted }: Props) {
         .upload(fileName, file);
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = await supabase.storage
         .from("notas_fiscais")
-        .getPublicUrl(fileName);
-      const photoUrl = urlData.publicUrl;
+        .createSignedUrl(fileName, 60 * 60 * 24 * 365); // 1 year
+      const photoUrl = urlData?.signedUrl || "";
 
       // 2. Convert to base64
       const buffer = await file.arrayBuffer();
