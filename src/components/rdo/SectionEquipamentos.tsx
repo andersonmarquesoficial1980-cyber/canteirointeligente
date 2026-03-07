@@ -20,7 +20,7 @@ interface Props {
   onChange: (entries: EquipamentoEntry[]) => void;
 }
 
-const CATEGORIAS = ["Pequeno Porte", "Grande Porte", "Veículos em Geral"];
+const CATEGORIAS = ["PEQUENO PORTE", "GRANDE PORTE", "VEÍCULOS EM GERAL"];
 
 const emptyEquip = (): EquipamentoEntry => ({
   id: crypto.randomUUID(), categoria: "", frota: "", patrimonio: "", empresa_dona: "", is_menor: false,
