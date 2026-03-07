@@ -334,6 +334,7 @@ export type Database = {
       }
       maquinas_frota: {
         Row: {
+          categoria: string | null
           created_at: string | null
           empresa: string | null
           frota: string
@@ -343,6 +344,7 @@ export type Database = {
           tipo: string | null
         }
         Insert: {
+          categoria?: string | null
           created_at?: string | null
           empresa?: string | null
           frota: string
@@ -352,6 +354,7 @@ export type Database = {
           tipo?: string | null
         }
         Update: {
+          categoria?: string | null
           created_at?: string | null
           empresa?: string | null
           frota?: string

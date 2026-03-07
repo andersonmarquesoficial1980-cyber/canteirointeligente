@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 
 export interface EquipamentoEntry {
   id: string;
+  categoria: string;
   frota: string;
   patrimonio: string;
   empresa_dona: string;
@@ -18,15 +20,26 @@ interface Props {
   onChange: (entries: EquipamentoEntry[]) => void;
 }
 
+const CATEGORIAS = ["Pequeno Porte", "Grande Porte", "Veículos em Geral"];
+
 const emptyEquip = (): EquipamentoEntry => ({
-  id: crypto.randomUUID(), frota: "", patrimonio: "", empresa_dona: "", is_menor: false,
+  id: crypto.randomUUID(), categoria: "", frota: "", patrimonio: "", empresa_dona: "", is_menor: false,
 });
 
 export default function SectionEquipamentos({ entries, onChange }: Props) {
   const { data: maquinas } = useMaquinasFrota();
 
-  const update = (id: string, field: string, value: any) =>
-    onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
+  const update = (id: string, field: string, value: any) => {
+    if (field === "categoria") {
+      // Reset frota when category changes
+      onChange(entries.map(e => e.id === id ? { ...e, categoria: value, frota: "" } : e));
+    } else {
+      onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
+    }
+  };
+
+  const filteredMaquinas = (categoria: string) =>
+    maquinas?.filter((m: any) => m.categoria === categoria) ?? [];
 
   return (
     <div className="space-y-4 p-4">
@@ -69,19 +82,35 @@ export default function SectionEquipamentos({ entries, onChange }: Props) {
               </div>
             </div>
           ) : (
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Frota</Label>
-              {maquinas && maquinas.length > 0 ? (
-                <Select value={entry.frota} onValueChange={v => update(entry.id, "frota", v)}>
-                  <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent className="max-h-[250px]">
-                    {maquinas.map((m: any) => (
-                      <SelectItem key={m.id} value={m.frota}>{m.frota} - {m.tipo ? `${m.tipo} ` : ""}({m.nome})</SelectItem>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Categoria do Equipamento *</Label>
+                <Select value={entry.categoria} onValueChange={v => update(entry.id, "categoria", v)}>
+                  <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIAS.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              ) : (
-                <Input value={entry.frota} onChange={e => update(entry.id, "frota", e.target.value)} className="h-11 bg-secondary border-border" placeholder="FR-01" />
+              </div>
+
+              {entry.categoria && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Equipamento</Label>
+                  {filteredMaquinas(entry.categoria).length > 0 ? (
+                    <Select value={entry.frota} onValueChange={v => update(entry.id, "frota", v)}>
+                      <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione o equipamento" /></SelectTrigger>
+                      <SelectContent className="max-h-[250px]">
+                        {filteredMaquinas(entry.categoria).map((m: any) => (
+                          <SelectItem key={m.id} value={m.frota}>{m.frota} - {m.tipo ? `${m.tipo} ` : ""}({m.nome})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic py-2">Nenhum equipamento nesta categoria.</p>
+                  )}
+                </div>
               )}
             </div>
           )}
