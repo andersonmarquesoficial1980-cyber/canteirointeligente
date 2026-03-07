@@ -1,1 +1,4 @@
 project_id = "ucgcqexunnsrffzrfhqu"
+
+[functions.ocr-nota-fiscal]
+verify_jwt = false
