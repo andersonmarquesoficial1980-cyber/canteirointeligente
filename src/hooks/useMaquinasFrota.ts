@@ -8,7 +8,7 @@ export function useMaquinasFrota() {
       const { data, error } = await supabase
         .from("maquinas_frota" as any)
         .select("*")
-        .eq("status", "ativo")
+        .in("status", ["ativo", "Operando"])
         .order("frota");
       if (error) throw error;
       return data as any[];
