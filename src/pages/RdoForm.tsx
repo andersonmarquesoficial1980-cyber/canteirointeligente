@@ -50,7 +50,7 @@ export default function RdoForm() {
 
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
-    id: crypto.randomUUID(), frota: "", patrimonio: "", empresa_dona: "", is_menor: false,
+    id: crypto.randomUUID(), categoria: "", frota: "", patrimonio: "", empresa_dona: "", is_menor: false,
   }]);
 
   const [basculantes, setBasculantes] = useState<BasculanteEntry[]>([{
