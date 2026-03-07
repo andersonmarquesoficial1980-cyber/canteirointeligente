@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
+import NfPhotoCapture from "./NfPhotoCapture";
 
 export interface NotaFiscalInsumoEntry {
   id: string;
@@ -10,6 +11,7 @@ export interface NotaFiscalInsumoEntry {
   fornecedor: string;
   material: string;
   quantidade: string;
+  photo_url?: string;
 }
 
 interface Props {
@@ -27,6 +29,18 @@ export default function SectionCanteiro({ entries, onChange }: Props) {
   const update = (id: string, field: string, value: string) =>
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
 
+  const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
+    const newEntry: NotaFiscalInsumoEntry = {
+      id: crypto.randomUUID(),
+      nf: data.nf || "",
+      fornecedor: FORNECEDORES.find(f => f.toLowerCase() === (data.fornecedor || "").toLowerCase()) || data.fornecedor || "",
+      material: data.material || "",
+      quantidade: data.quantidade || "",
+      photo_url: photoUrl,
+    };
+    onChange([...entries, newEntry]);
+  };
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
@@ -36,10 +50,15 @@ export default function SectionCanteiro({ entries, onChange }: Props) {
         </Button>
       </div>
 
+      <NfPhotoCapture tipo="CANTEIRO" onExtracted={handleOcrExtracted} />
+
       {entries.map((entry, idx) => (
         <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-primary">NF {idx + 1}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-primary">NF {idx + 1}</span>
+              {entry.photo_url && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">📷 OCR</span>}
+            </div>
             {entries.length > 1 && (
               <button onClick={() => onChange(entries.filter(e => e.id !== entry.id))} className="text-destructive p-1">
                 <Trash2 className="w-4 h-4" />
