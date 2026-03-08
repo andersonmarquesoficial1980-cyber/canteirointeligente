@@ -346,11 +346,11 @@ export default function RdoForm() {
 
         {tipoRdo === "CAUQ" && (
           <>
-            <SectionCauq entries={nfMassa} onChange={setNfMassa} />
-            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} />
+            <SectionCauq entries={nfMassa} onChange={setNfMassa} tipoRdo="CAUQ" />
+            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} tipoRdo="CAUQ" />
           </>
         )}
-        {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} />}
+        {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
 
         {tipoRdo && (
           <>
