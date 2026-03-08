@@ -83,11 +83,11 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Estaca Ini.</Label>
-                <Input value={entry.estaca_inicial} onChange={e => update(entry.id, "estaca_inicial", e.target.value)} className="h-11 bg-secondary border-border" />
+                <Input inputMode="numeric" value={entry.estaca_inicial} onChange={e => update(entry.id, "estaca_inicial", e.target.value)} className="h-11 bg-secondary border-border" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Estaca Fin.</Label>
-                <Input value={entry.estaca_final} onChange={e => update(entry.id, "estaca_final", e.target.value)} className="h-11 bg-secondary border-border" />
+                <Input inputMode="numeric" value={entry.estaca_final} onChange={e => update(entry.id, "estaca_final", e.target.value)} className="h-11 bg-secondary border-border" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
