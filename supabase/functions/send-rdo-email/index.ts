@@ -30,11 +30,13 @@ Deno.serve(async (req) => {
       authHeader.replace("Bearer ", "")
     );
     if (userError || !user) {
+      console.log("❌ Auth failed:", userError?.message);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    console.log("✅ User authenticated:", user.email);
 
     const { rdo_id, html_report } = await req.json();
 
@@ -46,19 +48,20 @@ Deno.serve(async (req) => {
     }
 
     // Get email recipients
-    const { data: config } = await supabase
+    const { data: config, error: configError } = await supabase
       .from("configuracoes_relatorio")
       .select("emails_destino")
       .limit(1)
       .single();
 
-    const emails: string[] = config?.emails_destino || [];
+    console.log("📧 Config query result:", JSON.stringify(config), "Error:", configError?.message);
 
+    let emails: string[] = config?.emails_destino || [];
     if (emails.length === 0) {
-      return new Response(
-        JSON.stringify({ warning: "Nenhum e-mail destinatário cadastrado." }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      emails = ["anderson@fremix.com.br"];
+      console.log("⚠️ No emails in config, using fallback:", emails);
+    } else {
+      console.log("📧 Recipients found:", emails);
     }
 
     // Get RDO info for subject
@@ -69,17 +72,22 @@ Deno.serve(async (req) => {
       .single();
 
     const subject = rdo
-      ? `RDO - ${rdo.obra_nome} - ${rdo.data}`
-      : `RDO - Relatório Diário de Obra`;
+      ? `Novo RDO - Obra: ${rdo.obra_nome} - Data: ${rdo.data}`
+      : `Novo RDO - Relatório Diário de Obra`;
 
-    // Send email via Resend (requires RESEND_API_KEY secret)
+    // Check Resend key
     const resendKey = Deno.env.get("RESEND_API_KEY");
+    console.log("🔑 RESEND_API_KEY present:", !!resendKey, "Length:", resendKey?.length || 0);
+
     if (!resendKey) {
       return new Response(
-        JSON.stringify({ error: "RESEND_API_KEY not configured. Add it in Supabase secrets." }),
+        JSON.stringify({ error: "RESEND_API_KEY not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Send email via Resend
+    console.log("📤 Sending email to:", emails, "Subject:", subject);
 
     const emailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -96,9 +104,9 @@ Deno.serve(async (req) => {
     });
 
     const emailData = await emailRes.json();
+    console.log("📬 Resend response status:", emailRes.status, "Body:", JSON.stringify(emailData));
 
     if (!emailRes.ok) {
-      console.error("Resend error:", emailData);
       return new Response(
         JSON.stringify({ error: "Failed to send email", details: emailData }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -110,7 +118,7 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("Edge function error:", err);
+    console.error("💥 Edge function error:", err);
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

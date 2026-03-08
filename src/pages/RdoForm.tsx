@@ -247,20 +247,29 @@ export default function RdoForm() {
       }
 
       // Build HTML report and send email
+      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida);
+      let emailSent = false;
       try {
-        const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida);
-        const { data: session } = await supabase.auth.getSession();
-        const token = session?.session?.access_token;
-        if (token) {
-          await supabase.functions.invoke("send-rdo-email", {
-            body: { rdo_id: rdoId, html_report: htmlReport },
-          });
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-rdo-email", {
+          body: { rdo_id: rdoId, html_report: htmlReport },
+        });
+        if (emailError) {
+          console.error("Email invoke error:", emailError);
+        } else if (emailResult?.success) {
+          emailSent = true;
+        } else {
+          console.warn("Email response:", emailResult);
         }
       } catch (emailErr) {
-        console.warn("Email send failed (non-blocking):", emailErr);
+        console.warn("Email send failed:", emailErr);
       }
 
-      toast({ title: "✅ RDO Salvo!", description: "Relatório registrado com sucesso." });
+      toast({
+        title: emailSent ? "✅ RDO Salvo e E-mail Enviado!" : "✅ RDO Salvo!",
+        description: emailSent
+          ? "Relatório registrado e e-mail enviado com sucesso."
+          : "Relatório registrado. O e-mail não pôde ser enviado.",
+      });
       navigate("/");
     } catch (err: any) {
       console.error(err);
