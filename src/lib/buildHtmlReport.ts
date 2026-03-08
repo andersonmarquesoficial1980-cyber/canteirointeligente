@@ -14,6 +14,12 @@ interface HeaderData {
 
 const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+interface CanteiroReportData {
+  teveUsinagem: boolean;
+  totalUsinado: string;
+  atividadesCanteiro: string;
+}
+
 export function buildHtmlReport(
   rdoId: string,
   header: HeaderData,
@@ -25,6 +31,7 @@ export function buildHtmlReport(
   basculantes: BasculanteEntry[],
   globalEntrada: string,
   globalSaida: string,
+  canteiroData?: CanteiroReportData,
 ): string {
   const formatDate = (d: string) => {
     if (!d) return "";
@@ -125,6 +132,21 @@ th{background:#f3f4f6;font-weight:600}
       });
       const totalNf = filledNf.reduce((s, n) => s + (parseFloat(n.tonelagem) || 0), 0);
       html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="3">TOTAL</td><td>${fmtBR(totalNf)}</td><td></td></tr></table>`;
+    }
+  }
+
+  // Atividades de Canteiro
+  if (canteiroData) {
+    if (canteiroData.teveUsinagem) {
+      html += `<h2>🏭 Produção da Usina</h2>
+<div style="background:#e5edff;padding:12px 16px;border-radius:8px;font-size:16px;font-weight:bold">
+🔥 Produção da Usina: ${fmtBR(parseFloat(canteiroData.totalUsinado) || 0)} Toneladas
+</div>`;
+    } else if (canteiroData.atividadesCanteiro) {
+      html += `<h2>🏗️ Atividades do Canteiro</h2>
+<div style="background:#f3f4f6;padding:12px 16px;border-radius:8px">
+${canteiroData.atividadesCanteiro}
+</div>`;
     }
   }
 
