@@ -15,6 +15,7 @@ import SectionBasculante, { type BasculanteEntry } from "@/components/rdo/Sectio
 import SectionManchaAreia, { type ManchaAreiaEntry } from "@/components/rdo/SectionManchaAreia";
 import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import SectionProducaoCauq, { type ProducaoCauqData, type TrechoCauqEntry } from "@/components/rdo/SectionProducaoCauq";
+import { buildHtmlReport } from "@/lib/buildHtmlReport";
 
 export default function RdoForm() {
   const navigate = useNavigate();
