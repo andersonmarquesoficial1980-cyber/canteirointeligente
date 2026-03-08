@@ -81,14 +81,14 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
           </div>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Turno</Label>
+          <Label className="text-xs text-muted-foreground">Turno *</Label>
           <Select value={data.turno} onValueChange={v => onChange("turno", v)}>
             <SelectTrigger className="h-12 text-base bg-secondary border-border">
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
-              {TURNO_OPTIONS.map(t => (
-                <SelectItem key={t} value={t}>{t}</SelectItem>
+              {TURNO_OPTIONS.map(option => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
