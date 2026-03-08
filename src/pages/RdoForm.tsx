@@ -340,6 +340,7 @@ export default function RdoForm() {
             onChangeEmpreiteiro={setEmpreiteiro}
             onChangeTipoServico={setTipoServico}
             onChangeProducao={setInfraProducao}
+            tipoRdo="INFRA"
           />
         )}
 
