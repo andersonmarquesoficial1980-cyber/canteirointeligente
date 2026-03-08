@@ -28,6 +28,15 @@ const emptyEquip = (): EquipamentoEntry => ({
 
 export default function SectionEquipamentos({ entries, onChange }: Props) {
   const { data: maquinas } = useMaquinasFrota();
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const prevCountRef = useRef(entries.length);
+
+  useEffect(() => {
+    if (entries.length > prevCountRef.current && addBtnRef.current) {
+      addBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    prevCountRef.current = entries.length;
+  }, [entries.length]);
 
   const update = (id: string, field: string, value: any) => {
     if (field === "categoria") {
