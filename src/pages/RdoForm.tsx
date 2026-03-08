@@ -51,7 +51,7 @@ export default function RdoForm() {
   const [producaoCauq, setProducaoCauq] = useState<ProducaoCauqData>({
     trechos: [{
       id: crypto.randomUUID(), tipo_servico: "", sentido_faixa: "", estaca_inicial: "", estaca_final: "",
-      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "", observacoes: "", justificativa_tonelagem: "",
+      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "", observacoes: "",
     }],
   });
 
