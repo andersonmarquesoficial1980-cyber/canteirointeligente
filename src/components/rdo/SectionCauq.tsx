@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import NfPhotoCapture from "./NfPhotoCapture";
+import { useUsinas, useMateriais } from "@/hooks/useFilteredData";
 
 export interface NotaFiscalMassaEntry {
   id: string;
@@ -19,21 +20,22 @@ export interface NotaFiscalMassaEntry {
 interface Props {
   entries: NotaFiscalMassaEntry[];
   onChange: (entries: NotaFiscalMassaEntry[]) => void;
+  tipoRdo: string;
 }
-
-const USINAS = [
-  "CLD", "USINAS 2A", "PAVMASS", "USIPAV", "AUPAV", "USICITY",
-  "USINAS SP", "ENPAVI", "PEDRIX", "BASALTO PERUS", "USIVIX",
-  "GALVANI", "SERVENG", "JOFEGE",
-];
-
-const MATERIAIS = ["Binder", "SMA", "FX-1", "Outro"];
 
 const emptyNF = (): NotaFiscalMassaEntry => ({
   id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "", tipo_material_outro: "",
 });
 
-export default function SectionCauq({ entries, onChange }: Props) {
+export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
+  const { data: usinasData } = useUsinas(tipoRdo);
+  const { data: materiaisData } = useMateriais(tipoRdo);
+
+  const usinas = usinasData?.map(u => u.nome) ?? [];
+  const materiais = materiaisData?.map(m => m.nome) ?? [];
+  // Always allow "Outro"
+  const materiaisWithOutro = materiais.length > 0 ? [...materiais, "Outro"] : ["Outro"];
+
   const update = (id: string, field: string, value: string) =>
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
 
@@ -44,10 +46,10 @@ export default function SectionCauq({ entries, onChange }: Props) {
       id: crypto.randomUUID(),
       nf: data.nf || "",
       placa: data.placa || "",
-      usina: USINAS.find(u => u.toLowerCase() === (data.usina || "").toLowerCase()) || data.usina || "",
+      usina: usinas.find(u => u.toLowerCase() === (data.usina || "").toLowerCase()) || data.usina || "",
       tonelagem: data.tonelagem || "",
-      tipo_material: MATERIAIS.find(m => m.toLowerCase() === (data.tipo_material || "").toLowerCase()) || (data.tipo_material ? "Outro" : ""),
-      tipo_material_outro: MATERIAIS.find(m => m.toLowerCase() === (data.tipo_material || "").toLowerCase()) ? "" : (data.tipo_material || ""),
+      tipo_material: materiais.find(m => m.toLowerCase() === (data.tipo_material || "").toLowerCase()) || (data.tipo_material ? "Outro" : ""),
+      tipo_material_outro: materiais.find(m => m.toLowerCase() === (data.tipo_material || "").toLowerCase()) ? "" : (data.tipo_material || ""),
       photo_url: photoUrl,
     };
     onChange([...entries, newEntry]);
@@ -82,7 +84,9 @@ export default function SectionCauq({ entries, onChange }: Props) {
               <Select value={entry.usina} onValueChange={v => update(entry.id, "usina", v)}>
                 <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent className="max-h-[250px]">
-                  {USINAS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  {usinas.length > 0
+                    ? usinas.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)
+                    : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
                 </SelectContent>
               </Select>
             </div>
@@ -103,7 +107,7 @@ export default function SectionCauq({ entries, onChange }: Props) {
             }}>
               <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                {MATERIAIS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                {materiaisWithOutro.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
