@@ -31,15 +31,13 @@ interface Props {
 
 const TIPOS_SERVICO = [
   "Fresagem Reparo Profundo",
-  "Fresagem Camada de Reforço",
+  "Fresagem",
   "Aplicação de BGS",
   "RAP Espumado",
   "Aplicação de Binder",
   "Capa/CBUQ",
   "Pintura de Sinalização",
 ];
-
-const TIPOS_VALIDACAO_TONELAGEM = ["Aplicação de Binder", "Capa/CBUQ"];
 
 const emptyTrecho = (): TrechoCauqEntry => ({
   id: crypto.randomUUID(),

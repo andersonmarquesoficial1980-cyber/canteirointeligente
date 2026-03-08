@@ -16,7 +16,7 @@ interface RdoHeaderProps {
   onChange: (field: string, value: string) => void;
 }
 
-const TURNO_OPTIONS = ["Madrugada", "Manhã", "Tarde", "Noite"];
+const TURNO_OPTIONS = ["Diurno", "Noturno"];
 
 const STATUS_OPTIONS = ["Trabalhou", "Cancelou", "Folga"];
 

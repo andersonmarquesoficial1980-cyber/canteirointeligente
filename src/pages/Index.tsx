@@ -1,41 +1,23 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMaquinasFrota } from "@/hooks/useMaquinasFrota";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Truck, MapPin, HardHat, ClipboardList, Plus } from "lucide-react";
 import logoFremix from "@/assets/Logo_Fremix.png";
 
+const ADMIN_EMAILS = ["anderson@fremix.com.br"];
+
 export default function Index() {
   const navigate = useNavigate();
-  const { data: maquinas, isLoading: loadingMaquinas } = useMaquinasFrota();
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  const { data: obrasCount, isLoading: loadingObras } = useQuery({
-    queryKey: ["obras_count"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("ogs_reference")
-        .select("*", { count: "exact", head: true });
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-
-  const today = new Date().toISOString().split("T")[0];
-  const { data: rdoCount, isLoading: loadingRdo } = useQuery({
-    queryKey: ["rdo_count_today", today],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("rdo_diarios")
-        .select("*", { count: "exact", head: true })
-        .eq("data", today);
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-
-  const totalEquip = maquinas?.length ?? 0;
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email && ADMIN_EMAILS.includes(data.user.email)) {
+        setIsAdmin(true);
+      }
+    });
+  }, []);
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-8 max-w-4xl mx-auto">
