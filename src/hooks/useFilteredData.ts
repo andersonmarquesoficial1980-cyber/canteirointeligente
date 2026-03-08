@@ -17,7 +17,7 @@ function useFilteredTable(tableName: string, tipoRdo: string) {
         .or(`vinculo_rdo.eq.${tipoRdo},vinculo_rdo.eq.TODOS`)
         .order("nome");
       if (error) throw error;
-      return (data || []) as FilteredItem[];
+      return (data || []) as unknown as FilteredItem[];
     },
     enabled: !!tipoRdo,
   });
