@@ -35,6 +35,7 @@ function AppRoutes() {
         <Route path="/" element={<Index />} />
         <Route path="/rdo" element={<RdoForm />} />
         <Route path="/frota/novo" element={<FrotaNovo />} />
+        <Route path="/admin/configuracoes" element={<AdminConfiguracoes />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>
