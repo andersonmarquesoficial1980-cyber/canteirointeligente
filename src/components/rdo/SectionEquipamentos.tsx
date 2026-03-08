@@ -10,6 +10,8 @@ export interface EquipamentoEntry {
   id: string;
   categoria: string;
   frota: string;
+  tipo: string;
+  nome: string;
   patrimonio: string;
   empresa_dona: string;
   is_menor: boolean;
