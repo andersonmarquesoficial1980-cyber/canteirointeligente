@@ -119,6 +119,10 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
           </div>
         );
       })}
+
+      <Button size="sm" onClick={() => onChangeProducao([...producao, emptyEntry()])} className="w-full h-12 gap-2 text-base">
+        <Plus className="w-5 h-5" /> Adicionar Trecho
+      </Button>
     </div>
   );
 }
