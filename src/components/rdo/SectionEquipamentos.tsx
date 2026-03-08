@@ -29,8 +29,8 @@ const emptyEquip = (): EquipamentoEntry => ({
   id: crypto.randomUUID(), categoria: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
 });
 
-export default function SectionEquipamentos({ entries, onChange }: Props) {
-  const { data: maquinas } = useMaquinasFrota();
+export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Props) {
+  const { data: maquinas } = useMaquinasFrotaFiltered(tipoRdo);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const prevCountRef = useRef(entries.length);
 
