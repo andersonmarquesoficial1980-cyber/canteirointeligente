@@ -48,10 +48,9 @@ const emptyTrecho = (): TrechoCauqEntry => ({
   espessura_m: "",
   total_toneladas: "",
   observacoes: "",
-  justificativa_tonelagem: "",
 });
 
-export default function SectionProducaoCauq({ data, onChange, totalTonelagemNF }: Props) {
+export default function SectionProducaoCauq({ data, onChange }: Props) {
   const updateTrecho = (id: string, field: string, value: string) =>
     onChange({
       ...data,
