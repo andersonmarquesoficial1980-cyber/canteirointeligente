@@ -12,6 +12,8 @@ interface HeaderData {
   status_obra: string;
 }
 
+const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export function buildHtmlReport(
   rdoId: string,
   header: HeaderData,
@@ -98,11 +100,12 @@ th{background:#f3f4f6;font-weight:600}
         const l = parseFloat(t.largura_m) || 0;
         const area = c * l;
         totalArea += area;
-        totalTon += parseFloat(t.total_toneladas) || 0;
-        const espM = t.espessura_m ? (parseFloat(t.espessura_m) / 100).toFixed(2) : "";
-        html += `<tr><td>${t.tipo_servico}</td><td>${t.sentido_faixa}</td><td>${t.estaca_inicial}</td><td>${t.estaca_final}</td><td>${t.comprimento_m}</td><td>${t.largura_m}</td><td>${area.toFixed(2)}</td><td>${espM}</td><td>${t.total_toneladas}</td></tr>`;
+        const ton = parseFloat(t.total_toneladas) || 0;
+        totalTon += ton;
+        const espM = t.espessura_m ? (parseFloat(t.espessura_m) / 100) : 0;
+        html += `<tr><td>${t.tipo_servico}</td><td>${t.sentido_faixa}</td><td>${t.estaca_inicial}</td><td>${t.estaca_final}</td><td>${fmtBR(c)}</td><td>${fmtBR(l)}</td><td>${fmtBR(area)}</td><td>${espM ? fmtBR(espM) : ""}</td><td>${fmtBR(ton)}</td></tr>`;
       });
-      html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="6">TOTAL</td><td>${totalArea.toFixed(2)}</td><td></td><td>${totalTon.toFixed(2)}</td></tr></table>`;
+      html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="6">TOTAL</td><td>${fmtBR(totalArea)}</td><td></td><td>${fmtBR(totalTon)}</td></tr></table>`;
 
       trechos.forEach(t => {
         if (t.observacoes) {
@@ -117,10 +120,11 @@ th{background:#f3f4f6;font-weight:600}
       html += `<h2>📄 Notas Fiscais de Massa</h2>
 <table><tr><th>NF</th><th>Placa</th><th>Usina</th><th>Tonelagem</th><th>Material</th></tr>`;
       filledNf.forEach(n => {
-        html += `<tr><td>${n.nf}</td><td>${n.placa}</td><td>${n.usina}</td><td>${n.tonelagem}</td><td>${n.tipo_material === "Outro" ? n.tipo_material_outro : n.tipo_material}</td></tr>`;
+        const ton = parseFloat(n.tonelagem) || 0;
+        html += `<tr><td>${n.nf}</td><td>${n.placa}</td><td>${n.usina}</td><td>${fmtBR(ton)}</td><td>${n.tipo_material === "Outro" ? n.tipo_material_outro : n.tipo_material}</td></tr>`;
       });
       const totalNf = filledNf.reduce((s, n) => s + (parseFloat(n.tonelagem) || 0), 0);
-      html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="3">TOTAL</td><td>${totalNf.toFixed(2)}</td><td></td></tr></table>`;
+      html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="3">TOTAL</td><td>${fmtBR(totalNf)}</td><td></td></tr></table>`;
     }
   }
 
