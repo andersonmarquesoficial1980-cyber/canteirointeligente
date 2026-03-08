@@ -11,9 +11,12 @@ interface RdoHeaderProps {
     cliente: string;
     local: string;
     status_obra: string;
+    turno: string;
   };
   onChange: (field: string, value: string) => void;
 }
+
+const TURNO_OPTIONS = ["Madrugada", "Manhã", "Tarde", "Noite"];
 
 const STATUS_OPTIONS = ["Trabalhou", "Cancelou", "Folga"];
 

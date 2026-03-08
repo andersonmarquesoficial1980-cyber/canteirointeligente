@@ -2,10 +2,10 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMaquinasFrota } from "@/hooks/useMaquinasFrota";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Truck, MapPin, AlertTriangle } from "lucide-react";
+import { FileText, Truck, MapPin, HardHat, ClipboardList, Plus } from "lucide-react";
+import logoFremix from "@/assets/Logo_Fremix.png";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -38,32 +38,38 @@ export default function Index() {
   const totalEquip = maquinas?.length ?? 0;
 
   return (
-    <div className="p-4 md:p-6 space-y-5 pb-8 max-w-4xl">
-      <div>
-        <h1 className="text-xl md:text-2xl font-display font-bold text-foreground">
-          Painel de Operações
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Visão geral do dia {new Date().toLocaleDateString("pt-BR")}
-        </p>
-      </div>
+    <div className="p-4 md:p-6 space-y-6 pb-8 max-w-4xl mx-auto">
+      {/* Hero Section */}
+      <div className="bg-card rounded-2xl border border-border p-6 md:p-10 text-center space-y-5">
+        <img
+          src={logoFremix}
+          alt="Fremix Pavimentação"
+          className="h-16 md:h-20 mx-auto object-contain"
+        />
+        <div className="space-y-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
+            RDO Digital — Fremix Pavimentação
+          </h1>
+          <p className="text-sm md:text-base text-muted-foreground max-w-lg mx-auto leading-relaxed">
+            Plataforma oficial para apontamento de obras, gestão de efetivo, controle de frota e produção asfáltica.
+          </p>
+        </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-3">
+        {/* Industry icons */}
+        <div className="flex justify-center gap-6 text-muted-foreground/60">
+          <Truck className="w-7 h-7" />
+          <HardHat className="w-7 h-7" />
+          <ClipboardList className="w-7 h-7" />
+          <MapPin className="w-7 h-7" />
+        </div>
+
+        {/* CTA */}
         <Button
           onClick={() => navigate("/rdo")}
-          className="h-16 flex-col gap-1.5 text-sm font-semibold rounded-xl"
+          size="lg"
+          className="h-14 px-10 text-lg font-bold rounded-xl gap-2 shadow-lg"
         >
-          <FileText className="w-5 h-5" />
-          Novo RDO
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => navigate("/frota/novo")}
-          className="h-16 flex-col gap-1.5 text-sm font-semibold rounded-xl border-border"
-        >
-          <Plus className="w-5 h-5" />
-          Cadastrar Máquina
+          <FileText className="w-6 h-6" /> Novo RDO
         </Button>
       </div>
 
@@ -104,37 +110,25 @@ export default function Index() {
         </Card>
       </div>
 
-      {/* Recent Machines */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Últimas Máquinas</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loadingMaquinas ? (
-            <p className="text-sm text-muted-foreground px-6 pb-6">Carregando...</p>
-          ) : !maquinas?.length ? (
-            <div className="px-6 pb-6 text-center space-y-2">
-              <AlertTriangle className="w-8 h-8 text-muted-foreground mx-auto" />
-              <p className="text-sm text-muted-foreground">Nenhum equipamento cadastrado</p>
-              <Button size="sm" variant="outline" onClick={() => navigate("/frota/novo")}>
-                Cadastrar primeiro
-              </Button>
-            </div>
-          ) : (
-            <ul className="divide-y divide-border">
-              {maquinas.slice(0, 8).map((m: any) => (
-                <li key={m.id} className="px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{m.nome}</p>
-                    <p className="text-xs text-muted-foreground">Frota: {m.frota}</p>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">{m.tipo || "—"}</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {/* Secondary actions */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          variant="outline"
+          onClick={() => navigate("/frota/novo")}
+          className="h-14 flex-col gap-1.5 text-sm font-semibold rounded-xl border-border"
+        >
+          <Plus className="w-5 h-5" />
+          Cadastrar Máquina
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => navigate("/admin/configuracoes")}
+          className="h-14 flex-col gap-1.5 text-sm font-semibold rounded-xl border-border"
+        >
+          <ClipboardList className="w-5 h-5" />
+          Configurações
+        </Button>
+      </div>
     </div>
   );
 }

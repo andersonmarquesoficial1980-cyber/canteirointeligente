@@ -157,7 +157,7 @@ export default function RdoForm() {
         .insert({
           data: header.data,
           obra_nome: header.obra_nome,
-          turno: tipoRdo || null,
+          turno: header.turno || null,
           clima: header.status_obra || null,
         })
         .select("id")
