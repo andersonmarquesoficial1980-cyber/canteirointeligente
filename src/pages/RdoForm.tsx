@@ -259,9 +259,12 @@ export default function RdoForm() {
       const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida);
       let emailSent = false;
       try {
+        console.log("Iniciando envio de e-mail...");
         const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-rdo-email", {
           body: { rdo_id: rdoId, html_report: htmlReport },
         });
+        console.log("Resposta da função de e-mail:", emailResult);
+
         if (emailError) {
           console.error("Email invoke error:", emailError);
         } else if (emailResult?.success) {
