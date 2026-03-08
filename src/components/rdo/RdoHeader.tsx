@@ -11,9 +11,12 @@ interface RdoHeaderProps {
     cliente: string;
     local: string;
     status_obra: string;
+    turno: string;
   };
   onChange: (field: string, value: string) => void;
 }
+
+const TURNO_OPTIONS = ["Madrugada", "Manhã", "Tarde", "Noite"];
 
 const STATUS_OPTIONS = ["Trabalhou", "Cancelou", "Folga"];
 
@@ -59,7 +62,7 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
     <div className="space-y-4 p-4 bg-card rounded-xl border border-border">
       <h2 className="text-lg font-bold text-foreground">📋 Dados Gerais</h2>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Data</Label>
           <div className="relative">
@@ -73,6 +76,19 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
               {formatDateBR(data.data) || "DD/MM/AAAA"}
             </div>
           </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Turno</Label>
+          <Select value={data.turno} onValueChange={v => onChange("turno", v)}>
+            <SelectTrigger className="h-12 text-base bg-secondary border-border">
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              {TURNO_OPTIONS.map(t => (
+                <SelectItem key={t} value={t}>{t}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Status</Label>
