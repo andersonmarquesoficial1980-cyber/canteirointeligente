@@ -20,6 +20,7 @@ export interface EquipamentoEntry {
 interface Props {
   entries: EquipamentoEntry[];
   onChange: (entries: EquipamentoEntry[]) => void;
+  tipoRdo: string;
 }
 
 const CATEGORIAS = ["PEQUENO PORTE", "FRESA/BOB", "VIBRO/ROLO", "LINHA AMARELA", "USINAGEM", "VEÍCULOS EM GERAL"];
