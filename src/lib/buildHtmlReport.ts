@@ -128,6 +128,21 @@ th{background:#f3f4f6;font-weight:600}
     }
   }
 
+  // Atividades de Canteiro
+  if (canteiroData) {
+    if (canteiroData.teveUsinagem) {
+      html += `<h2>🏭 Produção da Usina</h2>
+<div style="background:#e5edff;padding:12px 16px;border-radius:8px;font-size:16px;font-weight:bold">
+🔥 Produção da Usina: ${fmtBR(parseFloat(canteiroData.totalUsinado) || 0)} Toneladas
+</div>`;
+    } else if (canteiroData.atividadesCanteiro) {
+      html += `<h2>🏗️ Atividades do Canteiro</h2>
+<div style="background:#f3f4f6;padding:12px 16px;border-radius:8px">
+${canteiroData.atividadesCanteiro}
+</div>`;
+    }
+  }
+
   html += `<hr><p style="color:#9ca3af;font-size:12px;margin-top:20px">Relatório gerado automaticamente pelo RDO Digital - Fremix</p></body></html>`;
   return html;
 }
