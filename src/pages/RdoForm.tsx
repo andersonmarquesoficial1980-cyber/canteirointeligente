@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,11 @@ import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/Sec
 import SectionBasculante, { type BasculanteEntry } from "@/components/rdo/SectionBasculante";
 import SectionManchaAreia, { type ManchaAreiaEntry } from "@/components/rdo/SectionManchaAreia";
 import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
-import SectionProducaoCauq, { type ProducaoCauqData, type TrechoCauqEntry } from "@/components/rdo/SectionProducaoCauq";
+import SectionProducaoCauq, { type ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
+import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteiro";
 import { buildHtmlReport } from "@/lib/buildHtmlReport";
+
+const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function RdoForm() {
   const navigate = useNavigate();
@@ -60,6 +63,11 @@ export default function RdoForm() {
     id: crypto.randomUUID(), nf: "", fornecedor: "", material: "", quantidade: "",
   }]);
 
+  // Atividades de Canteiro
+  const [teveUsinagem, setTeveUsinagem] = useState(false);
+  const [totalUsinado, setTotalUsinado] = useState("");
+  const [atividadesCanteiro, setAtividadesCanteiro] = useState("");
+
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
     id: crypto.randomUUID(), categoria: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
@@ -82,6 +90,17 @@ export default function RdoForm() {
   const [globalEntrada, setGlobalEntrada] = useState("");
   const [globalSaida, setGlobalSaida] = useState("");
 
+  // Auto-fill hours based on turno
+  useEffect(() => {
+    if (header.turno === "diurno") {
+      setGlobalEntrada("07:00");
+      setGlobalSaida("17:00");
+    } else if (header.turno === "noturno") {
+      setGlobalEntrada("21:00");
+      setGlobalSaida("05:00");
+    }
+  }, [header.turno]);
+
   const formatDateBR = (d: string) => {
     if (!d) return "";
     const [y, m, day] = d.split("-");
@@ -99,16 +118,17 @@ export default function RdoForm() {
     if (tipoRdo === "CAUQ" && producaoCauq.trechos.length > 0) {
       lines.push(``);
       lines.push(`📐 *Atividades Executadas:*`);
-      producaoCauq.trechos.forEach((t, i) => {
+      producaoCauq.trechos.forEach((t) => {
         if (!t.tipo_servico && !t.comprimento_m) return;
         const c = parseFloat(t.comprimento_m) || 0;
         const l = parseFloat(t.largura_m) || 0;
-        const area = (c * l).toFixed(2);
+        const area = c * l;
         lines.push(``);
         lines.push(`▸ ${t.tipo_servico || "—"} ${t.sentido_faixa || ""}`);
         lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
-        lines.push(`  ${t.comprimento_m || "0"} x ${t.largura_m || "0"} = ${area} m²`);
-        lines.push(`  Espessura: ${t.espessura_m ? (parseFloat(t.espessura_m) / 100).toFixed(2) : "—"} m | Total: ${t.total_toneladas || "—"} Ton`);
+        lines.push(`  ${fmtBR(c)} x ${fmtBR(l)} = ${fmtBR(area)} m²`);
+        const espM = t.espessura_m ? (parseFloat(t.espessura_m) / 100) : 0;
+        lines.push(`  Espessura: ${espM ? fmtBR(espM) : "—"} m | Total: ${t.total_toneladas ? fmtBR(parseFloat(t.total_toneladas)) : "—"} Ton`);
         if (t.observacoes) {
           lines.push(`  Obs: ${t.observacoes}`);
         }
@@ -123,8 +143,8 @@ export default function RdoForm() {
 
       lines.push(``);
       lines.push(`📊 *Resumo Geral:*`);
-      lines.push(`  Área Total: ${totalArea.toFixed(2)} m²`);
-      lines.push(`  Toneladas Totais: ${totalTon.toFixed(2)} Ton`);
+      lines.push(`  Área Total: ${fmtBR(totalArea)} m²`);
+      lines.push(`  Toneladas Totais: ${fmtBR(totalTon)} Ton`);
     }
 
     const text = lines.join("\n");
@@ -342,6 +362,14 @@ export default function RdoForm() {
               globalSaida={globalSaida}
               onChangeGlobalEntrada={setGlobalEntrada}
               onChangeGlobalSaida={setGlobalSaida}
+            />
+            <SectionAtividadesCanteiro
+              teveUsinagem={teveUsinagem}
+              onToggleUsinagem={setTeveUsinagem}
+              totalUsinado={totalUsinado}
+              onChangeTotalUsinado={setTotalUsinado}
+              atividadesCanteiro={atividadesCanteiro}
+              onChangeAtividades={setAtividadesCanteiro}
             />
             <SectionManchaAreia
               teveEnsaio={teveEnsaio}
