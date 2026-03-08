@@ -163,9 +163,6 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
               <div key={e.id} className="flex items-center justify-between text-sm py-1 border-b border-primary/10 last:border-0">
                 <span className="text-foreground truncate flex-1">{e.nome}</span>
                 <span className="text-xs text-muted-foreground mx-2">{e.funcao}</span>
-                <span className="text-xs font-mono text-primary whitespace-nowrap">
-                  {globalEntrada || "--:--"} → {globalSaida || "--:--"}
-                </span>
               </div>
             ))}
           </div>
