@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import RdoForm from "./pages/RdoForm";
 import FrotaNovo from "./pages/FrotaNovo";
+import AdminConfiguracoes from "./pages/AdminConfiguracoes";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
