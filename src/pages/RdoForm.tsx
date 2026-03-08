@@ -112,9 +112,7 @@ export default function RdoForm() {
         if (t.observacoes) {
           lines.push(`  Obs: ${t.observacoes}`);
         }
-        if (t.justificativa_tonelagem) {
-          lines.push(`  ⚠️ Justificativa Tonelagem: ${t.justificativa_tonelagem}`);
-        }
+        if (t.observacoes) {
       });
 
       const totalArea = producaoCauq.trechos.reduce((s, t) => {
