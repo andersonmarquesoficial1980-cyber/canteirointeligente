@@ -248,6 +248,20 @@ export default function RdoForm() {
         }
       }
 
+      // Build HTML report and send email
+      try {
+        const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida);
+        const { data: session } = await supabase.auth.getSession();
+        const token = session?.session?.access_token;
+        if (token) {
+          await supabase.functions.invoke("send-rdo-email", {
+            body: { rdo_id: rdoId, html_report: htmlReport },
+          });
+        }
+      } catch (emailErr) {
+        console.warn("Email send failed (non-blocking):", emailErr);
+      }
+
       toast({ title: "✅ RDO Salvo!", description: "Relatório registrado com sucesso." });
       navigate("/");
     } catch (err: any) {
