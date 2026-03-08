@@ -14,6 +14,12 @@ interface HeaderData {
 
 const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+interface CanteiroReportData {
+  teveUsinagem: boolean;
+  totalUsinado: string;
+  atividadesCanteiro: string;
+}
+
 export function buildHtmlReport(
   rdoId: string,
   header: HeaderData,
@@ -25,6 +31,7 @@ export function buildHtmlReport(
   basculantes: BasculanteEntry[],
   globalEntrada: string,
   globalSaida: string,
+  canteiroData?: CanteiroReportData,
 ): string {
   const formatDate = (d: string) => {
     if (!d) return "";
