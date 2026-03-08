@@ -206,7 +206,7 @@ export default function RdoForm() {
             km_final: t.estaca_final ? parseFloat(t.estaca_final) : null,
             comprimento_m: t.comprimento_m ? parseFloat(t.comprimento_m) : null,
             largura_m: t.largura_m ? parseFloat(t.largura_m) : null,
-            espessura_cm: t.espessura_m ? parseFloat(t.espessura_m) * 100 : null,
+            espessura_cm: t.espessura_m ? parseFloat(t.espessura_m) : null,
           }));
         if (trechoEntries.length > 0) {
           const { error } = await supabase.from("rdo_producao").insert(trechoEntries);
