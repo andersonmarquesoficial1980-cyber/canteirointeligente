@@ -25,7 +25,6 @@ export interface ProducaoCauqData {
 interface Props {
   data: ProducaoCauqData;
   onChange: (data: ProducaoCauqData) => void;
-  totalTonelagemNF: number;
 }
 
 const TIPOS_SERVICO = [
