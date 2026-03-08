@@ -99,7 +99,8 @@ th{background:#f3f4f6;font-weight:600}
         const area = c * l;
         totalArea += area;
         totalTon += parseFloat(t.total_toneladas) || 0;
-        html += `<tr><td>${t.tipo_servico}</td><td>${t.sentido_faixa}</td><td>${t.estaca_inicial}</td><td>${t.estaca_final}</td><td>${t.comprimento_m}</td><td>${t.largura_m}</td><td>${area.toFixed(2)}</td><td>${t.espessura_m}</td><td>${t.total_toneladas}</td></tr>`;
+        const espM = t.espessura_m ? (parseFloat(t.espessura_m) / 100).toFixed(2) : "";
+        html += `<tr><td>${t.tipo_servico}</td><td>${t.sentido_faixa}</td><td>${t.estaca_inicial}</td><td>${t.estaca_final}</td><td>${t.comprimento_m}</td><td>${t.largura_m}</td><td>${area.toFixed(2)}</td><td>${espM}</td><td>${t.total_toneladas}</td></tr>`;
       });
       html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="6">TOTAL</td><td>${totalArea.toFixed(2)}</td><td></td><td>${totalTon.toFixed(2)}</td></tr></table>`;
 

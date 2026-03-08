@@ -108,7 +108,7 @@ export default function RdoForm() {
         lines.push(`▸ ${t.tipo_servico || "—"} ${t.sentido_faixa || ""}`);
         lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
         lines.push(`  ${t.comprimento_m || "0"} x ${t.largura_m || "0"} = ${area} m²`);
-        lines.push(`  Espessura: ${t.espessura_m || "—"} m | Total: ${t.total_toneladas || "—"} Ton`);
+        lines.push(`  Espessura: ${t.espessura_m ? (parseFloat(t.espessura_m) / 100).toFixed(2) : "—"} m | Total: ${t.total_toneladas || "—"} Ton`);
         if (t.observacoes) {
           lines.push(`  Obs: ${t.observacoes}`);
         }
