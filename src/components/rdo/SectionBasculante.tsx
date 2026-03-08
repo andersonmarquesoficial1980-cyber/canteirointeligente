@@ -29,12 +29,7 @@ export default function SectionBasculante({ entries, onChange }: Props) {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-foreground">🚛 Caminhão Basculante</h2>
-        <Button size="sm" onClick={() => onChange([...entries, emptyBasc()])} className="h-10 gap-1">
-          <Plus className="w-4 h-4" /> Viagem
-        </Button>
-      </div>
+      <h2 className="text-lg font-bold text-foreground">🚛 Caminhão Basculante</h2>
 
       {entries.map((entry, idx) => (
         <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
@@ -71,6 +66,10 @@ export default function SectionBasculante({ entries, onChange }: Props) {
           </div>
         </div>
       ))}
+
+      <Button size="sm" onClick={() => onChange([...entries, emptyBasc()])} className="w-full h-12 gap-2 text-base">
+        <Plus className="w-5 h-5" /> Adicionar Viagem
+      </Button>
     </div>
   );
 }

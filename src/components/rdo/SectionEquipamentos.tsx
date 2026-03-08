@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -31,7 +30,6 @@ export default function SectionEquipamentos({ entries, onChange }: Props) {
 
   const update = (id: string, field: string, value: any) => {
     if (field === "categoria") {
-      // Reset frota when category changes
       onChange(entries.map(e => e.id === id ? { ...e, categoria: value, frota: "" } : e));
     } else {
       onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
@@ -43,12 +41,7 @@ export default function SectionEquipamentos({ entries, onChange }: Props) {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-foreground">🚜 Equipamentos</h2>
-        <Button size="sm" onClick={() => onChange([...entries, emptyEquip()])} className="h-10 gap-1">
-          <Plus className="w-4 h-4" /> Equip.
-        </Button>
-      </div>
+      <h2 className="text-lg font-bold text-foreground">🚜 Equipamentos</h2>
 
       {entries.map((entry, idx) => (
         <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
@@ -116,6 +109,10 @@ export default function SectionEquipamentos({ entries, onChange }: Props) {
           )}
         </div>
       ))}
+
+      <Button size="sm" onClick={() => onChange([...entries, emptyEquip()])} className="w-full h-12 gap-2 text-base">
+        <Plus className="w-5 h-5" /> Adicionar Equipamento
+      </Button>
     </div>
   );
 }

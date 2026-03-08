@@ -28,14 +28,14 @@ const emptyEfetivo = (): EfetivoEntry => ({
 interface StepEfetivoProps {
   entries: EfetivoEntry[];
   onChange: (entries: EfetivoEntry[]) => void;
+  globalEntrada: string;
+  globalSaida: string;
+  onChangeGlobalEntrada: (v: string) => void;
+  onChangeGlobalSaida: (v: string) => void;
 }
 
-export default function StepEfetivo({ entries, onChange }: StepEfetivoProps) {
+export default function StepEfetivo({ entries, onChange, globalEntrada, globalSaida, onChangeGlobalEntrada, onChangeGlobalSaida }: StepEfetivoProps) {
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
-
-  const updateEntry = (id: string, field: string, value: string) => {
-    onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
-  };
 
   const selectFuncionario = (entryId: string, matricula: string) => {
     const func = FUNCIONARIOS.find(f => f.matricula === matricula);
@@ -48,7 +48,6 @@ export default function StepEfetivo({ entries, onChange }: StepEfetivoProps) {
   const addEntry = () => onChange([...entries, emptyEfetivo()]);
   const removeEntry = (id: string) => onChange(entries.filter(e => e.id !== id));
 
-  // Summary by function
   const resumo = useMemo(() => {
     const map: Record<string, number> = {};
     entries.forEach(e => {
@@ -59,13 +58,35 @@ export default function StepEfetivo({ entries, onChange }: StepEfetivoProps) {
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [entries]);
 
+  const filledEntries = entries.filter(e => e.nome);
+
   return (
     <div className="space-y-5 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-display font-bold text-foreground">👷 Efetivo</h2>
-        <Button onClick={addEntry} size="sm" className="h-12 px-4 text-base gap-2">
-          <Plus className="w-5 h-5" /> Adicionar
-        </Button>
+      <h2 className="text-xl font-display font-bold text-foreground">👷 Efetivo</h2>
+
+      {/* Global hours */}
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <h3 className="text-sm font-bold text-primary">⏰ Horário Geral</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Entrada</Label>
+            <Input
+              type="time"
+              value={globalEntrada}
+              onChange={e => onChangeGlobalEntrada(e.target.value)}
+              className="h-12 text-base bg-secondary border-border"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Saída</Label>
+            <Input
+              type="time"
+              value={globalSaida}
+              onChange={e => onChangeGlobalSaida(e.target.value)}
+              className="h-12 text-base bg-secondary border-border"
+            />
+          </div>
+        </div>
       </div>
 
       {entries.map((entry, idx) => (
@@ -125,46 +146,46 @@ export default function StepEfetivo({ entries, onChange }: StepEfetivoProps) {
               placeholder="Preenchido automaticamente"
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Entrada</Label>
-              <Input
-                type="time"
-                value={entry.entrada}
-                onChange={e => updateEntry(entry.id, "entrada", e.target.value)}
-                className="h-12 text-base bg-secondary border-border"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Saída</Label>
-              <Input
-                type="time"
-                value={entry.saida}
-                onChange={e => updateEntry(entry.id, "saida", e.target.value)}
-                className="h-12 text-base bg-secondary border-border"
-              />
-            </div>
-          </div>
         </div>
       ))}
 
-      {/* Resumo do Efetivo */}
-      {resumo.length > 0 && (
-        <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 space-y-2">
+      <Button onClick={addEntry} className="w-full h-12 gap-2 text-base">
+        <Plus className="w-5 h-5" /> Adicionar Pessoa
+      </Button>
+
+      {/* Summary with global hours */}
+      {filledEntries.length > 0 && (
+        <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 space-y-3">
           <h3 className="text-sm font-bold text-primary">📊 Resumo do Efetivo</h3>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-            {resumo.map(([funcao, qty]) => (
-              <div key={funcao} className="flex items-center justify-between text-sm">
-                <span className="text-foreground truncate">{funcao}</span>
-                <span className="font-bold text-primary ml-2">{String(qty).padStart(2, "0")}</span>
+          
+          <div className="space-y-1">
+            {filledEntries.map(e => (
+              <div key={e.id} className="flex items-center justify-between text-sm py-1 border-b border-primary/10 last:border-0">
+                <span className="text-foreground truncate flex-1">{e.nome}</span>
+                <span className="text-xs text-muted-foreground mx-2">{e.funcao}</span>
+                <span className="text-xs font-mono text-primary whitespace-nowrap">
+                  {globalEntrada || "--:--"} → {globalSaida || "--:--"}
+                </span>
               </div>
             ))}
           </div>
-          <div className="border-t border-primary/20 pt-2 mt-2 flex justify-between text-sm font-bold">
-            <span className="text-foreground">Total</span>
-            <span className="text-primary">{entries.filter(e => e.funcao).length}</span>
-          </div>
+
+          {resumo.length > 0 && (
+            <div className="border-t border-primary/20 pt-2 space-y-1">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                {resumo.map(([funcao, qty]) => (
+                  <div key={funcao} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground truncate">{funcao}</span>
+                    <span className="font-bold text-primary ml-2">{String(qty).padStart(2, "0")}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-primary/20 pt-2 mt-1 flex justify-between text-sm font-bold">
+                <span className="text-foreground">Total</span>
+                <span className="text-primary">{filledEntries.length}</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
