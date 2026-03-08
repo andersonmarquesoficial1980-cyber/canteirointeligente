@@ -13,6 +13,7 @@ import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/Sec
 import SectionBasculante, { type BasculanteEntry } from "@/components/rdo/SectionBasculante";
 import SectionManchaAreia, { type ManchaAreiaEntry } from "@/components/rdo/SectionManchaAreia";
 import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
+import SectionProducaoCauq, { type ProducaoCauqData, type TrechoCauqEntry } from "@/components/rdo/SectionProducaoCauq";
 
 export default function RdoForm() {
   const navigate = useNavigate();
@@ -43,6 +44,17 @@ export default function RdoForm() {
     id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "", tipo_material_outro: "",
   }]);
 
+  // Produção CAUQ
+  const [producaoCauq, setProducaoCauq] = useState<ProducaoCauqData>({
+    dmt_usina_km: "",
+    dmt_canteiro_km: "",
+    observacoes: "",
+    trechos: [{
+      id: crypto.randomUUID(), tipo_servico: "", sentido_faixa: "", estaca_inicial: "", estaca_final: "",
+      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "",
+    }],
+  });
+
   // Canteiro
   const [nfInsumos, setNfInsumos] = useState<NotaFiscalInsumoEntry[]>([{
     id: crypto.randomUUID(), nf: "", fornecedor: "", material: "", quantidade: "",
@@ -66,6 +78,10 @@ export default function RdoForm() {
     id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
   }]);
 
+  // Global hours for Efetivo
+  const [globalEntrada, setGlobalEntrada] = useState("");
+  const [globalSaida, setGlobalSaida] = useState("");
+
   const handleSubmit = async () => {
     if (!header.obra_nome || !header.data) {
       toast({ title: "Erro", description: "Preencha OGS e Data.", variant: "destructive" });
@@ -74,7 +90,6 @@ export default function RdoForm() {
 
     setSaving(true);
     try {
-      // 1. Insert rdo_diarios
       const { data: rdo, error: rdoError } = await supabase
         .from("rdo_diarios")
         .insert({
@@ -89,7 +104,7 @@ export default function RdoForm() {
       if (rdoError) throw rdoError;
       const rdoId = rdo.id;
 
-      // 2. Produção (infra)
+      // Produção (infra)
       if (tipoRdo === "INFRAESTRUTURA") {
         const entries = infraProducao
           .filter(p => p.comprimento_m || p.largura_m)
@@ -110,22 +125,43 @@ export default function RdoForm() {
         }
       }
 
-      // 3. Efetivo
+      // Produção CAUQ
+      if (tipoRdo === "CAUQ") {
+        const trechoEntries = producaoCauq.trechos
+          .filter(t => t.comprimento_m || t.largura_m || t.tipo_servico)
+          .map(t => ({
+            rdo_id: rdoId,
+            tipo_servico: t.tipo_servico || null,
+            sentido: t.sentido_faixa || null,
+            faixa: t.sentido_faixa || null,
+            km_inicial: t.estaca_inicial ? parseFloat(t.estaca_inicial) : null,
+            km_final: t.estaca_final ? parseFloat(t.estaca_final) : null,
+            comprimento_m: t.comprimento_m ? parseFloat(t.comprimento_m) : null,
+            largura_m: t.largura_m ? parseFloat(t.largura_m) : null,
+            espessura_cm: t.espessura_m ? parseFloat(t.espessura_m) * 100 : null,
+          }));
+        if (trechoEntries.length > 0) {
+          const { error } = await supabase.from("rdo_producao").insert(trechoEntries);
+          if (error) throw error;
+        }
+      }
+
+      // Efetivo
       const efEntries = efetivo
         .filter(e => e.funcao)
         .map(e => ({
           rdo_id: rdoId,
           funcao: e.funcao,
           quantidade: 1,
-          entrada: e.entrada || null,
-          saida: e.saida || null,
+          entrada: globalEntrada || null,
+          saida: globalSaida || null,
         }));
       if (efEntries.length > 0) {
         const { error } = await supabase.from("rdo_efetivo").insert(efEntries);
         if (error) throw error;
       }
 
-      // 4. Mancha de Areia
+      // Mancha de Areia
       if (teveEnsaio) {
         const manchaEntries = manchaAreia
           .filter(m => m.d1_mm || m.d2_mm || m.d3_mm)
@@ -163,7 +199,6 @@ export default function RdoForm() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <header className="sticky top-0 z-50 bg-card/95 backdrop-blur border-b border-border px-4 py-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground p-2">
@@ -176,7 +211,6 @@ export default function RdoForm() {
         </div>
       </header>
 
-      {/* Form Content */}
       <div className="flex-1 overflow-y-auto pb-28 space-y-2">
         <div className="p-4">
           <RdoHeader data={header} onChange={handleHeaderChange} />
@@ -184,7 +218,6 @@ export default function RdoForm() {
 
         <RdoTipoSelector value={tipoRdo} onChange={setTipoRdo} />
 
-        {/* Conditional sections */}
         {tipoRdo === "INFRAESTRUTURA" && (
           <SectionInfraestrutura
             empreiteiro={empreiteiro}
@@ -196,15 +229,26 @@ export default function RdoForm() {
           />
         )}
 
-        {tipoRdo === "CAUQ" && <SectionCauq entries={nfMassa} onChange={setNfMassa} />}
+        {tipoRdo === "CAUQ" && (
+          <>
+            <SectionCauq entries={nfMassa} onChange={setNfMassa} />
+            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} />
+          </>
+        )}
         {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} />}
 
-        {/* Shared modules */}
         {tipoRdo && (
           <>
             <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} />
             <SectionBasculante entries={basculantes} onChange={setBasculantes} />
-            <StepEfetivo entries={efetivo} onChange={setEfetivo} />
+            <StepEfetivo
+              entries={efetivo}
+              onChange={setEfetivo}
+              globalEntrada={globalEntrada}
+              globalSaida={globalSaida}
+              onChangeGlobalEntrada={setGlobalEntrada}
+              onChangeGlobalSaida={setGlobalSaida}
+            />
             <SectionManchaAreia
               teveEnsaio={teveEnsaio}
               onToggleEnsaio={setTeveEnsaio}
@@ -215,7 +259,6 @@ export default function RdoForm() {
         )}
       </div>
 
-      {/* Submit */}
       <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur border-t border-border px-4 py-4">
         <Button
           onClick={handleSubmit}

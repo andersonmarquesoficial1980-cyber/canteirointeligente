@@ -55,12 +55,7 @@ export default function SectionCauq({ entries, onChange }: Props) {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-foreground">🛣️ Notas Fiscais de Massa</h2>
-        <Button size="sm" onClick={() => onChange([...entries, emptyNF()])} className="h-10 gap-1">
-          <Plus className="w-4 h-4" /> NF
-        </Button>
-      </div>
+      <h2 className="text-lg font-bold text-foreground">🛣️ Notas Fiscais de Massa</h2>
 
       <NfPhotoCapture tipo="CAUQ" onExtracted={handleOcrExtracted} />
 
@@ -93,7 +88,7 @@ export default function SectionCauq({ entries, onChange }: Props) {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nº NF</Label>
-              <Input value={entry.nf} onChange={e => update(entry.id, "nf", e.target.value)} className="h-11 bg-secondary border-border" />
+              <Input inputMode="numeric" value={entry.nf} onChange={e => update(entry.id, "nf", e.target.value)} className="h-11 bg-secondary border-border" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Tonelagem</Label>
@@ -120,6 +115,10 @@ export default function SectionCauq({ entries, onChange }: Props) {
           )}
         </div>
       ))}
+
+      <Button size="sm" onClick={() => onChange([...entries, emptyNF()])} className="w-full h-12 gap-2 text-base">
+        <Plus className="w-5 h-5" /> Adicionar NF
+      </Button>
 
       {totalTon > 0 && (
         <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 text-center">

@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,10 +17,15 @@ interface RdoHeaderProps {
 
 const STATUS_OPTIONS = ["Trabalhou", "Cancelou", "Folga"];
 
+function formatDateBR(dateStr: string): string {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
   const { data: obras, isLoading } = useOgsReference();
 
-  // Deduplicated OGS numbers
   const uniqueOgs = useMemo(() => {
     if (!obras) return [];
     const seen = new Set<string>();
@@ -31,16 +36,13 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
     });
   }, [obras]);
 
-  // All entries for selected OGS
   const selectedEntries = useMemo(() => {
     if (!obras || !data.obra_nome) return [];
     return obras.filter(o => o.numero_ogs === data.obra_nome);
   }, [obras, data.obra_nome]);
 
-  // Unique addresses for selected OGS
   const uniqueAddresses = useMemo(() => {
-    const addrs = [...new Set(selectedEntries.map(e => e.endereco))];
-    return addrs;
+    return [...new Set(selectedEntries.map(e => e.endereco))];
   }, [selectedEntries]);
 
   const handleObraChange = (value: string) => {
@@ -49,11 +51,7 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
     if (entries.length > 0) {
       onChange("cliente", entries[0].cliente);
       const addrs = [...new Set(entries.map(e => e.endereco))];
-      if (addrs.length === 1) {
-        onChange("local", addrs[0]);
-      } else {
-        onChange("local", "");
-      }
+      onChange("local", addrs.length === 1 ? addrs[0] : "");
     }
   };
 
@@ -64,12 +62,17 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Data</Label>
-          <Input
-            type="date"
-            value={data.data}
-            onChange={e => onChange("data", e.target.value)}
-            className="h-12 text-base bg-secondary border-border"
-          />
+          <div className="relative">
+            <Input
+              type="date"
+              value={data.data}
+              onChange={e => onChange("data", e.target.value)}
+              className="h-12 text-base bg-secondary border-border opacity-0 absolute inset-0 w-full"
+            />
+            <div className="h-12 text-base bg-secondary border border-border rounded-md flex items-center px-3 text-foreground pointer-events-none">
+              {formatDateBR(data.data) || "DD/MM/AAAA"}
+            </div>
+          </div>
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Status</Label>
@@ -116,9 +119,7 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">
                 {uniqueAddresses.map(addr => (
-                  <SelectItem key={addr} value={addr} className="py-3">
-                    {addr}
-                  </SelectItem>
+                  <SelectItem key={addr} value={addr} className="py-3">{addr}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

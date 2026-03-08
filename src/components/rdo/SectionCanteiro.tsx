@@ -43,12 +43,7 @@ export default function SectionCanteiro({ entries, onChange }: Props) {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-foreground">🏭 Notas Fiscais de Insumos</h2>
-        <Button size="sm" onClick={() => onChange([...entries, emptyNF()])} className="h-10 gap-1">
-          <Plus className="w-4 h-4" /> NF
-        </Button>
-      </div>
+      <h2 className="text-lg font-bold text-foreground">🏭 Notas Fiscais de Insumos</h2>
 
       <NfPhotoCapture tipo="CANTEIRO" onExtracted={handleOcrExtracted} />
 
@@ -68,7 +63,7 @@ export default function SectionCanteiro({ entries, onChange }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nº NF</Label>
-              <Input value={entry.nf} onChange={e => update(entry.id, "nf", e.target.value)} className="h-11 bg-secondary border-border" />
+              <Input inputMode="numeric" value={entry.nf} onChange={e => update(entry.id, "nf", e.target.value)} className="h-11 bg-secondary border-border" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Fornecedor</Label>
@@ -85,11 +80,15 @@ export default function SectionCanteiro({ entries, onChange }: Props) {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Quantidade</Label>
-              <Input type="number" inputMode="decimal" value={entry.quantidade} onChange={e => update(entry.id, "quantidade", e.target.value)} className="h-11 bg-secondary border-border" />
+              <Input inputMode="numeric" value={entry.quantidade} onChange={e => update(entry.id, "quantidade", e.target.value)} className="h-11 bg-secondary border-border" />
             </div>
           </div>
         </div>
       ))}
+
+      <Button size="sm" onClick={() => onChange([...entries, emptyNF()])} className="w-full h-12 gap-2 text-base">
+        <Plus className="w-5 h-5" /> Adicionar NF
+      </Button>
     </div>
   );
 }
