@@ -1,6 +1,7 @@
-import { LayoutDashboard, FileText, Truck } from "lucide-react";
+import { LayoutDashboard, FileText, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   Sidebar,
   SidebarContent,
@@ -12,10 +13,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const items = [
+const baseItems = [
   { title: "Painel Geral", url: "/", icon: LayoutDashboard },
   { title: "Novo RDO", url: "/rdo", icon: FileText },
-  { title: "Gestão de Frota", url: "/frota/novo", icon: Truck },
+];
+
+const adminItems = [
+  { title: "Configurações", url: "/admin/configuracoes", icon: Settings },
 ];
 
 export function AppSidebar() {
