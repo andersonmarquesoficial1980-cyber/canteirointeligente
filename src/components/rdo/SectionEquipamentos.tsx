@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMaquinasFrota } from "@/hooks/useMaquinasFrota";
 import { Plus, Trash2 } from "lucide-react";
+import { useRef, useEffect } from "react";
 
 export interface EquipamentoEntry {
   id: string;
