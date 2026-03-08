@@ -359,7 +359,7 @@ export default function RdoForm() {
         )}
         <Button
           onClick={handleSubmit}
-          disabled={saving || !header.obra_nome}
+          disabled={saving || !header.obra_nome || !header.turno}
           className="w-full h-14 text-base gap-2 font-semibold"
         >
           <Send className="w-5 h-5" /> {saving ? "Salvando..." : "Enviar RDO"}
