@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMaquinasFrota } from "@/hooks/useMaquinasFrota";
 import { Plus, Trash2 } from "lucide-react";
+import { useRef, useEffect } from "react";
 
 export interface EquipamentoEntry {
   id: string;
   categoria: string;
   frota: string;
+  tipo: string;
+  nome: string;
   patrimonio: string;
   empresa_dona: string;
   is_menor: boolean;
@@ -19,18 +22,30 @@ interface Props {
   onChange: (entries: EquipamentoEntry[]) => void;
 }
 
-const CATEGORIAS = ["PEQUENO PORTE", "GRANDE PORTE", "VEÍCULOS EM GERAL"];
+const CATEGORIAS = ["PEQUENO PORTE", "FRESA/BOB", "VIBRO/ROLO", "LINHA AMARELA", "USINAGEM", "VEÍCULOS EM GERAL"];
 
 const emptyEquip = (): EquipamentoEntry => ({
-  id: crypto.randomUUID(), categoria: "", frota: "", patrimonio: "", empresa_dona: "", is_menor: false,
+  id: crypto.randomUUID(), categoria: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
 });
 
 export default function SectionEquipamentos({ entries, onChange }: Props) {
   const { data: maquinas } = useMaquinasFrota();
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const prevCountRef = useRef(entries.length);
+
+  useEffect(() => {
+    if (entries.length > prevCountRef.current && addBtnRef.current) {
+      addBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    prevCountRef.current = entries.length;
+  }, [entries.length]);
 
   const update = (id: string, field: string, value: any) => {
     if (field === "categoria") {
-      onChange(entries.map(e => e.id === id ? { ...e, categoria: value, frota: "" } : e));
+      onChange(entries.map(e => e.id === id ? { ...e, categoria: value, frota: "", tipo: "", nome: "", empresa_dona: "" } : e));
+    } else if (field === "frota") {
+      const maq = maquinas?.find((m: any) => m.frota === value);
+      onChange(entries.map(e => e.id === id ? { ...e, frota: value, tipo: maq?.tipo || "", nome: maq?.nome || "", empresa_dona: maq?.empresa || "" } : e));
     } else {
       onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
     }
@@ -110,7 +125,7 @@ export default function SectionEquipamentos({ entries, onChange }: Props) {
         </div>
       ))}
 
-      <Button size="sm" onClick={() => onChange([...entries, emptyEquip()])} className="w-full h-12 gap-2 text-base">
+      <Button ref={addBtnRef} size="sm" onClick={() => onChange([...entries, emptyEquip()])} className="w-full h-12 gap-2 text-base">
         <Plus className="w-5 h-5" /> Adicionar Equipamento
       </Button>
     </div>

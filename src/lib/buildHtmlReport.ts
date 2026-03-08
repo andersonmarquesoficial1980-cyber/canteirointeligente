@@ -67,9 +67,9 @@ th{background:#f3f4f6;font-weight:600}
   const filledEquip = equipamentos.filter(e => e.frota || e.categoria);
   if (filledEquip.length > 0) {
     html += `<h2>🚜 Equipamentos (${filledEquip.length})</h2>
-<table><tr><th>Categoria</th><th>Frota</th><th>Patrimônio</th><th>Empresa</th></tr>`;
+<table><tr><th>FROTA</th><th>EQUIPAMENTO</th><th>MODELO/PLACA</th><th>EMPRESA</th></tr>`;
     filledEquip.forEach(e => {
-      html += `<tr><td>${e.categoria}</td><td>${e.frota}</td><td>${e.patrimonio}</td><td>${e.empresa_dona}</td></tr>`;
+      html += `<tr><td>${e.frota}</td><td>${e.tipo || e.categoria}</td><td>${e.nome || e.patrimonio || ""}</td><td>${e.empresa_dona}</td></tr>`;
     });
     html += `</table>`;
   }
