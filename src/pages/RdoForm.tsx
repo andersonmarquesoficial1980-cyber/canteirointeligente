@@ -354,7 +354,7 @@ export default function RdoForm() {
 
         {tipoRdo && (
           <>
-            <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} />
+            <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
             <SectionBasculante entries={basculantes} onChange={setBasculantes} />
             <StepEfetivo
               entries={efetivo}
