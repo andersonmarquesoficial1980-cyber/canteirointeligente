@@ -42,7 +42,10 @@ export default function SectionEquipamentos({ entries, onChange }: Props) {
 
   const update = (id: string, field: string, value: any) => {
     if (field === "categoria") {
-      onChange(entries.map(e => e.id === id ? { ...e, categoria: value, frota: "" } : e));
+      onChange(entries.map(e => e.id === id ? { ...e, categoria: value, frota: "", tipo: "", nome: "", empresa_dona: "" } : e));
+    } else if (field === "frota") {
+      const maq = maquinas?.find((m: any) => m.frota === value);
+      onChange(entries.map(e => e.id === id ? { ...e, frota: value, tipo: maq?.tipo || "", nome: maq?.nome || "", empresa_dona: maq?.empresa || "" } : e));
     } else {
       onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
     }
