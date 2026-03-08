@@ -26,7 +26,7 @@ export default function RdoForm() {
 
   // Header
   const [header, setHeader] = useState({
-    data: today, obra_nome: "", cliente: "", local: "", status_obra: "Trabalhou",
+    data: today, obra_nome: "", cliente: "", local: "", status_obra: "Trabalhou", turno: "",
   });
   const handleHeaderChange = (field: string, value: string) =>
     setHeader(prev => ({ ...prev, [field]: value }));
