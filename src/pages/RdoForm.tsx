@@ -108,6 +108,12 @@ export default function RdoForm() {
         lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
         lines.push(`  ${t.comprimento_m || "0"} x ${t.largura_m || "0"} = ${area} m²`);
         lines.push(`  Espessura: ${t.espessura_m || "—"} m | Total: ${t.total_toneladas || "—"} Ton`);
+        if (t.observacoes) {
+          lines.push(`  Obs: ${t.observacoes}`);
+        }
+        if (t.justificativa_tonelagem) {
+          lines.push(`  ⚠️ Justificativa Tonelagem: ${t.justificativa_tonelagem}`);
+        }
       });
 
       const totalArea = producaoCauq.trechos.reduce((s, t) => {
@@ -121,14 +127,6 @@ export default function RdoForm() {
       lines.push(`📊 *Resumo Geral:*`);
       lines.push(`  Área Total: ${totalArea.toFixed(2)} m²`);
       lines.push(`  Toneladas Totais: ${totalTon.toFixed(2)} Ton`);
-      lines.push(``);
-      lines.push(`🚚 DMT Usina: ${producaoCauq.dmt_usina_km || "—"} km`);
-      lines.push(`🏭 DMT Canteiro: ${producaoCauq.dmt_canteiro_km || "—"} km`);
-
-      if (producaoCauq.observacoes) {
-        lines.push(``);
-        lines.push(`📝 *Obs:* ${producaoCauq.observacoes}`);
-      }
     }
 
     const text = lines.join("\n");
