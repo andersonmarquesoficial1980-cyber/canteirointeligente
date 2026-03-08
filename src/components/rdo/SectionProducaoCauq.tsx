@@ -70,13 +70,6 @@ export default function SectionProducaoCauq({ data, onChange }: Props) {
     return "";
   };
 
-  const needsJustificativa = (t: TrechoCauqEntry) => {
-    if (!TIPOS_VALIDACAO_TONELAGEM.includes(t.tipo_servico)) return false;
-    const trechoTon = parseFloat(t.total_toneladas);
-    if (isNaN(trechoTon) || trechoTon <= 0) return false;
-    if (totalTonelagemNF <= 0) return false;
-    return Math.abs(trechoTon - totalTonelagemNF) > 0.01;
-  };
 
   return (
     <div className="space-y-4 p-4">
