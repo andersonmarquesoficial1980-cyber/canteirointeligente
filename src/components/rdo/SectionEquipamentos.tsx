@@ -25,7 +25,7 @@ interface Props {
 const CATEGORIAS = ["PEQUENO PORTE", "FRESA/BOB", "VIBRO/ROLO", "LINHA AMARELA", "USINAGEM", "VEÍCULOS EM GERAL"];
 
 const emptyEquip = (): EquipamentoEntry => ({
-  id: crypto.randomUUID(), categoria: "", frota: "", patrimonio: "", empresa_dona: "", is_menor: false,
+  id: crypto.randomUUID(), categoria: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
 });
 
 export default function SectionEquipamentos({ entries, onChange }: Props) {
