@@ -142,8 +142,14 @@ export default function RdoForm() {
   };
 
   const handleSubmit = async () => {
-    if (!header.obra_nome || !header.data) {
-      toast({ title: "Erro", description: "Preencha OGS e Data.", variant: "destructive" });
+    const normalizedTurno = header.turno.trim().toLowerCase();
+    if (!header.obra_nome || !header.data || !normalizedTurno) {
+      toast({ title: "Erro", description: "Preencha OGS, Data e Turno.", variant: "destructive" });
+      return;
+    }
+
+    if (!["diurno", "noturno"].includes(normalizedTurno)) {
+      toast({ title: "Erro", description: "Turno inválido. Use Diurno ou Noturno.", variant: "destructive" });
       return;
     }
 
