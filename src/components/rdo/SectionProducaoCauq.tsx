@@ -16,7 +16,6 @@ export interface TrechoCauqEntry {
   espessura_m: string;
   total_toneladas: string;
   observacoes: string;
-  justificativa_tonelagem: string;
 }
 
 export interface ProducaoCauqData {
