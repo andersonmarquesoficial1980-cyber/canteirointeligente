@@ -62,12 +62,7 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
         </div>
       </div>
 
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-sm font-semibold text-foreground">Produção</span>
-        <Button size="sm" onClick={() => onChangeProducao([...producao, emptyEntry()])} className="h-10 gap-1">
-          <Plus className="w-4 h-4" /> Trecho
-        </Button>
-      </div>
+      <span className="text-sm font-semibold text-foreground pt-2">Produção</span>
 
       {producao.map((entry, idx) => {
         const area = (parseFloat(entry.comprimento_m) || 0) * (parseFloat(entry.largura_m) || 0);
@@ -88,11 +83,11 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Estaca Ini.</Label>
-                <Input value={entry.estaca_inicial} onChange={e => update(entry.id, "estaca_inicial", e.target.value)} className="h-11 bg-secondary border-border" />
+                <Input inputMode="numeric" value={entry.estaca_inicial} onChange={e => update(entry.id, "estaca_inicial", e.target.value)} className="h-11 bg-secondary border-border" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Estaca Fin.</Label>
-                <Input value={entry.estaca_final} onChange={e => update(entry.id, "estaca_final", e.target.value)} className="h-11 bg-secondary border-border" />
+                <Input inputMode="numeric" value={entry.estaca_final} onChange={e => update(entry.id, "estaca_final", e.target.value)} className="h-11 bg-secondary border-border" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -124,6 +119,10 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
           </div>
         );
       })}
+
+      <Button size="sm" onClick={() => onChangeProducao([...producao, emptyEntry()])} className="w-full h-12 gap-2 text-base">
+        <Plus className="w-5 h-5" /> Adicionar Trecho
+      </Button>
     </div>
   );
 }
