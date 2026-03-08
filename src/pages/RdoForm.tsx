@@ -108,7 +108,7 @@ export default function RdoForm() {
         lines.push(`▸ ${t.tipo_servico || "—"} ${t.sentido_faixa || ""}`);
         lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
         lines.push(`  ${t.comprimento_m || "0"} x ${t.largura_m || "0"} = ${area} m²`);
-        lines.push(`  Espessura: ${t.espessura_m || "—"} m | Total: ${t.total_toneladas || "—"} Ton`);
+        lines.push(`  Espessura: ${t.espessura_m ? (parseFloat(t.espessura_m) / 100).toFixed(2) : "—"} m | Total: ${t.total_toneladas || "—"} Ton`);
         if (t.observacoes) {
           lines.push(`  Obs: ${t.observacoes}`);
         }
@@ -206,7 +206,7 @@ export default function RdoForm() {
             km_final: t.estaca_final ? parseFloat(t.estaca_final) : null,
             comprimento_m: t.comprimento_m ? parseFloat(t.comprimento_m) : null,
             largura_m: t.largura_m ? parseFloat(t.largura_m) : null,
-            espessura_cm: t.espessura_m ? parseFloat(t.espessura_m) * 100 : null,
+            espessura_cm: t.espessura_m ? parseFloat(t.espessura_m) : null,
           }));
         if (trechoEntries.length > 0) {
           const { error } = await supabase.from("rdo_producao").insert(trechoEntries);

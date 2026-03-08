@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,15 @@ interface StepEfetivoProps {
 
 export default function StepEfetivo({ entries, onChange, globalEntrada, globalSaida, onChangeGlobalEntrada, onChangeGlobalSaida }: StepEfetivoProps) {
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const prevCountRef = useRef(entries.length);
+
+  useEffect(() => {
+    if (entries.length > prevCountRef.current && addBtnRef.current) {
+      addBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    prevCountRef.current = entries.length;
+  }, [entries.length]);
 
   const selectFuncionario = (entryId: string, matricula: string) => {
     const func = FUNCIONARIOS.find(f => f.matricula === matricula);
@@ -149,7 +158,7 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
         </div>
       ))}
 
-      <Button onClick={addEntry} className="w-full h-12 gap-2 text-base">
+      <Button ref={addBtnRef} onClick={addEntry} className="w-full h-12 gap-2 text-base">
         <Plus className="w-5 h-5" /> Adicionar Pessoa
       </Button>
 

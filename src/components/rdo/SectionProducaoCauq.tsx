@@ -158,12 +158,13 @@ export default function SectionProducaoCauq({ data, onChange }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Espessura (m)</Label>
+              <Label className="text-xs text-muted-foreground">Espessura (cm)</Label>
               <Input
                 inputMode="decimal"
                 value={trecho.espessura_m}
                 onChange={e => updateTrecho(trecho.id, "espessura_m", e.target.value)}
                 className="h-11 bg-secondary border-border"
+                placeholder="Ex: 5"
               />
             </div>
             <div className="space-y-1">
