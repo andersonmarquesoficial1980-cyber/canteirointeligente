@@ -23,6 +23,7 @@ const adminItems = [
 ];
 
 export function AppSidebar() {
+  const { isAdmin } = useIsAdmin();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
