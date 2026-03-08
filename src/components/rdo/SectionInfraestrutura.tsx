@@ -62,12 +62,7 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
         </div>
       </div>
 
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-sm font-semibold text-foreground">Produção</span>
-        <Button size="sm" onClick={() => onChangeProducao([...producao, emptyEntry()])} className="h-10 gap-1">
-          <Plus className="w-4 h-4" /> Trecho
-        </Button>
-      </div>
+      <span className="text-sm font-semibold text-foreground pt-2">Produção</span>
 
       {producao.map((entry, idx) => {
         const area = (parseFloat(entry.comprimento_m) || 0) * (parseFloat(entry.largura_m) || 0);
