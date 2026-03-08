@@ -84,6 +84,70 @@ export default function RdoForm() {
   const [globalEntrada, setGlobalEntrada] = useState("");
   const [globalSaida, setGlobalSaida] = useState("");
 
+  const formatDateBR = (d: string) => {
+    if (!d) return "";
+    const [y, m, day] = d.split("-");
+    return `${day}/${m}/${y}`;
+  };
+
+  const handleWhatsAppResume = async () => {
+    const lines: string[] = [];
+    lines.push(`📋 *RDO - Relatório Diário de Obra*`);
+    lines.push(``);
+    lines.push(`📅 Data: ${formatDateBR(header.data)}`);
+    lines.push(`🏗️ OGS: ${header.obra_nome} - Cliente: ${header.cliente}`);
+    lines.push(`📍 Local: ${header.local}`);
+
+    if (tipoRdo === "CAUQ" && producaoCauq.trechos.length > 0) {
+      lines.push(``);
+      lines.push(`📐 *Atividades Executadas:*`);
+      producaoCauq.trechos.forEach((t, i) => {
+        if (!t.tipo_servico && !t.comprimento_m) return;
+        const c = parseFloat(t.comprimento_m) || 0;
+        const l = parseFloat(t.largura_m) || 0;
+        const area = (c * l).toFixed(2);
+        lines.push(``);
+        lines.push(`▸ ${t.tipo_servico || "—"} ${t.sentido_faixa || ""}`);
+        lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
+        lines.push(`  ${t.comprimento_m || "0"} x ${t.largura_m || "0"} = ${area} m²`);
+        lines.push(`  Espessura: ${t.espessura_m || "—"} m | Total: ${t.total_toneladas || "—"} Ton`);
+      });
+
+      const totalArea = producaoCauq.trechos.reduce((s, t) => {
+        const c = parseFloat(t.comprimento_m) || 0;
+        const l = parseFloat(t.largura_m) || 0;
+        return s + c * l;
+      }, 0);
+      const totalTon = producaoCauq.trechos.reduce((s, t) => s + (parseFloat(t.total_toneladas) || 0), 0);
+
+      lines.push(``);
+      lines.push(`📊 *Resumo Geral:*`);
+      lines.push(`  Área Total: ${totalArea.toFixed(2)} m²`);
+      lines.push(`  Toneladas Totais: ${totalTon.toFixed(2)} Ton`);
+      lines.push(``);
+      lines.push(`🚚 DMT Usina: ${producaoCauq.dmt_usina_km || "—"} km`);
+      lines.push(`🏭 DMT Canteiro: ${producaoCauq.dmt_canteiro_km || "—"} km`);
+
+      if (producaoCauq.observacoes) {
+        lines.push(``);
+        lines.push(`📝 *Obs:* ${producaoCauq.observacoes}`);
+      }
+    }
+
+    const text = lines.join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "✅ Resumo copiado!", description: "Cole no seu WhatsApp." });
+    } catch {
+      // Fallback
+    }
+
+    if (isMobile) {
+      window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+    }
+  };
+
   const handleSubmit = async () => {
     if (!header.obra_nome || !header.data) {
       toast({ title: "Erro", description: "Preencha OGS e Data.", variant: "destructive" });
