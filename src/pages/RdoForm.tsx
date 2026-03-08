@@ -142,8 +142,14 @@ export default function RdoForm() {
   };
 
   const handleSubmit = async () => {
-    if (!header.obra_nome || !header.data) {
-      toast({ title: "Erro", description: "Preencha OGS e Data.", variant: "destructive" });
+    const normalizedTurno = header.turno.trim().toLowerCase();
+    if (!header.obra_nome || !header.data || !normalizedTurno) {
+      toast({ title: "Erro", description: "Preencha OGS, Data e Turno.", variant: "destructive" });
+      return;
+    }
+
+    if (!["diurno", "noturno"].includes(normalizedTurno)) {
+      toast({ title: "Erro", description: "Turno inválido. Use Diurno ou Noturno.", variant: "destructive" });
       return;
     }
 
@@ -154,7 +160,7 @@ export default function RdoForm() {
         .insert({
           data: header.data,
           obra_nome: header.obra_nome,
-          turno: header.turno || null,
+          turno: normalizedTurno,
           clima: header.status_obra || null,
         })
         .select("id")
@@ -353,7 +359,7 @@ export default function RdoForm() {
         )}
         <Button
           onClick={handleSubmit}
-          disabled={saving || !header.obra_nome}
+          disabled={saving || !header.obra_nome || !header.turno}
           className="w-full h-14 text-base gap-2 font-semibold"
         >
           <Send className="w-5 h-5" /> {saving ? "Salvando..." : "Enviar RDO"}
