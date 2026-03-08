@@ -158,7 +158,7 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
         </div>
       ))}
 
-      <Button onClick={addEntry} className="w-full h-12 gap-2 text-base">
+      <Button ref={addBtnRef} onClick={addEntry} className="w-full h-12 gap-2 text-base">
         <Plus className="w-5 h-5" /> Adicionar Pessoa
       </Button>
 

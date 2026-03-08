@@ -65,7 +65,7 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
     <div className="space-y-4 p-4 bg-card rounded-xl border border-border">
       <h2 className="text-lg font-bold text-foreground">📋 Dados Gerais</h2>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Data</Label>
           <div className="relative">
@@ -93,6 +93,9 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Status</Label>
           <Select value={data.status_obra} onValueChange={v => onChange("status_obra", v)}>
@@ -106,22 +109,21 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">OGS (Obra)</Label>
-        <Select value={data.obra_nome} onValueChange={handleObraChange}>
-          <SelectTrigger className="h-12 text-base bg-secondary border-border">
-            <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione a OGS"} />
-          </SelectTrigger>
-          <SelectContent className="max-h-[300px]">
-            {uniqueOgs.map(obra => (
-              <SelectItem key={obra.numero_ogs} value={obra.numero_ogs} className="py-3">
-                {obra.numero_ogs}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">OGS (Obra)</Label>
+          <Select value={data.obra_nome} onValueChange={handleObraChange}>
+            <SelectTrigger className="h-12 text-base bg-secondary border-border">
+              <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione"} />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              {uniqueOgs.map(obra => (
+                <SelectItem key={obra.numero_ogs} value={obra.numero_ogs} className="py-3">
+                  {obra.numero_ogs}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
