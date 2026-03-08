@@ -293,7 +293,7 @@ export default function RdoForm() {
         {tipoRdo === "CAUQ" && (
           <>
             <SectionCauq entries={nfMassa} onChange={setNfMassa} />
-            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} />
+            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} totalTonelagemNF={nfMassa.reduce((s, e) => s + (parseFloat(e.tonelagem) || 0), 0)} />
           </>
         )}
         {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} />}
