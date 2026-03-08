@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import NfPhotoCapture from "./NfPhotoCapture";
+import { useFornecedores } from "@/hooks/useFilteredData";
 
 export interface NotaFiscalInsumoEntry {
   id: string;
@@ -17,15 +18,17 @@ export interface NotaFiscalInsumoEntry {
 interface Props {
   entries: NotaFiscalInsumoEntry[];
   onChange: (entries: NotaFiscalInsumoEntry[]) => void;
+  tipoRdo: string;
 }
-
-const FORNECEDORES = ["Polimix", "Greca", "CBB", "Concresul", "Supermix", "Outro"];
 
 const emptyNF = (): NotaFiscalInsumoEntry => ({
   id: crypto.randomUUID(), nf: "", fornecedor: "", material: "", quantidade: "",
 });
 
-export default function SectionCanteiro({ entries, onChange }: Props) {
+export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
+  const { data: fornecedoresData } = useFornecedores(tipoRdo);
+  const fornecedores = fornecedoresData?.map(f => f.nome) ?? [];
+
   const update = (id: string, field: string, value: string) =>
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
 
@@ -33,7 +36,7 @@ export default function SectionCanteiro({ entries, onChange }: Props) {
     const newEntry: NotaFiscalInsumoEntry = {
       id: crypto.randomUUID(),
       nf: data.nf || "",
-      fornecedor: FORNECEDORES.find(f => f.toLowerCase() === (data.fornecedor || "").toLowerCase()) || data.fornecedor || "",
+      fornecedor: fornecedores.find(f => f.toLowerCase() === (data.fornecedor || "").toLowerCase()) || data.fornecedor || "",
       material: data.material || "",
       quantidade: data.quantidade || "",
       photo_url: photoUrl,
@@ -70,7 +73,9 @@ export default function SectionCanteiro({ entries, onChange }: Props) {
               <Select value={entry.fornecedor} onValueChange={v => update(entry.id, "fornecedor", v)}>
                 <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {FORNECEDORES.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  {fornecedores.length > 0
+                    ? fornecedores.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)
+                    : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
                 </SelectContent>
               </Select>
             </div>

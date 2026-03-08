@@ -340,20 +340,21 @@ export default function RdoForm() {
             onChangeEmpreiteiro={setEmpreiteiro}
             onChangeTipoServico={setTipoServico}
             onChangeProducao={setInfraProducao}
+            tipoRdo="INFRA"
           />
         )}
 
         {tipoRdo === "CAUQ" && (
           <>
-            <SectionCauq entries={nfMassa} onChange={setNfMassa} />
-            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} />
+            <SectionCauq entries={nfMassa} onChange={setNfMassa} tipoRdo="CAUQ" />
+            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} tipoRdo="CAUQ" />
           </>
         )}
-        {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} />}
+        {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
 
         {tipoRdo && (
           <>
-            <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} />
+            <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
             <SectionBasculante entries={basculantes} onChange={setBasculantes} />
             <StepEfetivo
               entries={efetivo}

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
+import { useEmpreiteiros, useTiposServico } from "@/hooks/useFilteredData";
 
 export interface InfraProducaoEntry {
   id: string;
@@ -23,17 +24,18 @@ interface Props {
   onChangeEmpreiteiro: (v: string) => void;
   onChangeTipoServico: (v: string) => void;
   onChangeProducao: (entries: InfraProducaoEntry[]) => void;
+  tipoRdo: string;
 }
-
-const EMPREITEIROS = ["EJL", "Objetiva"];
-const SERVICOS = ["Demolição", "Limpeza", "Concretagem", "Escavação", "Aterro", "Drenagem", "Sinalização", "Outro"];
 
 const emptyEntry = (): InfraProducaoEntry => ({
   id: crypto.randomUUID(), sentido: "", estaca_inicial: "", estaca_final: "",
   comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false,
 });
 
-export default function SectionInfraestrutura({ empreiteiro, tipoServico, producao, onChangeEmpreiteiro, onChangeTipoServico, onChangeProducao }: Props) {
+export default function SectionInfraestrutura({ empreiteiro, tipoServico, producao, onChangeEmpreiteiro, onChangeTipoServico, onChangeProducao, tipoRdo }: Props) {
+  const { data: empreiteiros } = useEmpreiteiros(tipoRdo);
+  const { data: servicos } = useTiposServico(tipoRdo);
+
   const update = (id: string, field: string, value: any) =>
     onChangeProducao(producao.map(e => e.id === id ? { ...e, [field]: value } : e));
 
@@ -47,7 +49,9 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
           <Select value={empreiteiro} onValueChange={onChangeEmpreiteiro}>
             <SelectTrigger className="h-12 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>
-              {EMPREITEIROS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+              {empreiteiros && empreiteiros.length > 0
+                ? empreiteiros.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)
+                : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
             </SelectContent>
           </Select>
         </div>
@@ -56,7 +60,9 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
           <Select value={tipoServico} onValueChange={onChangeTipoServico}>
             <SelectTrigger className="h-12 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>
-              {SERVICOS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {servicos && servicos.length > 0
+                ? servicos.map(s => <SelectItem key={s.id} value={s.nome}>{s.nome}</SelectItem>)
+                : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
             </SelectContent>
           </Select>
         </div>
@@ -106,15 +112,10 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={entry.is_retrabalho}
-                  onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)}
-                />
+                <Checkbox checked={entry.is_retrabalho} onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)} />
                 <Label className="text-xs text-muted-foreground">É Retrabalho?</Label>
               </div>
-              {area > 0 && (
-                <span className="text-sm font-bold text-primary">Área: {area.toFixed(2)} m²</span>
-              )}
+              {area > 0 && <span className="text-sm font-bold text-primary">Área: {area.toFixed(2)} m²</span>}
             </div>
           </div>
         );

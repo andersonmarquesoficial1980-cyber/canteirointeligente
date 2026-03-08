@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMaquinasFrota } from "@/hooks/useMaquinasFrota";
+import { useMaquinasFrotaFiltered } from "@/hooks/useFilteredData";
 import { Plus, Trash2 } from "lucide-react";
 import { useRef, useEffect } from "react";
 
@@ -20,6 +20,7 @@ export interface EquipamentoEntry {
 interface Props {
   entries: EquipamentoEntry[];
   onChange: (entries: EquipamentoEntry[]) => void;
+  tipoRdo: string;
 }
 
 const CATEGORIAS = ["PEQUENO PORTE", "FRESA/BOB", "VIBRO/ROLO", "LINHA AMARELA", "USINAGEM", "VEÍCULOS EM GERAL"];
@@ -28,8 +29,8 @@ const emptyEquip = (): EquipamentoEntry => ({
   id: crypto.randomUUID(), categoria: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
 });
 
-export default function SectionEquipamentos({ entries, onChange }: Props) {
-  const { data: maquinas } = useMaquinasFrota();
+export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Props) {
+  const { data: maquinas } = useMaquinasFrotaFiltered(tipoRdo);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const prevCountRef = useRef(entries.length);
 
