@@ -120,7 +120,7 @@ export default function SectionEquipamentos({ entries, onChange }: Props) {
         </div>
       ))}
 
-      <Button size="sm" onClick={() => onChange([...entries, emptyEquip()])} className="w-full h-12 gap-2 text-base">
+      <Button ref={addBtnRef} size="sm" onClick={() => onChange([...entries, emptyEquip()])} className="w-full h-12 gap-2 text-base">
         <Plus className="w-5 h-5" /> Adicionar Equipamento
       </Button>
     </div>
