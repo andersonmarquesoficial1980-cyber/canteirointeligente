@@ -155,14 +155,17 @@ export default function RdoForm() {
 
     setSaving(true);
     try {
+      const rdoPayload = {
+        data: header.data,
+        obra_nome: header.obra_nome,
+        turno: normalizedTurno,
+        clima: header.status_obra || null,
+      };
+      console.log("Payload rdo_diarios:", rdoPayload);
+
       const { data: rdo, error: rdoError } = await supabase
         .from("rdo_diarios")
-        .insert({
-          data: header.data,
-          obra_nome: header.obra_nome,
-          turno: normalizedTurno,
-          clima: header.status_obra || null,
-        })
+        .insert(rdoPayload)
         .select("id")
         .single();
 
