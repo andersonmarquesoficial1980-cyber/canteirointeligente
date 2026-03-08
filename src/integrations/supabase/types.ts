@@ -90,6 +90,27 @@ export type Database = {
           },
         ]
       }
+      configuracoes_relatorio: {
+        Row: {
+          created_at: string
+          emails_destino: string[]
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          emails_destino?: string[]
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          emails_destino?: string[]
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       diaries: {
         Row: {
           acoplamento: string | null

@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import RdoForm from "./pages/RdoForm";
 import FrotaNovo from "./pages/FrotaNovo";
+import AdminConfiguracoes from "./pages/AdminConfiguracoes";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ function AppRoutes() {
         <Route path="/" element={<Index />} />
         <Route path="/rdo" element={<RdoForm />} />
         <Route path="/frota/novo" element={<FrotaNovo />} />
+        <Route path="/admin/configuracoes" element={<AdminConfiguracoes />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

@@ -1,10 +1,9 @@
-import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, AlertTriangle } from "lucide-react";
 
 export interface TrechoCauqEntry {
   id: string;
@@ -16,18 +15,18 @@ export interface TrechoCauqEntry {
   largura_m: string;
   espessura_m: string;
   total_toneladas: string;
+  observacoes: string;
+  justificativa_tonelagem: string;
 }
 
 export interface ProducaoCauqData {
-  dmt_usina_km: string;
-  dmt_canteiro_km: string;
-  observacoes: string;
   trechos: TrechoCauqEntry[];
 }
 
 interface Props {
   data: ProducaoCauqData;
   onChange: (data: ProducaoCauqData) => void;
+  totalTonelagemNF: number;
 }
 
 const TIPOS_SERVICO = [
@@ -40,6 +39,8 @@ const TIPOS_SERVICO = [
   "Pintura de Sinalização",
 ];
 
+const TIPOS_VALIDACAO_TONELAGEM = ["Aplicação de Binder", "Capa/CBUQ"];
+
 const emptyTrecho = (): TrechoCauqEntry => ({
   id: crypto.randomUUID(),
   tipo_servico: "",
@@ -50,12 +51,11 @@ const emptyTrecho = (): TrechoCauqEntry => ({
   largura_m: "",
   espessura_m: "",
   total_toneladas: "",
+  observacoes: "",
+  justificativa_tonelagem: "",
 });
 
-export default function SectionProducaoCauq({ data, onChange }: Props) {
-  const updateField = (field: string, value: string) =>
-    onChange({ ...data, [field]: value });
-
+export default function SectionProducaoCauq({ data, onChange, totalTonelagemNF }: Props) {
   const updateTrecho = (id: string, field: string, value: string) =>
     onChange({
       ...data,
@@ -75,46 +75,18 @@ export default function SectionProducaoCauq({ data, onChange }: Props) {
     return "";
   };
 
+  const needsJustificativa = (t: TrechoCauqEntry) => {
+    if (!TIPOS_VALIDACAO_TONELAGEM.includes(t.tipo_servico)) return false;
+    const trechoTon = parseFloat(t.total_toneladas);
+    if (isNaN(trechoTon) || trechoTon <= 0) return false;
+    if (totalTonelagemNF <= 0) return false;
+    return Math.abs(trechoTon - totalTonelagemNF) > 0.01;
+  };
+
   return (
     <div className="space-y-4 p-4">
       <h2 className="text-lg font-bold text-foreground">📐 Produção do Dia (CAUQ)</h2>
 
-      {/* Global fields */}
-      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">DMT Usina (km)</Label>
-            <Input
-              inputMode="decimal"
-              value={data.dmt_usina_km}
-              onChange={e => updateField("dmt_usina_km", e.target.value)}
-              className="h-11 bg-secondary border-border"
-              placeholder="0.0"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">DMT Canteiro (km)</Label>
-            <Input
-              inputMode="decimal"
-              value={data.dmt_canteiro_km}
-              onChange={e => updateField("dmt_canteiro_km", e.target.value)}
-              className="h-11 bg-secondary border-border"
-              placeholder="0.0"
-            />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Observações de Produção / Resumo Geral</Label>
-          <Textarea
-            value={data.observacoes}
-            onChange={e => updateField("observacoes", e.target.value)}
-            className="min-h-[100px] bg-secondary border-border text-base"
-            placeholder="Detalhes da produção do dia..."
-          />
-        </div>
-      </div>
-
-      {/* Trechos */}
       {data.trechos.map((trecho, idx) => (
         <div key={trecho.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -150,6 +122,7 @@ export default function SectionProducaoCauq({ data, onChange }: Props) {
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Estaca Inicial</Label>
               <Input
+                inputMode="numeric"
                 value={trecho.estaca_inicial}
                 onChange={e => updateTrecho(trecho.id, "estaca_inicial", e.target.value)}
                 className="h-11 bg-secondary border-border"
@@ -158,6 +131,7 @@ export default function SectionProducaoCauq({ data, onChange }: Props) {
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Estaca Final</Label>
               <Input
+                inputMode="numeric"
                 value={trecho.estaca_final}
                 onChange={e => updateTrecho(trecho.id, "estaca_final", e.target.value)}
                 className="h-11 bg-secondary border-border"
@@ -213,6 +187,35 @@ export default function SectionProducaoCauq({ data, onChange }: Props) {
                 className="h-11 bg-secondary border-border"
               />
             </div>
+          </div>
+
+          {/* Tonelagem validation */}
+          {needsJustificativa(trecho) && (
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2 text-destructive text-sm font-medium">
+                <AlertTriangle className="w-4 h-4" />
+                <span>Diferença de tonelagem detectada (NF: {totalTonelagemNF.toFixed(2)}t vs Trecho: {trecho.total_toneladas}t)</span>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-destructive font-semibold">Justificativa de Diferença de Tonelagem *</Label>
+                <Textarea
+                  value={trecho.justificativa_tonelagem}
+                  onChange={e => updateTrecho(trecho.id, "justificativa_tonelagem", e.target.value)}
+                  className="min-h-[80px] bg-background border-destructive/30 text-base"
+                  placeholder="Justifique a diferença entre a tonelagem do trecho e a das notas fiscais..."
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Observações do Trecho</Label>
+            <Textarea
+              value={trecho.observacoes}
+              onChange={e => updateTrecho(trecho.id, "observacoes", e.target.value)}
+              className="min-h-[70px] bg-secondary border-border text-base"
+              placeholder="Observações deste trecho..."
+            />
           </div>
         </div>
       ))}

@@ -15,6 +15,7 @@ import SectionBasculante, { type BasculanteEntry } from "@/components/rdo/Sectio
 import SectionManchaAreia, { type ManchaAreiaEntry } from "@/components/rdo/SectionManchaAreia";
 import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import SectionProducaoCauq, { type ProducaoCauqData, type TrechoCauqEntry } from "@/components/rdo/SectionProducaoCauq";
+import { buildHtmlReport } from "@/lib/buildHtmlReport";
 
 export default function RdoForm() {
   const navigate = useNavigate();
@@ -48,12 +49,9 @@ export default function RdoForm() {
 
   // Produção CAUQ
   const [producaoCauq, setProducaoCauq] = useState<ProducaoCauqData>({
-    dmt_usina_km: "",
-    dmt_canteiro_km: "",
-    observacoes: "",
     trechos: [{
       id: crypto.randomUUID(), tipo_servico: "", sentido_faixa: "", estaca_inicial: "", estaca_final: "",
-      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "",
+      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "", observacoes: "", justificativa_tonelagem: "",
     }],
   });
 
@@ -111,6 +109,12 @@ export default function RdoForm() {
         lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
         lines.push(`  ${t.comprimento_m || "0"} x ${t.largura_m || "0"} = ${area} m²`);
         lines.push(`  Espessura: ${t.espessura_m || "—"} m | Total: ${t.total_toneladas || "—"} Ton`);
+        if (t.observacoes) {
+          lines.push(`  Obs: ${t.observacoes}`);
+        }
+        if (t.justificativa_tonelagem) {
+          lines.push(`  ⚠️ Justificativa Tonelagem: ${t.justificativa_tonelagem}`);
+        }
       });
 
       const totalArea = producaoCauq.trechos.reduce((s, t) => {
@@ -124,14 +128,6 @@ export default function RdoForm() {
       lines.push(`📊 *Resumo Geral:*`);
       lines.push(`  Área Total: ${totalArea.toFixed(2)} m²`);
       lines.push(`  Toneladas Totais: ${totalTon.toFixed(2)} Ton`);
-      lines.push(``);
-      lines.push(`🚚 DMT Usina: ${producaoCauq.dmt_usina_km || "—"} km`);
-      lines.push(`🏭 DMT Canteiro: ${producaoCauq.dmt_canteiro_km || "—"} km`);
-
-      if (producaoCauq.observacoes) {
-        lines.push(``);
-        lines.push(`📝 *Obs:* ${producaoCauq.observacoes}`);
-      }
     }
 
     const text = lines.join("\n");
@@ -253,6 +249,20 @@ export default function RdoForm() {
         }
       }
 
+      // Build HTML report and send email
+      try {
+        const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida);
+        const { data: session } = await supabase.auth.getSession();
+        const token = session?.session?.access_token;
+        if (token) {
+          await supabase.functions.invoke("send-rdo-email", {
+            body: { rdo_id: rdoId, html_report: htmlReport },
+          });
+        }
+      } catch (emailErr) {
+        console.warn("Email send failed (non-blocking):", emailErr);
+      }
+
       toast({ title: "✅ RDO Salvo!", description: "Relatório registrado com sucesso." });
       navigate("/");
     } catch (err: any) {
@@ -298,7 +308,7 @@ export default function RdoForm() {
         {tipoRdo === "CAUQ" && (
           <>
             <SectionCauq entries={nfMassa} onChange={setNfMassa} />
-            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} />
+            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} totalTonelagemNF={nfMassa.reduce((s, e) => s + (parseFloat(e.tonelagem) || 0), 0)} />
           </>
         )}
         {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} />}
