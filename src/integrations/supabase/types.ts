@@ -303,6 +303,48 @@ export type Database = {
         }
         Relationships: []
       }
+      empreiteiros: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          vinculo_rdo: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome: string
+          vinculo_rdo?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          vinculo_rdo?: string
+        }
+        Relationships: []
+      }
+      fornecedores: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          vinculo_rdo: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome: string
+          vinculo_rdo?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          vinculo_rdo?: string
+        }
+        Relationships: []
+      }
       fueling_entries: {
         Row: {
           created_at: string | null
@@ -363,6 +405,7 @@ export type Database = {
           nome: string
           status: string
           tipo: string | null
+          vinculo_rdo: string
         }
         Insert: {
           categoria?: string | null
@@ -373,6 +416,7 @@ export type Database = {
           nome: string
           status?: string
           tipo?: string | null
+          vinculo_rdo?: string
         }
         Update: {
           categoria?: string | null
@@ -383,6 +427,28 @@ export type Database = {
           nome?: string
           status?: string
           tipo?: string | null
+          vinculo_rdo?: string
+        }
+        Relationships: []
+      }
+      materiais: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          vinculo_rdo: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome: string
+          vinculo_rdo?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          vinculo_rdo?: string
         }
         Relationships: []
       }
@@ -768,6 +834,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tipos_servico: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          vinculo_rdo: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome: string
+          vinculo_rdo?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          vinculo_rdo?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usinas: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          vinculo_rdo: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome: string
+          vinculo_rdo?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          vinculo_rdo?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -1806,7 +1935,7 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
     }
     Enums: {
       checklist_status: "ok" | "nao_ok"
