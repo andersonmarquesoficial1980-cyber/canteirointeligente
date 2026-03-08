@@ -36,6 +36,15 @@ interface StepEfetivoProps {
 
 export default function StepEfetivo({ entries, onChange, globalEntrada, globalSaida, onChangeGlobalEntrada, onChangeGlobalSaida }: StepEfetivoProps) {
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const prevCountRef = useRef(entries.length);
+
+  useEffect(() => {
+    if (entries.length > prevCountRef.current && addBtnRef.current) {
+      addBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    prevCountRef.current = entries.length;
+  }, [entries.length]);
 
   const selectFuncionario = (entryId: string, matricula: string) => {
     const func = FUNCIONARIOS.find(f => f.matricula === matricula);
