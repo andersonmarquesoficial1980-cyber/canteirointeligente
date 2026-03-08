@@ -177,24 +177,6 @@ export default function SectionProducaoCauq({ data, onChange }: Props) {
             </div>
           </div>
 
-          {/* Tonelagem validation */}
-          {needsJustificativa(trecho) && (
-            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 space-y-2">
-              <div className="flex items-center gap-2 text-destructive text-sm font-medium">
-                <AlertTriangle className="w-4 h-4" />
-                <span>Diferença de tonelagem detectada (NF: {totalTonelagemNF.toFixed(2)}t vs Trecho: {trecho.total_toneladas}t)</span>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-destructive font-semibold">Justificativa de Diferença de Tonelagem *</Label>
-                <Textarea
-                  value={trecho.justificativa_tonelagem}
-                  onChange={e => updateTrecho(trecho.id, "justificativa_tonelagem", e.target.value)}
-                  className="min-h-[80px] bg-background border-destructive/30 text-base"
-                  placeholder="Justifique a diferença entre a tonelagem do trecho e a das notas fiscais..."
-                />
-              </div>
-            </div>
-          )}
 
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Observações do Trecho</Label>

@@ -103,11 +103,7 @@ th{background:#f3f4f6;font-weight:600}
       });
       html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="6">TOTAL</td><td>${totalArea.toFixed(2)}</td><td></td><td>${totalTon.toFixed(2)}</td></tr></table>`;
 
-      // Justificativas
       trechos.forEach(t => {
-        if (t.justificativa_tonelagem) {
-          html += `<p>⚠️ <strong>Justificativa (${t.tipo_servico}):</strong> ${t.justificativa_tonelagem}</p>`;
-        }
         if (t.observacoes) {
           html += `<p>📝 <strong>Obs (${t.tipo_servico}):</strong> ${t.observacoes}</p>`;
         }
