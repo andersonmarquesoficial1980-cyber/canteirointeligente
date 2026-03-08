@@ -73,62 +73,27 @@ export default function Index() {
         </Button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
-              <Truck className="w-5 h-5 text-primary" />
-            </div>
-            <p className="text-2xl font-bold text-foreground">
-              {loadingMaquinas ? "…" : totalEquip}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Equipamentos</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center mx-auto mb-2">
-              <MapPin className="w-5 h-5 text-accent" />
-            </div>
-            <p className="text-2xl font-bold text-foreground">
-              {loadingObras ? "…" : obrasCount}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Obras Ativas</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
-              <FileText className="w-5 h-5 text-primary" />
-            </div>
-            <p className="text-2xl font-bold text-foreground">
-              {loadingRdo ? "…" : rdoCount}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">RDOs Hoje</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Secondary actions */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button
-          variant="outline"
-          onClick={() => navigate("/frota/novo")}
-          className="h-14 flex-col gap-1.5 text-sm font-semibold rounded-xl border-border"
-        >
-          <Plus className="w-5 h-5" />
-          Cadastrar Máquina
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => navigate("/admin/configuracoes")}
-          className="h-14 flex-col gap-1.5 text-sm font-semibold rounded-xl border-border"
-        >
-          <ClipboardList className="w-5 h-5" />
-          Configurações
-        </Button>
-      </div>
+      {/* Admin-only actions */}
+      {isAdmin && (
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/frota/novo")}
+            className="h-14 flex-col gap-1.5 text-sm font-semibold rounded-xl border-border"
+          >
+            <Plus className="w-5 h-5" />
+            Cadastrar Máquina
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate("/admin/configuracoes")}
+            className="h-14 flex-col gap-1.5 text-sm font-semibold rounded-xl border-border"
+          >
+            <ClipboardList className="w-5 h-5" />
+            Configurações
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
