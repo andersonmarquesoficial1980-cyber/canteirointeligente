@@ -3,7 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 export interface TrechoCauqEntry {
   id: string;
@@ -16,7 +16,6 @@ export interface TrechoCauqEntry {
   espessura_m: string;
   total_toneladas: string;
   observacoes: string;
-  justificativa_tonelagem: string;
 }
 
 export interface ProducaoCauqData {
@@ -26,20 +25,17 @@ export interface ProducaoCauqData {
 interface Props {
   data: ProducaoCauqData;
   onChange: (data: ProducaoCauqData) => void;
-  totalTonelagemNF: number;
 }
 
 const TIPOS_SERVICO = [
   "Fresagem Reparo Profundo",
-  "Fresagem Camada de Reforço",
+  "Fresagem",
   "Aplicação de BGS",
   "RAP Espumado",
   "Aplicação de Binder",
   "Capa/CBUQ",
   "Pintura de Sinalização",
 ];
-
-const TIPOS_VALIDACAO_TONELAGEM = ["Aplicação de Binder", "Capa/CBUQ"];
 
 const emptyTrecho = (): TrechoCauqEntry => ({
   id: crypto.randomUUID(),
@@ -52,10 +48,9 @@ const emptyTrecho = (): TrechoCauqEntry => ({
   espessura_m: "",
   total_toneladas: "",
   observacoes: "",
-  justificativa_tonelagem: "",
 });
 
-export default function SectionProducaoCauq({ data, onChange, totalTonelagemNF }: Props) {
+export default function SectionProducaoCauq({ data, onChange }: Props) {
   const updateTrecho = (id: string, field: string, value: string) =>
     onChange({
       ...data,
@@ -75,13 +70,6 @@ export default function SectionProducaoCauq({ data, onChange, totalTonelagemNF }
     return "";
   };
 
-  const needsJustificativa = (t: TrechoCauqEntry) => {
-    if (!TIPOS_VALIDACAO_TONELAGEM.includes(t.tipo_servico)) return false;
-    const trechoTon = parseFloat(t.total_toneladas);
-    if (isNaN(trechoTon) || trechoTon <= 0) return false;
-    if (totalTonelagemNF <= 0) return false;
-    return Math.abs(trechoTon - totalTonelagemNF) > 0.01;
-  };
 
   return (
     <div className="space-y-4 p-4">
@@ -189,24 +177,6 @@ export default function SectionProducaoCauq({ data, onChange, totalTonelagemNF }
             </div>
           </div>
 
-          {/* Tonelagem validation */}
-          {needsJustificativa(trecho) && (
-            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 space-y-2">
-              <div className="flex items-center gap-2 text-destructive text-sm font-medium">
-                <AlertTriangle className="w-4 h-4" />
-                <span>Diferença de tonelagem detectada (NF: {totalTonelagemNF.toFixed(2)}t vs Trecho: {trecho.total_toneladas}t)</span>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-destructive font-semibold">Justificativa de Diferença de Tonelagem *</Label>
-                <Textarea
-                  value={trecho.justificativa_tonelagem}
-                  onChange={e => updateTrecho(trecho.id, "justificativa_tonelagem", e.target.value)}
-                  className="min-h-[80px] bg-background border-destructive/30 text-base"
-                  placeholder="Justifique a diferença entre a tonelagem do trecho e a das notas fiscais..."
-                />
-              </div>
-            </div>
-          )}
 
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Observações do Trecho</Label>

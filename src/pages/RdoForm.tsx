@@ -51,7 +51,7 @@ export default function RdoForm() {
   const [producaoCauq, setProducaoCauq] = useState<ProducaoCauqData>({
     trechos: [{
       id: crypto.randomUUID(), tipo_servico: "", sentido_faixa: "", estaca_inicial: "", estaca_final: "",
-      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "", observacoes: "", justificativa_tonelagem: "",
+      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "", observacoes: "",
     }],
   });
 
@@ -111,9 +111,6 @@ export default function RdoForm() {
         lines.push(`  Espessura: ${t.espessura_m || "—"} m | Total: ${t.total_toneladas || "—"} Ton`);
         if (t.observacoes) {
           lines.push(`  Obs: ${t.observacoes}`);
-        }
-        if (t.justificativa_tonelagem) {
-          lines.push(`  ⚠️ Justificativa Tonelagem: ${t.justificativa_tonelagem}`);
         }
       });
 
@@ -308,7 +305,7 @@ export default function RdoForm() {
         {tipoRdo === "CAUQ" && (
           <>
             <SectionCauq entries={nfMassa} onChange={setNfMassa} />
-            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} totalTonelagemNF={nfMassa.reduce((s, e) => s + (parseFloat(e.tonelagem) || 0), 0)} />
+            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} />
           </>
         )}
         {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} />}
