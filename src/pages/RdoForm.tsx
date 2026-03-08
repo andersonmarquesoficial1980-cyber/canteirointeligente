@@ -48,12 +48,9 @@ export default function RdoForm() {
 
   // Produção CAUQ
   const [producaoCauq, setProducaoCauq] = useState<ProducaoCauqData>({
-    dmt_usina_km: "",
-    dmt_canteiro_km: "",
-    observacoes: "",
     trechos: [{
       id: crypto.randomUUID(), tipo_servico: "", sentido_faixa: "", estaca_inicial: "", estaca_final: "",
-      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "",
+      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "", observacoes: "", justificativa_tonelagem: "",
     }],
   });
 
