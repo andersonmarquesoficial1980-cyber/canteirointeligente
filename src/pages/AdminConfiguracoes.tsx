@@ -321,6 +321,68 @@ function OgsManager() {
   );
 }
 
+// Material manager with tipo_uso
+function MaterialManager() {
+  const { items, add, remove } = useCrudTable("materiais");
+  const [nome, setNome] = useState("");
+  const [vinculo, setVinculo] = useState("TODOS");
+  const [tipoUso, setTipoUso] = useState("Nota Fiscal");
+
+  const handleAdd = async () => {
+    if (!nome.trim()) return;
+    const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_uso: tipoUso });
+    if (ok) { setNome(""); setVinculo("TODOS"); setTipoUso("Nota Fiscal"); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Nome</Label>
+          <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Novo Material" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Vincular ao RDO</Label>
+            <Select value={vinculo} onValueChange={setVinculo}>
+              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
+            <Select value={tipoUso} onValueChange={setTipoUso}>
+              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TIPO_USO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
+      </div>
+
+      <div className="space-y-2">
+        {items.map((item: any) => (
+          <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm text-foreground">{item.nome}</p>
+              <div className="flex gap-2 mt-0.5">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{item.vinculo_rdo}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.tipo_uso || "Nota Fiscal"}</span>
+              </div>
+            </div>
+            <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum cadastro.</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminConfiguracoes() {
   const navigate = useNavigate();
   const { isAdmin, loading } = useIsAdmin();
