@@ -35,7 +35,6 @@ export function useAuth() {
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
 
-    // Safety timeout — never stay loading forever
     timeout = setTimeout(() => {
       setLoading(false);
     }, 5000);
@@ -53,7 +52,6 @@ export function useAuth() {
 
     supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
       if (sess?.user) {
-        // Validate token is still usable
         const { error } = await supabase.auth.getUser();
         if (error) {
           console.warn("Token inválido, limpando sessão:", error.message);

@@ -18,7 +18,7 @@ export default function Index() {
     const forceOut = () => {
       localStorage.clear();
       sessionStorage.clear();
-      window.location.href = "/login";
+      window.location.href = "/";
     };
     const timeout = setTimeout(forceOut, 2000);
     try {
