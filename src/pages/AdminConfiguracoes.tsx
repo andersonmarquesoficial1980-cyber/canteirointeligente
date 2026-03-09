@@ -254,13 +254,22 @@ function UsersManager() {
       const response = await supabase.functions.invoke("create-user", {
         body: { email: email.trim(), password, nome_completo: nome.trim(), perfil },
       });
-      // supabase.functions.invoke returns { data, error }
-      // On non-2xx, error contains the response context but data may have the JSON body
-      const result = response.data;
-      const invokeError = response.error;
+      const { data: result, error: invokeError } = response;
       if (invokeError) {
-        // Try to extract detailed message from the response body
-        const msg = result?.error || invokeError.message || "Erro ao criar usuário";
+        // When edge function returns non-2xx, data may be null.
+        // The JSON body may be in error.context.responseBody or we parse it ourselves.
+        let msg = "Erro ao criar usuário";
+        if (result?.error) {
+          msg = result.error;
+        } else if (typeof invokeError === "object" && invokeError.message) {
+          // Try to parse JSON from the error message
+          try {
+            const parsed = JSON.parse(invokeError.message);
+            if (parsed?.error) msg = parsed.error;
+          } catch {
+            msg = invokeError.message;
+          }
+        }
         throw new Error(msg);
       }
       if (result?.error) throw new Error(result.error);
