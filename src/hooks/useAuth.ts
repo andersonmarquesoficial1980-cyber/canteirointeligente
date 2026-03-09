@@ -52,13 +52,27 @@ export function useAuth() {
     );
 
     supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
-      setSession(sess);
       if (sess?.user) {
+        // Validate token is still usable
+        const { error } = await supabase.auth.getUser();
+        if (error) {
+          console.warn("Token inválido, limpando sessão:", error.message);
+          localStorage.clear();
+          sessionStorage.clear();
+          setSession(null);
+          setLoading(false);
+          clearTimeout(timeout);
+          return;
+        }
         await ensureProfile(sess.user.id, sess.user.email || "");
       }
+      setSession(sess);
       setLoading(false);
       clearTimeout(timeout);
     }).catch(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+      setSession(null);
       setLoading(false);
       clearTimeout(timeout);
     });
