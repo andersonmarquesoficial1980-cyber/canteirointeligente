@@ -63,7 +63,10 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
   const [vinculo, setVinculo] = useState("TODOS");
 
   const handleAdd = async () => {
-    if (!nome.trim()) return;
+    if (!nome.trim()) { 
+      toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); 
+      return; 
+    }
     const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo });
     if (ok) { setNome(""); setVinculo("TODOS"); }
   };
