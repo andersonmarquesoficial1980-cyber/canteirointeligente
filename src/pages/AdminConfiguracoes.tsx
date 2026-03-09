@@ -30,10 +30,16 @@ function useCrudTable(tableName: string) {
   useEffect(() => { load(); }, []);
 
   const add = async (item: any) => {
-    const { error } = await supabase.from(tableName as any).insert(item);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return false; }
-    await load();
-    return true;
+    try {
+      const { error } = await supabase.from(tableName as any).insert(item);
+      if (error) { toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" }); return false; }
+      toast({ title: "✅ Adicionado com sucesso!" });
+      await load();
+      return true;
+    } catch (err: any) {
+      toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
+      return false;
+    }
   };
 
   const remove = async (id: string) => {
