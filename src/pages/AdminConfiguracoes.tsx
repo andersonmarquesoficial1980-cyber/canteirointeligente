@@ -7,13 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, Save, Pencil, Search, X } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const VINCULO_OPTIONS = ["CAUQ", "INFRA", "CANTEIRO", "TODOS"];
 const CATEGORIAS_EQUIP = ["PEQUENO PORTE", "FRESA/BOB", "VIBRO/ROLO", "LINHA AMARELA", "USINAGEM", "VEÍCULOS EM GERAL"];
 
-// Generic CRUD hook
+// Generic CRUD hook for simple tables
 function useCrudTable(tableName: string) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,70 +35,26 @@ function useCrudTable(tableName: string) {
     return true;
   };
 
-  const update = async (id: string, item: any) => {
-    const { error } = await supabase.from(tableName as any).update(item).eq("id", id);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return false; }
-    await load();
-    return true;
-  };
-
   const remove = async (id: string) => {
     const { error } = await supabase.from(tableName as any).delete().eq("id", id);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     await load();
   };
 
-  return { items, loading, add, update, remove, reload: load };
+  return { items, loading, add, remove, reload: load };
 }
 
-// Search filter bar
-function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-      <Input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder="Buscar..."
-        className="h-10 pl-9 pr-8 bg-secondary border-border"
-      />
-      {value && (
-        <button onClick={() => onChange("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-          <X className="w-4 h-4" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-// Entity form with nome + vinculo_rdo + edit support
+// Simple entity form with nome + vinculo_rdo
 function EntityManager({ tableName, label }: { tableName: string; label: string }) {
-  const { items, add, update, remove } = useCrudTable(tableName);
+  const { items, add, remove } = useCrudTable(tableName);
   const [nome, setNome] = useState("");
   const [vinculo, setVinculo] = useState("TODOS");
-  const [editId, setEditId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
 
-  const handleSave = async () => {
+  const handleAdd = async () => {
     if (!nome.trim()) return;
-    if (editId) {
-      const ok = await update(editId, { nome: nome.trim(), vinculo_rdo: vinculo });
-      if (ok) { setNome(""); setVinculo("TODOS"); setEditId(null); }
-    } else {
-      const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo });
-      if (ok) { setNome(""); setVinculo("TODOS"); }
-    }
+    const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo });
+    if (ok) { setNome(""); setVinculo("TODOS"); }
   };
-
-  const startEdit = (item: any) => {
-    setEditId(item.id);
-    setNome(item.nome);
-    setVinculo(item.vinculo_rdo || "TODOS");
-  };
-
-  const cancelEdit = () => { setEditId(null); setNome(""); setVinculo("TODOS"); };
-
-  const filtered = items.filter(i => i.nome?.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-4">
@@ -116,68 +72,40 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
             </SelectContent>
           </Select>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleSave} className="flex-1 h-11 gap-2">
-            {editId ? <><Save className="w-4 h-4" /> Salvar</> : <><Plus className="w-4 h-4" /> Adicionar</>}
-          </Button>
-          {editId && (
-            <Button variant="outline" onClick={cancelEdit} className="h-11">Cancelar</Button>
-          )}
-        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
       </div>
 
-      <SearchBar value={search} onChange={setSearch} />
-
       <div className="space-y-2">
-        {filtered.map((item: any) => (
+        {items.map((item: any) => (
           <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
             <div>
               <p className="font-medium text-sm text-foreground">{item.nome}</p>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{item.vinculo_rdo}</span>
             </div>
-            <div className="flex gap-1">
-              <button onClick={() => startEdit(item)} className="text-muted-foreground hover:text-foreground p-1"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
-            </div>
+            <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
-        {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum cadastro encontrado.</p>}
+        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum cadastro.</p>}
       </div>
     </div>
   );
 }
 
-// Machines manager with edit
+// Machines manager (includes frota, categoria, vinculo_rdo)
 function MaquinasManager() {
-  const { items, add, update, remove } = useCrudTable("maquinas_frota");
+  const { items, add, remove } = useCrudTable("maquinas_frota");
   const [frota, setFrota] = useState("");
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
   const [categoria, setCategoria] = useState("");
   const [empresa, setEmpresa] = useState("");
   const [vinculo, setVinculo] = useState("TODOS");
-  const [editId, setEditId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
 
-  const clearForm = () => { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setEmpresa(""); setVinculo("TODOS"); setEditId(null); };
-
-  const handleSave = async () => {
+  const handleAdd = async () => {
     if (!frota.trim() || !nome.trim()) return;
-    const payload = { frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria, empresa: empresa.trim(), vinculo_rdo: vinculo, status: "ativo" };
-    const ok = editId ? await update(editId, payload) : await add(payload);
-    if (ok) clearForm();
+    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria, empresa: empresa.trim(), vinculo_rdo: vinculo, status: "ativo" });
+    if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setEmpresa(""); setVinculo("TODOS"); }
   };
-
-  const startEdit = (m: any) => {
-    setEditId(m.id); setFrota(m.frota); setNome(m.nome); setTipo(m.tipo || "");
-    setCategoria(m.categoria || ""); setEmpresa(m.empresa || ""); setVinculo(m.vinculo_rdo || "TODOS");
-  };
-
-  const filtered = items.filter(m =>
-    m.frota?.toLowerCase().includes(search.toLowerCase()) ||
-    m.nome?.toLowerCase().includes(search.toLowerCase()) ||
-    m.tipo?.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="space-y-4">
@@ -218,18 +146,11 @@ function MaquinasManager() {
             </Select>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleSave} className="flex-1 h-11 gap-2">
-            {editId ? <><Save className="w-4 h-4" /> Salvar</> : <><Plus className="w-4 h-4" /> Adicionar Máquina</>}
-          </Button>
-          {editId && <Button variant="outline" onClick={clearForm} className="h-11">Cancelar</Button>}
-        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Máquina</Button>
       </div>
 
-      <SearchBar value={search} onChange={setSearch} />
-
       <div className="space-y-2">
-        {filtered.map((m: any) => (
+        {items.map((m: any) => (
           <div key={m.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
             <div>
               <p className="font-medium text-sm text-foreground">{m.frota} — {m.tipo || m.categoria} ({m.nome})</p>
@@ -238,10 +159,7 @@ function MaquinasManager() {
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{m.vinculo_rdo || "TODOS"}</span>
               </div>
             </div>
-            <div className="flex gap-1">
-              <button onClick={() => startEdit(m)} className="text-muted-foreground hover:text-foreground p-1"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => remove(m.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
-            </div>
+            <button onClick={() => remove(m.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
       </div>
@@ -307,196 +225,59 @@ function EmailConfig() {
   );
 }
 
-// Users manager with create via edge function
+// Users manager
 function UsersManager() {
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("apontador");
-  const [creating, setCreating] = useState(false);
-  const [search, setSearch] = useState("");
 
-  const loadUsers = async () => {
-    const { data } = await supabase.from("user_roles" as any).select("*");
-    if (data) setUsers(data as any[]);
-  };
-
-  useEffect(() => { loadUsers(); }, []);
-
-  const handleCreate = async () => {
-    if (!email.trim() || !password.trim()) {
-      toast({ title: "Erro", description: "E-mail e Senha são obrigatórios.", variant: "destructive" });
-      return;
-    }
-    if (password.length < 6) {
-      toast({ title: "Erro", description: "Senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
-      return;
-    }
-    setCreating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email: email.trim(), password, nome: nome.trim(), role },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast({ title: "✅ Usuário criado!", description: `${email} cadastrado como ${role}.` });
-      setNome(""); setEmail(""); setPassword(""); setRole("apontador");
-      await loadUsers();
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally { setCreating(false); }
-  };
-
-  const filtered = users.filter(u =>
-    u.user_id?.toLowerCase().includes(search.toLowerCase()) ||
-    u.role?.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    supabase.from("user_roles" as any).select("*").then(({ data }) => {
+      if (data) setUsers(data as any[]);
+    });
+  }, []);
 
   return (
     <div className="space-y-4">
-      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-        <p className="text-sm font-semibold text-foreground">Cadastrar Novo Usuário</p>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Nome</Label>
-          <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Nome completo" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">E-mail *</Label>
-          <Input type="email" value={email} onChange={e => setEmail(e.target.value)} className="h-11 bg-secondary border-border" placeholder="usuario@empresa.com" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Senha *</Label>
-          <Input type="password" value={password} onChange={e => setPassword(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Mín. 6 caracteres" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Perfil de Acesso</Label>
-          <Select value={role} onValueChange={setRole}>
-            <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="admin">Administrador</SelectItem>
-              <SelectItem value="apontador">Apontador</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={handleCreate} disabled={creating} className="w-full h-11 gap-2">
-          <Plus className="w-4 h-4" /> {creating ? "Criando..." : "Criar Usuário"}
-        </Button>
-      </div>
-
-      <SearchBar value={search} onChange={setSearch} />
-
+      <p className="text-sm text-muted-foreground">Gerencie perfis de acesso. Use o painel do Supabase para criar novos usuários.</p>
       <div className="space-y-2">
-        {filtered.map((u: any) => (
+        {users.map((u: any) => (
           <div key={u.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
             <div>
               <p className="font-medium text-sm text-foreground">{u.user_id?.slice(0, 8)}...</p>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${u.role === "admin" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>{u.role}</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{u.role}</span>
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum usuário cadastrado.</p>}
+        {users.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum perfil cadastrado.</p>}
       </div>
     </div>
   );
 }
 
-// OGS Manager with full CRUD
+// OGS Manager
 function OgsManager() {
   const { toast } = useToast();
   const [items, setItems] = useState<any[]>([]);
   const [numero, setNumero] = useState("");
   const [cliente, setCliente] = useState("");
   const [endereco, setEndereco] = useState("");
-  const [editId, setEditId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
 
-  const load = async () => {
-    const { data } = await supabase.from("ogs_reference").select("*").order("numero_ogs");
-    if (data) setItems(data);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const clearForm = () => { setNumero(""); setCliente(""); setEndereco(""); setEditId(null); };
-
-  const handleSave = async () => {
-    if (!numero.trim() || !cliente.trim() || !endereco.trim()) {
-      toast({ title: "Erro", description: "Todos os campos são obrigatórios.", variant: "destructive" });
-      return;
-    }
-    const payload = { numero_ogs: numero.trim(), cliente: cliente.trim(), endereco: endereco.trim() };
-    if (editId) {
-      const { error } = await supabase.from("ogs_reference").update(payload).eq("id", Number(editId));
-      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    } else {
-      const { error } = await supabase.from("ogs_reference").insert(payload);
-      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    }
-    clearForm();
-    await load();
-    toast({ title: editId ? "✅ OGS atualizada!" : "✅ OGS cadastrada!" });
-  };
-
-  const handleDelete = async (id: number) => {
-    const { error } = await supabase.from("ogs_reference").delete().eq("id", id);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    await load();
-  };
-
-  const startEdit = (o: any) => {
-    setEditId(String(o.id));
-    setNumero(o.numero_ogs);
-    setCliente(o.cliente);
-    setEndereco(o.endereco);
-  };
-
-  const filtered = items.filter(o =>
-    o.numero_ogs?.toLowerCase().includes(search.toLowerCase()) ||
-    o.cliente?.toLowerCase().includes(search.toLowerCase()) ||
-    o.endereco?.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    supabase.from("ogs_reference").select("*").order("numero_ogs").then(({ data }) => {
+      if (data) setItems(data);
+    });
+  }, []);
 
   return (
     <div className="space-y-4">
-      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Número OGS *</Label>
-          <Input value={numero} onChange={e => setNumero(e.target.value)} className="h-11 bg-secondary border-border" placeholder="OGS-001" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Cliente *</Label>
-          <Input value={cliente} onChange={e => setCliente(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Nome do cliente" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Endereço *</Label>
-          <Input value={endereco} onChange={e => setEndereco(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Endereço da obra" />
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={handleSave} className="flex-1 h-11 gap-2">
-            {editId ? <><Save className="w-4 h-4" /> Salvar</> : <><Plus className="w-4 h-4" /> Adicionar OGS</>}
-          </Button>
-          {editId && <Button variant="outline" onClick={clearForm} className="h-11">Cancelar</Button>}
-        </div>
-      </div>
-
-      <SearchBar value={search} onChange={setSearch} />
-
+      <p className="text-sm text-muted-foreground">OGS cadastradas. Para adicionar novas OGS, utilize o painel do Supabase.</p>
       <div className="space-y-2">
-        {filtered.map((o: any) => (
-          <div key={o.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm text-foreground">{o.numero_ogs} — {o.cliente}</p>
-              <p className="text-xs text-muted-foreground">{o.endereco}</p>
-            </div>
-            <div className="flex gap-1">
-              <button onClick={() => startEdit(o)} className="text-muted-foreground hover:text-foreground p-1"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => handleDelete(o.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
-            </div>
+        {items.map((o: any) => (
+          <div key={o.id} className="bg-card rounded-lg border border-border p-3">
+            <p className="font-medium text-sm text-foreground">{o.numero_ogs} — {o.cliente}</p>
+            <p className="text-xs text-muted-foreground">{o.endereco}</p>
           </div>
         ))}
-        {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma OGS encontrada.</p>}
       </div>
     </div>
   );

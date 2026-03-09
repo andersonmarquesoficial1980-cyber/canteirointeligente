@@ -517,39 +517,6 @@ export type Database = {
           },
         ]
       }
-      profiles: {
-        Row: {
-          created_at: string | null
-          email: string
-          id: string
-          nome_completo: string
-          perfil: string
-          status: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          email: string
-          id?: string
-          nome_completo: string
-          perfil: string
-          status?: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          email?: string
-          id?: string
-          nome_completo?: string
-          perfil?: string
-          status?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       rdo_banho_ligacao: {
         Row: {
           area_recipiente_cm2: number | null
@@ -611,7 +578,6 @@ export type Database = {
           id: string
           obra_nome: string
           turno: string | null
-          user_id: string | null
         }
         Insert: {
           clima?: string | null
@@ -620,7 +586,6 @@ export type Database = {
           id?: string
           obra_nome: string
           turno?: string | null
-          user_id?: string | null
         }
         Update: {
           clima?: string | null
@@ -629,7 +594,6 @@ export type Database = {
           id?: string
           obra_nome?: string
           turno?: string | null
-          user_id?: string | null
         }
         Relationships: []
       }
