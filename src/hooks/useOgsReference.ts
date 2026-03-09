@@ -8,7 +8,7 @@ export function useOgsReference() {
       const { data, error } = await supabase
         .from("ogs_reference")
         .select("*")
-        .order("numero_ogs");
+        .order("numero_ogs", { ascending: false });
       if (error) throw error;
       return data;
     },

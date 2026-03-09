@@ -286,12 +286,33 @@ function OgsManager() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">OGS cadastradas. Para adicionar novas OGS, utilize o painel do Supabase.</p>
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <p className="text-sm text-muted-foreground">Adicione endereços a uma OGS. Uma mesma OGS pode ter vários endereços.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Nº OGS</Label>
+            <Input value={numero} onChange={e => setNumero(e.target.value)} className="h-11 bg-secondary border-border" placeholder="OGS-001" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Cliente</Label>
+            <Input value={cliente} onChange={e => setCliente(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Nome do Cliente" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Endereço / Rua</Label>
+          <Input value={endereco} onChange={e => setEndereco(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Rua X, Trecho Y" />
+        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Endereço</Button>
+      </div>
+
       <div className="space-y-2">
         {items.map((o: any) => (
-          <div key={o.id} className="bg-card rounded-lg border border-border p-3">
-            <p className="font-medium text-sm text-foreground">{o.numero_ogs} — {o.cliente}</p>
-            <p className="text-xs text-muted-foreground">{o.endereco}</p>
+          <div key={o.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm text-foreground">{o.numero_ogs} — {o.cliente}</p>
+              <p className="text-xs text-muted-foreground">{o.endereco}</p>
+            </div>
+            <button onClick={() => handleDelete(o.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
       </div>

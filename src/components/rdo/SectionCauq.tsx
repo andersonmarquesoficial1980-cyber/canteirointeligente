@@ -29,7 +29,7 @@ const emptyNF = (): NotaFiscalMassaEntry => ({
 
 export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
   const { data: usinasData } = useUsinas(tipoRdo);
-  const { data: materiaisData } = useMateriais(tipoRdo);
+  const { data: materiaisData } = useMateriais(tipoRdo, "Nota Fiscal");
 
   const usinas = usinasData?.map(u => u.nome) ?? [];
   const materiais = materiaisData?.map(m => m.nome) ?? [];
