@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -17,7 +17,8 @@ serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     // Verify caller is admin
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Não autenticado");
     const token = authHeader.replace("Bearer ", "");
     const { data: { user: caller } } = await supabaseAdmin.auth.getUser(token);
     if (!caller) throw new Error("Não autenticado");
@@ -36,6 +37,10 @@ serve(async (req) => {
       throw new Error("Campos obrigatórios: email, password, nome_completo, perfil");
     }
 
+    if (password.length < 6) {
+      throw new Error("A senha deve ter no mínimo 6 caracteres");
+    }
+
     // Create user via admin API
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -43,15 +48,28 @@ serve(async (req) => {
       email_confirm: true,
     });
 
-    if (createError) throw createError;
+    if (createError) {
+      if (createError.message?.includes("already been registered")) {
+        throw new Error("Este e-mail já está cadastrado no sistema");
+      }
+      throw new Error(createError.message || "Erro ao criar usuário");
+    }
+
     const userId = newUser.user.id;
+
+    // Map perfil display name to DB value
+    const perfilDb = perfil === "Administrador" ? "Administrador" : "Apontador";
 
     // Create profile
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
-      .insert({ user_id: userId, email, nome_completo, perfil, status: "ativo" });
+      .insert({ user_id: userId, email, nome_completo, perfil: perfilDb, status: "ativo" });
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      // Rollback: delete the auth user
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error("Erro ao criar perfil: " + profileError.message);
+    }
 
     // Create role
     const role = perfil === "Administrador" ? "admin" : "apontador";
@@ -59,12 +77,15 @@ serve(async (req) => {
       .from("user_roles")
       .insert({ user_id: userId, role });
 
-    if (roleError) throw roleError;
+    if (roleError) {
+      throw new Error("Erro ao atribuir perfil: " + roleError.message);
+    }
 
     return new Response(JSON.stringify({ success: true, user_id: userId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
+    console.error("create-user error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

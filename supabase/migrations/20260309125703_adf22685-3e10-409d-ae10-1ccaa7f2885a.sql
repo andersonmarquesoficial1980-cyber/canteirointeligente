@@ -1,0 +1,2 @@
+ALTER TABLE public.profiles DROP CONSTRAINT profiles_perfil_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_perfil_check CHECK (perfil = ANY (ARRAY['admin'::text, 'apontador'::text, 'Administrador'::text, 'Apontador'::text]));
