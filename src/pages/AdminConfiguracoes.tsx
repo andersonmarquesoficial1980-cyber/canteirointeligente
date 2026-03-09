@@ -43,9 +43,14 @@ function useCrudTable(tableName: string) {
   };
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from(tableName as any).delete().eq("id", id);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    await load();
+    try {
+      const { error } = await supabase.from(tableName as any).delete().eq("id", id);
+      if (error) { toast({ title: "Erro ao remover", description: error.message, variant: "destructive" }); return; }
+      toast({ title: "✅ Removido!" });
+      await load();
+    } catch (err: any) {
+      toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
+    }
   };
 
   return { items, loading, add, remove, reload: load };
