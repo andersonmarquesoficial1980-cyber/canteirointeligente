@@ -30,16 +30,27 @@ function useCrudTable(tableName: string) {
   useEffect(() => { load(); }, []);
 
   const add = async (item: any) => {
-    const { error } = await supabase.from(tableName as any).insert(item);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return false; }
-    await load();
-    return true;
+    try {
+      const { error } = await supabase.from(tableName as any).insert(item);
+      if (error) { toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" }); return false; }
+      toast({ title: "✅ Adicionado com sucesso!" });
+      await load();
+      return true;
+    } catch (err: any) {
+      toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
+      return false;
+    }
   };
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from(tableName as any).delete().eq("id", id);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    await load();
+    try {
+      const { error } = await supabase.from(tableName as any).delete().eq("id", id);
+      if (error) { toast({ title: "Erro ao remover", description: error.message, variant: "destructive" }); return; }
+      toast({ title: "✅ Removido!" });
+      await load();
+    } catch (err: any) {
+      toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
+    }
   };
 
   return { items, loading, add, remove, reload: load };
@@ -48,11 +59,15 @@ function useCrudTable(tableName: string) {
 // Simple entity form with nome + vinculo_rdo
 function EntityManager({ tableName, label }: { tableName: string; label: string }) {
   const { items, add, remove } = useCrudTable(tableName);
+  const { toast } = useToast();
   const [nome, setNome] = useState("");
   const [vinculo, setVinculo] = useState("TODOS");
 
   const handleAdd = async () => {
-    if (!nome.trim()) return;
+    if (!nome.trim()) { 
+      toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); 
+      return; 
+    }
     const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo });
     if (ok) { setNome(""); setVinculo("TODOS"); }
   };
@@ -95,6 +110,7 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
 // Machines manager (includes frota, categoria, vinculo_rdo)
 function MaquinasManager() {
   const { items, add, remove } = useCrudTable("maquinas_frota");
+  const { toast } = useToast();
   const [frota, setFrota] = useState("");
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
@@ -103,7 +119,10 @@ function MaquinasManager() {
   const [vinculo, setVinculo] = useState("TODOS");
 
   const handleAdd = async () => {
-    if (!frota.trim() || !nome.trim()) return;
+    if (!frota.trim() || !nome.trim()) {
+      toast({ title: "Atenção", description: "Preencha Frota e Nome.", variant: "destructive" });
+      return;
+    }
     const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria, empresa: empresa.trim(), vinculo_rdo: vinculo, status: "ativo" });
     if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setEmpresa(""); setVinculo("TODOS"); }
   };
@@ -345,7 +364,10 @@ function OgsManager() {
   useEffect(() => { load(); }, []);
 
   const handleAdd = async () => {
-    if (!numero.trim() || !cliente.trim() || !endereco.trim()) return;
+    if (!numero.trim() || !cliente.trim() || !endereco.trim()) {
+      toast({ title: "Atenção", description: "Preencha OGS, Cliente e Endereço.", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("ogs_reference").insert({ numero_ogs: numero.trim(), cliente: cliente.trim(), endereco: endereco.trim() } as any);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     setEndereco("");
@@ -398,12 +420,16 @@ function OgsManager() {
 // Material manager with tipo_uso
 function MaterialManager() {
   const { items, add, remove } = useCrudTable("materiais");
+  const { toast } = useToast();
   const [nome, setNome] = useState("");
   const [vinculo, setVinculo] = useState("TODOS");
   const [tipoUso, setTipoUso] = useState("Nota Fiscal");
 
   const handleAdd = async () => {
-    if (!nome.trim()) return;
+    if (!nome.trim()) {
+      toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" });
+      return;
+    }
     const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_uso: tipoUso });
     if (ok) { setNome(""); setVinculo("TODOS"); setTipoUso("Nota Fiscal"); }
   };

@@ -22,7 +22,7 @@ export function useIsAdmin() {
         }
 
         const { data } = await supabase
-          .from("user_roles" as any)
+          .from("user_roles")
           .select("role")
           .eq("user_id", user.id)
           .eq("role", "admin")
