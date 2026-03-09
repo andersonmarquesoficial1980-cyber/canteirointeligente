@@ -117,7 +117,10 @@ function MaquinasManager() {
   const [vinculo, setVinculo] = useState("TODOS");
 
   const handleAdd = async () => {
-    if (!frota.trim() || !nome.trim()) return;
+    if (!frota.trim() || !nome.trim()) {
+      toast({ title: "Atenção", description: "Preencha Frota e Nome.", variant: "destructive" });
+      return;
+    }
     const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria, empresa: empresa.trim(), vinculo_rdo: vinculo, status: "ativo" });
     if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setEmpresa(""); setVinculo("TODOS"); }
   };
