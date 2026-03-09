@@ -26,6 +26,7 @@ export default function RdoForm() {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const isMobile = useIsMobile();
+  const { profile } = useUserProfile();
   const today = new Date().toISOString().split("T")[0];
 
   // Header
