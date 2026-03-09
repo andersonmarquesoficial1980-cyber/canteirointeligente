@@ -230,26 +230,83 @@ function EmailConfig() {
 function UsersManager() {
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [perfil, setPerfil] = useState("Apontador");
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    supabase.from("user_roles" as any).select("*").then(({ data }) => {
-      if (data) setUsers(data as any[]);
-    });
-  }, []);
+  const load = async () => {
+    const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    if (data) setUsers(data as any[]);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!nome.trim() || !email.trim() || !password.trim()) {
+      toast({ title: "Erro", description: "Preencha todos os campos.", variant: "destructive" });
+      return;
+    }
+    setCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: { email: email.trim(), password, nome_completo: nome.trim(), perfil },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "✅ Usuário criado!" });
+      setNome(""); setEmail(""); setPassword(""); setPerfil("Apontador");
+      await load();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally { setCreating(false); }
+  };
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Gerencie perfis de acesso. Use o painel do Supabase para criar novos usuários.</p>
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <p className="text-sm font-semibold text-foreground">Criar Novo Usuário</p>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Nome Completo *</Label>
+          <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Nome do funcionário" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">E-mail *</Label>
+          <Input type="email" value={email} onChange={e => setEmail(e.target.value)} className="h-11 bg-secondary border-border" placeholder="email@empresa.com" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Senha *</Label>
+          <Input type="password" value={password} onChange={e => setPassword(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Mínimo 6 caracteres" minLength={6} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Perfil de Acesso</Label>
+          <Select value={perfil} onValueChange={setPerfil}>
+            <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Administrador">Administrador</SelectItem>
+              <SelectItem value="Apontador">Apontador</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={handleCreate} disabled={creating} className="w-full h-11 gap-2">
+          <Plus className="w-4 h-4" /> {creating ? "Criando..." : "Criar Usuário"}
+        </Button>
+      </div>
+
+      <p className="text-sm font-semibold text-foreground">Usuários Cadastrados</p>
       <div className="space-y-2">
         {users.map((u: any) => (
           <div key={u.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
             <div>
-              <p className="font-medium text-sm text-foreground">{u.user_id?.slice(0, 8)}...</p>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{u.role}</span>
+              <p className="font-medium text-sm text-foreground">{u.nome_completo}</p>
+              <p className="text-xs text-muted-foreground">{u.email}</p>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{u.perfil}</span>
             </div>
           </div>
         ))}
-        {users.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum perfil cadastrado.</p>}
+        {users.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum usuário cadastrado.</p>}
       </div>
     </div>
   );
