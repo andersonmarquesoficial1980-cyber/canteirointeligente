@@ -35,7 +35,7 @@ export function useProfile(user?: User | null) {
         console.error("Error fetching profile:", error);
       }
 
-      setProfile(data);
+      setProfile(data as Profile);
       setLoading(false);
     };
 
