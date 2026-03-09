@@ -420,6 +420,7 @@ function OgsManager() {
 // Material manager with tipo_uso
 function MaterialManager() {
   const { items, add, remove } = useCrudTable("materiais");
+  const { toast } = useToast();
   const [nome, setNome] = useState("");
   const [vinculo, setVinculo] = useState("TODOS");
   const [tipoUso, setTipoUso] = useState("Nota Fiscal");
