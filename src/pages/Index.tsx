@@ -14,16 +14,18 @@ export default function Index() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    console.log("Botão Sair clicado");
     setLoggingOut(true);
+    const forceOut = () => {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = "/login";
+    };
+    const timeout = setTimeout(forceOut, 2000);
     try {
       await supabase.auth.signOut();
-    } catch (e) {
-      console.warn("signOut error:", e);
-    }
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.href = "/login";
+    } catch {}
+    clearTimeout(timeout);
+    forceOut();
   };
 
   return (
