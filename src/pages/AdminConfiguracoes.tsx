@@ -423,7 +423,10 @@ function MaterialManager() {
   const [tipoUso, setTipoUso] = useState("Nota Fiscal");
 
   const handleAdd = async () => {
-    if (!nome.trim()) return;
+    if (!nome.trim()) {
+      toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" });
+      return;
+    }
     const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_uso: tipoUso });
     if (ok) { setNome(""); setVinculo("TODOS"); setTipoUso("Nota Fiscal"); }
   };
