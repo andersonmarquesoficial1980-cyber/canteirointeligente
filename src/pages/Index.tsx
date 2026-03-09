@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { FileText, Truck, MapPin, HardHat, ClipboardList, Settings, LogOut } from "lucide-react";
@@ -10,15 +11,18 @@ export default function Index() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const { profile } = useUserProfile();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
     console.log("Botão Sair clicado");
+    setLoggingOut(true);
     try {
       await supabase.auth.signOut();
     } catch (e) {
       console.warn("signOut error:", e);
     }
     localStorage.clear();
+    sessionStorage.clear();
     window.location.href = "/login";
   };
 
@@ -31,9 +35,15 @@ export default function Index() {
           <p className="text-xs text-muted-foreground truncate">{profile?.email || ""}</p>
           <p className="text-xs text-muted-foreground">{profile?.perfil || ""}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleLogout} className="relative z-50 pointer-events-auto gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0">
-          <LogOut className="w-4 h-4" /> Sair
-        </Button>
+        <button
+          type="button"
+          disabled={loggingOut}
+          onClick={handleLogout}
+          style={{ position: "relative", zIndex: 999 }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-destructive/30 text-destructive bg-background hover:bg-destructive/10 text-sm font-medium shrink-0 cursor-pointer disabled:opacity-50"
+        >
+          <LogOut className="w-4 h-4" /> {loggingOut ? "Saindo..." : "Sair"}
+        </button>
       </div>
 
       <div className="bg-card rounded-2xl border border-border p-6 md:p-10 text-center space-y-5">
