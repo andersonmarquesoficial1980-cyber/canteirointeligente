@@ -362,7 +362,10 @@ function OgsManager() {
   useEffect(() => { load(); }, []);
 
   const handleAdd = async () => {
-    if (!numero.trim() || !cliente.trim() || !endereco.trim()) return;
+    if (!numero.trim() || !cliente.trim() || !endereco.trim()) {
+      toast({ title: "Atenção", description: "Preencha OGS, Cliente e Endereço.", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("ogs_reference").insert({ numero_ogs: numero.trim(), cliente: cliente.trim(), endereco: endereco.trim() } as any);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     setEndereco("");
