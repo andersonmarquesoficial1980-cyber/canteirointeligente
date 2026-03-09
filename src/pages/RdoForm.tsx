@@ -175,11 +175,18 @@ export default function RdoForm() {
 
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+        return;
+      }
+
       const rdoPayload = {
         data: header.data,
         obra_nome: header.obra_nome,
         turno: normalizedTurno,
         clima: header.status_obra || null,
+        user_id: user.id,
       };
       console.log("Payload rdo_diarios:", rdoPayload);
 
