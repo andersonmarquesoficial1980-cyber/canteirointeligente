@@ -1,15 +1,35 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Truck, MapPin, HardHat, ClipboardList, Settings } from "lucide-react";
+import { FileText, Truck, MapPin, HardHat, ClipboardList, Settings, LogOut } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useAuth } from "@/hooks/useAuth";
 import logoFremix from "@/assets/Logo_Fremix.png";
 
 export default function Index() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
+  const { profile } = useUserProfile();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-8 max-w-4xl mx-auto">
+      {/* Top bar with user info and logout */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-foreground">{profile?.nome_completo || "Usuário"}</p>
+          <p className="text-xs text-muted-foreground">{profile?.perfil || ""}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10">
+          <LogOut className="w-4 h-4" /> Sair
+        </Button>
+      </div>
+
       <div className="bg-card rounded-2xl border border-border p-6 md:p-10 text-center space-y-5">
         <img src={logoFremix} alt="Fremix Pavimentação" className="h-16 md:h-20 mx-auto object-contain" />
         <div className="space-y-2">
