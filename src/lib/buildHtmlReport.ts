@@ -146,7 +146,7 @@ th{background:#f3f4f6;font-weight:600}
 </div>`;
     } else if (canteiroData.atividadesCanteiro) {
       html += `<h2>🏗️ Atividades do Canteiro</h2>
-<div style="background:#f3f4f6;padding:12px 16px;border-radius:8px">
+<div style="background:#f3f4f6;padding:12px 16px;border-radius:8px;white-space:pre-wrap">
 ${canteiroData.atividadesCanteiro}
 </div>`;
     }
