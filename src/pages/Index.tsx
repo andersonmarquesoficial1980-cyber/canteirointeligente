@@ -12,12 +12,13 @@ export default function Index() {
   const { profile } = useUserProfile();
 
   const handleLogout = async () => {
+    console.log("Botão Sair clicado");
     try {
       await supabase.auth.signOut();
     } catch (e) {
       console.warn("signOut error:", e);
     }
-    // Force reload to clear all state
+    localStorage.clear();
     window.location.href = "/login";
   };
 
@@ -30,7 +31,7 @@ export default function Index() {
           <p className="text-xs text-muted-foreground truncate">{profile?.email || ""}</p>
           <p className="text-xs text-muted-foreground">{profile?.perfil || ""}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0">
+        <Button variant="outline" size="sm" onClick={handleLogout} className="relative z-50 pointer-events-auto gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0">
           <LogOut className="w-4 h-4" /> Sair
         </Button>
       </div>
