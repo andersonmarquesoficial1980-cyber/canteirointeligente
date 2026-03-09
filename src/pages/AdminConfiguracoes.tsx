@@ -251,11 +251,19 @@ function UsersManager() {
     setCreating(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const { data, error } = await supabase.functions.invoke("create-user", {
+      const response = await supabase.functions.invoke("create-user", {
         body: { email: email.trim(), password, nome_completo: nome.trim(), perfil },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // supabase.functions.invoke returns { data, error }
+      // On non-2xx, error contains the response context but data may have the JSON body
+      const result = response.data;
+      const invokeError = response.error;
+      if (invokeError) {
+        // Try to extract detailed message from the response body
+        const msg = result?.error || invokeError.message || "Erro ao criar usuário";
+        throw new Error(msg);
+      }
+      if (result?.error) throw new Error(result.error);
       toast({ title: "✅ Usuário criado!" });
       setNome(""); setEmail(""); setPassword(""); setPerfil("Apontador");
       await load();
