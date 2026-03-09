@@ -30,13 +30,25 @@ function useCrudTable(tableName: string) {
   useEffect(() => { load(); }, []);
 
   const add = async (item: any) => {
+    console.log(`[CRUD] Tentando adicionar em "${tableName}":`, item);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: "Sessão expirada", description: "Faça login novamente para continuar.", variant: "destructive" });
+        return false;
+      }
       const { error } = await supabase.from(tableName as any).insert(item);
-      if (error) { toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" }); return false; }
+      if (error) {
+        console.error(`[CRUD] Erro ao inserir em "${tableName}":`, error);
+        toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
+        return false;
+      }
+      console.log(`[CRUD] Inserido com sucesso em "${tableName}"`);
       toast({ title: "✅ Adicionado com sucesso!" });
       await load();
       return true;
     } catch (err: any) {
+      console.error(`[CRUD] Exceção em "${tableName}":`, err);
       toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
       return false;
     }
