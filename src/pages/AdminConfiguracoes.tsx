@@ -262,11 +262,27 @@ function OgsManager() {
   const [cliente, setCliente] = useState("");
   const [endereco, setEndereco] = useState("");
 
-  useEffect(() => {
-    supabase.from("ogs_reference").select("*").order("numero_ogs").then(({ data }) => {
-      if (data) setItems(data);
-    });
-  }, []);
+  const load = async () => {
+    const { data } = await supabase.from("ogs_reference").select("*").order("numero_ogs", { ascending: false });
+    if (data) setItems(data);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleAdd = async () => {
+    if (!numero.trim() || !cliente.trim() || !endereco.trim()) return;
+    const { error } = await supabase.from("ogs_reference").insert({ numero_ogs: numero.trim(), cliente: cliente.trim(), endereco: endereco.trim() } as any);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    setEndereco("");
+    toast({ title: "✅ Endereço adicionado!" });
+    await load();
+  };
+
+  const handleDelete = async (id: number) => {
+    const { error } = await supabase.from("ogs_reference").delete().eq("id", id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    await load();
+  };
 
   return (
     <div className="space-y-4">
