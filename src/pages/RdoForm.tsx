@@ -177,11 +177,13 @@ export default function RdoForm() {
 
     setSaving(true);
     try {
+      const responsavelNome = profile?.nome_completo || "Não identificado";
       const rdoPayload = {
         data: header.data,
         obra_nome: header.obra_nome,
         turno: normalizedTurno,
         clima: header.status_obra || null,
+        responsavel: responsavelNome,
       };
       console.log("Payload rdo_diarios:", rdoPayload);
 
