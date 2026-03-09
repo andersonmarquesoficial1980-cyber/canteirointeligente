@@ -59,6 +59,7 @@ function useCrudTable(tableName: string) {
 // Simple entity form with nome + vinculo_rdo
 function EntityManager({ tableName, label }: { tableName: string; label: string }) {
   const { items, add, remove } = useCrudTable(tableName);
+  const { toast } = useToast();
   const [nome, setNome] = useState("");
   const [vinculo, setVinculo] = useState("TODOS");
 
