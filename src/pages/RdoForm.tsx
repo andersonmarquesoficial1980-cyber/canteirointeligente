@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Send, MessageCircle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import RdoHeader from "@/components/rdo/RdoHeader";
 import RdoTipoSelector from "@/components/rdo/RdoTipoSelector";
 import SectionInfraestrutura, { type InfraProducaoEntry } from "@/components/rdo/SectionInfraestrutura";
@@ -25,6 +26,7 @@ export default function RdoForm() {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const isMobile = useIsMobile();
+  const { profile } = useUserProfile();
   const today = new Date().toISOString().split("T")[0];
 
   // Header
@@ -175,11 +177,13 @@ export default function RdoForm() {
 
     setSaving(true);
     try {
+      const responsavelNome = profile?.nome_completo || "Não identificado";
       const rdoPayload = {
         data: header.data,
         obra_nome: header.obra_nome,
         turno: normalizedTurno,
         clima: header.status_obra || null,
+        responsavel: responsavelNome,
       };
       console.log("Payload rdo_diarios:", rdoPayload);
 
@@ -276,7 +280,7 @@ export default function RdoForm() {
       }
 
       // Build HTML report and send email
-      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro });
+      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome);
       let emailSent = false;
       try {
         console.log("Iniciando envio de e-mail...");

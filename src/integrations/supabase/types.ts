@@ -613,6 +613,7 @@ export type Database = {
           data: string | null
           id: string
           obra_nome: string
+          responsavel: string | null
           turno: string | null
           user_id: string | null
         }
@@ -622,6 +623,7 @@ export type Database = {
           data?: string | null
           id?: string
           obra_nome: string
+          responsavel?: string | null
           turno?: string | null
           user_id?: string | null
         }
@@ -631,6 +633,7 @@ export type Database = {
           data?: string | null
           id?: string
           obra_nome?: string
+          responsavel?: string | null
           turno?: string | null
           user_id?: string | null
         }
