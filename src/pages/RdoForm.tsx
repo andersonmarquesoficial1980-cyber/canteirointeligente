@@ -280,7 +280,7 @@ export default function RdoForm() {
       }
 
       // Build HTML report and send email
-      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro });
+      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome);
       let emailSent = false;
       try {
         console.log("Iniciando envio de e-mail...");
