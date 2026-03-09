@@ -11,6 +11,7 @@ import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const VINCULO_OPTIONS = ["CAUQ", "INFRA", "CANTEIRO", "TODOS"];
+const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
 const CATEGORIAS_EQUIP = ["PEQUENO PORTE", "FRESA/BOB", "VIBRO/ROLO", "LINHA AMARELA", "USINAGEM", "VEÍCULOS EM GERAL"];
 
 // Generic CRUD hook for simple tables
