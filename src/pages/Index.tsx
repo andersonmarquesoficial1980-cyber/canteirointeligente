@@ -12,12 +12,13 @@ export default function Index() {
   const { profile } = useUserProfile();
 
   const handleLogout = async () => {
+    console.log("Botão Sair clicado");
     try {
       await supabase.auth.signOut();
     } catch (e) {
       console.warn("signOut error:", e);
     }
-    // Force reload to clear all state
+    localStorage.clear();
     window.location.href = "/login";
   };
 
