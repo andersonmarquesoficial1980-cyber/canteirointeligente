@@ -273,7 +273,7 @@ function UsersManager() {
         throw new Error(msg);
       }
       if (result?.error) throw new Error(result.error);
-      toast({ title: "✅ Usuário criado!" });
+      toast({ title: "✅ Usuário cadastrado com sucesso!" });
       setNome(""); setEmail(""); setPassword(""); setPerfil("Apontador");
       await load();
     } catch (err: any) {
