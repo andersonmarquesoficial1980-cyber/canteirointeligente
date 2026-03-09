@@ -358,7 +358,7 @@ export default function AdminConfiguracoes() {
 
           <TabsContent value="maquinas"><MaquinasManager /></TabsContent>
           <TabsContent value="tipos_servico"><EntityManager tableName="tipos_servico" label="Tipo de Serviço" /></TabsContent>
-          <TabsContent value="materiais"><EntityManager tableName="materiais" label="Material" /></TabsContent>
+          <TabsContent value="materiais"><MaterialManager /></TabsContent>
           <TabsContent value="empreiteiros"><EntityManager tableName="empreiteiros" label="Empreiteiro" /></TabsContent>
           <TabsContent value="fornecedores"><EntityManager tableName="fornecedores" label="Fornecedor" /></TabsContent>
           <TabsContent value="usinas"><EntityManager tableName="usinas" label="Usina" /></TabsContent>
