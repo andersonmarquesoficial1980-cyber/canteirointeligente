@@ -58,6 +58,7 @@ th{background:#f3f4f6;font-weight:600}
 <tr><th>Data</th><td>${formatDate(header.data)}</td><th>OGS</th><td>${header.obra_nome}</td></tr>
 <tr><th>Cliente</th><td>${header.cliente}</td><th>Local</th><td>${header.local}</td></tr>
 <tr><th>Status</th><td>${header.status_obra}</td><th>Tipo</th><td>${tipoRdo}</td></tr>
+<tr><th>Responsável</th><td colspan="3">${responsavel || "—"}</td></tr>
 </table>
 </div>`;
 
