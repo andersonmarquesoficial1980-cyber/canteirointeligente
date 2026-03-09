@@ -5,17 +5,24 @@ interface FilteredItem {
   id: string;
   nome: string;
   vinculo_rdo: string;
+  tipo_uso?: string;
 }
 
-function useFilteredTable(tableName: string, tipoRdo: string) {
+function useFilteredTable(tableName: string, tipoRdo: string, tipoUso?: string) {
   return useQuery({
-    queryKey: [tableName, tipoRdo],
+    queryKey: [tableName, tipoRdo, tipoUso],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from(tableName as any)
         .select("*")
         .or(`vinculo_rdo.eq.${tipoRdo},vinculo_rdo.eq.TODOS`)
         .order("nome");
+
+      if (tipoUso && tableName === "materiais") {
+        query = query.or(`tipo_uso.eq.${tipoUso},tipo_uso.eq.Ambos`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as unknown as FilteredItem[];
     },
@@ -27,8 +34,8 @@ export function useTiposServico(tipoRdo: string) {
   return useFilteredTable("tipos_servico", tipoRdo);
 }
 
-export function useMateriais(tipoRdo: string) {
-  return useFilteredTable("materiais", tipoRdo);
+export function useMateriais(tipoRdo: string, tipoUso?: string) {
+  return useFilteredTable("materiais", tipoRdo, tipoUso);
 }
 
 export function useEmpreiteiros(tipoRdo: string) {

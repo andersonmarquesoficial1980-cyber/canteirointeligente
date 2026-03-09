@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
+import { useMateriais } from "@/hooks/useFilteredData";
 
 export interface BasculanteEntry {
   id: string;
@@ -15,15 +16,17 @@ export interface BasculanteEntry {
 interface Props {
   entries: BasculanteEntry[];
   onChange: (entries: BasculanteEntry[]) => void;
+  tipoRdo: string;
 }
-
-const MATERIAIS_BASCULANTE = ["Fresado", "RAP", "BGS", "Rachão", "Limpeza"];
 
 const emptyBasc = (): BasculanteEntry => ({
   id: crypto.randomUUID(), placa: "", material: "", viagens: "", empresa_dona: "",
 });
 
-export default function SectionBasculante({ entries, onChange }: Props) {
+export default function SectionBasculante({ entries, onChange, tipoRdo }: Props) {
+  const { data: materiaisData } = useMateriais(tipoRdo, "Transporte");
+  const materiais = materiaisData?.map(m => m.nome) ?? [];
+
   const update = (id: string, field: string, value: string) =>
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
 
@@ -51,7 +54,9 @@ export default function SectionBasculante({ entries, onChange }: Props) {
               <Select value={entry.material} onValueChange={v => update(entry.id, "material", v)}>
                 <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {MATERIAIS_BASCULANTE.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  {materiais.length > 0
+                    ? materiais.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)
+                    : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum material de transporte cadastrado</p>}
                 </SelectContent>
               </Select>
             </div>

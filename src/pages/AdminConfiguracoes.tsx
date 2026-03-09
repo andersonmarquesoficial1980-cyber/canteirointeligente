@@ -11,6 +11,7 @@ import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const VINCULO_OPTIONS = ["CAUQ", "INFRA", "CANTEIRO", "TODOS"];
+const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
 const CATEGORIAS_EQUIP = ["PEQUENO PORTE", "FRESA/BOB", "VIBRO/ROLO", "LINHA AMARELA", "USINAGEM", "VEÍCULOS EM GERAL"];
 
 // Generic CRUD hook for simple tables
@@ -262,22 +263,121 @@ function OgsManager() {
   const [cliente, setCliente] = useState("");
   const [endereco, setEndereco] = useState("");
 
-  useEffect(() => {
-    supabase.from("ogs_reference").select("*").order("numero_ogs").then(({ data }) => {
-      if (data) setItems(data);
-    });
-  }, []);
+  const load = async () => {
+    const { data } = await supabase.from("ogs_reference").select("*").order("numero_ogs", { ascending: false });
+    if (data) setItems(data);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleAdd = async () => {
+    if (!numero.trim() || !cliente.trim() || !endereco.trim()) return;
+    const { error } = await supabase.from("ogs_reference").insert({ numero_ogs: numero.trim(), cliente: cliente.trim(), endereco: endereco.trim() } as any);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    setEndereco("");
+    toast({ title: "✅ Endereço adicionado!" });
+    await load();
+  };
+
+  const handleDelete = async (id: number) => {
+    const { error } = await supabase.from("ogs_reference").delete().eq("id", id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    await load();
+  };
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">OGS cadastradas. Para adicionar novas OGS, utilize o painel do Supabase.</p>
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <p className="text-sm text-muted-foreground">Adicione endereços a uma OGS. Uma mesma OGS pode ter vários endereços.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Nº OGS</Label>
+            <Input value={numero} onChange={e => setNumero(e.target.value)} className="h-11 bg-secondary border-border" placeholder="OGS-001" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Cliente</Label>
+            <Input value={cliente} onChange={e => setCliente(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Nome do Cliente" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Endereço / Rua</Label>
+          <Input value={endereco} onChange={e => setEndereco(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Rua X, Trecho Y" />
+        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Endereço</Button>
+      </div>
+
       <div className="space-y-2">
         {items.map((o: any) => (
-          <div key={o.id} className="bg-card rounded-lg border border-border p-3">
-            <p className="font-medium text-sm text-foreground">{o.numero_ogs} — {o.cliente}</p>
-            <p className="text-xs text-muted-foreground">{o.endereco}</p>
+          <div key={o.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm text-foreground">{o.numero_ogs} — {o.cliente}</p>
+              <p className="text-xs text-muted-foreground">{o.endereco}</p>
+            </div>
+            <button onClick={() => handleDelete(o.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// Material manager with tipo_uso
+function MaterialManager() {
+  const { items, add, remove } = useCrudTable("materiais");
+  const [nome, setNome] = useState("");
+  const [vinculo, setVinculo] = useState("TODOS");
+  const [tipoUso, setTipoUso] = useState("Nota Fiscal");
+
+  const handleAdd = async () => {
+    if (!nome.trim()) return;
+    const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_uso: tipoUso });
+    if (ok) { setNome(""); setVinculo("TODOS"); setTipoUso("Nota Fiscal"); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Nome</Label>
+          <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Novo Material" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Vincular ao RDO</Label>
+            <Select value={vinculo} onValueChange={setVinculo}>
+              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
+            <Select value={tipoUso} onValueChange={setTipoUso}>
+              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TIPO_USO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
+      </div>
+
+      <div className="space-y-2">
+        {items.map((item: any) => (
+          <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm text-foreground">{item.nome}</p>
+              <div className="flex gap-2 mt-0.5">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{item.vinculo_rdo}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.tipo_uso || "Nota Fiscal"}</span>
+              </div>
+            </div>
+            <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum cadastro.</p>}
       </div>
     </div>
   );
@@ -320,7 +420,7 @@ export default function AdminConfiguracoes() {
 
           <TabsContent value="maquinas"><MaquinasManager /></TabsContent>
           <TabsContent value="tipos_servico"><EntityManager tableName="tipos_servico" label="Tipo de Serviço" /></TabsContent>
-          <TabsContent value="materiais"><EntityManager tableName="materiais" label="Material" /></TabsContent>
+          <TabsContent value="materiais"><MaterialManager /></TabsContent>
           <TabsContent value="empreiteiros"><EntityManager tableName="empreiteiros" label="Empreiteiro" /></TabsContent>
           <TabsContent value="fornecedores"><EntityManager tableName="fornecedores" label="Fornecedor" /></TabsContent>
           <TabsContent value="usinas"><EntityManager tableName="usinas" label="Usina" /></TabsContent>
