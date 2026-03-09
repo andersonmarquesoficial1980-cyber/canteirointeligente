@@ -3,29 +3,34 @@ import { Button } from "@/components/ui/button";
 import { FileText, Truck, MapPin, HardHat, ClipboardList, Settings, LogOut } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import logoFremix from "@/assets/Logo_Fremix.png";
 
 export default function Index() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const { profile } = useUserProfile();
-  const { signOut } = useAuth();
 
   const handleLogout = async () => {
-    await signOut();
-    navigate("/login");
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn("signOut error:", e);
+    }
+    // Force reload to clear all state
+    window.location.href = "/login";
   };
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-8 max-w-4xl mx-auto">
       {/* Top bar with user info and logout */}
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-foreground">{profile?.nome_completo || "Usuário"}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground truncate">{profile?.nome_completo || "Usuário"}</p>
+          <p className="text-xs text-muted-foreground truncate">{profile?.email || ""}</p>
           <p className="text-xs text-muted-foreground">{profile?.perfil || ""}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10">
+        <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0">
           <LogOut className="w-4 h-4" /> Sair
         </Button>
       </div>

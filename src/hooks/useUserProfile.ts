@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface UserProfile {
   nome_completo: string;
   perfil: string;
+  email: string;
 }
 
 export function useUserProfile() {
@@ -12,16 +13,24 @@ export function useUserProfile() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoading(false); return; }
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("nome_completo, perfil")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        const { data } = await supabase
+          .from("profiles")
+          .select("nome_completo, perfil")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      if (data) setProfile(data as UserProfile);
+        setProfile({
+          nome_completo: (data as any)?.nome_completo || user.email?.split("@")[0] || "Usuário",
+          perfil: (data as any)?.perfil || "Apontador",
+          email: user.email || "",
+        });
+      } catch {
+        // non-blocking
+      }
       setLoading(false);
     };
     load();
