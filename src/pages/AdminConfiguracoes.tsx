@@ -110,6 +110,7 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
 // Machines manager (includes frota, categoria, vinculo_rdo)
 function MaquinasManager() {
   const { items, add, remove } = useCrudTable("maquinas_frota");
+  const { toast } = useToast();
   const [frota, setFrota] = useState("");
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
