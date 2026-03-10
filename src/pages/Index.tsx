@@ -16,9 +16,9 @@ export default function Index() {
   const handleLogout = async () => {
     setLoggingOut(true);
     const forceOut = () => {
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = "/";
+      try { localStorage.clear(); } catch {}
+      try { sessionStorage.clear(); } catch {}
+      window.location.replace("/");
     };
     const timeout = setTimeout(forceOut, 2000);
     try {
