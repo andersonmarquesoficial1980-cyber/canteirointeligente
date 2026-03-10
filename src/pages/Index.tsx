@@ -15,9 +15,19 @@ export default function Index() {
 
   const handleLogout = async () => {
     setLoggingOut(true);
-    const forceOut = () => {
+    const forceOut = async () => {
       try { localStorage.clear(); } catch {}
       try { sessionStorage.clear(); } catch {}
+      // Unregister all service workers to purge cached assets
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) { await r.unregister().catch(() => {}); }
+      }
+      // Clear caches API
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        for (const k of keys) { await caches.delete(k).catch(() => {}); }
+      }
       window.location.replace("/");
     };
     const timeout = setTimeout(forceOut, 2000);
