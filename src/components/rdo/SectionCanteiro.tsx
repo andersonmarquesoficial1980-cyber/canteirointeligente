@@ -33,17 +33,16 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
-    const matchedFornecedor = fornecedores.find(f => f === data.fornecedor) || fuzzyMatch(data.fornecedor || "", fornecedores) || data.fornecedor || "";
-    
+    // Only fill text/number fields; leave fornecedor select empty for manual selection
     const newEntry: NotaFiscalInsumoEntry = {
       id: crypto.randomUUID(),
       nf: data.nf || "",
-      fornecedor: matchedFornecedor,
-      material: data.material || "",
+      fornecedor: "",
+      material: "",
       quantidade: data.quantidade || "",
       photo_url: photoUrl,
     };
-    console.log("[SectionCanteiro] OCR entry:", newEntry);
+    console.log("[SectionCanteiro] OCR entry (text only):", newEntry);
     onChange([...entries, newEntry]);
   };
 
