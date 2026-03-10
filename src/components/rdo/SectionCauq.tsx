@@ -41,24 +41,25 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
   const totalTon = entries.reduce((sum, e) => sum + (parseFloat(e.tonelagem) || 0), 0);
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
-    // Usina: already fuzzy-matched by NfPhotoCapture, verify it's in the list
-    const matchedUsina = usinas.find(u => u === data.usina) || fuzzyMatch(data.usina || "", usinas) || "";
-    
-    // Material: already fuzzy-matched, verify and set Outro if needed
-    const matchedMaterial = materiais.find(m => m === data.tipo_material) || fuzzyMatch(data.tipo_material || "", materiais);
-    
+    // Only fill text/number fields; leave selects (usina, material) empty for manual selection
     const newEntry: NotaFiscalMassaEntry = {
       id: crypto.randomUUID(),
       nf: data.nf || "",
       placa: (data.placa || "").toUpperCase(),
-      usina: matchedUsina,
+      usina: "",
       tonelagem: data.tonelagem || "",
-      tipo_material: matchedMaterial || (data.tipo_material ? "Outro" : ""),
-      tipo_material_outro: matchedMaterial ? "" : (data.tipo_material || ""),
+      tipo_material: "",
+      tipo_material_outro: "",
       photo_url: photoUrl,
     };
-    console.log("[SectionCauq] OCR entry:", newEntry);
+    console.log("[SectionCauq] OCR entry (text only):", newEntry);
     onChange([...entries, newEntry]);
+
+    // Focus user on the Usina select for manual selection
+    setTimeout(() => {
+      const newCard = document.querySelector(`[data-entry-id="${newEntry.id}"] [data-usina-trigger]`);
+      if (newCard instanceof HTMLElement) newCard.focus();
+    }, 200);
   };
 
   return (
