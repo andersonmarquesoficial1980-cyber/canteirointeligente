@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import RdoForm from "./pages/RdoForm";
@@ -31,13 +32,19 @@ function AppRoutes() {
 
   return (
     <AppLayout>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/rdo" element={<RdoForm />} />
-        <Route path="/frota/novo" element={<FrotaNovo />} />
-        <Route path="/admin/configuracoes" element={<AdminConfiguracoes />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/rdo" element={<RdoForm />} />
+          <Route path="/frota/novo" element={<FrotaNovo />} />
+          <Route path="/admin/configuracoes" element={
+            <ErrorBoundary fallbackMessage="Erro ao carregar Configurações.">
+              <AdminConfiguracoes />
+            </ErrorBoundary>
+          } />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </ErrorBoundary>
     </AppLayout>
   );
 }
