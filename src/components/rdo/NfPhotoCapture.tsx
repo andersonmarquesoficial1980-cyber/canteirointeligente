@@ -49,29 +49,19 @@ export default function NfPhotoCapture({ tipo, onExtracted }: Props) {
       if (error) throw error;
 
       if (data?.extracted && Object.keys(data.extracted).length > 0) {
-        console.log("[OCR] Raw extracted:", data.extracted);
-
-        // Client-side fuzzy match as fallback
-        const extracted = { ...data.extracted };
+        console.log("[OCR] Extracted:", data.extracted);
+        // Only pass text/number fields, strip any select-related fields
+        const clean: Record<string, string> = {};
         if (tipo === "CAUQ") {
-          if (extracted.usina && usinasOptions?.length) {
-            const matched = fuzzyMatch(extracted.usina, usinasOptions);
-            if (matched) extracted.usina = matched;
-          }
-          if (extracted.tipo_material && materiaisOptions?.length) {
-            const matched = fuzzyMatch(extracted.tipo_material, materiaisOptions);
-            if (matched) extracted.tipo_material = matched;
-          }
+          if (data.extracted.nf) clean.nf = data.extracted.nf;
+          if (data.extracted.placa) clean.placa = data.extracted.placa;
+          if (data.extracted.tonelagem) clean.tonelagem = data.extracted.tonelagem;
         } else {
-          if (extracted.fornecedor && fornecedoresOptions?.length) {
-            const matched = fuzzyMatch(extracted.fornecedor, fornecedoresOptions);
-            if (matched) extracted.fornecedor = matched;
-          }
+          if (data.extracted.nf) clean.nf = data.extracted.nf;
+          if (data.extracted.quantidade) clean.quantidade = data.extracted.quantidade;
         }
-
-        console.log("[OCR] After fuzzy match:", extracted);
-        toast({ title: "✅ Dados extraídos!", description: "Confira e corrija se necessário." });
-        onExtracted(extracted, photoUrl);
+        toast({ title: "✅ Dados extraídos!", description: "Selecione Usina e Material manualmente." });
+        onExtracted(clean, photoUrl);
       } else {
         toast({ title: "⚠️ Nenhum dado encontrado", description: "Preencha manualmente.", variant: "destructive" });
       }

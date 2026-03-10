@@ -92,7 +92,7 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Usina</Label>
               <Select value={entry.usina} onValueChange={v => update(entry.id, "usina", v)}>
-                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger data-usina-trigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent className="max-h-[250px]">
                   {usinas.length > 0
                     ? usinas.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)

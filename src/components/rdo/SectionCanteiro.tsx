@@ -53,7 +53,6 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
       <NfPhotoCapture
         tipo="CANTEIRO"
         onExtracted={handleOcrExtracted}
-        fornecedoresOptions={fornecedores}
       />
 
       {entries.map((entry, idx) => (
