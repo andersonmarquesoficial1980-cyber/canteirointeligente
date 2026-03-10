@@ -33,17 +33,23 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
-    // Only fill text/number fields; leave fornecedor select empty for manual selection
-    const newEntry: NotaFiscalInsumoEntry = {
-      id: crypto.randomUUID(),
+    // Find first empty entry to reuse instead of always appending
+    const emptyIdx = entries.findIndex(e => !e.nf && !e.fornecedor && !e.quantidade);
+
+    const ocrData: Partial<NotaFiscalInsumoEntry> = {
       nf: data.nf || "",
       fornecedor: "",
       material: "",
       quantidade: data.quantidade || "",
       photo_url: photoUrl,
     };
-    console.log("[SectionCanteiro] OCR entry (text only):", newEntry);
-    onChange([...entries, newEntry]);
+
+    if (emptyIdx >= 0) {
+      onChange(entries.map((e, i) => i === emptyIdx ? { ...e, ...ocrData } : e));
+    } else {
+      onChange([...entries, { id: crypto.randomUUID(), ...ocrData } as NotaFiscalInsumoEntry]);
+    }
+    console.log("[SectionCanteiro] OCR filling slot:", emptyIdx >= 0 ? emptyIdx + 1 : "new");
   };
 
   return (

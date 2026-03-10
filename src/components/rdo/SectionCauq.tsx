@@ -41,23 +41,38 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
   const totalTon = entries.reduce((sum, e) => sum + (parseFloat(e.tonelagem) || 0), 0);
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
-    // Only fill text/number fields; leave selects (usina, material) empty for manual selection
-    const newEntry: NotaFiscalMassaEntry = {
-      id: crypto.randomUUID(),
+    // Find first empty entry (no nf filled) to reuse instead of always appending
+    const emptyIdx = entries.findIndex(e => !e.nf && !e.placa && !e.tonelagem && !e.usina);
+    
+    const ocrData: Partial<NotaFiscalMassaEntry> = {
       nf: data.nf || "",
       placa: (data.placa || "").toUpperCase(),
-      usina: "",
       tonelagem: data.tonelagem || "",
+      usina: "",
       tipo_material: "",
       tipo_material_outro: "",
       photo_url: photoUrl,
     };
-    console.log("[SectionCauq] OCR entry (text only):", newEntry);
-    onChange([...entries, newEntry]);
+
+    let updatedEntries: NotaFiscalMassaEntry[];
+    let targetId: string;
+
+    if (emptyIdx >= 0) {
+      // Fill the first empty slot
+      targetId = entries[emptyIdx].id;
+      updatedEntries = entries.map((e, i) => i === emptyIdx ? { ...e, ...ocrData } : e);
+    } else {
+      // All slots filled, append new entry
+      targetId = crypto.randomUUID();
+      updatedEntries = [...entries, { id: targetId, ...ocrData } as NotaFiscalMassaEntry];
+    }
+
+    console.log("[SectionCauq] OCR filling slot:", emptyIdx >= 0 ? emptyIdx + 1 : "new");
+    onChange(updatedEntries);
 
     // Focus user on the Usina select for manual selection
     setTimeout(() => {
-      const newCard = document.querySelector(`[data-entry-id="${newEntry.id}"] [data-usina-trigger]`);
+      const newCard = document.querySelector(`[data-entry-id="${targetId}"] [data-usina-trigger]`);
       if (newCard instanceof HTMLElement) newCard.focus();
     }, 200);
   };

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Search } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FUNCIONARIOS } from "@/data/funcionarios";
 
 export interface EfetivoEntry {
@@ -34,6 +35,9 @@ interface StepEfetivoProps {
   onChangeGlobalSaida: (v: string) => void;
 }
 
+// Get unique functions sorted alphabetically
+const FUNCOES_UNICAS = [...new Set(FUNCIONARIOS.map(f => f.funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
 export default function StepEfetivo({ entries, onChange, globalEntrada, globalSaida, onChangeGlobalEntrada, onChangeGlobalSaida }: StepEfetivoProps) {
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const addBtnRef = useRef<HTMLButtonElement>(null);
@@ -46,10 +50,15 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
     prevCountRef.current = entries.length;
   }, [entries.length]);
 
+  const handleFuncaoChange = (entryId: string, funcao: string) => {
+    // When function changes, clear nome/matricula to avoid inconsistency
+    onChange(entries.map(e => e.id === entryId ? { ...e, funcao, nome: "", matricula: "" } : e));
+  };
+
   const selectFuncionario = (entryId: string, matricula: string) => {
     const func = FUNCIONARIOS.find(f => f.matricula === matricula);
     if (func) {
-      onChange(entries.map(e => e.id === entryId ? { ...e, matricula: func.matricula, nome: func.nome, funcao: func.funcao } : e));
+      onChange(entries.map(e => e.id === entryId ? { ...e, matricula: func.matricula, nome: func.nome } : e));
     }
     setOpenPopoverId(null);
   };
@@ -68,6 +77,13 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
   }, [entries]);
 
   const filledEntries = entries.filter(e => e.nome);
+
+  // Get filtered and sorted employees for a given function
+  const getFilteredFuncionarios = (funcao: string) => {
+    return FUNCIONARIOS
+      .filter(f => f.funcao === funcao)
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  };
 
   return (
     <div className="space-y-5 p-4">
@@ -98,65 +114,79 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
         </div>
       </div>
 
-      {entries.map((entry, idx) => (
-        <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-primary">Pessoa {idx + 1}</span>
-            {entries.length > 1 && (
-              <button onClick={() => removeEntry(entry.id)} className="text-destructive p-2">
-                <Trash2 className="w-5 h-5" />
-              </button>
-            )}
-          </div>
+      {entries.map((entry, idx) => {
+        const funcionariosFiltrados = entry.funcao ? getFilteredFuncionarios(entry.funcao) : [];
 
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Nome</Label>
-            <Popover open={openPopoverId === entry.id} onOpenChange={(open) => setOpenPopoverId(open ? entry.id : null)}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" className="w-full h-12 justify-between text-left font-normal bg-secondary border-border text-base">
-                  {entry.nome ? (
-                    <span className="truncate">{entry.nome}</span>
-                  ) : (
-                    <span className="text-muted-foreground">Buscar funcionário...</span>
-                  )}
-                  <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Digite o nome..." />
-                  <CommandList className="max-h-[250px]">
-                    <CommandEmpty>Nenhum encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      {FUNCIONARIOS.map(f => (
-                        <CommandItem
-                          key={f.matricula}
-                          value={`${f.nome} ${f.matricula}`}
-                          onSelect={() => selectFuncionario(entry.id, f.matricula)}
-                          className="text-sm"
-                        >
-                          <span className="font-medium">{f.nome}</span>
-                          <span className="ml-auto text-xs text-muted-foreground">{f.matricula}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
+        return (
+          <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-primary">Pessoa {idx + 1}</span>
+              {entries.length > 1 && (
+                <button onClick={() => removeEntry(entry.id)} className="text-destructive p-2">
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              )}
+            </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Função</Label>
-            <Input
-              value={entry.funcao}
-              readOnly
-              className="h-12 text-base bg-muted border-border text-muted-foreground"
-              placeholder="Preenchido automaticamente"
-            />
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Função</Label>
+              <Select value={entry.funcao} onValueChange={v => handleFuncaoChange(entry.id, v)}>
+                <SelectTrigger className="w-full h-12 bg-secondary border-border text-base">
+                  <SelectValue placeholder="Selecione a função..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[250px]">
+                  {FUNCOES_UNICAS.map(f => (
+                    <SelectItem key={f} value={f}>{f}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Nome</Label>
+              {entry.funcao ? (
+                <Popover open={openPopoverId === entry.id} onOpenChange={(open) => setOpenPopoverId(open ? entry.id : null)}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full h-12 justify-between text-left font-normal bg-secondary border-border text-base">
+                      {entry.nome ? (
+                        <span className="truncate">{entry.nome}</span>
+                      ) : (
+                        <span className="text-muted-foreground">Buscar funcionário...</span>
+                      )}
+                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Digite o nome..." />
+                      <CommandList className="max-h-[250px]">
+                        <CommandEmpty>Nenhum encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {funcionariosFiltrados.map(f => (
+                            <CommandItem
+                              key={f.matricula}
+                              value={`${f.nome} ${f.matricula}`}
+                              onSelect={() => selectFuncionario(entry.id, f.matricula)}
+                              className="text-sm"
+                            >
+                              <span className="font-medium">{f.nome}</span>
+                              <span className="ml-auto text-xs text-muted-foreground">{f.matricula}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <div className="h-12 flex items-center px-3 rounded-md bg-muted border border-border text-sm text-muted-foreground">
+                  Selecione a função primeiro
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       <Button ref={addBtnRef} onClick={addEntry} className="w-full h-12 gap-2 text-base">
         <Plus className="w-5 h-5" /> Adicionar Pessoa
