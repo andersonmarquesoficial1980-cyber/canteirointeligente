@@ -3,7 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import NfPhotoCapture, { fuzzyMatch } from "./NfPhotoCapture";
+import NfPhotoCapture from "./NfPhotoCapture";
 import { useUsinas, useMateriais } from "@/hooks/useFilteredData";
 
 export interface NotaFiscalMassaEntry {
@@ -41,24 +41,25 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
   const totalTon = entries.reduce((sum, e) => sum + (parseFloat(e.tonelagem) || 0), 0);
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
-    // Usina: already fuzzy-matched by NfPhotoCapture, verify it's in the list
-    const matchedUsina = usinas.find(u => u === data.usina) || fuzzyMatch(data.usina || "", usinas) || "";
-    
-    // Material: already fuzzy-matched, verify and set Outro if needed
-    const matchedMaterial = materiais.find(m => m === data.tipo_material) || fuzzyMatch(data.tipo_material || "", materiais);
-    
+    // Only fill text/number fields; leave selects (usina, material) empty for manual selection
     const newEntry: NotaFiscalMassaEntry = {
       id: crypto.randomUUID(),
       nf: data.nf || "",
       placa: (data.placa || "").toUpperCase(),
-      usina: matchedUsina,
+      usina: "",
       tonelagem: data.tonelagem || "",
-      tipo_material: matchedMaterial || (data.tipo_material ? "Outro" : ""),
-      tipo_material_outro: matchedMaterial ? "" : (data.tipo_material || ""),
+      tipo_material: "",
+      tipo_material_outro: "",
       photo_url: photoUrl,
     };
-    console.log("[SectionCauq] OCR entry:", newEntry);
+    console.log("[SectionCauq] OCR entry (text only):", newEntry);
     onChange([...entries, newEntry]);
+
+    // Focus user on the Usina select for manual selection
+    setTimeout(() => {
+      const newCard = document.querySelector(`[data-entry-id="${newEntry.id}"] [data-usina-trigger]`);
+      if (newCard instanceof HTMLElement) newCard.focus();
+    }, 200);
   };
 
   return (
@@ -68,12 +69,10 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
       <NfPhotoCapture
         tipo="CAUQ"
         onExtracted={handleOcrExtracted}
-        usinasOptions={usinas}
-        materiaisOptions={materiais}
       />
 
       {entries.map((entry, idx) => (
-        <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div key={entry.id} data-entry-id={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-primary">NF {idx + 1}</span>
@@ -93,7 +92,7 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Usina</Label>
               <Select value={entry.usina} onValueChange={v => update(entry.id, "usina", v)}>
-                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger data-usina-trigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent className="max-h-[250px]">
                   {usinas.length > 0
                     ? usinas.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)

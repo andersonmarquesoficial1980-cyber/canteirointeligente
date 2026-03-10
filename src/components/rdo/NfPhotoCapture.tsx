@@ -7,51 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 interface Props {
   tipo: "CAUQ" | "CANTEIRO";
   onExtracted: (data: Record<string, string>, photoUrl: string) => void;
-  /** Lists for fuzzy matching on the AI side */
-  usinasOptions?: string[];
-  materiaisOptions?: string[];
-  fornecedoresOptions?: string[];
 }
 
-/** Normalize string for comparison: lowercase, remove accents, trim */
-function normalize(s: string): string {
-  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-}
-
-/** Fuzzy match: find best option from list that contains or is contained in the value */
-export function fuzzyMatch(value: string, options: string[]): string | null {
-  if (!value || !options.length) return null;
-  const nVal = normalize(value);
-
-  // 1. Exact match (case-insensitive)
-  const exact = options.find(o => normalize(o) === nVal);
-  if (exact) return exact;
-
-  // 2. One contains the other
-  const contains = options.find(o => {
-    const nOpt = normalize(o);
-    return nVal.includes(nOpt) || nOpt.includes(nVal);
-  });
-  if (contains) return contains;
-
-  // 3. Word overlap scoring
-  const valWords = nVal.split(/\s+/);
-  let bestScore = 0;
-  let bestMatch: string | null = null;
-  for (const opt of options) {
-    const optWords = normalize(opt).split(/\s+/);
-    const overlap = valWords.filter(w => optWords.some(ow => ow.includes(w) || w.includes(ow))).length;
-    const score = overlap / Math.max(valWords.length, optWords.length);
-    if (score > bestScore && score >= 0.3) {
-      bestScore = score;
-      bestMatch = opt;
-    }
-  }
-
-  return bestMatch;
-}
-
-export default function NfPhotoCapture({ tipo, onExtracted, usinasOptions, materiaisOptions, fornecedoresOptions }: Props) {
+export default function NfPhotoCapture({ tipo, onExtracted }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -83,43 +41,27 @@ export default function NfPhotoCapture({ tipo, onExtracted, usinasOptions, mater
       }
       const base64 = btoa(binary);
 
-      // 3. Call OCR edge function with reference lists
+      // 3. Call OCR edge function (extract text/number fields only)
       const { data, error } = await supabase.functions.invoke("ocr-nota-fiscal", {
-        body: {
-          image_base64: base64,
-          tipo,
-          usinas_list: usinasOptions || [],
-          materiais_list: materiaisOptions || [],
-          fornecedores_list: fornecedoresOptions || [],
-        },
+        body: { image_base64: base64, tipo },
       });
 
       if (error) throw error;
 
       if (data?.extracted && Object.keys(data.extracted).length > 0) {
-        console.log("[OCR] Raw extracted:", data.extracted);
-
-        // Client-side fuzzy match as fallback
-        const extracted = { ...data.extracted };
+        console.log("[OCR] Extracted:", data.extracted);
+        // Only pass text/number fields, strip any select-related fields
+        const clean: Record<string, string> = {};
         if (tipo === "CAUQ") {
-          if (extracted.usina && usinasOptions?.length) {
-            const matched = fuzzyMatch(extracted.usina, usinasOptions);
-            if (matched) extracted.usina = matched;
-          }
-          if (extracted.tipo_material && materiaisOptions?.length) {
-            const matched = fuzzyMatch(extracted.tipo_material, materiaisOptions);
-            if (matched) extracted.tipo_material = matched;
-          }
+          if (data.extracted.nf) clean.nf = data.extracted.nf;
+          if (data.extracted.placa) clean.placa = data.extracted.placa;
+          if (data.extracted.tonelagem) clean.tonelagem = data.extracted.tonelagem;
         } else {
-          if (extracted.fornecedor && fornecedoresOptions?.length) {
-            const matched = fuzzyMatch(extracted.fornecedor, fornecedoresOptions);
-            if (matched) extracted.fornecedor = matched;
-          }
+          if (data.extracted.nf) clean.nf = data.extracted.nf;
+          if (data.extracted.quantidade) clean.quantidade = data.extracted.quantidade;
         }
-
-        console.log("[OCR] After fuzzy match:", extracted);
-        toast({ title: "✅ Dados extraídos!", description: "Confira e corrija se necessário." });
-        onExtracted(extracted, photoUrl);
+        toast({ title: "✅ Dados extraídos!", description: "Selecione Usina e Material manualmente." });
+        onExtracted(clean, photoUrl);
       } else {
         toast({ title: "⚠️ Nenhum dado encontrado", description: "Preencha manualmente.", variant: "destructive" });
       }
