@@ -9,45 +9,7 @@ interface Props {
   onExtracted: (data: Record<string, string>, photoUrl: string) => void;
 }
 
-/** Normalize string for comparison: lowercase, remove accents, trim */
-function normalize(s: string): string {
-  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-}
-
-/** Fuzzy match: find best option from list that contains or is contained in the value */
-export function fuzzyMatch(value: string, options: string[]): string | null {
-  if (!value || !options.length) return null;
-  const nVal = normalize(value);
-
-  // 1. Exact match (case-insensitive)
-  const exact = options.find(o => normalize(o) === nVal);
-  if (exact) return exact;
-
-  // 2. One contains the other
-  const contains = options.find(o => {
-    const nOpt = normalize(o);
-    return nVal.includes(nOpt) || nOpt.includes(nVal);
-  });
-  if (contains) return contains;
-
-  // 3. Word overlap scoring
-  const valWords = nVal.split(/\s+/);
-  let bestScore = 0;
-  let bestMatch: string | null = null;
-  for (const opt of options) {
-    const optWords = normalize(opt).split(/\s+/);
-    const overlap = valWords.filter(w => optWords.some(ow => ow.includes(w) || w.includes(ow))).length;
-    const score = overlap / Math.max(valWords.length, optWords.length);
-    if (score > bestScore && score >= 0.3) {
-      bestScore = score;
-      bestMatch = opt;
-    }
-  }
-
-  return bestMatch;
-}
-
-export default function NfPhotoCapture({ tipo, onExtracted, usinasOptions, materiaisOptions, fornecedoresOptions }: Props) {
+export default function NfPhotoCapture({ tipo, onExtracted }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
