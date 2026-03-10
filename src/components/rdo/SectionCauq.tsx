@@ -69,8 +69,6 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
       <NfPhotoCapture
         tipo="CAUQ"
         onExtracted={handleOcrExtracted}
-        usinasOptions={usinas}
-        materiaisOptions={materiais}
       />
 
       {entries.map((entry, idx) => (
