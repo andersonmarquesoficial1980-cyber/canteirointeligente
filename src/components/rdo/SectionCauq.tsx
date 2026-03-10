@@ -72,7 +72,7 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
       />
 
       {entries.map((entry, idx) => (
-        <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div key={entry.id} data-entry-id={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-primary">NF {idx + 1}</span>
