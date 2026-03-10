@@ -3,7 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import NfPhotoCapture from "./NfPhotoCapture";
+import NfPhotoCapture, { fuzzyMatch } from "./NfPhotoCapture";
 import { useUsinas, useMateriais } from "@/hooks/useFilteredData";
 
 export interface NotaFiscalMassaEntry {
@@ -33,7 +33,6 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
 
   const usinas = usinasData?.map(u => u.nome) ?? [];
   const materiais = materiaisData?.map(m => m.nome) ?? [];
-  // Always allow "Outro"
   const materiaisWithOutro = materiais.length > 0 ? [...materiais, "Outro"] : ["Outro"];
 
   const update = (id: string, field: string, value: string) =>
@@ -42,16 +41,23 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
   const totalTon = entries.reduce((sum, e) => sum + (parseFloat(e.tonelagem) || 0), 0);
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
+    // Usina: already fuzzy-matched by NfPhotoCapture, verify it's in the list
+    const matchedUsina = usinas.find(u => u === data.usina) || fuzzyMatch(data.usina || "", usinas) || "";
+    
+    // Material: already fuzzy-matched, verify and set Outro if needed
+    const matchedMaterial = materiais.find(m => m === data.tipo_material) || fuzzyMatch(data.tipo_material || "", materiais);
+    
     const newEntry: NotaFiscalMassaEntry = {
       id: crypto.randomUUID(),
       nf: data.nf || "",
-      placa: data.placa || "",
-      usina: usinas.find(u => u.toLowerCase() === (data.usina || "").toLowerCase()) || data.usina || "",
+      placa: (data.placa || "").toUpperCase(),
+      usina: matchedUsina,
       tonelagem: data.tonelagem || "",
-      tipo_material: materiais.find(m => m.toLowerCase() === (data.tipo_material || "").toLowerCase()) || (data.tipo_material ? "Outro" : ""),
-      tipo_material_outro: materiais.find(m => m.toLowerCase() === (data.tipo_material || "").toLowerCase()) ? "" : (data.tipo_material || ""),
+      tipo_material: matchedMaterial || (data.tipo_material ? "Outro" : ""),
+      tipo_material_outro: matchedMaterial ? "" : (data.tipo_material || ""),
       photo_url: photoUrl,
     };
+    console.log("[SectionCauq] OCR entry:", newEntry);
     onChange([...entries, newEntry]);
   };
 
@@ -59,7 +65,12 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
     <div className="space-y-4 p-4">
       <h2 className="text-lg font-bold text-foreground">🛣️ Notas Fiscais de Massa</h2>
 
-      <NfPhotoCapture tipo="CAUQ" onExtracted={handleOcrExtracted} />
+      <NfPhotoCapture
+        tipo="CAUQ"
+        onExtracted={handleOcrExtracted}
+        usinasOptions={usinas}
+        materiaisOptions={materiais}
+      />
 
       {entries.map((entry, idx) => (
         <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">

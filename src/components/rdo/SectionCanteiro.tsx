@@ -3,7 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import NfPhotoCapture from "./NfPhotoCapture";
+import NfPhotoCapture, { fuzzyMatch } from "./NfPhotoCapture";
 import { useFornecedores } from "@/hooks/useFilteredData";
 
 export interface NotaFiscalInsumoEntry {
@@ -33,14 +33,17 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
+    const matchedFornecedor = fornecedores.find(f => f === data.fornecedor) || fuzzyMatch(data.fornecedor || "", fornecedores) || data.fornecedor || "";
+    
     const newEntry: NotaFiscalInsumoEntry = {
       id: crypto.randomUUID(),
       nf: data.nf || "",
-      fornecedor: fornecedores.find(f => f.toLowerCase() === (data.fornecedor || "").toLowerCase()) || data.fornecedor || "",
+      fornecedor: matchedFornecedor,
       material: data.material || "",
       quantidade: data.quantidade || "",
       photo_url: photoUrl,
     };
+    console.log("[SectionCanteiro] OCR entry:", newEntry);
     onChange([...entries, newEntry]);
   };
 
@@ -48,7 +51,11 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
     <div className="space-y-4 p-4">
       <h2 className="text-lg font-bold text-foreground">🏭 Notas Fiscais de Insumos</h2>
 
-      <NfPhotoCapture tipo="CANTEIRO" onExtracted={handleOcrExtracted} />
+      <NfPhotoCapture
+        tipo="CANTEIRO"
+        onExtracted={handleOcrExtracted}
+        fornecedoresOptions={fornecedores}
+      />
 
       {entries.map((entry, idx) => (
         <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
