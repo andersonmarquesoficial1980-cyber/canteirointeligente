@@ -7,10 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 interface Props {
   tipo: "CAUQ" | "CANTEIRO";
   onExtracted: (data: Record<string, string>, photoUrl: string) => void;
-  /** Lists for fuzzy matching on the AI side */
-  usinasOptions?: string[];
-  materiaisOptions?: string[];
-  fornecedoresOptions?: string[];
 }
 
 /** Normalize string for comparison: lowercase, remove accents, trim */
