@@ -41,15 +41,9 @@ export default function NfPhotoCapture({ tipo, onExtracted }: Props) {
       }
       const base64 = btoa(binary);
 
-      // 3. Call OCR edge function with reference lists
+      // 3. Call OCR edge function (extract text/number fields only)
       const { data, error } = await supabase.functions.invoke("ocr-nota-fiscal", {
-        body: {
-          image_base64: base64,
-          tipo,
-          usinas_list: usinasOptions || [],
-          materiais_list: materiaisOptions || [],
-          fornecedores_list: fornecedoresOptions || [],
-        },
+        body: { image_base64: base64, tipo },
       });
 
       if (error) throw error;
