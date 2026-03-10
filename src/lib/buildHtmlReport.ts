@@ -121,7 +121,10 @@ th{background:#f3f4f6;font-weight:600}
 
       trechos.forEach(t => {
         if (t.observacoes) {
-          html += `<p>📝 <strong>Obs (${t.tipo_servico}):</strong> ${t.observacoes}</p>`;
+          html += `<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;margin:12px 0;border-radius:0 8px 8px 0">
+<strong>📝 Observações do Trecho (${t.tipo_servico}):</strong><br>
+<span style="white-space:pre-wrap">${t.observacoes}</span>
+</div>`;
         }
       });
     }
