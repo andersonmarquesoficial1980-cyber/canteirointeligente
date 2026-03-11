@@ -97,7 +97,7 @@ export function useAuth() {
           forceLogout();
           return;
         }
-        await ensureProfile(sess.user.id, sess.user.email || "");
+        ensureProfile(sess.user.id, sess.user.email || "").catch(() => {});
       }
       setSession(sess);
       setLoading(false);
