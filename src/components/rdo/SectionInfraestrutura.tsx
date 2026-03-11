@@ -116,6 +116,14 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
                 <Input type="number" inputMode="decimal" value={entry.espessura_cm} onChange={e => update(entry.id, "espessura_cm", e.target.value)} className="h-11 bg-secondary border-border" />
               </div>
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Material</Label>
+              <MaterialCombobox
+                value={entry.material}
+                onChange={(v) => update(entry.id, "material", v)}
+                materiais={materiais || []}
+              />
+            </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Checkbox checked={entry.is_retrabalho} onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)} />
