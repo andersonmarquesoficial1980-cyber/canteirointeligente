@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import FuncionariosManager from "@/components/admin/FuncionariosManager";
 
 const VINCULO_OPTIONS = ["CAUQ", "INFRA", "CANTEIRO", "TODOS"];
 const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
@@ -531,6 +532,7 @@ export default function AdminConfiguracoes() {
         <Tabs defaultValue="maquinas" className="w-full">
           <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-secondary p-1 rounded-xl">
             <TabsTrigger value="maquinas" className="text-xs flex-1 min-w-[80px]">Máquinas</TabsTrigger>
+            <TabsTrigger value="funcionarios" className="text-xs flex-1 min-w-[80px]">Funcionários</TabsTrigger>
             <TabsTrigger value="tipos_servico" className="text-xs flex-1 min-w-[80px]">Serviços</TabsTrigger>
             <TabsTrigger value="materiais" className="text-xs flex-1 min-w-[80px]">Materiais</TabsTrigger>
             <TabsTrigger value="empreiteiros" className="text-xs flex-1 min-w-[80px]">Empreiteiros</TabsTrigger>
@@ -542,6 +544,7 @@ export default function AdminConfiguracoes() {
           </TabsList>
 
           <TabsContent value="maquinas"><MaquinasManager /></TabsContent>
+          <TabsContent value="funcionarios"><FuncionariosManager /></TabsContent>
           <TabsContent value="tipos_servico"><EntityManager tableName="tipos_servico" label="Tipo de Serviço" /></TabsContent>
           <TabsContent value="materiais"><MaterialManager /></TabsContent>
           <TabsContent value="empreiteiros"><EntityManager tableName="empreiteiros" label="Empreiteiro" /></TabsContent>
