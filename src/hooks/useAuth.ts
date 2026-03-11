@@ -25,10 +25,7 @@ async function ensureProfile(userId: string, email: string) {
         perfil: "Apontador",
         status: "ativo",
       });
-      await supabase.from("user_roles" as any).insert({
-        user_id: userId,
-        role: "apontador",
-      });
+      // Role assignment is handled by create-user edge function (service role)
     }
   } catch (err) {
     console.warn("ensureProfile failed (non-blocking):", err);
