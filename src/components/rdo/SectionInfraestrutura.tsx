@@ -1,13 +1,9 @@
-import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, Trash2, Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Plus, Trash2 } from "lucide-react";
 import { useEmpreiteiros, useTiposServico, useMateriais } from "@/hooks/useFilteredData";
 
 export interface InfraProducaoEntry {
@@ -118,11 +114,14 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Material</Label>
-              <MaterialCombobox
-                value={entry.material}
-                onChange={(v) => update(entry.id, "material", v)}
-                materiais={materiais || []}
-              />
+              <Select value={entry.material} onValueChange={(v) => update(entry.id, "material", v)}>
+                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione material..." /></SelectTrigger>
+                <SelectContent>
+                  {materiais && materiais.length > 0
+                    ? materiais.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome}</SelectItem>)
+                    : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum material cadastrado</p>}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -139,36 +138,5 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
         <Plus className="w-5 h-5" /> Adicionar Trecho
       </Button>
     </div>
-  );
-}
-
-function MaterialCombobox({ value, onChange, materiais }: { value: string; onChange: (v: string) => void; materiais: { id: string; nome: string }[] }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" aria-expanded={open} className="h-11 w-full justify-between bg-secondary border-border font-normal text-sm">
-          {value || <span className="text-muted-foreground">Selecione...</span>}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Buscar material..." />
-          <CommandList>
-            <CommandEmpty>Nenhum material encontrado.</CommandEmpty>
-            <CommandGroup>
-              {materiais.map(m => (
-                <CommandItem key={m.id} value={m.nome} onSelect={() => { onChange(m.nome); setOpen(false); }}>
-                  <Check className={cn("mr-2 h-4 w-4", value === m.nome ? "opacity-100" : "opacity-0")} />
-                  {m.nome}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
   );
 }
