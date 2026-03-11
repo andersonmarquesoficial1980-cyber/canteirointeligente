@@ -375,20 +375,16 @@ export default function RdoForm() {
               onChangeGlobalEntrada={setGlobalEntrada}
               onChangeGlobalSaida={setGlobalSaida}
             />
-            <SectionAtividadesCanteiro
-              teveUsinagem={teveUsinagem}
-              onToggleUsinagem={setTeveUsinagem}
-              totalUsinado={totalUsinado}
-              onChangeTotalUsinado={setTotalUsinado}
-              atividadesCanteiro={atividadesCanteiro}
-              onChangeAtividades={setAtividadesCanteiro}
-            />
-            <SectionManchaAreia
-              teveEnsaio={teveEnsaio}
-              onToggleEnsaio={setTeveEnsaio}
-              entries={manchaAreia}
-              onChange={setManchaAreia}
-            />
+            {tipoRdo === "CANTEIRO" && (
+              <SectionAtividadesCanteiro
+                teveUsinagem={teveUsinagem}
+                onToggleUsinagem={setTeveUsinagem}
+                totalUsinado={totalUsinado}
+                onChangeTotalUsinado={setTotalUsinado}
+                atividadesCanteiro={atividadesCanteiro}
+                onChangeAtividades={setAtividadesCanteiro}
+              />
+            )}
           </>
         )}
       </div>
