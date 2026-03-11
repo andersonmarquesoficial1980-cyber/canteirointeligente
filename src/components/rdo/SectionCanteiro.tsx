@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import NfPhotoCapture from "./NfPhotoCapture";
-import { useFornecedores } from "@/hooks/useFilteredData";
+import { useFornecedores, useMateriais } from "@/hooks/useFilteredData";
 
 export interface NotaFiscalInsumoEntry {
   id: string;
