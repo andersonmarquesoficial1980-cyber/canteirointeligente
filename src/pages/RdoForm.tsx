@@ -79,10 +79,6 @@ export default function RdoForm() {
     id: crypto.randomUUID(), placa: "", material: "", viagens: "", empresa_dona: "",
   }]);
 
-  const [teveEnsaio, setTeveEnsaio] = useState(false);
-  const [manchaAreia, setManchaAreia] = useState<ManchaAreiaEntry[]>([{
-    id: crypto.randomUUID(), faixa: "", d1_mm: "", d2_mm: "", d3_mm: "", volume_cm3: "25",
-  }]);
 
   const [efetivo, setEfetivo] = useState<EfetivoEntry[]>([{
     id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
