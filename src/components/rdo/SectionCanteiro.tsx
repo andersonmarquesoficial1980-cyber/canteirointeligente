@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import NfPhotoCapture from "./NfPhotoCapture";
-import { useFornecedores } from "@/hooks/useFilteredData";
+import { useFornecedores, useMateriais } from "@/hooks/useFilteredData";
 
 export interface NotaFiscalInsumoEntry {
   id: string;
@@ -28,6 +28,8 @@ const emptyNF = (): NotaFiscalInsumoEntry => ({
 export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
   const { data: fornecedoresData } = useFornecedores(tipoRdo);
   const fornecedores = fornecedoresData?.map(f => f.nome) ?? [];
+  const { data: materiaisData } = useMateriais(tipoRdo, "Nota Fiscal");
+  const materiais = materiaisData?.map(m => m.nome) ?? [];
 
   const update = (id: string, field: string, value: string) =>
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
@@ -92,7 +94,14 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Material</Label>
-              <Input value={entry.material} onChange={e => update(entry.id, "material", e.target.value)} className="h-11 bg-secondary border-border" />
+              <Select value={entry.material} onValueChange={v => update(entry.id, "material", v)}>
+                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {materiais.length > 0
+                    ? materiais.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)
+                    : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum material cadastrado</p>}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Quantidade</Label>
