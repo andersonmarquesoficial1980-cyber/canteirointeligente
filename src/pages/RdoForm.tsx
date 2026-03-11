@@ -13,7 +13,7 @@ import SectionCauq, { type NotaFiscalMassaEntry } from "@/components/rdo/Section
 import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/SectionCanteiro";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 import SectionBasculante, { type BasculanteEntry } from "@/components/rdo/SectionBasculante";
-import SectionManchaAreia, { type ManchaAreiaEntry } from "@/components/rdo/SectionManchaAreia";
+
 import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import SectionProducaoCauq, { type ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
 import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteiro";
