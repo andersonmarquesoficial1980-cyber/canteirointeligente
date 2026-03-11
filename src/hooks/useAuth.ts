@@ -43,16 +43,7 @@ async function validateSession(sess: Session): Promise<boolean> {
       console.warn("Token inválido:", error.message);
       return false;
     }
-    // Also verify profile loads within 3s
-    const profileCheck = Promise.race([
-      supabase
-        .from("profiles")
-        .select("id")
-        .eq("user_id", sess.user.id)
-        .maybeSingle(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("profile_timeout")), 3000)),
-    ]);
-    await profileCheck;
+    // Profile check is non-blocking — don't let RLS issues block login
     return true;
   } catch (err) {
     console.warn("validateSession failed:", err);
