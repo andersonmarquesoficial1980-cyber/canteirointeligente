@@ -177,6 +177,12 @@ export default function RdoForm() {
 
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
       const responsavelNome = profile?.nome_completo || "Não identificado";
       const rdoPayload = {
         data: header.data,
@@ -184,6 +190,7 @@ export default function RdoForm() {
         turno: normalizedTurno,
         clima: header.status_obra || null,
         responsavel: responsavelNome,
+        user_id: user.id,
       };
       console.log("Payload rdo_diarios:", rdoPayload);
 
