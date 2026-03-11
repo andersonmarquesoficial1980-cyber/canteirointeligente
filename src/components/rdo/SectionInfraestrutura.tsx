@@ -40,6 +40,7 @@ const emptyEntry = (): InfraProducaoEntry => ({
 export default function SectionInfraestrutura({ empreiteiro, tipoServico, producao, onChangeEmpreiteiro, onChangeTipoServico, onChangeProducao, tipoRdo }: Props) {
   const { data: empreiteiros } = useEmpreiteiros(tipoRdo);
   const { data: servicos } = useTiposServico(tipoRdo);
+  const { data: materiais } = useMateriais(tipoRdo);
 
   const update = (id: string, field: string, value: any) =>
     onChangeProducao(producao.map(e => e.id === id ? { ...e, [field]: value } : e));
