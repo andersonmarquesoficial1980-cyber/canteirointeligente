@@ -532,6 +532,7 @@ export default function AdminConfiguracoes() {
         <Tabs defaultValue="maquinas" className="w-full">
           <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-secondary p-1 rounded-xl">
             <TabsTrigger value="maquinas" className="text-xs flex-1 min-w-[80px]">Máquinas</TabsTrigger>
+            <TabsTrigger value="funcionarios" className="text-xs flex-1 min-w-[80px]">Funcionários</TabsTrigger>
             <TabsTrigger value="tipos_servico" className="text-xs flex-1 min-w-[80px]">Serviços</TabsTrigger>
             <TabsTrigger value="materiais" className="text-xs flex-1 min-w-[80px]">Materiais</TabsTrigger>
             <TabsTrigger value="empreiteiros" className="text-xs flex-1 min-w-[80px]">Empreiteiros</TabsTrigger>
