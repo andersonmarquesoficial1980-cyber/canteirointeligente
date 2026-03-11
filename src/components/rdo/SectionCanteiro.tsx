@@ -94,7 +94,14 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Material</Label>
-              <Input value={entry.material} onChange={e => update(entry.id, "material", e.target.value)} className="h-11 bg-secondary border-border" />
+              <Select value={entry.material} onValueChange={v => update(entry.id, "material", v)}>
+                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {materiais.length > 0
+                    ? materiais.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)
+                    : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum material cadastrado</p>}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Quantidade</Label>
