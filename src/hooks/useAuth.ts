@@ -64,7 +64,6 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, sess) => {
         if (_event === "SIGNED_IN" && sess?.user) {
-          // Clear stale data on fresh login
           try { sessionStorage.clear(); } catch {}
 
           const valid = await validateSession(sess);
@@ -73,7 +72,8 @@ export function useAuth() {
             forceLogout();
             return;
           }
-          await ensureProfile(sess.user.id, sess.user.email || "");
+          // ensureProfile is fire-and-forget — don't block session
+          ensureProfile(sess.user.id, sess.user.email || "").catch(() => {});
         }
 
         if (_event === "SIGNED_OUT") {
