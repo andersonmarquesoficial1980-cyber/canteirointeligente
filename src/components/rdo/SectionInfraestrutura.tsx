@@ -34,7 +34,7 @@ interface Props {
 
 const emptyEntry = (): InfraProducaoEntry => ({
   id: crypto.randomUUID(), sentido: "", estaca_inicial: "", estaca_final: "",
-  comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false,
+  comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false, material: "",
 });
 
 export default function SectionInfraestrutura({ empreiteiro, tipoServico, producao, onChangeEmpreiteiro, onChangeTipoServico, onChangeProducao, tipoRdo }: Props) {
