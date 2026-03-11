@@ -256,31 +256,6 @@ export default function RdoForm() {
         if (error) throw error;
       }
 
-      // Mancha de Areia
-      if (teveEnsaio) {
-        const manchaEntries = manchaAreia
-          .filter(m => m.d1_mm || m.d2_mm || m.d3_mm)
-          .map(m => {
-            const vals = [m.d1_mm, m.d2_mm, m.d3_mm].map(Number).filter(v => !isNaN(v) && v > 0);
-            const dm = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-            const vol = parseFloat(m.volume_cm3) || 25;
-            const hs = dm && dm > 0 ? (4 * vol * 1000) / (Math.PI * dm * dm) : null;
-            return {
-              rdo_id: rdoId,
-              faixa: m.faixa || null,
-              d1_mm: m.d1_mm ? parseFloat(m.d1_mm) : null,
-              d2_mm: m.d2_mm ? parseFloat(m.d2_mm) : null,
-              d3_mm: m.d3_mm ? parseFloat(m.d3_mm) : null,
-              dm_mm: dm ? parseFloat(dm.toFixed(2)) : null,
-              volume_cm3: vol,
-              hs_mm: hs ? parseFloat(hs.toFixed(4)) : null,
-            };
-          });
-        if (manchaEntries.length > 0) {
-          const { error } = await supabase.from("rdo_mancha_areia").insert(manchaEntries);
-          if (error) throw error;
-        }
-      }
 
       // Build HTML report and send email
       const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome);
