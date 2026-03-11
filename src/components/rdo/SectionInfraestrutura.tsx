@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
-import { useEmpreiteiros, useTiposServico } from "@/hooks/useFilteredData";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Plus, Trash2, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useEmpreiteiros, useTiposServico, useMateriais } from "@/hooks/useFilteredData";
 
 export interface InfraProducaoEntry {
   id: string;
@@ -15,6 +19,7 @@ export interface InfraProducaoEntry {
   largura_m: string;
   espessura_cm: string;
   is_retrabalho: boolean;
+  material: string;
 }
 
 interface Props {
@@ -29,12 +34,13 @@ interface Props {
 
 const emptyEntry = (): InfraProducaoEntry => ({
   id: crypto.randomUUID(), sentido: "", estaca_inicial: "", estaca_final: "",
-  comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false,
+  comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false, material: "",
 });
 
 export default function SectionInfraestrutura({ empreiteiro, tipoServico, producao, onChangeEmpreiteiro, onChangeTipoServico, onChangeProducao, tipoRdo }: Props) {
   const { data: empreiteiros } = useEmpreiteiros(tipoRdo);
   const { data: servicos } = useTiposServico(tipoRdo);
+  const { data: materiais } = useMateriais(tipoRdo);
 
   const update = (id: string, field: string, value: any) =>
     onChangeProducao(producao.map(e => e.id === id ? { ...e, [field]: value } : e));
@@ -110,6 +116,14 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
                 <Input type="number" inputMode="decimal" value={entry.espessura_cm} onChange={e => update(entry.id, "espessura_cm", e.target.value)} className="h-11 bg-secondary border-border" />
               </div>
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Material</Label>
+              <MaterialCombobox
+                value={entry.material}
+                onChange={(v) => update(entry.id, "material", v)}
+                materiais={materiais || []}
+              />
+            </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Checkbox checked={entry.is_retrabalho} onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)} />
@@ -125,5 +139,36 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
         <Plus className="w-5 h-5" /> Adicionar Trecho
       </Button>
     </div>
+  );
+}
+
+function MaterialCombobox({ value, onChange, materiais }: { value: string; onChange: (v: string) => void; materiais: { id: string; nome: string }[] }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" aria-expanded={open} className="h-11 w-full justify-between bg-secondary border-border font-normal text-sm">
+          {value || <span className="text-muted-foreground">Selecione...</span>}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar material..." />
+          <CommandList>
+            <CommandEmpty>Nenhum material encontrado.</CommandEmpty>
+            <CommandGroup>
+              {materiais.map(m => (
+                <CommandItem key={m.id} value={m.nome} onSelect={() => { onChange(m.nome); setOpen(false); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === m.nome ? "opacity-100" : "opacity-0")} />
+                  {m.nome}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
