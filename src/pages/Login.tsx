@@ -16,17 +16,10 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
 
-    const timeout = setTimeout(() => {
-      setLoading(false);
-      toast({ title: "Timeout", description: "Login demorou demais. Tente novamente.", variant: "destructive" });
-    }, 8000);
-
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      clearTimeout(timeout);
       if (error) throw error;
     } catch (err: any) {
-      clearTimeout(timeout);
       const msg = err.message || "Erro desconhecido";
       toast({ title: "Erro no login", description: msg, variant: "destructive" });
     } finally {
