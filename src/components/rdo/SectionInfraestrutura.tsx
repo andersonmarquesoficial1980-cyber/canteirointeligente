@@ -1,13 +1,9 @@
-import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, Trash2, Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Plus, Trash2 } from "lucide-react";
 import { useEmpreiteiros, useTiposServico, useMateriais } from "@/hooks/useFilteredData";
 
 export interface InfraProducaoEntry {
