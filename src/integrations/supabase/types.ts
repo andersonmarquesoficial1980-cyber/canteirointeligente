@@ -395,6 +395,30 @@ export type Database = {
           },
         ]
       }
+      funcionarios: {
+        Row: {
+          created_at: string | null
+          funcao: string
+          id: string
+          matricula: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string | null
+          funcao: string
+          id?: string
+          matricula: string
+          nome: string
+        }
+        Update: {
+          created_at?: string | null
+          funcao?: string
+          id?: string
+          matricula?: string
+          nome?: string
+        }
+        Relationships: []
+      }
       maquinas_frota: {
         Row: {
           categoria: string | null
