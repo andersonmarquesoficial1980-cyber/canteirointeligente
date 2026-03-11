@@ -43,16 +43,7 @@ async function validateSession(sess: Session): Promise<boolean> {
       console.warn("Token inválido:", error.message);
       return false;
     }
-    // Also verify profile loads within 3s
-    const profileCheck = Promise.race([
-      supabase
-        .from("profiles")
-        .select("id")
-        .eq("user_id", sess.user.id)
-        .maybeSingle(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("profile_timeout")), 3000)),
-    ]);
-    await profileCheck;
+    // Profile check is non-blocking — don't let RLS issues block login
     return true;
   } catch (err) {
     console.warn("validateSession failed:", err);
@@ -73,7 +64,6 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, sess) => {
         if (_event === "SIGNED_IN" && sess?.user) {
-          // Clear stale data on fresh login
           try { sessionStorage.clear(); } catch {}
 
           const valid = await validateSession(sess);
@@ -82,7 +72,8 @@ export function useAuth() {
             forceLogout();
             return;
           }
-          await ensureProfile(sess.user.id, sess.user.email || "");
+          // ensureProfile is fire-and-forget — don't block session
+          ensureProfile(sess.user.id, sess.user.email || "").catch(() => {});
         }
 
         if (_event === "SIGNED_OUT") {
@@ -106,7 +97,7 @@ export function useAuth() {
           forceLogout();
           return;
         }
-        await ensureProfile(sess.user.id, sess.user.email || "");
+        ensureProfile(sess.user.id, sess.user.email || "").catch(() => {});
       }
       setSession(sess);
       setLoading(false);
