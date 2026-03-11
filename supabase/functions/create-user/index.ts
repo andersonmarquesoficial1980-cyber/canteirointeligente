@@ -30,9 +30,75 @@ serve(async (req) => {
       .eq("role", "admin")
       .maybeSingle();
 
-    if (!roleData) throw new Error("Apenas administradores podem criar usuários");
+    // Also check hardcoded admin email
+    const isHardcodedAdmin = caller.email?.toLowerCase() === "anderson@fremix.com.br";
+    if (!roleData && !isHardcodedAdmin) throw new Error("Apenas administradores podem gerenciar usuários");
 
-    const { email, password, nome_completo, perfil } = await req.json();
+    const body = await req.json();
+    const { action } = body;
+
+    // === DELETE USER ===
+    if (action === "delete") {
+      const { user_id } = body;
+      if (!user_id) throw new Error("user_id é obrigatório");
+      if (user_id === caller.id) throw new Error("Você não pode excluir a si mesmo");
+
+      // Delete profile and role first
+      await supabaseAdmin.from("user_roles").delete().eq("user_id", user_id);
+      await supabaseAdmin.from("profiles").delete().eq("user_id", user_id);
+
+      // Delete from auth
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
+      if (deleteError) throw new Error("Erro ao excluir usuário: " + deleteError.message);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === UPDATE USER ===
+    if (action === "update") {
+      const { user_id, nome_completo, perfil, password } = body;
+      if (!user_id) throw new Error("user_id é obrigatório");
+
+      // Update profile
+      if (nome_completo || perfil) {
+        const updates: any = {};
+        if (nome_completo) updates.nome_completo = nome_completo;
+        if (perfil) updates.perfil = perfil;
+        await supabaseAdmin.from("profiles").update(updates).eq("user_id", user_id);
+      }
+
+      // Update role
+      if (perfil) {
+        const role = perfil === "Administrador" ? "admin" : "apontador";
+        const { data: existingRole } = await supabaseAdmin
+          .from("user_roles")
+          .select("id")
+          .eq("user_id", user_id)
+          .maybeSingle();
+
+        if (existingRole) {
+          await supabaseAdmin.from("user_roles").update({ role }).eq("user_id", user_id);
+        } else {
+          await supabaseAdmin.from("user_roles").insert({ user_id, role });
+        }
+      }
+
+      // Reset password
+      if (password) {
+        if (password.length < 6) throw new Error("A senha deve ter no mínimo 6 caracteres");
+        const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(user_id, { password });
+        if (pwError) throw new Error("Erro ao alterar senha: " + pwError.message);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === CREATE USER (default) ===
+    const { email, password, nome_completo, perfil } = body;
     if (!email || !password || !nome_completo || !perfil) {
       throw new Error("Campos obrigatórios: email, password, nome_completo, perfil");
     }
@@ -42,7 +108,6 @@ serve(async (req) => {
 
     let userId: string;
 
-    // Try to create user; if already exists, look up the existing user
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -51,7 +116,6 @@ serve(async (req) => {
 
     if (createError) {
       if (createError.message?.includes("already been registered")) {
-        // User exists in Auth — find their ID
         const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
         if (listError) throw new Error("Erro ao buscar usuário existente");
         const existing = listData.users.find((u: any) => u.email === email);
@@ -64,11 +128,9 @@ serve(async (req) => {
       userId = newUser.user.id;
     }
 
-    // Map perfil
     const perfilDb = perfil === "Administrador" ? "Administrador" : "Apontador";
     const role = perfil === "Administrador" ? "admin" : "apontador";
 
-    // Upsert profile
     const { data: existingProfile } = await supabaseAdmin
       .from("profiles")
       .select("id")
@@ -87,7 +149,6 @@ serve(async (req) => {
       if (profileError) throw new Error("Erro ao criar perfil: " + profileError.message);
     }
 
-    // Upsert role
     const { data: existingRole } = await supabaseAdmin
       .from("user_roles")
       .select("id")
@@ -95,14 +156,9 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingRole) {
-      await supabaseAdmin
-        .from("user_roles")
-        .update({ role })
-        .eq("user_id", userId);
+      await supabaseAdmin.from("user_roles").update({ role }).eq("user_id", userId);
     } else {
-      const { error: roleError } = await supabaseAdmin
-        .from("user_roles")
-        .insert({ user_id: userId, role });
+      const { error: roleError } = await supabaseAdmin.from("user_roles").insert({ user_id: userId, role });
       if (roleError) throw new Error("Erro ao atribuir perfil: " + roleError.message);
     }
 
