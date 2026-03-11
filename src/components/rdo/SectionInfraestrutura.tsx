@@ -141,3 +141,34 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
     </div>
   );
 }
+
+function MaterialCombobox({ value, onChange, materiais }: { value: string; onChange: (v: string) => void; materiais: { id: string; nome: string }[] }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" aria-expanded={open} className="h-11 w-full justify-between bg-secondary border-border font-normal text-sm">
+          {value || <span className="text-muted-foreground">Selecione...</span>}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar material..." />
+          <CommandList>
+            <CommandEmpty>Nenhum material encontrado.</CommandEmpty>
+            <CommandGroup>
+              {materiais.map(m => (
+                <CommandItem key={m.id} value={m.nome} onSelect={() => { onChange(m.nome); setOpen(false); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === m.nome ? "opacity-100" : "opacity-0")} />
+                  {m.nome}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
