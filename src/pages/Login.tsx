@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn } from "lucide-react";
+import { LogIn, Mail, Lock } from "lucide-react";
+import logoFremix from "@/assets/Logo_Fremix.png";
 
 export default function Login() {
   const { toast } = useToast();
@@ -28,20 +29,38 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold text-foreground">
-            RDO<span className="text-primary">.</span> Pavimentação
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Entre com suas credenciais
-          </p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      {/* Branding */}
+      <div className="text-center mb-8 space-y-3">
+        <img src={logoFremix} alt="Fremix Pavimentação" className="h-14 mx-auto object-contain" />
+        <h1 className="text-3xl font-display font-bold tracking-tight">
+          <span className="text-foreground">RDO</span>
+          <span className="text-primary">.</span>
+          <span className="text-accent"> Digital</span>
+        </h1>
+        <p className="text-sm text-muted-foreground tracking-wide">
+          Relatório Diário de Obra
+        </p>
+      </div>
+
+      {/* Login card */}
+      <div className="w-full max-w-sm border border-dashed border-border rounded-2xl p-6 space-y-5 bg-card/60">
+        {/* Title row */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <LogIn className="w-5 h-5 text-foreground" />
+            <h2 className="text-lg font-display font-bold tracking-widest uppercase text-foreground">
+              Entrar
+            </h2>
+          </div>
+          <div className="h-0.5 bg-destructive rounded-full w-full" />
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
+            <Label htmlFor="email" className="flex items-center gap-1.5 text-sm font-semibold text-accent">
+              <Mail className="w-4 h-4" /> Email
+            </Label>
             <Input
               id="email"
               type="email"
@@ -49,28 +68,36 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
+            <Label htmlFor="password" className="flex items-center gap-1.5 text-sm font-semibold text-accent">
+              <Lock className="w-4 h-4" /> Senha
+            </Label>
             <Input
               id="password"
               type="password"
-              placeholder="••••••••"
+              placeholder="Mínimo 6 caracteres"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
+              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
-          <Button type="submit" className="w-full h-12 gap-2" disabled={loading}>
-            <LogIn className="w-4 h-4" />
+          <Button
+            type="submit"
+            className="w-full h-14 gap-2 text-base font-bold rounded-xl"
+            disabled={loading}
+          >
+            <LogIn className="w-5 h-5" />
             {loading ? "Aguarde..." : "Entrar"}
           </Button>
         </form>
 
         <p className="text-center text-xs text-muted-foreground">
-          Contate o administrador para obter suas credenciais de acesso.
+          Contate o administrador para obter suas credenciais.
         </p>
       </div>
     </div>

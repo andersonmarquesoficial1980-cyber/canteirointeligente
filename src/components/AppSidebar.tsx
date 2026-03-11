@@ -1,7 +1,7 @@
 import { LayoutDashboard, FileText, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import logoFremix from "@/assets/Logo_Fremix.png";
 import {
   Sidebar,
   SidebarContent,
@@ -32,20 +32,18 @@ export function AppSidebar() {
       <SidebarContent>
         {/* Logo area */}
         <div className="px-4 py-5 border-b border-sidebar-border flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-            <img
-              src="/placeholder.svg"
-              alt="Logo"
-              className="w-6 h-6 opacity-80"
-            />
-          </div>
+          <img
+            src={logoFremix}
+            alt="Fremix"
+            className="h-9 w-9 rounded-lg object-contain shrink-0"
+          />
           {!collapsed && (
             <div>
               <p className="font-display font-bold text-sm text-sidebar-foreground leading-tight">
-                Pavimentação
+                RDO<span className="text-primary">.</span> Digital
               </p>
               <p className="text-[10px] text-muted-foreground leading-tight">
-                Sistema de Gestão
+                Fremix Pavimentação
               </p>
             </div>
           )}
