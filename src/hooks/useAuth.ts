@@ -9,45 +9,6 @@ function forceLogout() {
   window.location.replace("/");
 }
 
-async function ensureProfile(userId: string, email: string) {
-  try {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (!data) {
-      await supabase.from("profiles").insert({
-        user_id: userId,
-        email: email || "",
-        nome_completo: email?.split("@")[0] || "Usuário",
-        perfil: "Apontador",
-        status: "ativo",
-      });
-      // Role assignment is handled by create-user edge function (service role)
-    }
-  } catch (err) {
-    console.warn("ensureProfile failed (non-blocking):", err);
-  }
-}
-
-/** Validate that a session is actually usable (token not expired/revoked) */
-async function validateSession(sess: Session): Promise<boolean> {
-  try {
-    const { error } = await supabase.auth.getUser();
-    if (error) {
-      console.warn("Token inválido:", error.message);
-      return false;
-    }
-    // Profile check is non-blocking — don't let RLS issues block login
-    return true;
-  } catch (err) {
-    console.warn("validateSession failed:", err);
-    return false;
-  }
-}
-
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,52 +17,33 @@ export function useAuth() {
     // Safety timeout — never stay loading forever
     const safetyTimeout = setTimeout(() => {
       setLoading(false);
-    }, 5000);
+    }, 2500);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, sess) => {
-        if (_event === "SIGNED_IN" && sess?.user) {
-          try { sessionStorage.clear(); } catch {}
-
-          const valid = await validateSession(sess);
-          if (!valid) {
-            console.warn("Sessão inválida após login, forçando logout");
-            forceLogout();
-            return;
-          }
-          // ensureProfile is fire-and-forget — don't block session
-          ensureProfile(sess.user.id, sess.user.email || "").catch(() => {});
-        }
-
-        if (_event === "SIGNED_OUT") {
-          setSession(null);
-          setLoading(false);
-          clearTimeout(safetyTimeout);
-          return;
-        }
-
-        setSession(sess);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      if (_event === "SIGNED_OUT") {
+        setSession(null);
         setLoading(false);
         clearTimeout(safetyTimeout);
+        return;
       }
-    );
 
-    // Initial session check
-    supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
-      if (sess?.user) {
-        const valid = await validateSession(sess);
-        if (!valid) {
-          forceLogout();
-          return;
-        }
-        ensureProfile(sess.user.id, sess.user.email || "").catch(() => {});
-      }
       setSession(sess);
       setLoading(false);
       clearTimeout(safetyTimeout);
-    }).catch(() => {
-      forceLogout();
     });
+
+    // Initial session check (non-blocking, sem validações extras)
+    supabase.auth.getSession()
+      .then(({ data: { session: sess } }) => {
+        setSession(sess);
+        setLoading(false);
+        clearTimeout(safetyTimeout);
+      })
+      .catch(() => {
+        setSession(null);
+        setLoading(false);
+        clearTimeout(safetyTimeout);
+      });
 
     return () => {
       subscription.unsubscribe();
@@ -118,3 +60,4 @@ export function useAuth() {
 
   return { session, loading, signOut };
 }
+
