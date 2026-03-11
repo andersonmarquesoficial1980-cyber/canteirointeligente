@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import logoFremix from "@/assets/Logo_Fremix.png";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,8 +10,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-12 flex items-center border-b border-border bg-card/95 backdrop-blur px-2 sticky top-0 z-50">
             <SidebarTrigger className="ml-1" />
-            <span className="ml-3 font-display font-bold text-sm text-foreground">
-              RDO<span className="text-primary">.</span>
+            <img src={logoFremix} alt="Fremix" className="ml-3 h-6 w-6 object-contain" />
+            <span className="ml-2 font-display font-bold text-sm text-foreground">
+              RDO<span className="text-primary">.</span> <span className="text-accent">Digital</span>
             </span>
           </header>
           <main className="flex-1 overflow-y-auto">{children}</main>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Truck, MapPin, HardHat, ClipboardList, Settings, LogOut } from "lucide-react";
+import { FileText, Truck, HardHat, ClipboardList, Settings, LogOut } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,12 +18,10 @@ export default function Index() {
     const forceOut = async () => {
       try { localStorage.clear(); } catch {}
       try { sessionStorage.clear(); } catch {}
-      // Unregister all service workers to purge cached assets
       if ("serviceWorker" in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
         for (const r of regs) { await r.unregister().catch(() => {}); }
       }
-      // Clear caches API
       if ("caches" in window) {
         const keys = await caches.keys();
         for (const k of keys) { await caches.delete(k).catch(() => {}); }
@@ -40,7 +38,7 @@ export default function Index() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-8 max-w-4xl mx-auto">
-      {/* Top bar with user info and logout */}
+      {/* Top bar */}
       <div className="flex items-center justify-between">
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground truncate">{profile?.nome_completo || "Usuário"}</p>
@@ -58,22 +56,27 @@ export default function Index() {
         </button>
       </div>
 
-      <div className="bg-card rounded-2xl border border-border p-6 md:p-10 text-center space-y-5">
+      {/* Hero card - PavLog style with dashed border */}
+      <div className="border border-dashed border-border rounded-2xl p-6 md:p-10 text-center space-y-5 bg-card/60">
         <img src={logoFremix} alt="Fremix Pavimentação" className="h-16 md:h-20 mx-auto object-contain" />
         <div className="space-y-2">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-            RDO Digital — Fremix Pavimentação
+          <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight">
+            <span className="text-foreground">RDO</span>
+            <span className="text-primary">.</span>
+            <span className="text-accent"> Digital</span>
           </h1>
           <p className="text-sm md:text-base text-muted-foreground max-w-lg mx-auto leading-relaxed">
             Plataforma oficial para apontamento de obras, gestão de efetivo, controle de frota e produção asfáltica.
           </p>
         </div>
+
+        {/* KPI icons row */}
         <div className="flex justify-center gap-6 text-muted-foreground/60">
           <Truck className="w-7 h-7" />
           <HardHat className="w-7 h-7" />
           <ClipboardList className="w-7 h-7" />
-          <MapPin className="w-7 h-7" />
         </div>
+
         <Button onClick={() => navigate("/rdo")} size="lg" className="h-14 px-10 text-lg font-bold rounded-xl gap-2 shadow-lg">
           <FileText className="w-6 h-6" /> Novo RDO
         </Button>
@@ -83,7 +86,7 @@ export default function Index() {
         <Button
           variant="outline"
           onClick={() => navigate("/admin/configuracoes")}
-          className="w-full h-14 gap-2 text-sm font-semibold rounded-xl border-border"
+          className="w-full h-14 gap-2 text-sm font-semibold rounded-xl border-dashed border-border"
         >
           <Settings className="w-5 h-5" />
           Configurações
