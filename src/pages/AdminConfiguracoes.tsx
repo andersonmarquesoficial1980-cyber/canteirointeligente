@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
 
@@ -268,6 +270,17 @@ function UsersManager() {
   const [perfil, setPerfil] = useState("Apontador");
   const [creating, setCreating] = useState(false);
 
+  // Edit state
+  const [editing, setEditing] = useState<any | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editPerfil, setEditPerfil] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Delete state
+  const [deleting, setDeleting] = useState<any | null>(null);
+  const [deletingLoading, setDeletingLoading] = useState(false);
+
   const load = async () => {
     const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
     if (data) setUsers(data as any[]);
@@ -282,25 +295,15 @@ function UsersManager() {
     }
     setCreating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const response = await supabase.functions.invoke("create-user", {
         body: { email: email.trim(), password, nome_completo: nome.trim(), perfil },
       });
       const { data: result, error: invokeError } = response;
       if (invokeError) {
-        // When edge function returns non-2xx, data may be null.
-        // The JSON body may be in error.context.responseBody or we parse it ourselves.
         let msg = "Erro ao criar usuário";
-        if (result?.error) {
-          msg = result.error;
-        } else if (typeof invokeError === "object" && invokeError.message) {
-          // Try to parse JSON from the error message
-          try {
-            const parsed = JSON.parse(invokeError.message);
-            if (parsed?.error) msg = parsed.error;
-          } catch {
-            msg = invokeError.message;
-          }
+        if (result?.error) msg = result.error;
+        else if (typeof invokeError === "object" && invokeError.message) {
+          try { const parsed = JSON.parse(invokeError.message); if (parsed?.error) msg = parsed.error; } catch { msg = invokeError.message; }
         }
         throw new Error(msg);
       }
@@ -311,6 +314,50 @@ function UsersManager() {
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally { setCreating(false); }
+  };
+
+  const openEdit = (u: any) => {
+    setEditing(u);
+    setEditNome(u.nome_completo);
+    setEditPerfil(u.perfil);
+    setEditPassword("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+    setSavingEdit(true);
+    try {
+      const body: any = { action: "update", user_id: editing.user_id };
+      if (editNome.trim() && editNome !== editing.nome_completo) body.nome_completo = editNome.trim();
+      if (editPerfil && editPerfil !== editing.perfil) body.perfil = editPerfil;
+      if (editPassword.trim()) body.password = editPassword;
+
+      const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", { body });
+      if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao atualizar");
+
+      toast({ title: "✅ Usuário atualizado!" });
+      setEditing(null);
+      await load();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally { setSavingEdit(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setDeletingLoading(true);
+    try {
+      const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", {
+        body: { action: "delete", user_id: deleting.user_id },
+      });
+      if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao excluir");
+
+      toast({ title: "✅ Usuário excluído!" });
+      setDeleting(null);
+      await load();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally { setDeletingLoading(false); }
   };
 
   return (
@@ -348,15 +395,79 @@ function UsersManager() {
       <div className="space-y-2">
         {users.map((u: any) => (
           <div key={u.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm text-foreground">{u.nome_completo}</p>
-              <p className="text-xs text-muted-foreground">{u.email}</p>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-sm text-foreground truncate">{u.nome_completo}</p>
+              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{u.perfil}</span>
+            </div>
+            <div className="flex items-center gap-1 ml-2">
+              <button onClick={() => openEdit(u)} className="text-muted-foreground hover:text-foreground p-1.5">
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button onClick={() => setDeleting(u)} className="text-destructive p-1.5">
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
         ))}
         {users.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum usuário cadastrado.</p>}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editing} onOpenChange={open => !open && setEditing(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">E-mail</Label>
+              <Input value={editing?.email || ""} disabled className="h-11 bg-muted border-border" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Nome Completo</Label>
+              <Input value={editNome} onChange={e => setEditNome(e.target.value)} className="h-11 bg-secondary border-border" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Perfil de Acesso</Label>
+              <Select value={editPerfil} onValueChange={setEditPerfil}>
+                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Administrador">Administrador</SelectItem>
+                  <SelectItem value="Apontador">Apontador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Nova Senha (deixe vazio para manter)</Label>
+              <Input type="password" value={editPassword} onChange={e => setEditPassword(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Mínimo 6 caracteres" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSaveEdit} disabled={savingEdit} className="w-full h-11">
+              {savingEdit ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleting} onOpenChange={open => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{deleting?.nome_completo}</strong> ({deleting?.email})? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deletingLoading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deletingLoading ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
