@@ -1303,6 +1303,23 @@ export type Database = {
         }
         Relationships: []
       }
+      view_export_totvs_bi: {
+        Row: {
+          atividade: string | null
+          cliente: string | null
+          colaborador: string | null
+          data_servico: string | null
+          diesel_litros: number | null
+          frota: string | null
+          hora_fim: string | null
+          hora_inicio: string | null
+          horimetro_final: string | null
+          local_obra: string | null
+          ogs: string | null
+          tipo: Database["public"]["Enums"]["equipment_type"] | null
+        }
+        Relationships: []
+      }
       view_fresadora_form_style: {
         Row: {
           "ATV 1": string | null
