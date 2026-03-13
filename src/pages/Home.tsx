@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { HardHat, Truck } from "lucide-react";
-import logoFremix from "@/assets/Logo_Fremix.png";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -9,7 +8,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-background">
       {/* Logo + brand */}
       <div className="mb-12 text-center space-y-3">
-        <img src={logoFremix} alt="Fremix Pavimentação" className="h-16 md:h-20 mx-auto object-contain" />
+        
         <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight text-foreground">
           Canteiro<span className="text-accent">.</span>{" "}
           <span className="text-primary">Inteligente</span>
