@@ -1,7 +1,7 @@
 import { LayoutDashboard, FileText, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import logoFremix from "@/assets/Logo_Fremix.png";
+
 import {
   Sidebar,
   SidebarContent,
