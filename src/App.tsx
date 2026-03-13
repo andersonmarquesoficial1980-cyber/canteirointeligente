@@ -44,6 +44,7 @@ function AppRoutes() {
 
         {/* Equipamentos module */}
         <Route path="/equipamentos" element={<AppLayout><FrotaNovo /></AppLayout>} />
+        <Route path="/equipamentos/diario" element={<AppLayout><EquipmentDiaryForm /></AppLayout>} />
 
         {/* Admin */}
         <Route path="/admin/configuracoes" element={
