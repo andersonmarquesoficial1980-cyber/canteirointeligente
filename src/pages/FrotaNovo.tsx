@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Truck, Search, Cog, CircleDot } from "lucide-react";
+import { Plus, Truck, Search, Cog, CircleDot, FileText } from "lucide-react";
 
 const TIPOS = ["Pavimentação", "Compactação", "Fresagem", "Transporte", "Usina", "Apoio", "Outros"];
 const STATUS_OPTIONS = [
@@ -26,6 +27,7 @@ function statusBadge(status: string) {
 }
 
 export default function FrotaNovo() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -109,11 +111,16 @@ export default function FrotaNovo() {
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 font-semibold">
-              <Plus className="w-4 h-4" /> Novo Equipamento
+          <div className="flex gap-2">
+            <Button variant="outline" className="gap-2 font-semibold" onClick={() => navigate("/equipamentos/diario")}>
+              <FileText className="w-4 h-4" /> Novo Diário
             </Button>
-          </DialogTrigger>
+            <DialogTrigger asChild>
+              <Button className="gap-2 font-semibold">
+                <Plus className="w-4 h-4" /> Novo Equipamento
+              </Button>
+            </DialogTrigger>
+          </div>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">

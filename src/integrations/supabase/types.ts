@@ -132,6 +132,7 @@ export type Database = {
           ogs: string | null
           operator: string | null
           status: string | null
+          user_id: string | null
         }
         Insert: {
           client?: string | null
@@ -148,6 +149,7 @@ export type Database = {
           ogs?: string | null
           operator?: string | null
           status?: string | null
+          user_id?: string | null
         }
         Update: {
           client?: string | null
@@ -164,6 +166,7 @@ export type Database = {
           ogs?: string | null
           operator?: string | null
           status?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
