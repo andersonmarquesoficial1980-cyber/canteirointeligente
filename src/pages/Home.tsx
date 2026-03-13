@@ -1,47 +1,52 @@
 import { useNavigate } from "react-router-dom";
-import { HardHat, Truck } from "lucide-react";
+import { ClipboardList, Cog } from "lucide-react";
 
 export default function Home() {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-background">
-      {/* Logo + brand */}
-      <div className="mb-12 text-center space-y-3">
-        
-        <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight text-foreground">
+      {/* Brand */}
+      <div className="mb-14 text-center space-y-2">
+        <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-foreground">
           Canteiro<span className="text-accent">.</span>{" "}
           <span className="text-primary">Inteligente</span>
         </h1>
         <p className="text-sm text-muted-foreground">Selecione o módulo para continuar</p>
       </div>
 
-      {/* Hub buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-xl">
+      {/* Module cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-2xl">
+        {/* CI Obras — black card */}
         <button
           onClick={() => navigate("/obras")}
-          className="group flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border bg-card/60 backdrop-blur p-10 transition-all hover:border-accent hover:bg-card/80 hover:shadow-lg hover:shadow-accent/10 cursor-pointer"
+          className="group relative flex flex-col items-center justify-center gap-5 rounded-2xl bg-[hsl(0_0%_7%)] border border-border/60 p-12 transition-all duration-300 hover:border-accent/60 hover:shadow-[0_0_40px_-10px_hsl(var(--accent)/0.25)] cursor-pointer"
         >
-          <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-accent/10 group-hover:bg-accent/20 transition-colors">
-            <HardHat className="w-8 h-8 text-accent" />
+          <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-accent/10 group-hover:bg-accent/20 transition-colors">
+            <ClipboardList className="w-10 h-10 text-accent" />
           </div>
-          <span className="text-lg font-display font-bold text-foreground">CI Obras</span>
-          <span className="text-xs text-muted-foreground text-center leading-relaxed">
-            Diário de obra, efetivo, produção e relatórios
-          </span>
+          <div className="text-center space-y-1.5">
+            <span className="block text-xl font-display font-bold text-foreground">CI Obras</span>
+            <span className="block text-xs text-muted-foreground leading-relaxed">
+              RDO — Diário de Obras
+            </span>
+          </div>
         </button>
 
+        {/* CI Equipamentos — cobalt card */}
         <button
           onClick={() => navigate("/equipamentos")}
-          className="group flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border bg-card/60 backdrop-blur p-10 transition-all hover:border-primary hover:bg-card/80 hover:shadow-lg hover:shadow-primary/10 cursor-pointer"
+          className="group relative flex flex-col items-center justify-center gap-5 rounded-2xl bg-primary border border-primary/40 p-12 transition-all duration-300 hover:border-primary-foreground/30 hover:shadow-[0_0_40px_-10px_hsl(var(--primary)/0.4)] cursor-pointer"
         >
-          <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-            <Truck className="w-8 h-8 text-primary" />
+          <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-primary-foreground/10 group-hover:bg-primary-foreground/20 transition-colors">
+            <Cog className="w-10 h-10 text-primary-foreground" />
           </div>
-          <span className="text-lg font-display font-bold text-foreground">CI Equipamentos</span>
-          <span className="text-xs text-muted-foreground text-center leading-relaxed">
-            Diário de frota, horímetro e gestão de máquinas
-          </span>
+          <div className="text-center space-y-1.5">
+            <span className="block text-xl font-display font-bold text-primary-foreground">CI Equipamentos</span>
+            <span className="block text-xs text-primary-foreground/70 leading-relaxed">
+              Gestão de Equipamentos
+            </span>
+          </div>
         </button>
       </div>
     </div>
