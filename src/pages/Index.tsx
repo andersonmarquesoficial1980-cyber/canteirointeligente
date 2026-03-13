@@ -61,12 +61,12 @@ export default function Index() {
         <img src={logoFremix} alt="Fremix Pavimentação" className="h-16 md:h-20 mx-auto object-contain" />
         <div className="space-y-2">
           <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight">
-            <span className="text-foreground">RDO</span>
-            <span className="text-primary">.</span>
-            <span className="text-accent"> Digital</span>
+            <span className="text-foreground">Canteiro</span>
+            <span className="text-accent">.</span>
+            <span className="text-primary"> Inteligente</span>
           </h1>
           <p className="text-sm md:text-base text-muted-foreground max-w-lg mx-auto leading-relaxed">
-            Plataforma oficial para apontamento de obras, gestão de efetivo, controle de frota e produção asfáltica.
+            Módulo de Obras — apontamento, efetivo, produção e relatórios.
           </p>
         </div>
 

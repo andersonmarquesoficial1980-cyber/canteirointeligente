@@ -42,7 +42,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div>
               <p className="font-display font-bold text-sm text-sidebar-foreground leading-tight">
-                RDO<span className="text-primary">.</span> Digital
+                Canteiro<span className="text-accent">.</span> <span className="text-primary">Inteligente</span>
               </p>
               <p className="text-[10px] text-muted-foreground leading-tight">
                 Fremix Pavimentação
