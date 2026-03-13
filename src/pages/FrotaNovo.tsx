@@ -111,11 +111,16 @@ export default function FrotaNovo() {
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 font-semibold">
-              <Plus className="w-4 h-4" /> Novo Equipamento
+          <div className="flex gap-2">
+            <Button variant="outline" className="gap-2 font-semibold" onClick={() => navigate("/equipamentos/diario")}>
+              <FileText className="w-4 h-4" /> Novo Diário
             </Button>
-          </DialogTrigger>
+            <DialogTrigger asChild>
+              <Button className="gap-2 font-semibold">
+                <Plus className="w-4 h-4" /> Novo Equipamento
+              </Button>
+            </DialogTrigger>
+          </div>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
