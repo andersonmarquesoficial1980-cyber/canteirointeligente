@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, Mail, Lock } from "lucide-react";
-import logoFremix from "@/assets/Logo_Fremix.png";
 
 export default function Login() {
   const { toast } = useToast();
