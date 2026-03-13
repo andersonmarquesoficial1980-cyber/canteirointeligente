@@ -12,7 +12,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger className="ml-1" />
             <img src={logoFremix} alt="Fremix" className="ml-3 h-6 w-6 object-contain" />
             <span className="ml-2 font-display font-bold text-sm text-foreground">
-              RDO<span className="text-primary">.</span> <span className="text-accent">Digital</span>
+              Canteiro<span className="text-accent">.</span> <span className="text-primary">Inteligente</span>
             </span>
           </header>
           <main className="flex-1 overflow-y-auto">{children}</main>

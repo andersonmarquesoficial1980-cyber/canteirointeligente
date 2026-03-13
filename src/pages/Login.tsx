@@ -34,12 +34,12 @@ export default function Login() {
       <div className="text-center mb-8 space-y-3">
         <img src={logoFremix} alt="Fremix Pavimentação" className="h-14 mx-auto object-contain" />
         <h1 className="text-3xl font-display font-bold tracking-tight">
-          <span className="text-foreground">RDO</span>
-          <span className="text-primary">.</span>
-          <span className="text-accent"> Digital</span>
+          <span className="text-foreground">Canteiro</span>
+          <span className="text-accent">.</span>
+          <span className="text-primary"> Inteligente</span>
         </h1>
         <p className="text-sm text-muted-foreground tracking-wide">
-          Relatório Diário de Obra
+          Plataforma unificada de gestão de obras e frota
         </p>
       </div>
 
