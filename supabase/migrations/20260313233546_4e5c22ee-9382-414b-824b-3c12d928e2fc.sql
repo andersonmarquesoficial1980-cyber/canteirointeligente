@@ -1,0 +1,1 @@
+CREATE POLICY "delete_own_equipment_diaries" ON public.equipment_diaries FOR DELETE TO authenticated USING ((auth.uid() = user_id) OR has_role(auth.uid(), 'admin'::text));
