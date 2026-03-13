@@ -31,7 +31,6 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       {/* Branding */}
       <div className="text-center mb-8 space-y-3">
-        <img src={logoFremix} alt="Fremix Pavimentação" className="h-14 mx-auto object-contain" />
         <h1 className="text-3xl font-display font-bold tracking-tight">
           <span className="text-foreground">Canteiro</span>
           <span className="text-accent">.</span>
