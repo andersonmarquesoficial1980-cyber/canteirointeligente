@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Truck, Search, Cog, CircleDot } from "lucide-react";
+import { Plus, Truck, Search, Cog, CircleDot, FileText } from "lucide-react";
 
 const TIPOS = ["Pavimentação", "Compactação", "Fresagem", "Transporte", "Usina", "Apoio", "Outros"];
 const STATUS_OPTIONS = [
