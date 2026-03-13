@@ -77,7 +77,7 @@ export default function Index() {
           <ClipboardList className="w-7 h-7" />
         </div>
 
-        <Button onClick={() => navigate("/rdo")} size="lg" className="h-14 px-10 text-lg font-bold rounded-xl gap-2 shadow-lg">
+        <Button onClick={() => navigate("/obras/rdo")} size="lg" className="h-14 px-10 text-lg font-bold rounded-xl gap-2 shadow-lg">
           <FileText className="w-6 h-6" /> Novo RDO
         </Button>
       </div>

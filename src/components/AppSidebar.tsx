@@ -14,8 +14,10 @@ import {
 } from "@/components/ui/sidebar";
 
 const baseItems = [
-  { title: "Painel Geral", url: "/", icon: LayoutDashboard },
-  { title: "Novo RDO", url: "/rdo", icon: FileText },
+  { title: "Hub", url: "/", icon: LayoutDashboard },
+  { title: "CI Obras", url: "/obras", icon: LayoutDashboard },
+  { title: "Novo RDO", url: "/obras/rdo", icon: FileText },
+  { title: "CI Equipamentos", url: "/equipamentos", icon: FileText },
 ];
 
 const adminItems = [
