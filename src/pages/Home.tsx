@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { HardHat, Truck } from "lucide-react";
-import logoFremix from "@/assets/Logo_Fremix.png";
 
 export default function Home() {
   const navigate = useNavigate();
