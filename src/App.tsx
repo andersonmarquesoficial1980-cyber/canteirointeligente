@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
+import Home from "./pages/Home";
 import Index from "./pages/Index";
 import RdoForm from "./pages/RdoForm";
 import FrotaNovo from "./pages/FrotaNovo";
@@ -31,21 +32,30 @@ function AppRoutes() {
   }
 
   return (
-    <AppLayout>
-      <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/rdo" element={<RdoForm />} />
-          <Route path="/frota/novo" element={<FrotaNovo />} />
-          <Route path="/admin/configuracoes" element={
+    <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
+      <Routes>
+        {/* Hub — no sidebar/layout */}
+        <Route path="/" element={<Home />} />
+
+        {/* Obras module */}
+        <Route path="/obras" element={<AppLayout><Index /></AppLayout>} />
+        <Route path="/obras/rdo" element={<AppLayout><RdoForm /></AppLayout>} />
+
+        {/* Equipamentos module */}
+        <Route path="/equipamentos" element={<AppLayout><FrotaNovo /></AppLayout>} />
+
+        {/* Admin */}
+        <Route path="/admin/configuracoes" element={
+          <AppLayout>
             <ErrorBoundary fallbackMessage="Erro ao carregar Configurações.">
               <AdminConfiguracoes />
             </ErrorBoundary>
-          } />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </ErrorBoundary>
-    </AppLayout>
+          </AppLayout>
+        } />
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </ErrorBoundary>
   );
 }
 
