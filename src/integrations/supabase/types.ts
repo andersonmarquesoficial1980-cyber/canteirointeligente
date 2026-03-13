@@ -419,6 +419,50 @@ export type Database = {
         }
         Relationships: []
       }
+      kma_calibration_entries: {
+        Row: {
+          created_at: string | null
+          diary_id: string | null
+          fator_ajuste: number | null
+          id: number
+          peso_nominal_usina: number | null
+          peso_real_referencia: number | null
+          tara_caminhao: number | null
+          tentativa_numero: number | null
+          ticket_photo_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          diary_id?: string | null
+          fator_ajuste?: number | null
+          id?: number
+          peso_nominal_usina?: number | null
+          peso_real_referencia?: number | null
+          tara_caminhao?: number | null
+          tentativa_numero?: number | null
+          ticket_photo_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          diary_id?: string | null
+          fator_ajuste?: number | null
+          id?: number
+          peso_nominal_usina?: number | null
+          peso_real_referencia?: number | null
+          tara_caminhao?: number | null
+          tentativa_numero?: number | null
+          ticket_photo_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kma_calibration_entries_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "diaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maquinas_frota: {
         Row: {
           categoria: string | null
