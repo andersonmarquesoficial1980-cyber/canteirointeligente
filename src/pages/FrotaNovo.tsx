@@ -27,6 +27,7 @@ function statusBadge(status: string) {
 }
 
 export default function FrotaNovo() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
