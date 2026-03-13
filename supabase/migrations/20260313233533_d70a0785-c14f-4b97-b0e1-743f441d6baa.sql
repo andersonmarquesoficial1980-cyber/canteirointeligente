@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Permitir tudo para usuários autenticados" ON public.equipment_diaries;
