@@ -60,8 +60,8 @@ export default function ChecklistSection({ equipmentType = "Fresadora", results,
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-border pb-2">
-        CHECKLIST PRÉ-OPERAÇÃO
+      <h3 className="text-xs font-semibold text-accent uppercase tracking-wide mb-1">
+        Itens de verificação
       </h3>
 
       {items.length === 0 && (

@@ -22,7 +22,7 @@ import ProductionAreasSection, { type ProductionArea, createEmptyArea } from "@/
 import BitManagementSection, { type BitEntry, createEmptyBit } from "@/components/equipment/BitManagementSection";
 import FuelingSection, { type FuelingData, createEmptyFueling } from "@/components/equipment/FuelingSection";
 import ChecklistSection, { type ChecklistResult } from "@/components/equipment/ChecklistSection";
-import VisualInspectionSection, { type DamageMarker } from "@/components/equipment/VisualInspectionSection";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { compressImage } from "@/lib/imageCompression";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
 
@@ -65,7 +65,6 @@ export default function EquipmentDiaryForm() {
   const [bits, setBits] = useState<BitEntry[]>([]);
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
-  const [damageMarkers, setDamageMarkers] = useState<DamageMarker[]>([]);
 
   // Auto-fill client/location from OGS — handle semicolon-separated addresses
   const selectedOgs = useMemo(() => {
@@ -317,29 +316,6 @@ export default function EquipmentDiaryForm() {
         }
       }
 
-      // Save visual inspection markers
-      if (isFresadora && diary && damageMarkers.length > 0) {
-        for (const dm of damageMarkers) {
-          let photoUrl: string | null = null;
-          if (dm.photoFile) {
-            const path = `visual-inspection/${diary.id}/${dm.id}_${Date.now()}.jpg`;
-            const { error: upErr } = await supabase.storage
-              .from("notas_fiscais")
-              .upload(path, dm.photoFile, { contentType: "image/jpeg", upsert: true });
-            if (!upErr) {
-              const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
-              photoUrl = urlData.publicUrl;
-            }
-          }
-          await supabase.from("equipment_visual_inspection").insert({
-            diary_id: diary.id,
-            x_position: dm.xPercent,
-            y_position: dm.yPercent,
-            damage_type: dm.damageType,
-            photo_avaria_url: photoUrl,
-          });
-        }
-      }
 
       toast({
         title: isDraft ? "📝 Rascunho salvo!" : "✅ Diário enviado!",
@@ -551,15 +527,22 @@ export default function EquipmentDiaryForm() {
           <>
             <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
             <BitManagementSection bits={bits} onChange={setBits} />
-            <ChecklistSection
-              equipmentType="Fresadora"
-              results={checklistResults}
-              onChange={setChecklistResults}
-            />
-            <VisualInspectionSection
-              markers={damageMarkers}
-              onChange={setDamageMarkers}
-            />
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="checklist" className="border border-border rounded-lg overflow-hidden bg-secondary/30">
+                <AccordionTrigger className="px-4 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                  <span className="text-sm font-bold text-white uppercase tracking-wide">
+                    ✔️ CHECKLIST PRÉ-OPERAÇÃO
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  <ChecklistSection
+                    equipmentType="Fresadora"
+                    results={checklistResults}
+                    onChange={setChecklistResults}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </>
         )}
 
