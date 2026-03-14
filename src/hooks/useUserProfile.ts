@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface UserProfile {
+export interface UserProfile {
   nome_completo: string;
   perfil: string;
   email: string;
+  company_id: string | null;
 }
 
 export function useUserProfile() {
@@ -19,7 +20,7 @@ export function useUserProfile() {
 
         const { data } = await supabase
           .from("profiles")
-          .select("nome_completo, perfil")
+          .select("nome_completo, perfil, company_id")
           .eq("user_id", user.id)
           .maybeSingle();
 
@@ -27,6 +28,7 @@ export function useUserProfile() {
           nome_completo: (data as any)?.nome_completo || user.email?.split("@")[0] || "Usuário",
           perfil: (data as any)?.perfil || "Apontador",
           email: user.email || "",
+          company_id: (data as any)?.company_id || null,
         });
       } catch {
         // non-blocking
