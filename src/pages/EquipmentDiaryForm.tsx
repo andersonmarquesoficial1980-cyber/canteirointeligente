@@ -21,6 +21,9 @@ import KmaCalibrationSection, {
 import ProductionAreasSection, { type ProductionArea, createEmptyArea } from "@/components/equipment/ProductionAreasSection";
 import BitManagementSection, { type BitEntry, createEmptyBit } from "@/components/equipment/BitManagementSection";
 import FuelingSection, { type FuelingData, createEmptyFueling } from "@/components/equipment/FuelingSection";
+import ChecklistSection, { type ChecklistResult } from "@/components/equipment/ChecklistSection";
+import VisualInspectionSection, { type DamageMarker } from "@/components/equipment/VisualInspectionSection";
+import { compressImage } from "@/lib/imageCompression";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
 
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
