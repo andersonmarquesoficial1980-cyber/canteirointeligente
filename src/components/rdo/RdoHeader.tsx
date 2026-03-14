@@ -36,28 +36,29 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
     if (!obras) return [];
     const seen = new Set<string>();
     return obras.filter(o => {
-      if (seen.has(o.numero_ogs)) return false;
-      seen.add(o.numero_ogs);
+      const num = o.ogs_number || "";
+      if (seen.has(num)) return false;
+      seen.add(num);
       return true;
     });
   }, [obras]);
 
   const selectedEntries = useMemo(() => {
     if (!obras || !data.obra_nome) return [];
-    return obras.filter(o => o.numero_ogs === data.obra_nome);
+    return obras.filter(o => o.ogs_number === data.obra_nome);
   }, [obras, data.obra_nome]);
 
   const uniqueAddresses = useMemo(() => {
-    return [...new Set(selectedEntries.map(e => e.endereco))];
+    return [...new Set(selectedEntries.map(e => e.location_address))];
   }, [selectedEntries]);
 
   const handleObraChange = (value: string) => {
     onChange("obra_nome", value);
-    const entries = obras?.filter(o => o.numero_ogs === value) || [];
+    const entries = obras?.filter(o => o.ogs_number === value) || [];
     if (entries.length > 0) {
-      onChange("cliente", entries[0].cliente);
-      const addrs = [...new Set(entries.map(e => e.endereco))];
-      onChange("local", addrs.length === 1 ? addrs[0] : "");
+      onChange("cliente", entries[0].client_name || "");
+      const addrs = [...new Set(entries.map(e => e.location_address))];
+      onChange("local", addrs.length === 1 ? (addrs[0] || "") : "");
     }
   };
 
