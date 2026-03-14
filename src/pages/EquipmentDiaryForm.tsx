@@ -316,29 +316,6 @@ export default function EquipmentDiaryForm() {
         }
       }
 
-      // Save visual inspection markers
-      if (isFresadora && diary && damageMarkers.length > 0) {
-        for (const dm of damageMarkers) {
-          let photoUrl: string | null = null;
-          if (dm.photoFile) {
-            const path = `visual-inspection/${diary.id}/${dm.id}_${Date.now()}.jpg`;
-            const { error: upErr } = await supabase.storage
-              .from("notas_fiscais")
-              .upload(path, dm.photoFile, { contentType: "image/jpeg", upsert: true });
-            if (!upErr) {
-              const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
-              photoUrl = urlData.publicUrl;
-            }
-          }
-          await supabase.from("equipment_visual_inspection").insert({
-            diary_id: diary.id,
-            x_position: dm.xPercent,
-            y_position: dm.yPercent,
-            damage_type: dm.damageType,
-            photo_avaria_url: photoUrl,
-          });
-        }
-      }
 
       toast({
         title: isDraft ? "📝 Rascunho salvo!" : "✅ Diário enviado!",
