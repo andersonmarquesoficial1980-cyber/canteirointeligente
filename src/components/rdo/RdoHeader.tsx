@@ -107,8 +107,8 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
             </SelectTrigger>
             <SelectContent className="max-h-[300px]">
               {uniqueOgs.map(obra => (
-                <SelectItem key={obra.numero_ogs} value={obra.numero_ogs} className="py-3">
-                  {obra.numero_ogs}
+                <SelectItem key={obra.ogs_number || obra.id} value={obra.ogs_number || ""} className="py-3">
+                  {obra.ogs_number}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -43,15 +43,15 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
           </SelectTrigger>
           <SelectContent className="max-h-[300px]">
             {obras?.map(obra => (
-              <SelectItem key={obra.id} value={obra.numero_ogs} className="py-3 text-base">
-                {obra.numero_ogs} — {obra.cliente}
+              <SelectItem key={obra.id} value={obra.ogs_number || ""} className="py-3 text-base">
+                {obra.ogs_number} — {obra.client_name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         {selectedObra && (
           <p className="text-xs text-muted-foreground px-1">
-            📍 {selectedObra.endereco} • 🏢 {selectedObra.cliente}
+            📍 {selectedObra.location_address} • 🏢 {selectedObra.client_name}
           </p>
         )}
       </div>

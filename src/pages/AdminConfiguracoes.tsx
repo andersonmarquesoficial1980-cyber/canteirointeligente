@@ -511,7 +511,7 @@ function OgsManager() {
   };
 
   const handleDelete = async (id: number) => {
-    const { error } = await supabase.from("ogs_reference").delete().eq("id", id);
+    const { error } = await supabase.from("ogs_reference").delete().eq("id", String(id));
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     await load();
   };
