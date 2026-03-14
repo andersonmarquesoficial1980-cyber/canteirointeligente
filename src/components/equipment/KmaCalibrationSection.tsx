@@ -6,47 +6,52 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Scale, Camera, AlertTriangle, CheckCircle, FileText, X } from "lucide-react";
 import { compressImage } from "@/lib/imageCompression";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export interface CalibrationEntry {
   tentativa: number;
-  pesoNominalUsina: string;
-  pesoRealReferencia: string;
-  taraCaminhao: string;
-  ticketPhotoUrl: string | null;
+  tara: string;
+  pesoNominal: string;
+  pesoReal: string;
   ticketPhotoFile: File | null;
+  ticketPhotoPreview: string | null;
 }
 
 interface Props {
   entries: CalibrationEntry[];
   onChange: (entries: CalibrationEntry[]) => void;
-  diaryId?: string | null;
   onGeneratePdf?: () => void;
 }
 
 export function createEmptyCalibration(tentativa: number): CalibrationEntry {
-  return { tentativa, pesoNominalUsina: "", pesoRealReferencia: "", taraCaminhao: "", ticketPhotoUrl: null, ticketPhotoFile: null };
+  return {
+    tentativa,
+    tara: "",
+    pesoNominal: "",
+    pesoReal: "",
+    ticketPhotoFile: null,
+    ticketPhotoPreview: null,
+  };
 }
 
 export function calcDiffPercent(entry: CalibrationEntry): number | null {
-  const nominal = Number(entry.pesoNominalUsina);
-  const real = Number(entry.pesoRealReferencia);
+  const nominal = Number(entry.pesoNominal);
+  const real = Number(entry.pesoReal);
   if (!nominal || !real) return null;
   return ((real - nominal) / nominal) * 100;
 }
 
 export function calcFator(entry: CalibrationEntry): number | null {
-  const nominal = Number(entry.pesoNominalUsina);
-  const real = Number(entry.pesoRealReferencia);
+  const nominal = Number(entry.pesoNominal);
+  const real = Number(entry.pesoReal);
   if (!nominal || !real) return null;
   return real / nominal;
 }
 
-export default function KmaCalibrationSection({ entries, onChange, diaryId, onGeneratePdf }: Props) {
+export default function KmaCalibrationSection({ entries, onChange, onGeneratePdf }: Props) {
   const { toast } = useToast();
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [uploading, setUploading] = useState<number | null>(null);
+  const [compressing, setCompressing] = useState<number | null>(null);
 
   const updateEntry = (index: number, field: keyof CalibrationEntry, value: any) => {
     const updated = entries.map((e, i) => (i === index ? { ...e, [field]: value } : e));
@@ -60,29 +65,27 @@ export default function KmaCalibrationSection({ entries, onChange, diaryId, onGe
   };
 
   const handlePhotoCapture = async (index: number, file: File) => {
-    setUploading(index);
+    setCompressing(index);
     try {
-      const compressed = await compressImage(file, 1000);
-      const compressedFile = new File([compressed], `ticket_${index + 1}.jpg`, { type: "image/jpeg" });
-
-      if (diaryId) {
-        const path = `kma-tickets/${diaryId}/tentativa_${index + 1}_${Date.now()}.jpg`;
-        const { error } = await supabase.storage.from("notas_fiscais").upload(path, compressed, { contentType: "image/jpeg", upsert: true });
-        if (error) throw error;
-        const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
-        updateEntry(index, "ticketPhotoUrl", urlData.publicUrl);
-        updateEntry(index, "ticketPhotoFile", null);
-        toast({ title: "📸 Foto salva!", description: `Ticket da tentativa ${index + 1} enviado.` });
-      } else {
-        updateEntry(index, "ticketPhotoFile", compressedFile);
-        updateEntry(index, "ticketPhotoUrl", URL.createObjectURL(compressed));
-        toast({ title: "📸 Foto capturada!", description: "Será enviada ao salvar o diário." });
-      }
+      const compressed = await compressImage(file, 1);
+      const preview = URL.createObjectURL(compressed);
+      const updated = entries.map((e, i) =>
+        i === index ? { ...e, ticketPhotoFile: compressed, ticketPhotoPreview: preview } : e
+      );
+      onChange(updated);
+      toast({ title: "📸 Foto comprimida!", description: `${(compressed.size / 1024).toFixed(0)} KB — pronta para envio.` });
     } catch (err: any) {
-      toast({ title: "Erro ao processar foto", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao comprimir foto", description: err.message, variant: "destructive" });
     } finally {
-      setUploading(null);
+      setCompressing(null);
     }
+  };
+
+  const clearPhoto = (index: number) => {
+    const updated = entries.map((e, i) =>
+      i === index ? { ...e, ticketPhotoFile: null, ticketPhotoPreview: null } : e
+    );
+    onChange(updated);
   };
 
   return (
@@ -91,7 +94,7 @@ export default function KmaCalibrationSection({ entries, onChange, diaryId, onGe
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Scale className="w-5 h-5 text-accent" />
-            Demonstrativo KMA — Calibração de Pesagem
+            Calibração KMA — Pesagem
           </CardTitle>
           {onGeneratePdf && (
             <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onGeneratePdf}>
@@ -107,7 +110,7 @@ export default function KmaCalibrationSection({ entries, onChange, diaryId, onGe
         {entries.map((entry, idx) => {
           const diff = calcDiffPercent(entry);
           const fator = calcFator(entry);
-          const needsPhoto = diff !== null && Math.abs(diff) < 1;
+          const showPhotoBtn = diff !== null && Math.abs(diff) < 1;
           const isOk = diff !== null && Math.abs(diff) < 1;
 
           return (
@@ -126,11 +129,21 @@ export default function KmaCalibrationSection({ entries, onChange, diaryId, onGe
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
+                  <Label className="text-xs">Tara (kg)</Label>
+                  <Input
+                    type="number"
+                    value={entry.tara}
+                    onChange={(e) => updateEntry(idx, "tara", e.target.value)}
+                    placeholder="0"
+                    className="bg-secondary border-border"
+                  />
+                </div>
+                <div className="space-y-1.5">
                   <Label className="text-xs">Peso Nominal Usina (kg)</Label>
                   <Input
                     type="number"
-                    value={entry.pesoNominalUsina}
-                    onChange={(e) => updateEntry(idx, "pesoNominalUsina", e.target.value)}
+                    value={entry.pesoNominal}
+                    onChange={(e) => updateEntry(idx, "pesoNominal", e.target.value)}
                     placeholder="0"
                     className="bg-secondary border-border"
                   />
@@ -139,18 +152,8 @@ export default function KmaCalibrationSection({ entries, onChange, diaryId, onGe
                   <Label className="text-xs">Peso Real Referência (kg)</Label>
                   <Input
                     type="number"
-                    value={entry.pesoRealReferencia}
-                    onChange={(e) => updateEntry(idx, "pesoRealReferencia", e.target.value)}
-                    placeholder="0"
-                    className="bg-secondary border-border"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Tara Caminhão (kg)</Label>
-                  <Input
-                    type="number"
-                    value={entry.taraCaminhao}
-                    onChange={(e) => updateEntry(idx, "taraCaminhao", e.target.value)}
+                    value={entry.pesoReal}
+                    onChange={(e) => updateEntry(idx, "pesoReal", e.target.value)}
                     placeholder="0"
                     className="bg-secondary border-border"
                   />
@@ -163,7 +166,8 @@ export default function KmaCalibrationSection({ entries, onChange, diaryId, onGe
                 </p>
               )}
 
-              {needsPhoto && (
+              {/* Photo button ONLY when diff < 1% */}
+              {showPhotoBtn && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 bg-accent/10 border border-accent/30 rounded-md p-2">
                     <Camera className="w-4 h-4 text-accent" />
@@ -172,12 +176,12 @@ export default function KmaCalibrationSection({ entries, onChange, diaryId, onGe
                     </span>
                   </div>
 
-                  {entry.ticketPhotoUrl ? (
+                  {entry.ticketPhotoPreview ? (
                     <div className="relative inline-block">
-                      <img src={entry.ticketPhotoUrl} alt="Ticket" className="rounded-md max-h-32 border border-border" />
+                      <img src={entry.ticketPhotoPreview} alt="Ticket" className="rounded-md max-h-32 border border-border" />
                       <button
                         type="button"
-                        onClick={() => { updateEntry(idx, "ticketPhotoUrl", null); updateEntry(idx, "ticketPhotoFile", null); }}
+                        onClick={() => clearPhoto(idx)}
                         className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
                       >
                         <X className="w-3 h-3" />
@@ -201,11 +205,11 @@ export default function KmaCalibrationSection({ entries, onChange, diaryId, onGe
                         variant="outline"
                         size="sm"
                         className="gap-1.5 text-xs"
-                        disabled={uploading === idx}
+                        disabled={compressing === idx}
                         onClick={() => fileInputRefs.current[idx]?.click()}
                       >
                         <Camera className="w-3.5 h-3.5" />
-                        {uploading === idx ? "Comprimindo..." : "Capturar Foto do Ticket"}
+                        {compressing === idx ? "Comprimindo..." : "Capturar Foto do Ticket"}
                       </Button>
                     </>
                   )}
