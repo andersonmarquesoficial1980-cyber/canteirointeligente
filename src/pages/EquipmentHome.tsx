@@ -5,17 +5,18 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Settings } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import logoFremix from "@/assets/Logo_Fremix.png";
+import iconFresadora from "@/assets/icon-fresadora.png";
 
 const EQUIPMENT_TYPES = [
-  { id: "Fresadora", label: "Fresadora", icon: "🔧" },
-  { id: "Bobcat", label: "Bobcat", icon: "🏗️" },
-  { id: "Rolo", label: "Rolo", icon: "🛞" },
-  { id: "Vibroacabadora", label: "Vibro", icon: "⚙️" },
-  { id: "Usina KMA", label: "KMA", icon: "⚖️" },
-  { id: "Caminhão", label: "Caminhão", icon: "🚛" },
-  { id: "Comboio", label: "Comboio", icon: "⛽" },
-  { id: "Veículo", label: "Veículo", icon: "🚗" },
-  { id: "Retro", label: "Retro", icon: "🦾" },
+  { id: "Fresadora", label: "Fresadora", icon: iconFresadora, isImage: true },
+  { id: "Bobcat", label: "Bobcat", icon: "🏗️", isImage: false },
+  { id: "Rolo", label: "Rolo", icon: "🛞", isImage: false },
+  { id: "Vibroacabadora", label: "Vibro", icon: "⚙️", isImage: false },
+  { id: "Usina KMA", label: "KMA", icon: "⚖️", isImage: false },
+  { id: "Caminhão", label: "Caminhão", icon: "🚛", isImage: false },
+  { id: "Comboio", label: "Comboio", icon: "⛽", isImage: false },
+  { id: "Veículo", label: "Veículo", icon: "🚗", isImage: false },
+  { id: "Retro", label: "Retro", icon: "🦾", isImage: false },
 ];
 
 export default function EquipmentHome() {
