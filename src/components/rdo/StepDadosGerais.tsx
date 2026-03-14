@@ -17,7 +17,7 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
   const { data: obras, isLoading: loadingObras } = useOgsReference();
   const { data: maquinas, isLoading: loadingMaquinas } = useMaquinasFrota();
 
-  const selectedObra = obras?.find(o => o.numero_ogs === data.obra_nome);
+  const selectedObra = obras?.find(o => o.ogs_number === data.obra_nome);
 
   return (
     <div className="space-y-5 p-4">
