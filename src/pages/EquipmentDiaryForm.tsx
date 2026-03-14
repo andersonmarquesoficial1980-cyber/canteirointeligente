@@ -65,7 +65,6 @@ export default function EquipmentDiaryForm() {
   const [bits, setBits] = useState<BitEntry[]>([]);
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
-  const [damageMarkers, setDamageMarkers] = useState<DamageMarker[]>([]);
 
   // Auto-fill client/location from OGS — handle semicolon-separated addresses
   const selectedOgs = useMemo(() => {
