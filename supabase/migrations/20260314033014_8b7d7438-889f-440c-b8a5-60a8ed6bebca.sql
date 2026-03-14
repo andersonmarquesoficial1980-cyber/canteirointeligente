@@ -1,0 +1,1 @@
+ALTER TYPE public.checklist_status ADD VALUE IF NOT EXISTS 'na';
