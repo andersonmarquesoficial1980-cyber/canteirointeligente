@@ -411,9 +411,9 @@ export default function EquipmentDiaryForm() {
                       <SelectValue placeholder="Selecione o local..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {ogsAddresses.map((o: any) => (
-                        <SelectItem key={o.id} value={o.location_address || ""}>
-                          {o.location_address}
+                      {ogsAddressList.map((addr: string, idx: number) => (
+                        <SelectItem key={idx} value={addr}>
+                          {addr}
                         </SelectItem>
                       ))}
                     </SelectContent>
