@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import KmaCalibrationSection from "@/components/equipment/KmaCalibrationSection"
 export default function EquipmentDiaryForm() {
   const navigate = useNavigate();
   const { session } = useAuth();
+  const { profile } = useUserProfile();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
@@ -75,9 +77,14 @@ export default function EquipmentDiaryForm() {
       return;
     }
 
+    if (!session?.user?.id) {
+      toast({ title: "Sessão expirada", description: "Faça login novamente para continuar.", variant: "destructive" });
+      navigate("/");
+      return;
+    }
+
     setSaving(true);
     try {
-      const userId = session?.user?.id;
       const { data: diary, error } = await supabase
         .from("equipment_diaries")
         .insert({
@@ -91,8 +98,8 @@ export default function EquipmentDiaryForm() {
           meter_initial: meterInitial ? Number(meterInitial) : null,
           meter_final: meterFinal ? Number(meterFinal) : null,
           fuel_quantity: fuelQuantity ? Number(fuelQuantity) : null,
-          company_id: null, // TODO: auto-fill when companies table exists
-          user_id: userId,
+          company_id: profile?.company_id || null,
+          user_id: session.user.id,
           status: "rascunho",
         } as any)
         .select()
@@ -103,7 +110,12 @@ export default function EquipmentDiaryForm() {
       toast({ title: "✅ Diário criado!", description: `Diário para ${selectedFleet} salvo com sucesso.` });
       navigate("/equipamentos");
     } catch (err: any) {
-      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+      const msg = err?.message || "Erro desconhecido";
+      if (msg.includes("row-level security") || msg.includes("policy")) {
+        toast({ title: "Sem permissão", description: "Você não tem permissão para criar diários. Contate o administrador.", variant: "destructive" });
+      } else {
+        toast({ title: "Erro ao salvar", description: msg, variant: "destructive" });
+      }
     } finally {
       setSaving(false);
     }
