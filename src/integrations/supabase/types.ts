@@ -137,6 +137,35 @@ export type Database = {
         }
         Relationships: []
       }
+      equipment_bits: {
+        Row: {
+          bit_type: string | null
+          diary_id: string | null
+          id: string
+          quantity: number | null
+        }
+        Insert: {
+          bit_type?: string | null
+          diary_id?: string | null
+          id?: string
+          quantity?: number | null
+        }
+        Update: {
+          bit_type?: string | null
+          diary_id?: string | null
+          id?: string
+          quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_bits_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_diaries: {
         Row: {
           client_name: string | null
@@ -146,14 +175,20 @@ export type Database = {
           date: string | null
           equipment_fleet: string | null
           equipment_type: string | null
+          fresagem_type: string | null
           fuel_liters: number | null
+          fuel_meter: number | null
+          fuel_type: string | null
           id: string
           meter_final: number | null
           meter_initial: number | null
+          observations: string | null
           ogs_code: string | null
           operator_name: string | null
-          status: string | null
+          operator_solo: string | null
+          period: string | null
           work_location: string | null
+          work_status: string | null
         }
         Insert: {
           client_name?: string | null
@@ -163,14 +198,20 @@ export type Database = {
           date?: string | null
           equipment_fleet?: string | null
           equipment_type?: string | null
+          fresagem_type?: string | null
           fuel_liters?: number | null
+          fuel_meter?: number | null
+          fuel_type?: string | null
           id?: string
           meter_final?: number | null
           meter_initial?: number | null
+          observations?: string | null
           ogs_code?: string | null
           operator_name?: string | null
-          status?: string | null
+          operator_solo?: string | null
+          period?: string | null
           work_location?: string | null
+          work_status?: string | null
         }
         Update: {
           client_name?: string | null
@@ -180,14 +221,20 @@ export type Database = {
           date?: string | null
           equipment_fleet?: string | null
           equipment_type?: string | null
+          fresagem_type?: string | null
           fuel_liters?: number | null
+          fuel_meter?: number | null
+          fuel_type?: string | null
           id?: string
           meter_final?: number | null
           meter_initial?: number | null
+          observations?: string | null
           ogs_code?: string | null
           operator_name?: string | null
-          status?: string | null
+          operator_solo?: string | null
+          period?: string | null
           work_location?: string | null
+          work_status?: string | null
         }
         Relationships: [
           {
@@ -195,6 +242,44 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_production_areas: {
+        Row: {
+          comp_m: number | null
+          diary_id: string | null
+          esp_cm: number | null
+          id: string
+          larg_m: number | null
+          m2: number | null
+          m3: number | null
+        }
+        Insert: {
+          comp_m?: number | null
+          diary_id?: string | null
+          esp_cm?: number | null
+          id?: string
+          larg_m?: number | null
+          m2?: number | null
+          m3?: number | null
+        }
+        Update: {
+          comp_m?: number | null
+          diary_id?: string | null
+          esp_cm?: number | null
+          id?: string
+          larg_m?: number | null
+          m2?: number | null
+          m3?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_production_areas_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
             referencedColumns: ["id"]
           },
         ]
@@ -224,15 +309,7 @@ export type Database = {
           is_parada?: boolean | null
           start_time?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "equipment_time_entries_equipment_diary_id_fkey"
-            columns: ["equipment_diary_id"]
-            isOneToOne: false
-            referencedRelation: "equipment_diaries"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       fornecedores: {
         Row: {
@@ -355,15 +432,7 @@ export type Database = {
           ticket_photo_url?: string | null
           truck_tara?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "kma_calibration_entries_equipment_diary_id_fkey"
-            columns: ["equipment_diary_id"]
-            isOneToOne: false
-            referencedRelation: "equipment_diaries"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       maquinas_frota: {
         Row: {
