@@ -74,6 +74,27 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          created_at: string | null
+          id: string
+          logo_url: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
       configuracoes_relatorio: {
         Row: {
           created_at: string
@@ -118,81 +139,89 @@ export type Database = {
       }
       equipment_diaries: {
         Row: {
-          client: string | null
+          client_name: string | null
           company_id: string | null
           created_at: string | null
+          created_by: string | null
           date: string | null
+          equipment_fleet: string | null
           equipment_type: string | null
-          fleet: string | null
-          fuel_quantity: number | null
+          fuel_liters: number | null
           id: string
-          location: string | null
           meter_final: number | null
           meter_initial: number | null
-          ogs: string | null
-          operator: string | null
+          ogs_code: string | null
+          operator_name: string | null
           status: string | null
-          user_id: string | null
+          work_location: string | null
         }
         Insert: {
-          client?: string | null
+          client_name?: string | null
           company_id?: string | null
           created_at?: string | null
+          created_by?: string | null
           date?: string | null
+          equipment_fleet?: string | null
           equipment_type?: string | null
-          fleet?: string | null
-          fuel_quantity?: number | null
+          fuel_liters?: number | null
           id?: string
-          location?: string | null
           meter_final?: number | null
           meter_initial?: number | null
-          ogs?: string | null
-          operator?: string | null
+          ogs_code?: string | null
+          operator_name?: string | null
           status?: string | null
-          user_id?: string | null
+          work_location?: string | null
         }
         Update: {
-          client?: string | null
+          client_name?: string | null
           company_id?: string | null
           created_at?: string | null
+          created_by?: string | null
           date?: string | null
+          equipment_fleet?: string | null
           equipment_type?: string | null
-          fleet?: string | null
-          fuel_quantity?: number | null
+          fuel_liters?: number | null
           id?: string
-          location?: string | null
           meter_final?: number | null
           meter_initial?: number | null
-          ogs?: string | null
-          operator?: string | null
+          ogs_code?: string | null
+          operator_name?: string | null
           status?: string | null
-          user_id?: string | null
+          work_location?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "equipment_diaries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       equipment_time_entries: {
         Row: {
-          activity: string | null
-          created_at: string | null
+          activity_description: string | null
           end_time: string | null
           equipment_diary_id: string | null
           id: string
+          is_parada: boolean | null
           start_time: string | null
         }
         Insert: {
-          activity?: string | null
-          created_at?: string | null
+          activity_description?: string | null
           end_time?: string | null
           equipment_diary_id?: string | null
           id?: string
+          is_parada?: boolean | null
           start_time?: string | null
         }
         Update: {
-          activity?: string | null
-          created_at?: string | null
+          activity_description?: string | null
           end_time?: string | null
           equipment_diary_id?: string | null
           id?: string
+          is_parada?: boolean | null
           start_time?: string | null
         }
         Relationships: [
@@ -294,39 +323,47 @@ export type Database = {
       }
       kma_calibration_entries: {
         Row: {
+          adjustment_factor: number | null
+          attempt_number: number | null
           created_at: string | null
-          diary_id: string | null
-          fator_ajuste: number | null
-          id: number
-          peso_nominal_usina: number | null
-          peso_real_referencia: number | null
-          tara_caminhao: number | null
-          tentativa_numero: number | null
+          equipment_diary_id: string | null
+          id: string
+          nominal_weight_usina: number | null
+          real_weight_reference: number | null
           ticket_photo_url: string | null
+          truck_tara: number | null
         }
         Insert: {
+          adjustment_factor?: number | null
+          attempt_number?: number | null
           created_at?: string | null
-          diary_id?: string | null
-          fator_ajuste?: number | null
-          id?: number
-          peso_nominal_usina?: number | null
-          peso_real_referencia?: number | null
-          tara_caminhao?: number | null
-          tentativa_numero?: number | null
+          equipment_diary_id?: string | null
+          id?: string
+          nominal_weight_usina?: number | null
+          real_weight_reference?: number | null
           ticket_photo_url?: string | null
+          truck_tara?: number | null
         }
         Update: {
+          adjustment_factor?: number | null
+          attempt_number?: number | null
           created_at?: string | null
-          diary_id?: string | null
-          fator_ajuste?: number | null
-          id?: number
-          peso_nominal_usina?: number | null
-          peso_real_referencia?: number | null
-          tara_caminhao?: number | null
-          tentativa_numero?: number | null
+          equipment_diary_id?: string | null
+          id?: string
+          nominal_weight_usina?: number | null
+          real_weight_reference?: number | null
           ticket_photo_url?: string | null
+          truck_tara?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "kma_calibration_entries_equipment_diary_id_fkey"
+            columns: ["equipment_diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maquinas_frota: {
         Row: {
