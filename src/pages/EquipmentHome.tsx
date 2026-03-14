@@ -71,7 +71,11 @@ export default function EquipmentHome() {
               className="flex flex-col items-center justify-center gap-2 rounded-xl bg-card border border-border p-4 hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 cursor-pointer aspect-square"
             >
               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
-                <span className="text-2xl">{eq.icon}</span>
+                {eq.isImage ? (
+                  <img src={eq.icon as string} alt={eq.label} className="w-8 h-8 object-contain" />
+                ) : (
+                  <span className="text-2xl">{eq.icon}</span>
+                )}
               </div>
               <span className="text-xs font-semibold text-foreground text-center leading-tight">
                 {eq.label}
