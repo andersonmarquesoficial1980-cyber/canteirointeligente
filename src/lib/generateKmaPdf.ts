@@ -1,3 +1,4 @@
+import jsPDF from "jspdf";
 import { type CalibrationEntry, calcDiffPercent, calcFator } from "@/components/equipment/KmaCalibrationSection";
 
 interface KmaPdfParams {
@@ -7,92 +8,128 @@ interface KmaPdfParams {
   entries: CalibrationEntry[];
 }
 
-export function generateKmaPdf({ fleet, date, operator, entries }: KmaPdfParams) {
-  const validEntries = entries.filter((e) => e.pesoNominalUsina && e.pesoRealReferencia);
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function generateKmaPdf({ fleet, date, operator, entries }: KmaPdfParams) {
+  const validEntries = entries.filter((e) => e.pesoNominal && e.pesoReal);
   if (validEntries.length === 0) {
     alert("Preencha ao menos uma tentativa com pesos para gerar o demonstrativo.");
     return;
   }
 
-  const rows = validEntries
-    .map((e) => {
-      const diff = calcDiffPercent(e);
-      const fator = calcFator(e);
-      return `
-        <tr>
-          <td style="border:1px solid #ccc;padding:8px;text-align:center">${e.tentativa}</td>
-          <td style="border:1px solid #ccc;padding:8px;text-align:right">${Number(e.pesoNominalUsina).toLocaleString("pt-BR")} kg</td>
-          <td style="border:1px solid #ccc;padding:8px;text-align:right">${Number(e.pesoRealReferencia).toLocaleString("pt-BR")} kg</td>
-          <td style="border:1px solid #ccc;padding:8px;text-align:right">${e.taraCaminhao ? Number(e.taraCaminhao).toLocaleString("pt-BR") + " kg" : "—"}</td>
-          <td style="border:1px solid #ccc;padding:8px;text-align:center;font-weight:bold;color:${diff !== null && Math.abs(diff) < 1 ? "#16a34a" : "#dc2626"}">${diff !== null ? diff.toFixed(2) + "%" : "—"}</td>
-          <td style="border:1px solid #ccc;padding:8px;text-align:center">${fator !== null ? fator.toFixed(4) : "—"}</td>
-        </tr>
-      `;
-    })
-    .join("");
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  let y = 20;
 
-  const photoSections = validEntries
-    .filter((e) => e.ticketPhotoUrl)
-    .map(
-      (e) => `
-      <div style="page-break-inside:avoid;margin-top:20px">
-        <h3 style="font-size:14px;margin-bottom:8px">📸 Ticket — Tentativa ${e.tentativa}</h3>
-        <img src="${e.ticketPhotoUrl}" style="max-width:100%;max-height:400px;border:1px solid #ccc;border-radius:4px" />
-      </div>
-    `
-    )
-    .join("");
+  // Header
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.text("Demonstrativo KMA", pageW / 2, y, { align: "center" });
+  y += 7;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100);
+  doc.text("Calibração de Pesagem — Canteiro Inteligente", pageW / 2, y, { align: "center" });
+  doc.setTextColor(0);
+  y += 10;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Demonstrativo KMA — ${fleet}</title>
-      <style>
-        body { font-family: Arial, sans-serif; margin: 40px; color: #1a1a1a; }
-        h1 { font-size: 20px; margin-bottom: 4px; }
-        h2 { font-size: 14px; color: #666; font-weight: normal; margin-top: 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background: #f3f4f6; border: 1px solid #ccc; padding: 8px; font-size: 12px; text-align: center; }
-        .info { display: flex; gap: 40px; margin-top: 16px; font-size: 13px; }
-        .info span { color: #666; }
-        @media print { body { margin: 20px; } }
-      </style>
-    </head>
-    <body>
-      <h1>Demonstrativo KMA — Calibração de Pesagem</h1>
-      <h2>Canteiro Inteligente · Fremix Engenharia</h2>
-      <div class="info">
-        <p><span>Equipamento:</span> <strong>${fleet}</strong></p>
-        <p><span>Data:</span> <strong>${date}</strong></p>
-        <p><span>Operador:</span> <strong>${operator || "—"}</strong></p>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Tentativa</th>
-            <th>Peso Nominal Usina</th>
-            <th>Peso Real Referência</th>
-            <th>Tara Caminhão</th>
-            <th>Diferença %</th>
-            <th>Fator Ajuste</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-      ${photoSections}
-      <p style="margin-top:40px;font-size:11px;color:#999;text-align:center">
-        Gerado em ${new Date().toLocaleString("pt-BR")} — Canteiro Inteligente v2.0
-      </p>
-    </body>
-    </html>
-  `;
+  // Info
+  doc.setFontSize(10);
+  doc.text(`Equipamento: ${fleet}`, 20, y);
+  doc.text(`Data: ${date}`, 120, y);
+  y += 6;
+  doc.text(`Operador: ${operator || "—"}`, 20, y);
+  doc.text(`Gerado: ${new Date().toLocaleString("pt-BR")}`, 120, y);
+  y += 10;
 
-  const printWindow = window.open("", "_blank");
-  if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.print();
+  // Table header
+  const cols = [
+    { label: "Tent.", x: 20, w: 15 },
+    { label: "Tara (kg)", x: 35, w: 28 },
+    { label: "Nominal (kg)", x: 63, w: 30 },
+    { label: "Real (kg)", x: 93, w: 28 },
+    { label: "Diferença %", x: 121, w: 28 },
+    { label: "Fator", x: 149, w: 25 },
+  ];
+
+  doc.setFillColor(240, 240, 240);
+  doc.rect(18, y - 4, 160, 8, "F");
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  cols.forEach((c) => doc.text(c.label, c.x, y));
+  y += 8;
+
+  // Table rows
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  for (const entry of validEntries) {
+    const diff = calcDiffPercent(entry);
+    const fator = calcFator(entry);
+
+    doc.text(String(entry.tentativa), 20, y);
+    doc.text(entry.tara ? Number(entry.tara).toLocaleString("pt-BR") : "—", 35, y);
+    doc.text(Number(entry.pesoNominal).toLocaleString("pt-BR"), 63, y);
+    doc.text(Number(entry.pesoReal).toLocaleString("pt-BR"), 93, y);
+
+    if (diff !== null) {
+      if (Math.abs(diff) < 1) {
+        doc.setTextColor(22, 163, 74); // green
+      } else {
+        doc.setTextColor(220, 38, 38); // red
+      }
+      doc.text(diff.toFixed(2) + "%", 121, y);
+      doc.setTextColor(0);
+    } else {
+      doc.text("—", 121, y);
+    }
+
+    doc.text(fator !== null ? fator.toFixed(4) : "—", 149, y);
+    y += 7;
   }
+
+  // Separator
+  y += 5;
+  doc.setDrawColor(200);
+  doc.line(20, y, pageW - 20, y);
+  y += 10;
+
+  // Photos
+  for (const entry of validEntries) {
+    if (entry.ticketPhotoFile) {
+      if (y > 230) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Foto do Ticket — Tentativa ${entry.tentativa}`, 20, y);
+      y += 5;
+
+      try {
+        const dataUrl = await fileToDataUrl(entry.ticketPhotoFile);
+        doc.addImage(dataUrl, "JPEG", 20, y, 120, 80);
+        y += 85;
+      } catch {
+        doc.setFontSize(8);
+        doc.text("(Erro ao carregar imagem)", 20, y);
+        y += 10;
+      }
+    }
+  }
+
+  // Footer
+  y = doc.internal.pageSize.getHeight() - 10;
+  doc.setFontSize(7);
+  doc.setTextColor(150);
+  doc.text("Fremix Engenharia — Canteiro Inteligente v2.0", pageW / 2, y, { align: "center" });
+
+  doc.save("Demonstrativo_KMA.pdf");
 }

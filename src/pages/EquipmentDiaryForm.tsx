@@ -10,14 +10,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Truck, Scale } from "lucide-react";
+import { ArrowLeft, Save, Truck, Scale, AlertCircle } from "lucide-react";
 import KmaCalibrationSection, {
   type CalibrationEntry,
   createEmptyCalibration,
-  calcDiffPercent,
   calcFator,
 } from "@/components/equipment/KmaCalibrationSection";
+import TimeEntriesSection, {
+  type TimeEntry,
+  createDefaultTimeEntry,
+} from "@/components/equipment/TimeEntriesSection";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
+
+const EQUIPMENT_TYPES = ["Fresadora", "Bobcat", "Rolo", "Vibroacabadora", "Usina KMA"] as const;
 
 export default function EquipmentDiaryForm() {
   const navigate = useNavigate();
@@ -28,17 +33,21 @@ export default function EquipmentDiaryForm() {
 
   // Form state
   const [selectedFleet, setSelectedFleet] = useState("");
+  const [equipmentType, setEquipmentType] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [operator, setOperator] = useState("");
-  const [ogs, setOgs] = useState("");
-  const [location, setLocation] = useState("");
-  const [client, setClient] = useState("");
+  const [turno, setTurno] = useState<"diurno" | "noturno">("diurno");
   const [meterInitial, setMeterInitial] = useState("");
   const [meterFinal, setMeterFinal] = useState("");
-  const [fuelQuantity, setFuelQuantity] = useState("");
+  const [diesel, setDiesel] = useState("");
 
-  // KMA calibration state
+  // Time entries
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([createDefaultTimeEntry("diurno")]);
+
+  // KMA calibration
   const [kmaEntries, setKmaEntries] = useState<CalibrationEntry[]>([createEmptyCalibration(1)]);
+
+  const isUsinaKma = equipmentType === "Usina KMA";
 
   // Fetch equipment list
   const { data: equipamentos = [] } = useQuery({
@@ -54,34 +63,32 @@ export default function EquipmentDiaryForm() {
     },
   });
 
-  // Fetch OGS references
-  const { data: ogsRefs = [] } = useQuery({
-    queryKey: ["ogs_reference"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("ogs_reference").select("*").order("numero_ogs");
-      if (error) throw error;
-      return data;
-    },
-  });
+  // Horimeter validation
+  const horimeterError =
+    meterInitial && meterFinal && Number(meterFinal) < Number(meterInitial)
+      ? "Horímetro Final não pode ser menor que o Inicial"
+      : null;
 
-  const selectedEquipment = equipamentos.find((eq: any) => eq.frota === selectedFleet);
-  const isUsinaKma =
-    selectedEquipment?.tipo?.toLowerCase().includes("usina") ||
-    selectedEquipment?.nome?.toLowerCase().includes("kma") ||
-    selectedEquipment?.nome?.toLowerCase().includes("usina");
+  const horasTrabalhadas =
+    meterInitial && meterFinal && Number(meterFinal) >= Number(meterInitial)
+      ? (Number(meterFinal) - Number(meterInitial)).toFixed(1)
+      : null;
 
-  const handleOgsChange = (value: string) => {
-    setOgs(value);
-    const ref = ogsRefs.find((r) => r.numero_ogs === value);
-    if (ref) {
-      setLocation(ref.endereco);
-      setClient(ref.cliente);
+  // When turno changes, reset time entries default
+  const handleTurnoChange = (value: "diurno" | "noturno") => {
+    setTurno(value);
+    if (timeEntries.length === 1 && !timeEntries[0].activity && !timeEntries[0].endTime) {
+      setTimeEntries([createDefaultTimeEntry(value)]);
     }
   };
 
   const handleSave = async () => {
-    if (!selectedFleet || !date) {
-      toast({ title: "Campos obrigatórios", description: "Selecione o equipamento e a data.", variant: "destructive" });
+    if (!selectedFleet || !date || !equipmentType) {
+      toast({ title: "Campos obrigatórios", description: "Selecione o equipamento, tipo e data.", variant: "destructive" });
+      return;
+    }
+    if (horimeterError) {
+      toast({ title: "Horímetro inválido", description: horimeterError, variant: "destructive" });
       return;
     }
     if (!session?.user?.id) {
@@ -92,20 +99,17 @@ export default function EquipmentDiaryForm() {
 
     setSaving(true);
     try {
-      // 1. Create diary with correct column names
+      // 1. Create diary
       const { data: diary, error } = await supabase
         .from("equipment_diaries")
         .insert({
           equipment_fleet: selectedFleet,
-          equipment_type: selectedEquipment?.tipo || null,
+          equipment_type: equipmentType,
           date,
           operator_name: operator || null,
-          ogs_code: ogs || null,
-          work_location: location || null,
-          client_name: client || null,
           meter_initial: meterInitial ? Number(meterInitial) : null,
           meter_final: meterFinal ? Number(meterFinal) : null,
-          fuel_liters: fuelQuantity ? Number(fuelQuantity) : null,
+          fuel_liters: diesel ? Number(diesel) : null,
           company_id: profile?.company_id || null,
           created_by: session.user.id,
           status: "rascunho",
@@ -115,34 +119,46 @@ export default function EquipmentDiaryForm() {
 
       if (error) throw error;
 
-      // 2. Save KMA calibration entries if usina
-      if (isUsinaKma && diary) {
-        const kmaRows = kmaEntries
-          .filter((e) => e.pesoNominalUsina || e.pesoRealReferencia)
-          .map((e) => ({
-            equipment_diary_id: diary.id,
-            attempt_number: e.tentativa,
-            nominal_weight_usina: e.pesoNominalUsina ? Number(e.pesoNominalUsina) : null,
-            real_weight_reference: e.pesoRealReferencia ? Number(e.pesoRealReferencia) : null,
-            truck_tara: e.taraCaminhao ? Number(e.taraCaminhao) : null,
-            adjustment_factor: calcFator(e),
-            ticket_photo_url: e.ticketPhotoUrl || null,
-          }));
+      // 2. Save time entries
+      const validTimeEntries = timeEntries.filter((t) => t.startTime && t.activity);
+      if (validTimeEntries.length > 0 && diary) {
+        const rows = validTimeEntries.map((t) => ({
+          equipment_diary_id: diary.id,
+          start_time: t.startTime,
+          end_time: t.endTime || null,
+          activity_description: t.activity,
+          is_parada: t.isParada,
+        }));
+        const { error: teError } = await supabase.from("equipment_time_entries").insert(rows);
+        if (teError) console.error("Time entries error:", teError);
+      }
 
-        if (kmaRows.length > 0) {
-          // Upload any pending photo files
-          for (const entry of kmaEntries) {
-            if (entry.ticketPhotoFile && diary.id) {
-              const path = `kma-tickets/${diary.id}/tentativa_${entry.tentativa}_${Date.now()}.jpg`;
-              await supabase.storage.from("notas_fiscais").upload(path, entry.ticketPhotoFile, { contentType: "image/jpeg", upsert: true });
+      // 3. Save KMA calibration entries + upload photos
+      if (isUsinaKma && diary) {
+        const validKma = kmaEntries.filter((e) => e.pesoNominal || e.pesoReal);
+        for (const entry of validKma) {
+          let ticketUrl: string | null = null;
+
+          if (entry.ticketPhotoFile) {
+            const path = `kma-tickets/${diary.id}/tentativa_${entry.tentativa}_${Date.now()}.jpg`;
+            const { error: uploadErr } = await supabase.storage
+              .from("notas_fiscais")
+              .upload(path, entry.ticketPhotoFile, { contentType: "image/jpeg", upsert: true });
+            if (!uploadErr) {
               const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
-              const row = kmaRows.find((r) => r.attempt_number === entry.tentativa);
-              if (row) row.ticket_photo_url = urlData.publicUrl;
+              ticketUrl = urlData.publicUrl;
             }
           }
 
-          const { error: kmaError } = await supabase.from("kma_calibration_entries").insert(kmaRows);
-          if (kmaError) console.error("KMA save error:", kmaError);
+          await supabase.from("kma_calibration_entries").insert({
+            equipment_diary_id: diary.id,
+            attempt_number: entry.tentativa,
+            nominal_weight_usina: entry.pesoNominal ? Number(entry.pesoNominal) : null,
+            real_weight_reference: entry.pesoReal ? Number(entry.pesoReal) : null,
+            truck_tara: entry.tara ? Number(entry.tara) : null,
+            adjustment_factor: calcFator(entry),
+            ticket_photo_url: ticketUrl,
+          });
         }
       }
 
@@ -151,7 +167,11 @@ export default function EquipmentDiaryForm() {
     } catch (err: any) {
       const msg = err?.message || "Erro desconhecido";
       if (msg.includes("row-level security") || msg.includes("policy")) {
-        toast({ title: "Sem permissão", description: "Você não tem permissão para criar diários. Contate o administrador.", variant: "destructive" });
+        toast({
+          title: "Sem permissão",
+          description: "Você não tem permissão para criar diários. Contate o administrador.",
+          variant: "destructive",
+        });
       } else {
         toast({ title: "Erro ao salvar", description: msg, variant: "destructive" });
       }
@@ -160,8 +180,8 @@ export default function EquipmentDiaryForm() {
     }
   };
 
-  const handleGeneratePdf = () => {
-    generateKmaPdf({
+  const handleGeneratePdf = async () => {
+    await generateKmaPdf({
       fleet: selectedFleet,
       date,
       operator,
@@ -185,38 +205,47 @@ export default function EquipmentDiaryForm() {
         </div>
       </div>
 
-      {/* Equipment Selector */}
+      {/* Equipment + Type */}
       <Card className="border-border bg-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold">Equipamento</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-semibold">Selecione o Equipamento *</Label>
-            <Select value={selectedFleet} onValueChange={setSelectedFleet}>
-              <SelectTrigger className="bg-secondary border-border">
-                <SelectValue placeholder="Escolha pela frota..." />
-              </SelectTrigger>
-              <SelectContent>
-                {equipamentos.map((eq: any) => (
-                  <SelectItem key={eq.id} value={eq.frota}>
-                    {eq.frota} — {eq.nome} {eq.tipo ? `(${eq.tipo})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold">Frota *</Label>
+              <Select value={selectedFleet} onValueChange={setSelectedFleet}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione a frota..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {equipamentos.map((eq: any) => (
+                    <SelectItem key={eq.id} value={eq.frota}>
+                      {eq.frota} — {eq.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold">Tipo de Equipamento *</Label>
+              <Select value={equipmentType} onValueChange={setEquipmentType}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o tipo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {EQUIPMENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {selectedEquipment && (
-            <div className="bg-secondary/50 rounded-lg p-3 text-sm space-y-1">
-              <p><span className="text-muted-foreground">Nome:</span> <span className="font-medium text-foreground">{selectedEquipment.nome}</span></p>
-              <p><span className="text-muted-foreground">Tipo:</span> <span className="font-medium text-foreground">{selectedEquipment.tipo || "—"}</span></p>
-              <p><span className="text-muted-foreground">Empresa:</span> <span className="font-medium text-foreground">{selectedEquipment.empresa || "—"}</span></p>
-              {isUsinaKma && (
-                <p className="text-accent font-semibold flex items-center gap-1 pt-1">
-                  <Scale className="w-4 h-4" /> Modo Usina KMA ativado
-                </p>
-              )}
+          {isUsinaKma && (
+            <div className="bg-accent/10 border border-accent/30 rounded-md p-2 flex items-center gap-2">
+              <Scale className="w-4 h-4 text-accent" />
+              <span className="text-xs text-accent font-semibold">Modo Usina KMA ativado — Calibração de pesagem habilitada</span>
             </div>
           )}
         </CardContent>
@@ -228,7 +257,7 @@ export default function EquipmentDiaryForm() {
           <CardTitle className="text-base font-semibold">Dados Gerais</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold">Data *</Label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
@@ -237,77 +266,94 @@ export default function EquipmentDiaryForm() {
               <Label className="text-sm font-semibold">Operador</Label>
               <Input value={operator} onChange={(e) => setOperator(e.target.value)} placeholder="Nome do operador" className="bg-secondary border-border" />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">OGS</Label>
-              <Select value={ogs} onValueChange={handleOgsChange}>
+              <Label className="text-sm font-semibold">Turno</Label>
+              <Select value={turno} onValueChange={(v) => handleTurnoChange(v as "diurno" | "noturno")}>
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione OGS" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ogsRefs.map((ref) => (
-                    <SelectItem key={ref.id} value={ref.numero_ogs}>
-                      {ref.numero_ogs} — {ref.cliente}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="diurno">☀️ Diurno (07:00)</SelectItem>
+                  <SelectItem value="noturno">🌙 Noturno (20:30)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Cliente</Label>
-              <Input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Auto-preenchido pela OGS" className="bg-secondary border-border" />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-semibold">Local / Endereço</Label>
-            <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Auto-preenchido pela OGS" className="bg-secondary border-border" />
           </div>
         </CardContent>
       </Card>
 
-      {/* Horímetro & Combustível */}
+      {/* Horímetro & Diesel */}
       <Card className="border-border bg-card">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Horímetro & Combustível</CardTitle>
+          <CardTitle className="text-base font-semibold">Horímetro & Diesel</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold">Horímetro Inicial</Label>
-              <Input type="number" value={meterInitial} onChange={(e) => setMeterInitial(e.target.value)} placeholder="0" className="bg-secondary border-border" />
+              <Input
+                type="number"
+                value={meterInitial}
+                onChange={(e) => setMeterInitial(e.target.value)}
+                placeholder="0"
+                className="bg-secondary border-border"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold">Horímetro Final</Label>
-              <Input type="number" value={meterFinal} onChange={(e) => setMeterFinal(e.target.value)} placeholder="0" className="bg-secondary border-border" />
+              <Input
+                type="number"
+                value={meterFinal}
+                onChange={(e) => setMeterFinal(e.target.value)}
+                placeholder="0"
+                className={`bg-secondary border-border ${horimeterError ? "border-destructive" : ""}`}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Combustível (L)</Label>
-              <Input type="number" value={fuelQuantity} onChange={(e) => setFuelQuantity(e.target.value)} placeholder="0" className="bg-secondary border-border" />
+              <Label className="text-sm font-semibold">Diesel (L)</Label>
+              <Input
+                type="number"
+                value={diesel}
+                onChange={(e) => setDiesel(e.target.value)}
+                placeholder="0"
+                className="bg-secondary border-border"
+              />
             </div>
           </div>
-          {meterInitial && meterFinal && Number(meterFinal) > Number(meterInitial) && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Horas trabalhadas: <span className="font-semibold text-foreground">{(Number(meterFinal) - Number(meterInitial)).toFixed(1)}h</span>
+
+          {horimeterError && (
+            <div className="flex items-center gap-2 text-destructive text-xs font-medium">
+              <AlertCircle className="w-3.5 h-3.5" />
+              {horimeterError}
+            </div>
+          )}
+
+          {horasTrabalhadas && (
+            <p className="text-xs text-muted-foreground">
+              Horas trabalhadas: <span className="font-semibold text-foreground">{horasTrabalhadas}h</span>
             </p>
           )}
         </CardContent>
       </Card>
 
-      {/* KMA Calibration Section — only for Usina */}
+      {/* Time Entries */}
+      <TimeEntriesSection entries={timeEntries} onChange={setTimeEntries} turno={turno} />
+
+      {/* KMA Calibration — only for Usina KMA */}
       {isUsinaKma && (
         <KmaCalibrationSection
           entries={kmaEntries}
           onChange={setKmaEntries}
-          diaryId={null}
           onGeneratePdf={handleGeneratePdf}
         />
       )}
 
       {/* Save */}
-      <Button onClick={handleSave} disabled={saving} className="w-full font-bold text-base py-6">
+      <Button
+        onClick={handleSave}
+        disabled={saving || !!horimeterError}
+        className="w-full font-bold text-base py-6"
+      >
         <Save className="w-5 h-5 mr-2" />
         {saving ? "Salvando..." : "Salvar Diário"}
       </Button>
