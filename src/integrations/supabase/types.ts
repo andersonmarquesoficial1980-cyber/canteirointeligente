@@ -74,6 +74,27 @@ export type Database = {
         }
         Relationships: []
       }
+      checklist_items_standard: {
+        Row: {
+          created_at: string | null
+          equipment_type: string
+          id: string
+          item_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          equipment_type?: string
+          id?: string
+          item_name: string
+        }
+        Update: {
+          created_at?: string | null
+          equipment_type?: string
+          id?: string
+          item_name?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           created_at: string | null
@@ -183,6 +204,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "equipment_bits_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_checklist_results: {
+        Row: {
+          created_at: string | null
+          diary_id: string | null
+          id: string
+          item_name: string
+          observation: string | null
+          photo_avaria_url: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          diary_id?: string | null
+          id?: string
+          item_name: string
+          observation?: string | null
+          photo_avaria_url?: string | null
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          diary_id?: string | null
+          id?: string
+          item_name?: string
+          observation?: string | null
+          photo_avaria_url?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_checklist_results_diary_id_fkey"
             columns: ["diary_id"]
             isOneToOne: false
             referencedRelation: "equipment_diaries"
@@ -352,6 +411,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "equipment_time_entries_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_visual_inspection: {
+        Row: {
+          created_at: string | null
+          damage_type: string | null
+          diary_id: string | null
+          id: string
+          photo_avaria_url: string | null
+          x_position: number
+          y_position: number
+        }
+        Insert: {
+          created_at?: string | null
+          damage_type?: string | null
+          diary_id?: string | null
+          id?: string
+          photo_avaria_url?: string | null
+          x_position: number
+          y_position: number
+        }
+        Update: {
+          created_at?: string | null
+          damage_type?: string | null
+          diary_id?: string | null
+          id?: string
+          photo_avaria_url?: string | null
+          x_position?: number
+          y_position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_visual_inspection_diary_id_fkey"
             columns: ["diary_id"]
             isOneToOne: false
             referencedRelation: "equipment_diaries"
