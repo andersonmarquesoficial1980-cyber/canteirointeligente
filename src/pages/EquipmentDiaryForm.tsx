@@ -457,6 +457,24 @@ export default function EquipmentDiaryForm() {
           )}
         </Section>
 
+        {/* CHECKLIST PRÉ-OPERAÇÃO (accordion, inicia fechado) */}
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="checklist" className="border border-border rounded-lg overflow-hidden bg-secondary/30">
+            <AccordionTrigger className="px-4 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+              <span className="text-sm font-bold text-white uppercase tracking-wide">
+                ✔️ CHECKLIST PRÉ-OPERAÇÃO
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4">
+              <ChecklistSection
+                equipmentType={equipmentType}
+                results={checklistResults}
+                onChange={setChecklistResults}
+              />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
         {/* PERÍODO */}
         <Section title="PERÍODO">
           <div className="flex gap-2">
@@ -479,9 +497,21 @@ export default function EquipmentDiaryForm() {
           </div>
         </Section>
 
-        {/* HORÍMETRO */}
-        <Section title="HORÍMETRO">
+        {/* STATUS DA OBRA + HORÍMETRO INICIAL */}
+        <Section title="STATUS DA OBRA">
           <FieldRow>
+            <Field label="Status">
+              <Select value={workStatus} onValueChange={setWorkStatus}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {WORK_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
             <Field label="Horímetro Inicial">
               <Input
                 type="number"
@@ -493,56 +523,17 @@ export default function EquipmentDiaryForm() {
                 className="bg-secondary border-border"
               />
             </Field>
-            <Field label="Horímetro Final">
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                value={meterFinal}
-                onChange={(e) => setMeterFinal(e.target.value)}
-                placeholder="0,0"
-                className={`bg-secondary border-border ${horimeterError ? "border-destructive" : ""}`}
-              />
-            </Field>
           </FieldRow>
-
-          {horimeterError && (
-            <div className="flex items-center gap-2 text-destructive text-xs font-medium">
-              <AlertCircle className="w-3.5 h-3.5" />
-              {horimeterError}
-            </div>
-          )}
-          {horasTrabalhadas && (
-            <p className="text-xs text-muted-foreground">
-              Horas trabalhadas: <span className="font-semibold text-foreground">{horasTrabalhadas}h</span>
-            </p>
-          )}
         </Section>
 
         {/* APONTAMENTO DE HORAS */}
         <TimeEntriesSection entries={timeEntries} onChange={setTimeEntries} turno={turno} />
 
-        {/* FRESADORA: Produção + Bits + Checklist + Inspeção Visual */}
+        {/* FRESADORA: Produção + Bits */}
         {isFresadora && (
           <>
             <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
             <BitManagementSection bits={bits} onChange={setBits} />
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="checklist" className="border border-border rounded-lg overflow-hidden bg-secondary/30">
-                <AccordionTrigger className="px-4 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
-                  <span className="text-sm font-bold text-white uppercase tracking-wide">
-                    ✔️ CHECKLIST PRÉ-OPERAÇÃO
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4">
-                  <ChecklistSection
-                    equipmentType="Fresadora"
-                    results={checklistResults}
-                    onChange={setChecklistResults}
-                  />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
           </>
         )}
 
@@ -555,8 +546,33 @@ export default function EquipmentDiaryForm() {
           />
         )}
 
-        {/* ABASTECIMENTO */}
+        {/* ABASTECIMENTO + HORÍMETRO FINAL */}
         <FuelingSection data={fueling} onChange={setFueling} />
+
+        <Section title="HORÍMETRO FINAL">
+          <Field label="Horímetro Final">
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              value={meterFinal}
+              onChange={(e) => setMeterFinal(e.target.value)}
+              placeholder="0,0"
+              className={`bg-secondary border-border ${horimeterError ? "border-destructive" : ""}`}
+            />
+          </Field>
+          {horimeterError && (
+            <div className="flex items-center gap-2 text-destructive text-xs font-medium">
+              <AlertCircle className="w-3.5 h-3.5" />
+              {horimeterError}
+            </div>
+          )}
+          {horasTrabalhadas && (
+            <p className="text-xs text-muted-foreground">
+              Horas trabalhadas: <span className="font-semibold text-foreground">{horasTrabalhadas}h</span>
+            </p>
+          )}
+        </Section>
 
         {/* OBSERVAÇÕES */}
         <Section title="OBSERVAÇÕES">
