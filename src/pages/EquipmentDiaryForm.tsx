@@ -22,7 +22,7 @@ import ProductionAreasSection, { type ProductionArea, createEmptyArea } from "@/
 import BitManagementSection, { type BitEntry, createEmptyBit } from "@/components/equipment/BitManagementSection";
 import FuelingSection, { type FuelingData, createEmptyFueling } from "@/components/equipment/FuelingSection";
 import ChecklistSection, { type ChecklistResult } from "@/components/equipment/ChecklistSection";
-import VisualInspectionSection, { type DamageMarker } from "@/components/equipment/VisualInspectionSection";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { compressImage } from "@/lib/imageCompression";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
 
