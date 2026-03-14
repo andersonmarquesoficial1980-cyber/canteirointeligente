@@ -116,6 +116,24 @@ export type Database = {
         }
         Relationships: []
       }
+      employees: {
+        Row: {
+          id: string
+          name: string
+          role: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          role?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          role?: string | null
+        }
+        Relationships: []
+      }
       empreiteiros: {
         Row: {
           created_at: string | null

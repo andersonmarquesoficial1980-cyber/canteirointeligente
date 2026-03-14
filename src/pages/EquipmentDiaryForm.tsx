@@ -62,28 +62,36 @@ export default function EquipmentDiaryForm() {
   const [bits, setBits] = useState<BitEntry[]>([]);
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
 
-  // Auto-fill client/location from OGS — handle multiple addresses
-  const ogsAddresses = useMemo(() => {
-    if (!ogsNumber) return [];
-    // Find all OGS entries with same ogs_number (for multi-address support)
-    return ogsData.filter((o: any) => o.ogs_number === ogsNumber);
+  // Auto-fill client/location from OGS — handle semicolon-separated addresses
+  const selectedOgs = useMemo(() => {
+    if (!ogsNumber) return null;
+    return ogsData.find((o: any) => o.ogs_number === ogsNumber) || null;
   }, [ogsNumber, ogsData]);
 
-  const hasMultipleAddresses = ogsAddresses.length > 1;
+  const ogsAddressList = useMemo(() => {
+    if (!selectedOgs?.location_address) return [];
+    const raw = selectedOgs.location_address as string;
+    if (raw.includes(";")) {
+      return raw.split(";").map((a: string) => a.trim()).filter(Boolean);
+    }
+    return [raw.trim()];
+  }, [selectedOgs]);
+
+  const hasMultipleAddresses = ogsAddressList.length > 1;
 
   useEffect(() => {
-    if (ogsNumber && ogsAddresses.length > 0) {
-      setClientName(ogsAddresses[0].client_name || "");
-      if (!hasMultipleAddresses) {
-        setLocationAddress(ogsAddresses[0].location_address || "");
+    if (selectedOgs) {
+      setClientName(selectedOgs.client_name || "");
+      if (!hasMultipleAddresses && ogsAddressList.length === 1) {
+        setLocationAddress(ogsAddressList[0]);
       } else {
-        setLocationAddress(""); // reset so user picks from select
+        setLocationAddress("");
       }
     } else {
       setClientName("");
       setLocationAddress("");
     }
-  }, [ogsNumber, ogsAddresses, hasMultipleAddresses]);
+  }, [selectedOgs, ogsAddressList, hasMultipleAddresses]);
 
   // Unique OGS numbers for the selector
   const uniqueOgs = useMemo(() => {
@@ -124,7 +132,10 @@ export default function EquipmentDiaryForm() {
 
   // Filtered operators by role
   const operadoresFresa = useMemo(
-    () => funcionarios.filter((f: any) => f.funcao?.toUpperCase() === "OPERADOR DE FRESA"),
+    () => funcionarios.filter((f: any) => {
+      const fn = f.funcao?.toUpperCase() || "";
+      return fn === "OPERADOR DE FRESADORA" || fn === "OPERADOR DE FRESA";
+    }),
     [funcionarios]
   );
 
@@ -400,9 +411,9 @@ export default function EquipmentDiaryForm() {
                       <SelectValue placeholder="Selecione o local..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {ogsAddresses.map((o: any) => (
-                        <SelectItem key={o.id} value={o.location_address || ""}>
-                          {o.location_address}
+                      {ogsAddressList.map((addr: string, idx: number) => (
+                        <SelectItem key={idx} value={addr}>
+                          {addr}
                         </SelectItem>
                       ))}
                     </SelectContent>
