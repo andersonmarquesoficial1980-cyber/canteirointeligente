@@ -139,22 +139,28 @@ export type Database = {
       }
       equipment_bits: {
         Row: {
-          bit_type: string | null
+          brand: string | null
           diary_id: string | null
           id: string
+          meter_at_change: number | null
           quantity: number | null
+          status: string | null
         }
         Insert: {
-          bit_type?: string | null
+          brand?: string | null
           diary_id?: string | null
           id?: string
+          meter_at_change?: number | null
           quantity?: number | null
+          status?: string | null
         }
         Update: {
-          bit_type?: string | null
+          brand?: string | null
           diary_id?: string | null
           id?: string
+          meter_at_change?: number | null
           quantity?: number | null
+          status?: string | null
         }
         Relationships: [
           {
@@ -171,7 +177,6 @@ export type Database = {
           client_name: string | null
           company_id: string | null
           created_at: string | null
-          created_by: string | null
           date: string | null
           equipment_fleet: string | null
           equipment_type: string | null
@@ -180,21 +185,23 @@ export type Database = {
           fuel_meter: number | null
           fuel_type: string | null
           id: string
+          location_address: string | null
           meter_final: number | null
           meter_initial: number | null
           observations: string | null
-          ogs_code: string | null
+          odometer_final: number | null
+          odometer_initial: number | null
+          ogs_number: string | null
           operator_name: string | null
           operator_solo: string | null
           period: string | null
-          work_location: string | null
+          status: string | null
           work_status: string | null
         }
         Insert: {
           client_name?: string | null
           company_id?: string | null
           created_at?: string | null
-          created_by?: string | null
           date?: string | null
           equipment_fleet?: string | null
           equipment_type?: string | null
@@ -203,21 +210,23 @@ export type Database = {
           fuel_meter?: number | null
           fuel_type?: string | null
           id?: string
+          location_address?: string | null
           meter_final?: number | null
           meter_initial?: number | null
           observations?: string | null
-          ogs_code?: string | null
+          odometer_final?: number | null
+          odometer_initial?: number | null
+          ogs_number?: string | null
           operator_name?: string | null
           operator_solo?: string | null
           period?: string | null
-          work_location?: string | null
+          status?: string | null
           work_status?: string | null
         }
         Update: {
           client_name?: string | null
           company_id?: string | null
           created_at?: string | null
-          created_by?: string | null
           date?: string | null
           equipment_fleet?: string | null
           equipment_type?: string | null
@@ -226,14 +235,17 @@ export type Database = {
           fuel_meter?: number | null
           fuel_type?: string | null
           id?: string
+          location_address?: string | null
           meter_final?: number | null
           meter_initial?: number | null
           observations?: string | null
-          ogs_code?: string | null
+          odometer_final?: number | null
+          odometer_initial?: number | null
+          ogs_number?: string | null
           operator_name?: string | null
           operator_solo?: string | null
           period?: string | null
-          work_location?: string | null
+          status?: string | null
           work_status?: string | null
         }
         Relationships: [
@@ -244,35 +256,36 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "equipment_diaries_ogs_number_fkey"
+            columns: ["ogs_number"]
+            isOneToOne: false
+            referencedRelation: "ogs_reference"
+            referencedColumns: ["ogs_number"]
+          },
         ]
       }
       equipment_production_areas: {
         Row: {
-          comp_m: number | null
           diary_id: string | null
-          esp_cm: number | null
           id: string
-          larg_m: number | null
-          m2: number | null
-          m3: number | null
+          length_m: number | null
+          thickness_cm: number | null
+          width_m: number | null
         }
         Insert: {
-          comp_m?: number | null
           diary_id?: string | null
-          esp_cm?: number | null
           id?: string
-          larg_m?: number | null
-          m2?: number | null
-          m3?: number | null
+          length_m?: number | null
+          thickness_cm?: number | null
+          width_m?: number | null
         }
         Update: {
-          comp_m?: number | null
           diary_id?: string | null
-          esp_cm?: number | null
           id?: string
-          larg_m?: number | null
-          m2?: number | null
-          m3?: number | null
+          length_m?: number | null
+          thickness_cm?: number | null
+          width_m?: number | null
         }
         Relationships: [
           {
@@ -286,30 +299,47 @@ export type Database = {
       }
       equipment_time_entries: {
         Row: {
-          activity_description: string | null
+          activity: string | null
+          description: string | null
+          destination: string | null
+          diary_id: string | null
           end_time: string | null
-          equipment_diary_id: string | null
           id: string
-          is_parada: boolean | null
+          ogs_destination: string | null
+          origin: string | null
           start_time: string | null
         }
         Insert: {
-          activity_description?: string | null
+          activity?: string | null
+          description?: string | null
+          destination?: string | null
+          diary_id?: string | null
           end_time?: string | null
-          equipment_diary_id?: string | null
           id?: string
-          is_parada?: boolean | null
+          ogs_destination?: string | null
+          origin?: string | null
           start_time?: string | null
         }
         Update: {
-          activity_description?: string | null
+          activity?: string | null
+          description?: string | null
+          destination?: string | null
+          diary_id?: string | null
           end_time?: string | null
-          equipment_diary_id?: string | null
           id?: string
-          is_parada?: boolean | null
+          ogs_destination?: string | null
+          origin?: string | null
           start_time?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "equipment_time_entries_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fornecedores: {
         Row: {
@@ -496,25 +526,22 @@ export type Database = {
       }
       ogs_reference: {
         Row: {
-          cliente: string
-          created_at: string | null
-          endereco: string
-          id: number
-          numero_ogs: string
+          client_name: string | null
+          id: string
+          location_address: string | null
+          ogs_number: string | null
         }
         Insert: {
-          cliente: string
-          created_at?: string | null
-          endereco: string
-          id?: number
-          numero_ogs: string
+          client_name?: string | null
+          id?: string
+          location_address?: string | null
+          ogs_number?: string | null
         }
         Update: {
-          cliente?: string
-          created_at?: string | null
-          endereco?: string
-          id?: number
-          numero_ogs?: string
+          client_name?: string | null
+          id?: string
+          location_address?: string | null
+          ogs_number?: string | null
         }
         Relationships: []
       }

@@ -5,17 +5,18 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Settings } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import logoFremix from "@/assets/Logo_Fremix.png";
+import iconFresadora from "@/assets/icon-fresadora.png";
 
 const EQUIPMENT_TYPES = [
-  { id: "Fresadora", label: "Fresadora", icon: "🔧" },
-  { id: "Bobcat", label: "Bobcat", icon: "🏗️" },
-  { id: "Rolo", label: "Rolo", icon: "🛞" },
-  { id: "Vibroacabadora", label: "Vibro", icon: "⚙️" },
-  { id: "Usina KMA", label: "KMA", icon: "⚖️" },
-  { id: "Caminhão", label: "Caminhão", icon: "🚛" },
-  { id: "Comboio", label: "Comboio", icon: "⛽" },
-  { id: "Veículo", label: "Veículo", icon: "🚗" },
-  { id: "Retro", label: "Retro", icon: "🦾" },
+  { id: "Fresadora", label: "Fresadora", icon: iconFresadora, isImage: true },
+  { id: "Bobcat", label: "Bobcat", icon: "🏗️", isImage: false },
+  { id: "Rolo", label: "Rolo", icon: "🛞", isImage: false },
+  { id: "Vibroacabadora", label: "Vibro", icon: "⚙️", isImage: false },
+  { id: "Usina KMA", label: "KMA", icon: "⚖️", isImage: false },
+  { id: "Caminhão", label: "Caminhão", icon: "🚛", isImage: false },
+  { id: "Comboio", label: "Comboio", icon: "⛽", isImage: false },
+  { id: "Veículo", label: "Veículo", icon: "🚗", isImage: false },
+  { id: "Retro", label: "Retro", icon: "🦾", isImage: false },
 ];
 
 export default function EquipmentHome() {
@@ -70,7 +71,11 @@ export default function EquipmentHome() {
               className="flex flex-col items-center justify-center gap-2 rounded-xl bg-card border border-border p-4 hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 cursor-pointer aspect-square"
             >
               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
-                <span className="text-2xl">{eq.icon}</span>
+                {eq.isImage ? (
+                  <img src={eq.icon as string} alt={eq.label} className="w-8 h-8 object-contain" />
+                ) : (
+                  <span className="text-2xl">{eq.icon}</span>
+                )}
               </div>
               <span className="text-xs font-semibold text-foreground text-center leading-tight">
                 {eq.label}

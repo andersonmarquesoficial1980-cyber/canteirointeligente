@@ -17,7 +17,7 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
   const { data: obras, isLoading: loadingObras } = useOgsReference();
   const { data: maquinas, isLoading: loadingMaquinas } = useMaquinasFrota();
 
-  const selectedObra = obras?.find(o => o.numero_ogs === data.obra_nome);
+  const selectedObra = obras?.find(o => o.ogs_number === data.obra_nome);
 
   return (
     <div className="space-y-5 p-4">
@@ -43,15 +43,15 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
           </SelectTrigger>
           <SelectContent className="max-h-[300px]">
             {obras?.map(obra => (
-              <SelectItem key={obra.id} value={obra.numero_ogs} className="py-3 text-base">
-                {obra.numero_ogs} — {obra.cliente}
+              <SelectItem key={obra.id} value={obra.ogs_number || ""} className="py-3 text-base">
+                {obra.ogs_number} — {obra.client_name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         {selectedObra && (
           <p className="text-xs text-muted-foreground px-1">
-            📍 {selectedObra.endereco} • 🏢 {selectedObra.cliente}
+            📍 {selectedObra.location_address} • 🏢 {selectedObra.client_name}
           </p>
         )}
       </div>

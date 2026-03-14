@@ -1,15 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useOgsReference } from "@/hooks/useOgsReference";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, Send } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertCircle, Send, Save } from "lucide-react";
 import EquipmentHeader from "@/components/equipment/EquipmentHeader";
 import TimeEntriesSection, { type TimeEntry, createDefaultTimeEntry } from "@/components/equipment/TimeEntriesSection";
 import KmaCalibrationSection, {
@@ -19,9 +20,12 @@ import KmaCalibrationSection, {
 } from "@/components/equipment/KmaCalibrationSection";
 import ProductionAreasSection, { type ProductionArea, createEmptyArea } from "@/components/equipment/ProductionAreasSection";
 import BitManagementSection, { type BitEntry, createEmptyBit } from "@/components/equipment/BitManagementSection";
+import FuelingSection, { type FuelingData, createEmptyFueling } from "@/components/equipment/FuelingSection";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
 
 const EQUIPMENT_TYPES = ["Fresadora", "Bobcat", "Rolo", "Vibroacabadora", "Usina KMA"] as const;
+
+const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
 
 export default function EquipmentDiaryForm() {
   const navigate = useNavigate();
@@ -30,6 +34,9 @@ export default function EquipmentDiaryForm() {
   const { profile } = useUserProfile();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+
+  // OGS reference data
+  const { data: ogsData = [] } = useOgsReference();
 
   // Form state
   const [equipmentType, setEquipmentType] = useState("");
@@ -40,7 +47,10 @@ export default function EquipmentDiaryForm() {
   const [turno, setTurno] = useState<"diurno" | "noturno">("diurno");
   const [meterInitial, setMeterInitial] = useState("");
   const [meterFinal, setMeterFinal] = useState("");
-  const [diesel, setDiesel] = useState("");
+  const [workStatus, setWorkStatus] = useState("");
+  const [ogsNumber, setOgsNumber] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [locationAddress, setLocationAddress] = useState("");
   const [observations, setObservations] = useState("");
 
   // Sub-sections
@@ -48,6 +58,7 @@ export default function EquipmentDiaryForm() {
   const [kmaEntries, setKmaEntries] = useState<CalibrationEntry[]>([createEmptyCalibration(1)]);
   const [productionAreas, setProductionAreas] = useState<ProductionArea[]>([createEmptyArea()]);
   const [bits, setBits] = useState<BitEntry[]>([]);
+  const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
 
   const isFresadora = equipmentType === "Fresadora";
   const isUsinaKma = equipmentType === "Usina KMA";
@@ -57,15 +68,19 @@ export default function EquipmentDiaryForm() {
     const tipo = searchParams.get("tipo");
     if (tipo && EQUIPMENT_TYPES.includes(tipo as any)) {
       setEquipmentType(tipo);
-    } else if (tipo) {
-      // Map non-standard names
-      const map: Record<string, string> = {
-        "Caminhão": "Fresadora", "Comboio": "Fresadora", "Veículo": "Fresadora",
-        "Retro": "Fresadora", "Vibro": "Vibroacabadora",
-      };
-      if (map[tipo]) setEquipmentType(map[tipo]);
     }
   }, [searchParams]);
+
+  // Auto-fill client/location from OGS
+  useEffect(() => {
+    if (ogsNumber) {
+      const ref = ogsData.find((o: any) => o.ogs_number === ogsNumber);
+      if (ref) {
+        setClientName(ref.client_name || "");
+        setLocationAddress(ref.location_address || "");
+      }
+    }
+  }, [ogsNumber, ogsData]);
 
   // Fetch equipment list
   const { data: equipamentos = [] } = useQuery({
@@ -74,12 +89,35 @@ export default function EquipmentDiaryForm() {
       const { data, error } = await supabase
         .from("maquinas_frota")
         .select("*")
-        .eq("status", "ativo")
+        .in("status", ["ativo", "Operando"])
         .order("frota");
       if (error) throw error;
       return data as any[];
     },
   });
+
+  // Fetch operators (funcionários)
+  const { data: funcionarios = [] } = useQuery({
+    queryKey: ["funcionarios"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("funcionarios")
+        .select("id, nome, funcao")
+        .order("nome");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Filtered fleet for Fresadora
+  const filteredFleet = useMemo(() => {
+    if (!isFresadora) return equipamentos;
+    return equipamentos.filter((eq: any) =>
+      eq.tipo?.toLowerCase().includes("fresadora") ||
+      eq.categoria?.toLowerCase().includes("fresadora") ||
+      eq.frota?.startsWith("FA")
+    );
+  }, [equipamentos, isFresadora]);
 
   // Horímetro validation
   const horimeterError =
@@ -99,7 +137,7 @@ export default function EquipmentDiaryForm() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (isDraft = false) => {
     if (!selectedFleet || !date || !equipmentType) {
       toast({ title: "Campos obrigatórios", description: "Selecione o equipamento, tipo e data.", variant: "destructive" });
       return;
@@ -127,10 +165,16 @@ export default function EquipmentDiaryForm() {
           period: turno,
           meter_initial: meterInitial ? Number(meterInitial) : null,
           meter_final: meterFinal ? Number(meterFinal) : null,
-          fuel_liters: diesel ? Number(diesel) : null,
+          fuel_liters: fueling.liters ? Number(fueling.liters) : null,
+          fuel_type: fueling.fuelType || null,
+          fuel_meter: fueling.fuelMeter ? Number(fueling.fuelMeter) : null,
+          work_status: workStatus || null,
+          ogs_number: ogsNumber || null,
+          client_name: clientName || null,
+          location_address: locationAddress || null,
           observations: observations || null,
           company_id: profile?.company_id || null,
-          created_by: session.user.id,
+          status: isDraft ? "rascunho" : "enviado",
         })
         .select()
         .single();
@@ -141,11 +185,11 @@ export default function EquipmentDiaryForm() {
       const validTimeEntries = timeEntries.filter((t) => t.startTime && t.activity);
       if (validTimeEntries.length > 0 && diary) {
         const rows = validTimeEntries.map((t) => ({
-          equipment_diary_id: diary.id,
+          diary_id: diary.id,
           start_time: t.startTime,
           end_time: t.endTime || null,
-          activity_description: t.activity,
-          is_parada: t.isParada,
+          activity: t.activity,
+          description: t.activity === "Manutenção" ? (t.maintenanceDetails || null) : null,
         }));
         await supabase.from("equipment_time_entries").insert(rows);
       }
@@ -183,11 +227,9 @@ export default function EquipmentDiaryForm() {
         if (validAreas.length > 0) {
           const rows = validAreas.map((a) => ({
             diary_id: diary.id,
-            comp_m: a.comp ? Number(a.comp) : null,
-            larg_m: a.larg ? Number(a.larg) : null,
-            esp_cm: a.esp ? Number(a.esp) : null,
-            m2: a.comp && a.larg ? Number(a.comp) * Number(a.larg) : null,
-            m3: a.comp && a.larg && a.esp ? Number(a.comp) * Number(a.larg) * (Number(a.esp) / 100) : null,
+            length_m: a.comp ? Number(a.comp) : null,
+            width_m: a.larg ? Number(a.larg) : null,
+            thickness_cm: a.esp ? Number(a.esp) : null,
           }));
           await supabase.from("equipment_production_areas").insert(rows);
         }
@@ -208,7 +250,10 @@ export default function EquipmentDiaryForm() {
         }
       }
 
-      toast({ title: "✅ Diário enviado!", description: `Diário para ${selectedFleet} salvo com sucesso.` });
+      toast({
+        title: isDraft ? "📝 Rascunho salvo!" : "✅ Diário enviado!",
+        description: `Diário para ${selectedFleet} salvo com sucesso.`,
+      });
       navigate("/equipamentos");
     } catch (err: any) {
       const msg = err?.message || "Erro desconhecido";
@@ -230,7 +275,7 @@ export default function EquipmentDiaryForm() {
     <div className="min-h-screen bg-background flex flex-col">
       <EquipmentHeader title={equipmentType || "Novo Diário"} />
 
-      <div className="flex-1 p-4 space-y-5 pb-24 max-w-lg mx-auto w-full">
+      <div className="flex-1 p-4 space-y-5 pb-36 max-w-lg mx-auto w-full">
         {/* INFORMAÇÕES GERAIS */}
         <Section title="INFORMAÇÕES GERAIS">
           <FieldRow>
@@ -252,7 +297,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {equipamentos.map((eq: any) => (
+                  {(isFresadora ? filteredFleet : equipamentos).map((eq: any) => (
                     <SelectItem key={eq.id} value={eq.frota}>
                       {eq.frota} — {eq.nome}
                     </SelectItem>
@@ -266,47 +311,127 @@ export default function EquipmentDiaryForm() {
             <Field label="Data">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
             </Field>
-            <Field label="Turno">
-              <Select value={turno} onValueChange={(v) => handleTurnoChange(v as "diurno" | "noturno")}>
+            <Field label="Status da Obra">
+              <Select value={workStatus} onValueChange={setWorkStatus}>
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="diurno">☀️ Diurno</SelectItem>
-                  <SelectItem value="noturno">🌙 Noturno</SelectItem>
+                  {WORK_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
           </FieldRow>
 
           <Field label="Operador">
-            <Input value={operator} onChange={(e) => setOperator(e.target.value)} placeholder="Nome do operador" className="bg-secondary border-border" />
+            <Select value={operator} onValueChange={setOperator}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue placeholder="Selecione o operador..." />
+              </SelectTrigger>
+              <SelectContent>
+                {funcionarios.map((f: any) => (
+                  <SelectItem key={f.id} value={f.nome}>{f.nome} — {f.funcao}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
 
           {isFresadora && (
             <Field label="Operador Solo">
-              <Input value={operatorSolo} onChange={(e) => setOperatorSolo(e.target.value)} placeholder="Nome do operador solo" className="bg-secondary border-border" />
+              <Select value={operatorSolo} onValueChange={setOperatorSolo}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o operador solo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {funcionarios.map((f: any) => (
+                    <SelectItem key={f.id} value={f.nome}>{f.nome} — {f.funcao}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
+          )}
+
+          <FieldRow>
+            <Field label="OGS">
+              <Select value={ogsNumber} onValueChange={setOgsNumber}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione OGS..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {ogsData.map((o: any) => (
+                    <SelectItem key={o.id} value={o.ogs_number || ""}>
+                      {o.ogs_number} — {o.client_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </FieldRow>
+
+          {(clientName || locationAddress) && (
+            <div className="bg-secondary/50 border border-border rounded-lg p-3 space-y-1">
+              {clientName && (
+                <p className="text-xs text-muted-foreground">
+                  Cliente: <span className="text-foreground font-medium">{clientName}</span>
+                </p>
+              )}
+              {locationAddress && (
+                <p className="text-xs text-muted-foreground">
+                  Local: <span className="text-foreground font-medium">{locationAddress}</span>
+                </p>
+              )}
+            </div>
           )}
         </Section>
 
-        {/* HORÍMETRO & DIESEL */}
-        <Section title="HORÍMETRO & DIESEL">
+        {/* PERÍODO */}
+        <Section title="PERÍODO">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={turno === "diurno" ? "default" : "outline"}
+              className={`flex-1 ${turno === "diurno" ? "bg-primary" : ""}`}
+              onClick={() => handleTurnoChange("diurno")}
+            >
+              ☀️ Diurno
+            </Button>
+            <Button
+              type="button"
+              variant={turno === "noturno" ? "default" : "outline"}
+              className={`flex-1 ${turno === "noturno" ? "bg-primary" : ""}`}
+              onClick={() => handleTurnoChange("noturno")}
+            >
+              🌙 Noturno
+            </Button>
+          </div>
+        </Section>
+
+        {/* HORÍMETRO */}
+        <Section title="HORÍMETRO">
           <FieldRow>
             <Field label="Horímetro Inicial">
-              <Input type="number" value={meterInitial} onChange={(e) => setMeterInitial(e.target.value)} placeholder="0" className="bg-secondary border-border" />
+              <Input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                value={meterInitial}
+                onChange={(e) => setMeterInitial(e.target.value)}
+                placeholder="0,0"
+                className="bg-secondary border-border"
+              />
             </Field>
             <Field label="Horímetro Final">
               <Input
                 type="number"
+                inputMode="decimal"
+                step="0.1"
                 value={meterFinal}
                 onChange={(e) => setMeterFinal(e.target.value)}
-                placeholder="0"
+                placeholder="0,0"
                 className={`bg-secondary border-border ${horimeterError ? "border-destructive" : ""}`}
               />
-            </Field>
-            <Field label="Diesel (L)">
-              <Input type="number" value={diesel} onChange={(e) => setDiesel(e.target.value)} placeholder="0" className="bg-secondary border-border" />
             </Field>
           </FieldRow>
 
@@ -329,12 +454,8 @@ export default function EquipmentDiaryForm() {
         {/* FRESADORA: Produção + Bits */}
         {isFresadora && (
           <>
-            <Section title="">
-              <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
-            </Section>
-            <Section title="">
-              <BitManagementSection bits={bits} onChange={setBits} />
-            </Section>
+            <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
+            <BitManagementSection bits={bits} onChange={setBits} />
           </>
         )}
 
@@ -347,6 +468,9 @@ export default function EquipmentDiaryForm() {
           />
         )}
 
+        {/* ABASTECIMENTO */}
+        <FuelingSection data={fueling} onChange={setFueling} />
+
         {/* OBSERVAÇÕES */}
         <Section title="OBSERVAÇÕES">
           <Textarea
@@ -358,16 +482,25 @@ export default function EquipmentDiaryForm() {
         </Section>
       </div>
 
-      {/* Fixed bottom button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
-        <div className="max-w-lg mx-auto">
+      {/* Fixed bottom buttons */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border space-y-2">
+        <div className="max-w-lg mx-auto space-y-2">
           <Button
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             disabled={saving || !!horimeterError}
             className="w-full font-bold text-base py-6 bg-primary hover:bg-primary/90"
           >
             <Send className="w-5 h-5 mr-2" />
             {saving ? "Enviando..." : "Enviar Diário"}
+          </Button>
+          <Button
+            onClick={() => handleSave(true)}
+            disabled={saving}
+            variant="outline"
+            className="w-full text-sm py-3"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Salvar Rascunho
           </Button>
         </div>
       </div>
@@ -375,13 +508,13 @@ export default function EquipmentDiaryForm() {
   );
 }
 
-/* ── Styled sub-components with yellow labels / white titles ── */
+/* ── Styled sub-components ── */
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       {title && (
-        <h3 className="text-sm font-bold text-white uppercase tracking-wide border-b border-border pb-2">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-border pb-2">
           {title}
         </h3>
       )}

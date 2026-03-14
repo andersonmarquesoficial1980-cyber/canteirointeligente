@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Wrench } from "lucide-react";
 
 export interface BitEntry {
   id: string;
@@ -16,7 +16,7 @@ interface Props {
   onChange: (bits: BitEntry[]) => void;
 }
 
-const BIT_STATUS = ["Novo", "Usado", "Troca"];
+const BIT_STATUS = ["Novo", "Meia Vida"];
 
 export function createEmptyBit(): BitEntry {
   return { id: crypto.randomUUID(), brand: "", quantity: "1", status: "Novo", horimeter: "" };
@@ -32,12 +32,13 @@ export default function BitManagementSection({ bits, onChange }: Props) {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+      <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-border pb-2 flex items-center gap-2">
+        <Wrench className="w-4 h-4 text-primary" />
         Gestão de Bits
       </h3>
 
       {bits.map((bit, idx) => (
-        <div key={bit.id} className="grid grid-cols-[1fr_60px_90px_80px_40px] gap-2 items-end">
+        <div key={bit.id} className="grid grid-cols-[1fr_60px_90px_80px_36px] gap-2 items-end">
           <div className="space-y-1">
             <span className="text-[10px] font-semibold text-accent uppercase">Marca/Tipo</span>
             <Input
