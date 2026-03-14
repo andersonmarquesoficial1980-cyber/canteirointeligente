@@ -1119,7 +1119,7 @@ export type Database = {
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
     }
     Enums: {
-      checklist_status: "ok" | "nao_ok"
+      checklist_status: "ok" | "nao_ok" | "na"
       equipment_type:
         | "fresadora"
         | "bobcat"
@@ -1260,7 +1260,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      checklist_status: ["ok", "nao_ok"],
+      checklist_status: ["ok", "nao_ok", "na"],
       equipment_type: [
         "fresadora",
         "bobcat",
