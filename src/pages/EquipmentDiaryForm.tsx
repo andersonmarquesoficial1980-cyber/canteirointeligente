@@ -365,20 +365,8 @@ export default function EquipmentDiaryForm() {
             </Field>
           </FieldRow>
 
-          <FieldRow>
-            <Field label="Status da Obra">
-              <Select value={workStatus} onValueChange={setWorkStatus}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {WORK_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </FieldRow>
+
+
 
           <Field label="Operador">
             <Select value={operator} onValueChange={setOperator}>
