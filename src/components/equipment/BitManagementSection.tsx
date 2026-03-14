@@ -17,6 +17,7 @@ interface Props {
 }
 
 const BIT_STATUS = ["Novo", "Meia Vida"];
+const BIT_BRANDS = ["Wirtgen", "Kennametal", "Betek", "Bomag"];
 
 export function createEmptyBit(): BitEntry {
   return { id: crypto.randomUUID(), brand: "", quantity: "1", status: "Novo", horimeter: "" };
@@ -40,13 +41,17 @@ export default function BitManagementSection({ bits, onChange }: Props) {
       {bits.map((bit, idx) => (
         <div key={bit.id} className="grid grid-cols-[1fr_60px_90px_80px_36px] gap-2 items-end">
           <div className="space-y-1">
-            <span className="text-[10px] font-semibold text-accent uppercase">Marca/Tipo</span>
-            <Input
-              value={bit.brand}
-              onChange={(e) => update(idx, "brand", e.target.value)}
-              placeholder="Ex: Wirtgen HT22"
-              className="bg-secondary border-border h-9 text-xs"
-            />
+            <span className="text-[10px] font-semibold text-accent uppercase">Marca</span>
+            <Select value={bit.brand} onValueChange={(v) => update(idx, "brand", v)}>
+              <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {BIT_BRANDS.map((b) => (
+                  <SelectItem key={b} value={b}>{b}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <span className="text-[10px] font-semibold text-accent uppercase">Qtd</span>

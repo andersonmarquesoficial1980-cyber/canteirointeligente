@@ -23,8 +23,6 @@ import BitManagementSection, { type BitEntry, createEmptyBit } from "@/component
 import FuelingSection, { type FuelingData, createEmptyFueling } from "@/components/equipment/FuelingSection";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
 
-const EQUIPMENT_TYPES = ["Fresadora", "Bobcat", "Rolo", "Vibroacabadora", "Usina KMA"] as const;
-
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
 
 export default function EquipmentDiaryForm() {
@@ -35,11 +33,15 @@ export default function EquipmentDiaryForm() {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
+  // Equipment type from URL (no more selector)
+  const equipmentType = searchParams.get("tipo") || "Fresadora";
+  const isFresadora = equipmentType === "Fresadora";
+  const isUsinaKma = equipmentType === "Usina KMA";
+
   // OGS reference data
   const { data: ogsData = [] } = useOgsReference();
 
   // Form state
-  const [equipmentType, setEquipmentType] = useState("");
   const [selectedFleet, setSelectedFleet] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [operator, setOperator] = useState("");
@@ -60,27 +62,38 @@ export default function EquipmentDiaryForm() {
   const [bits, setBits] = useState<BitEntry[]>([]);
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
 
-  const isFresadora = equipmentType === "Fresadora";
-  const isUsinaKma = equipmentType === "Usina KMA";
-
-  // Set type from URL param
-  useEffect(() => {
-    const tipo = searchParams.get("tipo");
-    if (tipo && EQUIPMENT_TYPES.includes(tipo as any)) {
-      setEquipmentType(tipo);
-    }
-  }, [searchParams]);
-
-  // Auto-fill client/location from OGS
-  useEffect(() => {
-    if (ogsNumber) {
-      const ref = ogsData.find((o: any) => o.ogs_number === ogsNumber);
-      if (ref) {
-        setClientName(ref.client_name || "");
-        setLocationAddress(ref.location_address || "");
-      }
-    }
+  // Auto-fill client/location from OGS — handle multiple addresses
+  const ogsAddresses = useMemo(() => {
+    if (!ogsNumber) return [];
+    // Find all OGS entries with same ogs_number (for multi-address support)
+    return ogsData.filter((o: any) => o.ogs_number === ogsNumber);
   }, [ogsNumber, ogsData]);
+
+  const hasMultipleAddresses = ogsAddresses.length > 1;
+
+  useEffect(() => {
+    if (ogsNumber && ogsAddresses.length > 0) {
+      setClientName(ogsAddresses[0].client_name || "");
+      if (!hasMultipleAddresses) {
+        setLocationAddress(ogsAddresses[0].location_address || "");
+      } else {
+        setLocationAddress(""); // reset so user picks from select
+      }
+    } else {
+      setClientName("");
+      setLocationAddress("");
+    }
+  }, [ogsNumber, ogsAddresses, hasMultipleAddresses]);
+
+  // Unique OGS numbers for the selector
+  const uniqueOgs = useMemo(() => {
+    const seen = new Set<string>();
+    return ogsData.filter((o: any) => {
+      if (!o.ogs_number || seen.has(o.ogs_number)) return false;
+      seen.add(o.ogs_number);
+      return true;
+    });
+  }, [ogsData]);
 
   // Fetch equipment list
   const { data: equipamentos = [] } = useQuery({
@@ -108,6 +121,20 @@ export default function EquipmentDiaryForm() {
       return data as any[];
     },
   });
+
+  // Filtered operators by role
+  const operadoresFresa = useMemo(
+    () => funcionarios.filter((f: any) => f.funcao?.toUpperCase() === "OPERADOR DE FRESA"),
+    [funcionarios]
+  );
+
+  const operadoresSolo = useMemo(
+    () => funcionarios.filter((f: any) => {
+      const fn = f.funcao?.toUpperCase() || "";
+      return fn === "OPERADOR SOLO" || fn === "AJUDANTE GERAL";
+    }),
+    [funcionarios]
+  );
 
   // Filtered fleet for Fresadora
   const filteredFleet = useMemo(() => {
@@ -138,8 +165,8 @@ export default function EquipmentDiaryForm() {
   };
 
   const handleSave = async (isDraft = false) => {
-    if (!selectedFleet || !date || !equipmentType) {
-      toast({ title: "Campos obrigatórios", description: "Selecione o equipamento, tipo e data.", variant: "destructive" });
+    if (!selectedFleet || !date) {
+      toast({ title: "Campos obrigatórios", description: "Selecione o equipamento e data.", variant: "destructive" });
       return;
     }
     if (horimeterError) {
@@ -279,18 +306,6 @@ export default function EquipmentDiaryForm() {
         {/* INFORMAÇÕES GERAIS */}
         <Section title="INFORMAÇÕES GERAIS">
           <FieldRow>
-            <Field label="Tipo de Equipamento">
-              <Select value={equipmentType} onValueChange={setEquipmentType}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {EQUIPMENT_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
             <Field label="Frota">
               <Select value={selectedFleet} onValueChange={setSelectedFleet}>
                 <SelectTrigger className="bg-secondary border-border">
@@ -305,12 +320,12 @@ export default function EquipmentDiaryForm() {
                 </SelectContent>
               </Select>
             </Field>
-          </FieldRow>
-
-          <FieldRow>
             <Field label="Data">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
             </Field>
+          </FieldRow>
+
+          <FieldRow>
             <Field label="Status da Obra">
               <Select value={workStatus} onValueChange={setWorkStatus}>
                 <SelectTrigger className="bg-secondary border-border">
@@ -331,8 +346,8 @@ export default function EquipmentDiaryForm() {
                 <SelectValue placeholder="Selecione o operador..." />
               </SelectTrigger>
               <SelectContent>
-                {funcionarios.map((f: any) => (
-                  <SelectItem key={f.id} value={f.nome}>{f.nome} — {f.funcao}</SelectItem>
+                {(isFresadora ? operadoresFresa : funcionarios).map((f: any) => (
+                  <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -345,8 +360,8 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder="Selecione o operador solo..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {funcionarios.map((f: any) => (
-                    <SelectItem key={f.id} value={f.nome}>{f.nome} — {f.funcao}</SelectItem>
+                  {operadoresSolo.map((f: any) => (
+                    <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -360,7 +375,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder="Selecione OGS..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {ogsData.map((o: any) => (
+                  {uniqueOgs.map((o: any) => (
                     <SelectItem key={o.id} value={o.ogs_number || ""}>
                       {o.ogs_number} — {o.client_name}
                     </SelectItem>
@@ -370,18 +385,34 @@ export default function EquipmentDiaryForm() {
             </Field>
           </FieldRow>
 
-          {(clientName || locationAddress) && (
-            <div className="bg-secondary/50 border border-border rounded-lg p-3 space-y-1">
+          {(clientName || locationAddress || hasMultipleAddresses) && (
+            <div className="bg-secondary/50 border border-border rounded-lg p-3 space-y-2">
               {clientName && (
                 <p className="text-xs text-muted-foreground">
                   Cliente: <span className="text-foreground font-medium">{clientName}</span>
                 </p>
               )}
-              {locationAddress && (
+              {hasMultipleAddresses ? (
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-accent uppercase tracking-wide">Local da Obra</span>
+                  <Select value={locationAddress} onValueChange={setLocationAddress}>
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder="Selecione o local..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ogsAddresses.map((o: any) => (
+                        <SelectItem key={o.id} value={o.location_address || ""}>
+                          {o.location_address}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : locationAddress ? (
                 <p className="text-xs text-muted-foreground">
                   Local: <span className="text-foreground font-medium">{locationAddress}</span>
                 </p>
-              )}
+              ) : null}
             </div>
           )}
         </Section>
