@@ -11,7 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Truck, Scale } from "lucide-react";
-import KmaCalibrationSection from "@/components/equipment/KmaCalibrationSection";
+import KmaCalibrationSection, {
+  type CalibrationEntry,
+  createEmptyCalibration,
+  calcDiffPercent,
+  calcFator,
+} from "@/components/equipment/KmaCalibrationSection";
+import { generateKmaPdf } from "@/lib/generateKmaPdf";
 
 export default function EquipmentDiaryForm() {
   const navigate = useNavigate();
@@ -31,7 +37,10 @@ export default function EquipmentDiaryForm() {
   const [meterFinal, setMeterFinal] = useState("");
   const [fuelQuantity, setFuelQuantity] = useState("");
 
-  // Fetch equipment list from maquinas_frota
+  // KMA calibration state
+  const [kmaEntries, setKmaEntries] = useState<CalibrationEntry[]>([createEmptyCalibration(1)]);
+
+  // Fetch equipment list
   const { data: equipamentos = [] } = useQuery({
     queryKey: ["maquinas_frota"],
     queryFn: async () => {
@@ -45,7 +54,7 @@ export default function EquipmentDiaryForm() {
     },
   });
 
-  // Fetch OGS references for autocomplete
+  // Fetch OGS references
   const { data: ogsRefs = [] } = useQuery({
     queryKey: ["ogs_reference"],
     queryFn: async () => {
@@ -55,13 +64,12 @@ export default function EquipmentDiaryForm() {
     },
   });
 
-  // Derive equipment type from selection
   const selectedEquipment = equipamentos.find((eq: any) => eq.frota === selectedFleet);
-  const isUsinaKma = selectedEquipment?.tipo?.toLowerCase().includes("usina") || 
-                     selectedEquipment?.nome?.toLowerCase().includes("kma") ||
-                     selectedEquipment?.nome?.toLowerCase().includes("usina");
+  const isUsinaKma =
+    selectedEquipment?.tipo?.toLowerCase().includes("usina") ||
+    selectedEquipment?.nome?.toLowerCase().includes("kma") ||
+    selectedEquipment?.nome?.toLowerCase().includes("usina");
 
-  // Auto-fill location/client when OGS is selected
   const handleOgsChange = (value: string) => {
     setOgs(value);
     const ref = ogsRefs.find((r) => r.numero_ogs === value);
@@ -76,36 +84,67 @@ export default function EquipmentDiaryForm() {
       toast({ title: "Campos obrigatórios", description: "Selecione o equipamento e a data.", variant: "destructive" });
       return;
     }
-
     if (!session?.user?.id) {
-      toast({ title: "Sessão expirada", description: "Faça login novamente para continuar.", variant: "destructive" });
+      toast({ title: "Sessão expirada", description: "Faça login novamente.", variant: "destructive" });
       navigate("/");
       return;
     }
 
     setSaving(true);
     try {
+      // 1. Create diary with correct column names
       const { data: diary, error } = await supabase
         .from("equipment_diaries")
         .insert({
-          fleet: selectedFleet,
+          equipment_fleet: selectedFleet,
           equipment_type: selectedEquipment?.tipo || null,
           date,
-          operator: operator || null,
-          ogs: ogs || null,
-          location: location || null,
-          client: client || null,
+          operator_name: operator || null,
+          ogs_code: ogs || null,
+          work_location: location || null,
+          client_name: client || null,
           meter_initial: meterInitial ? Number(meterInitial) : null,
           meter_final: meterFinal ? Number(meterFinal) : null,
-          fuel_quantity: fuelQuantity ? Number(fuelQuantity) : null,
+          fuel_liters: fuelQuantity ? Number(fuelQuantity) : null,
           company_id: profile?.company_id || null,
-          user_id: session.user.id,
+          created_by: session.user.id,
           status: "rascunho",
-        } as any)
+        })
         .select()
         .single();
 
       if (error) throw error;
+
+      // 2. Save KMA calibration entries if usina
+      if (isUsinaKma && diary) {
+        const kmaRows = kmaEntries
+          .filter((e) => e.pesoNominalUsina || e.pesoRealReferencia)
+          .map((e) => ({
+            equipment_diary_id: diary.id,
+            attempt_number: e.tentativa,
+            nominal_weight_usina: e.pesoNominalUsina ? Number(e.pesoNominalUsina) : null,
+            real_weight_reference: e.pesoRealReferencia ? Number(e.pesoRealReferencia) : null,
+            truck_tara: e.taraCaminhao ? Number(e.taraCaminhao) : null,
+            adjustment_factor: calcFator(e),
+            ticket_photo_url: e.ticketPhotoUrl || null,
+          }));
+
+        if (kmaRows.length > 0) {
+          // Upload any pending photo files
+          for (const entry of kmaEntries) {
+            if (entry.ticketPhotoFile && diary.id) {
+              const path = `kma-tickets/${diary.id}/tentativa_${entry.tentativa}_${Date.now()}.jpg`;
+              await supabase.storage.from("notas_fiscais").upload(path, entry.ticketPhotoFile, { contentType: "image/jpeg", upsert: true });
+              const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
+              const row = kmaRows.find((r) => r.attempt_number === entry.tentativa);
+              if (row) row.ticket_photo_url = urlData.publicUrl;
+            }
+          }
+
+          const { error: kmaError } = await supabase.from("kma_calibration_entries").insert(kmaRows);
+          if (kmaError) console.error("KMA save error:", kmaError);
+        }
+      }
 
       toast({ title: "✅ Diário criado!", description: `Diário para ${selectedFleet} salvo com sucesso.` });
       navigate("/equipamentos");
@@ -119,6 +158,15 @@ export default function EquipmentDiaryForm() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleGeneratePdf = () => {
+    generateKmaPdf({
+      fleet: selectedFleet,
+      date,
+      operator,
+      entries: kmaEntries,
+    });
   };
 
   return (
@@ -249,7 +297,14 @@ export default function EquipmentDiaryForm() {
       </Card>
 
       {/* KMA Calibration Section — only for Usina */}
-      {isUsinaKma && <KmaCalibrationSection />}
+      {isUsinaKma && (
+        <KmaCalibrationSection
+          entries={kmaEntries}
+          onChange={setKmaEntries}
+          diaryId={null}
+          onGeneratePdf={handleGeneratePdf}
+        />
+      )}
 
       {/* Save */}
       <Button onClick={handleSave} disabled={saving} className="w-full font-bold text-base py-6">
