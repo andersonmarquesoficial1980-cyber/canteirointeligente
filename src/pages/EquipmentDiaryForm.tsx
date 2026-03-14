@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,47 +7,65 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Truck, Scale, AlertCircle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertCircle, Send } from "lucide-react";
+import EquipmentHeader from "@/components/equipment/EquipmentHeader";
+import TimeEntriesSection, { type TimeEntry, createDefaultTimeEntry } from "@/components/equipment/TimeEntriesSection";
 import KmaCalibrationSection, {
   type CalibrationEntry,
   createEmptyCalibration,
   calcFator,
 } from "@/components/equipment/KmaCalibrationSection";
-import TimeEntriesSection, {
-  type TimeEntry,
-  createDefaultTimeEntry,
-} from "@/components/equipment/TimeEntriesSection";
+import ProductionAreasSection, { type ProductionArea, createEmptyArea } from "@/components/equipment/ProductionAreasSection";
+import BitManagementSection, { type BitEntry, createEmptyBit } from "@/components/equipment/BitManagementSection";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
 
 const EQUIPMENT_TYPES = ["Fresadora", "Bobcat", "Rolo", "Vibroacabadora", "Usina KMA"] as const;
 
 export default function EquipmentDiaryForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { session } = useAuth();
   const { profile } = useUserProfile();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
   // Form state
-  const [selectedFleet, setSelectedFleet] = useState("");
   const [equipmentType, setEquipmentType] = useState("");
+  const [selectedFleet, setSelectedFleet] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [operator, setOperator] = useState("");
+  const [operatorSolo, setOperatorSolo] = useState("");
   const [turno, setTurno] = useState<"diurno" | "noturno">("diurno");
   const [meterInitial, setMeterInitial] = useState("");
   const [meterFinal, setMeterFinal] = useState("");
   const [diesel, setDiesel] = useState("");
+  const [observations, setObservations] = useState("");
 
-  // Time entries
+  // Sub-sections
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([createDefaultTimeEntry("diurno")]);
-
-  // KMA calibration
   const [kmaEntries, setKmaEntries] = useState<CalibrationEntry[]>([createEmptyCalibration(1)]);
+  const [productionAreas, setProductionAreas] = useState<ProductionArea[]>([createEmptyArea()]);
+  const [bits, setBits] = useState<BitEntry[]>([]);
 
+  const isFresadora = equipmentType === "Fresadora";
   const isUsinaKma = equipmentType === "Usina KMA";
+
+  // Set type from URL param
+  useEffect(() => {
+    const tipo = searchParams.get("tipo");
+    if (tipo && EQUIPMENT_TYPES.includes(tipo as any)) {
+      setEquipmentType(tipo);
+    } else if (tipo) {
+      // Map non-standard names
+      const map: Record<string, string> = {
+        "Caminhão": "Fresadora", "Comboio": "Fresadora", "Veículo": "Fresadora",
+        "Retro": "Fresadora", "Vibro": "Vibroacabadora",
+      };
+      if (map[tipo]) setEquipmentType(map[tipo]);
+    }
+  }, [searchParams]);
 
   // Fetch equipment list
   const { data: equipamentos = [] } = useQuery({
@@ -63,7 +81,7 @@ export default function EquipmentDiaryForm() {
     },
   });
 
-  // Horimeter validation
+  // Horímetro validation
   const horimeterError =
     meterInitial && meterFinal && Number(meterFinal) < Number(meterInitial)
       ? "Horímetro Final não pode ser menor que o Inicial"
@@ -74,7 +92,6 @@ export default function EquipmentDiaryForm() {
       ? (Number(meterFinal) - Number(meterInitial)).toFixed(1)
       : null;
 
-  // When turno changes, reset time entries default
   const handleTurnoChange = (value: "diurno" | "noturno") => {
     setTurno(value);
     if (timeEntries.length === 1 && !timeEntries[0].activity && !timeEntries[0].endTime) {
@@ -99,7 +116,6 @@ export default function EquipmentDiaryForm() {
 
     setSaving(true);
     try {
-      // 1. Create diary
       const { data: diary, error } = await supabase
         .from("equipment_diaries")
         .insert({
@@ -107,19 +123,21 @@ export default function EquipmentDiaryForm() {
           equipment_type: equipmentType,
           date,
           operator_name: operator || null,
+          operator_solo: isFresadora ? (operatorSolo || null) : null,
+          period: turno,
           meter_initial: meterInitial ? Number(meterInitial) : null,
           meter_final: meterFinal ? Number(meterFinal) : null,
           fuel_liters: diesel ? Number(diesel) : null,
+          observations: observations || null,
           company_id: profile?.company_id || null,
           created_by: session.user.id,
-          status: "rascunho",
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // 2. Save time entries
+      // Save time entries
       const validTimeEntries = timeEntries.filter((t) => t.startTime && t.activity);
       if (validTimeEntries.length > 0 && diary) {
         const rows = validTimeEntries.map((t) => ({
@@ -129,16 +147,14 @@ export default function EquipmentDiaryForm() {
           activity_description: t.activity,
           is_parada: t.isParada,
         }));
-        const { error: teError } = await supabase.from("equipment_time_entries").insert(rows);
-        if (teError) console.error("Time entries error:", teError);
+        await supabase.from("equipment_time_entries").insert(rows);
       }
 
-      // 3. Save KMA calibration entries + upload photos
+      // Save KMA calibration
       if (isUsinaKma && diary) {
         const validKma = kmaEntries.filter((e) => e.pesoNominal || e.pesoReal);
         for (const entry of validKma) {
           let ticketUrl: string | null = null;
-
           if (entry.ticketPhotoFile) {
             const path = `kma-tickets/${diary.id}/tentativa_${entry.tentativa}_${Date.now()}.jpg`;
             const { error: uploadErr } = await supabase.storage
@@ -149,7 +165,6 @@ export default function EquipmentDiaryForm() {
               ticketUrl = urlData.publicUrl;
             }
           }
-
           await supabase.from("kma_calibration_entries").insert({
             equipment_diary_id: diary.id,
             attempt_number: entry.tentativa,
@@ -162,16 +177,43 @@ export default function EquipmentDiaryForm() {
         }
       }
 
-      toast({ title: "✅ Diário criado!", description: `Diário para ${selectedFleet} salvo com sucesso.` });
+      // Save production areas (Fresadora)
+      if (isFresadora && diary) {
+        const validAreas = productionAreas.filter((a) => a.comp || a.larg);
+        if (validAreas.length > 0) {
+          const rows = validAreas.map((a) => ({
+            diary_id: diary.id,
+            comp_m: a.comp ? Number(a.comp) : null,
+            larg_m: a.larg ? Number(a.larg) : null,
+            esp_cm: a.esp ? Number(a.esp) : null,
+            m2: a.comp && a.larg ? Number(a.comp) * Number(a.larg) : null,
+            m3: a.comp && a.larg && a.esp ? Number(a.comp) * Number(a.larg) * (Number(a.esp) / 100) : null,
+          }));
+          await supabase.from("equipment_production_areas").insert(rows);
+        }
+      }
+
+      // Save bits (Fresadora)
+      if (isFresadora && diary && bits.length > 0) {
+        const validBits = bits.filter((b) => b.brand);
+        if (validBits.length > 0) {
+          const rows = validBits.map((b) => ({
+            diary_id: diary.id,
+            brand: b.brand,
+            quantity: Number(b.quantity) || 0,
+            status: b.status,
+            horimeter: b.horimeter || null,
+          }));
+          await supabase.from("bit_entries").insert(rows);
+        }
+      }
+
+      toast({ title: "✅ Diário enviado!", description: `Diário para ${selectedFleet} salvo com sucesso.` });
       navigate("/equipamentos");
     } catch (err: any) {
       const msg = err?.message || "Erro desconhecido";
       if (msg.includes("row-level security") || msg.includes("policy")) {
-        toast({
-          title: "Sem permissão",
-          description: "Você não tem permissão para criar diários. Contate o administrador.",
-          variant: "destructive",
-        });
+        toast({ title: "Sem permissão", description: "Contate o administrador.", variant: "destructive" });
       } else {
         toast({ title: "Erro ao salvar", description: msg, variant: "destructive" });
       }
@@ -181,42 +223,33 @@ export default function EquipmentDiaryForm() {
   };
 
   const handleGeneratePdf = async () => {
-    await generateKmaPdf({
-      fleet: selectedFleet,
-      date,
-      operator,
-      entries: kmaEntries,
-    });
+    await generateKmaPdf({ fleet: selectedFleet, date, operator, entries: kmaEntries });
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6 pb-8">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/equipamentos")}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-xl md:text-2xl font-display font-bold text-foreground flex items-center gap-2">
-            <Truck className="w-6 h-6 text-primary" />
-            Novo Diário de Equipamento
-          </h1>
-          <p className="text-sm text-muted-foreground">Registro diário de operação</p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      <EquipmentHeader title={equipmentType || "Novo Diário"} />
 
-      {/* Equipment + Type */}
-      <Card className="border-border bg-card">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Equipamento</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Frota *</Label>
+      <div className="flex-1 p-4 space-y-5 pb-24 max-w-lg mx-auto w-full">
+        {/* INFORMAÇÕES GERAIS */}
+        <Section title="INFORMAÇÕES GERAIS">
+          <FieldRow>
+            <Field label="Tipo de Equipamento">
+              <Select value={equipmentType} onValueChange={setEquipmentType}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {EQUIPMENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Frota">
               <Select value={selectedFleet} onValueChange={setSelectedFleet}>
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione a frota..." />
+                  <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
                   {equipamentos.map((eq: any) => (
@@ -226,81 +259,44 @@ export default function EquipmentDiaryForm() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Tipo de Equipamento *</Label>
-              <Select value={equipmentType} onValueChange={setEquipmentType}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione o tipo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {EQUIPMENT_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+            </Field>
+          </FieldRow>
 
-          {isUsinaKma && (
-            <div className="bg-accent/10 border border-accent/30 rounded-md p-2 flex items-center gap-2">
-              <Scale className="w-4 h-4 text-accent" />
-              <span className="text-xs text-accent font-semibold">Modo Usina KMA ativado — Calibração de pesagem habilitada</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* General Data */}
-      <Card className="border-border bg-card">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Dados Gerais</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Data *</Label>
+          <FieldRow>
+            <Field label="Data">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Operador</Label>
-              <Input value={operator} onChange={(e) => setOperator(e.target.value)} placeholder="Nome do operador" className="bg-secondary border-border" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Turno</Label>
+            </Field>
+            <Field label="Turno">
               <Select value={turno} onValueChange={(v) => handleTurnoChange(v as "diurno" | "noturno")}>
                 <SelectTrigger className="bg-secondary border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="diurno">☀️ Diurno (07:00)</SelectItem>
-                  <SelectItem value="noturno">🌙 Noturno (20:30)</SelectItem>
+                  <SelectItem value="diurno">☀️ Diurno</SelectItem>
+                  <SelectItem value="noturno">🌙 Noturno</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </Field>
+          </FieldRow>
 
-      {/* Horímetro & Diesel */}
-      <Card className="border-border bg-card">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Horímetro & Diesel</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Horímetro Inicial</Label>
-              <Input
-                type="number"
-                value={meterInitial}
-                onChange={(e) => setMeterInitial(e.target.value)}
-                placeholder="0"
-                className="bg-secondary border-border"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Horímetro Final</Label>
+          <Field label="Operador">
+            <Input value={operator} onChange={(e) => setOperator(e.target.value)} placeholder="Nome do operador" className="bg-secondary border-border" />
+          </Field>
+
+          {isFresadora && (
+            <Field label="Operador Solo">
+              <Input value={operatorSolo} onChange={(e) => setOperatorSolo(e.target.value)} placeholder="Nome do operador solo" className="bg-secondary border-border" />
+            </Field>
+          )}
+        </Section>
+
+        {/* HORÍMETRO & DIESEL */}
+        <Section title="HORÍMETRO & DIESEL">
+          <FieldRow>
+            <Field label="Horímetro Inicial">
+              <Input type="number" value={meterInitial} onChange={(e) => setMeterInitial(e.target.value)} placeholder="0" className="bg-secondary border-border" />
+            </Field>
+            <Field label="Horímetro Final">
               <Input
                 type="number"
                 value={meterFinal}
@@ -308,18 +304,11 @@ export default function EquipmentDiaryForm() {
                 placeholder="0"
                 className={`bg-secondary border-border ${horimeterError ? "border-destructive" : ""}`}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Diesel (L)</Label>
-              <Input
-                type="number"
-                value={diesel}
-                onChange={(e) => setDiesel(e.target.value)}
-                placeholder="0"
-                className="bg-secondary border-border"
-              />
-            </div>
-          </div>
+            </Field>
+            <Field label="Diesel (L)">
+              <Input type="number" value={diesel} onChange={(e) => setDiesel(e.target.value)} placeholder="0" className="bg-secondary border-border" />
+            </Field>
+          </FieldRow>
 
           {horimeterError && (
             <div className="flex items-center gap-2 text-destructive text-xs font-medium">
@@ -327,36 +316,89 @@ export default function EquipmentDiaryForm() {
               {horimeterError}
             </div>
           )}
-
           {horasTrabalhadas && (
             <p className="text-xs text-muted-foreground">
               Horas trabalhadas: <span className="font-semibold text-foreground">{horasTrabalhadas}h</span>
             </p>
           )}
-        </CardContent>
-      </Card>
+        </Section>
 
-      {/* Time Entries */}
-      <TimeEntriesSection entries={timeEntries} onChange={setTimeEntries} turno={turno} />
+        {/* APONTAMENTO DE HORAS */}
+        <TimeEntriesSection entries={timeEntries} onChange={setTimeEntries} turno={turno} />
 
-      {/* KMA Calibration — only for Usina KMA */}
-      {isUsinaKma && (
-        <KmaCalibrationSection
-          entries={kmaEntries}
-          onChange={setKmaEntries}
-          onGeneratePdf={handleGeneratePdf}
-        />
-      )}
+        {/* FRESADORA: Produção + Bits */}
+        {isFresadora && (
+          <>
+            <Section title="">
+              <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
+            </Section>
+            <Section title="">
+              <BitManagementSection bits={bits} onChange={setBits} />
+            </Section>
+          </>
+        )}
 
-      {/* Save */}
-      <Button
-        onClick={handleSave}
-        disabled={saving || !!horimeterError}
-        className="w-full font-bold text-base py-6"
-      >
-        <Save className="w-5 h-5 mr-2" />
-        {saving ? "Salvando..." : "Salvar Diário"}
-      </Button>
+        {/* KMA CALIBRATION */}
+        {isUsinaKma && (
+          <KmaCalibrationSection
+            entries={kmaEntries}
+            onChange={setKmaEntries}
+            onGeneratePdf={handleGeneratePdf}
+          />
+        )}
+
+        {/* OBSERVAÇÕES */}
+        <Section title="OBSERVAÇÕES">
+          <Textarea
+            value={observations}
+            onChange={(e) => setObservations(e.target.value)}
+            placeholder="Observações gerais..."
+            className="bg-secondary border-border min-h-[80px]"
+          />
+        </Section>
+      </div>
+
+      {/* Fixed bottom button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
+        <div className="max-w-lg mx-auto">
+          <Button
+            onClick={handleSave}
+            disabled={saving || !!horimeterError}
+            className="w-full font-bold text-base py-6 bg-primary hover:bg-primary/90"
+          >
+            <Send className="w-5 h-5 mr-2" />
+            {saving ? "Enviando..." : "Enviar Diário"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
+}
+
+/* ── Styled sub-components with yellow labels / white titles ── */
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3">
+      {title && (
+        <h3 className="text-sm font-bold text-white uppercase tracking-wide border-b border-border pb-2">
+          {title}
+        </h3>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5 flex-1 min-w-0">
+      <label className="text-xs font-semibold text-accent uppercase tracking-wide">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function FieldRow({ children }: { children: React.ReactNode }) {
+  return <div className="flex gap-3">{children}</div>;
 }
