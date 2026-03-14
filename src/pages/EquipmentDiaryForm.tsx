@@ -124,7 +124,10 @@ export default function EquipmentDiaryForm() {
 
   // Filtered operators by role
   const operadoresFresa = useMemo(
-    () => funcionarios.filter((f: any) => f.funcao?.toUpperCase() === "OPERADOR DE FRESA"),
+    () => funcionarios.filter((f: any) => {
+      const fn = f.funcao?.toUpperCase() || "";
+      return fn === "OPERADOR DE FRESADORA" || fn === "OPERADOR DE FRESA";
+    }),
     [funcionarios]
   );
 
