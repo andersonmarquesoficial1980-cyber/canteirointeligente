@@ -43,9 +43,10 @@ function AppRoutes() {
         <Route path="/obras" element={<AppLayout><Index /></AppLayout>} />
         <Route path="/obras/rdo" element={<AppLayout><RdoForm /></AppLayout>} />
 
-        {/* Equipamentos module */}
-        <Route path="/equipamentos" element={<AppLayout><FrotaNovo /></AppLayout>} />
-        <Route path="/equipamentos/diario" element={<AppLayout><EquipmentDiaryForm /></AppLayout>} />
+        {/* Equipamentos module — standalone layout */}
+        <Route path="/equipamentos" element={<EquipmentHome />} />
+        <Route path="/equipamentos/frota" element={<AppLayout><FrotaNovo /></AppLayout>} />
+        <Route path="/equipamentos/diario" element={<EquipmentDiaryForm />} />
 
         {/* Admin */}
         <Route path="/admin/configuracoes" element={
