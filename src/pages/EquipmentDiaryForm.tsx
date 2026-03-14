@@ -546,11 +546,20 @@ export default function EquipmentDiaryForm() {
         {/* APONTAMENTO DE HORAS */}
         <TimeEntriesSection entries={timeEntries} onChange={setTimeEntries} turno={turno} />
 
-        {/* FRESADORA: Produção + Bits */}
+        {/* FRESADORA: Produção + Bits + Checklist + Inspeção Visual */}
         {isFresadora && (
           <>
             <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
             <BitManagementSection bits={bits} onChange={setBits} />
+            <ChecklistSection
+              equipmentType="Fresadora"
+              results={checklistResults}
+              onChange={setChecklistResults}
+            />
+            <VisualInspectionSection
+              markers={damageMarkers}
+              onChange={setDamageMarkers}
+            />
           </>
         )}
 
