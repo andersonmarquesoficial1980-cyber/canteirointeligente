@@ -196,6 +196,15 @@ export default function EquipmentDiaryForm() {
     [funcionarios]
   );
 
+  // Retro operator filter
+  const operadoresRetro = useMemo(
+    () => funcionarios.filter((f: any) => {
+      const fn = f.funcao?.toUpperCase() || "";
+      return fn.includes("RETROESCAVADEIRA") || fn.includes("RETRO") || fn === "OPERADOR";
+    }),
+    [funcionarios]
+  );
+
   // Horímetro validation
   const horimeterError =
     meterInitial && meterFinal && Number(meterFinal) < Number(meterInitial)
