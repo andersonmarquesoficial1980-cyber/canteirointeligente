@@ -105,40 +105,12 @@ const CARRETA_FLEETS = ["CM01", "CM02", "CM03", "CM04", "CM05"];
 const PRANCHA_OPTIONS = ["PR001", "PR002", "PR003", "PR004", "PR005"];
 
 const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
-const COMBOIO_FORNECEDORES = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás", "Shell Box"];
 
 const VEICULO_TYPES = ["Micro-ônibus", "Van"] as const;
 const VEICULO_FLEETS: Record<string, string[]> = {
   "Micro-ônibus": ["VT01", "VT02", "VT03", "VT04", "VT05"],
   "Van": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
 };
-
-// ── Comboio refueling entry ──
-interface ComboioRefuelEntry {
-  id: string;
-  lubricatorName: string;
-  initialDiesel: string;
-  finalDiesel: string;
-  fleetFueled: string;
-  equipmentMeter: string;
-  ogsDestination: string;
-  litersFueled: string;
-  isLubricated: boolean;
-}
-
-function createEmptyComboioRefuel(): ComboioRefuelEntry {
-  return {
-    id: crypto.randomUUID(),
-    lubricatorName: "",
-    initialDiesel: "",
-    finalDiesel: "",
-    fleetFueled: "",
-    equipmentMeter: "",
-    ogsDestination: "",
-    litersFueled: "",
-    isLubricated: false,
-  };
-}
 
 // ── Truck tank supply ──
 interface TankSupplyEntry {
