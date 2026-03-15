@@ -370,7 +370,7 @@ export default function EquipmentDiaryForm() {
       }
 
       // Save checklist results
-      if ((isFresadora || isBobcat || isRetro || isRolo) && diary && checklistResults.length > 0) {
+      if ((isFresadora || isBobcat || isRetro || isRolo || isVibro) && diary && checklistResults.length > 0) {
         for (const cr of checklistResults) {
           let photoUrl: string | null = null;
           if (cr.photoFile) {
