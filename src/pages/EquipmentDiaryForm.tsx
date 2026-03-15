@@ -17,7 +17,6 @@ import TimeEntriesSection, { type TimeEntry, createDefaultTimeEntry } from "@/co
 import KmaCalibrationSection, {
   type CalibrationEntry,
   createEmptyCalibration,
-  calcFator,
 } from "@/components/equipment/KmaCalibrationSection";
 import ProductionAreasSection, { type ProductionArea, createEmptyArea } from "@/components/equipment/ProductionAreasSection";
 import BitManagementSection, { type BitEntry, createEmptyBit } from "@/components/equipment/BitManagementSection";

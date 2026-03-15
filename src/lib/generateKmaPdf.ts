@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { type CalibrationEntry, calcDiffPercent, calcFator } from "@/components/equipment/KmaCalibrationSection";
+import { type CalibrationEntry, calcDiffPercent } from "@/components/equipment/KmaCalibrationSection";
 
 interface KmaPdfParams {
   fleet: string;
