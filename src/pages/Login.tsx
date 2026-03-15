@@ -29,35 +29,40 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 relative overflow-hidden">
       {/* Gradient accent bar */}
-      <div className="absolute top-0 left-0 right-0 h-48 bg-header-gradient rounded-b-[2rem]" />
+      <div className="absolute top-0 left-0 right-0 h-56 bg-header-gradient rounded-b-[3rem]" />
+      {/* Ambient glows */}
+      <div className="absolute top-10 left-[-60px] w-[240px] h-[240px] rounded-full bg-accent/15 blur-[80px] pointer-events-none" />
 
       {/* Branding */}
       <div className="relative text-center mb-8 space-y-4 z-10">
-        <img src={logoCi} alt="Canteiro Inteligente" className="h-28 mx-auto object-contain drop-shadow-lg" />
-        <p className="text-sm text-primary-foreground/80 tracking-wide">
+        <div className="relative inline-block">
+          <img src={logoCi} alt="Canteiro Inteligente" className="h-32 mx-auto object-contain drop-shadow-2xl" />
+          <div className="absolute inset-0 rounded-full bg-white/25 blur-2xl -z-10 scale-125" />
+        </div>
+        <p className="text-sm text-primary-foreground/90 tracking-wide font-medium">
           Plataforma de Gestão e Integração de Campo
         </p>
       </div>
 
       {/* Login card */}
-      <div className="relative z-10 w-full max-w-sm border border-border rounded-2xl p-6 space-y-5 bg-card shadow-card">
+      <div className="relative z-10 w-full max-w-sm border border-border rounded-3xl p-7 space-y-5 bg-card shadow-card">
         {/* Title row */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <LogIn className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-display font-bold tracking-widest uppercase text-foreground">
+            <h2 className="text-lg font-display font-extrabold tracking-widest uppercase text-foreground">
               Entrar
             </h2>
           </div>
-          <div className="h-0.5 bg-header-gradient rounded-full w-full" />
+          <div className="h-1 bg-header-gradient rounded-full w-full" />
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-              <Mail className="w-4 h-4" /> Email
+            <Label htmlFor="email" className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+              <Mail className="w-4 h-4 text-primary" /> Email
             </Label>
             <Input
               id="email"
@@ -66,12 +71,12 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
+              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground rounded-xl"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-              <Lock className="w-4 h-4" /> Senha
+            <Label htmlFor="password" className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+              <Lock className="w-4 h-4 text-primary" /> Senha
             </Label>
             <Input
               id="password"
@@ -81,12 +86,12 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
+              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground rounded-xl"
             />
           </div>
           <Button
             type="submit"
-            className="w-full h-14 gap-2 text-base font-bold rounded-xl bg-header-gradient hover:opacity-90"
+            className="w-full h-14 gap-2 text-base font-extrabold rounded-2xl bg-header-gradient hover:opacity-90 shadow-lg glow-primary"
             disabled={loading}
           >
             <LogIn className="w-5 h-5" />

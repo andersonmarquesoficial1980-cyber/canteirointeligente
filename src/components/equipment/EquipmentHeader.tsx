@@ -22,15 +22,18 @@ export default function EquipmentHeader({ title, backTo = "/equipamentos" }: Pro
   };
 
   return (
-    <header className="flex items-center justify-between px-4 py-3 bg-header-gradient sticky top-0 z-50 shadow-md">
+    <header className="flex items-center justify-between px-4 py-3 bg-header-gradient sticky top-0 z-50 shadow-lg">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(backTo)} className="text-primary-foreground hover:bg-white/15">
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <img src={logoCi} alt="Canteiro Inteligente" className="h-9 object-contain drop-shadow-sm" />
+        <div className="relative">
+          <img src={logoCi} alt="Canteiro Inteligente" className="h-11 object-contain drop-shadow-lg" />
+          <div className="absolute inset-0 rounded-full bg-white/20 blur-md -z-10 scale-110" />
+        </div>
         <div>
-          <span className="block font-display font-bold text-sm text-primary-foreground leading-tight">Canteiro Inteligente</span>
-          <span className="block text-[11px] text-primary-foreground/75 leading-tight">{title}</span>
+          <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Canteiro Inteligente</span>
+          <span className="block text-[11px] text-primary-foreground/80 font-medium leading-tight">{title}</span>
         </div>
       </div>
       <div className="flex items-center gap-1">

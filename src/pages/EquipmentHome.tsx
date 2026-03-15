@@ -38,13 +38,16 @@ export default function EquipmentHome() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header with gradient */}
-      <header className="flex items-center justify-between px-4 py-3 bg-header-gradient shadow-md">
+      {/* Header with electric gradient */}
+      <header className="flex items-center justify-between px-4 py-3 bg-header-gradient shadow-lg">
         <div className="flex items-center gap-3">
-          <img src={logoCi} alt="Canteiro Inteligente" className="h-10 object-contain drop-shadow-sm" />
+          <div className="relative">
+            <img src={logoCi} alt="Canteiro Inteligente" className="h-11 object-contain drop-shadow-lg" />
+            <div className="absolute inset-0 rounded-full bg-white/20 blur-md -z-10 scale-110" />
+          </div>
           <div>
-            <span className="block font-display font-bold text-sm text-primary-foreground leading-tight">Canteiro Inteligente</span>
-            <span className="block text-[11px] text-primary-foreground/75 leading-tight">Gestão de Equipamentos</span>
+            <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Canteiro Inteligente</span>
+            <span className="block text-[11px] text-primary-foreground/80 font-medium leading-tight">Gestão de Equipamentos</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -61,7 +64,7 @@ export default function EquipmentHome() {
 
       {/* Grid */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-        <h2 className="text-lg font-display font-bold text-foreground mb-6">
+        <h2 className="text-xl font-display font-extrabold text-foreground mb-6">
           Selecione o Equipamento
         </h2>
         <div className="grid grid-cols-3 gap-4 w-full max-w-sm">
@@ -69,16 +72,16 @@ export default function EquipmentHome() {
             <button
               key={eq.id}
               onClick={() => handleSelect(eq.id)}
-              className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-card border border-border p-4 hover:border-primary/60 hover:shadow-card transition-all duration-200 cursor-pointer aspect-square shadow-sm"
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-card border border-border p-4 hover:border-primary hover:shadow-card-hover hover:scale-[1.03] transition-all duration-200 cursor-pointer aspect-square shadow-card"
             >
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
+              <div className="flex items-center justify-center w-13 h-13 rounded-full bg-primary/10">
                 {eq.isImage ? (
-                  <img src={eq.icon as string} alt={eq.label} className="w-8 h-8 object-contain" />
+                  <img src={eq.icon as string} alt={eq.label} className="w-9 h-9 object-contain" />
                 ) : (
                   <span className="text-2xl">{eq.icon}</span>
                 )}
               </div>
-              <span className="text-xs font-semibold text-foreground text-center leading-tight">
+              <span className="text-xs font-display font-bold text-foreground text-center leading-tight">
                 {eq.label}
               </span>
             </button>
@@ -87,7 +90,7 @@ export default function EquipmentHome() {
 
         <Button
           variant="ghost"
-          className="mt-8 text-muted-foreground text-sm"
+          className="mt-8 text-muted-foreground text-sm font-semibold"
           onClick={() => navigate("/")}
         >
           ← Voltar ao Hub

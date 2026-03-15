@@ -59,7 +59,7 @@ export default function ChecklistSection({ equipmentType = "Fresadora", results,
 
   return (
     <div className="space-y-3">
-      <h3 className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">
+      <h3 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide mb-1">
         Itens de verificação
       </h3>
 
@@ -106,22 +106,22 @@ function ChecklistItem({
   };
 
   const statusButtons: { value: ChecklistStatus; label: string; color: string; activeColor: string }[] = [
-    { value: "ok", label: "C", color: "border-border text-muted-foreground bg-card", activeColor: "bg-emerald-500 text-white border-emerald-500 shadow-sm" },
-    { value: "nao_ok", label: "NC", color: "border-border text-muted-foreground bg-card", activeColor: "bg-rose-500 text-white border-rose-500 shadow-sm" },
-    { value: "na", label: "NA", color: "border-border text-muted-foreground bg-card", activeColor: "bg-slate-400 text-white border-slate-400 shadow-sm" },
+    { value: "ok", label: "C", color: "border-border text-muted-foreground bg-card", activeColor: "bg-emerald-500 text-primary-foreground border-emerald-500 shadow-md" },
+    { value: "nao_ok", label: "NC", color: "border-border text-muted-foreground bg-card", activeColor: "bg-rose-500 text-primary-foreground border-rose-500 shadow-md" },
+    { value: "na", label: "NA", color: "border-border text-muted-foreground bg-card", activeColor: "bg-slate-500 text-primary-foreground border-slate-500 shadow-md" },
   ];
 
   return (
-    <div className="bg-card border border-border rounded-xl p-3 space-y-2 shadow-sm">
+    <div className="bg-card border border-border rounded-2xl p-3.5 space-y-2 shadow-card">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-foreground flex-1">{item.item_name}</span>
+        <span className="text-xs font-display font-bold text-foreground flex-1">{item.item_name}</span>
         <div className="flex gap-1.5">
           {statusButtons.map((btn) => (
             <button
               key={btn.value}
               type="button"
               onClick={() => onUpdate({ status: btn.value })}
-              className={`w-10 h-9 rounded-lg text-xs font-bold border transition-all duration-150 ${
+              className={`w-11 h-10 rounded-xl text-xs font-extrabold border-2 transition-all duration-200 ${
                 result.status === btn.value ? btn.activeColor : btn.color
               }`}
             >
@@ -132,8 +132,8 @@ function ChecklistItem({
       </div>
 
       {result.status === "nao_ok" && (
-        <div className="space-y-2 pl-2 border-l-2 border-rose-400 ml-1">
-          <div className="flex items-center gap-1.5 text-rose-500 text-xs font-semibold">
+        <div className="space-y-2 pl-2 border-l-3 border-rose-500 ml-1">
+          <div className="flex items-center gap-1.5 text-rose-500 text-xs font-extrabold">
             <AlertTriangle className="w-3.5 h-3.5" />
             NÃO CONFORME — Detalhe a avaria
           </div>
@@ -141,14 +141,14 @@ function ChecklistItem({
             value={result.observation}
             onChange={(e) => onUpdate({ observation: e.target.value })}
             placeholder="Descreva a não conformidade..."
-            className="bg-secondary border-border min-h-[60px] text-xs"
+            className="bg-secondary border-border min-h-[60px] text-xs rounded-xl"
           />
           <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="text-xs border-primary text-primary hover:bg-primary/5"
+              className="text-xs border-primary text-primary hover:bg-primary/5 rounded-xl font-bold"
               onClick={() => fileRef.current?.click()}
             >
               <Camera className="w-3.5 h-3.5 mr-1" />
@@ -167,7 +167,7 @@ function ChecklistItem({
             <img
               src={result.photoPreview}
               alt="Foto da avaria"
-              className="w-20 h-20 object-cover rounded-lg border border-border shadow-sm"
+              className="w-20 h-20 object-cover rounded-xl border border-border shadow-card"
             />
           )}
         </div>
