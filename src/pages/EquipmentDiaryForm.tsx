@@ -98,6 +98,10 @@ export default function EquipmentDiaryForm() {
 
   const attachmentIds = useMemo(() => getAttachmentIds(attachmentType), [attachmentType]);
 
+  // Rolo-specific state
+  const [roloType, setRoloType] = useState("");
+  const roloFleets = useMemo(() => ROLO_FLEETS[roloType] || [], [roloType]);
+
   // Auto-fill client/location from OGS — handle semicolon-separated addresses
   const selectedOgs = useMemo(() => {
     if (!ogsNumber) return null;
