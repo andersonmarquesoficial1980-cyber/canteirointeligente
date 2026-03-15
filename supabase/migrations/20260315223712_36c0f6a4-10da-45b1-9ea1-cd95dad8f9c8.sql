@@ -1,0 +1,1 @@
+UPDATE checklist_items_standard SET equipment_type = 'Retro' WHERE equipment_type = 'retroescavadeira';
