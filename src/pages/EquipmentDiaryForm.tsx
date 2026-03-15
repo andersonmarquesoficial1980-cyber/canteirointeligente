@@ -624,7 +624,7 @@ export default function EquipmentDiaryForm() {
           <Button
             onClick={() => handleSave(false)}
             disabled={saving || !!horimeterError}
-            className="w-full font-bold text-base py-6 bg-header-gradient hover:opacity-90 shadow-md"
+            className="w-full font-extrabold text-base py-6 rounded-2xl bg-header-gradient hover:opacity-90 shadow-lg glow-primary"
           >
             <Send className="w-5 h-5 mr-2" />
             {saving ? "Enviando..." : "Enviar Diário"}
