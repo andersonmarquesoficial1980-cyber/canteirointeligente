@@ -198,8 +198,11 @@ export default function EquipmentDiaryForm() {
   // Truck tank supply (Pipa / Espargidor)
   const [tankSupplies, setTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
 
-  // Comboio refueling
+  // Comboio state
   const [comboioRefuels, setComboioRefuels] = useState<ComboioRefuelEntry[]>([createEmptyComboioRefuel()]);
+  const [comboioSaldoInicial, setComboioSaldoInicial] = useState("");
+  const [comboioFornecedor, setComboioFornecedor] = useState("");
+  const [comboioTankSupplies, setComboioTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
   const [comboioTankSupplies, setComboioTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
 
   // Veículo type
