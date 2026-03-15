@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Camera, AlertTriangle } from "lucide-react";
@@ -37,7 +37,6 @@ export default function ChecklistSection({ equipmentType = "Fresadora", results,
     },
   });
 
-  // Sync results with items
   const getResult = (item: { id: string; item_name: string }): ChecklistResult => {
     return results.find((r) => r.itemId === item.id) || {
       itemId: item.id,
@@ -60,7 +59,7 @@ export default function ChecklistSection({ equipmentType = "Fresadora", results,
 
   return (
     <div className="space-y-3">
-      <h3 className="text-xs font-semibold text-accent uppercase tracking-wide mb-1">
+      <h3 className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">
         Itens de verificação
       </h3>
 
@@ -107,22 +106,22 @@ function ChecklistItem({
   };
 
   const statusButtons: { value: ChecklistStatus; label: string; color: string; activeColor: string }[] = [
-    { value: "ok", label: "C", color: "border-border text-muted-foreground", activeColor: "bg-green-600 text-white border-green-600" },
-    { value: "nao_ok", label: "NC", color: "border-border text-muted-foreground", activeColor: "bg-red-600 text-white border-red-600" },
-    { value: "na", label: "NA", color: "border-border text-muted-foreground", activeColor: "bg-gray-500 text-white border-gray-500" },
+    { value: "ok", label: "C", color: "border-border text-muted-foreground bg-card", activeColor: "bg-emerald-500 text-white border-emerald-500 shadow-sm" },
+    { value: "nao_ok", label: "NC", color: "border-border text-muted-foreground bg-card", activeColor: "bg-rose-500 text-white border-rose-500 shadow-sm" },
+    { value: "na", label: "NA", color: "border-border text-muted-foreground bg-card", activeColor: "bg-slate-400 text-white border-slate-400 shadow-sm" },
   ];
 
   return (
-    <div className="bg-secondary/50 border border-border rounded-lg p-3 space-y-2">
+    <div className="bg-card border border-border rounded-xl p-3 space-y-2 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-foreground flex-1">{item.item_name}</span>
-        <div className="flex gap-1">
+        <div className="flex gap-1.5">
           {statusButtons.map((btn) => (
             <button
               key={btn.value}
               type="button"
               onClick={() => onUpdate({ status: btn.value })}
-              className={`w-9 h-8 rounded text-xs font-bold border transition-colors ${
+              className={`w-10 h-9 rounded-lg text-xs font-bold border transition-all duration-150 ${
                 result.status === btn.value ? btn.activeColor : btn.color
               }`}
             >
@@ -133,8 +132,8 @@ function ChecklistItem({
       </div>
 
       {result.status === "nao_ok" && (
-        <div className="space-y-2 pl-1 border-l-2 border-red-500 ml-1">
-          <div className="flex items-center gap-1.5 text-red-400 text-xs font-semibold">
+        <div className="space-y-2 pl-2 border-l-2 border-rose-400 ml-1">
+          <div className="flex items-center gap-1.5 text-rose-500 text-xs font-semibold">
             <AlertTriangle className="w-3.5 h-3.5" />
             NÃO CONFORME — Detalhe a avaria
           </div>
@@ -149,7 +148,7 @@ function ChecklistItem({
               type="button"
               variant="outline"
               size="sm"
-              className="text-xs border-accent text-accent"
+              className="text-xs border-primary text-primary hover:bg-primary/5"
               onClick={() => fileRef.current?.click()}
             >
               <Camera className="w-3.5 h-3.5 mr-1" />
@@ -168,7 +167,7 @@ function ChecklistItem({
             <img
               src={result.photoPreview}
               alt="Foto da avaria"
-              className="w-20 h-20 object-cover rounded border border-border"
+              className="w-20 h-20 object-cover rounded-lg border border-border shadow-sm"
             />
           )}
         </div>

@@ -458,7 +458,7 @@ export default function EquipmentDiaryForm() {
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="checklist" className="border border-border rounded-lg overflow-hidden bg-secondary/30">
             <AccordionTrigger className="px-4 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
-              <span className="text-sm font-bold text-white uppercase tracking-wide">
+              <span className="text-sm font-bold text-foreground uppercase tracking-wide">
                 ✔️ CHECKLIST PRÉ-OPERAÇÃO
               </span>
             </AccordionTrigger>
@@ -624,7 +624,7 @@ export default function EquipmentDiaryForm() {
           <Button
             onClick={() => handleSave(false)}
             disabled={saving || !!horimeterError}
-            className="w-full font-bold text-base py-6 bg-primary hover:bg-primary/90"
+            className="w-full font-bold text-base py-6 bg-header-gradient hover:opacity-90 shadow-md"
           >
             <Send className="w-5 h-5 mr-2" />
             {saving ? "Enviando..." : "Enviar Diário"}
