@@ -67,6 +67,7 @@ export default function EquipmentDiaryForm() {
   const isUsinaKma = equipmentType === "Usina KMA";
   const isRetro = equipmentType === "Retro";
   const isRolo = equipmentType === "Rolo";
+  const isVibro = equipmentType === "Vibroacabadora";
 
   // OGS reference data
   const { data: ogsData = [] } = useOgsReference();
