@@ -29,8 +29,10 @@ import { generateKmaPdf } from "@/lib/generateKmaPdf";
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
 
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
+const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
 
 const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
+const RETRO_ATTACHMENT_TYPES = ["Concha", "Rompedor"] as const;
 
 function getAttachmentIds(type: string): string[] {
   if (type === "Vassoura Mecânica") {
@@ -55,6 +57,7 @@ export default function EquipmentDiaryForm() {
   const isFresadora = equipmentType === "Fresadora";
   const isBobcat = equipmentType === "Bobcat";
   const isUsinaKma = equipmentType === "Usina KMA";
+  const isRetro = equipmentType === "Retro";
 
   // OGS reference data
   const { data: ogsData = [] } = useOgsReference();
@@ -189,6 +192,15 @@ export default function EquipmentDiaryForm() {
     () => funcionarios.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("BOBCAT") || fn === "OPERADOR DE BOBCAT" || fn === "OPERADOR";
+    }),
+    [funcionarios]
+  );
+
+  // Retro operator filter
+  const operadoresRetro = useMemo(
+    () => funcionarios.filter((f: any) => {
+      const fn = f.funcao?.toUpperCase() || "";
+      return fn.includes("RETROESCAVADEIRA") || fn.includes("RETRO") || fn === "OPERADOR";
     }),
     [funcionarios]
   );
@@ -333,16 +345,17 @@ export default function EquipmentDiaryForm() {
         }
       }
 
-      // Save Bobcat attachment
-      if (isBobcat && diary && attachmentType && attachmentId) {
+      // Save Bobcat/Retro attachment
+      if ((isBobcat || isRetro) && diary && attachmentType) {
+        const attachValue = isBobcat && attachmentId ? `${attachmentType} — ${attachmentId}` : attachmentType;
         await supabase.from("equipment_attachments" as any).insert({
           fleet_id: selectedFleet,
-          type: `${attachmentType} — ${attachmentId}`,
+          type: attachValue,
         });
       }
 
       // Save checklist results
-      if ((isFresadora || isBobcat) && diary && checklistResults.length > 0) {
+      if ((isFresadora || isBobcat || isRetro) && diary && checklistResults.length > 0) {
         for (const cr of checklistResults) {
           let photoUrl: string | null = null;
           if (cr.photoFile) {
@@ -396,13 +409,13 @@ export default function EquipmentDiaryForm() {
         <Section title="INFORMAÇÕES GERAIS">
           <FieldRow>
             <Field label="Frota">
-              {isBobcat ? (
+              {(isBobcat || isRetro) ? (
                 <Select value={selectedFleet} onValueChange={setSelectedFleet}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Selecione a Bobcat..." />
+                    <SelectValue placeholder={isBobcat ? "Selecione a Bobcat..." : "Selecione a Retro..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {BOBCAT_FLEETS.map((f) => (
+                    {(isBobcat ? BOBCAT_FLEETS : RETRO_FLEETS).map((f) => (
                       <SelectItem key={f} value={f}>{f}</SelectItem>
                     ))}
                   </SelectContent>
@@ -433,7 +446,7 @@ export default function EquipmentDiaryForm() {
                 <SelectValue placeholder="Selecione o operador..." />
               </SelectTrigger>
               <SelectContent>
-                {(isFresadora ? operadoresFresa : isBobcat ? (operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios) : funcionarios).map((f: any) => (
+                {(isFresadora ? operadoresFresa : isBobcat ? (operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios) : isRetro ? (operadoresRetro.length > 0 ? operadoresRetro : funcionarios) : funcionarios).map((f: any) => (
                   <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
@@ -468,6 +481,22 @@ export default function EquipmentDiaryForm() {
                 </Select>
               </Field>
             </FieldRow>
+          )}
+
+          {/* Retro: Acoplamento */}
+          {isRetro && (
+            <Field label="Tipo de Acoplamento">
+              <Select value={attachmentType} onValueChange={(v) => { setAttachmentType(v); setAttachmentId(""); }}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o acoplamento..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {RETRO_ATTACHMENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
           )}
 
           {isFresadora && (

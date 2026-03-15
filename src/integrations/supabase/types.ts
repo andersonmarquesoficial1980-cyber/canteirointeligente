@@ -283,6 +283,7 @@ export type Database = {
       }
       equipment_diaries: {
         Row: {
+          attachment_type: string | null
           client_name: string | null
           company_id: string | null
           created_at: string | null
@@ -308,6 +309,7 @@ export type Database = {
           work_status: string | null
         }
         Insert: {
+          attachment_type?: string | null
           client_name?: string | null
           company_id?: string | null
           created_at?: string | null
@@ -333,6 +335,7 @@ export type Database = {
           work_status?: string | null
         }
         Update: {
+          attachment_type?: string | null
           client_name?: string | null
           company_id?: string | null
           created_at?: string | null
