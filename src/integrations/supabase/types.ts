@@ -105,6 +105,7 @@ export type Database = {
           id: string
           initial_diesel_balance: number | null
           is_lubricated: boolean | null
+          is_washed: boolean | null
           liters_fueled: number | null
           lubricator_name: string | null
           ogs_destination: string | null
@@ -120,6 +121,7 @@ export type Database = {
           id?: string
           initial_diesel_balance?: number | null
           is_lubricated?: boolean | null
+          is_washed?: boolean | null
           liters_fueled?: number | null
           lubricator_name?: string | null
           ogs_destination?: string | null
@@ -135,6 +137,7 @@ export type Database = {
           id?: string
           initial_diesel_balance?: number | null
           is_lubricated?: boolean | null
+          is_washed?: boolean | null
           liters_fueled?: number | null
           lubricator_name?: string | null
           ogs_destination?: string | null
@@ -592,6 +595,57 @@ export type Database = {
           },
           {
             foreignKeyName: "equipment_visual_inspection_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
+          },
+        ]
+      }
+      fleet_refueling_logs: {
+        Row: {
+          created_at: string | null
+          diary_id: string | null
+          id: string
+          is_lubricated: boolean | null
+          is_washed: boolean | null
+          liters_refueled: number | null
+          meter_reading: number | null
+          ogs_number: string | null
+          target_equipment_fleet: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          diary_id?: string | null
+          id?: string
+          is_lubricated?: boolean | null
+          is_washed?: boolean | null
+          liters_refueled?: number | null
+          meter_reading?: number | null
+          ogs_number?: string | null
+          target_equipment_fleet?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          diary_id?: string | null
+          id?: string
+          is_lubricated?: boolean | null
+          is_washed?: boolean | null
+          liters_refueled?: number | null
+          meter_reading?: number | null
+          ogs_number?: string | null
+          target_equipment_fleet?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_refueling_logs_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_refueling_logs_diary_id_fkey"
             columns: ["diary_id"]
             isOneToOne: false
             referencedRelation: "view_rendimento_fresadora"

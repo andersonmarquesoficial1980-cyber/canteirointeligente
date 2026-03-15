@@ -21,6 +21,10 @@ import KmaCalibrationSection, {
 import ProductionAreasSection, { type ProductionArea, createEmptyArea } from "@/components/equipment/ProductionAreasSection";
 import BitManagementSection, { type BitEntry, createEmptyBit } from "@/components/equipment/BitManagementSection";
 import FuelingSection, { type FuelingData, createEmptyFueling } from "@/components/equipment/FuelingSection";
+import ComboioRefuelingSection, {
+  type ComboioRefuelEntry,
+  createEmptyComboioRefuel,
+} from "@/components/equipment/ComboioRefuelingSection";
 import ChecklistSection, { type ChecklistResult } from "@/components/equipment/ChecklistSection";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { compressImage } from "@/lib/imageCompression";
@@ -101,40 +105,12 @@ const CARRETA_FLEETS = ["CM01", "CM02", "CM03", "CM04", "CM05"];
 const PRANCHA_OPTIONS = ["PR001", "PR002", "PR003", "PR004", "PR005"];
 
 const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
-const COMBOIO_FORNECEDORES = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás", "Shell Box"];
 
 const VEICULO_TYPES = ["Micro-ônibus", "Van"] as const;
 const VEICULO_FLEETS: Record<string, string[]> = {
   "Micro-ônibus": ["VT01", "VT02", "VT03", "VT04", "VT05"],
   "Van": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
 };
-
-// ── Comboio refueling entry ──
-interface ComboioRefuelEntry {
-  id: string;
-  lubricatorName: string;
-  initialDiesel: string;
-  finalDiesel: string;
-  fleetFueled: string;
-  equipmentMeter: string;
-  ogsDestination: string;
-  litersFueled: string;
-  isLubricated: boolean;
-}
-
-function createEmptyComboioRefuel(): ComboioRefuelEntry {
-  return {
-    id: crypto.randomUUID(),
-    lubricatorName: "",
-    initialDiesel: "",
-    finalDiesel: "",
-    fleetFueled: "",
-    equipmentMeter: "",
-    ogsDestination: "",
-    litersFueled: "",
-    isLubricated: false,
-  };
-}
 
 // ── Truck tank supply ──
 interface TankSupplyEntry {
@@ -222,9 +198,11 @@ export default function EquipmentDiaryForm() {
   // Truck tank supply (Pipa / Espargidor)
   const [tankSupplies, setTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
 
-  // Comboio refueling
+  // Comboio state
   const [comboioRefuels, setComboioRefuels] = useState<ComboioRefuelEntry[]>([createEmptyComboioRefuel()]);
-  const [comboioTankSupplies, setComboioTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
+  const [comboioSaldoInicial, setComboioSaldoInicial] = useState("");
+  const [comboioFornecedor, setComboioFornecedor] = useState("");
+  
 
   // Veículo type
   const [veiculoType, setVeiculoType] = useState("");
@@ -599,17 +577,15 @@ export default function EquipmentDiaryForm() {
         }
       }
 
-      // Save Comboio tank supply
       if (isComboio && diary) {
-        const validCTS = comboioTankSupplies.filter((s) => s.quantity || s.supplier);
-        if (validCTS.length > 0) {
-          const rows = validCTS.map((s) => ({
+        // Save comboio tank supply info
+        if (comboioSaldoInicial || comboioFornecedor) {
+          await supabase.from("truck_tank_supplies").insert({
             diary_id: diary.id,
-            quantity: s.quantity ? Number(s.quantity) : null,
-            supplier: s.supplier || null,
+            quantity: comboioSaldoInicial ? Number(comboioSaldoInicial) : null,
+            supplier: comboioFornecedor || null,
             material_type: "Diesel",
-          }));
-          await supabase.from("truck_tank_supplies").insert(rows);
+          });
         }
 
         // Save comboio refueling entries
@@ -617,14 +593,13 @@ export default function EquipmentDiaryForm() {
         if (validRefuels.length > 0) {
           const rows = validRefuels.map((r) => ({
             diary_id: diary.id,
-            lubricator_name: r.lubricatorName || null,
-            initial_diesel_balance: r.initialDiesel ? Number(r.initialDiesel) : null,
-            final_diesel_balance: r.finalDiesel ? Number(r.finalDiesel) : null,
             equipment_fleet_fueled: r.fleetFueled || null,
             equipment_meter: r.equipmentMeter ? Number(r.equipmentMeter) : null,
             ogs_destination: r.ogsDestination || null,
             liters_fueled: r.litersFueled ? Number(r.litersFueled) : null,
             is_lubricated: r.isLubricated,
+            is_washed: r.isWashed,
+            initial_diesel_balance: comboioSaldoInicial ? Number(comboioSaldoInicial) : null,
           }));
           await supabase.from("comboio_equipment_refueling").insert(rows);
         }
@@ -1315,200 +1290,18 @@ export default function EquipmentDiaryForm() {
           </Section>
         )}
 
-        {/* ── COMBOIO: Carga do Tanque Reservatório ── */}
+        {/* ── COMBOIO MODULE ── */}
         {isComboio && (
-          <>
-            <Section title="⛽ CARGA DO TANQUE RESERVATÓRIO">
-              {comboioTankSupplies.map((supply, idx) => (
-                <div key={supply.id} className="border border-border rounded-lg p-3 space-y-2">
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1 space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Quantidade (L)</span>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        value={supply.quantity}
-                        onChange={(e) => {
-                          const u = [...comboioTankSupplies];
-                          u[idx] = { ...u[idx], quantity: e.target.value };
-                          setComboioTankSupplies(u);
-                        }}
-                        placeholder="0"
-                        className="bg-secondary border-border text-xs h-9"
-                      />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
-                      <Select
-                        value={supply.supplier}
-                        onValueChange={(v) => {
-                          const u = [...comboioTankSupplies];
-                          u[idx] = { ...u[idx], supplier: v };
-                          setComboioTankSupplies(u);
-                        }}
-                      >
-                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COMBOIO_FORNECEDORES.map((f) => (
-                            <SelectItem key={f} value={f}>{f}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {comboioTankSupplies.length > 1 && (
-                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => setComboioTankSupplies(comboioTankSupplies.filter((_, i) => i !== idx))}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <Button type="button" variant="outline" size="sm" className="w-full gap-1.5 text-xs border-dashed" onClick={() => setComboioTankSupplies([...comboioTankSupplies, createEmptyTankSupply()])}>
-                <Plus className="w-3.5 h-3.5" /> Adicionar carga
-              </Button>
-            </Section>
-
-            {/* COMBOIO: Abastecimento de Equipamentos */}
-            <Section title="🔧 ABASTECIMENTO DE EQUIPAMENTOS">
-              {comboioRefuels.map((refuel, idx) => (
-                <div key={refuel.id} className="border border-border rounded-lg p-3 space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Lubrificador</span>
-                      <Input
-                        value={refuel.lubricatorName}
-                        onChange={(e) => {
-                          const u = [...comboioRefuels];
-                          u[idx] = { ...u[idx], lubricatorName: e.target.value };
-                          setComboioRefuels(u);
-                        }}
-                        placeholder="Nome..."
-                        className="bg-secondary border-border text-xs h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Frota Abastecida</span>
-                      <Input
-                        value={refuel.fleetFueled}
-                        onChange={(e) => {
-                          const u = [...comboioRefuels];
-                          u[idx] = { ...u[idx], fleetFueled: e.target.value };
-                          setComboioRefuels(u);
-                        }}
-                        placeholder="Ex: FA01..."
-                        className="bg-secondary border-border text-xs h-9"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Saldo Inicial</span>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        value={refuel.initialDiesel}
-                        onChange={(e) => {
-                          const u = [...comboioRefuels];
-                          u[idx] = { ...u[idx], initialDiesel: e.target.value };
-                          setComboioRefuels(u);
-                        }}
-                        placeholder="L"
-                        className="bg-secondary border-border text-xs h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Litros</span>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        value={refuel.litersFueled}
-                        onChange={(e) => {
-                          const u = [...comboioRefuels];
-                          u[idx] = { ...u[idx], litersFueled: e.target.value };
-                          setComboioRefuels(u);
-                        }}
-                        placeholder="0"
-                        className="bg-secondary border-border text-xs h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Saldo Final</span>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        value={refuel.finalDiesel}
-                        onChange={(e) => {
-                          const u = [...comboioRefuels];
-                          u[idx] = { ...u[idx], finalDiesel: e.target.value };
-                          setComboioRefuels(u);
-                        }}
-                        placeholder="L"
-                        className="bg-secondary border-border text-xs h-9"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Horímetro Máquina</span>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        value={refuel.equipmentMeter}
-                        onChange={(e) => {
-                          const u = [...comboioRefuels];
-                          u[idx] = { ...u[idx], equipmentMeter: e.target.value };
-                          setComboioRefuels(u);
-                        }}
-                        placeholder="0"
-                        className="bg-secondary border-border text-xs h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">OGS Destino</span>
-                      <Select
-                        value={refuel.ogsDestination}
-                        onValueChange={(v) => {
-                          const u = [...comboioRefuels];
-                          u[idx] = { ...u[idx], ogsDestination: v };
-                          setComboioRefuels(u);
-                        }}
-                      >
-                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                          <SelectValue placeholder="OGS..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {uniqueOgs.map((o: any) => (
-                            <SelectItem key={o.id} value={o.ogs_number}>{o.ogs_number}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Checkbox
-                      checked={refuel.isLubricated}
-                      onCheckedChange={(checked) => {
-                        const u = [...comboioRefuels];
-                        u[idx] = { ...u[idx], isLubricated: !!checked };
-                        setComboioRefuels(u);
-                      }}
-                    />
-                    <span className="text-xs font-semibold text-foreground">Lubrificado?</span>
-                    {comboioRefuels.length > 1 && (
-                      <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground hover:text-destructive text-xs" onClick={() => setComboioRefuels(comboioRefuels.filter((_, i) => i !== idx))}>
-                        <Trash2 className="w-3 h-3 mr-1" /> Remover
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <Button type="button" variant="outline" size="sm" className="w-full gap-1.5 text-xs border-dashed" onClick={() => setComboioRefuels([...comboioRefuels, createEmptyComboioRefuel()])}>
-                <Plus className="w-3.5 h-3.5" /> Adicionar abastecimento
-              </Button>
-            </Section>
-          </>
+          <ComboioRefuelingSection
+            saldoInicial={comboioSaldoInicial}
+            onSaldoInicialChange={setComboioSaldoInicial}
+            fornecedor={comboioFornecedor}
+            onFornecedorChange={setComboioFornecedor}
+            entries={comboioRefuels}
+            onChange={setComboioRefuels}
+            equipamentos={equipamentos}
+            ogsData={ogsData}
+          />
         )}
 
         {/* ABASTECIMENTO + METER FINAL */}

@@ -1,0 +1,1 @@
+ALTER TABLE public.comboio_equipment_refueling ADD COLUMN IF NOT EXISTS is_washed boolean DEFAULT false;
