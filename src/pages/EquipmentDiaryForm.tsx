@@ -29,8 +29,10 @@ import { generateKmaPdf } from "@/lib/generateKmaPdf";
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
 
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
+const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
 
 const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
+const RETRO_ATTACHMENT_TYPES = ["Concha", "Rompedor"] as const;
 
 function getAttachmentIds(type: string): string[] {
   if (type === "Vassoura Mecânica") {
