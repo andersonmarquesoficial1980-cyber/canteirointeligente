@@ -31,6 +31,13 @@ const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manu
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
 const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
 
+const ROLO_TYPES = ["Rolo Chapa", "Rolo Pneu", "Rolo Pé de Carneiro"] as const;
+const ROLO_FLEETS: Record<string, string[]> = {
+  "Rolo Chapa": ["CH02", "CH04", "CH05", "CH06", "CH07"],
+  "Rolo Pneu": ["PN05", "PN47", "PN48", "PN49", "PN50"],
+  "Rolo Pé de Carneiro": ["PC01", "PC02", "PC03", "PC04", "PC05"],
+};
+
 const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
 const RETRO_ATTACHMENT_TYPES = ["Concha", "Rompedor"] as const;
 
@@ -58,6 +65,7 @@ export default function EquipmentDiaryForm() {
   const isBobcat = equipmentType === "Bobcat";
   const isUsinaKma = equipmentType === "Usina KMA";
   const isRetro = equipmentType === "Retro";
+  const isRolo = equipmentType === "Rolo";
 
   // OGS reference data
   const { data: ogsData = [] } = useOgsReference();
@@ -89,6 +97,10 @@ export default function EquipmentDiaryForm() {
   const [attachmentId, setAttachmentId] = useState("");
 
   const attachmentIds = useMemo(() => getAttachmentIds(attachmentType), [attachmentType]);
+
+  // Rolo-specific state
+  const [roloType, setRoloType] = useState("");
+  const roloFleets = useMemo(() => ROLO_FLEETS[roloType] || [], [roloType]);
 
   // Auto-fill client/location from OGS — handle semicolon-separated addresses
   const selectedOgs = useMemo(() => {
@@ -260,6 +272,7 @@ export default function EquipmentDiaryForm() {
           location_address: locationAddress || null,
           observations: observations || null,
           company_id: profile?.company_id || null,
+          fresagem_type: isRolo ? roloType : null,
           status: isDraft ? "rascunho" : "enviado",
         })
         .select()
@@ -355,7 +368,7 @@ export default function EquipmentDiaryForm() {
       }
 
       // Save checklist results
-      if ((isFresadora || isBobcat || isRetro) && diary && checklistResults.length > 0) {
+      if ((isFresadora || isBobcat || isRetro || isRolo) && diary && checklistResults.length > 0) {
         for (const cr of checklistResults) {
           let photoUrl: string | null = null;
           if (cr.photoFile) {
@@ -407,6 +420,22 @@ export default function EquipmentDiaryForm() {
       <div className="flex-1 p-4 space-y-5 pb-36 max-w-lg mx-auto w-full">
         {/* INFORMAÇÕES GERAIS */}
         <Section title="INFORMAÇÕES GERAIS">
+          {/* Rolo: Tipo de Rolo (antes da frota) */}
+          {isRolo && (
+            <Field label="Tipo de Rolo">
+              <Select value={roloType} onValueChange={(v) => { setRoloType(v); setSelectedFleet(""); }}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o tipo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLO_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
           <FieldRow>
             <Field label="Frota">
               {(isBobcat || isRetro) ? (
@@ -416,6 +445,17 @@ export default function EquipmentDiaryForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {(isBobcat ? BOBCAT_FLEETS : RETRO_FLEETS).map((f) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : isRolo ? (
+                <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!roloType}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder={roloType ? "Selecione a frota..." : "Escolha o tipo primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roloFleets.map((f) => (
                       <SelectItem key={f} value={f}>{f}</SelectItem>
                     ))}
                   </SelectContent>
