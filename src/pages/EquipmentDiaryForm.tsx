@@ -32,6 +32,53 @@ const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manu
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
 const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
 const VIBRO_FLEETS = ["VA01", "VA03", "VA04", "VA05", "VA17", "VA19", "VA20"];
+const KMA_FLEETS = ["KMA240"];
+
+const KMA_OPERATION_TYPES = ["Usinagem", "Limpeza", "Manutenção"] as const;
+const CAP_TYPES = ["CAP 50/70", "CAP 30/45", "AMP 55/75", "AMP 60/85"];
+const FILER_TYPES = ["Calcário", "Cal Hidratada", "Cimento Portland"];
+const SILO_MATERIALS = ["Brita 0", "Brita 1", "Pedrisco", "Pó de Pedra", "Areia", "RAP"];
+const AGUA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
+
+interface KmaOperationData {
+  operationType: string;
+  capType: string;
+  capSupplier: string;
+  capQtyTon: string;
+  capNfNumber: string;
+  filerType: string;
+  filerSupplier: string;
+  filerQtyTon: string;
+  silo1Material: string;
+  silo1Qty: string;
+  silo2Material: string;
+  silo2Qty: string;
+  waterLiters: string;
+  waterSupplier: string;
+  aggregatesSupplier: string;
+  totalVolumeMachinedTon: string;
+}
+
+function createEmptyKmaOperation(): KmaOperationData {
+  return {
+    operationType: "",
+    capType: "",
+    capSupplier: "",
+    capQtyTon: "",
+    capNfNumber: "",
+    filerType: "",
+    filerSupplier: "",
+    filerQtyTon: "",
+    silo1Material: "",
+    silo1Qty: "",
+    silo2Material: "",
+    silo2Qty: "",
+    waterLiters: "",
+    waterSupplier: "",
+    aggregatesSupplier: "",
+    totalVolumeMachinedTon: "",
+  };
+}
 
 const ROLO_TYPES = ["Rolo Chapa", "Rolo Pneu", "Rolo Pé de Carneiro"] as const;
 const ROLO_FLEETS: Record<string, string[]> = {
@@ -135,7 +182,7 @@ export default function EquipmentDiaryForm() {
   const isVeiculo = equipmentType === "Veículo";
   const isTruck = isPipa || isEspargidor || isCarreta || isComboio || isVeiculo;
   const usesOdometer = isTruck;
-  const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro;
+  const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro || isUsinaKma;
 
   const { data: ogsData = [] } = useOgsReference();
 
@@ -183,6 +230,10 @@ export default function EquipmentDiaryForm() {
   // Veículo type
   const [veiculoType, setVeiculoType] = useState("");
   const veiculoFleets = useMemo(() => VEICULO_FLEETS[veiculoType] || [], [veiculoType]);
+
+  // KMA-specific
+  const [operator2, setOperator2] = useState("");
+  const [kmaOperation, setKmaOperation] = useState<KmaOperationData>(createEmptyKmaOperation());
 
   // OGS auto-fill
   const selectedOgs = useMemo(() => {
@@ -324,6 +375,7 @@ export default function EquipmentDiaryForm() {
     if (isBobcat) return BOBCAT_FLEETS;
     if (isRetro) return RETRO_FLEETS;
     if (isVibro) return VIBRO_FLEETS;
+    if (isUsinaKma) return KMA_FLEETS;
     if (isPipa) return PIPA_FLEETS;
     if (isEspargidor) return ESPARGIDOR_FLEETS;
     if (isCarreta) return CARRETA_FLEETS;
@@ -338,6 +390,7 @@ export default function EquipmentDiaryForm() {
     if (isFresadora) return operadoresFresa;
     if (isBobcat) return operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios;
     if (isRetro) return operadoresRetro.length > 0 ? operadoresRetro : funcionarios;
+    if (isUsinaKma) return funcionarios;
     if (isTruck) return motoristas.length > 0 ? motoristas : funcionarios;
     return funcionarios;
   };
@@ -364,7 +417,7 @@ export default function EquipmentDiaryForm() {
         equipment_type: equipmentType,
         date,
         operator_name: operator || null,
-        operator_solo: isFresadora ? (operatorSolo || null) : null,
+        operator_solo: isFresadora ? (operatorSolo || null) : (isUsinaKma ? (operator2 || null) : null),
         period: turno,
         fuel_liters: fueling.liters ? Number(fueling.liters) : null,
         fuel_type: fueling.fuelType || null,
@@ -435,6 +488,28 @@ export default function EquipmentDiaryForm() {
             truck_tara: entry.tara ? Number(entry.tara) : null,
             adjustment_factor: calcFator(entry),
             ticket_photo_url: ticketUrl,
+          });
+        }
+        // Save KMA operations
+        if (isUsinaKma && diary && kmaOperation.operationType) {
+          await supabase.from("kma_operations").insert({
+            diary_id: diary.id,
+            operation_type: kmaOperation.operationType,
+            cap_type: kmaOperation.capType || null,
+            cap_supplier: kmaOperation.capSupplier || null,
+            cap_qty_ton: kmaOperation.capQtyTon ? Number(kmaOperation.capQtyTon) : null,
+            cap_nf_number: kmaOperation.capNfNumber || null,
+            filer_type: kmaOperation.filerType || null,
+            filer_supplier: kmaOperation.filerSupplier || null,
+            filer_qty_ton: kmaOperation.filerQtyTon ? Number(kmaOperation.filerQtyTon) : null,
+            silo1_material: kmaOperation.silo1Material || null,
+            silo1_qty: kmaOperation.silo1Qty ? Number(kmaOperation.silo1Qty) : null,
+            silo2_material: kmaOperation.silo2Material || null,
+            silo2_qty: kmaOperation.silo2Qty ? Number(kmaOperation.silo2Qty) : null,
+            water_liters: kmaOperation.waterLiters ? Number(kmaOperation.waterLiters) : null,
+            water_supplier: kmaOperation.waterSupplier || null,
+            aggregates_supplier: kmaOperation.aggregatesSupplier || null,
+            total_volume_machined_ton: kmaOperation.totalVolumeMachinedTon ? Number(kmaOperation.totalVolumeMachinedTon) : null,
           });
         }
       }
@@ -761,7 +836,22 @@ export default function EquipmentDiaryForm() {
             </Field>
           )}
 
-          {/* OGS — not for Carreta (goes into time entries) */}
+          {/* KMA: Operador 02 */}
+          {isUsinaKma && (
+            <Field label="Operador 02">
+              <Select value={operator2} onValueChange={setOperator2}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o operador 02..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {funcionarios.map((f: any) => (
+                    <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
           {!isCarreta && (
             <FieldRow>
               <Field label="OGS">
@@ -944,7 +1034,159 @@ export default function EquipmentDiaryForm() {
           />
         )}
 
-        {/* ── PIPA: Abastecimento de Tanque ── */}
+        {/* KMA: Tipo de Operação + Insumos */}
+        {isUsinaKma && (
+          <Section title="⚙️ TIPO DE OPERAÇÃO">
+            <Field label="Operação">
+              <Select value={kmaOperation.operationType} onValueChange={(v) => setKmaOperation({ ...kmaOperation, operationType: v })}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {KMA_OPERATION_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            {kmaOperation.operationType === "Usinagem" && (
+              <div className="space-y-4 pt-2">
+                {/* CAP */}
+                <div className="border border-border rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">🛢️ CAP (Cimento Asfáltico)</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Tipo</span>
+                      <Select value={kmaOperation.capType} onValueChange={(v) => setKmaOperation({ ...kmaOperation, capType: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Tipo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CAP_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                      <Input value={kmaOperation.capSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, capSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Quantidade (ton)</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.capQtyTon} onChange={(e) => setKmaOperation({ ...kmaOperation, capQtyTon: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Nº NF</span>
+                      <Input value={kmaOperation.capNfNumber} onChange={(e) => setKmaOperation({ ...kmaOperation, capNfNumber: e.target.value })} placeholder="NF..." className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filer */}
+                <div className="border border-border rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">Filer (Material Fino)</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Tipo</span>
+                      <Select value={kmaOperation.filerType} onValueChange={(v) => setKmaOperation({ ...kmaOperation, filerType: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Tipo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FILER_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                      <Input value={kmaOperation.filerSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, filerSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Qtd (ton)</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.filerQtyTon} onChange={(e) => setKmaOperation({ ...kmaOperation, filerQtyTon: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Silos */}
+                <div className="border border-border rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">🏗️ Silos de Agregados</h4>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor de Agregados</span>
+                    <Input value={kmaOperation.aggregatesSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, aggregatesSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Silo 1 — Material</span>
+                      <Select value={kmaOperation.silo1Material} onValueChange={(v) => setKmaOperation({ ...kmaOperation, silo1Material: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Material..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SILO_MATERIALS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Silo 1 — Qtd (ton)</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.silo1Qty} onChange={(e) => setKmaOperation({ ...kmaOperation, silo1Qty: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Silo 2 — Material</span>
+                      <Select value={kmaOperation.silo2Material} onValueChange={(v) => setKmaOperation({ ...kmaOperation, silo2Material: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Material..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SILO_MATERIALS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Silo 2 — Qtd (ton)</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.silo2Qty} onChange={(e) => setKmaOperation({ ...kmaOperation, silo2Qty: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Água */}
+                <div className="border border-border rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">💧 Água</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Litros</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.waterLiters} onChange={(e) => setKmaOperation({ ...kmaOperation, waterLiters: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                      <Select value={kmaOperation.waterSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, waterSupplier: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AGUA_FORNECEDORES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Volume Usinado */}
+                <div className="border border-primary/30 rounded-lg p-3 bg-primary/5">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-display font-extrabold text-primary uppercase tracking-wide">📊 Volume Total Usinado (ton)</span>
+                    <Input type="number" inputMode="decimal" value={kmaOperation.totalVolumeMachinedTon} onChange={(e) => setKmaOperation({ ...kmaOperation, totalVolumeMachinedTon: e.target.value })} placeholder="0" className="bg-secondary border-border" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </Section>
+        )}
+
         {isPipa && (
           <Section title="💧 ABASTECIMENTO DE TANQUE">
             {tankSupplies.map((supply, idx) => (

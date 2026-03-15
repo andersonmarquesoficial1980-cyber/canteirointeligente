@@ -722,6 +722,135 @@ export type Database = {
         }
         Relationships: []
       }
+      kma_calibration_tests: {
+        Row: {
+          diary_id: string | null
+          error_percentage: number | null
+          id: string
+          is_approved: boolean | null
+          nominal_usina_kg: number | null
+          real_scale_kg: number | null
+          test_number: number | null
+          ticket_photo_url: string | null
+          truck_tare: number | null
+        }
+        Insert: {
+          diary_id?: string | null
+          error_percentage?: number | null
+          id?: string
+          is_approved?: boolean | null
+          nominal_usina_kg?: number | null
+          real_scale_kg?: number | null
+          test_number?: number | null
+          ticket_photo_url?: string | null
+          truck_tare?: number | null
+        }
+        Update: {
+          diary_id?: string | null
+          error_percentage?: number | null
+          id?: string
+          is_approved?: boolean | null
+          nominal_usina_kg?: number | null
+          real_scale_kg?: number | null
+          test_number?: number | null
+          ticket_photo_url?: string | null
+          truck_tare?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kma_calibration_tests_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kma_calibration_tests_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
+          },
+        ]
+      }
+      kma_operations: {
+        Row: {
+          aggregates_supplier: string | null
+          cap_nf_number: string | null
+          cap_qty_ton: number | null
+          cap_supplier: string | null
+          cap_type: string | null
+          diary_id: string | null
+          filer_qty_ton: number | null
+          filer_supplier: string | null
+          filer_type: string | null
+          id: string
+          operation_type: string | null
+          silo1_material: string | null
+          silo1_qty: number | null
+          silo2_material: string | null
+          silo2_qty: number | null
+          total_volume_machined_ton: number | null
+          water_liters: number | null
+          water_supplier: string | null
+        }
+        Insert: {
+          aggregates_supplier?: string | null
+          cap_nf_number?: string | null
+          cap_qty_ton?: number | null
+          cap_supplier?: string | null
+          cap_type?: string | null
+          diary_id?: string | null
+          filer_qty_ton?: number | null
+          filer_supplier?: string | null
+          filer_type?: string | null
+          id?: string
+          operation_type?: string | null
+          silo1_material?: string | null
+          silo1_qty?: number | null
+          silo2_material?: string | null
+          silo2_qty?: number | null
+          total_volume_machined_ton?: number | null
+          water_liters?: number | null
+          water_supplier?: string | null
+        }
+        Update: {
+          aggregates_supplier?: string | null
+          cap_nf_number?: string | null
+          cap_qty_ton?: number | null
+          cap_supplier?: string | null
+          cap_type?: string | null
+          diary_id?: string | null
+          filer_qty_ton?: number | null
+          filer_supplier?: string | null
+          filer_type?: string | null
+          id?: string
+          operation_type?: string | null
+          silo1_material?: string | null
+          silo1_qty?: number | null
+          silo2_material?: string | null
+          silo2_qty?: number | null
+          total_volume_machined_ton?: number | null
+          water_liters?: number | null
+          water_supplier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kma_operations_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kma_operations_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
+          },
+        ]
+      }
       maquinas_frota: {
         Row: {
           categoria: string | null
