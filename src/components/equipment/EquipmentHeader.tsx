@@ -27,8 +27,11 @@ export default function EquipmentHeader({ title, backTo = "/equipamentos" }: Pro
         <Button variant="ghost" size="icon" onClick={() => navigate(backTo)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <img src={logoCi} alt="Canteiro Inteligente" className="h-7 object-contain" />
-        <span className="font-display font-bold text-sm text-foreground">{title}</span>
+        <img src={logoCi} alt="Canteiro Inteligente" className="h-9 object-contain" />
+        <div>
+          <span className="block font-display font-bold text-sm text-foreground leading-tight">Canteiro Inteligente</span>
+          <span className="block text-[11px] text-muted-foreground leading-tight">{title}</span>
+        </div>
       </div>
       <div className="flex items-center gap-1">
         {isAdmin && (
