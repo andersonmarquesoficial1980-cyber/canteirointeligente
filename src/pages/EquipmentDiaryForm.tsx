@@ -521,7 +521,7 @@ export default function EquipmentDiaryForm() {
         {isFresadora && (
           <>
             <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
-            <BitManagementSection bits={bits} onChange={setBits} />
+            <BitManagementSection bits={bits} onChange={setBits} meterInitial={meterInitial} />
           </>
         )}
 
