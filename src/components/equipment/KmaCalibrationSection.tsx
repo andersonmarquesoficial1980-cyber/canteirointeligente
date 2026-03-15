@@ -30,6 +30,7 @@ export function createEmptyCalibration(tentativa: number): CalibrationEntry {
     tara: "",
     pesoNominal: "",
     pesoReal: "",
+    fator: "",
     ticketPhotoFile: null,
     ticketPhotoPreview: null,
   };
