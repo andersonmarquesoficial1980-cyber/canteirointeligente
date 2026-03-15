@@ -29,6 +29,7 @@ import ChecklistSection, { type ChecklistResult } from "@/components/equipment/C
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { compressImage } from "@/lib/imageCompression";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
+import { generateComboioPdf } from "@/lib/generateComboioPdf";
 
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
 
@@ -1301,6 +1302,20 @@ export default function EquipmentDiaryForm() {
             onChange={setComboioRefuels}
             equipamentos={equipamentos}
             ogsData={ogsData}
+            onGeneratePdf={() =>
+              generateComboioPdf({
+                fleet: selectedFleet,
+                date,
+                operator,
+                turno,
+                odometerInitial: meterInitial,
+                odometerFinal: meterFinal,
+                saldoInicial: comboioSaldoInicial,
+                fornecedor: comboioFornecedor,
+                entries: comboioRefuels,
+                observations,
+              })
+            }
           />
         )}
 

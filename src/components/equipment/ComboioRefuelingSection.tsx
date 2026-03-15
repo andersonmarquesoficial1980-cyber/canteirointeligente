@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Fuel, Droplets, Truck } from "lucide-react";
+import { Plus, Trash2, Fuel, Droplets, Truck, FileDown } from "lucide-react";
 
 export interface ComboioRefuelEntry {
   id: string;
@@ -36,6 +36,7 @@ interface Props {
   onChange: (entries: ComboioRefuelEntry[]) => void;
   equipamentos: any[];
   ogsData: any[];
+  onGeneratePdf?: () => void;
 }
 
 const COMBOIO_FORNECEDORES = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
@@ -49,6 +50,7 @@ export default function ComboioRefuelingSection({
   onChange,
   equipamentos,
   ogsData,
+  onGeneratePdf,
 }: Props) {
   const uniqueOgs = useMemo(() => {
     const seen = new Set<string>();
@@ -274,6 +276,17 @@ export default function ComboioRefuelingSection({
             <p className="text-[10px] text-muted-foreground">litros</p>
           </div>
         </div>
+
+        {/* ── BOTÃO GERAR PDF ── */}
+        {onGeneratePdf && (
+          <Button
+            type="button"
+            onClick={onGeneratePdf}
+            className="w-full gap-2 text-sm font-extrabold py-5 rounded-xl bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-primary-foreground shadow-lg mt-4"
+          >
+            <FileDown className="w-5 h-5" /> Gerar Relatório de Comboio (PDF)
+          </Button>
+        )}
       </div>
     </div>
   );
