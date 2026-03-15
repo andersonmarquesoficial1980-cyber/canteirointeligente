@@ -13,6 +13,7 @@ export interface CalibrationEntry {
   tara: string;
   pesoNominal: string;
   pesoReal: string;
+  fator: string;
   ticketPhotoFile: File | null;
   ticketPhotoPreview: string | null;
 }
@@ -29,6 +30,7 @@ export function createEmptyCalibration(tentativa: number): CalibrationEntry {
     tara: "",
     pesoNominal: "",
     pesoReal: "",
+    fator: "",
     ticketPhotoFile: null,
     ticketPhotoPreview: null,
   };
@@ -122,7 +124,7 @@ export default function KmaCalibrationSection({ entries, onChange, onGeneratePdf
       <div className="space-y-4">
         {entries.map((entry, idx) => {
           const diff = calcDiffPercent(entry);
-          const fator = calcFator(entry);
+          
           const isApproved = diff !== null && Math.abs(diff) < 1;
           const isFailed = diff !== null && Math.abs(diff) >= 1;
           const showPhotoBtn = isApproved;
@@ -194,10 +196,16 @@ export default function KmaCalibrationSection({ entries, onChange, onGeneratePdf
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-primary uppercase tracking-wide">Fator de Ajuste</Label>
-                  <div className="flex items-center h-10 px-3 bg-muted/50 border border-border rounded-md text-sm font-semibold text-foreground">
-                    {fator !== null ? fator.toFixed(4) : "—"}
-                  </div>
+                  <Label className="text-[10px] font-bold text-primary uppercase tracking-wide">Fator de Ajuste ✏️</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.0001"
+                    value={entry.fator}
+                    onChange={(e) => updateEntry(idx, "fator", e.target.value)}
+                    placeholder="Ex: 1.0050"
+                    className="bg-amber-50/60 border-amber-300/60 ring-1 ring-amber-200/50 font-semibold"
+                  />
                 </div>
               </div>
 
