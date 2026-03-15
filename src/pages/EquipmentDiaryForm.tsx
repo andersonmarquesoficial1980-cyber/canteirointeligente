@@ -445,7 +445,7 @@ export default function EquipmentDiaryForm() {
                 <SelectValue placeholder="Selecione o operador..." />
               </SelectTrigger>
               <SelectContent>
-                {(isFresadora ? operadoresFresa : isBobcat ? (operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios) : funcionarios).map((f: any) => (
+                {(isFresadora ? operadoresFresa : isBobcat ? (operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios) : isRetro ? (operadoresRetro.length > 0 ? operadoresRetro : funcionarios) : funcionarios).map((f: any) => (
                   <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
