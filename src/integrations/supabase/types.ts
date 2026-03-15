@@ -105,6 +105,7 @@ export type Database = {
           id: string
           initial_diesel_balance: number | null
           is_lubricated: boolean | null
+          is_washed: boolean | null
           liters_fueled: number | null
           lubricator_name: string | null
           ogs_destination: string | null
@@ -120,6 +121,7 @@ export type Database = {
           id?: string
           initial_diesel_balance?: number | null
           is_lubricated?: boolean | null
+          is_washed?: boolean | null
           liters_fueled?: number | null
           lubricator_name?: string | null
           ogs_destination?: string | null
@@ -135,6 +137,7 @@ export type Database = {
           id?: string
           initial_diesel_balance?: number | null
           is_lubricated?: boolean | null
+          is_washed?: boolean | null
           liters_fueled?: number | null
           lubricator_name?: string | null
           ogs_destination?: string | null
