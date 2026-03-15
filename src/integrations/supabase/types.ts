@@ -377,6 +377,24 @@ export type Database = {
           },
         ]
       }
+      equipment_fleets: {
+        Row: {
+          equipment_type: string | null
+          fleet_number: string | null
+          id: string
+        }
+        Insert: {
+          equipment_type?: string | null
+          fleet_number?: string | null
+          id?: string
+        }
+        Update: {
+          equipment_type?: string | null
+          fleet_number?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
       equipment_production_areas: {
         Row: {
           diary_id: string | null
