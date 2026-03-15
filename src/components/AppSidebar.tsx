@@ -1,6 +1,7 @@
 import { LayoutDashboard, FileText, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import logoCi from "@/assets/logo-ci.png";
 
 import {
   Sidebar,
@@ -35,16 +36,19 @@ export function AppSidebar() {
         {/* Logo area */}
         <div className="px-4 py-5 border-b border-sidebar-border flex items-center gap-3">
           {!collapsed ? (
-            <div>
-              <p className="font-display font-bold text-sm text-sidebar-foreground leading-tight">
-                Canteiro<span className="text-accent">.</span> <span className="text-primary">Inteligente</span>
-              </p>
-              <p className="text-[10px] text-muted-foreground leading-tight">
-                Plataforma de Gestão
-              </p>
+            <div className="flex items-center gap-2">
+              <img src={logoCi} alt="CI" className="h-8 object-contain" />
+              <div>
+                <p className="font-display font-bold text-sm text-sidebar-foreground leading-tight">
+                  Canteiro Inteligente
+                </p>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  Plataforma de Gestão
+                </p>
+              </div>
             </div>
           ) : (
-            <span className="font-display font-bold text-lg text-accent">C</span>
+            <img src={logoCi} alt="CI" className="h-7 object-contain" />
           )}
         </div>
 

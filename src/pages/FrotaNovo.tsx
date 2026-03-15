@@ -139,7 +139,7 @@ export default function FrotaNovo() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm font-semibold">Empresa</Label>
-                  <Input value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="Fremix" className="bg-secondary border-border" />
+                  <Input value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="Empresa" className="bg-secondary border-border" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">

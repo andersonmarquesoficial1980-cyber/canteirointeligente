@@ -5,7 +5,7 @@ import { FileText, Truck, HardHat, ClipboardList, Settings, LogOut } from "lucid
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
-import logoFremix from "@/assets/Logo_Fremix.png";
+import logoCi from "@/assets/logo-ci.png";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -56,14 +56,12 @@ export default function Index() {
         </button>
       </div>
 
-      {/* Hero card - PavLog style with dashed border */}
-      <div className="border border-dashed border-border rounded-2xl p-6 md:p-10 text-center space-y-5 bg-card/60">
-        <img src={logoFremix} alt="Fremix Pavimentação" className="h-16 md:h-20 mx-auto object-contain" />
+      {/* Hero card */}
+      <div className="border border-border rounded-2xl p-6 md:p-10 text-center space-y-5 bg-card shadow-sm">
+        <img src={logoCi} alt="Canteiro Inteligente" className="h-16 md:h-20 mx-auto object-contain" />
         <div className="space-y-2">
-          <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight">
-            <span className="text-foreground">Canteiro</span>
-            <span className="text-accent">.</span>
-            <span className="text-primary"> Inteligente</span>
+          <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight text-foreground">
+            Canteiro Inteligente
           </h1>
           <p className="text-sm md:text-base text-muted-foreground max-w-lg mx-auto leading-relaxed">
             Módulo de Obras — apontamento, efetivo, produção e relatórios.
@@ -86,7 +84,7 @@ export default function Index() {
         <Button
           variant="outline"
           onClick={() => navigate("/admin/configuracoes")}
-          className="w-full h-14 gap-2 text-sm font-semibold rounded-xl border-dashed border-border"
+          className="w-full h-14 gap-2 text-sm font-semibold rounded-xl border-border"
         >
           <Settings className="w-5 h-5" />
           Configurações
