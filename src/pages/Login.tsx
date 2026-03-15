@@ -30,16 +30,19 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      {/* Gradient accent bar */}
+      <div className="absolute top-0 left-0 right-0 h-48 bg-header-gradient rounded-b-[2rem]" />
+
       {/* Branding */}
-      <div className="text-center mb-8 space-y-4">
-        <img src={logoCi} alt="Canteiro Inteligente" className="h-28 mx-auto object-contain" />
-        <p className="text-sm text-muted-foreground tracking-wide">
+      <div className="relative text-center mb-8 space-y-4 z-10">
+        <img src={logoCi} alt="Canteiro Inteligente" className="h-28 mx-auto object-contain drop-shadow-lg" />
+        <p className="text-sm text-primary-foreground/80 tracking-wide">
           Plataforma de Gestão e Integração de Campo
         </p>
       </div>
 
       {/* Login card */}
-      <div className="w-full max-w-sm border border-border rounded-2xl p-6 space-y-5 bg-card shadow-sm">
+      <div className="relative z-10 w-full max-w-sm border border-border rounded-2xl p-6 space-y-5 bg-card shadow-card">
         {/* Title row */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -48,7 +51,7 @@ export default function Login() {
               Entrar
             </h2>
           </div>
-          <div className="h-0.5 bg-primary rounded-full w-full" />
+          <div className="h-0.5 bg-header-gradient rounded-full w-full" />
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
@@ -63,7 +66,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="h-12 bg-background border-border text-foreground placeholder:text-muted-foreground"
+              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
           <div className="space-y-2">
@@ -78,12 +81,12 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="h-12 bg-background border-border text-foreground placeholder:text-muted-foreground"
+              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
           <Button
             type="submit"
-            className="w-full h-14 gap-2 text-base font-bold rounded-xl"
+            className="w-full h-14 gap-2 text-base font-bold rounded-xl bg-header-gradient hover:opacity-90"
             disabled={loading}
           >
             <LogIn className="w-5 h-5" />

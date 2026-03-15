@@ -38,23 +38,23 @@ export default function EquipmentHome() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+      {/* Header with gradient */}
+      <header className="flex items-center justify-between px-4 py-3 bg-header-gradient shadow-md">
         <div className="flex items-center gap-3">
-          <img src={logoCi} alt="Canteiro Inteligente" className="h-10 object-contain" />
+          <img src={logoCi} alt="Canteiro Inteligente" className="h-10 object-contain drop-shadow-sm" />
           <div>
-            <span className="block font-display font-bold text-sm text-foreground leading-tight">Canteiro Inteligente</span>
-            <span className="block text-[11px] text-muted-foreground leading-tight">Gestão de Equipamentos</span>
+            <span className="block font-display font-bold text-sm text-primary-foreground leading-tight">Canteiro Inteligente</span>
+            <span className="block text-[11px] text-primary-foreground/75 leading-tight">Gestão de Equipamentos</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <Button variant="ghost" size="icon" onClick={() => navigate("/admin/configuracoes")}>
-              <Settings className="w-5 h-5 text-muted-foreground" />
+            <Button variant="ghost" size="icon" onClick={() => navigate("/admin/configuracoes")} className="text-primary-foreground hover:bg-white/15">
+              <Settings className="w-5 h-5" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={handleLogout} disabled={loggingOut}>
-            <LogOut className="w-5 h-5 text-muted-foreground" />
+          <Button variant="ghost" size="icon" onClick={handleLogout} disabled={loggingOut} className="text-primary-foreground hover:bg-white/15">
+            <LogOut className="w-5 h-5" />
           </Button>
         </div>
       </header>
@@ -69,7 +69,7 @@ export default function EquipmentHome() {
             <button
               key={eq.id}
               onClick={() => handleSelect(eq.id)}
-              className="flex flex-col items-center justify-center gap-2 rounded-xl bg-card border border-border p-4 hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 cursor-pointer aspect-square"
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-card border border-border p-4 hover:border-primary/60 hover:shadow-card transition-all duration-200 cursor-pointer aspect-square shadow-sm"
             >
               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
                 {eq.isImage ? (

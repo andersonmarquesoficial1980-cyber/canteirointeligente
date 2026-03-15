@@ -6,10 +6,10 @@ export default function Home() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-5 py-12" style={{ background: '#F4F7F6' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center px-5 py-12 bg-background">
       {/* Brand */}
       <div className="mb-10 text-center space-y-3">
-        <img src={logoCi} alt="Canteiro Inteligente" className="h-28 mx-auto object-contain drop-shadow-md" />
+        <img src={logoCi} alt="Canteiro Inteligente" className="h-28 mx-auto object-contain drop-shadow-lg" />
         <p className="text-xs text-muted-foreground tracking-wide">Plataforma de Gestão e Integração de Campo</p>
       </div>
 
@@ -17,9 +17,9 @@ export default function Home() {
       <div className="flex flex-col gap-5 w-full max-w-md">
         <button
           onClick={() => navigate("/obras")}
-          className="flex items-center gap-4 rounded-2xl bg-primary text-primary-foreground p-6 transition-all duration-200 hover:opacity-90 active:scale-[0.98] shadow-lg cursor-pointer"
+          className="flex items-center gap-4 rounded-2xl bg-header-gradient text-primary-foreground p-6 transition-all duration-200 hover:opacity-90 active:scale-[0.98] shadow-lg cursor-pointer"
         >
-          <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-primary-foreground/15 shrink-0">
+          <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-white/15 shrink-0">
             <ClipboardList className="w-7 h-7 text-primary-foreground" />
           </div>
           <div className="text-left">
@@ -30,9 +30,9 @@ export default function Home() {
 
         <button
           onClick={() => navigate("/equipamentos")}
-          className="flex items-center gap-4 rounded-2xl bg-primary text-primary-foreground p-6 transition-all duration-200 hover:opacity-90 active:scale-[0.98] shadow-lg cursor-pointer"
+          className="flex items-center gap-4 rounded-2xl bg-header-gradient text-primary-foreground p-6 transition-all duration-200 hover:opacity-90 active:scale-[0.98] shadow-lg cursor-pointer"
         >
-          <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-primary-foreground/15 shrink-0">
+          <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-white/15 shrink-0">
             <Cog className="w-7 h-7 text-primary-foreground" />
           </div>
           <div className="text-left">
