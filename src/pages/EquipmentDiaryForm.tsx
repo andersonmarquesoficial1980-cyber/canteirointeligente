@@ -1034,7 +1034,159 @@ export default function EquipmentDiaryForm() {
           />
         )}
 
-        {/* ── PIPA: Abastecimento de Tanque ── */}
+        {/* KMA: Tipo de Operação + Insumos */}
+        {isUsinaKma && (
+          <Section title="⚙️ TIPO DE OPERAÇÃO">
+            <Field label="Operação">
+              <Select value={kmaOperation.operationType} onValueChange={(v) => setKmaOperation({ ...kmaOperation, operationType: v })}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {KMA_OPERATION_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            {kmaOperation.operationType === "Usinagem" && (
+              <div className="space-y-4 pt-2">
+                {/* CAP */}
+                <div className="border border-border rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">🛢️ CAP (Cimento Asfáltico)</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Tipo</span>
+                      <Select value={kmaOperation.capType} onValueChange={(v) => setKmaOperation({ ...kmaOperation, capType: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Tipo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CAP_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                      <Input value={kmaOperation.capSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, capSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Quantidade (ton)</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.capQtyTon} onChange={(e) => setKmaOperation({ ...kmaOperation, capQtyTon: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Nº NF</span>
+                      <Input value={kmaOperation.capNfNumber} onChange={(e) => setKmaOperation({ ...kmaOperation, capNfNumber: e.target.value })} placeholder="NF..." className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filer */}
+                <div className="border border-border rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">�ite Filer</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Tipo</span>
+                      <Select value={kmaOperation.filerType} onValueChange={(v) => setKmaOperation({ ...kmaOperation, filerType: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Tipo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FILER_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                      <Input value={kmaOperation.filerSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, filerSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Qtd (ton)</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.filerQtyTon} onChange={(e) => setKmaOperation({ ...kmaOperation, filerQtyTon: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Silos */}
+                <div className="border border-border rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">🏗️ Silos de Agregados</h4>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor de Agregados</span>
+                    <Input value={kmaOperation.aggregatesSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, aggregatesSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Silo 1 — Material</span>
+                      <Select value={kmaOperation.silo1Material} onValueChange={(v) => setKmaOperation({ ...kmaOperation, silo1Material: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Material..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SILO_MATERIALS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Silo 1 — Qtd (ton)</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.silo1Qty} onChange={(e) => setKmaOperation({ ...kmaOperation, silo1Qty: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Silo 2 — Material</span>
+                      <Select value={kmaOperation.silo2Material} onValueChange={(v) => setKmaOperation({ ...kmaOperation, silo2Material: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Material..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SILO_MATERIALS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Silo 2 — Qtd (ton)</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.silo2Qty} onChange={(e) => setKmaOperation({ ...kmaOperation, silo2Qty: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Água */}
+                <div className="border border-border rounded-lg p-3 space-y-2">
+                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">💧 Água</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Litros</span>
+                      <Input type="number" inputMode="decimal" value={kmaOperation.waterLiters} onChange={(e) => setKmaOperation({ ...kmaOperation, waterLiters: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                      <Select value={kmaOperation.waterSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, waterSupplier: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AGUA_FORNECEDORES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Volume Usinado */}
+                <div className="border border-primary/30 rounded-lg p-3 bg-primary/5">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-display font-extrabold text-primary uppercase tracking-wide">📊 Volume Total Usinado (ton)</span>
+                    <Input type="number" inputMode="decimal" value={kmaOperation.totalVolumeMachinedTon} onChange={(e) => setKmaOperation({ ...kmaOperation, totalVolumeMachinedTon: e.target.value })} placeholder="0" className="bg-secondary border-border" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </Section>
+        )}
+
         {isPipa && (
           <Section title="💧 ABASTECIMENTO DE TANQUE">
             {tankSupplies.map((supply, idx) => (
