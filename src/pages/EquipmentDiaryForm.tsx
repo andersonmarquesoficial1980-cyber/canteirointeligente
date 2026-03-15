@@ -21,6 +21,10 @@ import KmaCalibrationSection, {
 import ProductionAreasSection, { type ProductionArea, createEmptyArea } from "@/components/equipment/ProductionAreasSection";
 import BitManagementSection, { type BitEntry, createEmptyBit } from "@/components/equipment/BitManagementSection";
 import FuelingSection, { type FuelingData, createEmptyFueling } from "@/components/equipment/FuelingSection";
+import ComboioRefuelingSection, {
+  type ComboioRefuelEntry,
+  createEmptyComboioRefuel,
+} from "@/components/equipment/ComboioRefuelingSection";
 import ChecklistSection, { type ChecklistResult } from "@/components/equipment/ChecklistSection";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { compressImage } from "@/lib/imageCompression";
