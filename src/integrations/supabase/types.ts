@@ -209,6 +209,13 @@ export type Database = {
             referencedRelation: "equipment_diaries"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "equipment_bits_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
+          },
         ]
       }
       equipment_checklist_results: {
@@ -246,6 +253,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "equipment_diaries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_checklist_results_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
           },
         ]
       }
@@ -347,6 +361,8 @@ export type Database = {
           diary_id: string | null
           id: string
           length_m: number | null
+          m2: number | null
+          m3: number | null
           thickness_cm: number | null
           width_m: number | null
         }
@@ -354,6 +370,8 @@ export type Database = {
           diary_id?: string | null
           id?: string
           length_m?: number | null
+          m2?: number | null
+          m3?: number | null
           thickness_cm?: number | null
           width_m?: number | null
         }
@@ -361,6 +379,8 @@ export type Database = {
           diary_id?: string | null
           id?: string
           length_m?: number | null
+          m2?: number | null
+          m3?: number | null
           thickness_cm?: number | null
           width_m?: number | null
         }
@@ -371,6 +391,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "equipment_diaries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_production_areas_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
           },
         ]
       }
@@ -416,6 +443,13 @@ export type Database = {
             referencedRelation: "equipment_diaries"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "equipment_time_entries_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
+          },
         ]
       }
       equipment_visual_inspection: {
@@ -453,6 +487,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "equipment_diaries"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_visual_inspection_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
           },
         ]
       }
@@ -1113,7 +1154,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      view_rendimento_fresadora: {
+        Row: {
+          diary_id: string | null
+          equipment_fleet: string | null
+          m3_por_bit: number | null
+          ogs_number: string | null
+          total_bits: number | null
+          total_m2: number | null
+          total_m3: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_diaries_ogs_number_fkey"
+            columns: ["ogs_number"]
+            isOneToOne: false
+            referencedRelation: "ogs_reference"
+            referencedColumns: ["ogs_number"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
