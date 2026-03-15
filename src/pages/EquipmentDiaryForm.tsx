@@ -182,7 +182,7 @@ export default function EquipmentDiaryForm() {
   const isVeiculo = equipmentType === "Veículo";
   const isTruck = isPipa || isEspargidor || isCarreta || isComboio || isVeiculo;
   const usesOdometer = isTruck;
-  const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro;
+  const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro || isUsinaKma;
 
   const { data: ogsData = [] } = useOgsReference();
 
