@@ -390,6 +390,7 @@ export default function EquipmentDiaryForm() {
     if (isFresadora) return operadoresFresa;
     if (isBobcat) return operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios;
     if (isRetro) return operadoresRetro.length > 0 ? operadoresRetro : funcionarios;
+    if (isUsinaKma) return funcionarios;
     if (isTruck) return motoristas.length > 0 ? motoristas : funcionarios;
     return funcionarios;
   };
