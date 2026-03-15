@@ -28,6 +28,20 @@ import { generateKmaPdf } from "@/lib/generateKmaPdf";
 
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
 
+const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
+
+const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
+
+function getAttachmentIds(type: string): string[] {
+  if (type === "Vassoura Mecânica") {
+    return Array.from({ length: 30 }, (_, i) => `VM${70 + i}`);
+  }
+  if (type === "Fresadora Cônica") {
+    return ["FC001", "FC002", "FC003", "FC004", "FC005"];
+  }
+  return [];
+}
+
 export default function EquipmentDiaryForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -39,6 +53,7 @@ export default function EquipmentDiaryForm() {
   // Equipment type from URL (no more selector)
   const equipmentType = searchParams.get("tipo") || "Fresadora";
   const isFresadora = equipmentType === "Fresadora";
+  const isBobcat = equipmentType === "Bobcat";
   const isUsinaKma = equipmentType === "Usina KMA";
 
   // OGS reference data
@@ -65,6 +80,12 @@ export default function EquipmentDiaryForm() {
   const [bits, setBits] = useState<BitEntry[]>([]);
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
+
+  // Bobcat-specific state
+  const [attachmentType, setAttachmentType] = useState("");
+  const [attachmentId, setAttachmentId] = useState("");
+
+  const attachmentIds = useMemo(() => getAttachmentIds(attachmentType), [attachmentType]);
 
   // Auto-fill client/location from OGS — handle semicolon-separated addresses
   const selectedOgs = useMemo(() => {
@@ -151,15 +172,26 @@ export default function EquipmentDiaryForm() {
     [funcionarios]
   );
 
-  // Filtered fleet for Fresadora
+  // Filtered fleet for equipment type
   const filteredFleet = useMemo(() => {
-    if (!isFresadora) return equipamentos;
-    return equipamentos.filter((eq: any) =>
-      eq.tipo?.toLowerCase().includes("fresadora") ||
-      eq.categoria?.toLowerCase().includes("fresadora") ||
-      eq.frota?.startsWith("FA")
-    );
+    if (isFresadora) {
+      return equipamentos.filter((eq: any) =>
+        eq.tipo?.toLowerCase().includes("fresadora") ||
+        eq.categoria?.toLowerCase().includes("fresadora") ||
+        eq.frota?.startsWith("FA")
+      );
+    }
+    return equipamentos;
   }, [equipamentos, isFresadora]);
+
+  // Bobcat operator filter
+  const operadoresBobcat = useMemo(
+    () => funcionarios.filter((f: any) => {
+      const fn = f.funcao?.toUpperCase() || "";
+      return fn.includes("BOBCAT") || fn === "OPERADOR DE BOBCAT" || fn === "OPERADOR";
+    }),
+    [funcionarios]
+  );
 
   // Horímetro validation
   const horimeterError =
@@ -301,8 +333,16 @@ export default function EquipmentDiaryForm() {
         }
       }
 
+      // Save Bobcat attachment
+      if (isBobcat && diary && attachmentType && attachmentId) {
+        await supabase.from("equipment_attachments" as any).insert({
+          fleet_id: selectedFleet,
+          type: `${attachmentType} — ${attachmentId}`,
+        });
+      }
+
       // Save checklist results
-      if (isFresadora && diary && checklistResults.length > 0) {
+      if ((isFresadora || isBobcat) && diary && checklistResults.length > 0) {
         for (const cr of checklistResults) {
           let photoUrl: string | null = null;
           if (cr.photoFile) {
@@ -356,26 +396,36 @@ export default function EquipmentDiaryForm() {
         <Section title="INFORMAÇÕES GERAIS">
           <FieldRow>
             <Field label="Frota">
-              <Select value={selectedFleet} onValueChange={setSelectedFleet}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(isFresadora ? filteredFleet : equipamentos).map((eq: any) => (
-                    <SelectItem key={eq.id} value={eq.frota}>
-                      {eq.frota} — {eq.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isBobcat ? (
+                <Select value={selectedFleet} onValueChange={setSelectedFleet}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione a Bobcat..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BOBCAT_FLEETS.map((f) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Select value={selectedFleet} onValueChange={setSelectedFleet}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(isFresadora ? filteredFleet : equipamentos).map((eq: any) => (
+                      <SelectItem key={eq.id} value={eq.frota}>
+                        {eq.frota} — {eq.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </Field>
             <Field label="Data">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
             </Field>
           </FieldRow>
-
-
-
 
           <Field label="Operador">
             <Select value={operator} onValueChange={setOperator}>
@@ -383,12 +433,42 @@ export default function EquipmentDiaryForm() {
                 <SelectValue placeholder="Selecione o operador..." />
               </SelectTrigger>
               <SelectContent>
-                {(isFresadora ? operadoresFresa : funcionarios).map((f: any) => (
+                {(isFresadora ? operadoresFresa : isBobcat ? (operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios) : funcionarios).map((f: any) => (
                   <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
+
+          {/* Bobcat: Acoplamento */}
+          {isBobcat && (
+            <FieldRow>
+              <Field label="Tipo de Acoplamento">
+                <Select value={attachmentType} onValueChange={(v) => { setAttachmentType(v); setAttachmentId(""); }}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ATTACHMENT_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="ID do Acoplamento">
+                <Select value={attachmentId} onValueChange={setAttachmentId} disabled={!attachmentType}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder={attachmentType ? "Selecione..." : "Escolha o tipo primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {attachmentIds.map((id) => (
+                      <SelectItem key={id} value={id}>{id}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldRow>
+          )}
 
           {isFresadora && (
             <Field label="Operador Solo">

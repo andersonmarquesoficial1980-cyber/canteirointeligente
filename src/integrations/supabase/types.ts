@@ -176,6 +176,24 @@ export type Database = {
         }
         Relationships: []
       }
+      equipment_attachments: {
+        Row: {
+          fleet_id: string | null
+          id: string
+          type: string | null
+        }
+        Insert: {
+          fleet_id?: string | null
+          id?: string
+          type?: string | null
+        }
+        Update: {
+          fleet_id?: string | null
+          id?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
       equipment_bits: {
         Row: {
           brand: string | null
