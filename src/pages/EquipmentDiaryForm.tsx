@@ -836,7 +836,22 @@ export default function EquipmentDiaryForm() {
             </Field>
           )}
 
-          {/* OGS — not for Carreta (goes into time entries) */}
+          {/* KMA: Operador 02 */}
+          {isUsinaKma && (
+            <Field label="Operador 02">
+              <Select value={operator2} onValueChange={setOperator2}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o operador 02..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {funcionarios.map((f: any) => (
+                    <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
           {!isCarreta && (
             <FieldRow>
               <Field label="OGS">
