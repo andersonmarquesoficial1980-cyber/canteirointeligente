@@ -34,7 +34,10 @@
     --input: 210 20% 90%;
     --ring: 215 100% 50%;
 
-    --radius: 1rem;
+  --radius: 1rem;
+
+    /* RDO page background */
+    --page-bg: 210 20% 98%;
 
     --sidebar-background: 215 60% 97%;
     --sidebar-foreground: 215 30% 25%;
