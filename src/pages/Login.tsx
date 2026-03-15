@@ -32,7 +32,7 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       {/* Branding */}
       <div className="text-center mb-8 space-y-4">
-        <img src={logoCi} alt="Canteiro Inteligente" className="h-24 mx-auto object-contain" />
+        <img src={logoCi} alt="Canteiro Inteligente" className="h-28 mx-auto object-contain" />
         <p className="text-sm text-muted-foreground tracking-wide">
           Plataforma de Gestão e Integração de Campo
         </p>

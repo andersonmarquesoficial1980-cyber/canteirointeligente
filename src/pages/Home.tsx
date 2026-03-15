@@ -9,8 +9,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-12" style={{ background: '#F4F7F6' }}>
       {/* Brand */}
       <div className="mb-10 text-center space-y-3">
-        <img src={logoCi} alt="Canteiro Inteligente" className="h-24 mx-auto object-contain drop-shadow-md" />
-        <p className="text-sm text-muted-foreground">Selecione o módulo para continuar</p>
+        <img src={logoCi} alt="Canteiro Inteligente" className="h-28 mx-auto object-contain drop-shadow-md" />
+        <p className="text-xs text-muted-foreground tracking-wide">Plataforma de Gestão e Integração de Campo</p>
       </div>
 
       {/* Module buttons — stacked vertically */}

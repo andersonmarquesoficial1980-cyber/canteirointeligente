@@ -41,10 +41,11 @@ export default function EquipmentHome() {
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
         <div className="flex items-center gap-3">
-          <img src={logoCi} alt="Canteiro Inteligente" className="h-8 object-contain" />
-          <span className="font-display font-bold text-sm text-foreground">
-            CI Equipamentos
-          </span>
+          <img src={logoCi} alt="Canteiro Inteligente" className="h-10 object-contain" />
+          <div>
+            <span className="block font-display font-bold text-sm text-foreground leading-tight">Canteiro Inteligente</span>
+            <span className="block text-[11px] text-muted-foreground leading-tight">Gestão de Equipamentos</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
