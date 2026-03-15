@@ -490,6 +490,28 @@ export default function EquipmentDiaryForm() {
             ticket_photo_url: ticketUrl,
           });
         }
+        // Save KMA operations
+        if (isUsinaKma && diary && kmaOperation.operationType) {
+          await supabase.from("kma_operations").insert({
+            diary_id: diary.id,
+            operation_type: kmaOperation.operationType,
+            cap_type: kmaOperation.capType || null,
+            cap_supplier: kmaOperation.capSupplier || null,
+            cap_qty_ton: kmaOperation.capQtyTon ? Number(kmaOperation.capQtyTon) : null,
+            cap_nf_number: kmaOperation.capNfNumber || null,
+            filer_type: kmaOperation.filerType || null,
+            filer_supplier: kmaOperation.filerSupplier || null,
+            filer_qty_ton: kmaOperation.filerQtyTon ? Number(kmaOperation.filerQtyTon) : null,
+            silo1_material: kmaOperation.silo1Material || null,
+            silo1_qty: kmaOperation.silo1Qty ? Number(kmaOperation.silo1Qty) : null,
+            silo2_material: kmaOperation.silo2Material || null,
+            silo2_qty: kmaOperation.silo2Qty ? Number(kmaOperation.silo2Qty) : null,
+            water_liters: kmaOperation.waterLiters ? Number(kmaOperation.waterLiters) : null,
+            water_supplier: kmaOperation.waterSupplier || null,
+            aggregates_supplier: kmaOperation.aggregatesSupplier || null,
+            total_volume_machined_ton: kmaOperation.totalVolumeMachinedTon ? Number(kmaOperation.totalVolumeMachinedTon) : null,
+          });
+        }
       }
 
       // Save production areas (Fresadora)
