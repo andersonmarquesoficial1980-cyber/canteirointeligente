@@ -172,15 +172,26 @@ export default function EquipmentDiaryForm() {
     [funcionarios]
   );
 
-  // Filtered fleet for Fresadora
+  // Filtered fleet for equipment type
   const filteredFleet = useMemo(() => {
-    if (!isFresadora) return equipamentos;
-    return equipamentos.filter((eq: any) =>
-      eq.tipo?.toLowerCase().includes("fresadora") ||
-      eq.categoria?.toLowerCase().includes("fresadora") ||
-      eq.frota?.startsWith("FA")
-    );
+    if (isFresadora) {
+      return equipamentos.filter((eq: any) =>
+        eq.tipo?.toLowerCase().includes("fresadora") ||
+        eq.categoria?.toLowerCase().includes("fresadora") ||
+        eq.frota?.startsWith("FA")
+      );
+    }
+    return equipamentos;
   }, [equipamentos, isFresadora]);
+
+  // Bobcat operator filter
+  const operadoresBobcat = useMemo(
+    () => funcionarios.filter((f: any) => {
+      const fn = f.funcao?.toUpperCase() || "";
+      return fn.includes("BOBCAT") || fn === "OPERADOR DE BOBCAT" || fn === "OPERADOR";
+    }),
+    [funcionarios]
+  );
 
   // Horímetro validation
   const horimeterError =
