@@ -440,13 +440,13 @@ export default function EquipmentDiaryForm() {
 
           <FieldRow>
             <Field label="Frota">
-              {(isBobcat || isRetro) ? (
+              {(isBobcat || isRetro || isVibro) ? (
                 <Select value={selectedFleet} onValueChange={setSelectedFleet}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder={isBobcat ? "Selecione a Bobcat..." : "Selecione a Retro..."} />
+                    <SelectValue placeholder={isBobcat ? "Selecione a Bobcat..." : isRetro ? "Selecione a Retro..." : "Selecione a Vibro..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(isBobcat ? BOBCAT_FLEETS : RETRO_FLEETS).map((f) => (
+                    {(isBobcat ? BOBCAT_FLEETS : isRetro ? RETRO_FLEETS : VIBRO_FLEETS).map((f) => (
                       <SelectItem key={f} value={f}>{f}</SelectItem>
                     ))}
                   </SelectContent>
