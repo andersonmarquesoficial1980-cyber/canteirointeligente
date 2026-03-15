@@ -1302,6 +1302,20 @@ export default function EquipmentDiaryForm() {
             onChange={setComboioRefuels}
             equipamentos={equipamentos}
             ogsData={ogsData}
+            onGeneratePdf={() =>
+              generateComboioPdf({
+                fleet: selectedFleet,
+                date,
+                operator,
+                turno,
+                odometerInitial: meterInitial,
+                odometerFinal: meterFinal,
+                saldoInicial: comboioSaldoInicial,
+                fornecedor: comboioFornecedor,
+                entries: comboioRefuels,
+                observations,
+              })
+            }
           />
         )}
 
