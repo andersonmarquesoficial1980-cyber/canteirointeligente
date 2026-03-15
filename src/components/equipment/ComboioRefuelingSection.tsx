@@ -36,6 +36,7 @@ interface Props {
   onChange: (entries: ComboioRefuelEntry[]) => void;
   equipamentos: any[];
   ogsData: any[];
+  onGeneratePdf?: () => void;
 }
 
 const COMBOIO_FORNECEDORES = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
