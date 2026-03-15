@@ -81,6 +81,12 @@ export default function EquipmentDiaryForm() {
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
 
+  // Bobcat-specific state
+  const [attachmentType, setAttachmentType] = useState("");
+  const [attachmentId, setAttachmentId] = useState("");
+
+  const attachmentIds = useMemo(() => getAttachmentIds(attachmentType), [attachmentType]);
+
   // Auto-fill client/location from OGS — handle semicolon-separated addresses
   const selectedOgs = useMemo(() => {
     if (!ogsNumber) return null;
