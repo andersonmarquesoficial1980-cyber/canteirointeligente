@@ -18,6 +18,7 @@ import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import SectionProducaoCauq, { type ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
 import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteiro";
 import { buildHtmlReport } from "@/lib/buildHtmlReport";
+import logoCi from "@/assets/logo-ci.png";
 
 const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -78,7 +79,6 @@ export default function RdoForm() {
   const [basculantes, setBasculantes] = useState<BasculanteEntry[]>([{
     id: crypto.randomUUID(), placa: "", material: "", viagens: "", empresa_dona: "",
   }]);
-
 
   const [efetivo, setEfetivo] = useState<EfetivoEntry[]>([{
     id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
@@ -256,7 +256,6 @@ export default function RdoForm() {
         if (error) throw error;
       }
 
-
       // Build HTML report and send email
       const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome);
       let emailSent = false;
@@ -294,25 +293,29 @@ export default function RdoForm() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 bg-card/95 backdrop-blur border-b border-border px-4 py-3">
+    <div className="min-h-screen bg-page flex flex-col">
+      {/* Gradient Header */}
+      <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground p-2">
+          <button onClick={() => navigate("/")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
+          <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
           <div>
-            <h1 className="text-lg font-bold text-foreground">RDO Digital</h1>
-            <p className="text-xs text-muted-foreground">Relatório Diário de Obra</p>
+            <h1 className="text-lg font-display font-bold text-white">RDO Digital</h1>
+            <p className="text-xs text-white/70">Relatório Diário de Obra</p>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto pb-28 space-y-2">
-        <div className="p-4">
+      <div className="flex-1 overflow-y-auto pb-28 space-y-4 pt-4">
+        <div className="px-4">
           <RdoHeader data={header} onChange={handleHeaderChange} />
         </div>
 
-        <RdoTipoSelector value={tipoRdo} onChange={setTipoRdo} />
+        <div className="px-4">
+          <RdoTipoSelector value={tipoRdo} onChange={setTipoRdo} />
+        </div>
 
         {tipoRdo === "INFRAESTRUTURA" && (
           <SectionInfraestrutura
@@ -360,12 +363,12 @@ export default function RdoForm() {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur border-t border-border px-4 py-4 space-y-2">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-4 space-y-2 shadow-[0_-4px_20px_-4px_hsl(215_60%_50%/0.1)]">
         {tipoRdo === "CAUQ" && (
           <Button
             type="button"
             onClick={handleWhatsAppResume}
-            className="w-full h-12 text-base gap-2 font-semibold bg-[#25D366] hover:bg-[#1da851] text-white"
+            className="w-full h-12 text-base gap-2 font-semibold bg-[#25D366] hover:bg-[#1da851] text-white rounded-xl"
           >
             <MessageCircle className="w-5 h-5" /> 📱 Gerar Resumo WhatsApp
           </Button>
@@ -373,7 +376,7 @@ export default function RdoForm() {
         <Button
           onClick={handleSubmit}
           disabled={saving || !header.obra_nome || !header.turno}
-          className="w-full h-14 text-base gap-2 font-semibold"
+          className="w-full h-14 text-base gap-2 font-display font-bold rounded-xl bg-header-gradient hover:opacity-90 transition-opacity"
         >
           <Send className="w-5 h-5" /> {saving ? "Salvando..." : "Enviar RDO"}
         </Button>

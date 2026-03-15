@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useOgsReference } from "@/hooks/useOgsReference";
+import { CalendarDays, Building2, MapPin, Activity } from "lucide-react";
 
 interface RdoHeaderProps {
   data: {
@@ -63,29 +63,32 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
   };
 
   return (
-    <div className="space-y-4 p-4 bg-card rounded-xl border border-border">
-      <h2 className="text-lg font-bold text-foreground">📋 Dados Gerais</h2>
+    <div className="rdo-card space-y-5">
+      <h2 className="rdo-section-title">
+        <CalendarDays className="w-5 h-5 text-primary" />
+        Informações Gerais
+      </h2>
 
-      {/* Linha 1: Data + Turno */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Data</Label>
+      {/* Data + Turno */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <span className="rdo-label">Data</span>
           <div className="relative">
             <Input
               type="date"
               value={data.data}
               onChange={e => onChange("data", e.target.value)}
-              className="h-12 text-base bg-secondary border-border opacity-0 absolute inset-0 w-full"
+              className="h-12 text-base bg-white border-border opacity-0 absolute inset-0 w-full"
             />
-            <div className="h-12 text-base bg-secondary border border-border rounded-md flex items-center px-3 text-foreground pointer-events-none">
+            <div className="h-12 text-base bg-white border border-border rounded-xl flex items-center px-3 text-foreground pointer-events-none">
               {formatDateBR(data.data) || "DD/MM/AAAA"}
             </div>
           </div>
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Turno *</Label>
+        <div className="space-y-1.5">
+          <span className="rdo-label">Turno *</span>
           <Select value={data.turno} onValueChange={v => onChange("turno", v)}>
-            <SelectTrigger className="h-12 text-base bg-secondary border-border">
+            <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
@@ -97,12 +100,14 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
         </div>
       </div>
 
-      {/* Linha 2: OGS + Status */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">OGS (Obra)</Label>
+      {/* OGS + Status */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <span className="rdo-label flex items-center gap-1">
+            <Building2 className="w-3.5 h-3.5" /> OGS (Obra)
+          </span>
           <Select value={data.obra_nome} onValueChange={handleObraChange}>
-            <SelectTrigger className="h-12 text-base bg-secondary border-border">
+            <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
               <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione"} />
             </SelectTrigger>
             <SelectContent className="max-h-[300px]">
@@ -114,10 +119,12 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Status</Label>
+        <div className="space-y-1.5">
+          <span className="rdo-label flex items-center gap-1">
+            <Activity className="w-3.5 h-3.5" /> Status
+          </span>
           <Select value={data.status_obra} onValueChange={v => onChange("status_obra", v)}>
-            <SelectTrigger className="h-12 text-base bg-secondary border-border">
+            <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
@@ -129,18 +136,20 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
         </div>
       </div>
 
-      {/* Linha 3: Cliente (100%) */}
-      <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Cliente</Label>
-        <Input value={data.cliente} readOnly className="h-12 text-base bg-muted border-border cursor-not-allowed" />
+      {/* Cliente */}
+      <div className="space-y-1.5">
+        <span className="rdo-label">Cliente</span>
+        <Input value={data.cliente} readOnly className="h-12 text-base bg-muted/50 border-border rounded-xl cursor-not-allowed" />
       </div>
 
-      {/* Linha 4: Local (100%) */}
-      <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Local</Label>
+      {/* Local */}
+      <div className="space-y-1.5">
+        <span className="rdo-label flex items-center gap-1">
+          <MapPin className="w-3.5 h-3.5" /> Local
+        </span>
         {uniqueAddresses.length > 1 ? (
           <Select value={data.local} onValueChange={v => onChange("local", v)}>
-            <SelectTrigger className="h-12 text-base bg-secondary border-border">
+            <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
               <SelectValue placeholder="Selecione o local" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px]">
@@ -150,7 +159,7 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
             </SelectContent>
           </Select>
         ) : (
-          <Input value={data.local} readOnly className="h-12 text-base bg-muted border-border cursor-not-allowed" />
+          <Input value={data.local} readOnly className="h-12 text-base bg-muted/50 border-border rounded-xl cursor-not-allowed" />
         )}
       </div>
     </div>

@@ -1,8 +1,7 @@
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Package } from "lucide-react";
 import NfPhotoCapture from "./NfPhotoCapture";
 import { useFornecedores, useMateriais } from "@/hooks/useFilteredData";
 
@@ -35,56 +34,48 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
-    // Find first empty entry to reuse instead of always appending
     const emptyIdx = entries.findIndex(e => !e.nf && !e.fornecedor && !e.quantidade);
-
     const ocrData: Partial<NotaFiscalInsumoEntry> = {
-      nf: data.nf || "",
-      fornecedor: "",
-      material: "",
-      quantidade: data.quantidade || "",
-      photo_url: photoUrl,
+      nf: data.nf || "", fornecedor: "", material: "", quantidade: data.quantidade || "", photo_url: photoUrl,
     };
-
     if (emptyIdx >= 0) {
       onChange(entries.map((e, i) => i === emptyIdx ? { ...e, ...ocrData } : e));
     } else {
       onChange([...entries, { id: crypto.randomUUID(), ...ocrData } as NotaFiscalInsumoEntry]);
     }
-    console.log("[SectionCanteiro] OCR filling slot:", emptyIdx >= 0 ? emptyIdx + 1 : "new");
   };
 
   return (
-    <div className="space-y-4 p-4">
-      <h2 className="text-lg font-bold text-foreground">🏭 Notas Fiscais de Insumos</h2>
+    <div className="space-y-4 px-4">
+      <h2 className="rdo-section-title">
+        <Package className="w-5 h-5 text-violet-500" />
+        Notas Fiscais de Insumos
+      </h2>
 
-      <NfPhotoCapture
-        tipo="CANTEIRO"
-        onExtracted={handleOcrExtracted}
-      />
+      <NfPhotoCapture tipo="CANTEIRO" onExtracted={handleOcrExtracted} />
 
       {entries.map((entry, idx) => (
-        <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div key={entry.id} className="rdo-card space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-primary">NF {idx + 1}</span>
+              <span className="text-sm font-display font-bold text-primary">NF {idx + 1}</span>
               {entry.photo_url && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">📷 OCR</span>}
             </div>
             {entries.length > 1 && (
-              <button onClick={() => onChange(entries.filter(e => e.id !== entry.id))} className="text-destructive p-1">
+              <button onClick={() => onChange(entries.filter(e => e.id !== entry.id))} className="text-destructive p-1 hover:bg-destructive/10 rounded-lg transition-colors">
                 <Trash2 className="w-4 h-4" />
               </button>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Nº NF</Label>
-              <Input inputMode="numeric" value={entry.nf} onChange={e => update(entry.id, "nf", e.target.value)} className="h-11 bg-secondary border-border" />
+            <div className="space-y-1.5">
+              <span className="rdo-label">Nº NF</span>
+              <Input inputMode="numeric" value={entry.nf} onChange={e => update(entry.id, "nf", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Fornecedor</Label>
+            <div className="space-y-1.5">
+              <span className="rdo-label">Fornecedor</span>
               <Select value={entry.fornecedor} onValueChange={v => update(entry.id, "fornecedor", v)}>
-                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {fornecedores.length > 0
                     ? fornecedores.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)
@@ -92,10 +83,10 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Material</Label>
+            <div className="space-y-1.5">
+              <span className="rdo-label">Material</span>
               <Select value={entry.material} onValueChange={v => update(entry.id, "material", v)}>
-                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {materiais.length > 0
                     ? materiais.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)
@@ -103,15 +94,15 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Quantidade</Label>
-              <Input inputMode="numeric" value={entry.quantidade} onChange={e => update(entry.id, "quantidade", e.target.value)} className="h-11 bg-secondary border-border" />
+            <div className="space-y-1.5">
+              <span className="rdo-label">Quantidade</span>
+              <Input inputMode="numeric" value={entry.quantidade} onChange={e => update(entry.id, "quantidade", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
           </div>
         </div>
       ))}
 
-      <Button size="sm" onClick={() => onChange([...entries, emptyNF()])} className="w-full h-12 gap-2 text-base">
+      <Button size="sm" onClick={() => onChange([...entries, emptyNF()])} className="w-full h-12 gap-2 text-base rounded-xl font-display font-bold">
         <Plus className="w-5 h-5" /> Adicionar NF
       </Button>
     </div>
