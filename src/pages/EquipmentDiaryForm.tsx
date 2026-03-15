@@ -28,6 +28,20 @@ import { generateKmaPdf } from "@/lib/generateKmaPdf";
 
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
 
+const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
+
+const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
+
+function getAttachmentIds(type: string): string[] {
+  if (type === "Vassoura Mecânica") {
+    return Array.from({ length: 30 }, (_, i) => `VM${70 + i}`);
+  }
+  if (type === "Fresadora Cônica") {
+    return ["FC001", "FC002", "FC003", "FC004", "FC005"];
+  }
+  return [];
+}
+
 export default function EquipmentDiaryForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
