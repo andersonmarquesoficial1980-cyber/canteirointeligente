@@ -531,6 +531,42 @@ export default function EquipmentDiaryForm() {
           <>
             <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
             <BitManagementSection bits={bits} onChange={setBits} meterInitial={meterInitial} />
+
+            {/* DESEMPENHO DO TURNO */}
+            {(() => {
+              const totalM3 = productionAreas.reduce((s, a) => {
+                const c = Number(a.comp), l = Number(a.larg), e = Number(a.esp);
+                if (!c || !l || !e) return s;
+                return s + c * l * (e / 100);
+              }, 0);
+              const totalBits = bits.reduce((s, b) => s + (Number(b.quantity) || 0), 0);
+              const rendimento = totalBits > 0 ? totalM3 / totalBits : null;
+
+              return (totalM3 > 0 || totalBits > 0) ? (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-border pb-2">
+                    DESEMPENHO DO TURNO
+                  </h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground uppercase">Total M³</p>
+                      <p className="text-xl font-bold text-primary">{totalM3.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground uppercase">Total Bits</p>
+                      <p className="text-xl font-bold text-primary">{totalBits}</p>
+                    </div>
+                    <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground uppercase">Rendimento</p>
+                      <p className="text-xl font-bold text-accent">
+                        {rendimento !== null ? rendimento.toFixed(2) : "—"}
+                      </p>
+                      <p className="text-[10px] text-accent/70">m³/bit</p>
+                    </div>
+                  </div>
+                </div>
+              ) : null;
+            })()}
           </>
         )}
 
