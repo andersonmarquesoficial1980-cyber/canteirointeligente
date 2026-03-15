@@ -30,6 +30,7 @@ const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manu
 
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
 const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
+const VIBRO_FLEETS = ["VA01", "VA03", "VA04", "VA05", "VA17", "VA19", "VA20"];
 
 const ROLO_TYPES = ["Rolo Chapa", "Rolo Pneu", "Rolo Pé de Carneiro"] as const;
 const ROLO_FLEETS: Record<string, string[]> = {
@@ -66,6 +67,7 @@ export default function EquipmentDiaryForm() {
   const isUsinaKma = equipmentType === "Usina KMA";
   const isRetro = equipmentType === "Retro";
   const isRolo = equipmentType === "Rolo";
+  const isVibro = equipmentType === "Vibroacabadora";
 
   // OGS reference data
   const { data: ogsData = [] } = useOgsReference();
@@ -368,7 +370,7 @@ export default function EquipmentDiaryForm() {
       }
 
       // Save checklist results
-      if ((isFresadora || isBobcat || isRetro || isRolo) && diary && checklistResults.length > 0) {
+      if ((isFresadora || isBobcat || isRetro || isRolo || isVibro) && diary && checklistResults.length > 0) {
         for (const cr of checklistResults) {
           let photoUrl: string | null = null;
           if (cr.photoFile) {
@@ -438,13 +440,13 @@ export default function EquipmentDiaryForm() {
 
           <FieldRow>
             <Field label="Frota">
-              {(isBobcat || isRetro) ? (
+              {(isBobcat || isRetro || isVibro) ? (
                 <Select value={selectedFleet} onValueChange={setSelectedFleet}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder={isBobcat ? "Selecione a Bobcat..." : "Selecione a Retro..."} />
+                    <SelectValue placeholder={isBobcat ? "Selecione a Bobcat..." : isRetro ? "Selecione a Retro..." : "Selecione a Vibro..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(isBobcat ? BOBCAT_FLEETS : RETRO_FLEETS).map((f) => (
+                    {(isBobcat ? BOBCAT_FLEETS : isRetro ? RETRO_FLEETS : VIBRO_FLEETS).map((f) => (
                       <SelectItem key={f} value={f}>{f}</SelectItem>
                     ))}
                   </SelectContent>
