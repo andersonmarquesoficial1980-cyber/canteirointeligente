@@ -1065,6 +1065,24 @@ export type Database = {
           },
         ]
       }
+      road_roller_fleets: {
+        Row: {
+          fleet_number: string | null
+          id: string
+          roller_type: string | null
+        }
+        Insert: {
+          fleet_number?: string | null
+          id?: string
+          roller_type?: string | null
+        }
+        Update: {
+          fleet_number?: string | null
+          id?: string
+          roller_type?: string | null
+        }
+        Relationships: []
+      }
       time_entries: {
         Row: {
           activity: string
