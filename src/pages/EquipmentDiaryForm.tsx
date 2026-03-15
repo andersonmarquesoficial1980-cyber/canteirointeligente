@@ -388,26 +388,36 @@ export default function EquipmentDiaryForm() {
         <Section title="INFORMAÇÕES GERAIS">
           <FieldRow>
             <Field label="Frota">
-              <Select value={selectedFleet} onValueChange={setSelectedFleet}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(isFresadora ? filteredFleet : equipamentos).map((eq: any) => (
-                    <SelectItem key={eq.id} value={eq.frota}>
-                      {eq.frota} — {eq.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isBobcat ? (
+                <Select value={selectedFleet} onValueChange={setSelectedFleet}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione a Bobcat..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BOBCAT_FLEETS.map((f) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Select value={selectedFleet} onValueChange={setSelectedFleet}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(isFresadora ? filteredFleet : equipamentos).map((eq: any) => (
+                      <SelectItem key={eq.id} value={eq.frota}>
+                        {eq.frota} — {eq.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </Field>
             <Field label="Data">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
             </Field>
           </FieldRow>
-
-
-
 
           <Field label="Operador">
             <Select value={operator} onValueChange={setOperator}>
@@ -415,12 +425,42 @@ export default function EquipmentDiaryForm() {
                 <SelectValue placeholder="Selecione o operador..." />
               </SelectTrigger>
               <SelectContent>
-                {(isFresadora ? operadoresFresa : funcionarios).map((f: any) => (
+                {(isFresadora ? operadoresFresa : isBobcat ? (operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios) : funcionarios).map((f: any) => (
                   <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
+
+          {/* Bobcat: Acoplamento */}
+          {isBobcat && (
+            <FieldRow>
+              <Field label="Tipo de Acoplamento">
+                <Select value={attachmentType} onValueChange={(v) => { setAttachmentType(v); setAttachmentId(""); }}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ATTACHMENT_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="ID do Acoplamento">
+                <Select value={attachmentId} onValueChange={setAttachmentId} disabled={!attachmentType}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder={attachmentType ? "Selecione..." : "Escolha o tipo primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {attachmentIds.map((id) => (
+                      <SelectItem key={id} value={id}>{id}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldRow>
+          )}
 
           {isFresadora && (
             <Field label="Operador Solo">
