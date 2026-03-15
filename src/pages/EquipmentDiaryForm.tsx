@@ -31,6 +31,13 @@ const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manu
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
 const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
 
+const ROLO_TYPES = ["Rolo Chapa", "Rolo Pneu", "Rolo Pé de Carneiro"] as const;
+const ROLO_FLEETS: Record<string, string[]> = {
+  "Rolo Chapa": ["CH02", "CH04", "CH05", "CH06", "CH07"],
+  "Rolo Pneu": ["PN05", "PN47", "PN48", "PN49", "PN50"],
+  "Rolo Pé de Carneiro": ["PC01", "PC02", "PC03", "PC04", "PC05"],
+};
+
 const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
 const RETRO_ATTACHMENT_TYPES = ["Concha", "Rompedor"] as const;
 
