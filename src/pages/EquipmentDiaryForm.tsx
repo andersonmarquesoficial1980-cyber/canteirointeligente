@@ -577,17 +577,15 @@ export default function EquipmentDiaryForm() {
         }
       }
 
-      // Save Comboio tank supply
       if (isComboio && diary) {
-        const validCTS = comboioTankSupplies.filter((s) => s.quantity || s.supplier);
-        if (validCTS.length > 0) {
-          const rows = validCTS.map((s) => ({
+        // Save comboio tank supply info
+        if (comboioSaldoInicial || comboioFornecedor) {
+          await supabase.from("truck_tank_supplies").insert({
             diary_id: diary.id,
-            quantity: s.quantity ? Number(s.quantity) : null,
-            supplier: s.supplier || null,
+            quantity: comboioSaldoInicial ? Number(comboioSaldoInicial) : null,
+            supplier: comboioFornecedor || null,
             material_type: "Diesel",
-          }));
-          await supabase.from("truck_tank_supplies").insert(rows);
+          });
         }
 
         // Save comboio refueling entries
@@ -595,14 +593,13 @@ export default function EquipmentDiaryForm() {
         if (validRefuels.length > 0) {
           const rows = validRefuels.map((r) => ({
             diary_id: diary.id,
-            lubricator_name: r.lubricatorName || null,
-            initial_diesel_balance: r.initialDiesel ? Number(r.initialDiesel) : null,
-            final_diesel_balance: r.finalDiesel ? Number(r.finalDiesel) : null,
             equipment_fleet_fueled: r.fleetFueled || null,
             equipment_meter: r.equipmentMeter ? Number(r.equipmentMeter) : null,
             ogs_destination: r.ogsDestination || null,
             liters_fueled: r.litersFueled ? Number(r.litersFueled) : null,
             is_lubricated: r.isLubricated,
+            is_washed: r.isWashed,
+            initial_diesel_balance: comboioSaldoInicial ? Number(comboioSaldoInicial) : null,
           }));
           await supabase.from("comboio_equipment_refueling").insert(rows);
         }
