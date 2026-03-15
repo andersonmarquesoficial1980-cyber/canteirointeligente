@@ -267,12 +267,21 @@ export default function EquipmentDiaryForm() {
       if (isFresadora && diary) {
         const validAreas = productionAreas.filter((a) => a.comp || a.larg);
         if (validAreas.length > 0) {
-          const rows = validAreas.map((a) => ({
-            diary_id: diary.id,
-            length_m: a.comp ? Number(a.comp) : null,
-            width_m: a.larg ? Number(a.larg) : null,
-            thickness_cm: a.esp ? Number(a.esp) : null,
-          }));
+          const rows = validAreas.map((a) => {
+            const c = Number(a.comp) || 0;
+            const l = Number(a.larg) || 0;
+            const e = Number(a.esp) || 0;
+            const m2Val = c && l ? c * l : null;
+            const m3Val = m2Val && e ? m2Val * (e / 100) : null;
+            return {
+              diary_id: diary.id,
+              length_m: a.comp ? c : null,
+              width_m: a.larg ? l : null,
+              thickness_cm: a.esp ? e : null,
+              m2: m2Val,
+              m3: m3Val,
+            };
+          });
           await supabase.from("equipment_production_areas").insert(rows);
         }
       }
