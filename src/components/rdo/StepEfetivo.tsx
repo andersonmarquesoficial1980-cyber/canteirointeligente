@@ -1,8 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, HardHat, Clock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,12 +17,7 @@ export interface EfetivoEntry {
 }
 
 const emptyEfetivo = (): EfetivoEntry => ({
-  id: crypto.randomUUID(),
-  matricula: "",
-  nome: "",
-  funcao: "",
-  entrada: "",
-  saida: "",
+  id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
 });
 
 interface StepEfetivoProps {
@@ -65,14 +59,11 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
 
   const resumo = useMemo(() => {
     const map: Record<string, number> = {};
-    entries.forEach(e => {
-      if (e.funcao) map[e.funcao] = (map[e.funcao] || 0) + 1;
-    });
+    entries.forEach(e => { if (e.funcao) map[e.funcao] = (map[e.funcao] || 0) + 1; });
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [entries]);
 
   const filledEntries = entries.filter(e => e.nome);
-
   const getFilteredFuncionarios = (funcao: string) =>
     funcionarios.filter(f => f.funcao === funcao).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
@@ -81,62 +72,58 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
   }
 
   return (
-    <div className="space-y-5 p-4">
-      <h2 className="text-xl font-display font-bold text-foreground">👷 Efetivo</h2>
+    <div className="space-y-4 px-4">
+      <h2 className="rdo-section-title">
+        <HardHat className="w-5 h-5 text-amber-500" />
+        Efetivo
+      </h2>
 
-      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-        <h3 className="text-sm font-bold text-primary">⏰ Horário Geral</h3>
+      <div className="rdo-card space-y-3">
+        <h3 className="text-sm font-display font-bold flex items-center gap-1.5" style={{ color: "hsl(220 70% 30%)" }}>
+          <Clock className="w-4 h-4 text-primary" /> Horário Geral
+        </h3>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Entrada</Label>
-            <Input type="time" value={globalEntrada} onChange={e => onChangeGlobalEntrada(e.target.value)} className="h-12 text-base bg-secondary border-border" />
+          <div className="space-y-1.5">
+            <span className="rdo-label">Entrada</span>
+            <Input type="time" value={globalEntrada} onChange={e => onChangeGlobalEntrada(e.target.value)} className="h-12 text-base bg-white border-border rounded-xl" />
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Saída</Label>
-            <Input type="time" value={globalSaida} onChange={e => onChangeGlobalSaida(e.target.value)} className="h-12 text-base bg-secondary border-border" />
+          <div className="space-y-1.5">
+            <span className="rdo-label">Saída</span>
+            <Input type="time" value={globalSaida} onChange={e => onChangeGlobalSaida(e.target.value)} className="h-12 text-base bg-white border-border rounded-xl" />
           </div>
         </div>
       </div>
 
       {entries.map((entry, idx) => {
         const funcionariosFiltrados = entry.funcao ? getFilteredFuncionarios(entry.funcao) : [];
-
         return (
-          <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <div key={entry.id} className="rdo-card space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-primary">Pessoa {idx + 1}</span>
+              <span className="text-sm font-display font-bold text-primary">Pessoa {idx + 1}</span>
               {entries.length > 1 && (
-                <button onClick={() => removeEntry(entry.id)} className="text-destructive p-2">
+                <button onClick={() => removeEntry(entry.id)} className="text-destructive p-2 hover:bg-destructive/10 rounded-lg transition-colors">
                   <Trash2 className="w-5 h-5" />
                 </button>
               )}
             </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Função</Label>
+            <div className="space-y-1.5">
+              <span className="rdo-label">Função</span>
               <Select value={entry.funcao} onValueChange={v => handleFuncaoChange(entry.id, v)}>
-                <SelectTrigger className="w-full h-12 bg-secondary border-border text-base">
+                <SelectTrigger className="w-full h-12 bg-white border-border text-base rounded-xl">
                   <SelectValue placeholder="Selecione a função..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-[250px]">
-                  {funcoes.map(f => (
-                    <SelectItem key={f} value={f}>{f}</SelectItem>
-                  ))}
+                  {funcoes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Nome</Label>
+            <div className="space-y-1.5">
+              <span className="rdo-label">Nome</span>
               {entry.funcao ? (
                 <Popover open={openPopoverId === entry.id} onOpenChange={(open) => setOpenPopoverId(open ? entry.id : null)}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full h-12 justify-between text-left font-normal bg-secondary border-border text-base">
-                      {entry.nome ? (
-                        <span className="truncate">{entry.nome}</span>
-                      ) : (
-                        <span className="text-muted-foreground">Buscar funcionário...</span>
-                      )}
+                    <Button variant="outline" role="combobox" className="w-full h-12 justify-between text-left font-normal bg-white border-border text-base rounded-xl">
+                      {entry.nome ? <span className="truncate">{entry.nome}</span> : <span className="text-muted-foreground">Buscar funcionário...</span>}
                       <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -147,12 +134,7 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
                         <CommandEmpty>Nenhum encontrado.</CommandEmpty>
                         <CommandGroup>
                           {funcionariosFiltrados.map(f => (
-                            <CommandItem
-                              key={f.matricula}
-                              value={`${f.nome} ${f.matricula}`}
-                              onSelect={() => selectFuncionario(entry.id, f.matricula)}
-                              className="text-sm"
-                            >
+                            <CommandItem key={f.matricula} value={`${f.nome} ${f.matricula}`} onSelect={() => selectFuncionario(entry.id, f.matricula)} className="text-sm">
                               <span className="font-medium">{f.nome}</span>
                               <span className="ml-auto text-xs text-muted-foreground">{f.matricula}</span>
                             </CommandItem>
@@ -163,7 +145,7 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
                   </PopoverContent>
                 </Popover>
               ) : (
-                <div className="h-12 flex items-center px-3 rounded-md bg-muted border border-border text-sm text-muted-foreground">
+                <div className="h-12 flex items-center px-3 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground">
                   Selecione a função primeiro
                 </div>
               )}
@@ -172,23 +154,23 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
         );
       })}
 
-      <Button ref={addBtnRef} onClick={addEntry} className="w-full h-12 gap-2 text-base">
+      <Button ref={addBtnRef} onClick={addEntry} className="w-full h-12 gap-2 text-base rounded-xl font-display font-bold">
         <Plus className="w-5 h-5" /> Adicionar Pessoa
       </Button>
 
       {filledEntries.length > 0 && (
-        <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 space-y-3">
-          <h3 className="text-sm font-bold text-primary">📊 Resumo do Efetivo</h3>
+        <div className="rdo-card border-l-4 border-l-primary space-y-3">
+          <h3 className="text-sm font-display font-bold text-primary flex items-center gap-1.5">📊 Resumo do Efetivo</h3>
           <div className="space-y-1">
             {filledEntries.map(e => (
-              <div key={e.id} className="flex items-center justify-between text-sm py-1 border-b border-primary/10 last:border-0">
+              <div key={e.id} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
                 <span className="text-foreground truncate flex-1">{e.nome}</span>
                 <span className="text-xs text-muted-foreground mx-2">{e.funcao}</span>
               </div>
             ))}
           </div>
           {resumo.length > 0 && (
-            <div className="border-t border-primary/20 pt-2 space-y-1">
+            <div className="border-t border-border pt-2 space-y-1">
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                 {resumo.map(([funcao, qty]) => (
                   <div key={funcao} className="flex items-center justify-between text-sm">
@@ -197,7 +179,7 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
                   </div>
                 ))}
               </div>
-              <div className="border-t border-primary/20 pt-2 mt-1 flex justify-between text-sm font-bold">
+              <div className="border-t border-border pt-2 mt-1 flex justify-between text-sm font-bold">
                 <span className="text-foreground">Total</span>
                 <span className="text-primary">{filledEntries.length}</span>
               </div>

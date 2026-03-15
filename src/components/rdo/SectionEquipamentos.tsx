@@ -1,9 +1,8 @@
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMaquinasFrotaFiltered } from "@/hooks/useFilteredData";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Wrench } from "lucide-react";
 import { useRef, useEffect } from "react";
 
 export interface EquipamentoEntry {
@@ -56,23 +55,26 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
     maquinas?.filter((m: any) => m.categoria === categoria) ?? [];
 
   return (
-    <div className="space-y-4 p-4">
-      <h2 className="text-lg font-bold text-foreground">🚜 Equipamentos</h2>
+    <div className="space-y-4 px-4">
+      <h2 className="rdo-section-title">
+        <Wrench className="w-5 h-5 text-orange-500" />
+        Equipamentos
+      </h2>
 
       {entries.map((entry, idx) => (
-        <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div key={entry.id} className="rdo-card space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-primary">Equip. {idx + 1}</span>
+            <span className="text-sm font-display font-bold text-primary">Equip. {idx + 1}</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => update(entry.id, "is_menor", !entry.is_menor)}
-                className={`text-[10px] px-2 py-1 rounded-full border ${entry.is_menor ? "bg-accent text-accent-foreground border-accent" : "bg-secondary text-muted-foreground border-border"}`}
+                className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${entry.is_menor ? "bg-accent text-accent-foreground border-accent" : "bg-white text-muted-foreground border-border"}`}
               >
                 {entry.is_menor ? "Menor ✓" : "Menor?"}
               </button>
               {entries.length > 1 && (
-                <button onClick={() => onChange(entries.filter(e => e.id !== entry.id))} className="text-destructive p-1">
+                <button onClick={() => onChange(entries.filter(e => e.id !== entry.id))} className="text-destructive p-1 hover:bg-destructive/10 rounded-lg transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
@@ -81,35 +83,32 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
 
           {entry.is_menor ? (
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Patrimônio</Label>
-                <Input value={entry.patrimonio} onChange={e => update(entry.id, "patrimonio", e.target.value)} className="h-11 bg-secondary border-border" />
+              <div className="space-y-1.5">
+                <span className="rdo-label">Patrimônio</span>
+                <Input value={entry.patrimonio} onChange={e => update(entry.id, "patrimonio", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Empresa Dona</Label>
-                <Input value={entry.empresa_dona} onChange={e => update(entry.id, "empresa_dona", e.target.value)} className="h-11 bg-secondary border-border" />
+              <div className="space-y-1.5">
+                <span className="rdo-label">Empresa Dona</span>
+                <Input value={entry.empresa_dona} onChange={e => update(entry.id, "empresa_dona", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
               </div>
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Categoria do Equipamento *</Label>
+              <div className="space-y-1.5">
+                <span className="rdo-label">Categoria do Equipamento *</span>
                 <Select value={entry.categoria} onValueChange={v => update(entry.id, "categoria", v)}>
-                  <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
+                  <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIAS.map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
+                    {CATEGORIAS.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-
               {entry.categoria && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Equipamento</Label>
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Equipamento</span>
                   {filteredMaquinas(entry.categoria).length > 0 ? (
                     <Select value={entry.frota} onValueChange={v => update(entry.id, "frota", v)}>
-                      <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione o equipamento" /></SelectTrigger>
+                      <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione o equipamento" /></SelectTrigger>
                       <SelectContent className="max-h-[250px]">
                         {filteredMaquinas(entry.categoria).map((m: any) => (
                           <SelectItem key={m.id} value={m.frota}>{m.frota} - {m.tipo ? `${m.tipo} ` : ""}({m.nome})</SelectItem>
@@ -126,7 +125,7 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
         </div>
       ))}
 
-      <Button ref={addBtnRef} size="sm" onClick={() => onChange([...entries, emptyEquip()])} className="w-full h-12 gap-2 text-base">
+      <Button ref={addBtnRef} size="sm" onClick={() => onChange([...entries, emptyEquip()])} className="w-full h-12 gap-2 text-base rounded-xl font-display font-bold">
         <Plus className="w-5 h-5" /> Adicionar Equipamento
       </Button>
     </div>

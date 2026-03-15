@@ -1,3 +1,5 @@
+import { Layers } from "lucide-react";
+
 interface RdoTipoSelectorProps {
   value: string;
   onChange: (value: string) => void;
@@ -11,22 +13,25 @@ const TIPOS = [
 
 export default function RdoTipoSelector({ value, onChange }: RdoTipoSelectorProps) {
   return (
-    <div className="space-y-2 p-4">
-      <h2 className="text-lg font-bold text-foreground">Tipo de RDO</h2>
+    <div className="rdo-card space-y-4">
+      <h2 className="rdo-section-title">
+        <Layers className="w-5 h-5 text-primary" />
+        Tipo de RDO
+      </h2>
       <div className="grid grid-cols-3 gap-3">
         {TIPOS.map(t => (
           <button
             key={t.value}
             type="button"
             onClick={() => onChange(t.value)}
-            className={`p-4 rounded-xl border-2 text-center transition-all ${
+            className={`p-4 rounded-xl border-2 text-center transition-all duration-200 ${
               value === t.value
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card text-foreground border-border hover:border-primary/50"
+                ? "bg-primary text-primary-foreground border-primary shadow-card"
+                : "bg-white text-foreground border-border hover:border-primary/40 hover:shadow-sm"
             }`}
           >
             <span className="text-2xl block mb-1">{t.icon}</span>
-            <span className="text-sm font-bold block">{t.label}</span>
+            <span className="text-sm font-display font-bold block">{t.label}</span>
             <span className="text-[10px] opacity-70">{t.desc}</span>
           </button>
         ))}

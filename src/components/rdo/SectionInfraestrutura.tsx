@@ -1,9 +1,8 @@
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Construction } from "lucide-react";
 import { useEmpreiteiros, useTiposServico, useMateriais } from "@/hooks/useFilteredData";
 
 export interface InfraProducaoEntry {
@@ -42,80 +41,85 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
     onChangeProducao(producao.map(e => e.id === id ? { ...e, [field]: value } : e));
 
   return (
-    <div className="space-y-4 p-4">
-      <h2 className="text-lg font-bold text-foreground">🏗️ Infraestrutura</h2>
+    <div className="space-y-4 px-4">
+      <h2 className="rdo-section-title">
+        <Construction className="w-5 h-5 text-yellow-500" />
+        Infraestrutura
+      </h2>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Empreiteiro</Label>
-          <Select value={empreiteiro} onValueChange={onChangeEmpreiteiro}>
-            <SelectTrigger className="h-12 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
-            <SelectContent>
-              {empreiteiros && empreiteiros.length > 0
-                ? empreiteiros.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)
-                : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Tipo de Serviço</Label>
-          <Select value={tipoServico} onValueChange={onChangeTipoServico}>
-            <SelectTrigger className="h-12 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
-            <SelectContent>
-              {servicos && servicos.length > 0
-                ? servicos.map(s => <SelectItem key={s.id} value={s.nome}>{s.nome}</SelectItem>)
-                : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
-            </SelectContent>
-          </Select>
+      <div className="rdo-card space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <span className="rdo-label">Empreiteiro</span>
+            <Select value={empreiteiro} onValueChange={onChangeEmpreiteiro}>
+              <SelectTrigger className="h-12 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                {empreiteiros && empreiteiros.length > 0
+                  ? empreiteiros.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)
+                  : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <span className="rdo-label">Tipo de Serviço</span>
+            <Select value={tipoServico} onValueChange={onChangeTipoServico}>
+              <SelectTrigger className="h-12 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                {servicos && servicos.length > 0
+                  ? servicos.map(s => <SelectItem key={s.id} value={s.nome}>{s.nome}</SelectItem>)
+                  : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
-      <span className="text-sm font-semibold text-foreground pt-2">Produção</span>
+      <h3 className="text-sm font-display font-bold pt-1" style={{ color: "hsl(220 70% 30%)" }}>Produção</h3>
 
       {producao.map((entry, idx) => {
         const area = (parseFloat(entry.comprimento_m) || 0) * (parseFloat(entry.largura_m) || 0);
         return (
-          <div key={entry.id} className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <div key={entry.id} className="rdo-card space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-primary">Trecho {idx + 1}</span>
+              <span className="text-sm font-display font-bold text-primary">Trecho {idx + 1}</span>
               {producao.length > 1 && (
-                <button onClick={() => onChangeProducao(producao.filter(e => e.id !== entry.id))} className="text-destructive p-1">
+                <button onClick={() => onChangeProducao(producao.filter(e => e.id !== entry.id))} className="text-destructive p-1 hover:bg-destructive/10 rounded-lg transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Sentido</Label>
-                <Input value={entry.sentido} onChange={e => update(entry.id, "sentido", e.target.value)} className="h-11 bg-secondary border-border" placeholder="N/S" />
+              <div className="space-y-1.5">
+                <span className="rdo-label">Sentido</span>
+                <Input value={entry.sentido} onChange={e => update(entry.id, "sentido", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="N/S" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Estaca Ini.</Label>
-                <Input inputMode="numeric" value={entry.estaca_inicial} onChange={e => update(entry.id, "estaca_inicial", e.target.value)} className="h-11 bg-secondary border-border" />
+              <div className="space-y-1.5">
+                <span className="rdo-label">Estaca Ini.</span>
+                <Input inputMode="numeric" value={entry.estaca_inicial} onChange={e => update(entry.id, "estaca_inicial", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Estaca Fin.</Label>
-                <Input inputMode="numeric" value={entry.estaca_final} onChange={e => update(entry.id, "estaca_final", e.target.value)} className="h-11 bg-secondary border-border" />
+              <div className="space-y-1.5">
+                <span className="rdo-label">Estaca Fin.</span>
+                <Input inputMode="numeric" value={entry.estaca_final} onChange={e => update(entry.id, "estaca_final", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Comp (m)</Label>
-                <Input type="number" inputMode="decimal" value={entry.comprimento_m} onChange={e => update(entry.id, "comprimento_m", e.target.value)} className="h-11 bg-secondary border-border" />
+              <div className="space-y-1.5">
+                <span className="rdo-label">Comp (m)</span>
+                <Input type="number" inputMode="decimal" value={entry.comprimento_m} onChange={e => update(entry.id, "comprimento_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Larg (m)</Label>
-                <Input type="number" inputMode="decimal" value={entry.largura_m} onChange={e => update(entry.id, "largura_m", e.target.value)} className="h-11 bg-secondary border-border" />
+              <div className="space-y-1.5">
+                <span className="rdo-label">Larg (m)</span>
+                <Input type="number" inputMode="decimal" value={entry.largura_m} onChange={e => update(entry.id, "largura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Esp (cm)</Label>
-                <Input type="number" inputMode="decimal" value={entry.espessura_cm} onChange={e => update(entry.id, "espessura_cm", e.target.value)} className="h-11 bg-secondary border-border" />
+              <div className="space-y-1.5">
+                <span className="rdo-label">Esp (cm)</span>
+                <Input type="number" inputMode="decimal" value={entry.espessura_cm} onChange={e => update(entry.id, "espessura_cm", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
               </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Material</Label>
+            <div className="space-y-1.5">
+              <span className="rdo-label">Material</span>
               <Select value={entry.material} onValueChange={(v) => update(entry.id, "material", v)}>
-                <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione material..." /></SelectTrigger>
+                <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione material..." /></SelectTrigger>
                 <SelectContent>
                   {materiais && materiais.length > 0
                     ? materiais.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome}</SelectItem>)
@@ -126,7 +130,7 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Checkbox checked={entry.is_retrabalho} onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)} />
-                <Label className="text-xs text-muted-foreground">É Retrabalho?</Label>
+                <span className="text-xs text-muted-foreground">É Retrabalho?</span>
               </div>
               {area > 0 && <span className="text-sm font-bold text-primary">Área: {area.toFixed(2)} m²</span>}
             </div>
@@ -134,7 +138,7 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
         );
       })}
 
-      <Button size="sm" onClick={() => onChangeProducao([...producao, emptyEntry()])} className="w-full h-12 gap-2 text-base">
+      <Button size="sm" onClick={() => onChangeProducao([...producao, emptyEntry()])} className="w-full h-12 gap-2 text-base rounded-xl font-display font-bold">
         <Plus className="w-5 h-5" /> Adicionar Trecho
       </Button>
     </div>

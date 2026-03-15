@@ -34,7 +34,10 @@
     --input: 210 20% 90%;
     --ring: 215 100% 50%;
 
-    --radius: 1rem;
+  --radius: 1rem;
+
+    /* RDO page background */
+    --page-bg: 210 20% 98%;
 
     --sidebar-background: 215 60% 97%;
     --sidebar-foreground: 215 30% 25%;
@@ -108,6 +111,29 @@
 
   .glow-accent {
     box-shadow: var(--glow-accent);
+  }
+
+  .bg-page {
+    background-color: hsl(var(--page-bg));
+  }
+
+  .rdo-section-title {
+    @apply font-display font-bold text-lg tracking-tight flex items-center gap-2;
+    color: hsl(220 70% 30%);
+  }
+
+  .rdo-card {
+    @apply bg-white rounded-2xl p-5 border border-transparent;
+    box-shadow: 0 2px 12px -2px hsl(215 60% 50% / 0.08), 0 1px 3px hsl(215 60% 50% / 0.06);
+  }
+
+  .rdo-card:hover {
+    box-shadow: 0 4px 20px -4px hsl(215 60% 50% / 0.14), 0 2px 6px hsl(215 60% 50% / 0.08);
+  }
+
+  .rdo-label {
+    @apply text-xs font-semibold tracking-wide uppercase mb-1.5 block;
+    color: hsl(220 50% 35%);
   }
 
   .glass {
