@@ -1086,7 +1086,7 @@ export default function EquipmentDiaryForm() {
 
                 {/* Filer */}
                 <div className="border border-border rounded-lg p-3 space-y-2">
-                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">�ite Filer (Material Fino)</h4>
+                  <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">Filer (Material Fino)</h4>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Tipo</span>
