@@ -648,9 +648,9 @@ export default function EquipmentDiaryForm() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 bg-card border border-border rounded-2xl p-4 shadow-card">
       {title && (
-        <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-border pb-2">
+        <h3 className="text-sm font-display font-extrabold text-foreground uppercase tracking-wide border-b border-border pb-2">
           {title}
         </h3>
       )}
