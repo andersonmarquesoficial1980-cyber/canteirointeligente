@@ -53,6 +53,7 @@ export default function EquipmentDiaryForm() {
   // Equipment type from URL (no more selector)
   const equipmentType = searchParams.get("tipo") || "Fresadora";
   const isFresadora = equipmentType === "Fresadora";
+  const isBobcat = equipmentType === "Bobcat";
   const isUsinaKma = equipmentType === "Usina KMA";
 
   // OGS reference data
