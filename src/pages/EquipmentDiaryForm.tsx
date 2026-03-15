@@ -203,7 +203,6 @@ export default function EquipmentDiaryForm() {
   const [comboioSaldoInicial, setComboioSaldoInicial] = useState("");
   const [comboioFornecedor, setComboioFornecedor] = useState("");
   const [comboioTankSupplies, setComboioTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
-  const [comboioTankSupplies, setComboioTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
 
   // Veículo type
   const [veiculoType, setVeiculoType] = useState("");
