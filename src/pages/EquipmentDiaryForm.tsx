@@ -32,7 +32,7 @@ const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manu
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
 const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
 const VIBRO_FLEETS = ["VA01", "VA03", "VA04", "VA05", "VA17", "VA19", "VA20"];
-const KMA_FLEETS = ["KMA240"];
+const KMA_FLEETS = ["KMA01", "KMA02", "KMA03", "KMA04", "KMA05"];
 
 const KMA_OPERATION_TYPES = ["Usinagem", "Limpeza", "Manutenção"] as const;
 const CAP_TYPES = ["CAP 50/70", "CAP 30/45", "AMP 55/75", "AMP 60/85"];

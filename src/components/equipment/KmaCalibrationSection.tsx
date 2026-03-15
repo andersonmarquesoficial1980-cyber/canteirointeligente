@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Scale, Camera, AlertTriangle, CheckCircle, FileText, X } from "lucide-react";
+import { Scale, Camera, AlertTriangle, CheckCircle, FileText, X, ShieldCheck, ShieldAlert } from "lucide-react";
 import { compressImage } from "@/lib/imageCompression";
 import { useToast } from "@/hooks/use-toast";
 
@@ -89,100 +89,159 @@ export default function KmaCalibrationSection({ entries, onChange, onGeneratePdf
   };
 
   return (
-    <Card className="border-accent/30 bg-card">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Scale className="w-5 h-5 text-accent" />
-            Calibração KMA — Pesagem
-          </CardTitle>
-          {onGeneratePdf && (
-            <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onGeneratePdf}>
-              <FileText className="w-3.5 h-3.5" /> Gerar Demonstrativo
-            </Button>
-          )}
+    <div className="space-y-3 bg-card border border-border rounded-2xl p-4 shadow-card">
+      {/* Section Header */}
+      <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10">
+            <Scale className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-display font-extrabold text-primary uppercase tracking-wide">
+              CALIBRAGEM DA USINA
+            </h3>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Controle de pesagem — Foto obrigatória quando diferença {"<"} 1%
+            </p>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Foto do ticket obrigatória quando diferença {"<"} 1%
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        {onGeneratePdf && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs font-bold border-primary/30 text-primary hover:bg-primary/10"
+            onClick={onGeneratePdf}
+          >
+            <FileText className="w-3.5 h-3.5" /> Gerar PDF
+          </Button>
+        )}
+      </div>
+
+      {/* Calibration Entries */}
+      <div className="space-y-4">
         {entries.map((entry, idx) => {
           const diff = calcDiffPercent(entry);
           const fator = calcFator(entry);
-          const showPhotoBtn = diff !== null && Math.abs(diff) < 1;
-          const isOk = diff !== null && Math.abs(diff) < 1;
+          const isApproved = diff !== null && Math.abs(diff) < 1;
+          const isFailed = diff !== null && Math.abs(diff) >= 1;
+          const showPhotoBtn = isApproved;
 
           return (
-            <div key={idx} className="border border-border rounded-lg p-4 space-y-3">
+            <div
+              key={idx}
+              className={`border-2 rounded-xl p-4 space-y-3 transition-colors ${
+                isApproved
+                  ? "border-green-400/60 bg-green-50/30"
+                  : isFailed
+                  ? "border-red-400/60 bg-red-50/30"
+                  : "border-border bg-secondary/30"
+              }`}
+            >
+              {/* Attempt Header with Status */}
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">
-                  Tentativa {entry.tentativa}
+                <span className="text-sm font-display font-extrabold text-primary">
+                  {entry.tentativa}ª Tentativa
                 </span>
                 {diff !== null && (
-                  <Badge variant={isOk ? "default" : "destructive"} className="text-xs gap-1">
-                    {isOk ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                    Δ {diff.toFixed(2)}%
-                  </Badge>
+                  isApproved ? (
+                    <div className="flex items-center gap-1.5 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      DENTRO DO PADRÃO
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">
+                      <ShieldAlert className="w-3.5 h-3.5" />
+                      FORA DO PADRÃO
+                    </div>
+                  )
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              {/* Input Fields */}
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Tara (kg)</Label>
+                  <Label className="text-[10px] font-bold text-primary uppercase tracking-wide">Tara do Caminhão (kg)</Label>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     value={entry.tara}
                     onChange={(e) => updateEntry(idx, "tara", e.target.value)}
                     placeholder="0"
-                    className="bg-secondary border-border"
+                    className="bg-background border-border"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Peso Nominal Usina (kg)</Label>
+                  <Label className="text-[10px] font-bold text-primary uppercase tracking-wide">Peso Nominal Usina (kg)</Label>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     value={entry.pesoNominal}
                     onChange={(e) => updateEntry(idx, "pesoNominal", e.target.value)}
                     placeholder="0"
-                    className="bg-secondary border-border"
+                    className="bg-background border-border"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Peso Real Referência (kg)</Label>
+                  <Label className="text-[10px] font-bold text-primary uppercase tracking-wide">Peso Real Referência (kg)</Label>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     value={entry.pesoReal}
                     onChange={(e) => updateEntry(idx, "pesoReal", e.target.value)}
                     placeholder="0"
-                    className="bg-secondary border-border"
+                    className="bg-background border-border"
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-primary uppercase tracking-wide">Fator de Ajuste</Label>
+                  <div className="flex items-center h-10 px-3 bg-muted/50 border border-border rounded-md text-sm font-semibold text-foreground">
+                    {fator !== null ? fator.toFixed(4) : "—"}
+                  </div>
                 </div>
               </div>
 
-              {fator !== null && (
-                <p className="text-xs text-muted-foreground">
-                  Fator de ajuste: <span className="font-semibold text-foreground">{fator.toFixed(4)}</span>
-                </p>
+              {/* Real-time Difference Display */}
+              {diff !== null && (
+                <div
+                  className={`flex items-center justify-between rounded-lg p-3 ${
+                    isApproved
+                      ? "bg-green-100/60 border border-green-300/60"
+                      : "bg-red-100/60 border border-red-300/60"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-foreground">Diferença Calculada:</span>
+                  <span
+                    className={`text-lg font-display font-extrabold ${
+                      isApproved ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {diff.toFixed(2)}%
+                  </span>
+                </div>
               )}
 
-              {/* Photo button ONLY when diff < 1% */}
+              {/* Photo button ONLY when approved (diff < 1%) */}
               {showPhotoBtn && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 bg-accent/10 border border-accent/30 rounded-md p-2">
-                    <Camera className="w-4 h-4 text-accent" />
-                    <span className="text-xs text-accent font-medium">
-                      Diferença {"<"} 1% — Foto do ticket obrigatória
+                  <div className="flex items-center gap-2 bg-green-100/50 border border-green-300/50 rounded-lg p-2.5">
+                    <Camera className="w-4 h-4 text-green-600" />
+                    <span className="text-xs text-green-700 font-bold">
+                      ✅ Aprovado! Capture a foto do ticket de pesagem
                     </span>
                   </div>
 
                   {entry.ticketPhotoPreview ? (
                     <div className="relative inline-block">
-                      <img src={entry.ticketPhotoPreview} alt="Ticket" className="rounded-md max-h-32 border border-border" />
+                      <img
+                        src={entry.ticketPhotoPreview}
+                        alt="Ticket"
+                        className="rounded-xl max-h-36 border-2 border-green-300/60 shadow-sm"
+                      />
                       <button
                         type="button"
                         onClick={() => clearPhoto(idx)}
-                        className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                        className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-md hover:scale-110 transition-transform"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -202,14 +261,13 @@ export default function KmaCalibrationSection({ entries, onChange, onGeneratePdf
                       />
                       <Button
                         type="button"
-                        variant="outline"
                         size="sm"
-                        className="gap-1.5 text-xs"
+                        className="gap-2 text-xs font-bold bg-green-600 hover:bg-green-700 text-white shadow-md"
                         disabled={compressing === idx}
                         onClick={() => fileInputRefs.current[idx]?.click()}
                       >
-                        <Camera className="w-3.5 h-3.5" />
-                        {compressing === idx ? "Comprimindo..." : "Capturar Foto do Ticket"}
+                        <Camera className="w-4 h-4" />
+                        {compressing === idx ? "Comprimindo..." : "📷 Tirar Foto do Ticket de Pesagem"}
                       </Button>
                     </>
                   )}
@@ -218,17 +276,18 @@ export default function KmaCalibrationSection({ entries, onChange, onGeneratePdf
             </div>
           );
         })}
+      </div>
 
-        {entries.length < 5 && (
-          <button
-            type="button"
-            onClick={addEntry}
-            className="w-full border border-dashed border-border rounded-lg py-2 text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
-          >
-            + Adicionar tentativa
-          </button>
-        )}
-      </CardContent>
-    </Card>
+      {/* Add Attempt Button */}
+      {entries.length < 5 && (
+        <button
+          type="button"
+          onClick={addEntry}
+          className="w-full border-2 border-dashed border-primary/30 rounded-xl py-3 text-sm font-bold text-primary hover:text-primary hover:border-primary/60 hover:bg-primary/5 transition-all"
+        >
+          + Adicionar Tentativa
+        </button>
+      )}
+    </div>
   );
 }
