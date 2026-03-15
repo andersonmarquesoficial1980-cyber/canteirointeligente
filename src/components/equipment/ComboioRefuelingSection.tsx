@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Fuel, Droplets, Truck } from "lucide-react";
+import { Plus, Trash2, Fuel, Droplets, Truck, FileDown } from "lucide-react";
 
 export interface ComboioRefuelEntry {
   id: string;
