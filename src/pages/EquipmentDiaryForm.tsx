@@ -30,6 +30,7 @@ const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manu
 
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
 const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
+const VIBRO_FLEETS = ["VA01", "VA03", "VA04", "VA05", "VA17", "VA19", "VA20"];
 
 const ROLO_TYPES = ["Rolo Chapa", "Rolo Pneu", "Rolo Pé de Carneiro"] as const;
 const ROLO_FLEETS: Record<string, string[]> = {
