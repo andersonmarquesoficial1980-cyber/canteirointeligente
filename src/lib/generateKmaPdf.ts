@@ -71,7 +71,7 @@ export async function generateKmaPdf({ fleet, date, operator, entries }: KmaPdfP
   doc.setFontSize(9);
   for (const entry of validEntries) {
     const diff = calcDiffPercent(entry);
-    const fator = calcFator(entry);
+    const fator = entry.fator ? Number(entry.fator) : null;
 
     doc.text(String(entry.tentativa), 20, y);
     doc.text(entry.tara ? Number(entry.tara).toLocaleString("pt-BR") : "—", 35, y);

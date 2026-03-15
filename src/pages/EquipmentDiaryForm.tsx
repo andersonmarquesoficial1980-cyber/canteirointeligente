@@ -486,7 +486,7 @@ export default function EquipmentDiaryForm() {
             nominal_weight_usina: entry.pesoNominal ? Number(entry.pesoNominal) : null,
             real_weight_reference: entry.pesoReal ? Number(entry.pesoReal) : null,
             truck_tara: entry.tara ? Number(entry.tara) : null,
-            adjustment_factor: calcFator(entry),
+            adjustment_factor: entry.fator ? Number(entry.fator) : null,
             ticket_photo_url: ticketUrl,
           });
         }
