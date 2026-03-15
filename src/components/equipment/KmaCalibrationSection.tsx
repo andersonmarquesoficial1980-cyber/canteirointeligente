@@ -13,6 +13,7 @@ export interface CalibrationEntry {
   tara: string;
   pesoNominal: string;
   pesoReal: string;
+  fator: string;
   ticketPhotoFile: File | null;
   ticketPhotoPreview: string | null;
 }
