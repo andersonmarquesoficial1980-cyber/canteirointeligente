@@ -624,7 +624,7 @@ export default function EquipmentDiaryForm() {
           <Button
             onClick={() => handleSave(false)}
             disabled={saving || !!horimeterError}
-            className="w-full font-bold text-base py-6 bg-header-gradient hover:opacity-90 shadow-md"
+            className="w-full font-extrabold text-base py-6 rounded-2xl bg-header-gradient hover:opacity-90 shadow-lg glow-primary"
           >
             <Send className="w-5 h-5 mr-2" />
             {saving ? "Enviando..." : "Enviar Diário"}
@@ -648,9 +648,9 @@ export default function EquipmentDiaryForm() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 bg-card border border-border rounded-2xl p-4 shadow-card">
       {title && (
-        <h3 className="text-sm font-bold text-foreground uppercase tracking-wide border-b border-border pb-2">
+        <h3 className="text-sm font-display font-extrabold text-foreground uppercase tracking-wide border-b border-border pb-2">
           {title}
         </h3>
       )}
@@ -662,7 +662,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5 flex-1 min-w-0">
-      <label className="text-xs font-semibold text-primary uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-display font-bold text-primary uppercase tracking-wide">{label}</label>
       {children}
     </div>
   );

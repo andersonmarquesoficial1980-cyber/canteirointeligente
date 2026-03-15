@@ -8,12 +8,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 flex items-center bg-header-gradient px-2 sticky top-0 z-50 shadow-md">
+          <header className="h-14 flex items-center bg-header-gradient px-3 sticky top-0 z-50 shadow-lg">
             <SidebarTrigger className="ml-1 text-primary-foreground hover:bg-white/15" />
-            <img src={logoCi} alt="CI" className="h-8 ml-3 object-contain drop-shadow-sm" />
+            <div className="relative ml-3">
+              <img src={logoCi} alt="CI" className="h-10 object-contain drop-shadow-lg" />
+              <div className="absolute inset-0 rounded-full bg-white/20 blur-md -z-10 scale-110" />
+            </div>
             <div className="ml-2">
-              <span className="block font-display font-bold text-sm text-primary-foreground leading-tight">Canteiro Inteligente</span>
-              <span className="block text-[10px] text-primary-foreground/75 leading-tight">Plataforma de Gestão</span>
+              <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Canteiro Inteligente</span>
+              <span className="block text-[10px] text-primary-foreground/80 font-medium leading-tight">Plataforma de Gestão</span>
             </div>
           </header>
           <main className="flex-1 overflow-y-auto">{children}</main>
