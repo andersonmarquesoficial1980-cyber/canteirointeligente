@@ -333,8 +333,16 @@ export default function EquipmentDiaryForm() {
         }
       }
 
+      // Save Bobcat attachment
+      if (isBobcat && diary && attachmentType && attachmentId) {
+        await supabase.from("equipment_attachments" as any).insert({
+          fleet_id: selectedFleet,
+          type: `${attachmentType} — ${attachmentId}`,
+        });
+      }
+
       // Save checklist results
-      if (isFresadora && diary && checklistResults.length > 0) {
+      if ((isFresadora || isBobcat) && diary && checklistResults.length > 0) {
         for (const cr of checklistResults) {
           let photoUrl: string | null = null;
           if (cr.photoFile) {
