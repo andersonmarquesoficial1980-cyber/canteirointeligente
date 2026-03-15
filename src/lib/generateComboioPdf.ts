@@ -29,8 +29,7 @@ function loadLogoAsDataUrl(): Promise<string> {
       resolve(canvas.toDataURL("image/png"));
     };
     img.onerror = reject;
-    // Use the circular logo from assets
-    img.src = new URL("@/assets/logo-ci.png", import.meta.url).href;
+    img.src = logoSrc;
   });
 }
 
