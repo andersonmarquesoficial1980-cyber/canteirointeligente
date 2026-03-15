@@ -20,12 +20,20 @@ export interface TimeEntry {
   activity: string;
   isParada: boolean;
   maintenanceDetails?: string;
+  origin?: string;
+  destination?: string;
+  transportObs?: string;
+  transportOgs?: string;
+  transportPassengers?: string;
 }
 
 interface Props {
   entries: TimeEntry[];
   onChange: (entries: TimeEntry[]) => void;
   turno: "diurno" | "noturno";
+  showTransportOgs?: boolean;
+  showTransportPassengers?: boolean;
+  ogsData?: any[];
 }
 
 export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
@@ -36,21 +44,23 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
     activity: "",
     isParada: false,
     maintenanceDetails: "",
+    origin: "",
+    destination: "",
+    transportObs: "",
+    transportOgs: "",
+    transportPassengers: "",
   };
 }
 
-export default function TimeEntriesSection({ entries, onChange, turno }: Props) {
+export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [] }: Props) {
   const addEntry = () => {
     const lastEnd = entries.length > 0 ? entries[entries.length - 1].endTime : "";
     onChange([
       ...entries,
       {
+        ...createDefaultTimeEntry(turno),
         id: crypto.randomUUID(),
         startTime: lastEnd || (turno === "diurno" ? "07:00" : "20:30"),
-        endTime: "",
-        activity: "",
-        isParada: false,
-        maintenanceDetails: "",
       },
     ]);
   };
@@ -59,15 +69,20 @@ export default function TimeEntriesSection({ entries, onChange, turno }: Props) 
     const updated = entries.map((e, i) => {
       if (i !== index) return e;
       const newEntry = { ...e, [field]: value };
-      // Mark parada activities
       if (field === "activity") {
         const paradaActivities = ["Refeições", "À Disposição", "Manutenção"];
         newEntry.isParada = paradaActivities.includes(value);
         if (value !== "Manutenção") newEntry.maintenanceDetails = "";
+        if (value !== "Transporte") {
+          newEntry.origin = "";
+          newEntry.destination = "";
+          newEntry.transportObs = "";
+          newEntry.transportOgs = "";
+          newEntry.transportPassengers = "";
+        }
       }
       return newEntry;
     });
-    // Auto-chain: if endTime changed, update next entry's startTime
     if (field === "endTime" && value && index < updated.length - 1) {
       updated[index + 1] = { ...updated[index + 1], startTime: value };
     }
@@ -95,6 +110,12 @@ export default function TimeEntriesSection({ entries, onChange, turno }: Props) 
       if (diff < 0) diff += 24 * 60;
       return acc + diff / 60;
     }, 0);
+
+  // Unique OGS for transport selector
+  const uniqueOgs = ogsData.reduce((acc: any[], o: any) => {
+    if (o.ogs_number && !acc.find((x: any) => x.ogs_number === o.ogs_number)) acc.push(o);
+    return acc;
+  }, []);
 
   return (
     <div className="space-y-3">
@@ -163,6 +184,69 @@ export default function TimeEntriesSection({ entries, onChange, turno }: Props) 
                 placeholder="Descreva brevemente o serviço de manutenção..."
                 className="bg-secondary border-border text-xs min-h-[60px]"
               />
+            </div>
+          )}
+
+          {/* Transport fields */}
+          {entry.activity === "Transporte" && (
+            <div className="space-y-2 border-t border-border pt-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold text-accent uppercase">Origem</span>
+                  <Input
+                    value={entry.origin || ""}
+                    onChange={(e) => updateEntry(idx, "origin", e.target.value)}
+                    placeholder="Local de origem..."
+                    className="bg-secondary border-border text-xs h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold text-accent uppercase">Destino</span>
+                  <Input
+                    value={entry.destination || ""}
+                    onChange={(e) => updateEntry(idx, "destination", e.target.value)}
+                    placeholder="Local de destino..."
+                    className="bg-secondary border-border text-xs h-9"
+                  />
+                </div>
+              </div>
+              {showTransportOgs && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold text-accent uppercase">OGS de Destino</span>
+                  <Select value={entry.transportOgs || ""} onValueChange={(v) => updateEntry(idx, "transportOgs", v)}>
+                    <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                      <SelectValue placeholder="Selecione OGS..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {uniqueOgs.map((o: any) => (
+                        <SelectItem key={o.id} value={o.ogs_number}>{o.ogs_number} — {o.client_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {showTransportPassengers && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold text-accent uppercase">Qtd. Passageiros</span>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    value={entry.transportPassengers || ""}
+                    onChange={(e) => updateEntry(idx, "transportPassengers", e.target.value)}
+                    placeholder="0"
+                    className="bg-secondary border-border text-xs h-9 w-24"
+                  />
+                </div>
+              )}
+              <div className="space-y-1">
+                <span className="text-[10px] font-semibold text-accent uppercase">Observações do Transporte</span>
+                <Textarea
+                  value={entry.transportObs || ""}
+                  onChange={(e) => updateEntry(idx, "transportObs", e.target.value)}
+                  placeholder="Detalhes do transporte..."
+                  className="bg-secondary border-border text-xs min-h-[50px]"
+                />
+              </div>
             </div>
           )}
         </div>

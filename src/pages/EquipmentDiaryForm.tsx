@@ -9,8 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Send, Save } from "lucide-react";
+import { AlertCircle, Send, Save, Plus, Trash2, Droplets, Fuel } from "lucide-react";
 import EquipmentHeader from "@/components/equipment/EquipmentHeader";
 import TimeEntriesSection, { type TimeEntry, createDefaultTimeEntry } from "@/components/equipment/TimeEntriesSection";
 import KmaCalibrationSection, {
@@ -42,6 +43,66 @@ const ROLO_FLEETS: Record<string, string[]> = {
 const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
 const RETRO_ATTACHMENT_TYPES = ["Concha", "Rompedor"] as const;
 
+// ── Caminhão configs ──
+const PIPA_FLEETS = ["CP01", "CP02", "CP03", "CP04", "CP05"];
+const PIPA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
+
+const ESPARGIDOR_FLEETS = ["CE01", "CE02", "CE03", "CE04", "CE05"];
+const ESPARGIDOR_FORNECEDORES = ["CBAA", "Greca", "Betunel", "Disbral"];
+const EMULSION_TYPES = ["RR-1C", "RR-2C", "RM-1C", "RM-2C", "CM-30"];
+
+const CARRETA_FLEETS = ["CM01", "CM02", "CM03", "CM04", "CM05"];
+const PRANCHA_OPTIONS = ["PR001", "PR002", "PR003", "PR004", "PR005"];
+
+const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
+const COMBOIO_FORNECEDORES = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás", "Shell Box"];
+
+const VEICULO_TYPES = ["Micro-ônibus", "Van"] as const;
+const VEICULO_FLEETS: Record<string, string[]> = {
+  "Micro-ônibus": ["VT01", "VT02", "VT03", "VT04", "VT05"],
+  "Van": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
+};
+
+// ── Comboio refueling entry ──
+interface ComboioRefuelEntry {
+  id: string;
+  lubricatorName: string;
+  initialDiesel: string;
+  finalDiesel: string;
+  fleetFueled: string;
+  equipmentMeter: string;
+  ogsDestination: string;
+  litersFueled: string;
+  isLubricated: boolean;
+}
+
+function createEmptyComboioRefuel(): ComboioRefuelEntry {
+  return {
+    id: crypto.randomUUID(),
+    lubricatorName: "",
+    initialDiesel: "",
+    finalDiesel: "",
+    fleetFueled: "",
+    equipmentMeter: "",
+    ogsDestination: "",
+    litersFueled: "",
+    isLubricated: false,
+  };
+}
+
+// ── Truck tank supply ──
+interface TankSupplyEntry {
+  id: string;
+  quantity: string;
+  supplier: string;
+  emulsionType?: string;
+  materialType?: string;
+}
+
+function createEmptyTankSupply(): TankSupplyEntry {
+  return { id: crypto.randomUUID(), quantity: "", supplier: "", emulsionType: "", materialType: "" };
+}
+
 function getAttachmentIds(type: string): string[] {
   if (type === "Vassoura Mecânica") {
     return Array.from({ length: 30 }, (_, i) => `VM${70 + i}`);
@@ -60,7 +121,6 @@ export default function EquipmentDiaryForm() {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
-  // Equipment type from URL (no more selector)
   const equipmentType = searchParams.get("tipo") || "Fresadora";
   const isFresadora = equipmentType === "Fresadora";
   const isBobcat = equipmentType === "Bobcat";
@@ -68,8 +128,15 @@ export default function EquipmentDiaryForm() {
   const isRetro = equipmentType === "Retro";
   const isRolo = equipmentType === "Rolo";
   const isVibro = equipmentType === "Vibroacabadora";
+  const isPipa = equipmentType === "Caminhão Pipa";
+  const isEspargidor = equipmentType === "Caminhão Espargidor";
+  const isCarreta = equipmentType === "Carreta";
+  const isComboio = equipmentType === "Comboio";
+  const isVeiculo = equipmentType === "Veículo";
+  const isTruck = isPipa || isEspargidor || isCarreta || isComboio || isVeiculo;
+  const usesOdometer = isTruck;
+  const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro;
 
-  // OGS reference data
   const { data: ogsData = [] } = useOgsReference();
 
   // Form state
@@ -94,17 +161,30 @@ export default function EquipmentDiaryForm() {
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
 
-  // Bobcat-specific state
+  // Bobcat-specific
   const [attachmentType, setAttachmentType] = useState("");
   const [attachmentId, setAttachmentId] = useState("");
-
   const attachmentIds = useMemo(() => getAttachmentIds(attachmentType), [attachmentType]);
 
-  // Rolo-specific state
+  // Rolo-specific
   const [roloType, setRoloType] = useState("");
   const roloFleets = useMemo(() => ROLO_FLEETS[roloType] || [], [roloType]);
 
-  // Auto-fill client/location from OGS — handle semicolon-separated addresses
+  // Carreta-specific
+  const [prancha, setPrancha] = useState("");
+
+  // Truck tank supply (Pipa / Espargidor)
+  const [tankSupplies, setTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
+
+  // Comboio refueling
+  const [comboioRefuels, setComboioRefuels] = useState<ComboioRefuelEntry[]>([createEmptyComboioRefuel()]);
+  const [comboioTankSupplies, setComboioTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
+
+  // Veículo type
+  const [veiculoType, setVeiculoType] = useState("");
+  const veiculoFleets = useMemo(() => VEICULO_FLEETS[veiculoType] || [], [veiculoType]);
+
+  // OGS auto-fill
   const selectedOgs = useMemo(() => {
     if (!ogsNumber) return null;
     return ogsData.find((o: any) => o.ogs_number === ogsNumber) || null;
@@ -113,9 +193,7 @@ export default function EquipmentDiaryForm() {
   const ogsAddressList = useMemo(() => {
     if (!selectedOgs?.location_address) return [];
     const raw = selectedOgs.location_address as string;
-    if (raw.includes(";")) {
-      return raw.split(";").map((a: string) => a.trim()).filter(Boolean);
-    }
+    if (raw.includes(";")) return raw.split(";").map((a: string) => a.trim()).filter(Boolean);
     return [raw.trim()];
   }, [selectedOgs]);
 
@@ -135,7 +213,6 @@ export default function EquipmentDiaryForm() {
     }
   }, [selectedOgs, ogsAddressList, hasMultipleAddresses]);
 
-  // Unique OGS numbers for the selector
   const uniqueOgs = useMemo(() => {
     const seen = new Set<string>();
     return ogsData.filter((o: any) => {
@@ -159,7 +236,6 @@ export default function EquipmentDiaryForm() {
     },
   });
 
-  // Fetch operators (funcionários)
   const { data: funcionarios = [] } = useQuery({
     queryKey: ["funcionarios"],
     queryFn: async () => {
@@ -172,7 +248,7 @@ export default function EquipmentDiaryForm() {
     },
   });
 
-  // Filtered operators by role
+  // Filtered operators
   const operadoresFresa = useMemo(
     () => funcionarios.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
@@ -189,7 +265,6 @@ export default function EquipmentDiaryForm() {
     [funcionarios]
   );
 
-  // Filtered fleet for equipment type
   const filteredFleet = useMemo(() => {
     if (isFresadora) {
       return equipamentos.filter((eq: any) =>
@@ -201,7 +276,6 @@ export default function EquipmentDiaryForm() {
     return equipamentos;
   }, [equipamentos, isFresadora]);
 
-  // Bobcat operator filter
   const operadoresBobcat = useMemo(
     () => funcionarios.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
@@ -210,7 +284,6 @@ export default function EquipmentDiaryForm() {
     [funcionarios]
   );
 
-  // Retro operator filter
   const operadoresRetro = useMemo(
     () => funcionarios.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
@@ -219,10 +292,19 @@ export default function EquipmentDiaryForm() {
     [funcionarios]
   );
 
-  // Horímetro validation
+  const motoristas = useMemo(
+    () => funcionarios.filter((f: any) => {
+      const fn = f.funcao?.toUpperCase() || "";
+      return fn.includes("MOTORISTA") || fn.includes("CAMINHÃO") || fn.includes("COMBOIO") || fn === "OPERADOR";
+    }),
+    [funcionarios]
+  );
+
+  const meterLabel = usesOdometer ? "Odômetro" : "Horímetro";
+
   const horimeterError =
     meterInitial && meterFinal && Number(meterFinal) < Number(meterInitial)
-      ? "Horímetro Final não pode ser menor que o Inicial"
+      ? `${meterLabel} Final não pode ser menor que o Inicial`
       : null;
 
   const horasTrabalhadas =
@@ -237,13 +319,36 @@ export default function EquipmentDiaryForm() {
     }
   };
 
+  // Determine which static fleet list to use
+  const getStaticFleetList = () => {
+    if (isBobcat) return BOBCAT_FLEETS;
+    if (isRetro) return RETRO_FLEETS;
+    if (isVibro) return VIBRO_FLEETS;
+    if (isPipa) return PIPA_FLEETS;
+    if (isEspargidor) return ESPARGIDOR_FLEETS;
+    if (isCarreta) return CARRETA_FLEETS;
+    if (isComboio) return COMBOIO_FLEETS;
+    return null;
+  };
+
+  const staticFleetList = getStaticFleetList();
+  const useStaticFleet = !!staticFleetList || isRolo || isVeiculo;
+
+  const getOperatorList = () => {
+    if (isFresadora) return operadoresFresa;
+    if (isBobcat) return operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios;
+    if (isRetro) return operadoresRetro.length > 0 ? operadoresRetro : funcionarios;
+    if (isTruck) return motoristas.length > 0 ? motoristas : funcionarios;
+    return funcionarios;
+  };
+
   const handleSave = async (isDraft = false) => {
     if (!selectedFleet || !date) {
       toast({ title: "Campos obrigatórios", description: "Selecione o equipamento e data.", variant: "destructive" });
       return;
     }
     if (horimeterError) {
-      toast({ title: "Horímetro inválido", description: horimeterError, variant: "destructive" });
+      toast({ title: `${meterLabel} inválido`, description: horimeterError, variant: "destructive" });
       return;
     }
     if (!session?.user?.id) {
@@ -254,29 +359,38 @@ export default function EquipmentDiaryForm() {
 
     setSaving(true);
     try {
+      const diaryPayload: any = {
+        equipment_fleet: selectedFleet,
+        equipment_type: equipmentType,
+        date,
+        operator_name: operator || null,
+        operator_solo: isFresadora ? (operatorSolo || null) : null,
+        period: turno,
+        fuel_liters: fueling.liters ? Number(fueling.liters) : null,
+        fuel_type: fueling.fuelType || null,
+        fuel_meter: fueling.fuelMeter ? Number(fueling.fuelMeter) : null,
+        work_status: workStatus || null,
+        ogs_number: isCarreta ? null : (ogsNumber || null),
+        client_name: isCarreta ? null : (clientName || null),
+        location_address: isCarreta ? null : (locationAddress || null),
+        observations: observations || null,
+        company_id: profile?.company_id || null,
+        fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : null),
+        attachment_type: isCarreta ? prancha : (attachmentType || null),
+        status: isDraft ? "rascunho" : "enviado",
+      };
+
+      if (usesOdometer) {
+        diaryPayload.odometer_initial = meterInitial ? Number(meterInitial) : null;
+        diaryPayload.odometer_final = meterFinal ? Number(meterFinal) : null;
+      } else {
+        diaryPayload.meter_initial = meterInitial ? Number(meterInitial) : null;
+        diaryPayload.meter_final = meterFinal ? Number(meterFinal) : null;
+      }
+
       const { data: diary, error } = await supabase
         .from("equipment_diaries")
-        .insert({
-          equipment_fleet: selectedFleet,
-          equipment_type: equipmentType,
-          date,
-          operator_name: operator || null,
-          operator_solo: isFresadora ? (operatorSolo || null) : null,
-          period: turno,
-          meter_initial: meterInitial ? Number(meterInitial) : null,
-          meter_final: meterFinal ? Number(meterFinal) : null,
-          fuel_liters: fueling.liters ? Number(fueling.liters) : null,
-          fuel_type: fueling.fuelType || null,
-          fuel_meter: fueling.fuelMeter ? Number(fueling.fuelMeter) : null,
-          work_status: workStatus || null,
-          ogs_number: ogsNumber || null,
-          client_name: clientName || null,
-          location_address: locationAddress || null,
-          observations: observations || null,
-          company_id: profile?.company_id || null,
-          fresagem_type: isRolo ? roloType : null,
-          status: isDraft ? "rascunho" : "enviado",
-        })
+        .insert(diaryPayload)
         .select()
         .single();
 
@@ -290,7 +404,10 @@ export default function EquipmentDiaryForm() {
           start_time: t.startTime,
           end_time: t.endTime || null,
           activity: t.activity,
-          description: t.activity === "Manutenção" ? (t.maintenanceDetails || null) : null,
+          description: t.activity === "Manutenção" ? (t.maintenanceDetails || null) : (t.activity === "Transporte" ? (t.transportObs || null) : null),
+          origin: t.origin || null,
+          destination: t.destination || null,
+          ogs_destination: t.transportOgs || null,
         }));
         await supabase.from("equipment_time_entries").insert(rows);
       }
@@ -370,7 +487,7 @@ export default function EquipmentDiaryForm() {
       }
 
       // Save checklist results
-      if ((isFresadora || isBobcat || isRetro || isRolo || isVibro) && diary && checklistResults.length > 0) {
+      if (hasChecklist && diary && checklistResults.length > 0) {
         for (const cr of checklistResults) {
           let photoUrl: string | null = null;
           if (cr.photoFile) {
@@ -393,6 +510,51 @@ export default function EquipmentDiaryForm() {
         }
       }
 
+      // Save truck tank supplies (Pipa / Espargidor)
+      if ((isPipa || isEspargidor) && diary) {
+        const validSupplies = tankSupplies.filter((s) => s.quantity || s.supplier);
+        if (validSupplies.length > 0) {
+          const rows = validSupplies.map((s) => ({
+            diary_id: diary.id,
+            quantity: s.quantity ? Number(s.quantity) : null,
+            supplier: s.supplier || null,
+            emulsion_type: s.emulsionType || null,
+            material_type: isPipa ? "Água" : "Emulsão",
+          }));
+          await supabase.from("truck_tank_supplies").insert(rows);
+        }
+      }
+
+      // Save Comboio tank supply
+      if (isComboio && diary) {
+        const validCTS = comboioTankSupplies.filter((s) => s.quantity || s.supplier);
+        if (validCTS.length > 0) {
+          const rows = validCTS.map((s) => ({
+            diary_id: diary.id,
+            quantity: s.quantity ? Number(s.quantity) : null,
+            supplier: s.supplier || null,
+            material_type: "Diesel",
+          }));
+          await supabase.from("truck_tank_supplies").insert(rows);
+        }
+
+        // Save comboio refueling entries
+        const validRefuels = comboioRefuels.filter((r) => r.fleetFueled || r.litersFueled);
+        if (validRefuels.length > 0) {
+          const rows = validRefuels.map((r) => ({
+            diary_id: diary.id,
+            lubricator_name: r.lubricatorName || null,
+            initial_diesel_balance: r.initialDiesel ? Number(r.initialDiesel) : null,
+            final_diesel_balance: r.finalDiesel ? Number(r.finalDiesel) : null,
+            equipment_fleet_fueled: r.fleetFueled || null,
+            equipment_meter: r.equipmentMeter ? Number(r.equipmentMeter) : null,
+            ogs_destination: r.ogsDestination || null,
+            liters_fueled: r.litersFueled ? Number(r.litersFueled) : null,
+            is_lubricated: r.isLubricated,
+          }));
+          await supabase.from("comboio_equipment_refueling").insert(rows);
+        }
+      }
 
       toast({
         title: isDraft ? "📝 Rascunho salvo!" : "✅ Diário enviado!",
@@ -422,7 +584,7 @@ export default function EquipmentDiaryForm() {
       <div className="flex-1 p-4 space-y-5 pb-36 max-w-lg mx-auto w-full">
         {/* INFORMAÇÕES GERAIS */}
         <Section title="INFORMAÇÕES GERAIS">
-          {/* Rolo: Tipo de Rolo (antes da frota) */}
+          {/* Rolo: Tipo de Rolo */}
           {isRolo && (
             <Field label="Tipo de Rolo">
               <Select value={roloType} onValueChange={(v) => { setRoloType(v); setSelectedFleet(""); }}>
@@ -438,26 +600,53 @@ export default function EquipmentDiaryForm() {
             </Field>
           )}
 
+          {/* Veículo: Tipo */}
+          {isVeiculo && (
+            <Field label="Tipo de Veículo">
+              <Select value={veiculoType} onValueChange={(v) => { setVeiculoType(v); setSelectedFleet(""); }}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Micro-ônibus ou Van..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {VEICULO_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
           <FieldRow>
             <Field label="Frota">
-              {(isBobcat || isRetro || isVibro) ? (
-                <Select value={selectedFleet} onValueChange={setSelectedFleet}>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder={isBobcat ? "Selecione a Bobcat..." : isRetro ? "Selecione a Retro..." : "Selecione a Vibro..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(isBobcat ? BOBCAT_FLEETS : isRetro ? RETRO_FLEETS : VIBRO_FLEETS).map((f) => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : isRolo ? (
+              {isRolo ? (
                 <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!roloType}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder={roloType ? "Selecione a frota..." : "Escolha o tipo primeiro"} />
                   </SelectTrigger>
                   <SelectContent>
                     {roloFleets.map((f) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : isVeiculo ? (
+                <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!veiculoType}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder={veiculoType ? "Selecione..." : "Escolha o tipo primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {veiculoFleets.map((f) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : staticFleetList ? (
+                <Select value={selectedFleet} onValueChange={setSelectedFleet}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staticFleetList.map((f) => (
                       <SelectItem key={f} value={f}>{f}</SelectItem>
                     ))}
                   </SelectContent>
@@ -482,13 +671,29 @@ export default function EquipmentDiaryForm() {
             </Field>
           </FieldRow>
 
-          <Field label="Operador">
+          {/* Carreta: Prancha */}
+          {isCarreta && (
+            <Field label="Prancha">
+              <Select value={prancha} onValueChange={setPrancha}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione a prancha..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRANCHA_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
+          <Field label={isTruck ? "Motorista" : "Operador"}>
             <Select value={operator} onValueChange={setOperator}>
               <SelectTrigger className="bg-secondary border-border">
-                <SelectValue placeholder="Selecione o operador..." />
+                <SelectValue placeholder={isTruck ? "Selecione o motorista..." : "Selecione o operador..."} />
               </SelectTrigger>
               <SelectContent>
-                {(isFresadora ? operadoresFresa : isBobcat ? (operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios) : isRetro ? (operadoresRetro.length > 0 ? operadoresRetro : funcionarios) : funcionarios).map((f: any) => (
+                {getOperatorList().map((f: any) => (
                   <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
@@ -556,24 +761,27 @@ export default function EquipmentDiaryForm() {
             </Field>
           )}
 
-          <FieldRow>
-            <Field label="OGS">
-              <Select value={ogsNumber} onValueChange={setOgsNumber}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione OGS..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {uniqueOgs.map((o: any) => (
-                    <SelectItem key={o.id} value={o.ogs_number || ""}>
-                      {o.ogs_number} — {o.client_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </FieldRow>
+          {/* OGS — not for Carreta (goes into time entries) */}
+          {!isCarreta && (
+            <FieldRow>
+              <Field label="OGS">
+                <Select value={ogsNumber} onValueChange={setOgsNumber}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione OGS..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {uniqueOgs.map((o: any) => (
+                      <SelectItem key={o.id} value={o.ogs_number || ""}>
+                        {o.ogs_number} — {o.client_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FieldRow>
+          )}
 
-          {(clientName || locationAddress || hasMultipleAddresses) && (
+          {!isCarreta && (clientName || locationAddress || hasMultipleAddresses) && (
             <div className="bg-secondary/50 border border-border rounded-lg p-3 space-y-2">
               {clientName && (
                 <p className="text-xs text-muted-foreground">
@@ -589,9 +797,7 @@ export default function EquipmentDiaryForm() {
                     </SelectTrigger>
                     <SelectContent>
                       {ogsAddressList.map((addr: string, idx: number) => (
-                        <SelectItem key={idx} value={addr}>
-                          {addr}
-                        </SelectItem>
+                        <SelectItem key={idx} value={addr}>{addr}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -605,23 +811,25 @@ export default function EquipmentDiaryForm() {
           )}
         </Section>
 
-        {/* CHECKLIST PRÉ-OPERAÇÃO (accordion, inicia fechado) */}
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="checklist" className="border border-border rounded-lg overflow-hidden bg-secondary/30">
-            <AccordionTrigger className="px-4 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
-              <span className="text-sm font-bold text-foreground uppercase tracking-wide">
-                ✔️ CHECKLIST PRÉ-OPERAÇÃO
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              <ChecklistSection
-                equipmentType={equipmentType}
-                results={checklistResults}
-                onChange={setChecklistResults}
-              />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+        {/* CHECKLIST PRÉ-OPERAÇÃO */}
+        {hasChecklist && (
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="checklist" className="border border-border rounded-lg overflow-hidden bg-secondary/30">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                <span className="text-sm font-bold text-foreground uppercase tracking-wide">
+                  ✔️ CHECKLIST PRÉ-OPERAÇÃO
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <ChecklistSection
+                  equipmentType={equipmentType}
+                  results={checklistResults}
+                  onChange={setChecklistResults}
+                />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
 
         {/* PERÍODO */}
         <Section title="PERÍODO">
@@ -645,7 +853,7 @@ export default function EquipmentDiaryForm() {
           </div>
         </Section>
 
-        {/* STATUS DA OBRA + HORÍMETRO INICIAL */}
+        {/* STATUS DA OBRA + METER INITIAL */}
         <Section title="STATUS DA OBRA">
           <FieldRow>
             <Field label="Status">
@@ -660,7 +868,7 @@ export default function EquipmentDiaryForm() {
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Horímetro Inicial">
+            <Field label={`${meterLabel} Inicial`}>
               <Input
                 type="number"
                 inputMode="decimal"
@@ -675,7 +883,14 @@ export default function EquipmentDiaryForm() {
         </Section>
 
         {/* APONTAMENTO DE HORAS */}
-        <TimeEntriesSection entries={timeEntries} onChange={setTimeEntries} turno={turno} />
+        <TimeEntriesSection
+          entries={timeEntries}
+          onChange={setTimeEntries}
+          turno={turno}
+          showTransportOgs={isCarreta}
+          showTransportPassengers={isVeiculo}
+          ogsData={ogsData}
+        />
 
         {/* FRESADORA: Produção + Bits */}
         {isFresadora && (
@@ -683,7 +898,6 @@ export default function EquipmentDiaryForm() {
             <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
             <BitManagementSection bits={bits} onChange={setBits} meterInitial={meterInitial} />
 
-            {/* DESEMPENHO DO TURNO */}
             {(() => {
               const totalM3 = productionAreas.reduce((s, a) => {
                 const c = Number(a.comp), l = Number(a.larg), e = Number(a.esp);
@@ -730,11 +944,339 @@ export default function EquipmentDiaryForm() {
           />
         )}
 
-        {/* ABASTECIMENTO + HORÍMETRO FINAL */}
-        <FuelingSection data={fueling} onChange={setFueling} />
+        {/* ── PIPA: Abastecimento de Tanque ── */}
+        {isPipa && (
+          <Section title="💧 ABASTECIMENTO DE TANQUE">
+            {tankSupplies.map((supply, idx) => (
+              <div key={supply.id} className="border border-border rounded-lg p-3 space-y-2">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1 space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Quantidade (L)</span>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={supply.quantity}
+                      onChange={(e) => {
+                        const u = [...tankSupplies];
+                        u[idx] = { ...u[idx], quantity: e.target.value };
+                        setTankSupplies(u);
+                      }}
+                      placeholder="0"
+                      className="bg-secondary border-border text-xs h-9"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                    <Select
+                      value={supply.supplier}
+                      onValueChange={(v) => {
+                        const u = [...tankSupplies];
+                        u[idx] = { ...u[idx], supplier: v };
+                        setTankSupplies(u);
+                      }}
+                    >
+                      <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PIPA_FORNECEDORES.map((f) => (
+                          <SelectItem key={f} value={f}>{f}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {tankSupplies.length > 1 && (
+                    <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => setTankSupplies(tankSupplies.filter((_, i) => i !== idx))}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" className="w-full gap-1.5 text-xs border-dashed" onClick={() => setTankSupplies([...tankSupplies, createEmptyTankSupply()])}>
+              <Plus className="w-3.5 h-3.5" /> Adicionar carga
+            </Button>
+          </Section>
+        )}
 
-        <Section title="HORÍMETRO FINAL">
-          <Field label="Horímetro Final">
+        {/* ── ESPARGIDOR: Carga de Emulsão ── */}
+        {isEspargidor && (
+          <Section title="🛢️ CARGA DE EMULSÃO">
+            {tankSupplies.map((supply, idx) => (
+              <div key={supply.id} className="border border-border rounded-lg p-3 space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Quantidade (L)</span>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={supply.quantity}
+                      onChange={(e) => {
+                        const u = [...tankSupplies];
+                        u[idx] = { ...u[idx], quantity: e.target.value };
+                        setTankSupplies(u);
+                      }}
+                      placeholder="0"
+                      className="bg-secondary border-border text-xs h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Tipo Emulsão</span>
+                    <Select
+                      value={supply.emulsionType || ""}
+                      onValueChange={(v) => {
+                        const u = [...tankSupplies];
+                        u[idx] = { ...u[idx], emulsionType: v };
+                        setTankSupplies(u);
+                      }}
+                    >
+                      <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                        <SelectValue placeholder="Tipo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EMULSION_TYPES.map((t) => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                    <Select
+                      value={supply.supplier}
+                      onValueChange={(v) => {
+                        const u = [...tankSupplies];
+                        u[idx] = { ...u[idx], supplier: v };
+                        setTankSupplies(u);
+                      }}
+                    >
+                      <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ESPARGIDOR_FORNECEDORES.map((f) => (
+                          <SelectItem key={f} value={f}>{f}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {tankSupplies.length > 1 && (
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive text-xs" onClick={() => setTankSupplies(tankSupplies.filter((_, i) => i !== idx))}>
+                    <Trash2 className="w-3 h-3 mr-1" /> Remover
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" className="w-full gap-1.5 text-xs border-dashed" onClick={() => setTankSupplies([...tankSupplies, createEmptyTankSupply()])}>
+              <Plus className="w-3.5 h-3.5" /> Adicionar carga
+            </Button>
+          </Section>
+        )}
+
+        {/* ── COMBOIO: Carga do Tanque Reservatório ── */}
+        {isComboio && (
+          <>
+            <Section title="⛽ CARGA DO TANQUE RESERVATÓRIO">
+              {comboioTankSupplies.map((supply, idx) => (
+                <div key={supply.id} className="border border-border rounded-lg p-3 space-y-2">
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Quantidade (L)</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        value={supply.quantity}
+                        onChange={(e) => {
+                          const u = [...comboioTankSupplies];
+                          u[idx] = { ...u[idx], quantity: e.target.value };
+                          setComboioTankSupplies(u);
+                        }}
+                        placeholder="0"
+                        className="bg-secondary border-border text-xs h-9"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                      <Select
+                        value={supply.supplier}
+                        onValueChange={(v) => {
+                          const u = [...comboioTankSupplies];
+                          u[idx] = { ...u[idx], supplier: v };
+                          setComboioTankSupplies(u);
+                        }}
+                      >
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COMBOIO_FORNECEDORES.map((f) => (
+                            <SelectItem key={f} value={f}>{f}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {comboioTankSupplies.length > 1 && (
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => setComboioTankSupplies(comboioTankSupplies.filter((_, i) => i !== idx))}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" className="w-full gap-1.5 text-xs border-dashed" onClick={() => setComboioTankSupplies([...comboioTankSupplies, createEmptyTankSupply()])}>
+                <Plus className="w-3.5 h-3.5" /> Adicionar carga
+              </Button>
+            </Section>
+
+            {/* COMBOIO: Abastecimento de Equipamentos */}
+            <Section title="🔧 ABASTECIMENTO DE EQUIPAMENTOS">
+              {comboioRefuels.map((refuel, idx) => (
+                <div key={refuel.id} className="border border-border rounded-lg p-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Lubrificador</span>
+                      <Input
+                        value={refuel.lubricatorName}
+                        onChange={(e) => {
+                          const u = [...comboioRefuels];
+                          u[idx] = { ...u[idx], lubricatorName: e.target.value };
+                          setComboioRefuels(u);
+                        }}
+                        placeholder="Nome..."
+                        className="bg-secondary border-border text-xs h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Frota Abastecida</span>
+                      <Input
+                        value={refuel.fleetFueled}
+                        onChange={(e) => {
+                          const u = [...comboioRefuels];
+                          u[idx] = { ...u[idx], fleetFueled: e.target.value };
+                          setComboioRefuels(u);
+                        }}
+                        placeholder="Ex: FA01..."
+                        className="bg-secondary border-border text-xs h-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Saldo Inicial</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        value={refuel.initialDiesel}
+                        onChange={(e) => {
+                          const u = [...comboioRefuels];
+                          u[idx] = { ...u[idx], initialDiesel: e.target.value };
+                          setComboioRefuels(u);
+                        }}
+                        placeholder="L"
+                        className="bg-secondary border-border text-xs h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Litros</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        value={refuel.litersFueled}
+                        onChange={(e) => {
+                          const u = [...comboioRefuels];
+                          u[idx] = { ...u[idx], litersFueled: e.target.value };
+                          setComboioRefuels(u);
+                        }}
+                        placeholder="0"
+                        className="bg-secondary border-border text-xs h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Saldo Final</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        value={refuel.finalDiesel}
+                        onChange={(e) => {
+                          const u = [...comboioRefuels];
+                          u[idx] = { ...u[idx], finalDiesel: e.target.value };
+                          setComboioRefuels(u);
+                        }}
+                        placeholder="L"
+                        className="bg-secondary border-border text-xs h-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Horímetro Máquina</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        value={refuel.equipmentMeter}
+                        onChange={(e) => {
+                          const u = [...comboioRefuels];
+                          u[idx] = { ...u[idx], equipmentMeter: e.target.value };
+                          setComboioRefuels(u);
+                        }}
+                        placeholder="0"
+                        className="bg-secondary border-border text-xs h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">OGS Destino</span>
+                      <Select
+                        value={refuel.ogsDestination}
+                        onValueChange={(v) => {
+                          const u = [...comboioRefuels];
+                          u[idx] = { ...u[idx], ogsDestination: v };
+                          setComboioRefuels(u);
+                        }}
+                      >
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                          <SelectValue placeholder="OGS..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uniqueOgs.map((o: any) => (
+                            <SelectItem key={o.id} value={o.ogs_number}>{o.ogs_number}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Checkbox
+                      checked={refuel.isLubricated}
+                      onCheckedChange={(checked) => {
+                        const u = [...comboioRefuels];
+                        u[idx] = { ...u[idx], isLubricated: !!checked };
+                        setComboioRefuels(u);
+                      }}
+                    />
+                    <span className="text-xs font-semibold text-foreground">Lubrificado?</span>
+                    {comboioRefuels.length > 1 && (
+                      <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground hover:text-destructive text-xs" onClick={() => setComboioRefuels(comboioRefuels.filter((_, i) => i !== idx))}>
+                        <Trash2 className="w-3 h-3 mr-1" /> Remover
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" className="w-full gap-1.5 text-xs border-dashed" onClick={() => setComboioRefuels([...comboioRefuels, createEmptyComboioRefuel()])}>
+                <Plus className="w-3.5 h-3.5" /> Adicionar abastecimento
+              </Button>
+            </Section>
+          </>
+        )}
+
+        {/* ABASTECIMENTO + METER FINAL */}
+        {!isComboio && (
+          <FuelingSection data={fueling} onChange={setFueling} />
+        )}
+
+        <Section title={`${meterLabel} FINAL`}>
+          <Field label={`${meterLabel} Final`}>
             <Input
               type="number"
               inputMode="decimal"
@@ -753,7 +1295,7 @@ export default function EquipmentDiaryForm() {
           )}
           {horasTrabalhadas && (
             <p className="text-xs text-muted-foreground">
-              Horas trabalhadas: <span className="font-semibold text-foreground">{horasTrabalhadas}h</span>
+              {usesOdometer ? "Km rodados" : "Horas trabalhadas"}: <span className="font-semibold text-foreground">{horasTrabalhadas}{usesOdometer ? " km" : "h"}</span>
             </p>
           )}
         </Section>

@@ -95,6 +95,69 @@ export type Database = {
         }
         Relationships: []
       }
+      comboio_equipment_refueling: {
+        Row: {
+          created_at: string | null
+          diary_id: string | null
+          equipment_fleet_fueled: string | null
+          equipment_meter: number | null
+          final_diesel_balance: number | null
+          id: string
+          initial_diesel_balance: number | null
+          is_lubricated: boolean | null
+          liters_fueled: number | null
+          lubricator_name: string | null
+          ogs_destination: string | null
+          supervisor_name: string | null
+          total_fueled_in_work: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          diary_id?: string | null
+          equipment_fleet_fueled?: string | null
+          equipment_meter?: number | null
+          final_diesel_balance?: number | null
+          id?: string
+          initial_diesel_balance?: number | null
+          is_lubricated?: boolean | null
+          liters_fueled?: number | null
+          lubricator_name?: string | null
+          ogs_destination?: string | null
+          supervisor_name?: string | null
+          total_fueled_in_work?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          diary_id?: string | null
+          equipment_fleet_fueled?: string | null
+          equipment_meter?: number | null
+          final_diesel_balance?: number | null
+          id?: string
+          initial_diesel_balance?: number | null
+          is_lubricated?: boolean | null
+          liters_fueled?: number | null
+          lubricator_name?: string | null
+          ogs_destination?: string | null
+          supervisor_name?: string | null
+          total_fueled_in_work?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comboio_equipment_refueling_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comboio_equipment_refueling_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           created_at: string | null
@@ -1166,6 +1229,51 @@ export type Database = {
           vinculo_rdo?: string
         }
         Relationships: []
+      }
+      truck_tank_supplies: {
+        Row: {
+          created_at: string | null
+          diary_id: string | null
+          emulsion_type: string | null
+          id: string
+          material_type: string | null
+          quantity: number | null
+          supplier: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          diary_id?: string | null
+          emulsion_type?: string | null
+          id?: string
+          material_type?: string | null
+          quantity?: number | null
+          supplier?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          diary_id?: string | null
+          emulsion_type?: string | null
+          id?: string
+          material_type?: string | null
+          quantity?: number | null
+          supplier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_tank_supplies_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "truck_tank_supplies_diary_id_fkey"
+            columns: ["diary_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
