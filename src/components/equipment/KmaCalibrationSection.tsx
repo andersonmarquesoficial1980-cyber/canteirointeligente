@@ -124,7 +124,7 @@ export default function KmaCalibrationSection({ entries, onChange, onGeneratePdf
       <div className="space-y-4">
         {entries.map((entry, idx) => {
           const diff = calcDiffPercent(entry);
-          const fator = calcFator(entry);
+          
           const isApproved = diff !== null && Math.abs(diff) < 1;
           const isFailed = diff !== null && Math.abs(diff) >= 1;
           const showPhotoBtn = isApproved;
