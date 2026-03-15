@@ -375,6 +375,7 @@ export default function EquipmentDiaryForm() {
     if (isBobcat) return BOBCAT_FLEETS;
     if (isRetro) return RETRO_FLEETS;
     if (isVibro) return VIBRO_FLEETS;
+    if (isUsinaKma) return KMA_FLEETS;
     if (isPipa) return PIPA_FLEETS;
     if (isEspargidor) return ESPARGIDOR_FLEETS;
     if (isCarreta) return CARRETA_FLEETS;
