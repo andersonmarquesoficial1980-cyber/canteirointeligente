@@ -231,6 +231,10 @@ export default function EquipmentDiaryForm() {
   const [veiculoType, setVeiculoType] = useState("");
   const veiculoFleets = useMemo(() => VEICULO_FLEETS[veiculoType] || [], [veiculoType]);
 
+  // KMA-specific
+  const [operator2, setOperator2] = useState("");
+  const [kmaOperation, setKmaOperation] = useState<KmaOperationData>(createEmptyKmaOperation());
+
   // OGS auto-fill
   const selectedOgs = useMemo(() => {
     if (!ogsNumber) return null;
