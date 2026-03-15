@@ -32,6 +32,53 @@ const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manu
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
 const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
 const VIBRO_FLEETS = ["VA01", "VA03", "VA04", "VA05", "VA17", "VA19", "VA20"];
+const KMA_FLEETS = ["KMA240"];
+
+const KMA_OPERATION_TYPES = ["Usinagem", "Limpeza", "Manutenção"] as const;
+const CAP_TYPES = ["CAP 50/70", "CAP 30/45", "AMP 55/75", "AMP 60/85"];
+const FILER_TYPES = ["Calcário", "Cal Hidratada", "Cimento Portland"];
+const SILO_MATERIALS = ["Brita 0", "Brita 1", "Pedrisco", "Pó de Pedra", "Areia", "RAP"];
+const AGUA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
+
+interface KmaOperationData {
+  operationType: string;
+  capType: string;
+  capSupplier: string;
+  capQtyTon: string;
+  capNfNumber: string;
+  filerType: string;
+  filerSupplier: string;
+  filerQtyTon: string;
+  silo1Material: string;
+  silo1Qty: string;
+  silo2Material: string;
+  silo2Qty: string;
+  waterLiters: string;
+  waterSupplier: string;
+  aggregatesSupplier: string;
+  totalVolumeMachinedTon: string;
+}
+
+function createEmptyKmaOperation(): KmaOperationData {
+  return {
+    operationType: "",
+    capType: "",
+    capSupplier: "",
+    capQtyTon: "",
+    capNfNumber: "",
+    filerType: "",
+    filerSupplier: "",
+    filerQtyTon: "",
+    silo1Material: "",
+    silo1Qty: "",
+    silo2Material: "",
+    silo2Qty: "",
+    waterLiters: "",
+    waterSupplier: "",
+    aggregatesSupplier: "",
+    totalVolumeMachinedTon: "",
+  };
+}
 
 const ROLO_TYPES = ["Rolo Chapa", "Rolo Pneu", "Rolo Pé de Carneiro"] as const;
 const ROLO_FLEETS: Record<string, string[]> = {
