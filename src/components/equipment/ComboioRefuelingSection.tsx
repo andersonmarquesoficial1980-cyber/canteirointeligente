@@ -276,6 +276,17 @@ export default function ComboioRefuelingSection({
             <p className="text-[10px] text-muted-foreground">litros</p>
           </div>
         </div>
+
+        {/* ── BOTÃO GERAR PDF ── */}
+        {onGeneratePdf && (
+          <Button
+            type="button"
+            onClick={onGeneratePdf}
+            className="w-full gap-2 text-sm font-extrabold py-5 rounded-xl bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-primary-foreground shadow-lg mt-4"
+          >
+            <FileDown className="w-5 h-5" /> Gerar Relatório de Comboio (PDF)
+          </Button>
+        )}
       </div>
     </div>
   );
