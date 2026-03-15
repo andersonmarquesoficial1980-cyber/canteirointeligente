@@ -482,6 +482,22 @@ export default function EquipmentDiaryForm() {
             </FieldRow>
           )}
 
+          {/* Retro: Acoplamento */}
+          {isRetro && (
+            <Field label="Tipo de Acoplamento">
+              <Select value={attachmentType} onValueChange={(v) => { setAttachmentType(v); setAttachmentId(""); }}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o acoplamento..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {RETRO_ATTACHMENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )
+
           {isFresadora && (
             <Field label="Operador Solo">
               <Select value={operatorSolo} onValueChange={setOperatorSolo}>
