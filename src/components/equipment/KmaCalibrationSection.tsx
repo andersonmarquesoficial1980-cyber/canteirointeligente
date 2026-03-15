@@ -196,10 +196,16 @@ export default function KmaCalibrationSection({ entries, onChange, onGeneratePdf
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-primary uppercase tracking-wide">Fator de Ajuste</Label>
-                  <div className="flex items-center h-10 px-3 bg-muted/50 border border-border rounded-md text-sm font-semibold text-foreground">
-                    {fator !== null ? fator.toFixed(4) : "—"}
-                  </div>
+                  <Label className="text-[10px] font-bold text-primary uppercase tracking-wide">Fator de Ajuste ✏️</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.0001"
+                    value={entry.fator}
+                    onChange={(e) => updateEntry(idx, "fator", e.target.value)}
+                    placeholder="Ex: 1.0050"
+                    className="bg-amber-50/60 border-amber-300/60 ring-1 ring-amber-200/50 font-semibold"
+                  />
                 </div>
               </div>
 
