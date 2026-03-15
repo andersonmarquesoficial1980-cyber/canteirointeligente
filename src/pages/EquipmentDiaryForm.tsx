@@ -496,7 +496,7 @@ export default function EquipmentDiaryForm() {
                 </SelectContent>
               </Select>
             </Field>
-          )
+          )}
 
           {isFresadora && (
             <Field label="Operador Solo">
