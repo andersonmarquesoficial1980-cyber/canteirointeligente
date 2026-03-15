@@ -272,6 +272,7 @@ export default function EquipmentDiaryForm() {
           location_address: locationAddress || null,
           observations: observations || null,
           company_id: profile?.company_id || null,
+          fresagem_type: isRolo ? roloType : null,
           status: isDraft ? "rascunho" : "enviado",
         })
         .select()
