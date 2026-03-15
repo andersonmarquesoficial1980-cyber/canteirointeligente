@@ -417,7 +417,7 @@ export default function EquipmentDiaryForm() {
         equipment_type: equipmentType,
         date,
         operator_name: operator || null,
-        operator_solo: isFresadora ? (operatorSolo || null) : null,
+        operator_solo: isFresadora ? (operatorSolo || null) : (isUsinaKma ? (operator2 || null) : null),
         period: turno,
         fuel_liters: fueling.liters ? Number(fueling.liters) : null,
         fuel_type: fueling.fuelType || null,
