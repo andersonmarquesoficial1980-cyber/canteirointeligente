@@ -50,6 +50,7 @@ export default function ComboioRefuelingSection({
   onChange,
   equipamentos,
   ogsData,
+  onGeneratePdf,
 }: Props) {
   const uniqueOgs = useMemo(() => {
     const seen = new Set<string>();
