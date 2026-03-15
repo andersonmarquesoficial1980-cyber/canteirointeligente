@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, Settings } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import logoFremix from "@/assets/Logo_Fremix.png";
+import logoCi from "@/assets/logo-ci.png";
 import iconFresadora from "@/assets/icon-fresadora.png";
 
 const EQUIPMENT_TYPES = [
@@ -41,7 +41,7 @@ export default function EquipmentHome() {
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
         <div className="flex items-center gap-3">
-          <img src={logoFremix} alt="Fremix" className="h-8 object-contain" />
+          <img src={logoCi} alt="Canteiro Inteligente" className="h-8 object-contain" />
           <span className="font-display font-bold text-sm text-foreground">
             CI Equipamentos
           </span>
@@ -84,7 +84,6 @@ export default function EquipmentHome() {
           ))}
         </div>
 
-        {/* Back to Hub */}
         <Button
           variant="ghost"
           className="mt-8 text-muted-foreground text-sm"

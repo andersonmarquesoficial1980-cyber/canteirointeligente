@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, Mail, Lock } from "lucide-react";
+import logoCi from "@/assets/logo-ci.png";
 
 export default function Login() {
   const { toast } = useToast();
@@ -30,33 +31,29 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       {/* Branding */}
-      <div className="text-center mb-8 space-y-3">
-        <h1 className="text-3xl font-display font-bold tracking-tight">
-          <span className="text-foreground">Canteiro</span>
-          <span className="text-accent">.</span>
-          <span className="text-primary"> Inteligente</span>
-        </h1>
+      <div className="text-center mb-8 space-y-4">
+        <img src={logoCi} alt="Canteiro Inteligente" className="h-24 mx-auto object-contain" />
         <p className="text-sm text-muted-foreground tracking-wide">
-          Plataforma unificada de gestão de obras e frota
+          Plataforma de Gestão e Integração de Campo
         </p>
       </div>
 
       {/* Login card */}
-      <div className="w-full max-w-sm border border-dashed border-border rounded-2xl p-6 space-y-5 bg-card/60">
+      <div className="w-full max-w-sm border border-border rounded-2xl p-6 space-y-5 bg-card shadow-sm">
         {/* Title row */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <LogIn className="w-5 h-5 text-foreground" />
+            <LogIn className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-display font-bold tracking-widest uppercase text-foreground">
               Entrar
             </h2>
           </div>
-          <div className="h-0.5 bg-destructive rounded-full w-full" />
+          <div className="h-0.5 bg-primary rounded-full w-full" />
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="flex items-center gap-1.5 text-sm font-semibold text-accent">
+            <Label htmlFor="email" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <Mail className="w-4 h-4" /> Email
             </Label>
             <Input
@@ -66,11 +63,11 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
+              className="h-12 bg-background border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password" className="flex items-center gap-1.5 text-sm font-semibold text-accent">
+            <Label htmlFor="password" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <Lock className="w-4 h-4" /> Senha
             </Label>
             <Input
@@ -81,7 +78,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
+              className="h-12 bg-background border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
           <Button
