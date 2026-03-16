@@ -413,8 +413,8 @@ export default function EquipmentDiaryForm() {
         location_address: isCarreta ? null : (locationAddress || null),
         observations: observations || null,
         company_id: profile?.company_id || null,
-        fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : null),
-        attachment_type: isCarreta ? prancha : (attachmentType || null),
+        fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
+        attachment_type: attachmentType || null,
         status: isDraft ? "rascunho" : "enviado",
       };
 
