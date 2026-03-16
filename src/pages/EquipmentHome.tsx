@@ -15,7 +15,7 @@ const EQUIPMENT_TYPES = [
   { id: "Usina KMA", label: "KMA", icon: "⚖️", isImage: false },
   { id: "Caminhões", label: "Caminhões", icon: "🚛", isImage: false },
   { id: "Comboio", label: "Comboio", icon: "⛽", isImage: false },
-  { id: "Veículo", label: "Veículo", icon: "🚗", isImage: false },
+  { id: "Veículo", label: "Veículo de Transporte", icon: "🚗", isImage: false },
   { id: "Retro", label: "Retro", icon: "🦾", isImage: false },
 ];
 

@@ -109,8 +109,8 @@ const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
 
 const VEICULO_TYPES = ["Micro-ônibus", "Van"] as const;
 const VEICULO_FLEETS: Record<string, string[]> = {
-  "Micro-ônibus": ["VT01", "VT02", "VT03", "VT04", "VT05"],
-  "Van": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
+  "Micro-ônibus": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
+  "Van": ["VT01", "VT02", "VT03", "VT04", "VT05"],
 };
 
 // ── Truck tank supply ──
@@ -636,7 +636,7 @@ export default function EquipmentDiaryForm() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <EquipmentHeader title={isCaminhoes && caminhaoTipo ? `Caminhão ${caminhaoTipo}` : (equipmentType || "Novo Diário")} />
+      <EquipmentHeader title={isCaminhoes && caminhaoTipo ? `Caminhão ${caminhaoTipo}` : isVeiculo ? "Veículo de Transporte" : (equipmentType || "Novo Diário")} />
 
       <div className="flex-1 p-4 space-y-5 pb-36 max-w-lg mx-auto w-full">
         {/* INFORMAÇÕES GERAIS */}
