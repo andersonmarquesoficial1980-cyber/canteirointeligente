@@ -691,7 +691,14 @@ export default function EquipmentDiaryForm() {
 
           <FieldRow>
             <Field label="Frota">
-              {isRolo ? (
+              {isCaminhoes && !caminhaoTipo ? (
+                <Select disabled>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Escolha o tipo primeiro" />
+                  </SelectTrigger>
+                  <SelectContent />
+                </Select>
+              ) : isRolo ? (
                 <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!roloType}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder={roloType ? "Selecione a frota..." : "Escolha o tipo primeiro"} />
