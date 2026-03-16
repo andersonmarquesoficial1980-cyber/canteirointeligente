@@ -151,12 +151,19 @@ export default function EquipmentDiaryForm() {
   const isRetro = equipmentType === "Retro";
   const isRolo = equipmentType === "Rolo";
   const isVibro = equipmentType === "Vibroacabadora";
-  const isPipa = equipmentType === "Caminhão Pipa";
-  const isEspargidor = equipmentType === "Caminhão Espargidor";
-  const isCarreta = equipmentType === "Carreta";
+  const isCaminhoes = equipmentType === "Caminhões";
   const isComboio = equipmentType === "Comboio";
   const isVeiculo = equipmentType === "Veículo";
-  const isTruck = isPipa || isEspargidor || isCarreta || isComboio || isVeiculo;
+
+  // Caminhões sub-type state
+  const [caminhaoTipo, setCaminhaoTipo] = useState("");
+  const isPipa = isCaminhoes && caminhaoTipo === "Pipa";
+  const isEspargidor = isCaminhoes && caminhaoTipo === "Espargidor";
+  const isCarroceria = isCaminhoes && caminhaoTipo === "Carroceria";
+
+  // Legacy compat aliases
+  const isCarreta = false; // replaced by Carroceria inside Caminhões
+  const isTruck = isCaminhoes || isComboio || isVeiculo;
   const usesOdometer = isTruck;
   const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro || isUsinaKma;
 
