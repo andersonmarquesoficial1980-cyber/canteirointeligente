@@ -369,7 +369,7 @@ export default function EquipmentDiaryForm() {
   };
 
   const staticFleetList = getStaticFleetList();
-  const useStaticFleet = !!staticFleetList || isRolo || isVeiculo;
+  const useStaticFleet = !!staticFleetList || isRolo || isVeiculo || (isCaminhoes && !caminhaoTipo);
 
   const getOperatorList = () => {
     if (isFresadora) return operadoresFresa;
