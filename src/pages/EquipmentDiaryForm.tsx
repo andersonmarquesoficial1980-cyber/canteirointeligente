@@ -641,6 +641,22 @@ export default function EquipmentDiaryForm() {
       <div className="flex-1 p-4 space-y-5 pb-36 max-w-lg mx-auto w-full">
         {/* INFORMAÇÕES GERAIS */}
         <Section title="INFORMAÇÕES GERAIS">
+          {/* Rolo: Tipo de Rolo */}
+          {isRolo && (
+            <Field label="Tipo de Rolo">
+              <Select value={roloType} onValueChange={(v) => { setRoloType(v); setSelectedFleet(""); }}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o tipo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLO_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
           {/* Caminhões: Tipo de Caminhão */}
           {isCaminhoes && (
             <Field label="Tipo de Caminhão">
