@@ -1179,6 +1179,54 @@ export type Database = {
           },
         ]
       }
+      rdo_labor_attendance: {
+        Row: {
+          created_at: string | null
+          employee_id: string | null
+          employee_name: string | null
+          extra_hours: number | null
+          id: string
+          rdo_id: string | null
+          role: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          employee_id?: string | null
+          employee_name?: string | null
+          extra_hours?: number | null
+          id?: string
+          rdo_id?: string | null
+          role?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          employee_id?: string | null
+          employee_name?: string | null
+          extra_hours?: number | null
+          id?: string
+          rdo_id?: string | null
+          role?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rdo_labor_attendance_rdo_id_fkey"
+            columns: ["rdo_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_diaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rdo_labor_attendance_rdo_id_fkey"
+            columns: ["rdo_id"]
+            isOneToOne: false
+            referencedRelation: "view_rendimento_fresadora"
+            referencedColumns: ["diary_id"]
+          },
+        ]
+      }
       rdo_mancha_areia: {
         Row: {
           created_at: string | null
