@@ -95,6 +95,7 @@ const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
 const RETRO_ATTACHMENT_TYPES = ["Concha", "Rompedor"] as const;
 
 // ── Caminhão configs ──
+const CAMINHAO_TIPOS = ["Pipa", "Carroceria", "Espargidor"] as const;
 const PIPA_FLEETS = ["CP01", "CP02", "CP03", "CP04", "CP05"];
 const PIPA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
 
@@ -102,8 +103,7 @@ const ESPARGIDOR_FLEETS = ["CE01", "CE02", "CE03", "CE04", "CE05"];
 const ESPARGIDOR_FORNECEDORES = ["CBAA", "Greca", "Betunel", "Disbral"];
 const EMULSION_TYPES = ["RR-1C", "RR-2C", "RM-1C", "RM-2C", "CM-30"];
 
-const CARRETA_FLEETS = ["CM01", "CM02", "CM03", "CM04", "CM05"];
-const PRANCHA_OPTIONS = ["PR001", "PR002", "PR003", "PR004", "PR005"];
+const CARROCERIA_FLEETS = ["CC01", "CC02", "CC03", "CC04", "CC05"];
 
 const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
 
