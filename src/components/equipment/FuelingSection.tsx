@@ -39,6 +39,9 @@ export default function FuelingSection({ data, onChange }: Props) {
             <SelectContent>
               <SelectItem value="Diesel S10">Diesel S10</SelectItem>
               <SelectItem value="Diesel S500">Diesel S500</SelectItem>
+              <SelectItem value="Gasolina Comum">Gasolina Comum</SelectItem>
+              <SelectItem value="Gasolina Aditivada">Gasolina Aditivada</SelectItem>
+              <SelectItem value="Etanol">Etanol</SelectItem>
             </SelectContent>
           </Select>
         </div>

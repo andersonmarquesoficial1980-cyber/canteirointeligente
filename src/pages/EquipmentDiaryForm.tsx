@@ -95,6 +95,7 @@ const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
 const RETRO_ATTACHMENT_TYPES = ["Concha", "Rompedor"] as const;
 
 // ── Caminhão configs ──
+const CAMINHAO_TIPOS = ["Pipa", "Carroceria", "Espargidor"] as const;
 const PIPA_FLEETS = ["CP01", "CP02", "CP03", "CP04", "CP05"];
 const PIPA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
 
@@ -102,8 +103,7 @@ const ESPARGIDOR_FLEETS = ["CE01", "CE02", "CE03", "CE04", "CE05"];
 const ESPARGIDOR_FORNECEDORES = ["CBAA", "Greca", "Betunel", "Disbral"];
 const EMULSION_TYPES = ["RR-1C", "RR-2C", "RM-1C", "RM-2C", "CM-30"];
 
-const CARRETA_FLEETS = ["CM01", "CM02", "CM03", "CM04", "CM05"];
-const PRANCHA_OPTIONS = ["PR001", "PR002", "PR003", "PR004", "PR005"];
+const CARROCERIA_FLEETS = ["CC01", "CC02", "CC03", "CC04", "CC05"];
 
 const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
 
@@ -151,12 +151,19 @@ export default function EquipmentDiaryForm() {
   const isRetro = equipmentType === "Retro";
   const isRolo = equipmentType === "Rolo";
   const isVibro = equipmentType === "Vibroacabadora";
-  const isPipa = equipmentType === "Caminhão Pipa";
-  const isEspargidor = equipmentType === "Caminhão Espargidor";
-  const isCarreta = equipmentType === "Carreta";
+  const isCaminhoes = equipmentType === "Caminhões";
   const isComboio = equipmentType === "Comboio";
   const isVeiculo = equipmentType === "Veículo";
-  const isTruck = isPipa || isEspargidor || isCarreta || isComboio || isVeiculo;
+
+  // Caminhões sub-type state
+  const [caminhaoTipo, setCaminhaoTipo] = useState("");
+  const isPipa = isCaminhoes && caminhaoTipo === "Pipa";
+  const isEspargidor = isCaminhoes && caminhaoTipo === "Espargidor";
+  const isCarroceria = isCaminhoes && caminhaoTipo === "Carroceria";
+
+  // Legacy compat aliases
+  const isCarreta = false; // replaced by Carroceria inside Caminhões
+  const isTruck = isCaminhoes || isComboio || isVeiculo;
   const usesOdometer = isTruck;
   const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro || isUsinaKma;
 
@@ -356,13 +363,13 @@ export default function EquipmentDiaryForm() {
     if (isUsinaKma) return KMA_FLEETS;
     if (isPipa) return PIPA_FLEETS;
     if (isEspargidor) return ESPARGIDOR_FLEETS;
-    if (isCarreta) return CARRETA_FLEETS;
+    if (isCarroceria) return CARROCERIA_FLEETS;
     if (isComboio) return COMBOIO_FLEETS;
     return null;
   };
 
   const staticFleetList = getStaticFleetList();
-  const useStaticFleet = !!staticFleetList || isRolo || isVeiculo;
+  const useStaticFleet = !!staticFleetList || isRolo || isVeiculo || (isCaminhoes && !caminhaoTipo);
 
   const getOperatorList = () => {
     if (isFresadora) return operadoresFresa;
@@ -406,8 +413,8 @@ export default function EquipmentDiaryForm() {
         location_address: isCarreta ? null : (locationAddress || null),
         observations: observations || null,
         company_id: profile?.company_id || null,
-        fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : null),
-        attachment_type: isCarreta ? prancha : (attachmentType || null),
+        fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
+        attachment_type: attachmentType || null,
         status: isDraft ? "rascunho" : "enviado",
       };
 
@@ -629,7 +636,7 @@ export default function EquipmentDiaryForm() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <EquipmentHeader title={equipmentType || "Novo Diário"} />
+      <EquipmentHeader title={isCaminhoes && caminhaoTipo ? `Caminhão ${caminhaoTipo}` : (equipmentType || "Novo Diário")} />
 
       <div className="flex-1 p-4 space-y-5 pb-36 max-w-lg mx-auto w-full">
         {/* INFORMAÇÕES GERAIS */}
@@ -644,6 +651,22 @@ export default function EquipmentDiaryForm() {
                 <SelectContent>
                   {ROLO_TYPES.map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
+          {/* Caminhões: Tipo de Caminhão */}
+          {isCaminhoes && (
+            <Field label="Tipo de Caminhão">
+              <Select value={caminhaoTipo} onValueChange={(v) => { setCaminhaoTipo(v); setSelectedFleet(""); }}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o tipo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {CAMINHAO_TIPOS.map((t) => (
+                    <SelectItem key={t} value={t}>{t === "Pipa" ? "💧 Pipa" : t === "Espargidor" ? "🛢️ Espargidor" : "📦 Carroceria"}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -668,7 +691,14 @@ export default function EquipmentDiaryForm() {
 
           <FieldRow>
             <Field label="Frota">
-              {isRolo ? (
+              {isCaminhoes && !caminhaoTipo ? (
+                <Select disabled>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Escolha o tipo primeiro" />
+                  </SelectTrigger>
+                  <SelectContent />
+                </Select>
+              ) : isRolo ? (
                 <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!roloType}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder={roloType ? "Selecione a frota..." : "Escolha o tipo primeiro"} />
@@ -721,21 +751,7 @@ export default function EquipmentDiaryForm() {
             </Field>
           </FieldRow>
 
-          {/* Carreta: Prancha */}
-          {isCarreta && (
-            <Field label="Prancha">
-              <Select value={prancha} onValueChange={setPrancha}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione a prancha..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRANCHA_OPTIONS.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          )}
+          {/* Carreta removed - now inside Caminhões as Carroceria */}
 
           <Field label={isTruck ? "Motorista" : "Operador"}>
             <Select value={operator} onValueChange={setOperator}>
