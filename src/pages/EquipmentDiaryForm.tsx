@@ -220,18 +220,32 @@ export default function EquipmentDiaryForm() {
   const [operator2, setOperator2] = useState("");
   const [kmaOperation, setKmaOperation] = useState<KmaOperationData>(createEmptyKmaOperation());
 
-  // OGS auto-fill
-  const selectedOgs = useMemo(() => {
-    if (!ogsNumber) return null;
-    return ogsData.find((o: any) => o.ogs_number === ogsNumber) || null;
+  // OGS auto-fill — collect ALL rows for the selected OGS number
+  const selectedOgsEntries = useMemo(() => {
+    if (!ogsNumber) return [];
+    return ogsData.filter((o: any) => o.ogs_number === ogsNumber);
   }, [ogsNumber, ogsData]);
 
+  const selectedOgs = selectedOgsEntries.length > 0 ? selectedOgsEntries[0] : null;
+
   const ogsAddressList = useMemo(() => {
-    if (!selectedOgs?.location_address) return [];
-    const raw = selectedOgs.location_address as string;
-    if (raw.includes(";")) return raw.split(";").map((a: string) => a.trim()).filter(Boolean);
-    return [raw.trim()];
-  }, [selectedOgs]);
+    if (selectedOgsEntries.length === 0) return [];
+    // Collect unique addresses from all rows for this OGS
+    const allAddresses: string[] = [];
+    selectedOgsEntries.forEach((entry: any) => {
+      const raw = entry.location_address as string;
+      if (!raw) return;
+      if (raw.includes(";")) {
+        raw.split(";").map((a: string) => a.trim()).filter(Boolean).forEach(a => {
+          if (!allAddresses.includes(a)) allAddresses.push(a);
+        });
+      } else {
+        const trimmed = raw.trim();
+        if (trimmed && !allAddresses.includes(trimmed)) allAddresses.push(trimmed);
+      }
+    });
+    return allAddresses;
+  }, [selectedOgsEntries]);
 
   const hasMultipleAddresses = ogsAddressList.length > 1;
 
