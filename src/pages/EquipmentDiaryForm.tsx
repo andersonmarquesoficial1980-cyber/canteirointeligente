@@ -744,21 +744,7 @@ export default function EquipmentDiaryForm() {
             </Field>
           </FieldRow>
 
-          {/* Carreta: Prancha */}
-          {isCarreta && (
-            <Field label="Prancha">
-              <Select value={prancha} onValueChange={setPrancha}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione a prancha..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRANCHA_OPTIONS.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          )}
+          {/* Carreta removed - now inside Caminhões as Carroceria */}
 
           <Field label={isTruck ? "Motorista" : "Operador"}>
             <Select value={operator} onValueChange={setOperator}>
