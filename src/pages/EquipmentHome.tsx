@@ -2,21 +2,32 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, ChevronRight } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import logoCi from "@/assets/logo-ci.png";
-import iconFresadora from "@/assets/icon-fresadora.png";
+
+import imgFresadora from "@/assets/equip-fresadora.png";
+import imgBobcat from "@/assets/equip-bobcat.webp";
+import imgRolo from "@/assets/equip-rolo.png";
+import imgVibro from "@/assets/equip-vibroacabadora.png";
+import imgKma from "@/assets/equip-kma.png";
+import imgCaminhao from "@/assets/equip-caminhao.jpg";
+import imgComboio from "@/assets/equip-comboio.png";
+import imgVeiculo from "@/assets/equip-veiculo.png";
+import imgRetro from "@/assets/equip-retro.webp";
+import imgCarreta from "@/assets/equip-carreta.avif";
 
 const EQUIPMENT_TYPES = [
-  { id: "Fresadora", label: "Fresadora", icon: iconFresadora, isImage: true },
-  { id: "Bobcat", label: "Bobcat", icon: "🏗️", isImage: false },
-  { id: "Rolo", label: "Rolo", icon: "🛞", isImage: false },
-  { id: "Vibroacabadora", label: "Vibro", icon: "⚙️", isImage: false },
-  { id: "Usina KMA", label: "KMA", icon: "⚖️", isImage: false },
-  { id: "Caminhões", label: "Caminhões", icon: "🚛", isImage: false },
-  { id: "Comboio", label: "Comboio", icon: "⛽", isImage: false },
-  { id: "Veículo", label: "Veículo de Transporte", icon: "🚗", isImage: false },
-  { id: "Retro", label: "Retro", icon: "🦾", isImage: false },
+  { id: "Fresadora", label: "Fresadora", img: imgFresadora },
+  { id: "Bobcat", label: "Bobcat", img: imgBobcat },
+  { id: "Rolo", label: "Rolo Compactador", img: imgRolo },
+  { id: "Vibroacabadora", label: "Vibroacabadora", img: imgVibro },
+  { id: "Usina KMA", label: "Usina Móvel KMA", img: imgKma },
+  { id: "Caminhões", label: "Caminhões", img: imgCaminhao },
+  { id: "Comboio", label: "Comboio", img: imgComboio },
+  { id: "Veículo", label: "Veículo de Transporte", img: imgVeiculo },
+  { id: "Retro", label: "Retroescavadeira", img: imgRetro },
+  { id: "Carreta", label: "Carreta", img: imgCarreta },
 ];
 
 export default function EquipmentHome() {
@@ -37,7 +48,7 @@ export default function EquipmentHome() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-[hsl(210_20%_98%)] flex flex-col">
       {/* Header with electric gradient */}
       <header className="flex items-center justify-between px-4 py-3 bg-header-gradient shadow-lg">
         <div className="flex items-center gap-3">
@@ -62,35 +73,46 @@ export default function EquipmentHome() {
         </div>
       </header>
 
-      {/* Grid */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-        <h2 className="text-xl font-display font-extrabold text-foreground mb-6">
+      {/* Equipment Cards */}
+      <div className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
+        <h2 className="text-2xl font-display font-extrabold text-[hsl(215_80%_22%)] mb-5 text-center">
           Selecione o Equipamento
         </h2>
-        <div className="grid grid-cols-3 gap-4 w-full max-w-sm">
+
+        <div className="grid grid-cols-2 gap-3">
           {EQUIPMENT_TYPES.map((eq) => (
             <button
               key={eq.id}
               onClick={() => handleSelect(eq.id)}
-              className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-card border border-border p-4 hover:border-primary hover:shadow-card-hover hover:scale-[1.03] transition-all duration-200 cursor-pointer aspect-square shadow-card"
+              className="group flex items-center gap-3 rounded-2xl bg-white border border-border p-3 hover:border-primary hover:shadow-[0_4px_24px_-4px_hsl(215_80%_50%/0.25)] hover:scale-[1.02] transition-all duration-200 cursor-pointer shadow-[0_2px_12px_-2px_hsl(215_20%_50%/0.12)] text-left"
             >
-              <div className="flex items-center justify-center w-13 h-13 rounded-full bg-primary/10">
-                {eq.isImage ? (
-                  <img src={eq.icon as string} alt={eq.label} className="w-9 h-9 object-contain" />
-                ) : (
-                  <span className="text-2xl">{eq.icon}</span>
-                )}
+              {/* Circular photo with glow */}
+              <div className="relative flex-shrink-0">
+                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-primary/40 group-hover:border-primary transition-colors">
+                  <img
+                    src={eq.img}
+                    alt={eq.label}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="absolute inset-0 rounded-full bg-primary/15 blur-md -z-10 scale-125 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <span className="text-xs font-display font-bold text-foreground text-center leading-tight">
-                {eq.label}
-              </span>
+
+              {/* Title */}
+              <div className="flex-1 min-w-0">
+                <span className="block text-sm font-display font-extrabold text-[hsl(215_80%_22%)] leading-tight truncate">
+                  {eq.label}
+                </span>
+              </div>
+
+              <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary transition-colors flex-shrink-0" />
             </button>
           ))}
         </div>
 
         <Button
           variant="ghost"
-          className="mt-8 text-muted-foreground text-sm font-semibold"
+          className="mt-6 w-full text-muted-foreground text-sm font-semibold"
           onClick={() => navigate("/")}
         >
           ← Voltar ao Hub
