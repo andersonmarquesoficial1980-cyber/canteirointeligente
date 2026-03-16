@@ -109,8 +109,8 @@ const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
 
 const VEICULO_TYPES = ["Micro-ônibus", "Van"] as const;
 const VEICULO_FLEETS: Record<string, string[]> = {
-  "Micro-ônibus": ["VT01", "VT02", "VT03", "VT04", "VT05"],
-  "Van": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
+  "Micro-ônibus": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
+  "Van": ["VT01", "VT02", "VT03", "VT04", "VT05"],
 };
 
 // ── Truck tank supply ──
