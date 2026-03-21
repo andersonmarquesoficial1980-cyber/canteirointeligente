@@ -9,7 +9,7 @@ export interface BasculanteEntry {
   placa: string;
   material: string;
   viagens: string;
-  empresa_dona: string;
+  empresa_dona: string; // kept for compat but not shown
 }
 
 interface Props {
