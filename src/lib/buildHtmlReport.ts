@@ -87,7 +87,6 @@ th{background:#f3f4f6;font-weight:600}
     html += `<h2>🚜 Equipamentos (${filledEquip.length})</h2>
 <table><tr><th style="text-align:center">FROTA</th><th>EQUIPAMENTO</th><th>MODELO/PLACA</th><th>EMPRESA</th></tr>`;
     filledEquip.forEach(e => {
-      // Concatenate modelo (nome) and placa (patrimonio) when both exist
       const modeloParts = [e.nome, e.patrimonio].filter(Boolean);
       const modeloPlaca = modeloParts.length > 1 ? modeloParts.join(" / ") : modeloParts[0] || "";
       html += `<tr><td style="text-align:center;font-weight:600">${e.frota}</td><td>${e.tipo || e.categoria}</td><td>${modeloPlaca}</td><td>${e.empresa_dona}</td></tr>`;
@@ -95,15 +94,33 @@ th{background:#f3f4f6;font-weight:600}
     html += `</table>`;
   }
 
-  // Basculantes
+  // Basculantes (Placa | Material | Viagens only)
   const filledBasc = basculantes.filter(b => b.placa);
   if (filledBasc.length > 0) {
     html += `<h2>🚛 Basculantes (${filledBasc.length})</h2>
-<table><tr><th>Placa</th><th>Material</th><th>Viagens</th><th>Empresa</th></tr>`;
+<table><tr><th>Placa</th><th>Material</th><th>Viagens</th></tr>`;
+    let totalViagens = 0;
     filledBasc.forEach(b => {
-      html += `<tr><td>${b.placa}</td><td>${b.material}</td><td>${b.viagens}</td><td>${b.empresa_dona}</td></tr>`;
+      const v = parseInt(b.viagens) || 0;
+      totalViagens += v;
+      html += `<tr><td>${b.placa}</td><td>${b.material}</td><td>${b.viagens}</td></tr>`;
     });
-    html += `</table>`;
+    html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="2">TOTAL</td><td>${totalViagens}</td></tr></table>`;
+  }
+
+  // Notas Fiscais de Massa (before Produção)
+  if (tipoRdo === "CAUQ") {
+    const filledNf = nfMassa.filter(n => n.nf || n.tonelagem);
+    if (filledNf.length > 0) {
+      html += `<h2>📄 Notas Fiscais de Massa</h2>
+<table><tr><th>NF</th><th>Placa</th><th>Usina</th><th>Tonelagem</th><th>Material</th></tr>`;
+      filledNf.forEach(n => {
+        const ton = parseFloat(n.tonelagem) || 0;
+        html += `<tr><td>${n.nf}</td><td>${n.placa}</td><td>${n.usina}</td><td>${fmtBR(ton)}</td><td>${n.tipo_material === "Outro" ? n.tipo_material_outro : n.tipo_material}</td></tr>`;
+      });
+      const totalNf = filledNf.reduce((s, n) => s + (parseFloat(n.tonelagem) || 0), 0);
+      html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="3">TOTAL</td><td>${fmtBR(totalNf)}</td><td></td></tr></table>`;
+    }
   }
 
   // Produção CAUQ
@@ -134,19 +151,6 @@ th{background:#f3f4f6;font-weight:600}
 </div>`;
         }
       });
-    }
-
-    // NFs
-    const filledNf = nfMassa.filter(n => n.nf || n.tonelagem);
-    if (filledNf.length > 0) {
-      html += `<h2>📄 Notas Fiscais de Massa</h2>
-<table><tr><th>NF</th><th>Placa</th><th>Usina</th><th>Tonelagem</th><th>Material</th></tr>`;
-      filledNf.forEach(n => {
-        const ton = parseFloat(n.tonelagem) || 0;
-        html += `<tr><td>${n.nf}</td><td>${n.placa}</td><td>${n.usina}</td><td>${fmtBR(ton)}</td><td>${n.tipo_material === "Outro" ? n.tipo_material_outro : n.tipo_material}</td></tr>`;
-      });
-      const totalNf = filledNf.reduce((s, n) => s + (parseFloat(n.tonelagem) || 0), 0);
-      html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="3">TOTAL</td><td>${fmtBR(totalNf)}</td><td></td></tr></table>`;
     }
   }
 
