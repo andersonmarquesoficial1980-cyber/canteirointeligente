@@ -62,13 +62,20 @@ th{background:#f3f4f6;font-weight:600}
 </table>
 </div>`;
 
-  // Efetivo
-  const filledEfetivo = efetivo.filter(e => e.nome);
-  if (filledEfetivo.length > 0) {
-    html += `<h2>👷 Efetivo (${filledEfetivo.length})</h2>
+  // Efetivo — expand multi-select names (joined by |||) into individual rows
+  const expandedEfetivo: { nome: string; funcao: string }[] = [];
+  efetivo.forEach(e => {
+    if (!e.nome) return;
+    const names = e.nome.split("|||").filter(Boolean);
+    names.forEach(name => {
+      expandedEfetivo.push({ nome: name.trim(), funcao: e.funcao });
+    });
+  });
+  if (expandedEfetivo.length > 0) {
+    html += `<h2>👷 Efetivo (${expandedEfetivo.length})</h2>
 <p>Horário: ${globalEntrada || "--:--"} às ${globalSaida || "--:--"}</p>
 <table><tr><th>#</th><th>Nome</th><th>Função</th></tr>`;
-    filledEfetivo.forEach((e, i) => {
+    expandedEfetivo.forEach((e, i) => {
       html += `<tr><td>${i + 1}</td><td>${e.nome}</td><td>${e.funcao}</td></tr>`;
     });
     html += `</table>`;

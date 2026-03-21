@@ -19,6 +19,26 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
 
   const selectedObra = obras?.find(o => o.ogs_number === data.obra_nome);
 
+  // Split locations by ';' for cascading select
+  const locations = selectedObra?.location_address
+    ? selectedObra.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
+    : [];
+  const hasMultipleLocations = locations.length > 1;
+
+  // Auto-set local when OGS changes and there's only one location
+  const handleOgsChange = (v: string) => {
+    onChange("obra_nome", v);
+    const obra = obras?.find(o => o.ogs_number === v);
+    const locs = obra?.location_address
+      ? obra.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
+      : [];
+    if (locs.length === 1) {
+      onChange("local", locs[0]);
+    } else {
+      onChange("local", "");
+    }
+  };
+
   return (
     <div className="space-y-5 p-4">
       <h2 className="text-xl font-display font-bold text-foreground">Dados Gerais</h2>
@@ -37,7 +57,7 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
       {/* Obra (OGS) */}
       <div className="space-y-2">
         <Label className="text-sm font-semibold text-foreground">Obra (OGS)</Label>
-        <Select value={data.obra_nome || ""} onValueChange={v => onChange("obra_nome", v)}>
+        <Select value={data.obra_nome || ""} onValueChange={handleOgsChange}>
           <SelectTrigger className="h-14 text-lg bg-card border-border">
             <SelectValue placeholder={loadingObras ? "Carregando..." : "Selecione a obra"} />
           </SelectTrigger>
@@ -51,10 +71,35 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
         </Select>
         {selectedObra && (
           <p className="text-xs text-muted-foreground px-1">
-            📍 {selectedObra.location_address} • 🏢 {selectedObra.client_name}
+            🏢 {selectedObra.client_name}
           </p>
         )}
       </div>
+
+      {/* Local (cascading from OGS) */}
+      {selectedObra && (
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold text-foreground">Local da Obra</Label>
+          {hasMultipleLocations ? (
+            <Select value={data.local || ""} onValueChange={v => onChange("local", v)}>
+              <SelectTrigger className="h-14 text-lg bg-card border-border">
+                <SelectValue placeholder="Selecione a rua..." />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {locations.map((loc: string) => (
+                  <SelectItem key={loc} value={loc} className="py-3 text-base">
+                    📍 {loc}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-sm text-muted-foreground px-1 py-2 bg-card border border-border rounded-lg">
+              📍 {locations[0] || selectedObra.location_address}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Equipamento */}
       <div className="space-y-2">
