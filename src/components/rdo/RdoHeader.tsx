@@ -49,7 +49,16 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
   }, [obras, data.obra_nome]);
 
   const uniqueAddresses = useMemo(() => {
-    return [...new Set(selectedEntries.map(e => e.location_address))];
+    const allAddrs: string[] = [];
+    selectedEntries.forEach(e => {
+      if (e.location_address) {
+        e.location_address.split(";").forEach((s: string) => {
+          const trimmed = s.trim();
+          if (trimmed && !allAddrs.includes(trimmed)) allAddrs.push(trimmed);
+        });
+      }
+    });
+    return allAddrs;
   }, [selectedEntries]);
 
   const handleObraChange = (value: string) => {
@@ -57,8 +66,16 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
     const entries = obras?.filter(o => o.ogs_number === value) || [];
     if (entries.length > 0) {
       onChange("cliente", entries[0].client_name || "");
-      const addrs = [...new Set(entries.map(e => e.location_address))];
-      onChange("local", addrs.length === 1 ? (addrs[0] || "") : "");
+      const addrs: string[] = [];
+      entries.forEach(e => {
+        if (e.location_address) {
+          e.location_address.split(";").forEach((s: string) => {
+            const trimmed = s.trim();
+            if (trimmed && !addrs.includes(trimmed)) addrs.push(trimmed);
+          });
+        }
+      });
+      onChange("local", addrs.length === 1 ? addrs[0] : "");
     }
   };
 
