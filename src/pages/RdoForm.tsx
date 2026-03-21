@@ -361,6 +361,22 @@ export default function RdoForm() {
                 onChangeAtividades={setAtividadesCanteiro}
               />
             )}
+
+            {/* Observações Gerais */}
+            <div className="px-4 space-y-2">
+              <h2 className="font-display font-extrabold text-lg flex items-center gap-2" style={{ color: "hsl(220 70% 20%)" }}>
+                <FileText className="w-5 h-5" style={{ color: "hsl(215 100% 50%)" }} />
+                Observações Gerais
+              </h2>
+              <div className="rdo-card">
+                <Textarea
+                  value={observacoesGerais}
+                  onChange={e => setObservacoesGerais(e.target.value)}
+                  placeholder="Registre aqui observações importantes sobre o dia de trabalho..."
+                  className="min-h-[120px] bg-white border-border rounded-xl text-base resize-y"
+                />
+              </div>
+            </div>
           </>
         )}
       </div>
