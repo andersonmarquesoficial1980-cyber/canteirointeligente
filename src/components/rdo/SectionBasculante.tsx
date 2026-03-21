@@ -9,7 +9,7 @@ export interface BasculanteEntry {
   placa: string;
   material: string;
   viagens: string;
-  empresa_dona: string;
+  empresa_dona: string; // kept for compat but not shown
 }
 
 interface Props {
@@ -65,10 +65,6 @@ export default function SectionBasculante({ entries, onChange, tipoRdo }: Props)
             <div className="space-y-1.5">
               <span className="rdo-label">Viagens</span>
               <Input type="number" inputMode="numeric" value={entry.viagens} onChange={e => update(entry.id, "viagens", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Empresa</span>
-              <Input value={entry.empresa_dona} onChange={e => update(entry.id, "empresa_dona", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
           </div>
         </div>

@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, MessageCircle } from "lucide-react";
+import { ArrowLeft, Send, MessageCircle, FileText } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import RdoHeader from "@/components/rdo/RdoHeader";
@@ -70,6 +71,7 @@ export default function RdoForm() {
   const [teveUsinagem, setTeveUsinagem] = useState(false);
   const [totalUsinado, setTotalUsinado] = useState("");
   const [atividadesCanteiro, setAtividadesCanteiro] = useState("");
+  const [observacoesGerais, setObservacoesGerais] = useState("");
 
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
@@ -359,6 +361,22 @@ export default function RdoForm() {
                 onChangeAtividades={setAtividadesCanteiro}
               />
             )}
+
+            {/* Observações Gerais */}
+            <div className="px-4 space-y-2">
+              <h2 className="font-display font-extrabold text-lg flex items-center gap-2" style={{ color: "hsl(220 70% 20%)" }}>
+                <FileText className="w-5 h-5" style={{ color: "hsl(215 100% 50%)" }} />
+                Observações Gerais
+              </h2>
+              <div className="rdo-card">
+                <Textarea
+                  value={observacoesGerais}
+                  onChange={e => setObservacoesGerais(e.target.value)}
+                  placeholder="Registre aqui observações importantes sobre o dia de trabalho..."
+                  className="min-h-[120px] bg-white border-border rounded-xl text-base resize-y"
+                />
+              </div>
+            </div>
           </>
         )}
       </div>
