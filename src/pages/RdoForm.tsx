@@ -70,6 +70,7 @@ export default function RdoForm() {
   const [teveUsinagem, setTeveUsinagem] = useState(false);
   const [totalUsinado, setTotalUsinado] = useState("");
   const [atividadesCanteiro, setAtividadesCanteiro] = useState("");
+  const [observacoesGerais, setObservacoesGerais] = useState("");
 
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
