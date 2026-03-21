@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Send, MessageCircle, FileText } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import RdoHeader from "@/components/rdo/RdoHeader";
 import RdoTipoSelector from "@/components/rdo/RdoTipoSelector";
