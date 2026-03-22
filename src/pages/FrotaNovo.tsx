@@ -227,6 +227,9 @@ export default function FrotaNovo() {
 
         <Dialog open={open} onOpenChange={setOpen}>
           <div className="flex gap-2">
+            <Button variant="outline" className="gap-2 font-semibold" onClick={() => navigate("/equipamentos/dashboard")}>
+              <BarChart3 className="w-4 h-4" /> Dashboard
+            </Button>
             <Button variant="outline" className="gap-2 font-semibold" onClick={() => navigate("/equipamentos/diario")}>
               <FileText className="w-4 h-4" /> Novo Diário
             </Button>
