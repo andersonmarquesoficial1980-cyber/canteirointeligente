@@ -507,8 +507,24 @@ export default function EquipmentDiaryForm() {
             if (t.origin && t.destination && t.origin === t.destination && t.transportInternalDetails) {
               parts.push(`Trecho: ${t.transportInternalDetails}`);
             }
+            if (t.destination === "BASE / PÁTIO CENTRAL" && t.returnReason) {
+              parts.push(`Retorno: ${t.returnReason}`);
+              if (t.returnReason === "Manutenção / Oficina" && t.returnDetails) {
+                parts.push(`Detalhe: ${t.returnDetails}`);
+              }
+            }
             description = parts.length > 0 ? parts.join(" | ") : null;
-          } else if (t.activity === "Transporte") description = t.transportObs || null;
+          } else if (t.activity === "Transporte") {
+            const parts: string[] = [];
+            if (t.transportObs) parts.push(t.transportObs);
+            if (t.destination === "BASE / PÁTIO CENTRAL" && t.returnReason) {
+              parts.push(`Retorno: ${t.returnReason}`);
+              if (t.returnReason === "Manutenção / Oficina" && t.returnDetails) {
+                parts.push(`Detalhe: ${t.returnDetails}`);
+              }
+            }
+            description = parts.length > 0 ? parts.join(" | ") : null;
+          }
 
           return {
             diary_id: diary.id,
