@@ -91,19 +91,44 @@ export default function FleetDashboard() {
       return data as any[];
     },
   });
-    },
-  });
 
-  // ── Compute statuses ────────────────────────────────────────
+  // ── Map view status_cor to FleetStatus ──────────────────────
+  function mapStatusCor(cor: string): FleetStatus {
+    const c = (cor || "").toLowerCase();
+    if (c.includes("produzindo") || c.includes("obra")) return "em_obra";
+    if (c.includes("trânsito") || c.includes("transporte") || c.includes("transito")) return "transporte";
+    if (c.includes("disponível") || c.includes("disponivel") || c.includes("base")) return "disponivel";
+    if (c.includes("manutenção") || c.includes("manutencao")) return "manutencao";
+    return "em_obra";
+  }
+
+  // ── Compute statuses from view ─────────────────────────────
   const { statusMap, entryByFleet } = useMemo(() => {
     const sMap: Record<string, FleetStatus> = {};
-    const eMap: Record<string, EntryInfo> = {};
-    for (const e of latestEntries) eMap[e.fleet] = e;
+    const eMap: Record<string, { destination: string; returnReason: string; activity: string }> = {};
+
+    // Index view data by fleet
+    const viewByFleet: Record<string, any> = {};
+    for (const v of viewData) {
+      viewByFleet[v.equipment_fleet] = v;
+    }
+
     for (const eq of equipamentos) {
-      sMap[eq.id] = deriveStatus(eq.status, eMap[eq.frota]);
+      const vRow = viewByFleet[eq.frota];
+      if (vRow) {
+        sMap[eq.id] = mapStatusCor(vRow.status_cor);
+        eMap[eq.frota] = {
+          destination: vRow.destination || "",
+          returnReason: vRow.description || "",
+          activity: vRow.activity || "",
+        };
+      } else {
+        // Fallback: use DB status
+        sMap[eq.id] = eq.status === "manutencao" ? "manutencao" : eq.status === "ativo" ? "em_obra" : "disponivel";
+      }
     }
     return { statusMap: sMap, entryByFleet: eMap };
-  }, [equipamentos, latestEntries]);
+  }, [equipamentos, viewData]);
 
   const counts = useMemo(() => {
     const c: Record<FleetStatus, number> = { em_obra: 0, transporte: 0, disponivel: 0, manutencao: 0 };
