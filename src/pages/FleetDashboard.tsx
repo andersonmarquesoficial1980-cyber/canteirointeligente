@@ -344,6 +344,8 @@ export default function FleetDashboard() {
             </CardContent>
           </Card>
         )}
+        {/* ── Advanced Reports ─────────────────────────────── */}
+        <AdvancedReports />
       </div>
     </div>
   );
