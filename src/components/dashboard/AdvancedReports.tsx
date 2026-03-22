@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, FileSpreadsheet, Loader2, Truck, Fuel } from "lucide-react";
+import { CalendarIcon, FileSpreadsheet, Loader2, Truck, Fuel, Download } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ export default function AdvancedReports() {
   const [dateTo, setDateTo] = useState<Date>();
   const [loadingTransport, setLoadingTransport] = useState(false);
   const [loadingRefuel, setLoadingRefuel] = useState(false);
+  const [loadingConsolidado, setLoadingConsolidado] = useState(false);
 
   const getRange = () => {
     if (!dateFrom || !dateTo) return null;
@@ -25,6 +26,14 @@ export default function AdvancedReports() {
     };
   };
 
+  const fmtDate = (d: string) => {
+    if (!d) return "—";
+    try {
+      return format(new Date(d + "T12:00:00"), "dd/MM/yyyy");
+    } catch { return d; }
+  };
+
+  /* ── Exportar Transportes (Carreta) ── */
   const exportTransportes = async () => {
     const range = getRange();
     if (!range) { toast.error("Selecione o período inicial e final."); return; }
@@ -38,27 +47,18 @@ export default function AdvancedReports() {
 
       if (error) throw error;
 
-      // Filter only carreta transport entries
       const rows = (data || [])
         .filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta")
-        .map((r: any, i: number) => {
+        .map((r: any) => {
           const d = r.equipment_diaries;
-          const equips: string[] = [];
-          if (r.description) {
-            const equipMatch = r.description.match(/^([^|]+)/);
-            if (equipMatch) equips.push(equipMatch[1].trim());
-          }
           return {
-            "#": i + 1,
-            "Data": d?.date ? format(new Date(d.date + "T12:00:00"), "dd/MM/yyyy") : "—",
-            "Cavalo Mecânico": d?.equipment_fleet || "—",
-            "Prancha": d?.attachment_type || "—",
-            "Atividade": r.activity || "—",
-            "Início": r.start_time || "—",
-            "Fim": r.end_time || "—",
+            "Data": fmtDate(d?.date),
+            "Prefixo": d?.equipment_fleet || "—",
+            "Equipamento Transportado": r.description || "—",
             "Origem": r.origin || "—",
             "Destino": r.destination || "—",
-            "Equipamento Transportado": equips.join(", ") || r.description || "—",
+            "Horário Início / Fim": `${r.start_time || "—"} — ${r.end_time || "—"}`,
+            "Observações / Finalidade": r.ogs_destination || r.activity || "—",
           };
         });
 
@@ -69,13 +69,12 @@ export default function AdvancedReports() {
 
       const ws = XLSX.utils.json_to_sheet(rows);
       ws["!cols"] = [
-        { wch: 4 }, { wch: 12 }, { wch: 16 }, { wch: 14 },
-        { wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 28 },
-        { wch: 28 }, { wch: 32 },
+        { wch: 12 }, { wch: 14 }, { wch: 30 },
+        { wch: 30 }, { wch: 30 }, { wch: 18 }, { wch: 36 },
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Transportes Carreta");
-      XLSX.writeFile(wb, `Transportes_Carreta_${range.from}_${range.to}.xlsx`);
+      XLSX.writeFile(wb, `Relatorio_Transporte_Periodo_Fremix.xlsx`);
       toast.success(`${rows.length} registros exportados!`);
     } catch (err: any) {
       toast.error("Erro ao exportar: " + (err?.message || "desconhecido"));
@@ -84,6 +83,7 @@ export default function AdvancedReports() {
     }
   };
 
+  /* ── Exportar Abastecimentos (Comboio) ── */
   const exportAbastecimentos = async () => {
     const range = getRange();
     if (!range) { toast.error("Selecione o período inicial e final."); return; }
@@ -97,19 +97,19 @@ export default function AdvancedReports() {
 
       if (error) throw error;
 
-      const rows = (data || []).map((r: any, i: number) => {
+      const rows = (data || []).map((r: any) => {
         const d = r.equipment_diaries;
+        const services: string[] = [];
+        if (r.is_lubricated) services.push("Lubrificação");
+        if (r.is_washed) services.push("Lavagem");
         return {
-          "#": i + 1,
-          "Data": d?.date ? format(new Date(d.date + "T12:00:00"), "dd/MM/yyyy") : "—",
-          "Comboio": d?.equipment_fleet || "—",
+          "Data": fmtDate(d?.date),
+          "Prefixo": d?.equipment_fleet || "—",
           "Equipamento Abastecido": r.equipment_fleet_fueled || "—",
-          "Litros": r.liters_fueled ?? 0,
-          "Medição (H/Km)": r.equipment_meter ?? "—",
-          "OGS / Local": r.ogs_destination || "—",
-          "Lubrificação": r.is_lubricated ? "Sim" : "Não",
-          "Lavagem": r.is_washed ? "Sim" : "Não",
-          "Saldo Inicial (L)": r.initial_diesel_balance ?? "—",
+          "Origem": "Comboio",
+          "Destino": r.ogs_destination || "—",
+          "Horário Início / Fim": `${r.liters_fueled ?? 0} L | Med: ${r.equipment_meter ?? "—"}`,
+          "Observações / Finalidade": services.length > 0 ? services.join(", ") : "—",
         };
       });
 
@@ -118,15 +118,15 @@ export default function AdvancedReports() {
         return;
       }
 
-      // Summary sheet
+      // Summary sheets
       const byEquip: Record<string, number> = {};
       const byOgs: Record<string, number> = {};
-      rows.forEach((r: any) => {
-        const eq = r["Equipamento Abastecido"];
-        const ogs = r["OGS / Local"];
-        const liters = Number(r["Litros"]) || 0;
+      (data || []).forEach((r: any) => {
+        const eq = r.equipment_fleet_fueled || "—";
+        const ogs = r.ogs_destination || "—";
+        const liters = Number(r.liters_fueled) || 0;
         byEquip[eq] = (byEquip[eq] || 0) + liters;
-        if (ogs && ogs !== "—") byOgs[ogs] = (byOgs[ogs] || 0) + liters;
+        if (ogs !== "—") byOgs[ogs] = (byOgs[ogs] || 0) + liters;
       });
 
       const summaryEquip = Object.entries(byEquip)
@@ -141,9 +141,8 @@ export default function AdvancedReports() {
 
       const wsData = XLSX.utils.json_to_sheet(rows);
       wsData["!cols"] = [
-        { wch: 4 }, { wch: 12 }, { wch: 14 }, { wch: 22 },
-        { wch: 10 }, { wch: 14 }, { wch: 32 }, { wch: 12 },
-        { wch: 10 }, { wch: 16 },
+        { wch: 12 }, { wch: 14 }, { wch: 24 },
+        { wch: 14 }, { wch: 32 }, { wch: 22 }, { wch: 24 },
       ];
       XLSX.utils.book_append_sheet(wb, wsData, "Abastecimentos");
 
@@ -155,12 +154,97 @@ export default function AdvancedReports() {
       wsOgs["!cols"] = [{ wch: 36 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(wb, wsOgs, "Resumo por OGS");
 
-      XLSX.writeFile(wb, `Abastecimentos_Comboio_${range.from}_${range.to}.xlsx`);
+      XLSX.writeFile(wb, `Relatorio_Abastecimento_Periodo_Fremix.xlsx`);
       toast.success(`${rows.length} registros exportados em 3 abas!`);
     } catch (err: any) {
       toast.error("Erro ao exportar: " + (err?.message || "desconhecido"));
     } finally {
       setLoadingRefuel(false);
+    }
+  };
+
+  /* ── Exportar Consolidado (Carreta + Comboio) ── */
+  const exportConsolidado = async () => {
+    const range = getRange();
+    if (!range) { toast.error("Selecione o período inicial e final."); return; }
+    setLoadingConsolidado(true);
+    try {
+      const [transportRes, refuelRes] = await Promise.all([
+        supabase
+          .from("equipment_time_entries")
+          .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, attachment_type)")
+          .gte("equipment_diaries.date", range.from)
+          .lte("equipment_diaries.date", range.to),
+        supabase
+          .from("comboio_equipment_refueling")
+          .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type)")
+          .gte("equipment_diaries.date", range.from)
+          .lte("equipment_diaries.date", range.to),
+      ]);
+
+      if (transportRes.error) throw transportRes.error;
+      if (refuelRes.error) throw refuelRes.error;
+
+      const allRows: any[] = [];
+
+      // Carreta rows
+      (transportRes.data || [])
+        .filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta")
+        .forEach((r: any) => {
+          const d = r.equipment_diaries;
+          allRows.push({
+            "Data": fmtDate(d?.date),
+            "Prefixo": d?.equipment_fleet || "—",
+            "Equipamento": r.description || "—",
+            "Origem": r.origin || "—",
+            "Destino": r.destination || "—",
+            "Horário Início / Fim": `${r.start_time || "—"} — ${r.end_time || "—"}`,
+            "Observações / Finalidade": r.ogs_destination || r.activity || "—",
+          });
+        });
+
+      // Comboio rows
+      (refuelRes.data || []).forEach((r: any) => {
+        const d = r.equipment_diaries;
+        const services: string[] = [];
+        if (r.is_lubricated) services.push("Lubrificação");
+        if (r.is_washed) services.push("Lavagem");
+        allRows.push({
+          "Data": fmtDate(d?.date),
+          "Prefixo": d?.equipment_fleet || "—",
+          "Equipamento": r.equipment_fleet_fueled || "—",
+          "Origem": "Comboio",
+          "Destino": r.ogs_destination || "—",
+          "Horário Início / Fim": `${r.liters_fueled ?? 0} L`,
+          "Observações / Finalidade": services.length > 0 ? services.join(", ") : "Abastecimento",
+        });
+      });
+
+      // Sort by date
+      allRows.sort((a, b) => {
+        const da = a["Data"] || "";
+        const db = b["Data"] || "";
+        return da.localeCompare(db);
+      });
+
+      if (allRows.length === 0) {
+        toast.info("Nenhum registro encontrado no período.");
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(allRows);
+      ws["!cols"] = [
+        { wch: 12 }, { wch: 14 }, { wch: 28 },
+        { wch: 28 }, { wch: 28 }, { wch: 20 }, { wch: 36 },
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Consolidado");
+      XLSX.writeFile(wb, `Relatorio_Transporte_Periodo_Fremix.xlsx`);
+      toast.success(`${allRows.length} registros consolidados e exportados!`);
+    } catch (err: any) {
+      toast.error("Erro ao exportar: " + (err?.message || "desconhecido"));
+    } finally {
+      setLoadingConsolidado(false);
     }
   };
 
@@ -218,14 +302,14 @@ export default function AdvancedReports() {
         </div>
 
         {/* Export Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Button
             onClick={exportTransportes}
             disabled={!hasRange || loadingTransport}
             className="gap-2 font-extrabold py-5 rounded-xl bg-[hsl(215_80%_35%)] hover:bg-[hsl(215_80%_28%)] text-white shadow-md"
           >
             {loadingTransport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4" />}
-            Exportar Transportes (Carreta)
+            Transportes (Carreta)
           </Button>
           <Button
             onClick={exportAbastecimentos}
@@ -233,7 +317,15 @@ export default function AdvancedReports() {
             className="gap-2 font-extrabold py-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
           >
             {loadingRefuel ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fuel className="w-4 h-4" />}
-            Exportar Abastecimentos (Comboio)
+            Abastecimentos (Comboio)
+          </Button>
+          <Button
+            onClick={exportConsolidado}
+            disabled={!hasRange || loadingConsolidado}
+            className="gap-2 font-extrabold py-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md"
+          >
+            {loadingConsolidado ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Consolidado (Ambos)
           </Button>
         </div>
       </CardContent>
