@@ -197,7 +197,7 @@ export function buildCarretaEmailReport(params: {
         <h2 style="margin-top:0;color:#991b1b">⚠️ Retornos à Base (${baseReturns.length})</h2>`;
       baseReturns.forEach((t) => {
         const hasManut = t.returnReason?.includes("Manutenção");
-        html += `<p>• <strong>${t.origin || "?"} → BASE</strong> — ${hasManut ? '<span class="badge badge-red">Manutenção</span>' : '<span class="badge badge-green">Término de Obra</span>'} ${desc}</p>`;
+        html += `<p>• <strong>${t.origin || "?"} → BASE</strong> — ${hasManut ? '<span class="badge badge-red">Manutenção</span>' : '<span class="badge badge-green">Término de Obra</span>'} ${t.returnDetails || ""}</p>`;
       });
       html += `</div>`;
     }
