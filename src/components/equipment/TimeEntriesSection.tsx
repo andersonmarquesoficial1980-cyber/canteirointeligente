@@ -36,6 +36,8 @@ export interface TimeEntry {
   transportEquip3?: string;
   transportEquip3Custom?: string;
   transportInternalDetails?: string;
+  returnReason?: string;
+  returnDetails?: string;
 }
 
 interface Props {
