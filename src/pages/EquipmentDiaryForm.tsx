@@ -479,16 +479,29 @@ export default function EquipmentDiaryForm() {
       // Save time entries
       const validTimeEntries = timeEntries.filter((t) => t.startTime && t.activity);
       if (validTimeEntries.length > 0 && diary) {
-        const rows = validTimeEntries.map((t) => ({
-          diary_id: diary.id,
-          start_time: t.startTime,
-          end_time: t.endTime || null,
-          activity: t.activity,
-          description: t.activity === "Manutenção" ? (t.maintenanceDetails || null) : (t.activity === "Transporte" ? (t.transportObs || null) : null),
-          origin: t.origin || null,
-          destination: t.destination || null,
-          ogs_destination: t.transportOgs || null,
-        }));
+        const rows = validTimeEntries.map((t) => {
+          let description = null;
+          if (t.activity === "Manutenção") description = t.maintenanceDetails || null;
+          else if (t.activity === "Transporte" && isCarreta) {
+            const equips = [
+              t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
+              t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
+              t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
+            ].filter(Boolean);
+            description = equips.length > 0 ? equips.join(", ") : null;
+          } else if (t.activity === "Transporte") description = t.transportObs || null;
+
+          return {
+            diary_id: diary.id,
+            start_time: t.startTime,
+            end_time: t.endTime || null,
+            activity: t.activity,
+            description,
+            origin: t.origin || null,
+            destination: t.destination || null,
+            ogs_destination: t.transportOgs || null,
+          };
+        });
         await supabase.from("equipment_time_entries").insert(rows);
       }
 
