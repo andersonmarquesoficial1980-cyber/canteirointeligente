@@ -88,6 +88,12 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
     transportObs: "",
     transportOgs: "",
     transportPassengers: "",
+    transportEquip1: "",
+    transportEquip1Custom: "",
+    transportEquip2: "",
+    transportEquip2Custom: "",
+    transportEquip3: "",
+    transportEquip3Custom: "",
   };
 }
 
