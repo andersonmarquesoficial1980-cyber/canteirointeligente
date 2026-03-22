@@ -298,22 +298,34 @@ export default function EquipmentDiaryForm() {
     },
   });
 
-  // Filtered operators
-  const operadoresFresa = useMemo(
-    () => funcionarios.filter((f: any) => {
-      const fn = f.funcao?.toUpperCase() || "";
-      return fn === "OPERADOR DE FRESADORA" || fn === "OPERADOR DE FRESA";
-    }),
-    [funcionarios]
-  );
+  // Log data arrival for debugging
+  useEffect(() => {
+    if (funcionarios.length > 0) {
+      const funcoes = [...new Set(funcionarios.map((f: any) => f.funcao))];
+      console.log(`[EquipmentDiaryForm] ${funcionarios.length} funcionários carregados. Funções:`, funcoes);
+    } else {
+      console.log("[EquipmentDiaryForm] Nenhum funcionário carregado ainda.");
+    }
+  }, [funcionarios]);
 
-  const operadoresSolo = useMemo(
-    () => funcionarios.filter((f: any) => {
+  // Filtered operators — matches actual DB values like "OP DE FRESADORA"
+  const operadoresFresa = useMemo(() => {
+    const filtered = funcionarios.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
-      return fn === "OPERADOR SOLO" || fn === "AJUDANTE GERAL";
-    }),
-    [funcionarios]
-  );
+      return fn.includes("FRESADORA") || fn === "OP DE FRESADORA";
+    });
+    console.log(`[Operadores Fresa] ${filtered.length} encontrados`);
+    return filtered.length > 0 ? filtered : funcionarios;
+  }, [funcionarios]);
+
+  const operadoresSolo = useMemo(() => {
+    const filtered = funcionarios.filter((f: any) => {
+      const fn = f.funcao?.toUpperCase() || "";
+      return fn.includes("OP SOLO") || fn.includes("AJUDANTE");
+    });
+    console.log(`[Operadores Solo] ${filtered.length} encontrados`);
+    return filtered.length > 0 ? filtered : funcionarios;
+  }, [funcionarios]);
 
   const filteredFleet = useMemo(() => {
     if (isFresadora) {
@@ -326,29 +338,29 @@ export default function EquipmentDiaryForm() {
     return equipamentos;
   }, [equipamentos, isFresadora]);
 
-  const operadoresBobcat = useMemo(
-    () => funcionarios.filter((f: any) => {
+  const operadoresBobcat = useMemo(() => {
+    const filtered = funcionarios.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
-      return fn.includes("BOBCAT") || fn === "OPERADOR DE BOBCAT" || fn === "OPERADOR";
-    }),
-    [funcionarios]
-  );
+      return fn.includes("BOBCAT");
+    });
+    return filtered.length > 0 ? filtered : funcionarios;
+  }, [funcionarios]);
 
-  const operadoresRetro = useMemo(
-    () => funcionarios.filter((f: any) => {
+  const operadoresRetro = useMemo(() => {
+    const filtered = funcionarios.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
-      return fn.includes("RETROESCAVADEIRA") || fn.includes("RETRO") || fn === "OPERADOR";
-    }),
-    [funcionarios]
-  );
+      return fn.includes("RETROESCAVADEIRA") || fn.includes("RETRO") || fn.includes("ESCAVADEIRA") || fn.includes("PA CARREGADEIRA");
+    });
+    return filtered.length > 0 ? filtered : funcionarios;
+  }, [funcionarios]);
 
-  const motoristas = useMemo(
-    () => funcionarios.filter((f: any) => {
+  const motoristas = useMemo(() => {
+    const filtered = funcionarios.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
-      return fn.includes("MOTORISTA") || fn.includes("CAMINHÃO") || fn.includes("COMBOIO") || fn === "OPERADOR";
-    }),
-    [funcionarios]
-  );
+      return fn.includes("MOTORISTA") || fn.includes("COMBOIO");
+    });
+    return filtered.length > 0 ? filtered : funcionarios;
+  }, [funcionarios]);
 
   const meterLabel = usesOdometer ? "Odômetro" : "Horímetro";
 
