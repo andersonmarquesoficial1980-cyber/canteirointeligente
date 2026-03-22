@@ -138,28 +138,22 @@ export default function FleetDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6 pb-8">
       {/* Header */}
-      <header className="bg-white border-b border-border px-6 py-4 shadow-sm">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/equipamentos/frota")}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-display font-extrabold text-[hsl(215_80%_22%)]">
-                Dashboard — Status da Frota
-              </h1>
-              <p className="text-sm text-muted-foreground">Visão em tempo real dos equipamentos</p>
-            </div>
-          </div>
-          <Badge variant="outline" className="text-xs font-semibold gap-1">
-            <Gauge className="w-3 h-3" /> {total} equipamentos
-          </Badge>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl font-display font-extrabold text-[hsl(215_80%_22%)] flex items-center gap-2">
+            <BarChart3 className="w-6 h-6 text-primary" />
+            Painel de Controle
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">Status da frota em tempo real</p>
         </div>
-      </header>
+        <Badge variant="outline" className="text-xs font-semibold gap-1">
+          <Gauge className="w-3 h-3" /> {total} equipamentos
+        </Badge>
+      </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+      <div className="space-y-6">
         {/* ── Top row: Donut + KPIs ──────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
           {/* Donut Card */}
