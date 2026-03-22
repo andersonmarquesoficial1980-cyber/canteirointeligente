@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Clock } from "lucide-react";
+import { Plus, Trash2, Clock, Warehouse } from "lucide-react";
+
+const BASE_PATIO_VALUE = "BASE / PÁTIO CENTRAL";
+const RETURN_REASONS = ["Manutenção / Oficina", "Término de Obra / Desmobilização"] as const;
 
 const ACTIVITIES = [
   "Check e Preparação",
