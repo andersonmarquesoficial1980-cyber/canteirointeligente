@@ -10,6 +10,7 @@ import Home from "./pages/Home";
 import Index from "./pages/Index";
 import RdoForm from "./pages/RdoForm";
 import FrotaNovo from "./pages/FrotaNovo";
+import FleetDashboard from "./pages/FleetDashboard";
 import EquipmentHome from "./pages/EquipmentHome";
 import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
 import AdminConfiguracoes from "./pages/AdminConfiguracoes";
@@ -46,6 +47,7 @@ function AppRoutes() {
         {/* Equipamentos module — standalone layout */}
         <Route path="/equipamentos" element={<EquipmentHome />} />
         <Route path="/equipamentos/frota" element={<AppLayout><FrotaNovo /></AppLayout>} />
+        <Route path="/equipamentos/dashboard" element={<FleetDashboard />} />
         <Route path="/equipamentos/diario" element={<EquipmentDiaryForm />} />
 
         {/* Admin */}

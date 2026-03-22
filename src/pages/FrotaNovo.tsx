@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Truck, Search, Cog, CircleDot, FileText, Warehouse, Wrench, Activity } from "lucide-react";
+import { Plus, Truck, Search, Cog, FileText, Warehouse, Wrench, Activity, BarChart3 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 const TIPOS = ["Pavimentação", "Compactação", "Fresagem", "Transporte", "Usina", "Apoio", "Outros"];
@@ -227,6 +227,9 @@ export default function FrotaNovo() {
 
         <Dialog open={open} onOpenChange={setOpen}>
           <div className="flex gap-2">
+            <Button variant="outline" className="gap-2 font-semibold" onClick={() => navigate("/equipamentos/dashboard")}>
+              <BarChart3 className="w-4 h-4" /> Dashboard
+            </Button>
             <Button variant="outline" className="gap-2 font-semibold" onClick={() => navigate("/equipamentos/diario")}>
               <FileText className="w-4 h-4" /> Novo Diário
             </Button>
