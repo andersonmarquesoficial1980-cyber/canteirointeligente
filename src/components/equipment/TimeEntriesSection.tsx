@@ -26,6 +26,12 @@ export interface TimeEntry {
   transportObs?: string;
   transportOgs?: string;
   transportPassengers?: string;
+  transportEquip1?: string;
+  transportEquip1Custom?: string;
+  transportEquip2?: string;
+  transportEquip2Custom?: string;
+  transportEquip3?: string;
+  transportEquip3Custom?: string;
 }
 
 interface Props {
