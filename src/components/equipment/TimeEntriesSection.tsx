@@ -313,8 +313,8 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                     </span>
                   </div>
                   <Select value={entry.returnReason || ""} onValueChange={(v) => {
-                    updateEntry(idx, "returnReason", v);
-                    if (v !== "Manutenção / Oficina") updateEntry(idx, "returnDetails", "");
+                    const extra: Partial<TimeEntry> = v !== "Manutenção / Oficina" ? { returnDetails: "" } : {};
+                    updateEntry(idx, "returnReason", v, extra);
                   }}>
                     <SelectTrigger className="bg-background border-border h-9 text-xs">
                       <SelectValue placeholder="Selecione o motivo..." />
