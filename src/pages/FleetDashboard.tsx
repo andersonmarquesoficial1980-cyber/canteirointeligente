@@ -28,26 +28,6 @@ const STATUS: Record<FleetStatus, StatusMeta> = {
   manutencao: { label: "Manutenção",        color: "hsl(0 70% 50%)",   bg: "hsl(0 70% 50% / 0.12)",   icon: Wrench },
 };
 
-// ── Derive status from latest time entry ─────────────────────
-interface EntryInfo { destination: string; returnReason: string; activity: string }
-
-function deriveStatus(dbStatus: string, entry?: EntryInfo): FleetStatus {
-  if (dbStatus === "manutencao") return "manutencao";
-  if (!entry) return dbStatus === "ativo" ? "em_obra" : "disponivel";
-
-  const dest = (entry.destination || "").toUpperCase();
-  if (dest.includes("BASE")) {
-    const reason = (entry.returnReason || "").toLowerCase();
-    return reason.includes("manutenção") || reason.includes("manutencao") || reason.includes("oficina")
-      ? "manutencao"
-      : "disponivel";
-  }
-
-  const act = (entry.activity || "").toLowerCase();
-  if (act.includes("transporte") || act.includes("deslocamento")) return "transporte";
-  return "em_obra";
-}
-
 // ── Active shape for donut hover ─────────────────────────────
 const renderActiveShape = (props: any) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value } = props;
