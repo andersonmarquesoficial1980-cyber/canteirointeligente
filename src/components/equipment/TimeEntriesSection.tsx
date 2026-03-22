@@ -225,21 +225,29 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Origem</span>
-                  <Input
-                    value={entry.origin || ""}
-                    onChange={(e) => updateEntry(idx, "origin", e.target.value)}
-                    placeholder="Local de origem..."
-                    className="bg-secondary border-border text-xs h-9"
-                  />
+                  <Select value={entry.origin || ""} onValueChange={(v) => updateEntry(idx, "origin", v)}>
+                    <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                      <SelectValue placeholder="Selecione OGS..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {ogsLocationOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Destino</span>
-                  <Input
-                    value={entry.destination || ""}
-                    onChange={(e) => updateEntry(idx, "destination", e.target.value)}
-                    placeholder="Local de destino..."
-                    className="bg-secondary border-border text-xs h-9"
-                  />
+                  <Select value={entry.destination || ""} onValueChange={(v) => updateEntry(idx, "destination", v)}>
+                    <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                      <SelectValue placeholder="Selecione OGS..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {ogsLocationOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               {showTransportOgs && (
