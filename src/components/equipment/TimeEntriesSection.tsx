@@ -124,10 +124,10 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
     ]);
   };
 
-  const updateEntry = (index: number, field: keyof TimeEntry, value: any) => {
+  const updateEntry = (index: number, field: keyof TimeEntry, value: any, extraFields?: Partial<TimeEntry>) => {
     const updated = entries.map((e, i) => {
       if (i !== index) return e;
-      const newEntry = { ...e, [field]: value };
+      const newEntry = { ...e, [field]: value, ...extraFields };
       if (field === "activity") {
         const paradaActivities = ["Refeições", "À Disposição", "Manutenção"];
         newEntry.isParada = paradaActivities.includes(value);
@@ -280,11 +280,10 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Destino</span>
                   <Select value={entry.destination || ""} onValueChange={(v) => {
-                    updateEntry(idx, "destination", v);
-                    if (v !== BASE_PATIO_VALUE) {
-                      updateEntry(idx, "returnReason", "");
-                      updateEntry(idx, "returnDetails", "");
-                    }
+                    const extra: Partial<TimeEntry> = v !== BASE_PATIO_VALUE
+                      ? { returnReason: "", returnDetails: "" }
+                      : {};
+                    updateEntry(idx, "destination", v, extra);
                   }}>
                     <SelectTrigger className="bg-secondary border-border h-9 text-xs">
                       <SelectValue placeholder="Selecione..." />
@@ -314,8 +313,8 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                     </span>
                   </div>
                   <Select value={entry.returnReason || ""} onValueChange={(v) => {
-                    updateEntry(idx, "returnReason", v);
-                    if (v !== "Manutenção / Oficina") updateEntry(idx, "returnDetails", "");
+                    const extra: Partial<TimeEntry> = v !== "Manutenção / Oficina" ? { returnDetails: "" } : {};
+                    updateEntry(idx, "returnReason", v, extra);
                   }}>
                     <SelectTrigger className="bg-background border-border h-9 text-xs">
                       <SelectValue placeholder="Selecione o motivo..." />
