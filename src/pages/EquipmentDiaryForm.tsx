@@ -1060,7 +1060,7 @@ export default function EquipmentDiaryForm() {
           showTransportPassengers={isVeiculo}
           ogsData={ogsData}
           isCarreta={isCarreta}
-          allFleets={equipamentos}
+          allFleets={isCarreta ? equipmentFleets.map((f: any) => ({ frota: f.fleet_number, nome: f.equipment_type })) : equipamentos}
         />
 
         {/* FRESADORA: Produção + Bits */}
