@@ -40,6 +40,8 @@ export interface TimeEntry {
   returnDetails?: string;
 }
 
+const PRODUCTION_EQUIPMENT_TYPES = ["fresadora", "bobcat", "retroescavadeira", "rolo", "vibroacabadora", "usina"];
+
 interface Props {
   entries: TimeEntry[];
   onChange: (entries: TimeEntry[]) => void;
@@ -49,6 +51,7 @@ interface Props {
   ogsData?: any[];
   isCarreta?: boolean;
   allFleets?: any[];
+  equipmentType?: string;
 }
 
 function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string }[] {
@@ -57,6 +60,8 @@ function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string
 
   ogsData.forEach((o: any) => {
     if (!o.ogs_number) return;
+    const num = (o.ogs_number || "").toUpperCase();
+    if (num.includes("BASE") || num.includes("OSASCO")) return;
     const addresses = o.location_address
       ? o.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
       : [];
@@ -106,7 +111,8 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
   };
 }
 
-export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [], isCarreta = false, allFleets = [] }: Props) {
+export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [], isCarreta = false, allFleets = [], equipmentType = "" }: Props) {
+  const showReturnReason = PRODUCTION_EQUIPMENT_TYPES.some(t => equipmentType.toLowerCase().includes(t));
   const fleetOptions = useMemo(() => {
     const opts = allFleets.map((f: any) => f.frota).filter(Boolean).sort();
     return [...opts, "Outro"];
@@ -304,7 +310,7 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
               </div>
 
               {/* Return reason when destination is BASE */}
-              {entry.destination === BASE_PATIO_VALUE && (
+              {entry.destination === BASE_PATIO_VALUE && showReturnReason && (
                 <div className="space-y-2 bg-primary/5 border border-primary/20 rounded-lg p-3">
                   <div className="flex items-center gap-2">
                     <Warehouse className="w-4 h-4 text-primary" />
