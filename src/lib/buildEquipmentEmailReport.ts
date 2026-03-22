@@ -54,48 +54,40 @@ export function buildComboioEmailReport(params: {
   const totalAbastecido = validEntries.reduce((s, e) => s + (Number(e.litersFueled) || 0), 0);
   const saldoIni = Number(saldoInicial) || 0;
   const saldoFinal = saldoIni - totalAbastecido;
-  const kmRodados = (Number(odometerFinal) || 0) - (Number(odometerInitial) || 0);
 
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${STYLE}</style></head><body>`;
-  html += `<h1>🛢️ Relatório Diário de Comboio — Abastecimento e Lubrificação</h1>`;
+  html += `<h1>🛢️ Relatório Diário de Comboio — Abastecimento</h1>`;
 
-  // Info
-  html += `<table>
-    <tr><th>Frota</th><td>${fleet || "—"}</td><th>Data</th><td>${fmtDate(date)}</td></tr>
-    <tr><th>Operador</th><td>${operator || "—"}</td><th>Turno</th><td>${turno || "—"}</td></tr>
-    <tr><th>Odômetro</th><td colspan="3">${odometerInitial || "—"} → ${odometerFinal || "—"} (${kmRodados} km)</td></tr>
-  </table>`;
-
-  // Summary box
   html += `<div class="summary-box"><div class="summary-grid">
-    <div class="summary-item"><div class="label">Saldo Inicial</div><div class="value">${fmtNum(saldoIni)} L</div></div>
-    <div class="summary-item"><div class="label">Fornecedor</div><div class="value" style="font-size:14px">${fornecedor || "—"}</div></div>
+    <div class="summary-item"><div class="label">Comboio</div><div class="value" style="font-size:16px">${fleet || "—"}</div></div>
+    <div class="summary-item"><div class="label">Data</div><div class="value" style="font-size:16px">${fmtDate(date)}</div></div>
+    <div class="summary-item"><div class="label">Operador</div><div class="value" style="font-size:14px">${operator || "—"}</div></div>
+    <div class="summary-item"><div class="label">Turno</div><div class="value" style="font-size:14px">${turno || "—"}</div></div>
     <div class="summary-item"><div class="label">Total Abastecido</div><div class="value" style="color:#dc2626">${fmtNum(totalAbastecido)} L</div></div>
     <div class="summary-item"><div class="label">Saldo Final</div><div class="value" style="color:${saldoFinal < 0 ? "#dc2626" : "#166534"}">${fmtNum(saldoFinal)} L</div></div>
   </div></div>`;
 
-  // Table
   if (validEntries.length > 0) {
     html += `<h2>📋 Tabela de Atendimento (${validEntries.length})</h2>`;
-    html += `<table><tr><th>#</th><th>Hora</th><th>Frota</th><th>Medição</th><th>Litros</th><th>OGS / Local</th><th>Serviços</th></tr>`;
-    validEntries.forEach((e, i) => {
+    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equipamento Abastecido</th><th>Litros</th><th>Medição</th><th>OGS / Local</th><th>Observações</th></tr>`;
+    validEntries.forEach((e) => {
       const services: string[] = [];
       if (e.isLubricated) services.push("Lubrificação");
       if (e.isWashed) services.push("Lavagem");
       html += `<tr>
-        <td>${i + 1}</td>
-        <td>${e.hora || "—"}</td>
+        <td>${fmtDate(date)}</td>
+        <td><strong>${fleet}</strong></td>
         <td><strong>${e.fleetFueled}</strong></td>
+        <td>${e.litersFueled ? fmtNum(Number(e.litersFueled)) : "—"}</td>
         <td>${e.equipmentMeter ? fmtNum(Number(e.equipmentMeter)) : "—"}</td>
-        <td><strong>${e.litersFueled ? fmtNum(Number(e.litersFueled)) : "—"}</strong></td>
         <td>${e.ogsDestination || "—"}</td>
         <td>${services.length > 0 ? services.join(", ") : "—"}</td>
       </tr>`;
     });
     html += `<tr style="background:#dbeafe;font-weight:700">
-      <td colspan="4">TOTAL</td>
+      <td colspan="3">TOTAL</td>
       <td>${fmtNum(totalAbastecido)} L</td>
-      <td colspan="2"></td>
+      <td colspan="3"></td>
     </tr></table>`;
   }
 
@@ -128,62 +120,57 @@ export function buildCarretaEmailReport(params: {
   } = params;
 
   const validEntries = timeEntries.filter((t) => t.startTime && t.activity);
-  const kmRodados = (Number(odometerFinal) || 0) - (Number(odometerInitial) || 0);
 
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${STYLE}</style></head><body>`;
   html += `<h1>🚛 Relatório Diário de Carreta — Transporte de Equipamentos</h1>`;
 
-  // Info
-  html += `<table>
-    <tr><th>Cavalo Mecânico</th><td>${fleet || "—"}</td><th>Data</th><td>${fmtDate(date)}</td></tr>
-    <tr><th>Prancha</th><td>${prancha || "—"}</td><th>Turno</th><td>${turno || "—"}</td></tr>
-    <tr><th>Operador</th><td>${operator || "—"}</td><th>Odômetro</th><td>${odometerInitial || "—"} → ${odometerFinal || "—"} (${kmRodados} km)</td></tr>
-  </table>`;
+  html += `<div class="summary-box"><div class="summary-grid">
+    <div class="summary-item"><div class="label">Cavalo Mecânico</div><div class="value" style="font-size:16px">${fleet || "—"}</div></div>
+    <div class="summary-item"><div class="label">Prancha</div><div class="value" style="font-size:16px">${prancha || "—"}</div></div>
+    <div class="summary-item"><div class="label">Data</div><div class="value" style="font-size:16px">${fmtDate(date)}</div></div>
+    <div class="summary-item"><div class="label">Operador</div><div class="value" style="font-size:14px">${operator || "—"}</div></div>
+    <div class="summary-item"><div class="label">Turno</div><div class="value" style="font-size:14px">${turno || "—"}</div></div>
+  </div></div>`;
 
-  // Time entries / transport logs
   if (validEntries.length > 0) {
     html += `<h2>📋 Apontamento de Horas (${validEntries.length})</h2>`;
-    html += `<table><tr><th>#</th><th>Início</th><th>Fim</th><th>Atividade</th><th>Origem</th><th>Destino</th><th>Detalhes</th></tr>`;
-    validEntries.forEach((t, i) => {
-      const isBase = t.destination === "BASE / PÁTIO CENTRAL";
-      const destDisplay = isBase
-        ? `<span class="badge badge-yellow">🏛️ BASE</span>`
-        : (t.destination || "—");
+    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equipamento Transportado</th><th>Origem</th><th>Destino</th><th>Horário</th><th>Observações / Finalidade</th></tr>`;
+    validEntries.forEach((t) => {
+      // Build equipment list
+      const equips = [
+        t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
+        t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
+        t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
+      ].filter(Boolean);
+      const equipStr = equips.length > 0 ? equips.join(", ") : "—";
 
-      // Build details from TimeEntry fields
-      let details = "";
-      if (t.activity === "Transporte") {
-        const parts: string[] = [];
-        const equips = [
-          t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
-          t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
-          t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
-        ].filter(Boolean);
-        if (equips.length > 0) parts.push(`Equip: ${equips.join(", ")}`);
-        if (t.origin && t.destination && t.origin === t.destination && t.transportInternalDetails) {
-          parts.push(`Trecho: ${t.transportInternalDetails}`);
+      // Build observations/finalidade
+      const obsParts: string[] = [];
+      if (t.activity && t.activity !== "Transporte") obsParts.push(t.activity);
+      if (t.destination === "BASE / PÁTIO CENTRAL" && t.returnReason) {
+        obsParts.push(t.returnReason);
+        if (t.returnReason === "Manutenção / Oficina" && t.returnDetails) {
+          obsParts.push(t.returnDetails);
         }
-        if (isBase && t.returnReason) {
-          parts.push(`Retorno: ${t.returnReason}`);
-          if (t.returnReason === "Manutenção / Oficina" && t.returnDetails) {
-            parts.push(t.returnDetails);
-          }
-        }
-        details = parts.join(" | ");
-      } else if (t.activity === "Manutenção" && t.maintenanceDetails) {
-        details = `<span class="badge badge-red">🔧 ${t.maintenanceDetails}</span>`;
-      } else if (t.transportObs) {
-        details = t.transportObs;
       }
+      if (t.origin === t.destination && t.transportInternalDetails) {
+        obsParts.push(`Trecho: ${t.transportInternalDetails}`);
+      }
+      if (t.activity === "Manutenção" && t.maintenanceDetails) {
+        obsParts.push(t.maintenanceDetails);
+      }
+      if (t.transportObs) obsParts.push(t.transportObs);
+
+      const horario = `${t.startTime || "—"} — ${t.endTime || "—"}`;
 
       html += `<tr>
-        <td>${i + 1}</td>
-        <td>${t.startTime || "—"}</td>
-        <td>${t.endTime || "—"}</td>
-        <td><strong>${t.activity}</strong></td>
+        <td>${fmtDate(date)}</td>
+        <td><strong>${fleet}</strong></td>
+        <td>${equipStr}</td>
         <td>${t.origin || "—"}</td>
-        <td>${destDisplay}</td>
-        <td>${details || "—"}</td>
+        <td>${t.destination || "—"}</td>
+        <td>${horario}</td>
+        <td>${obsParts.length > 0 ? obsParts.join(" | ") : "—"}</td>
       </tr>`;
     });
     html += `</table>`;
