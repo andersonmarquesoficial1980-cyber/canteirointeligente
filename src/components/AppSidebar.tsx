@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, Settings } from "lucide-react";
+import { LayoutDashboard, FileText, Settings, BarChart3 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import logoCi from "@/assets/logo-ci.png";
