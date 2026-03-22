@@ -32,6 +32,7 @@ export interface TimeEntry {
   transportEquip2Custom?: string;
   transportEquip3?: string;
   transportEquip3Custom?: string;
+  transportInternalDetails?: string;
 }
 
 interface Props {
@@ -94,6 +95,7 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
     transportEquip2Custom: "",
     transportEquip3: "",
     transportEquip3Custom: "",
+    transportInternalDetails: "",
   };
 }
 
@@ -305,35 +307,51 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
 
               {/* Carreta: 3 equipment fields instead of Observações */}
               {isCarreta ? (
-                <div className="space-y-2">
-                  {([
-                    { field: "transportEquip1" as keyof TimeEntry, customField: "transportEquip1Custom" as keyof TimeEntry, label: "Equipamento 01" },
-                    { field: "transportEquip2" as keyof TimeEntry, customField: "transportEquip2Custom" as keyof TimeEntry, label: "Equipamento 02" },
-                    { field: "transportEquip3" as keyof TimeEntry, customField: "transportEquip3Custom" as keyof TimeEntry, label: "Equipamento 03" },
-                  ]).map(({ field, customField, label }) => (
-                    <div key={field} className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">{label}</span>
-                      <Select value={(entry[field] as string) || ""} onValueChange={(v) => updateEntry(idx, field, v)}>
-                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                          <SelectValue placeholder="Selecione a frota..." />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                          {fleetOptions.map((f) => (
-                            <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {entry[field] === "Outro" && (
-                        <Input
-                          value={(entry[customField] as string) || ""}
-                          onChange={(e) => updateEntry(idx, customField, e.target.value)}
-                          placeholder="Descreva o item transportado..."
-                          className="bg-secondary border-border text-xs h-9"
-                        />
-                      )}
+                <>
+                  <div className="space-y-2">
+                    {([
+                      { field: "transportEquip1" as keyof TimeEntry, customField: "transportEquip1Custom" as keyof TimeEntry, label: "Equipamento 01" },
+                      { field: "transportEquip2" as keyof TimeEntry, customField: "transportEquip2Custom" as keyof TimeEntry, label: "Equipamento 02" },
+                      { field: "transportEquip3" as keyof TimeEntry, customField: "transportEquip3Custom" as keyof TimeEntry, label: "Equipamento 03" },
+                    ]).map(({ field, customField, label }) => (
+                      <div key={field} className="space-y-1">
+                        <span className="text-[10px] font-semibold text-accent uppercase">{label}</span>
+                        <Select value={(entry[field] as string) || ""} onValueChange={(v) => updateEntry(idx, field, v)}>
+                          <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                            <SelectValue placeholder="Selecione a frota..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            {fleetOptions.map((f) => (
+                              <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {entry[field] === "Outro" && (
+                          <Input
+                            value={(entry[customField] as string) || ""}
+                            onChange={(e) => updateEntry(idx, customField, e.target.value)}
+                            placeholder="Descreva o item transportado..."
+                            className="bg-secondary border-border text-xs h-9"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {entry.origin && entry.destination && entry.origin === entry.destination && (
+                    <div className="space-y-1 mt-2">
+                      <span className="text-[10px] font-extrabold text-foreground uppercase tracking-wide">
+                        Detalhes do Trecho (Mudança Interna) *
+                      </span>
+                      <Textarea
+                        value={entry.transportInternalDetails || ""}
+                        onChange={(e) => updateEntry(idx, "transportInternalDetails", e.target.value)}
+                        placeholder="Ex: Mudança do KM 12 para o KM 45"
+                        className="bg-secondary/50 border-border text-xs min-h-[60px] rounded-lg"
+                        required
+                      />
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               ) : (
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Observações do Transporte</span>
