@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
 import ExportModule from "@/components/dashboard/ExportModule";
+import AdvancedReports from "@/components/dashboard/AdvancedReports";
 
 // ── Status types ──────────────────────────────────────────────
 type FleetStatus = "em_obra" | "transporte" | "disponivel" | "manutencao";
@@ -343,6 +344,8 @@ export default function FleetDashboard() {
             </CardContent>
           </Card>
         )}
+        {/* ── Advanced Reports ─────────────────────────────── */}
+        <AdvancedReports />
       </div>
     </div>
   );
