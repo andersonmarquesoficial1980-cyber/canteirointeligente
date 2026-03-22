@@ -42,7 +42,7 @@ const renderActiveShape = (props: any) => {
 
 // ══════════════════════════════════════════════════════════════
 export default function FleetDashboard() {
-  const navigate = useNavigate();
+  
   const [activeSlice, setActiveSlice] = useState<FleetStatus | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | undefined>(undefined);
 
