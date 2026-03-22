@@ -150,13 +150,30 @@ export function buildCarretaEmailReport(params: {
         ? `<span class="badge badge-yellow">🏛️ BASE</span>`
         : (t.destination || "—");
 
-      let details = t.description || "";
-      // Parse description for carreta transport details
-      if (t.activity === "Transporte" && t.description) {
-        details = t.description;
-      }
-      if (t.activity === "Manutenção" && t.description) {
-        details = `<span class="badge badge-red">🔧 ${t.description}</span>`;
+      // Build details from TimeEntry fields
+      let details = "";
+      if (t.activity === "Transporte") {
+        const parts: string[] = [];
+        const equips = [
+          t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
+          t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
+          t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
+        ].filter(Boolean);
+        if (equips.length > 0) parts.push(`Equip: ${equips.join(", ")}`);
+        if (t.origin && t.destination && t.origin === t.destination && t.transportInternalDetails) {
+          parts.push(`Trecho: ${t.transportInternalDetails}`);
+        }
+        if (isBase && t.returnReason) {
+          parts.push(`Retorno: ${t.returnReason}`);
+          if (t.returnReason === "Manutenção / Oficina" && t.returnDetails) {
+            parts.push(t.returnDetails);
+          }
+        }
+        details = parts.join(" | ");
+      } else if (t.activity === "Manutenção" && t.maintenanceDetails) {
+        details = `<span class="badge badge-red">🔧 ${t.maintenanceDetails}</span>`;
+      } else if (t.transportObs) {
+        details = t.transportObs;
       }
 
       html += `<tr>
@@ -179,8 +196,7 @@ export function buildCarretaEmailReport(params: {
       html += `<div class="summary-box" style="border-color:#dc2626;background:#fef2f2">
         <h2 style="margin-top:0;color:#991b1b">⚠️ Retornos à Base (${baseReturns.length})</h2>`;
       baseReturns.forEach((t) => {
-        const desc = t.description || "";
-        const hasManut = desc.includes("Manutenção");
+        const hasManut = t.returnReason?.includes("Manutenção");
         html += `<p>• <strong>${t.origin || "?"} → BASE</strong> — ${hasManut ? '<span class="badge badge-red">Manutenção</span>' : '<span class="badge badge-green">Término de Obra</span>'} ${desc}</p>`;
       });
       html += `</div>`;
