@@ -36,6 +36,36 @@ interface Props {
   ogsData?: any[];
 }
 
+function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  const seen = new Set<string>();
+
+  ogsData.forEach((o: any) => {
+    if (!o.ogs_number) return;
+    const addresses = o.location_address
+      ? o.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+    if (addresses.length === 0) {
+      const key = o.ogs_number;
+      if (!seen.has(key)) {
+        seen.add(key);
+        options.push({ value: key, label: `${o.ogs_number} — ${o.client_name || ""}` });
+      }
+    } else {
+      addresses.forEach((addr: string) => {
+        const key = `${o.ogs_number} | ${addr}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          options.push({ value: key, label: `${o.ogs_number} — ${addr}` });
+        }
+      });
+    }
+  });
+
+  return options;
+}
+
 export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
   return {
     id: crypto.randomUUID(),
