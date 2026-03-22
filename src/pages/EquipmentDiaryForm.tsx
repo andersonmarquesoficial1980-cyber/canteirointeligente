@@ -30,6 +30,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { compressImage } from "@/lib/imageCompression";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
 import { generateComboioPdf } from "@/lib/generateComboioPdf";
+import { buildComboioEmailReport, buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
 
