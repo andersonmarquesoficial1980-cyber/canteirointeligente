@@ -22,10 +22,10 @@ interface StatusMeta {
 }
 
 const STATUS: Record<FleetStatus, StatusMeta> = {
-  em_obra:    { label: "Em Obra",     color: "hsl(142 70% 45%)", bg: "hsl(142 70% 45% / 0.12)", icon: Activity },
-  transporte: { label: "Transporte",  color: "hsl(45 90% 50%)",  bg: "hsl(45 90% 50% / 0.12)",  icon: Truck },
-  disponivel: { label: "Disponível",  color: "hsl(215 80% 55%)", bg: "hsl(215 80% 55% / 0.12)", icon: Warehouse },
-  manutencao: { label: "Manutenção",  color: "hsl(0 70% 50%)",   bg: "hsl(0 70% 50% / 0.12)",   icon: Wrench },
+  em_obra:    { label: "Produzindo",        color: "hsl(142 70% 45%)", bg: "hsl(142 70% 45% / 0.12)", icon: Activity },
+  transporte: { label: "Em Trânsito",       color: "hsl(45 90% 50%)",  bg: "hsl(45 90% 50% / 0.12)",  icon: Truck },
+  disponivel: { label: "Disponível (Base)", color: "hsl(215 80% 55%)", bg: "hsl(215 80% 55% / 0.12)", icon: Warehouse },
+  manutencao: { label: "Manutenção",        color: "hsl(0 70% 50%)",   bg: "hsl(0 70% 50% / 0.12)",   icon: Wrench },
 };
 
 // ── Derive status from latest time entry ─────────────────────
