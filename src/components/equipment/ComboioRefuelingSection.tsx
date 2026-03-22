@@ -1,12 +1,13 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Fuel, Droplets, Truck, FileDown } from "lucide-react";
+import { Plus, Trash2, Fuel, Droplets, Truck, FileDown, Clock } from "lucide-react";
 
 export interface ComboioRefuelEntry {
   id: string;
+  hora: string;
   fleetFueled: string;
   equipmentMeter: string;
   litersFueled: string;
@@ -18,6 +19,7 @@ export interface ComboioRefuelEntry {
 export function createEmptyComboioRefuel(): ComboioRefuelEntry {
   return {
     id: crypto.randomUUID(),
+    hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
     fleetFueled: "",
     equipmentMeter: "",
     litersFueled: "",
@@ -41,6 +43,50 @@ interface Props {
 
 const COMBOIO_FORNECEDORES = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
 
+/* Prefixes that indicate vehicles (KM) vs machines (H) */
+const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "VT", "MCO"];
+
+function isVehicleFleet(frota: string): boolean {
+  const upper = frota.toUpperCase();
+  return VEHICLE_PREFIXES.some((p) => upper.startsWith(p));
+}
+
+function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  const seen = new Set<string>();
+
+  ogsData.forEach((o: any) => {
+    if (!o.ogs_number) return;
+    const addresses = o.location_address
+      ? o.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+    if (addresses.length === 0) {
+      const key = o.ogs_number;
+      if (!seen.has(key)) {
+        seen.add(key);
+        options.push({
+          value: o.ogs_number,
+          label: `${o.ogs_number} — ${o.client_name || ""}`,
+        });
+      }
+    } else {
+      addresses.forEach((addr: string) => {
+        const key = `${o.ogs_number}|${addr}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          options.push({
+            value: `${o.ogs_number} | ${addr}`,
+            label: `${o.ogs_number} — ${o.client_name || ""} — ${addr}`,
+          });
+        }
+      });
+    }
+  });
+
+  return options;
+}
+
 export default function ComboioRefuelingSection({
   saldoInicial,
   onSaldoInicialChange,
@@ -52,14 +98,7 @@ export default function ComboioRefuelingSection({
   ogsData,
   onGeneratePdf,
 }: Props) {
-  const uniqueOgs = useMemo(() => {
-    const seen = new Set<string>();
-    return ogsData.filter((o: any) => {
-      if (!o.ogs_number || seen.has(o.ogs_number)) return false;
-      seen.add(o.ogs_number);
-      return true;
-    });
-  }, [ogsData]);
+  const ogsOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
 
   const totalAbastecido = useMemo(
     () => entries.reduce((sum, e) => sum + (Number(e.litersFueled) || 0), 0),
@@ -123,119 +162,144 @@ export default function ComboioRefuelingSection({
       </div>
 
       {/* ── CARD 02: ABASTECIMENTO DE FROTA ── */}
-      <div className="bg-card border border-border rounded-2xl p-4 shadow-card space-y-3">
-        <h3 className="text-sm font-display font-extrabold text-[hsl(var(--primary))] uppercase tracking-wide border-b border-border pb-2 flex items-center gap-2">
-          <Truck className="w-4 h-4" />
+      <div className="space-y-4">
+        <h3 className="text-lg font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase tracking-wide flex items-center gap-2">
+          <Truck className="w-5 h-5 text-primary" />
           ABASTECIMENTO DE FROTA
         </h3>
 
-        {entries.map((entry, idx) => (
-          <div
-            key={entry.id}
-            className="border border-border rounded-xl p-3 space-y-3 bg-secondary/30 relative"
-          >
-            {/* Badge do número */}
-            <div className="absolute -top-2.5 left-3 bg-primary text-primary-foreground text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow">
-              Máquina {idx + 1}
-            </div>
+        {entries.map((entry, idx) => {
+          const meterLabel = entry.fleetFueled && isVehicleFleet(entry.fleetFueled) ? "KM" : "H";
 
-            <div className="grid grid-cols-2 gap-2 pt-2">
-              <div className="space-y-1">
-                <span className="text-[10px] font-display font-bold text-primary uppercase">Frota</span>
-                <Select
-                  value={entry.fleetFueled}
-                  onValueChange={(v) => updateEntry(idx, "fleetFueled", v)}
-                >
-                  <SelectTrigger className="bg-background border-border h-9 text-xs">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {equipamentos.map((eq: any) => (
-                      <SelectItem key={eq.id} value={eq.frota}>
-                        {eq.frota} — {eq.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          return (
+            <div
+              key={entry.id}
+              className="bg-card rounded-2xl shadow-md border border-border/60 p-4 space-y-3 relative"
+            >
+              {/* Badge */}
+              <div className="absolute -top-2.5 left-3 bg-primary text-primary-foreground text-[10px] font-extrabold px-3 py-0.5 rounded-full shadow">
+                #{idx + 1}
               </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-display font-bold text-primary uppercase">Horímetro / Odômetro</span>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  value={entry.equipmentMeter}
-                  onChange={(e) => updateEntry(idx, "equipmentMeter", e.target.value)}
-                  placeholder="0"
-                  className="bg-background border-border text-xs h-9"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <span className="text-[10px] font-display font-bold text-primary uppercase">Litros Abastecidos</span>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  value={entry.litersFueled}
-                  onChange={(e) => updateEntry(idx, "litersFueled", e.target.value)}
-                  placeholder="0"
-                  className="bg-background border-border text-xs h-9 font-semibold"
-                />
+              {/* ── LINHA 1: Hora + Frota ── */}
+              <div className="grid grid-cols-[100px_1fr] gap-3 pt-2">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Hora
+                  </span>
+                  <Input
+                    type="time"
+                    value={entry.hora}
+                    onChange={(e) => updateEntry(idx, "hora", e.target.value)}
+                    className="bg-secondary border-border h-9 text-xs font-semibold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">Frota</span>
+                  <Select
+                    value={entry.fleetFueled}
+                    onValueChange={(v) => updateEntry(idx, "fleetFueled", v)}
+                  >
+                    <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                      <SelectValue placeholder="Selecione a frota..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {equipamentos.map((eq: any) => (
+                        <SelectItem key={eq.id} value={eq.frota}>
+                          {eq.frota} — {eq.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
+              {/* ── LINHA 2: Litros + Medição ── */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">
+                    Litros Abastecidos
+                  </span>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={entry.litersFueled}
+                    onChange={(e) => updateEntry(idx, "litersFueled", e.target.value)}
+                    placeholder="0"
+                    className="bg-secondary border-border text-sm h-9 font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">
+                    Medição ({meterLabel})
+                  </span>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={entry.equipmentMeter}
+                    onChange={(e) => updateEntry(idx, "equipmentMeter", e.target.value)}
+                    placeholder={meterLabel === "KM" ? "Odômetro" : "Horímetro"}
+                    className="bg-secondary border-border text-sm h-9"
+                  />
+                </div>
+              </div>
+
+              {/* ── LINHA 3: OGS full-width ── */}
               <div className="space-y-1">
-                <span className="text-[10px] font-display font-bold text-primary uppercase">OGS</span>
+                <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">
+                  OGS — Local de Trabalho
+                </span>
                 <Select
                   value={entry.ogsDestination}
                   onValueChange={(v) => updateEntry(idx, "ogsDestination", v)}
                 >
-                  <SelectTrigger className="bg-background border-border h-9 text-xs">
-                    <SelectValue placeholder="OGS..." />
+                  <SelectTrigger className="bg-secondary border-border h-10 text-xs w-full">
+                    <SelectValue placeholder="Selecione a OGS e local..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {uniqueOgs.map((o: any) => (
-                      <SelectItem key={o.id} value={o.ogs_number}>
-                        {o.ogs_number} — {o.client_name}
+                    {ogsOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            {/* Serviços Extras */}
-            <div className="flex items-center gap-6 pt-1 border-t border-border/50">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={entry.isLubricated}
-                  onCheckedChange={(c) => updateEntry(idx, "isLubricated", !!c)}
-                />
-                <span className="text-xs font-bold text-foreground flex items-center gap-1">
-                  <Droplets className="w-3 h-3 text-amber-500" /> Lubrificação
-                </span>
+              {/* ── Serviços Extras + Remover ── */}
+              <div className="flex items-center gap-6 pt-1 border-t border-border/40">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={entry.isLubricated}
+                    onCheckedChange={(c) => updateEntry(idx, "isLubricated", !!c)}
+                  />
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                    <Droplets className="w-3 h-3 text-amber-500" /> Lubrificação
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={entry.isWashed}
+                    onCheckedChange={(c) => updateEntry(idx, "isWashed", !!c)}
+                  />
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                    💦 Lavagem
+                  </span>
+                </div>
+                {entries.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto text-muted-foreground hover:text-destructive text-xs"
+                    onClick={() => removeEntry(idx)}
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" /> Remover
+                  </Button>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={entry.isWashed}
-                  onCheckedChange={(c) => updateEntry(idx, "isWashed", !!c)}
-                />
-                <span className="text-xs font-bold text-foreground flex items-center gap-1">
-                  💦 Lavagem
-                </span>
-              </div>
-              {entries.length > 1 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto text-muted-foreground hover:text-destructive text-xs"
-                  onClick={() => removeEntry(idx)}
-                >
-                  <Trash2 className="w-3 h-3 mr-1" /> Remover
-                </Button>
-              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <Button
           type="button"
@@ -277,7 +341,6 @@ export default function ComboioRefuelingSection({
           </div>
         </div>
 
-        {/* ── BOTÃO GERAR PDF ── */}
         {onGeneratePdf && (
           <Button
             type="button"
