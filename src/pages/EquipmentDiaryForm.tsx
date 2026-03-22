@@ -107,6 +107,8 @@ const CARROCERIA_FLEETS = ["CC01", "CC02", "CC03", "CC04", "CC05"];
 
 const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
 
+const CARRETA_CM_FLEETS = ["CM01", "CM02", "CM03", "CM04", "CM05"];
+
 const VEICULO_TYPES = ["Micro-ônibus", "Van"] as const;
 const VEICULO_FLEETS: Record<string, string[]> = {
   "Micro-ônibus": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
