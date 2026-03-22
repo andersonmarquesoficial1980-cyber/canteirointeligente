@@ -456,7 +456,7 @@ export default function EquipmentDiaryForm() {
         observations: observations || null,
         company_id: profile?.company_id || null,
         fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
-        attachment_type: attachmentType || null,
+        attachment_type: isCarreta ? (prancha || null) : (attachmentType || null),
         status: isDraft ? "rascunho" : "enviado",
       };
 
