@@ -336,6 +336,21 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                     </div>
                   ))}
                 </div>
+                {/* Internal route details when origin === destination */}
+                {isCarreta && entry.origin && entry.destination && entry.origin === entry.destination && (
+                  <div className="space-y-1 mt-2">
+                    <span className="text-[10px] font-extrabold text-[hsl(var(--navy-800,222_47%_20%))] uppercase tracking-wide">
+                      Detalhes do Trecho (Mudança Interna) *
+                    </span>
+                    <Textarea
+                      value={entry.transportInternalDetails || ""}
+                      onChange={(e) => updateEntry(idx, "transportInternalDetails", e.target.value)}
+                      placeholder="Ex: Mudança do KM 12 para o KM 45"
+                      className="bg-[#F8F9FA] border-border text-xs min-h-[60px] rounded-lg"
+                      required
+                    />
+                  </div>
+                )}
               ) : (
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Observações do Transporte</span>
