@@ -80,39 +80,17 @@ export default function FleetDashboard() {
     },
   });
 
-  const { data: latestEntries = [] } = useQuery({
-    queryKey: ["latest_fleet_entries"],
+  // Use the v_frota_status_atual view for real-time status
+  const { data: viewData = [] } = useQuery({
+    queryKey: ["v_frota_status_atual"],
     queryFn: async () => {
-      const { data: diaries, error: dErr } = await supabase
-        .from("equipment_diaries")
-        .select("id, equipment_fleet, created_at")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      if (dErr || !diaries?.length) return [];
-
-      const diaryIds = diaries.map((d: any) => d.id);
-      const { data: entries } = await supabase
-        .from("equipment_time_entries")
-        .select("diary_id, activity, destination, description")
-        .in("diary_id", diaryIds);
-      if (!entries) return [];
-
-      const map: Record<string, EntryInfo & { createdAt: string }> = {};
-      for (const d of diaries as any[]) {
-        const fleet = d.equipment_fleet;
-        if (!fleet || map[fleet]) continue;
-        const dEntries = (entries as any[]).filter((e: any) => e.diary_id === d.id);
-        if (dEntries.length > 0) {
-          const last = dEntries[dEntries.length - 1];
-          map[fleet] = {
-            destination: last.destination || "",
-            returnReason: last.description || "",
-            activity: last.activity || "",
-            createdAt: d.created_at,
-          };
-        }
-      }
-      return Object.entries(map).map(([fleet, info]) => ({ fleet, ...info }));
+      const { data, error } = await supabase
+        .from("v_frota_status_atual" as any)
+        .select("*");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
     },
   });
 
