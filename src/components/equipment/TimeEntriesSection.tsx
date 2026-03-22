@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Clock } from "lucide-react";
+import { Plus, Trash2, Clock, Warehouse } from "lucide-react";
+
+const BASE_PATIO_VALUE = "BASE / PÁTIO CENTRAL";
+const RETURN_REASONS = ["Manutenção / Oficina", "Término de Obra / Desmobilização"] as const;
 
 const ACTIVITIES = [
   "Check e Preparação",
@@ -33,6 +36,8 @@ export interface TimeEntry {
   transportEquip3?: string;
   transportEquip3Custom?: string;
   transportInternalDetails?: string;
+  returnReason?: string;
+  returnDetails?: string;
 }
 
 interface Props {
@@ -96,6 +101,8 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
     transportEquip3: "",
     transportEquip3Custom: "",
     transportInternalDetails: "",
+    returnReason: "",
+    returnDetails: "",
   };
 }
 
@@ -137,6 +144,8 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
           newEntry.transportEquip2Custom = "";
           newEntry.transportEquip3 = "";
           newEntry.transportEquip3Custom = "";
+          newEntry.returnReason = "";
+          newEntry.returnDetails = "";
         }
       }
       return newEntry;
@@ -253,9 +262,15 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                   <span className="text-[10px] font-semibold text-accent uppercase">Origem</span>
                   <Select value={entry.origin || ""} onValueChange={(v) => updateEntry(idx, "origin", v)}>
                     <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                      <SelectValue placeholder="Selecione OGS..." />
+                      <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
+                      <SelectItem value={BASE_PATIO_VALUE} className="text-xs font-semibold">
+                        <span className="flex items-center gap-1.5">
+                          <Warehouse className="w-3 h-3 text-primary" />
+                          {BASE_PATIO_VALUE}
+                        </span>
+                      </SelectItem>
                       {ogsLocationOptions.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
                       ))}
@@ -264,11 +279,23 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Destino</span>
-                  <Select value={entry.destination || ""} onValueChange={(v) => updateEntry(idx, "destination", v)}>
+                  <Select value={entry.destination || ""} onValueChange={(v) => {
+                    updateEntry(idx, "destination", v);
+                    if (v !== BASE_PATIO_VALUE) {
+                      updateEntry(idx, "returnReason", "");
+                      updateEntry(idx, "returnDetails", "");
+                    }
+                  }}>
                     <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                      <SelectValue placeholder="Selecione OGS..." />
+                      <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
+                      <SelectItem value={BASE_PATIO_VALUE} className="text-xs font-semibold">
+                        <span className="flex items-center gap-1.5">
+                          <Warehouse className="w-3 h-3 text-primary" />
+                          {BASE_PATIO_VALUE}
+                        </span>
+                      </SelectItem>
                       {ogsLocationOptions.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
                       ))}
@@ -276,6 +303,42 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                   </Select>
                 </div>
               </div>
+
+              {/* Return reason when destination is BASE */}
+              {entry.destination === BASE_PATIO_VALUE && (
+                <div className="space-y-2 bg-primary/5 border border-primary/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Warehouse className="w-4 h-4 text-primary" />
+                    <span className="text-[10px] font-extrabold text-foreground uppercase tracking-wide">
+                      Finalidade do Retorno *
+                    </span>
+                  </div>
+                  <Select value={entry.returnReason || ""} onValueChange={(v) => {
+                    updateEntry(idx, "returnReason", v);
+                    if (v !== "Manutenção / Oficina") updateEntry(idx, "returnDetails", "");
+                  }}>
+                    <SelectTrigger className="bg-background border-border h-9 text-xs">
+                      <SelectValue placeholder="Selecione o motivo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RETURN_REASONS.map((r) => (
+                        <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {entry.returnReason === "Manutenção / Oficina" && (
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-accent uppercase">Detalhes da Manutenção</span>
+                      <Textarea
+                        value={entry.returnDetails || ""}
+                        onChange={(e) => updateEntry(idx, "returnDetails", e.target.value)}
+                        placeholder="Ex: Troca de mangueira hidráulica"
+                        className="bg-background border-border text-xs min-h-[50px]"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
               {showTransportOgs && (
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">OGS de Destino</span>
