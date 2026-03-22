@@ -310,7 +310,7 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
               </div>
 
               {/* Return reason when destination is BASE */}
-              {entry.destination === BASE_PATIO_VALUE && (
+              {entry.destination === BASE_PATIO_VALUE && showReturnReason && (
                 <div className="space-y-2 bg-primary/5 border border-primary/20 rounded-lg p-3">
                   <div className="flex items-center gap-2">
                     <Warehouse className="w-4 h-4 text-primary" />
