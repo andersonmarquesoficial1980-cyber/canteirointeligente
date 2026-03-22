@@ -60,6 +60,8 @@ function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string
 
   ogsData.forEach((o: any) => {
     if (!o.ogs_number) return;
+    const num = (o.ogs_number || "").toUpperCase();
+    if (num.includes("BASE") || num.includes("OSASCO")) return;
     const addresses = o.location_address
       ? o.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
       : [];
