@@ -83,6 +83,7 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
 }
 
 export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [] }: Props) {
+  const ogsLocationOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
   const addEntry = () => {
     const lastEnd = entries.length > 0 ? entries[entries.length - 1].endTime : "";
     onChange([
