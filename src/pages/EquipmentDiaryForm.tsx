@@ -704,6 +704,55 @@ export default function EquipmentDiaryForm() {
         }
       }
 
+      // ── Send email for Comboio / Carreta (non-draft only) ──
+      if (!isDraft && diary) {
+        try {
+          let htmlReport: string | null = null;
+
+          if (isComboio) {
+            htmlReport = buildComboioEmailReport({
+              fleet: selectedFleet,
+              date,
+              operator,
+              turno,
+              odometerInitial: meterInitial,
+              odometerFinal: meterFinal,
+              saldoInicial: comboioSaldoInicial,
+              fornecedor: comboioFornecedor,
+              entries: comboioRefuels,
+              observations,
+            });
+          } else if (isCarreta) {
+            htmlReport = buildCarretaEmailReport({
+              fleet: selectedFleet,
+              prancha: prancha || "",
+              date,
+              operator,
+              turno,
+              odometerInitial: meterInitial,
+              odometerFinal: meterFinal,
+              timeEntries,
+              observations,
+            });
+          }
+
+          if (htmlReport) {
+            console.log(`📧 Enviando e-mail do ${isComboio ? "Comboio" : "Carreta"}...`);
+            const { error: emailError } = await supabase.functions.invoke("send-rdo-email", {
+              body: { rdo_id: diary.id, html_report: htmlReport },
+            });
+            if (emailError) {
+              console.error("❌ Erro ao enviar e-mail:", emailError);
+            } else {
+              console.log("✅ E-mail enviado com sucesso!");
+            }
+          }
+        } catch (emailErr) {
+          console.error("❌ Erro ao enviar e-mail:", emailErr);
+          // Don't block the flow — email failure shouldn't prevent navigation
+        }
+      }
+
       toast({
         title: isDraft ? "📝 Rascunho salvo!" : "✅ Diário enviado!",
         description: `Diário para ${selectedFleet} salvo com sucesso.`,
