@@ -124,10 +124,10 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
     ]);
   };
 
-  const updateEntry = (index: number, field: keyof TimeEntry, value: any) => {
+  const updateEntry = (index: number, field: keyof TimeEntry, value: any, extraFields?: Partial<TimeEntry>) => {
     const updated = entries.map((e, i) => {
       if (i !== index) return e;
-      const newEntry = { ...e, [field]: value };
+      const newEntry = { ...e, [field]: value, ...extraFields };
       if (field === "activity") {
         const paradaActivities = ["Refeições", "À Disposição", "Manutenção"];
         newEntry.isParada = paradaActivities.includes(value);
