@@ -16,6 +16,7 @@ import {
 
 const baseItems = [
   { title: "Hub", url: "/", icon: LayoutDashboard },
+  { title: "Painel de Controle", url: "/dashboard", icon: BarChart3 },
   { title: "CI Obras", url: "/obras", icon: LayoutDashboard },
   { title: "Novo RDO", url: "/obras/rdo", icon: FileText },
   { title: "CI Equipamentos", url: "/equipamentos", icon: FileText },

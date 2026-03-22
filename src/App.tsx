@@ -39,6 +39,7 @@ function AppRoutes() {
       <Routes>
         {/* Hub — no sidebar/layout */}
         <Route path="/" element={<Home />} />
+        <Route path="/dashboard" element={<AppLayout><FleetDashboard /></AppLayout>} />
 
         {/* Obras module */}
         <Route path="/obras" element={<AppLayout><Index /></AppLayout>} />
