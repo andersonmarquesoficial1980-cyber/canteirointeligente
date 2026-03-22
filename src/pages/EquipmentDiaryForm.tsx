@@ -912,7 +912,7 @@ export default function EquipmentDiaryForm() {
             </Field>
           )}
 
-          {!isCarreta && (
+          {!isCarreta && !isComboio && (
             <FieldRow>
               <Field label="OGS">
                 <Select value={ogsNumber} onValueChange={setOgsNumber}>
