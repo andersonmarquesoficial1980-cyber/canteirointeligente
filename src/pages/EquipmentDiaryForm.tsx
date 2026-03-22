@@ -107,6 +107,8 @@ const CARROCERIA_FLEETS = ["CC01", "CC02", "CC03", "CC04", "CC05"];
 
 const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
 
+const CARRETA_CM_FLEETS = ["CM01", "CM02", "CM03", "CM04", "CM05"];
+
 const VEICULO_TYPES = ["Micro-ônibus", "Van"] as const;
 const VEICULO_FLEETS: Record<string, string[]> = {
   "Micro-ônibus": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
@@ -154,6 +156,7 @@ export default function EquipmentDiaryForm() {
   const isCaminhoes = equipmentType === "Caminhões";
   const isComboio = equipmentType === "Comboio";
   const isVeiculo = equipmentType === "Veículo";
+  const isCarreta = equipmentType === "Carreta";
 
   // Caminhões sub-type state
   const [caminhaoTipo, setCaminhaoTipo] = useState("");
@@ -161,9 +164,7 @@ export default function EquipmentDiaryForm() {
   const isEspargidor = isCaminhoes && caminhaoTipo === "Espargidor";
   const isCarroceria = isCaminhoes && caminhaoTipo === "Carroceria";
 
-  // Legacy compat aliases
-  const isCarreta = false; // replaced by Carroceria inside Caminhões
-  const isTruck = isCaminhoes || isComboio || isVeiculo;
+  const isTruck = isCaminhoes || isComboio || isVeiculo || isCarreta;
   const usesOdometer = isTruck;
   const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro || isUsinaKma;
 
@@ -381,6 +382,20 @@ export default function EquipmentDiaryForm() {
     }
   };
 
+  // Fetch trailer_fleets for Carreta prancha
+  const { data: trailerFleets = [] } = useQuery({
+    queryKey: ["trailer_fleets"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trailer_fleets")
+        .select("*")
+        .order("fleet_number");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: isCarreta,
+  });
+
   // Determine which static fleet list to use
   const getStaticFleetList = () => {
     if (isBobcat) return BOBCAT_FLEETS;
@@ -391,6 +406,7 @@ export default function EquipmentDiaryForm() {
     if (isEspargidor) return ESPARGIDOR_FLEETS;
     if (isCarroceria) return CARROCERIA_FLEETS;
     if (isComboio) return COMBOIO_FLEETS;
+    if (isCarreta) return CARRETA_CM_FLEETS;
     return null;
   };
 
@@ -440,7 +456,7 @@ export default function EquipmentDiaryForm() {
         observations: observations || null,
         company_id: profile?.company_id || null,
         fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
-        attachment_type: attachmentType || null,
+        attachment_type: isCarreta ? (prancha || null) : (attachmentType || null),
         status: isDraft ? "rascunho" : "enviado",
       };
 
@@ -463,16 +479,29 @@ export default function EquipmentDiaryForm() {
       // Save time entries
       const validTimeEntries = timeEntries.filter((t) => t.startTime && t.activity);
       if (validTimeEntries.length > 0 && diary) {
-        const rows = validTimeEntries.map((t) => ({
-          diary_id: diary.id,
-          start_time: t.startTime,
-          end_time: t.endTime || null,
-          activity: t.activity,
-          description: t.activity === "Manutenção" ? (t.maintenanceDetails || null) : (t.activity === "Transporte" ? (t.transportObs || null) : null),
-          origin: t.origin || null,
-          destination: t.destination || null,
-          ogs_destination: t.transportOgs || null,
-        }));
+        const rows = validTimeEntries.map((t) => {
+          let description = null;
+          if (t.activity === "Manutenção") description = t.maintenanceDetails || null;
+          else if (t.activity === "Transporte" && isCarreta) {
+            const equips = [
+              t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
+              t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
+              t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
+            ].filter(Boolean);
+            description = equips.length > 0 ? equips.join(", ") : null;
+          } else if (t.activity === "Transporte") description = t.transportObs || null;
+
+          return {
+            diary_id: diary.id,
+            start_time: t.startTime,
+            end_time: t.endTime || null,
+            activity: t.activity,
+            description,
+            origin: t.origin || null,
+            destination: t.destination || null,
+            ogs_destination: t.transportOgs || null,
+          };
+        });
         await supabase.from("equipment_time_entries").insert(rows);
       }
 
@@ -777,7 +806,21 @@ export default function EquipmentDiaryForm() {
             </Field>
           </FieldRow>
 
-          {/* Carreta removed - now inside Caminhões as Carroceria */}
+          {/* Carreta: Prancha */}
+          {isCarreta && (
+            <Field label="Prancha">
+              <Select value={prancha} onValueChange={setPrancha}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione a prancha..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {trailerFleets.map((t: any) => (
+                    <SelectItem key={t.id} value={t.fleet_number}>{t.fleet_number}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
 
           <Field label={isTruck ? "Motorista" : "Operador"}>
             <Select value={operator} onValueChange={setOperator}>
@@ -994,9 +1037,11 @@ export default function EquipmentDiaryForm() {
           entries={timeEntries}
           onChange={setTimeEntries}
           turno={turno}
-          showTransportOgs={isCarreta}
+          showTransportOgs={false}
           showTransportPassengers={isVeiculo}
           ogsData={ogsData}
+          isCarreta={isCarreta}
+          allFleets={equipamentos}
         />
 
         {/* FRESADORA: Produção + Bits */}
