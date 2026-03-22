@@ -1024,9 +1024,11 @@ export default function EquipmentDiaryForm() {
           entries={timeEntries}
           onChange={setTimeEntries}
           turno={turno}
-          showTransportOgs={isCarreta}
+          showTransportOgs={false}
           showTransportPassengers={isVeiculo}
           ogsData={ogsData}
+          isCarreta={isCarreta}
+          allFleets={equipamentos}
         />
 
         {/* FRESADORA: Produção + Bits */}
