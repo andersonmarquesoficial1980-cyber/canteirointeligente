@@ -148,9 +148,12 @@ export default function FleetDashboard() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Status da frota em tempo real</p>
         </div>
-        <Badge variant="outline" className="text-xs font-semibold gap-1">
-          <Gauge className="w-3 h-3" /> {total} equipamentos
-        </Badge>
+        <div className="flex items-center gap-3">
+          <ExportModule counts={counts} total={total} availability={availability} />
+          <Badge variant="outline" className="text-xs font-semibold gap-1">
+            <Gauge className="w-3 h-3" /> {total} equipamentos
+          </Badge>
+        </div>
       </div>
 
       <div className="space-y-6">
