@@ -120,9 +120,9 @@ export default function FleetDashboard() {
   const availability = total > 0 ? Math.round(((counts.em_obra + counts.disponivel) / total) * 100) : 0;
 
   const chartData = [
-    { name: "Em Obra", value: counts.em_obra, color: STATUS.em_obra.color, key: "em_obra" as FleetStatus },
-    { name: "Transporte", value: counts.transporte, color: STATUS.transporte.color, key: "transporte" as FleetStatus },
-    { name: "Disponível", value: counts.disponivel, color: STATUS.disponivel.color, key: "disponivel" as FleetStatus },
+    { name: "Produzindo", value: counts.em_obra, color: STATUS.em_obra.color, key: "em_obra" as FleetStatus },
+    { name: "Em Trânsito", value: counts.transporte, color: STATUS.transporte.color, key: "transporte" as FleetStatus },
+    { name: "Disponível (Base)", value: counts.disponivel, color: STATUS.disponivel.color, key: "disponivel" as FleetStatus },
     { name: "Manutenção", value: counts.manutencao, color: STATUS.manutencao.color, key: "manutencao" as FleetStatus },
   ].filter((d) => d.value > 0);
 
