@@ -382,6 +382,20 @@ export default function EquipmentDiaryForm() {
     }
   };
 
+  // Fetch trailer_fleets for Carreta prancha
+  const { data: trailerFleets = [] } = useQuery({
+    queryKey: ["trailer_fleets"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trailer_fleets")
+        .select("*")
+        .order("fleet_number");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: isCarreta,
+  });
+
   // Determine which static fleet list to use
   const getStaticFleetList = () => {
     if (isBobcat) return BOBCAT_FLEETS;
@@ -392,6 +406,7 @@ export default function EquipmentDiaryForm() {
     if (isEspargidor) return ESPARGIDOR_FLEETS;
     if (isCarroceria) return CARROCERIA_FLEETS;
     if (isComboio) return COMBOIO_FLEETS;
+    if (isCarreta) return CARRETA_CM_FLEETS;
     return null;
   };
 
