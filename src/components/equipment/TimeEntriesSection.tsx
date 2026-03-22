@@ -41,6 +41,8 @@ interface Props {
   showTransportOgs?: boolean;
   showTransportPassengers?: boolean;
   ogsData?: any[];
+  isCarreta?: boolean;
+  allFleets?: any[];
 }
 
 function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string }[] {
