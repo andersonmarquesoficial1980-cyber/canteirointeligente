@@ -383,6 +383,7 @@ function UsersManager() {
             <SelectContent>
               <SelectItem value="Administrador">Administrador</SelectItem>
               <SelectItem value="Apontador">Apontador</SelectItem>
+              <SelectItem value="Operador">Operador / Motorista</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -435,6 +436,7 @@ function UsersManager() {
                 <SelectContent>
                   <SelectItem value="Administrador">Administrador</SelectItem>
                   <SelectItem value="Apontador">Apontador</SelectItem>
+                  <SelectItem value="Operador">Operador / Motorista</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -479,9 +481,12 @@ function OgsManager() {
   const [numero, setNumero] = useState("");
   const [cliente, setCliente] = useState("");
   const [endereco, setEndereco] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deletingLoading, setDeletingLoading] = useState(false);
 
   const load = async () => {
-    const { data } = await supabase.from("ogs_reference").select("*").order("numero_ogs", { ascending: false });
+    const { data } = await supabase.from("ogs_reference").select("*").order("ogs_number", { ascending: false });
     if (data) setItems(data);
   };
 
@@ -492,38 +497,72 @@ function OgsManager() {
       toast({ title: "Atenção", description: "Preencha OGS, Cliente e Endereço.", variant: "destructive" });
       return;
     }
-    console.log("[OGS] Tentando adicionar:", { numero, cliente, endereco });
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast({ title: "Sessão expirada", description: "Faça login novamente.", variant: "destructive" });
         return;
       }
-      const { error } = await supabase.from("ogs_reference").insert({ numero_ogs: numero.trim(), cliente: cliente.trim(), endereco: endereco.trim() } as any);
-      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-      setEndereco("");
-      toast({ title: "✅ Endereço adicionado!" });
+
+      if (editingId) {
+        const { error } = await supabase.from("ogs_reference").update({
+          ogs_number: numero.trim(),
+          client_name: cliente.trim(),
+          location_address: endereco.trim(),
+        }).eq("id", editingId);
+        if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+        toast({ title: "✅ OGS atualizada!" });
+        setEditingId(null);
+      } else {
+        const { error } = await supabase.from("ogs_reference").insert({
+          ogs_number: numero.trim(),
+          client_name: cliente.trim(),
+          location_address: endereco.trim(),
+        });
+        if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+        toast({ title: "✅ Endereço adicionado!" });
+      }
+      setNumero(""); setCliente(""); setEndereco("");
       await load();
     } catch (err: any) {
-      console.error("[OGS] Exceção:", err);
       toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const { error } = await supabase.from("ogs_reference").delete().eq("id", String(id));
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+  const openEdit = (o: any) => {
+    setEditingId(o.id);
+    setNumero(o.ogs_number || "");
+    setCliente(o.client_name || "");
+    setEndereco(o.location_address || "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setNumero(""); setCliente(""); setEndereco("");
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeletingLoading(true);
+    const { error } = await supabase.from("ogs_reference").delete().eq("id", deleteTarget.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); }
+    else { toast({ title: "✅ Removido!" }); }
+    setDeleteTarget(null);
+    setDeletingLoading(false);
     await load();
   };
 
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-        <p className="text-sm text-muted-foreground">Adicione endereços a uma OGS. Uma mesma OGS pode ter vários endereços.</p>
+        <p className="text-sm text-muted-foreground">
+          {editingId ? "✏️ Editando registro — altere os campos e salve." : "Adicione endereços a uma OGS. Uma mesma OGS pode ter vários endereços."}
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Nº OGS</Label>
-            <Input value={numero} onChange={e => setNumero(e.target.value)} className="h-11 bg-secondary border-border" placeholder="OGS-001" />
+            <Input value={numero} onChange={e => setNumero(e.target.value)} className="h-11 bg-secondary border-border" placeholder="2535" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Cliente</Label>
@@ -534,20 +573,74 @@ function OgsManager() {
           <Label className="text-xs text-muted-foreground">Endereço / Rua</Label>
           <Input value={endereco} onChange={e => setEndereco(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Rua X, Trecho Y" />
         </div>
-        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Endereço</Button>
+        <div className="flex gap-2">
+          <Button onClick={handleAdd} className="flex-1 h-11 gap-2">
+            {editingId ? <><Save className="w-4 h-4" /> Salvar Alterações</> : <><Plus className="w-4 h-4" /> Adicionar Endereço</>}
+          </Button>
+          {editingId && (
+            <Button variant="outline" onClick={cancelEdit} className="h-11">Cancelar</Button>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-2">
-        {items.map((o: any) => (
-          <div key={o.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm text-foreground">{o.numero_ogs} — {o.cliente}</p>
-              <p className="text-xs text-muted-foreground">{o.endereco}</p>
-            </div>
-            <button onClick={() => handleDelete(o.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
-          </div>
-        ))}
+      {/* OGS Consultation Table */}
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="px-4 py-3 border-b border-border">
+          <p className="text-sm font-bold text-[hsl(var(--primary))]">📋 Tabela de OGS Cadastradas</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-secondary/50">
+                <th className="text-left px-4 py-2.5 font-semibold text-foreground text-xs">OGS</th>
+                <th className="text-left px-4 py-2.5 font-semibold text-foreground text-xs">Cliente</th>
+                <th className="text-left px-4 py-2.5 font-semibold text-foreground text-xs">Endereço/Local</th>
+                <th className="text-right px-4 py-2.5 font-semibold text-foreground text-xs w-20">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((o: any) => (
+                <tr key={o.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
+                  <td className="px-4 py-2.5 font-bold text-foreground">{o.ogs_number}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{o.client_name}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{o.location_address}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openEdit(o)} className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-secondary">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setDeleteTarget(o)} className="text-destructive p-1.5 rounded-md hover:bg-destructive/10">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr><td colSpan={4} className="text-center py-6 text-muted-foreground text-sm">Nenhuma OGS cadastrada.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Excluir OGS <strong>{deleteTarget?.ogs_number}</strong> — {deleteTarget?.location_address}? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deletingLoading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deletingLoading ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
