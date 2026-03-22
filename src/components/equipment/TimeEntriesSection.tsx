@@ -129,6 +129,12 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
           newEntry.transportObs = "";
           newEntry.transportOgs = "";
           newEntry.transportPassengers = "";
+          newEntry.transportEquip1 = "";
+          newEntry.transportEquip1Custom = "";
+          newEntry.transportEquip2 = "";
+          newEntry.transportEquip2Custom = "";
+          newEntry.transportEquip3 = "";
+          newEntry.transportEquip3Custom = "";
         }
       }
       return newEntry;
