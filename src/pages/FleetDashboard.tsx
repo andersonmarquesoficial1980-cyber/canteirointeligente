@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Truck, Warehouse, Wrench, Activity, AlertTriangle,
-  Gauge, ArrowLeft, ChevronRight, X,
+  Gauge, ChevronRight, X, BarChart3,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
 
