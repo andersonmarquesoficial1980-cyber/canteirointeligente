@@ -383,6 +383,7 @@ function UsersManager() {
             <SelectContent>
               <SelectItem value="Administrador">Administrador</SelectItem>
               <SelectItem value="Apontador">Apontador</SelectItem>
+              <SelectItem value="Operador">Operador / Motorista</SelectItem>
             </SelectContent>
           </Select>
         </div>
