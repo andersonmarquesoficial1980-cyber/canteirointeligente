@@ -156,6 +156,7 @@ export default function EquipmentDiaryForm() {
   const isCaminhoes = equipmentType === "Caminhões";
   const isComboio = equipmentType === "Comboio";
   const isVeiculo = equipmentType === "Veículo";
+  const isCarreta = equipmentType === "Carreta";
 
   // Caminhões sub-type state
   const [caminhaoTipo, setCaminhaoTipo] = useState("");
@@ -163,9 +164,7 @@ export default function EquipmentDiaryForm() {
   const isEspargidor = isCaminhoes && caminhaoTipo === "Espargidor";
   const isCarroceria = isCaminhoes && caminhaoTipo === "Carroceria";
 
-  // Legacy compat aliases
-  const isCarreta = false; // replaced by Carroceria inside Caminhões
-  const isTruck = isCaminhoes || isComboio || isVeiculo;
+  const isTruck = isCaminhoes || isComboio || isVeiculo || isCarreta;
   const usesOdometer = isTruck;
   const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro || isUsinaKma;
 
