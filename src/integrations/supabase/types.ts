@@ -1461,6 +1461,21 @@ export type Database = {
         }
         Relationships: []
       }
+      trailer_fleets: {
+        Row: {
+          fleet_number: string | null
+          id: string
+        }
+        Insert: {
+          fleet_number?: string | null
+          id?: string
+        }
+        Update: {
+          fleet_number?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
       truck_tank_supplies: {
         Row: {
           created_at: string | null
