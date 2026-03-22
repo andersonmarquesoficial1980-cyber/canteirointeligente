@@ -40,6 +40,8 @@ export interface TimeEntry {
   returnDetails?: string;
 }
 
+const PRODUCTION_EQUIPMENT_TYPES = ["fresadora", "bobcat", "retroescavadeira", "rolo", "vibroacabadora", "usina"];
+
 interface Props {
   entries: TimeEntry[];
   onChange: (entries: TimeEntry[]) => void;
@@ -49,6 +51,7 @@ interface Props {
   ogsData?: any[];
   isCarreta?: boolean;
   allFleets?: any[];
+  equipmentType?: string;
 }
 
 function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string }[] {
