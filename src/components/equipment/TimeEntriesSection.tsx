@@ -280,11 +280,10 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Destino</span>
                   <Select value={entry.destination || ""} onValueChange={(v) => {
-                    updateEntry(idx, "destination", v);
-                    if (v !== BASE_PATIO_VALUE) {
-                      updateEntry(idx, "returnReason", "");
-                      updateEntry(idx, "returnDetails", "");
-                    }
+                    const extra: Partial<TimeEntry> = v !== BASE_PATIO_VALUE
+                      ? { returnReason: "", returnDetails: "" }
+                      : {};
+                    updateEntry(idx, "destination", v, extra);
                   }}>
                     <SelectTrigger className="bg-secondary border-border h-9 text-xs">
                       <SelectValue placeholder="Selecione..." />
