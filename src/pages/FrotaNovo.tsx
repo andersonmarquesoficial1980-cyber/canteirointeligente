@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Truck, Search, Cog, CircleDot, FileText } from "lucide-react";
+import { Plus, Truck, Search, Cog, CircleDot, FileText, Warehouse, Wrench, Activity } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 const TIPOS = ["Pavimentação", "Compactação", "Fresagem", "Transporte", "Usina", "Apoio", "Outros"];
 const STATUS_OPTIONS = [
@@ -19,11 +20,63 @@ const STATUS_OPTIONS = [
   { value: "manutencao", label: "Manutenção", color: "text-accent" },
 ];
 
-function statusBadge(status: string) {
-  const opt = STATUS_OPTIONS.find((s) => s.value === status);
-  const label = opt?.label ?? status;
-  const variant = status === "ativo" ? "default" : status === "manutencao" ? "secondary" : "outline";
-  return <Badge variant={variant} className="text-xs">{label}</Badge>;
+const BASE_VALUE = "BASE";
+
+// 4-status fleet derivation
+type FleetStatus = "em_obra" | "transporte" | "disponivel" | "manutencao";
+
+interface FleetStatusInfo {
+  label: string;
+  color: string; // HSL for chart
+  badgeVariant: "default" | "secondary" | "outline" | "destructive";
+  icon: typeof Truck;
+}
+
+const FLEET_STATUS_MAP: Record<FleetStatus, FleetStatusInfo> = {
+  em_obra:     { label: "Em Obra",     color: "hsl(142 70% 45%)", badgeVariant: "default",     icon: Activity },
+  transporte:  { label: "Transporte",  color: "hsl(45 90% 50%)",  badgeVariant: "outline",     icon: Truck },
+  disponivel:  { label: "Disponível",  color: "hsl(215 80% 55%)", badgeVariant: "secondary",   icon: Warehouse },
+  manutencao:  { label: "Manutenção",  color: "hsl(0 70% 50%)",   badgeVariant: "destructive", icon: Wrench },
+};
+
+function deriveFleetStatus(
+  equipStatus: string,
+  lastEntry?: { destination?: string; returnReason?: string; activity?: string }
+): FleetStatus {
+  // If DB status is manutencao, honor it
+  if (equipStatus === "manutencao") return "manutencao";
+
+  if (!lastEntry) {
+    return equipStatus === "ativo" ? "em_obra" : "disponivel";
+  }
+
+  const dest = (lastEntry.destination || "").toUpperCase();
+  const isBase = dest.includes("BASE");
+
+  if (isBase) {
+    const reason = (lastEntry.returnReason || "").toLowerCase();
+    if (reason.includes("manutenção") || reason.includes("manutencao") || reason.includes("oficina")) {
+      return "manutencao";
+    }
+    return "disponivel";
+  }
+
+  const activity = (lastEntry.activity || "").toLowerCase();
+  if (activity.includes("transporte") || activity.includes("deslocamento")) {
+    return "transporte";
+  }
+
+  return "em_obra";
+}
+
+function statusBadge(fs: FleetStatus) {
+  const info = FLEET_STATUS_MAP[fs];
+  return (
+    <Badge variant={info.badgeVariant} className="text-xs gap-1">
+      <info.icon className="w-3 h-3" />
+      {info.label}
+    </Badge>
+  );
 }
 
 export default function FrotaNovo() {
@@ -34,7 +87,6 @@ export default function FrotaNovo() {
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Form state
   const [nome, setNome] = useState("");
   const [frota, setFrota] = useState("");
   const [tipo, setTipo] = useState("");
@@ -54,6 +106,77 @@ export default function FrotaNovo() {
     },
   });
 
+  // Fetch latest time entries per diary to derive fleet status
+  const { data: latestEntries = [] } = useQuery({
+    queryKey: ["latest_fleet_entries"],
+    queryFn: async () => {
+      // Get recent diaries with their last time entry
+      const { data: diaries, error: dErr } = await supabase
+        .from("equipment_diaries")
+        .select("id, equipment_fleet, created_at")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (dErr || !diaries?.length) return [];
+
+      const diaryIds = diaries.map((d: any) => d.id);
+      const { data: entries, error: eErr } = await supabase
+        .from("equipment_time_entries")
+        .select("diary_id, activity, destination, description")
+        .in("diary_id", diaryIds);
+      if (eErr) return [];
+
+      // Build map: fleet -> latest entry info
+      const fleetMap: Record<string, { destination: string; returnReason: string; activity: string; createdAt: string }> = {};
+      for (const d of diaries as any[]) {
+        const fleet = d.equipment_fleet;
+        if (!fleet || fleetMap[fleet]) continue;
+        const dEntries = (entries as any[]).filter((e: any) => e.diary_id === d.id);
+        if (dEntries.length > 0) {
+          const last = dEntries[dEntries.length - 1];
+          // returnReason is stored in description field for transport entries
+          fleetMap[fleet] = {
+            destination: last.destination || "",
+            returnReason: last.description || "",
+            activity: last.activity || "",
+            createdAt: d.created_at,
+          };
+        }
+      }
+      return Object.entries(fleetMap).map(([fleet, info]) => ({ fleet, ...info }));
+    },
+  });
+
+  // Build status map for each equipment
+  const statusMap = useMemo(() => {
+    const map: Record<string, FleetStatus> = {};
+    const entryByFleet: Record<string, any> = {};
+    for (const e of latestEntries) {
+      entryByFleet[e.fleet] = e;
+    }
+    for (const eq of equipamentos) {
+      const lastEntry = entryByFleet[eq.frota];
+      map[eq.id] = deriveFleetStatus(eq.status, lastEntry);
+    }
+    return map;
+  }, [equipamentos, latestEntries]);
+
+  // Counts
+  const counts = useMemo(() => {
+    const c: Record<FleetStatus, number> = { em_obra: 0, transporte: 0, disponivel: 0, manutencao: 0 };
+    Object.values(statusMap).forEach((s) => { c[s]++; });
+    return c;
+  }, [statusMap]);
+
+  const total = equipamentos.length;
+  const availability = total > 0 ? Math.round(((counts.em_obra + counts.disponivel) / total) * 100) : 0;
+
+  const chartData = [
+    { name: "Em Obra", value: counts.em_obra, color: FLEET_STATUS_MAP.em_obra.color },
+    { name: "Transporte", value: counts.transporte, color: FLEET_STATUS_MAP.transporte.color },
+    { name: "Disponível", value: counts.disponivel, color: FLEET_STATUS_MAP.disponivel.color },
+    { name: "Manutenção", value: counts.manutencao, color: FLEET_STATUS_MAP.manutencao.color },
+  ].filter((d) => d.value > 0);
+
   const filtered = equipamentos.filter((eq: any) => {
     if (!search.trim()) return true;
     const s = search.toLowerCase();
@@ -65,13 +188,7 @@ export default function FrotaNovo() {
     );
   });
 
-  const resetForm = () => {
-    setNome("");
-    setFrota("");
-    setTipo("");
-    setEmpresa("");
-    setStatus("ativo");
-  };
+  const resetForm = () => { setNome(""); setFrota(""); setTipo(""); setEmpresa(""); setStatus("ativo"); };
 
   const handleSave = async () => {
     if (!nome.trim() || !frota.trim()) {
@@ -96,14 +213,12 @@ export default function FrotaNovo() {
     }
   };
 
-  const countByStatus = (s: string) => equipamentos.filter((e: any) => e.status === s).length;
-
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6 pb-8">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-display font-bold text-foreground flex items-center gap-2">
+          <h1 className="text-xl md:text-2xl font-display font-extrabold text-[hsl(215_80%_22%)] flex items-center gap-2">
             <Cog className="w-6 h-6 text-primary" />
             Gestão de Equipamentos
           </h1>
@@ -170,23 +285,70 @@ export default function FrotaNovo() {
         </Dialog>
       </div>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Total", value: equipamentos.length, icon: Truck },
-          { label: "Operando", value: countByStatus("ativo"), icon: CircleDot },
-          { label: "Manutenção", value: countByStatus("manutencao"), icon: Cog },
-        ].map((kpi) => (
-          <Card key={kpi.label} className="border-border bg-card">
-            <CardContent className="p-4 flex items-center gap-3">
-              <kpi.icon className="w-5 h-5 text-muted-foreground" />
-              <div>
-                <p className="text-2xl font-display font-bold text-foreground">{kpi.value}</p>
-                <p className="text-xs text-muted-foreground">{kpi.label}</p>
+      {/* Dashboard: Donut + KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+        {/* Donut Chart */}
+        <Card className="border-border bg-white shadow-sm">
+          <CardContent className="p-4 flex flex-col items-center">
+            <div className="w-[160px] h-[160px] relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={70}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number, name: string) => [`${v} equip.`, name]} />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Center label */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl font-display font-extrabold text-[hsl(215_80%_22%)]">{availability}%</span>
+                <span className="text-[10px] text-muted-foreground font-semibold">Disponível</span>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+            {/* Legend */}
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-3 text-[11px]">
+              {Object.entries(FLEET_STATUS_MAP).map(([key, info]) => (
+                <div key={key} className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: info.color }} />
+                  <span className="text-muted-foreground">{info.label}</span>
+                  <span className="font-bold text-foreground">{counts[key as FleetStatus]}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 gap-3">
+          {([
+            { key: "em_obra" as FleetStatus, label: "Em Obra", icon: Activity },
+            { key: "transporte" as FleetStatus, label: "Transporte", icon: Truck },
+            { key: "disponivel" as FleetStatus, label: "Disponível na Base", icon: Warehouse },
+            { key: "manutencao" as FleetStatus, label: "Manutenção", icon: Wrench },
+          ]).map((kpi) => (
+            <Card key={kpi.key} className="border-border bg-white shadow-sm">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: FLEET_STATUS_MAP[kpi.key].color + "22" }}>
+                  <kpi.icon className="w-5 h-5" style={{ color: FLEET_STATUS_MAP[kpi.key].color }} />
+                </div>
+                <div>
+                  <p className="text-2xl font-display font-extrabold text-[hsl(215_80%_22%)]">{counts[kpi.key]}</p>
+                  <p className="text-xs text-muted-foreground font-medium">{kpi.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* Search */}
@@ -209,21 +371,24 @@ export default function FrotaNovo() {
         </p>
       ) : (
         <div className="space-y-2">
-          {filtered.map((eq: any) => (
-            <Card key={eq.id} className="border-border bg-card hover:border-primary/30 transition-colors">
-              <CardContent className="p-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold text-foreground truncate">{eq.nome}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Frota: <span className="text-foreground font-medium">{eq.frota}</span>
-                    {eq.tipo && <> · {eq.tipo}</>}
-                    {eq.empresa && <> · {eq.empresa}</>}
-                  </p>
-                </div>
-                {statusBadge(eq.status)}
-              </CardContent>
-            </Card>
-          ))}
+          {filtered.map((eq: any) => {
+            const fs = statusMap[eq.id] || "em_obra";
+            return (
+              <Card key={eq.id} className="border-border bg-white hover:border-primary/30 transition-colors shadow-sm">
+                <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[hsl(215_80%_22%)] truncate">{eq.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Frota: <span className="text-foreground font-medium">{eq.frota}</span>
+                      {eq.tipo && <> · {eq.tipo}</>}
+                      {eq.empresa && <> · {eq.empresa}</>}
+                    </p>
+                  </div>
+                  {statusBadge(fs)}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
