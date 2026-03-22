@@ -10,6 +10,7 @@ import Home from "./pages/Home";
 import Index from "./pages/Index";
 import RdoForm from "./pages/RdoForm";
 import FrotaNovo from "./pages/FrotaNovo";
+import FleetDashboard from "./pages/FleetDashboard";
 import EquipmentHome from "./pages/EquipmentHome";
 import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
 import AdminConfiguracoes from "./pages/AdminConfiguracoes";
