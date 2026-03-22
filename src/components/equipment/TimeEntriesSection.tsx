@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -36,6 +37,36 @@ interface Props {
   ogsData?: any[];
 }
 
+function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  const seen = new Set<string>();
+
+  ogsData.forEach((o: any) => {
+    if (!o.ogs_number) return;
+    const addresses = o.location_address
+      ? o.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+    if (addresses.length === 0) {
+      const key = o.ogs_number;
+      if (!seen.has(key)) {
+        seen.add(key);
+        options.push({ value: key, label: `${o.ogs_number} — ${o.client_name || ""}` });
+      }
+    } else {
+      addresses.forEach((addr: string) => {
+        const key = `${o.ogs_number} | ${addr}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          options.push({ value: key, label: `${o.ogs_number} — ${addr}` });
+        }
+      });
+    }
+  });
+
+  return options;
+}
+
 export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
   return {
     id: crypto.randomUUID(),
@@ -53,6 +84,7 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
 }
 
 export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [] }: Props) {
+  const ogsLocationOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
   const addEntry = () => {
     const lastEnd = entries.length > 0 ? entries[entries.length - 1].endTime : "";
     onChange([
@@ -193,21 +225,29 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Origem</span>
-                  <Input
-                    value={entry.origin || ""}
-                    onChange={(e) => updateEntry(idx, "origin", e.target.value)}
-                    placeholder="Local de origem..."
-                    className="bg-secondary border-border text-xs h-9"
-                  />
+                  <Select value={entry.origin || ""} onValueChange={(v) => updateEntry(idx, "origin", v)}>
+                    <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                      <SelectValue placeholder="Selecione OGS..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {ogsLocationOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Destino</span>
-                  <Input
-                    value={entry.destination || ""}
-                    onChange={(e) => updateEntry(idx, "destination", e.target.value)}
-                    placeholder="Local de destino..."
-                    className="bg-secondary border-border text-xs h-9"
-                  />
+                  <Select value={entry.destination || ""} onValueChange={(v) => updateEntry(idx, "destination", v)}>
+                    <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                      <SelectValue placeholder="Selecione OGS..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {ogsLocationOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               {showTransportOgs && (
