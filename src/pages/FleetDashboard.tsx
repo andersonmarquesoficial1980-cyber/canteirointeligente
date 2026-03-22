@@ -9,6 +9,7 @@ import {
   Gauge, ChevronRight, X, BarChart3,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
+import ExportModule from "@/components/dashboard/ExportModule";
 
 // ── Status types ──────────────────────────────────────────────
 type FleetStatus = "em_obra" | "transporte" | "disponivel" | "manutencao";
