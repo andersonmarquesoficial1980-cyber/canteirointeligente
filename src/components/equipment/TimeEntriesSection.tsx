@@ -111,7 +111,8 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
   };
 }
 
-export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [], isCarreta = false, allFleets = [] }: Props) {
+export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [], isCarreta = false, allFleets = [], equipmentType = "" }: Props) {
+  const showReturnReason = PRODUCTION_EQUIPMENT_TYPES.some(t => equipmentType.toLowerCase().includes(t));
   const fleetOptions = useMemo(() => {
     const opts = allFleets.map((f: any) => f.frota).filter(Boolean).sort();
     return [...opts, "Outro"];
