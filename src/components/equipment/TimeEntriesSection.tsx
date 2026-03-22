@@ -144,6 +144,8 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
           newEntry.transportEquip2Custom = "";
           newEntry.transportEquip3 = "";
           newEntry.transportEquip3Custom = "";
+          newEntry.returnReason = "";
+          newEntry.returnDetails = "";
         }
       }
       return newEntry;
