@@ -931,7 +931,7 @@ export default function EquipmentDiaryForm() {
             </FieldRow>
           )}
 
-          {!isCarreta && (clientName || locationAddress || hasMultipleAddresses) && (
+          {!isCarreta && !isComboio && (clientName || locationAddress || hasMultipleAddresses) && (
             <div className="bg-secondary/50 border border-border rounded-lg p-3 space-y-2">
               {clientName && (
                 <p className="text-xs text-muted-foreground">
