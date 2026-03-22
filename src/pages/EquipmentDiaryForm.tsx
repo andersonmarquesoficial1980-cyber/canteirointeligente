@@ -396,6 +396,20 @@ export default function EquipmentDiaryForm() {
     enabled: isCarreta,
   });
 
+  // Fetch equipment_fleets for Carreta transport equipment selectors & Comboio fleet dropdown
+  const { data: equipmentFleets = [] } = useQuery({
+    queryKey: ["equipment_fleets"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("equipment_fleets")
+        .select("*")
+        .order("fleet_number");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: isCarreta || isComboio,
+  });
+
   // Determine which static fleet list to use
   const getStaticFleetList = () => {
     if (isBobcat) return BOBCAT_FLEETS;
@@ -1046,7 +1060,7 @@ export default function EquipmentDiaryForm() {
           showTransportPassengers={isVeiculo}
           ogsData={ogsData}
           isCarreta={isCarreta}
-          allFleets={equipamentos}
+          allFleets={isCarreta ? equipmentFleets.map((f: any) => ({ frota: f.fleet_number, nome: f.equipment_type })) : equipamentos}
         />
 
         {/* FRESADORA: Produção + Bits */}
@@ -1392,7 +1406,7 @@ export default function EquipmentDiaryForm() {
             onFornecedorChange={setComboioFornecedor}
             entries={comboioRefuels}
             onChange={setComboioRefuels}
-            equipamentos={equipamentos}
+            equipamentos={equipmentFleets.length > 0 ? equipmentFleets.map((f: any) => ({ id: f.id, frota: f.fleet_number, nome: f.equipment_type })) : equipamentos}
             ogsData={ogsData}
             onGeneratePdf={() =>
               generateComboioPdf({
