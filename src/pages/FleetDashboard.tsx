@@ -22,31 +22,11 @@ interface StatusMeta {
 }
 
 const STATUS: Record<FleetStatus, StatusMeta> = {
-  em_obra:    { label: "Em Obra",     color: "hsl(142 70% 45%)", bg: "hsl(142 70% 45% / 0.12)", icon: Activity },
-  transporte: { label: "Transporte",  color: "hsl(45 90% 50%)",  bg: "hsl(45 90% 50% / 0.12)",  icon: Truck },
-  disponivel: { label: "Disponível",  color: "hsl(215 80% 55%)", bg: "hsl(215 80% 55% / 0.12)", icon: Warehouse },
-  manutencao: { label: "Manutenção",  color: "hsl(0 70% 50%)",   bg: "hsl(0 70% 50% / 0.12)",   icon: Wrench },
+  em_obra:    { label: "Produzindo",        color: "hsl(142 70% 45%)", bg: "hsl(142 70% 45% / 0.12)", icon: Activity },
+  transporte: { label: "Em Trânsito",       color: "hsl(45 90% 50%)",  bg: "hsl(45 90% 50% / 0.12)",  icon: Truck },
+  disponivel: { label: "Disponível (Base)", color: "hsl(215 80% 55%)", bg: "hsl(215 80% 55% / 0.12)", icon: Warehouse },
+  manutencao: { label: "Manutenção",        color: "hsl(0 70% 50%)",   bg: "hsl(0 70% 50% / 0.12)",   icon: Wrench },
 };
-
-// ── Derive status from latest time entry ─────────────────────
-interface EntryInfo { destination: string; returnReason: string; activity: string }
-
-function deriveStatus(dbStatus: string, entry?: EntryInfo): FleetStatus {
-  if (dbStatus === "manutencao") return "manutencao";
-  if (!entry) return dbStatus === "ativo" ? "em_obra" : "disponivel";
-
-  const dest = (entry.destination || "").toUpperCase();
-  if (dest.includes("BASE")) {
-    const reason = (entry.returnReason || "").toLowerCase();
-    return reason.includes("manutenção") || reason.includes("manutencao") || reason.includes("oficina")
-      ? "manutencao"
-      : "disponivel";
-  }
-
-  const act = (entry.activity || "").toLowerCase();
-  if (act.includes("transporte") || act.includes("deslocamento")) return "transporte";
-  return "em_obra";
-}
 
 // ── Active shape for donut hover ─────────────────────────────
 const renderActiveShape = (props: any) => {
@@ -80,52 +60,55 @@ export default function FleetDashboard() {
     },
   });
 
-  const { data: latestEntries = [] } = useQuery({
-    queryKey: ["latest_fleet_entries"],
+  // Use the v_frota_status_atual view for real-time status
+  const { data: viewData = [] } = useQuery({
+    queryKey: ["v_frota_status_atual"],
     queryFn: async () => {
-      const { data: diaries, error: dErr } = await supabase
-        .from("equipment_diaries")
-        .select("id, equipment_fleet, created_at")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      if (dErr || !diaries?.length) return [];
-
-      const diaryIds = diaries.map((d: any) => d.id);
-      const { data: entries } = await supabase
-        .from("equipment_time_entries")
-        .select("diary_id, activity, destination, description")
-        .in("diary_id", diaryIds);
-      if (!entries) return [];
-
-      const map: Record<string, EntryInfo & { createdAt: string }> = {};
-      for (const d of diaries as any[]) {
-        const fleet = d.equipment_fleet;
-        if (!fleet || map[fleet]) continue;
-        const dEntries = (entries as any[]).filter((e: any) => e.diary_id === d.id);
-        if (dEntries.length > 0) {
-          const last = dEntries[dEntries.length - 1];
-          map[fleet] = {
-            destination: last.destination || "",
-            returnReason: last.description || "",
-            activity: last.activity || "",
-            createdAt: d.created_at,
-          };
-        }
-      }
-      return Object.entries(map).map(([fleet, info]) => ({ fleet, ...info }));
+      const { data, error } = await supabase
+        .from("v_frota_status_atual" as any)
+        .select("*");
+      if (error) throw error;
+      return data as any[];
     },
   });
 
-  // ── Compute statuses ────────────────────────────────────────
+  // ── Map view status_cor to FleetStatus ──────────────────────
+  function mapStatusCor(cor: string): FleetStatus {
+    const c = (cor || "").toLowerCase();
+    if (c.includes("produzindo") || c.includes("obra")) return "em_obra";
+    if (c.includes("trânsito") || c.includes("transporte") || c.includes("transito")) return "transporte";
+    if (c.includes("disponível") || c.includes("disponivel") || c.includes("base")) return "disponivel";
+    if (c.includes("manutenção") || c.includes("manutencao")) return "manutencao";
+    return "em_obra";
+  }
+
+  // ── Compute statuses from view ─────────────────────────────
   const { statusMap, entryByFleet } = useMemo(() => {
     const sMap: Record<string, FleetStatus> = {};
-    const eMap: Record<string, EntryInfo> = {};
-    for (const e of latestEntries) eMap[e.fleet] = e;
+    const eMap: Record<string, { destination: string; returnReason: string; activity: string }> = {};
+
+    // Index view data by fleet
+    const viewByFleet: Record<string, any> = {};
+    for (const v of viewData) {
+      viewByFleet[v.equipment_fleet] = v;
+    }
+
     for (const eq of equipamentos) {
-      sMap[eq.id] = deriveStatus(eq.status, eMap[eq.frota]);
+      const vRow = viewByFleet[eq.frota];
+      if (vRow) {
+        sMap[eq.id] = mapStatusCor(vRow.status_cor);
+        eMap[eq.frota] = {
+          destination: vRow.destination || "",
+          returnReason: vRow.description || "",
+          activity: vRow.activity || "",
+        };
+      } else {
+        // Fallback: use DB status
+        sMap[eq.id] = eq.status === "manutencao" ? "manutencao" : eq.status === "ativo" ? "em_obra" : "disponivel";
+      }
     }
     return { statusMap: sMap, entryByFleet: eMap };
-  }, [equipamentos, latestEntries]);
+  }, [equipamentos, viewData]);
 
   const counts = useMemo(() => {
     const c: Record<FleetStatus, number> = { em_obra: 0, transporte: 0, disponivel: 0, manutencao: 0 };
@@ -137,9 +120,9 @@ export default function FleetDashboard() {
   const availability = total > 0 ? Math.round(((counts.em_obra + counts.disponivel) / total) * 100) : 0;
 
   const chartData = [
-    { name: "Em Obra", value: counts.em_obra, color: STATUS.em_obra.color, key: "em_obra" as FleetStatus },
-    { name: "Transporte", value: counts.transporte, color: STATUS.transporte.color, key: "transporte" as FleetStatus },
-    { name: "Disponível", value: counts.disponivel, color: STATUS.disponivel.color, key: "disponivel" as FleetStatus },
+    { name: "Produzindo", value: counts.em_obra, color: STATUS.em_obra.color, key: "em_obra" as FleetStatus },
+    { name: "Em Trânsito", value: counts.transporte, color: STATUS.transporte.color, key: "transporte" as FleetStatus },
+    { name: "Disponível (Base)", value: counts.disponivel, color: STATUS.disponivel.color, key: "disponivel" as FleetStatus },
     { name: "Manutenção", value: counts.manutencao, color: STATUS.manutencao.color, key: "manutencao" as FleetStatus },
   ].filter((d) => d.value > 0);
 

@@ -1565,6 +1565,16 @@ export type Database = {
       }
     }
     Views: {
+      v_frota_status_atual: {
+        Row: {
+          activity: string | null
+          description: string | null
+          destination: string | null
+          equipment_fleet: string | null
+          status_cor: string | null
+        }
+        Relationships: []
+      }
       view_rendimento_fresadora: {
         Row: {
           diary_id: string | null
