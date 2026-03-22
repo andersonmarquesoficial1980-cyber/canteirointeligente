@@ -396,6 +396,20 @@ export default function EquipmentDiaryForm() {
     enabled: isCarreta,
   });
 
+  // Fetch equipment_fleets for Carreta transport equipment selectors & Comboio fleet dropdown
+  const { data: equipmentFleets = [] } = useQuery({
+    queryKey: ["equipment_fleets"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("equipment_fleets")
+        .select("*")
+        .order("fleet_number");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: isCarreta || isComboio,
+  });
+
   // Determine which static fleet list to use
   const getStaticFleetList = () => {
     if (isBobcat) return BOBCAT_FLEETS;
