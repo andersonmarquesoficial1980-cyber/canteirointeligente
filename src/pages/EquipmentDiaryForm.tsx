@@ -300,6 +300,19 @@ export default function EquipmentDiaryForm() {
     },
   });
 
+  // Fetch fornecedores from DB for supplier selects
+  const { data: fornecedoresDb = [] } = useQuery({
+    queryKey: ["fornecedores_equipamentos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fornecedores")
+        .select("id, nome, vinculo_rdo")
+        .order("nome");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   // Log data arrival for debugging
   useEffect(() => {
     if (funcionarios.length > 0) {
