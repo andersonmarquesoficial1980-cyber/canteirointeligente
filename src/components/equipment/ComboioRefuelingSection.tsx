@@ -39,6 +39,7 @@ interface Props {
   equipamentos: any[];
   ogsData: any[];
   onGeneratePdf?: () => void;
+  fornecedoresDb?: any[];
 }
 
 const COMBOIO_FORNECEDORES = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
