@@ -98,7 +98,11 @@ export default function ComboioRefuelingSection({
   equipamentos,
   ogsData,
   onGeneratePdf,
+  fornecedoresDb = [],
 }: Props) {
+  const fornecedoresList = fornecedoresDb.length > 0
+    ? fornecedoresDb.map((f: any) => f.nome)
+    : COMBOIO_FORNECEDORES_FALLBACK;
   const ogsOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
 
   const totalAbastecido = useMemo(
