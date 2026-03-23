@@ -1126,7 +1126,7 @@ export default function EquipmentDiaryForm() {
           showTransportPassengers={isVeiculo}
           ogsData={ogsData}
           isCarreta={isCarreta}
-          allFleets={isCarreta ? equipmentFleets.map((f: any) => ({ frota: f.fleet_number, nome: f.equipment_type })) : equipamentos}
+          allFleets={isCarreta ? equipmentFleets : equipamentos}
           equipmentType={equipmentType}
         />
 
