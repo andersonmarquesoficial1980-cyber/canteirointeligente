@@ -721,6 +721,7 @@ export default function EquipmentDiaryForm() {
               fornecedor: comboioFornecedor,
               entries: comboioRefuels,
               observations,
+              ogsData,
             });
           } else if (isCarreta) {
             htmlReport = buildCarretaEmailReport({
@@ -733,6 +734,7 @@ export default function EquipmentDiaryForm() {
               odometerFinal: meterFinal,
               timeEntries,
               observations,
+              ogsData,
             });
           }
 
