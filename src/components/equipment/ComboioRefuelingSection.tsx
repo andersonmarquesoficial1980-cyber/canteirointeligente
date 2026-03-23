@@ -42,7 +42,7 @@ interface Props {
   fornecedoresDb?: any[];
 }
 
-const COMBOIO_FORNECEDORES = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
+const COMBOIO_FORNECEDORES_FALLBACK = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
 
 /* Prefixes that indicate vehicles (KM) vs machines (H) */
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "VT", "MCO"];
