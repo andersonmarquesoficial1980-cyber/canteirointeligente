@@ -11,6 +11,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
+const parseOgs = (raw: string | null): { num: string; addr: string } => {
+  if (!raw || raw === "—") return { num: "—", addr: "—" };
+  if (raw === "BASE / PÁTIO CENTRAL" || raw === "BASE") return { num: "BASE", addr: "PÁTIO CENTRAL / OFICINA" };
+  const sep = raw.indexOf(" — ");
+  if (sep > -1) return { num: raw.substring(0, sep).trim(), addr: raw.substring(sep + 3).trim() };
+  return { num: raw, addr: "—" };
+};
+
 export default function AdvancedReports() {
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
@@ -29,12 +37,6 @@ export default function AdvancedReports() {
   const fmtDate = (d: string) => {
     if (!d) return "—";
     try { return format(new Date(d + "T12:00:00"), "dd/MM/yyyy"); } catch { return d; }
-  };
-
-  const fmtOgs = (raw: string | null) => {
-    if (!raw) return "—";
-    if (raw === "BASE / PÁTIO CENTRAL") return raw;
-    return raw;
   };
 
   /* ── Exportar Transportes (Carreta) ── */
@@ -58,9 +60,9 @@ export default function AdvancedReports() {
           const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
           const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
           const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
-
-          // Parse equipment from description (stored as comma-separated)
           const descParts = (r.description || "").split(",").map((s: string) => s.trim());
+          const orig = parseOgs(r.origin);
+          const dest = parseOgs(r.destination);
 
           return {
             "Data": fmtDate(d?.date),
@@ -71,8 +73,10 @@ export default function AdvancedReports() {
             "Equipamento 01": descParts[0] || "—",
             "Equipamento 02": descParts[1] || "—",
             "Equipamento 03": descParts[2] || "—",
-            "Origem": fmtOgs(r.origin),
-            "Destino": fmtOgs(r.destination),
+            "Nº OGS (Origem)": orig.num,
+            "Endereço (Origem)": orig.addr,
+            "Nº OGS (Destino)": dest.num,
+            "Endereço (Destino)": dest.addr,
             "Horário Início": r.start_time || "—",
             "Horário Fim": r.end_time || "—",
             "Observações / Finalidade": r.ogs_destination || r.activity || "—",
@@ -88,7 +92,8 @@ export default function AdvancedReports() {
       ws["!cols"] = [
         { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
         { wch: 18 }, { wch: 18 }, { wch: 18 },
-        { wch: 36 }, { wch: 36 }, { wch: 10 }, { wch: 10 }, { wch: 36 },
+        { wch: 12 }, { wch: 32 }, { wch: 12 }, { wch: 32 },
+        { wch: 10 }, { wch: 10 }, { wch: 36 },
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Transportes Carreta");
@@ -120,6 +125,7 @@ export default function AdvancedReports() {
         const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
         const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
         const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
+        const ogsP = parseOgs(r.ogs_destination);
         const services: string[] = [];
         if (r.is_lubricated) services.push("Lubrificação");
         if (r.is_washed) services.push("Lavagem");
@@ -132,7 +138,8 @@ export default function AdvancedReports() {
           "Equipamento Abastecido": r.equipment_fleet_fueled || "—",
           "Litros": r.liters_fueled ?? "—",
           "Medição (H/KM)": r.equipment_meter ?? "—",
-          "OGS / Local": fmtOgs(r.ogs_destination),
+          "Nº OGS": ogsP.num,
+          "Endereço / Local": ogsP.addr,
           "Serviços Adicionais": services.length > 0 ? services.join(", ") : "—",
         };
       });
@@ -146,10 +153,10 @@ export default function AdvancedReports() {
       const byOgs: Record<string, number> = {};
       (data || []).forEach((r: any) => {
         const eq = r.equipment_fleet_fueled || "—";
-        const ogs = r.ogs_destination || "—";
+        const ogsP = parseOgs(r.ogs_destination);
         const liters = Number(r.liters_fueled) || 0;
         byEquip[eq] = (byEquip[eq] || 0) + liters;
-        if (ogs !== "—") byOgs[ogs] = (byOgs[ogs] || 0) + liters;
+        if (ogsP.num !== "—") byOgs[`${ogsP.num} — ${ogsP.addr}`] = (byOgs[`${ogsP.num} — ${ogsP.addr}`] || 0) + liters;
       });
 
       const summaryEquip = Object.entries(byEquip).sort((a, b) => b[1] - a[1]).map(([eq, l]) => ({ "Equipamento": eq, "Total Litros": l }));
@@ -159,7 +166,7 @@ export default function AdvancedReports() {
       const wsData = XLSX.utils.json_to_sheet(rows);
       wsData["!cols"] = [
         { wch: 12 }, { wch: 14 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
-        { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 36 }, { wch: 20 },
+        { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 32 }, { wch: 20 },
       ];
       XLSX.utils.book_append_sheet(wb, wsData, "Abastecimentos");
 
@@ -212,6 +219,8 @@ export default function AdvancedReports() {
           const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
           const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
           const descParts = (r.description || "").split(",").map((s: string) => s.trim());
+          const orig = parseOgs(r.origin);
+          const dest = parseOgs(r.destination);
 
           allRows.push({
             "Tipo": "Carreta",
@@ -223,8 +232,10 @@ export default function AdvancedReports() {
             "Equipamento 01": descParts[0] || "—",
             "Equipamento 02": descParts[1] || "—",
             "Equipamento 03": descParts[2] || "—",
-            "Origem": fmtOgs(r.origin),
-            "Destino": fmtOgs(r.destination),
+            "Nº OGS (Origem)": orig.num,
+            "Endereço (Origem)": orig.addr,
+            "Nº OGS (Destino)": dest.num,
+            "Endereço (Destino)": dest.addr,
             "Horário Início": r.start_time || "—",
             "Horário Fim": r.end_time || "—",
             "Observações": r.ogs_destination || r.activity || "—",
@@ -236,6 +247,7 @@ export default function AdvancedReports() {
         const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
         const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
         const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
+        const ogsP = parseOgs(r.ogs_destination);
         const services: string[] = [];
         if (r.is_lubricated) services.push("Lubrificação");
         if (r.is_washed) services.push("Lavagem");
@@ -249,8 +261,10 @@ export default function AdvancedReports() {
           "Equipamento 01": r.equipment_fleet_fueled || "—",
           "Equipamento 02": "—",
           "Equipamento 03": "—",
-          "Origem": "Comboio",
-          "Destino": fmtOgs(r.ogs_destination),
+          "Nº OGS (Origem)": "Comboio",
+          "Endereço (Origem)": "—",
+          "Nº OGS (Destino)": ogsP.num,
+          "Endereço (Destino)": ogsP.addr,
           "Horário Início": `${r.liters_fueled ?? 0} L`,
           "Horário Fim": `Med: ${r.equipment_meter ?? "—"}`,
           "Observações": services.length > 0 ? services.join(", ") : "Abastecimento",
@@ -268,7 +282,8 @@ export default function AdvancedReports() {
       ws["!cols"] = [
         { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
         { wch: 18 }, { wch: 18 }, { wch: 18 },
-        { wch: 36 }, { wch: 36 }, { wch: 10 }, { wch: 10 }, { wch: 36 },
+        { wch: 12 }, { wch: 32 }, { wch: 12 }, { wch: 32 },
+        { wch: 10 }, { wch: 10 }, { wch: 36 },
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Consolidado");
