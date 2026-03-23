@@ -28,6 +28,14 @@ const fmtDate = (d: string) => {
 
 const fmtNum = (v: number) => v.toLocaleString("pt-BR");
 
+const splitOgs = (raw: string | null | undefined): { num: string; addr: string } => {
+  if (!raw || raw === "—") return { num: "—", addr: "—" };
+  if (raw === "BASE / PÁTIO CENTRAL" || raw === "BASE") return { num: "BASE", addr: "PÁTIO CENTRAL / OFICINA" };
+  const sep = raw.indexOf(" — ");
+  if (sep > -1) return { num: raw.substring(0, sep).trim(), addr: raw.substring(sep + 3).trim() };
+  return { num: raw, addr: "—" };
+};
+
 /* ═══════════════════════════════════════════════════════
    COMBOIO — Relatório de Abastecimento por e-mail
    ═══════════════════════════════════════════════════════ */
@@ -77,25 +85,27 @@ export function buildComboioEmailReport(params: {
 
   if (validEntries.length > 0) {
     html += `<h2>📋 Tabela de Atendimento (${validEntries.length})</h2>`;
-    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equipamento Abastecido</th><th>Litros</th><th>Medição (H/KM)</th><th>OGS / Local</th><th>Serviços</th></tr>`;
+    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equipamento Abastecido</th><th>Litros</th><th>Medição (H/KM)</th><th>Nº OGS</th><th>Endereço / Local</th><th>Serviços</th></tr>`;
     validEntries.forEach((e) => {
       const services: string[] = [];
       if (e.isLubricated) services.push("Lubrificação");
       if (e.isWashed) services.push("Lavagem");
+      const ogs = splitOgs(e.ogsDestination);
       html += `<tr>
         <td>${fmtDate(date)}</td>
         <td><strong>${fleet}</strong></td>
         <td><strong>${e.fleetFueled}</strong></td>
         <td>${e.litersFueled ? fmtNum(Number(e.litersFueled)) : "—"}</td>
         <td>${e.equipmentMeter ? fmtNum(Number(e.equipmentMeter)) : "—"}</td>
-        <td>${e.ogsDestination || "—"}</td>
+        <td><strong>${ogs.num}</strong></td>
+        <td>${ogs.addr}</td>
         <td>${services.length > 0 ? services.join(", ") : "—"}</td>
       </tr>`;
     });
     html += `<tr style="background:#dbeafe;font-weight:700">
       <td colspan="3">TOTAL</td>
       <td>${fmtNum(totalAbastecido)} L</td>
-      <td colspan="3"></td>
+      <td colspan="4"></td>
     </tr></table>`;
   }
 
@@ -151,11 +161,14 @@ export function buildCarretaEmailReport(params: {
 
   if (validEntries.length > 0) {
     html += `<h2>📋 Apontamento de Horas (${validEntries.length})</h2>`;
-    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equip. 01</th><th>Equip. 02</th><th>Equip. 03</th><th>Origem</th><th>Destino</th><th>Horário</th><th>Observações</th></tr>`;
+    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equip. 01</th><th>Equip. 02</th><th>Equip. 03</th><th>Nº OGS (Origem)</th><th>Endereço (Origem)</th><th>Nº OGS (Destino)</th><th>Endereço (Destino)</th><th>Horário</th><th>Observações</th></tr>`;
     validEntries.forEach((t) => {
       const eq1 = t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1;
       const eq2 = t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2;
       const eq3 = t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3;
+
+      const orig = splitOgs(t.origin);
+      const dest = splitOgs(t.destination);
 
       const obsParts: string[] = [];
       if (t.activity && t.activity !== "Transporte") obsParts.push(t.activity);
@@ -173,8 +186,10 @@ export function buildCarretaEmailReport(params: {
         <td>${eq1 || "—"}</td>
         <td>${eq2 || "—"}</td>
         <td>${eq3 || "—"}</td>
-        <td>${t.origin || "—"}</td>
-        <td>${t.destination || "—"}</td>
+        <td><strong>${orig.num}</strong></td>
+        <td>${orig.addr}</td>
+        <td><strong>${dest.num}</strong></td>
+        <td>${dest.addr}</td>
         <td>${t.startTime || "—"} — ${t.endTime || "—"}</td>
         <td>${obsParts.length > 0 ? obsParts.join(" | ") : "—"}</td>
       </tr>`;
@@ -188,8 +203,9 @@ export function buildCarretaEmailReport(params: {
       html += `<div class="summary-box" style="border-color:#dc2626;background:#fef2f2">
         <h2 style="margin-top:0;color:#991b1b">⚠️ Retornos à Base (${baseReturns.length})</h2>`;
       baseReturns.forEach((t) => {
+        const origP = splitOgs(t.origin);
         const hasManut = t.returnReason?.includes("Manutenção");
-        html += `<p>• <strong>${t.origin || "?"} → BASE</strong> — ${hasManut ? '<span class="badge badge-red">Manutenção</span>' : '<span class="badge badge-green">Término de Obra</span>'} ${t.returnDetails || ""}</p>`;
+        html += `<p>• <strong>${origP.num} (${origP.addr}) → BASE</strong> — ${hasManut ? '<span class="badge badge-red">Manutenção</span>' : '<span class="badge badge-green">Término de Obra</span>'} ${t.returnDetails || ""}</p>`;
       });
       html += `</div>`;
     }
