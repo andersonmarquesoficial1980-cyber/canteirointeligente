@@ -11,13 +11,14 @@ export interface FuelingData {
 interface Props {
   data: FuelingData;
   onChange: (data: FuelingData) => void;
+  meterLabel?: string;
 }
 
 export function createEmptyFueling(): FuelingData {
   return { fuelType: "", liters: "", fuelMeter: "" };
 }
 
-export default function FuelingSection({ data, onChange }: Props) {
+export default function FuelingSection({ data, onChange, meterLabel = "Horímetro" }: Props) {
   const update = (field: keyof FuelingData, value: string) => {
     onChange({ ...data, [field]: value });
   };
@@ -31,7 +32,7 @@ export default function FuelingSection({ data, onChange }: Props) {
 
       <div className="flex gap-3">
         <div className="space-y-1.5 flex-1">
-          <span className="text-xs font-semibold text-accent uppercase tracking-wide">Tipo</span>
+          <span className="text-xs font-extrabold text-[hsl(220,60%,30%)] uppercase tracking-wide">Tipo</span>
           <Select value={data.fuelType} onValueChange={(v) => update("fuelType", v)}>
             <SelectTrigger className="bg-secondary border-border">
               <SelectValue placeholder="Selecione..." />
@@ -46,7 +47,7 @@ export default function FuelingSection({ data, onChange }: Props) {
           </Select>
         </div>
         <div className="space-y-1.5 flex-1">
-          <span className="text-xs font-semibold text-accent uppercase tracking-wide">Litros</span>
+          <span className="text-xs font-extrabold text-[hsl(220,60%,30%)] uppercase tracking-wide">Litros</span>
           <Input
             type="number"
             inputMode="decimal"
@@ -57,7 +58,7 @@ export default function FuelingSection({ data, onChange }: Props) {
           />
         </div>
         <div className="space-y-1.5 flex-1">
-          <span className="text-xs font-semibold text-accent uppercase tracking-wide">Horímetro</span>
+          <span className="text-xs font-extrabold text-[hsl(220,60%,30%)] uppercase tracking-wide">{meterLabel}</span>
           <Input
             type="number"
             inputMode="decimal"
