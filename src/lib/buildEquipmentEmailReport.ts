@@ -28,12 +28,88 @@ const fmtDate = (d: string) => {
 
 const fmtNum = (v: number) => v.toLocaleString("pt-BR");
 
-const splitOgs = (raw: string | null | undefined): { num: string; addr: string } => {
-  if (!raw || raw === "—") return { num: "—", addr: "—" };
-  if (raw === "BASE / PÁTIO CENTRAL" || raw === "BASE") return { num: "BASE", addr: "PÁTIO CENTRAL / OFICINA" };
-  const sep = raw.indexOf(" — ");
-  if (sep > -1) return { num: raw.substring(0, sep).trim(), addr: raw.substring(sep + 3).trim() };
-  return { num: raw, addr: "—" };
+type OgsReferenceItem = {
+  ogs_number: string | null;
+  location_address: string | null;
+};
+
+type OgsLookupMap = Record<string, string[]>;
+
+const BASE_OGS = { num: "BASE", addr: "PÁTIO CENTRAL / OFICINA" };
+const EMPTY_OGS = { num: "—", addr: "—" };
+
+const getLocationAddresses = (locationAddress: string | null | undefined): string[] =>
+  (locationAddress || "")
+    .split(";")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const buildOgsLookupMap = (ogsData: OgsReferenceItem[] = []): OgsLookupMap => {
+  const map: OgsLookupMap = {};
+
+  ogsData.forEach((row) => {
+    const num = row.ogs_number?.trim();
+    if (!num) return;
+
+    const addresses = getLocationAddresses(row.location_address);
+    if (!map[num]) map[num] = [];
+
+    addresses.forEach((address) => {
+      if (!map[num].includes(address)) map[num].push(address);
+    });
+  });
+
+  return map;
+};
+
+const extractOgsNumber = (raw: string | null | undefined): string => {
+  if (!raw) return "";
+  const normalized = raw.trim();
+  if (!normalized || normalized === "—") return "";
+
+  if (normalized.toUpperCase().includes("BASE")) return "BASE";
+
+  if (normalized.includes("|")) {
+    return normalized.split("|")[0]?.trim() || "";
+  }
+
+  const sep = normalized.indexOf(" — ");
+  if (sep > -1) return normalized.substring(0, sep).trim();
+
+  return normalized;
+};
+
+const extractAddressFromRaw = (raw: string | null | undefined): string => {
+  if (!raw) return "";
+  const normalized = raw.trim();
+  if (!normalized || normalized === "—") return "";
+
+  if (normalized.toUpperCase().includes("BASE")) return BASE_OGS.addr;
+
+  if (normalized.includes("|")) {
+    const parts = normalized.split("|");
+    return parts.slice(1).join("|").trim();
+  }
+
+  const sep = normalized.indexOf(" — ");
+  if (sep > -1) return normalized.substring(sep + 3).trim();
+
+  return "";
+};
+
+const resolveOgs = (raw: string | null | undefined, ogsLookup: OgsLookupMap): { num: string; addr: string } => {
+  const num = extractOgsNumber(raw);
+  if (!num) return EMPTY_OGS;
+  if (num === "BASE") return BASE_OGS;
+
+  const addressFromRaw = extractAddressFromRaw(raw);
+  if (addressFromRaw) return { num, addr: addressFromRaw };
+
+  const addresses = ogsLookup[num] || [];
+  return {
+    num,
+    addr: addresses[0] || "—",
+  };
 };
 
 /* ═══════════════════════════════════════════════════════
@@ -50,13 +126,15 @@ export function buildComboioEmailReport(params: {
   fornecedor: string;
   entries: ComboioRefuelEntry[];
   observations: string;
+  ogsData?: OgsReferenceItem[];
 }): string {
   const {
     fleet, date, operator, turno,
     odometerInitial, odometerFinal,
-    saldoInicial, entries, observations,
+    saldoInicial, entries, observations, ogsData,
   } = params;
 
+  const ogsLookup = buildOgsLookupMap(ogsData);
   const validEntries = entries.filter((e) => e.fleetFueled);
   const totalAbastecido = validEntries.reduce((s, e) => s + (Number(e.litersFueled) || 0), 0);
   const saldoIni = Number(saldoInicial) || 0;
@@ -90,7 +168,7 @@ export function buildComboioEmailReport(params: {
       const services: string[] = [];
       if (e.isLubricated) services.push("Lubrificação");
       if (e.isWashed) services.push("Lavagem");
-      const ogs = splitOgs(e.ogsDestination);
+      const ogs = resolveOgs(e.ogsDestination, ogsLookup);
       html += `<tr>
         <td>${fmtDate(date)}</td>
         <td><strong>${fleet}</strong></td>
@@ -131,12 +209,14 @@ export function buildCarretaEmailReport(params: {
   odometerFinal: string;
   timeEntries: TimeEntry[];
   observations: string;
+  ogsData?: OgsReferenceItem[];
 }): string {
   const {
     fleet, prancha, date, operator, turno,
-    odometerInitial, odometerFinal, timeEntries, observations,
+    odometerInitial, odometerFinal, timeEntries, observations, ogsData,
   } = params;
 
+  const ogsLookup = buildOgsLookupMap(ogsData);
   const validEntries = timeEntries.filter((t) => t.startTime && t.activity);
   const kmIni = Number(odometerInitial) || 0;
   const kmFin = Number(odometerFinal) || 0;
@@ -167,8 +247,8 @@ export function buildCarretaEmailReport(params: {
       const eq2 = t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2;
       const eq3 = t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3;
 
-      const orig = splitOgs(t.origin);
-      const dest = splitOgs(t.destination);
+      const orig = resolveOgs(t.origin, ogsLookup);
+      const dest = resolveOgs(t.destination, ogsLookup);
 
       const obsParts: string[] = [];
       if (t.activity && t.activity !== "Transporte") obsParts.push(t.activity);
@@ -203,7 +283,7 @@ export function buildCarretaEmailReport(params: {
       html += `<div class="summary-box" style="border-color:#dc2626;background:#fef2f2">
         <h2 style="margin-top:0;color:#991b1b">⚠️ Retornos à Base (${baseReturns.length})</h2>`;
       baseReturns.forEach((t) => {
-        const origP = splitOgs(t.origin);
+        const origP = resolveOgs(t.origin, ogsLookup);
         const hasManut = t.returnReason?.includes("Manutenção");
         html += `<p>• <strong>${origP.num} (${origP.addr}) → BASE</strong> — ${hasManut ? '<span class="badge badge-red">Manutenção</span>' : '<span class="badge badge-green">Término de Obra</span>'} ${t.returnDetails || ""}</p>`;
       });

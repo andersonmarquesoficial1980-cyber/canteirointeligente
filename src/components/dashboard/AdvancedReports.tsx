@@ -11,12 +11,100 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
-const parseOgs = (raw: string | null): { num: string; addr: string } => {
-  if (!raw || raw === "—") return { num: "—", addr: "—" };
-  if (raw === "BASE / PÁTIO CENTRAL" || raw === "BASE") return { num: "BASE", addr: "PÁTIO CENTRAL / OFICINA" };
-  const sep = raw.indexOf(" — ");
-  if (sep > -1) return { num: raw.substring(0, sep).trim(), addr: raw.substring(sep + 3).trim() };
-  return { num: raw, addr: "—" };
+type OgsLookupMap = Record<string, string[]>;
+
+const BASE_OGS = { num: "BASE", addr: "PÁTIO CENTRAL / OFICINA" };
+const EMPTY_OGS = { num: "—", addr: "—" };
+
+const getLocationAddresses = (locationAddress: string | null | undefined): string[] =>
+  (locationAddress || "")
+    .split(";")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const extractOgsNumber = (raw: string | null | undefined): string => {
+  if (!raw) return "";
+  const normalized = raw.trim();
+  if (!normalized || normalized === "—") return "";
+
+  if (normalized.toUpperCase().includes("BASE")) return "BASE";
+
+  if (normalized.includes("|")) {
+    return normalized.split("|")[0]?.trim() || "";
+  }
+
+  const sep = normalized.indexOf(" — ");
+  if (sep > -1) return normalized.substring(0, sep).trim();
+
+  return normalized;
+};
+
+const extractAddressFromRaw = (raw: string | null | undefined): string => {
+  if (!raw) return "";
+  const normalized = raw.trim();
+  if (!normalized || normalized === "—") return "";
+
+  if (normalized.toUpperCase().includes("BASE")) return BASE_OGS.addr;
+
+  if (normalized.includes("|")) {
+    const parts = normalized.split("|");
+    return parts.slice(1).join("|").trim();
+  }
+
+  const sep = normalized.indexOf(" — ");
+  if (sep > -1) return normalized.substring(sep + 3).trim();
+
+  return "";
+};
+
+const buildOgsLookupMap = (rows: Array<{ ogs_number: string | null; location_address: string | null }>): OgsLookupMap => {
+  const map: OgsLookupMap = {};
+
+  rows.forEach((row) => {
+    const num = row.ogs_number?.trim();
+    if (!num) return;
+
+    const addresses = getLocationAddresses(row.location_address);
+    if (!map[num]) map[num] = [];
+
+    addresses.forEach((address) => {
+      if (!map[num].includes(address)) map[num].push(address);
+    });
+  });
+
+  return map;
+};
+
+const resolveOgs = (raw: string | null | undefined, ogsLookup: OgsLookupMap): { num: string; addr: string } => {
+  const num = extractOgsNumber(raw);
+  if (!num) return EMPTY_OGS;
+  if (num === "BASE") return BASE_OGS;
+
+  const addressFromRaw = extractAddressFromRaw(raw);
+  if (addressFromRaw) return { num, addr: addressFromRaw };
+
+  const addresses = ogsLookup[num] || [];
+  return {
+    num,
+    addr: addresses[0] || "—",
+  };
+};
+
+const fetchOgsLookup = async (rawValues: Array<string | null | undefined>): Promise<OgsLookupMap> => {
+  const ogsNumbers = Array.from(
+    new Set(rawValues.map(extractOgsNumber).filter((num) => Boolean(num) && num !== "BASE"))
+  );
+
+  if (ogsNumbers.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("ogs_reference")
+    .select("ogs_number, location_address")
+    .in("ogs_number", ogsNumbers);
+
+  if (error) throw error;
+
+  return buildOgsLookupMap(data || []);
 };
 
 export default function AdvancedReports() {
@@ -53,16 +141,18 @@ export default function AdvancedReports() {
 
       if (error) throw error;
 
-      const rows = (data || [])
-        .filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta")
+      const transportRows = (data || []).filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta");
+      const ogsLookup = await fetchOgsLookup(transportRows.flatMap((r: any) => [r.origin, r.destination]));
+
+      const rows = transportRows
         .map((r: any) => {
           const d = r.equipment_diaries;
           const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
           const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
           const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
           const descParts = (r.description || "").split(",").map((s: string) => s.trim());
-          const orig = parseOgs(r.origin);
-          const dest = parseOgs(r.destination);
+          const orig = resolveOgs(r.origin, ogsLookup);
+          const dest = resolveOgs(r.destination, ogsLookup);
 
           return {
             "Data": fmtDate(d?.date),
@@ -120,12 +210,14 @@ export default function AdvancedReports() {
 
       if (error) throw error;
 
+      const ogsLookup = await fetchOgsLookup((data || []).map((r: any) => r.ogs_destination));
+
       const rows = (data || []).map((r: any) => {
         const d = r.equipment_diaries;
         const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
         const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
         const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
-        const ogsP = parseOgs(r.ogs_destination);
+        const ogsP = resolveOgs(r.ogs_destination, ogsLookup);
         const services: string[] = [];
         if (r.is_lubricated) services.push("Lubrificação");
         if (r.is_washed) services.push("Lavagem");
@@ -153,7 +245,7 @@ export default function AdvancedReports() {
       const byOgs: Record<string, number> = {};
       (data || []).forEach((r: any) => {
         const eq = r.equipment_fleet_fueled || "—";
-        const ogsP = parseOgs(r.ogs_destination);
+        const ogsP = resolveOgs(r.ogs_destination, ogsLookup);
         const liters = Number(r.liters_fueled) || 0;
         byEquip[eq] = (byEquip[eq] || 0) + liters;
         if (ogsP.num !== "—") byOgs[`${ogsP.num} — ${ogsP.addr}`] = (byOgs[`${ogsP.num} — ${ogsP.addr}`] || 0) + liters;
@@ -209,18 +301,24 @@ export default function AdvancedReports() {
       if (transportRes.error) throw transportRes.error;
       if (refuelRes.error) throw refuelRes.error;
 
+      const transportRows = (transportRes.data || []).filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta");
+      const refuelRows = refuelRes.data || [];
+      const ogsLookup = await fetchOgsLookup([
+        ...transportRows.flatMap((r: any) => [r.origin, r.destination]),
+        ...refuelRows.map((r: any) => r.ogs_destination),
+      ]);
+
       const allRows: any[] = [];
 
-      (transportRes.data || [])
-        .filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta")
+      transportRows
         .forEach((r: any) => {
           const d = r.equipment_diaries;
           const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
           const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
           const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
           const descParts = (r.description || "").split(",").map((s: string) => s.trim());
-          const orig = parseOgs(r.origin);
-          const dest = parseOgs(r.destination);
+          const orig = resolveOgs(r.origin, ogsLookup);
+          const dest = resolveOgs(r.destination, ogsLookup);
 
           allRows.push({
             "Tipo": "Carreta",
@@ -242,12 +340,12 @@ export default function AdvancedReports() {
           });
         });
 
-      (refuelRes.data || []).forEach((r: any) => {
+      refuelRows.forEach((r: any) => {
         const d = r.equipment_diaries;
         const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
         const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
         const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
-        const ogsP = parseOgs(r.ogs_destination);
+        const ogsP = resolveOgs(r.ogs_destination, ogsLookup);
         const services: string[] = [];
         if (r.is_lubricated) services.push("Lubrificação");
         if (r.is_washed) services.push("Lavagem");
