@@ -157,7 +157,7 @@ export default function ComboioRefuelingSection({
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
-                {COMBOIO_FORNECEDORES.map((f) => (
+                {fornecedoresList.map((f) => (
                   <SelectItem key={f} value={f}>{f}</SelectItem>
                 ))}
               </SelectContent>
