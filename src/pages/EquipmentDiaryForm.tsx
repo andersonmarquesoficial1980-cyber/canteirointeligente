@@ -1090,33 +1090,31 @@ export default function EquipmentDiaryForm() {
           </div>
         </Section>
 
-        {/* STATUS DA OBRA + METER INITIAL */}
-        <Section title="STATUS DA OBRA">
-          <FieldRow>
-            <Field label="Status">
-              <Select value={workStatus} onValueChange={setWorkStatus}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {WORK_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label={`${meterLabel} Inicial`}>
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                value={meterInitial}
-                onChange={(e) => setMeterInitial(e.target.value)}
-                placeholder="0,0"
-                className="bg-secondary border-border"
-              />
-            </Field>
-          </FieldRow>
+        {/* STATUS OPERACIONAL + METER INITIAL */}
+        <Section title="STATUS OPERACIONAL">
+          <Field label="Status">
+            <Select value={workStatus} onValueChange={setWorkStatus}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {WORK_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={`${meterLabel} Inicial`}>
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              value={meterInitial}
+              onChange={(e) => setMeterInitial(e.target.value)}
+              placeholder="0,0"
+              className="bg-secondary border-border"
+            />
+          </Field>
         </Section>
 
         {/* APONTAMENTO DE HORAS */}
