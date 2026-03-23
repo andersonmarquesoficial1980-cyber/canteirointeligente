@@ -165,8 +165,7 @@ export default function EquipmentDiaryForm() {
   const isEspargidor = isCaminhoes && caminhaoTipo === "Espargidor";
   const isCarroceria = isCaminhoes && caminhaoTipo === "Carroceria";
 
-  const isTruck = isCaminhoes || isComboio || isVeiculo || isCarreta;
-  const usesOdometer = isTruck;
+  // isTruck and usesOdometer already defined above
   const usesOdometer = isTruck;
   const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro || isUsinaKma;
 
