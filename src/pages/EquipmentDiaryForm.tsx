@@ -1282,7 +1282,10 @@ export default function EquipmentDiaryForm() {
                   <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">🏗️ Silos de Agregados</h4>
                   <div className="space-y-1">
                     <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor de Agregados</span>
-                    <Input value={kmaOperation.aggregatesSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, aggregatesSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                    <Select value={kmaOperation.aggregatesSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, aggregatesSupplier: v })}>
+                      <SelectTrigger className="bg-secondary border-border h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>{fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
