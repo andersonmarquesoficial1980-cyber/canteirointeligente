@@ -1265,7 +1265,10 @@ export default function EquipmentDiaryForm() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
-                      <Input value={kmaOperation.filerSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, filerSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                      <Select value={kmaOperation.filerSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, filerSupplier: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>{fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Qtd (ton)</span>
