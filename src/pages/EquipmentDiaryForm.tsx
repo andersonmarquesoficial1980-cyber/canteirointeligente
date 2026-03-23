@@ -300,6 +300,19 @@ export default function EquipmentDiaryForm() {
     },
   });
 
+  // Fetch fornecedores from DB for supplier selects
+  const { data: fornecedoresDb = [] } = useQuery({
+    queryKey: ["fornecedores_equipamentos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fornecedores")
+        .select("id, nome, vinculo_rdo")
+        .order("nome");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   // Log data arrival for debugging
   useEffect(() => {
     if (funcionarios.length > 0) {
@@ -1090,33 +1103,31 @@ export default function EquipmentDiaryForm() {
           </div>
         </Section>
 
-        {/* STATUS DA OBRA + METER INITIAL */}
-        <Section title="STATUS DA OBRA">
-          <FieldRow>
-            <Field label="Status">
-              <Select value={workStatus} onValueChange={setWorkStatus}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {WORK_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label={`${meterLabel} Inicial`}>
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                value={meterInitial}
-                onChange={(e) => setMeterInitial(e.target.value)}
-                placeholder="0,0"
-                className="bg-secondary border-border"
-              />
-            </Field>
-          </FieldRow>
+        {/* STATUS OPERACIONAL + METER INITIAL */}
+        <Section title="STATUS OPERACIONAL">
+          <Field label="Status">
+            <Select value={workStatus} onValueChange={setWorkStatus}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {WORK_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={`${meterLabel} Inicial`}>
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              value={meterInitial}
+              onChange={(e) => setMeterInitial(e.target.value)}
+              placeholder="0,0"
+              className="bg-secondary border-border"
+            />
+          </Field>
         </Section>
 
         {/* APONTAMENTO DE HORAS */}
@@ -1128,7 +1139,7 @@ export default function EquipmentDiaryForm() {
           showTransportPassengers={isVeiculo}
           ogsData={ogsData}
           isCarreta={isCarreta}
-          allFleets={isCarreta ? equipmentFleets.map((f: any) => ({ frota: f.fleet_number, nome: f.equipment_type })) : equipamentos}
+          allFleets={isCarreta ? equipmentFleets : equipamentos}
           equipmentType={equipmentType}
         />
 
@@ -1219,7 +1230,10 @@ export default function EquipmentDiaryForm() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
-                      <Input value={kmaOperation.capSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, capSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                      <Select value={kmaOperation.capSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, capSupplier: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>{fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -1251,7 +1265,10 @@ export default function EquipmentDiaryForm() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
-                      <Input value={kmaOperation.filerSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, filerSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                      <Select value={kmaOperation.filerSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, filerSupplier: v })}>
+                        <SelectTrigger className="bg-secondary border-border h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>{fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Qtd (ton)</span>
@@ -1265,7 +1282,10 @@ export default function EquipmentDiaryForm() {
                   <h4 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide">🏗️ Silos de Agregados</h4>
                   <div className="space-y-1">
                     <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor de Agregados</span>
-                    <Input value={kmaOperation.aggregatesSupplier} onChange={(e) => setKmaOperation({ ...kmaOperation, aggregatesSupplier: e.target.value })} placeholder="Fornecedor..." className="bg-secondary border-border text-xs h-9" />
+                    <Select value={kmaOperation.aggregatesSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, aggregatesSupplier: v })}>
+                      <SelectTrigger className="bg-secondary border-border h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>{fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
@@ -1318,7 +1338,7 @@ export default function EquipmentDiaryForm() {
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {AGUA_FORNECEDORES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                          {fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1371,8 +1391,8 @@ export default function EquipmentDiaryForm() {
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {PIPA_FORNECEDORES.map((f) => (
-                          <SelectItem key={f} value={f}>{f}</SelectItem>
+                        {fornecedoresDb.map((f: any) => (
+                          <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1446,8 +1466,8 @@ export default function EquipmentDiaryForm() {
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {ESPARGIDOR_FORNECEDORES.map((f) => (
-                          <SelectItem key={f} value={f}>{f}</SelectItem>
+                        {fornecedoresDb.map((f: any) => (
+                          <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1477,6 +1497,7 @@ export default function EquipmentDiaryForm() {
             onChange={setComboioRefuels}
             equipamentos={equipmentFleets.length > 0 ? equipmentFleets.map((f: any) => ({ id: f.id, frota: f.fleet_number, nome: f.equipment_type })) : equipamentos}
             ogsData={ogsData}
+            fornecedoresDb={fornecedoresDb}
             onGeneratePdf={() =>
               generateComboioPdf({
                 fleet: selectedFleet,
@@ -1496,7 +1517,7 @@ export default function EquipmentDiaryForm() {
 
         {/* ABASTECIMENTO + METER FINAL */}
         {!isComboio && (
-          <FuelingSection data={fueling} onChange={setFueling} />
+          <FuelingSection data={fueling} onChange={setFueling} meterLabel={meterLabel} />
         )}
 
         <Section title={`${meterLabel} FINAL`}>

@@ -39,9 +39,10 @@ interface Props {
   equipamentos: any[];
   ogsData: any[];
   onGeneratePdf?: () => void;
+  fornecedoresDb?: any[];
 }
 
-const COMBOIO_FORNECEDORES = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
+const COMBOIO_FORNECEDORES_FALLBACK = ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
 
 /* Prefixes that indicate vehicles (KM) vs machines (H) */
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "VT", "MCO"];
@@ -97,7 +98,11 @@ export default function ComboioRefuelingSection({
   equipamentos,
   ogsData,
   onGeneratePdf,
+  fornecedoresDb = [],
 }: Props) {
+  const fornecedoresList = fornecedoresDb.length > 0
+    ? fornecedoresDb.map((f: any) => f.nome)
+    : COMBOIO_FORNECEDORES_FALLBACK;
   const ogsOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
 
   const totalAbastecido = useMemo(
@@ -152,7 +157,7 @@ export default function ComboioRefuelingSection({
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
-                {COMBOIO_FORNECEDORES.map((f) => (
+                {fornecedoresList.map((f) => (
                   <SelectItem key={f} value={f}>{f}</SelectItem>
                 ))}
               </SelectContent>

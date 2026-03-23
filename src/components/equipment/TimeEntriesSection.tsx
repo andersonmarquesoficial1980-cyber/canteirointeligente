@@ -114,7 +114,10 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
 export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [], isCarreta = false, allFleets = [], equipmentType = "" }: Props) {
   const showReturnReason = PRODUCTION_EQUIPMENT_TYPES.some(t => equipmentType.toLowerCase().includes(t));
   const fleetOptions = useMemo(() => {
-    const opts = allFleets.map((f: any) => f.frota).filter(Boolean).sort();
+    const opts = allFleets
+      .map((f: any) => f.fleet_number || f.frota)
+      .filter(Boolean)
+      .sort();
     return [...opts, "Outro"];
   }, [allFleets]);
   const ogsLocationOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
@@ -210,9 +213,10 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
           key={entry.id}
           className={`border rounded-lg p-3 space-y-2 ${entry.isParada ? "border-destructive/30 bg-destructive/5" : "border-border"}`}
         >
-          <div className="grid grid-cols-[75px_75px_1fr_36px] gap-2 items-end">
+          {/* Linha 1: Início + Fim + Remover */}
+          <div className="grid grid-cols-[1fr_1fr_36px] gap-2 items-end">
             <div className="space-y-1">
-              <span className="text-[10px] font-semibold text-accent uppercase">Início</span>
+              <span className="text-[10px] font-extrabold text-[hsl(220,60%,30%)] uppercase">Início</span>
               <Input
                 type="time"
                 value={entry.startTime}
@@ -221,7 +225,7 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
               />
             </div>
             <div className="space-y-1">
-              <span className="text-[10px] font-semibold text-accent uppercase">Fim</span>
+              <span className="text-[10px] font-extrabold text-[hsl(220,60%,30%)] uppercase">Fim</span>
               <Input
                 type="time"
                 value={entry.endTime}
@@ -229,22 +233,23 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                 className="bg-secondary border-border text-xs h-9"
               />
             </div>
-            <div className="space-y-1">
-              <span className="text-[10px] font-semibold text-accent uppercase">Atividade</span>
-              <Select value={entry.activity} onValueChange={(v) => updateEntry(idx, "activity", v)}>
-                <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACTIVITIES.map((a) => (
-                    <SelectItem key={a} value={a}>{a}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeEntry(idx)}>
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
+          </div>
+          {/* Linha 2: Atividade full-width */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-extrabold text-[hsl(220,60%,30%)] uppercase">Atividade</span>
+            <Select value={entry.activity} onValueChange={(v) => updateEntry(idx, "activity", v)}>
+              <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {ACTIVITIES.map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Maintenance details field */}
