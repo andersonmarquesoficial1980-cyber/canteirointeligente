@@ -167,6 +167,7 @@ export default function EquipmentDiaryForm() {
 
   const isTruck = isCaminhoes || isComboio || isVeiculo || isCarreta;
   const usesOdometer = isTruck;
+  const usesOdometer = isTruck;
   const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro || isUsinaKma;
 
   const { data: ogsData = [] } = useOgsReference();
