@@ -1338,7 +1338,7 @@ export default function EquipmentDiaryForm() {
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {AGUA_FORNECEDORES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                          {fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
