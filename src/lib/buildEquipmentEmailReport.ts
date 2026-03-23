@@ -16,7 +16,6 @@ tr:nth-child(even){background:#f0f4ff}
 .summary-item .value{font-size:22px;font-weight:800;color:#001e50}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
 .badge-green{background:#dcfce7;color:#166534}
-.badge-yellow{background:#fef9c3;color:#854d0e}
 .badge-red{background:#fee2e2;color:#991b1b}
 .footer{margin-top:30px;font-size:11px;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:12px}
 `;
@@ -47,13 +46,16 @@ export function buildComboioEmailReport(params: {
   const {
     fleet, date, operator, turno,
     odometerInitial, odometerFinal,
-    saldoInicial, fornecedor, entries, observations,
+    saldoInicial, entries, observations,
   } = params;
 
   const validEntries = entries.filter((e) => e.fleetFueled);
   const totalAbastecido = validEntries.reduce((s, e) => s + (Number(e.litersFueled) || 0), 0);
   const saldoIni = Number(saldoInicial) || 0;
   const saldoFinal = saldoIni - totalAbastecido;
+  const kmIni = Number(odometerInitial) || 0;
+  const kmFin = Number(odometerFinal) || 0;
+  const kmRodado = kmFin - kmIni;
 
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${STYLE}</style></head><body>`;
   html += `<h1>🛢️ Relatório Diário de Comboio — Abastecimento</h1>`;
@@ -63,13 +65,19 @@ export function buildComboioEmailReport(params: {
     <div class="summary-item"><div class="label">Data</div><div class="value" style="font-size:16px">${fmtDate(date)}</div></div>
     <div class="summary-item"><div class="label">Operador</div><div class="value" style="font-size:14px">${operator || "—"}</div></div>
     <div class="summary-item"><div class="label">Turno</div><div class="value" style="font-size:14px">${turno || "—"}</div></div>
+  </div></div>`;
+
+  html += `<div class="summary-box"><div class="summary-grid">
+    <div class="summary-item"><div class="label">KM Inicial</div><div class="value" style="font-size:16px">${kmIni > 0 ? fmtNum(kmIni) : "—"}</div></div>
+    <div class="summary-item"><div class="label">KM Final</div><div class="value" style="font-size:16px">${kmFin > 0 ? fmtNum(kmFin) : "—"}</div></div>
+    <div class="summary-item"><div class="label">KM Percorrido</div><div class="value" style="font-size:16px;color:#0047ab">${kmRodado > 0 ? fmtNum(kmRodado) : "—"}</div></div>
     <div class="summary-item"><div class="label">Total Abastecido</div><div class="value" style="color:#dc2626">${fmtNum(totalAbastecido)} L</div></div>
     <div class="summary-item"><div class="label">Saldo Final</div><div class="value" style="color:${saldoFinal < 0 ? "#dc2626" : "#166534"}">${fmtNum(saldoFinal)} L</div></div>
   </div></div>`;
 
   if (validEntries.length > 0) {
     html += `<h2>📋 Tabela de Atendimento (${validEntries.length})</h2>`;
-    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equipamento Abastecido</th><th>Litros</th><th>Medição</th><th>OGS / Local</th><th>Observações</th></tr>`;
+    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equipamento Abastecido</th><th>Litros</th><th>Medição (H/KM)</th><th>OGS / Local</th><th>Serviços</th></tr>`;
     validEntries.forEach((e) => {
       const services: string[] = [];
       if (e.isLubricated) services.push("Lubrificação");
@@ -120,6 +128,9 @@ export function buildCarretaEmailReport(params: {
   } = params;
 
   const validEntries = timeEntries.filter((t) => t.startTime && t.activity);
+  const kmIni = Number(odometerInitial) || 0;
+  const kmFin = Number(odometerFinal) || 0;
+  const kmRodado = kmFin - kmIni;
 
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${STYLE}</style></head><body>`;
   html += `<h1>🚛 Relatório Diário de Carreta — Transporte de Equipamentos</h1>`;
@@ -132,50 +143,44 @@ export function buildCarretaEmailReport(params: {
     <div class="summary-item"><div class="label">Turno</div><div class="value" style="font-size:14px">${turno || "—"}</div></div>
   </div></div>`;
 
+  html += `<div class="summary-box"><div class="summary-grid">
+    <div class="summary-item"><div class="label">KM Inicial</div><div class="value" style="font-size:16px">${kmIni > 0 ? fmtNum(kmIni) : "—"}</div></div>
+    <div class="summary-item"><div class="label">KM Final</div><div class="value" style="font-size:16px">${kmFin > 0 ? fmtNum(kmFin) : "—"}</div></div>
+    <div class="summary-item"><div class="label">KM Percorrido</div><div class="value" style="font-size:16px;color:#0047ab">${kmRodado > 0 ? fmtNum(kmRodado) : "—"}</div></div>
+  </div></div>`;
+
   if (validEntries.length > 0) {
     html += `<h2>📋 Apontamento de Horas (${validEntries.length})</h2>`;
-    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equipamento Transportado</th><th>Origem</th><th>Destino</th><th>Horário</th><th>Observações / Finalidade</th></tr>`;
+    html += `<table><tr><th>Data</th><th>Prefixo</th><th>Equip. 01</th><th>Equip. 02</th><th>Equip. 03</th><th>Origem</th><th>Destino</th><th>Horário</th><th>Observações</th></tr>`;
     validEntries.forEach((t) => {
-      // Build equipment list
-      const equips = [
-        t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
-        t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
-        t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
-      ].filter(Boolean);
-      const equipStr = equips.length > 0 ? equips.join(", ") : "—";
+      const eq1 = t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1;
+      const eq2 = t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2;
+      const eq3 = t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3;
 
-      // Build observations/finalidade
       const obsParts: string[] = [];
       if (t.activity && t.activity !== "Transporte") obsParts.push(t.activity);
       if (t.destination === "BASE / PÁTIO CENTRAL" && t.returnReason) {
         obsParts.push(t.returnReason);
-        if (t.returnReason === "Manutenção / Oficina" && t.returnDetails) {
-          obsParts.push(t.returnDetails);
-        }
+        if (t.returnReason === "Manutenção / Oficina" && t.returnDetails) obsParts.push(t.returnDetails);
       }
-      if (t.origin === t.destination && t.transportInternalDetails) {
-        obsParts.push(`Trecho: ${t.transportInternalDetails}`);
-      }
-      if (t.activity === "Manutenção" && t.maintenanceDetails) {
-        obsParts.push(t.maintenanceDetails);
-      }
+      if (t.origin === t.destination && t.transportInternalDetails) obsParts.push(`Trecho: ${t.transportInternalDetails}`);
+      if (t.activity === "Manutenção" && t.maintenanceDetails) obsParts.push(t.maintenanceDetails);
       if (t.transportObs) obsParts.push(t.transportObs);
-
-      const horario = `${t.startTime || "—"} — ${t.endTime || "—"}`;
 
       html += `<tr>
         <td>${fmtDate(date)}</td>
         <td><strong>${fleet}</strong></td>
-        <td>${equipStr}</td>
+        <td>${eq1 || "—"}</td>
+        <td>${eq2 || "—"}</td>
+        <td>${eq3 || "—"}</td>
         <td>${t.origin || "—"}</td>
         <td>${t.destination || "—"}</td>
-        <td>${horario}</td>
+        <td>${t.startTime || "—"} — ${t.endTime || "—"}</td>
         <td>${obsParts.length > 0 ? obsParts.join(" | ") : "—"}</td>
       </tr>`;
     });
     html += `</table>`;
 
-    // Highlight returns to base
     const baseReturns = validEntries.filter(
       (t) => t.activity === "Transporte" && t.destination === "BASE / PÁTIO CENTRAL"
     );

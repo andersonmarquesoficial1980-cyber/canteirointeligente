@@ -28,9 +28,13 @@ export default function AdvancedReports() {
 
   const fmtDate = (d: string) => {
     if (!d) return "—";
-    try {
-      return format(new Date(d + "T12:00:00"), "dd/MM/yyyy");
-    } catch { return d; }
+    try { return format(new Date(d + "T12:00:00"), "dd/MM/yyyy"); } catch { return d; }
+  };
+
+  const fmtOgs = (raw: string | null) => {
+    if (!raw) return "—";
+    if (raw === "BASE / PÁTIO CENTRAL") return raw;
+    return raw;
   };
 
   /* ── Exportar Transportes (Carreta) ── */
@@ -41,7 +45,7 @@ export default function AdvancedReports() {
     try {
       const { data, error } = await supabase
         .from("equipment_time_entries")
-        .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, attachment_type)")
+        .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, attachment_type, odometer_initial, odometer_final)")
         .gte("equipment_diaries.date", range.from)
         .lte("equipment_diaries.date", range.to);
 
@@ -51,13 +55,26 @@ export default function AdvancedReports() {
         .filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta")
         .map((r: any) => {
           const d = r.equipment_diaries;
+          const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
+          const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
+          const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
+
+          // Parse equipment from description (stored as comma-separated)
+          const descParts = (r.description || "").split(",").map((s: string) => s.trim());
+
           return {
             "Data": fmtDate(d?.date),
             "Prefixo": d?.equipment_fleet || "—",
-            "Equipamento Transportado": r.description || "—",
-            "Origem": r.origin || "—",
-            "Destino": r.destination || "—",
-            "Horário Início / Fim": `${r.start_time || "—"} — ${r.end_time || "—"}`,
+            "KM Inicial": kmIni != null ? kmIni : "—",
+            "KM Final": kmFin != null ? kmFin : "—",
+            "KM Percorrido": kmRodado != null ? kmRodado : "—",
+            "Equipamento 01": descParts[0] || "—",
+            "Equipamento 02": descParts[1] || "—",
+            "Equipamento 03": descParts[2] || "—",
+            "Origem": fmtOgs(r.origin),
+            "Destino": fmtOgs(r.destination),
+            "Horário Início": r.start_time || "—",
+            "Horário Fim": r.end_time || "—",
             "Observações / Finalidade": r.ogs_destination || r.activity || "—",
           };
         });
@@ -69,8 +86,9 @@ export default function AdvancedReports() {
 
       const ws = XLSX.utils.json_to_sheet(rows);
       ws["!cols"] = [
-        { wch: 12 }, { wch: 14 }, { wch: 30 },
-        { wch: 30 }, { wch: 30 }, { wch: 18 }, { wch: 36 },
+        { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
+        { wch: 18 }, { wch: 18 }, { wch: 18 },
+        { wch: 36 }, { wch: 36 }, { wch: 10 }, { wch: 10 }, { wch: 36 },
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Transportes Carreta");
@@ -91,7 +109,7 @@ export default function AdvancedReports() {
     try {
       const { data, error } = await supabase
         .from("comboio_equipment_refueling")
-        .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type)")
+        .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, odometer_initial, odometer_final)")
         .gte("equipment_diaries.date", range.from)
         .lte("equipment_diaries.date", range.to);
 
@@ -99,17 +117,23 @@ export default function AdvancedReports() {
 
       const rows = (data || []).map((r: any) => {
         const d = r.equipment_diaries;
+        const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
+        const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
+        const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
         const services: string[] = [];
         if (r.is_lubricated) services.push("Lubrificação");
         if (r.is_washed) services.push("Lavagem");
         return {
           "Data": fmtDate(d?.date),
-          "Prefixo": d?.equipment_fleet || "—",
+          "Prefixo Comboio": d?.equipment_fleet || "—",
+          "KM Inicial": kmIni != null ? kmIni : "—",
+          "KM Final": kmFin != null ? kmFin : "—",
+          "KM Percorrido": kmRodado != null ? kmRodado : "—",
           "Equipamento Abastecido": r.equipment_fleet_fueled || "—",
-          "Origem": "Comboio",
-          "Destino": r.ogs_destination || "—",
-          "Horário Início / Fim": `${r.liters_fueled ?? 0} L | Med: ${r.equipment_meter ?? "—"}`,
-          "Observações / Finalidade": services.length > 0 ? services.join(", ") : "—",
+          "Litros": r.liters_fueled ?? "—",
+          "Medição (H/KM)": r.equipment_meter ?? "—",
+          "OGS / Local": fmtOgs(r.ogs_destination),
+          "Serviços Adicionais": services.length > 0 ? services.join(", ") : "—",
         };
       });
 
@@ -118,7 +142,6 @@ export default function AdvancedReports() {
         return;
       }
 
-      // Summary sheets
       const byEquip: Record<string, number> = {};
       const byOgs: Record<string, number> = {};
       (data || []).forEach((r: any) => {
@@ -129,20 +152,14 @@ export default function AdvancedReports() {
         if (ogs !== "—") byOgs[ogs] = (byOgs[ogs] || 0) + liters;
       });
 
-      const summaryEquip = Object.entries(byEquip)
-        .sort((a, b) => b[1] - a[1])
-        .map(([eq, l]) => ({ "Equipamento": eq, "Total Litros": l }));
-
-      const summaryOgs = Object.entries(byOgs)
-        .sort((a, b) => b[1] - a[1])
-        .map(([ogs, l]) => ({ "OGS / Local": ogs, "Total Litros": l }));
+      const summaryEquip = Object.entries(byEquip).sort((a, b) => b[1] - a[1]).map(([eq, l]) => ({ "Equipamento": eq, "Total Litros": l }));
+      const summaryOgs = Object.entries(byOgs).sort((a, b) => b[1] - a[1]).map(([ogs, l]) => ({ "OGS / Local": ogs, "Total Litros": l }));
 
       const wb = XLSX.utils.book_new();
-
       const wsData = XLSX.utils.json_to_sheet(rows);
       wsData["!cols"] = [
-        { wch: 12 }, { wch: 14 }, { wch: 24 },
-        { wch: 14 }, { wch: 32 }, { wch: 22 }, { wch: 24 },
+        { wch: 12 }, { wch: 14 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
+        { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 36 }, { wch: 20 },
       ];
       XLSX.utils.book_append_sheet(wb, wsData, "Abastecimentos");
 
@@ -163,7 +180,7 @@ export default function AdvancedReports() {
     }
   };
 
-  /* ── Exportar Consolidado (Carreta + Comboio) ── */
+  /* ── Exportar Consolidado ── */
   const exportConsolidado = async () => {
     const range = getRange();
     if (!range) { toast.error("Selecione o período inicial e final."); return; }
@@ -172,12 +189,12 @@ export default function AdvancedReports() {
       const [transportRes, refuelRes] = await Promise.all([
         supabase
           .from("equipment_time_entries")
-          .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, attachment_type)")
+          .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, attachment_type, odometer_initial, odometer_final)")
           .gte("equipment_diaries.date", range.from)
           .lte("equipment_diaries.date", range.to),
         supabase
           .from("comboio_equipment_refueling")
-          .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type)")
+          .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, odometer_initial, odometer_final)")
           .gte("equipment_diaries.date", range.from)
           .lte("equipment_diaries.date", range.to),
       ]);
@@ -187,45 +204,60 @@ export default function AdvancedReports() {
 
       const allRows: any[] = [];
 
-      // Carreta rows
       (transportRes.data || [])
         .filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta")
         .forEach((r: any) => {
           const d = r.equipment_diaries;
+          const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
+          const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
+          const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
+          const descParts = (r.description || "").split(",").map((s: string) => s.trim());
+
           allRows.push({
+            "Tipo": "Carreta",
             "Data": fmtDate(d?.date),
             "Prefixo": d?.equipment_fleet || "—",
-            "Equipamento": r.description || "—",
-            "Origem": r.origin || "—",
-            "Destino": r.destination || "—",
-            "Horário Início / Fim": `${r.start_time || "—"} — ${r.end_time || "—"}`,
-            "Observações / Finalidade": r.ogs_destination || r.activity || "—",
+            "KM Inicial": kmIni ?? "—",
+            "KM Final": kmFin ?? "—",
+            "KM Percorrido": kmRodado ?? "—",
+            "Equipamento 01": descParts[0] || "—",
+            "Equipamento 02": descParts[1] || "—",
+            "Equipamento 03": descParts[2] || "—",
+            "Origem": fmtOgs(r.origin),
+            "Destino": fmtOgs(r.destination),
+            "Horário Início": r.start_time || "—",
+            "Horário Fim": r.end_time || "—",
+            "Observações": r.ogs_destination || r.activity || "—",
           });
         });
 
-      // Comboio rows
       (refuelRes.data || []).forEach((r: any) => {
         const d = r.equipment_diaries;
+        const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
+        const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
+        const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
         const services: string[] = [];
         if (r.is_lubricated) services.push("Lubrificação");
         if (r.is_washed) services.push("Lavagem");
         allRows.push({
+          "Tipo": "Comboio",
           "Data": fmtDate(d?.date),
           "Prefixo": d?.equipment_fleet || "—",
-          "Equipamento": r.equipment_fleet_fueled || "—",
+          "KM Inicial": kmIni ?? "—",
+          "KM Final": kmFin ?? "—",
+          "KM Percorrido": kmRodado ?? "—",
+          "Equipamento 01": r.equipment_fleet_fueled || "—",
+          "Equipamento 02": "—",
+          "Equipamento 03": "—",
           "Origem": "Comboio",
-          "Destino": r.ogs_destination || "—",
-          "Horário Início / Fim": `${r.liters_fueled ?? 0} L`,
-          "Observações / Finalidade": services.length > 0 ? services.join(", ") : "Abastecimento",
+          "Destino": fmtOgs(r.ogs_destination),
+          "Horário Início": `${r.liters_fueled ?? 0} L`,
+          "Horário Fim": `Med: ${r.equipment_meter ?? "—"}`,
+          "Observações": services.length > 0 ? services.join(", ") : "Abastecimento",
         });
       });
 
-      // Sort by date
-      allRows.sort((a, b) => {
-        const da = a["Data"] || "";
-        const db = b["Data"] || "";
-        return da.localeCompare(db);
-      });
+      allRows.sort((a, b) => (a["Data"] || "").localeCompare(b["Data"] || ""));
 
       if (allRows.length === 0) {
         toast.info("Nenhum registro encontrado no período.");
@@ -234,8 +266,9 @@ export default function AdvancedReports() {
 
       const ws = XLSX.utils.json_to_sheet(allRows);
       ws["!cols"] = [
-        { wch: 12 }, { wch: 14 }, { wch: 28 },
-        { wch: 28 }, { wch: 28 }, { wch: 20 }, { wch: 36 },
+        { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
+        { wch: 18 }, { wch: 18 }, { wch: 18 },
+        { wch: 36 }, { wch: 36 }, { wch: 10 }, { wch: 10 }, { wch: 36 },
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Consolidado");
@@ -258,12 +291,9 @@ export default function AdvancedReports() {
           Relatórios Avançados (Excel)
         </h2>
 
-        {/* Date Range Picker */}
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-[10px] font-display font-extrabold text-[hsl(215_80%_22%)] uppercase tracking-wide">
-              Data Inicial
-            </label>
+            <label className="text-[10px] font-display font-extrabold text-[hsl(215_80%_22%)] uppercase tracking-wide">Data Inicial</label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-[160px] justify-start text-left text-sm font-medium", !dateFrom && "text-muted-foreground")}>
@@ -278,9 +308,7 @@ export default function AdvancedReports() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-display font-extrabold text-[hsl(215_80%_22%)] uppercase tracking-wide">
-              Data Final
-            </label>
+            <label className="text-[10px] font-display font-extrabold text-[hsl(215_80%_22%)] uppercase tracking-wide">Data Final</label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-[160px] justify-start text-left text-sm font-medium", !dateTo && "text-muted-foreground")}>
@@ -301,29 +329,16 @@ export default function AdvancedReports() {
           )}
         </div>
 
-        {/* Export Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Button
-            onClick={exportTransportes}
-            disabled={!hasRange || loadingTransport}
-            className="gap-2 font-extrabold py-5 rounded-xl bg-[hsl(215_80%_35%)] hover:bg-[hsl(215_80%_28%)] text-white shadow-md"
-          >
+          <Button onClick={exportTransportes} disabled={!hasRange || loadingTransport} className="gap-2 font-extrabold py-5 rounded-xl bg-[hsl(215_80%_35%)] hover:bg-[hsl(215_80%_28%)] text-white shadow-md">
             {loadingTransport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4" />}
             Transportes (Carreta)
           </Button>
-          <Button
-            onClick={exportAbastecimentos}
-            disabled={!hasRange || loadingRefuel}
-            className="gap-2 font-extrabold py-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
-          >
+          <Button onClick={exportAbastecimentos} disabled={!hasRange || loadingRefuel} className="gap-2 font-extrabold py-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">
             {loadingRefuel ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fuel className="w-4 h-4" />}
             Abastecimentos (Comboio)
           </Button>
-          <Button
-            onClick={exportConsolidado}
-            disabled={!hasRange || loadingConsolidado}
-            className="gap-2 font-extrabold py-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md"
-          >
+          <Button onClick={exportConsolidado} disabled={!hasRange || loadingConsolidado} className="gap-2 font-extrabold py-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md">
             {loadingConsolidado ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             Consolidado (Ambos)
           </Button>
