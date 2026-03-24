@@ -69,6 +69,24 @@ export default function Home() {
           </div>
           <ChevronRight className="w-6 h-6 text-primary-foreground/50 group-hover:text-primary-foreground transition-colors" />
         </button>
+
+        <button
+          onClick={() => navigate("/carreteiros")}
+          className="group relative flex items-center gap-5 rounded-3xl bg-header-gradient text-primary-foreground p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-primary"
+        >
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 glass shrink-0">
+            <Truck className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <div className="text-left flex-1">
+            <span className="block text-[1.75rem] leading-tight font-display font-extrabold tracking-tight">
+              CI Carreteiros
+            </span>
+            <span className="block text-sm text-primary-foreground/70 mt-1">
+              Logística de Materiais
+            </span>
+          </div>
+          <ChevronRight className="w-6 h-6 text-primary-foreground/50 group-hover:text-primary-foreground transition-colors" />
+        </button>
       </div>
     </div>
   );

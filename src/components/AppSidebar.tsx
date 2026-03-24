@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, FileText, Settings, BarChart3, Truck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import logoCi from "@/assets/logo-ci.png";
@@ -20,6 +20,7 @@ const baseItems = [
   { title: "CI Obras", url: "/obras", icon: LayoutDashboard },
   { title: "Novo RDO", url: "/obras/rdo", icon: FileText },
   { title: "CI Equipamentos", url: "/equipamentos", icon: FileText },
+  { title: "CI Carreteiros", url: "/carreteiros", icon: Truck },
 ];
 
 const adminItems = [

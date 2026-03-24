@@ -48,6 +48,7 @@ function AppRoutes() {
 
         {/* Equipamentos module — standalone layout */}
         <Route path="/equipamentos" element={<EquipmentHome />} />
+        <Route path="/carreteiros" element={<TruckerHome />} />
         <Route path="/equipamentos/frota" element={<AppLayout><FrotaNovo /></AppLayout>} />
         
         <Route path="/equipamentos/diario" element={<EquipmentDiaryForm />} />
