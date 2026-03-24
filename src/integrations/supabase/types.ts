@@ -1521,6 +1521,45 @@ export type Database = {
           },
         ]
       }
+      trucker_trips: {
+        Row: {
+          arrival_time: string | null
+          created_at: string | null
+          departure_time: string | null
+          destination_id: string | null
+          id: string
+          material_type: string | null
+          origin_ogs_id: string | null
+          quantity: number | null
+          status: string | null
+          truck_plate: string
+        }
+        Insert: {
+          arrival_time?: string | null
+          created_at?: string | null
+          departure_time?: string | null
+          destination_id?: string | null
+          id?: string
+          material_type?: string | null
+          origin_ogs_id?: string | null
+          quantity?: number | null
+          status?: string | null
+          truck_plate: string
+        }
+        Update: {
+          arrival_time?: string | null
+          created_at?: string | null
+          departure_time?: string | null
+          destination_id?: string | null
+          id?: string
+          material_type?: string | null
+          origin_ogs_id?: string | null
+          quantity?: number | null
+          status?: string | null
+          truck_plate?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
