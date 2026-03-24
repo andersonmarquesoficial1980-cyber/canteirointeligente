@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Cog, ChevronRight } from "lucide-react";
+import { ClipboardList, Cog, Truck, ChevronRight } from "lucide-react";
 
 import logoCi from "@/assets/logo-ci.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";

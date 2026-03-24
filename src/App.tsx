@@ -14,6 +14,7 @@ import FleetDashboard from "./pages/FleetDashboard";
 import EquipmentHome from "./pages/EquipmentHome";
 import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
 import AdminConfiguracoes from "./pages/AdminConfiguracoes";
+import TruckerHome from "./pages/TruckerHome";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
