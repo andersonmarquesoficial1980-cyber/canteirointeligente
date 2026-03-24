@@ -1523,8 +1523,11 @@ export type Database = {
       }
       trucker_trips: {
         Row: {
+          arrival_geo: string | null
           arrival_time: string | null
           created_at: string | null
+          date: string | null
+          departure_geo: string | null
           departure_time: string | null
           destination_id: string | null
           id: string
@@ -1535,8 +1538,11 @@ export type Database = {
           truck_plate: string
         }
         Insert: {
+          arrival_geo?: string | null
           arrival_time?: string | null
           created_at?: string | null
+          date?: string | null
+          departure_geo?: string | null
           departure_time?: string | null
           destination_id?: string | null
           id?: string
@@ -1547,8 +1553,11 @@ export type Database = {
           truck_plate: string
         }
         Update: {
+          arrival_geo?: string | null
           arrival_time?: string | null
           created_at?: string | null
+          date?: string | null
+          departure_geo?: string | null
           departure_time?: string | null
           destination_id?: string | null
           id?: string
