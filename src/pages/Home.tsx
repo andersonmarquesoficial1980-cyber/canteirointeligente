@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, Cog, ChevronRight } from "lucide-react";
 
@@ -7,14 +6,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 export default function Home() {
   const navigate = useNavigate();
-  const { isAdmin, loading } = useIsAdmin();
-
-  // Redirect admins/gestores to Dashboard
-  useEffect(() => {
-    if (!loading && isAdmin) {
-      navigate("/dashboard", { replace: true });
-    }
-  }, [isAdmin, loading, navigate]);
+  const { isAdmin } = useIsAdmin();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-12 bg-background relative overflow-hidden">
