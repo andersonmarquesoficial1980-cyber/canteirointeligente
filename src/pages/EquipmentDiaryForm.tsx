@@ -275,7 +275,7 @@ export default function EquipmentDiaryForm() {
   }, [ogsData]);
 
   // Fetch equipment list
-  const { data: equipamentos = [] } = useQuery({
+  const { data: equipamentos = [], isLoading: loadingEquipamentos } = useQuery({
     queryKey: ["maquinas_frota"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -284,11 +284,11 @@ export default function EquipmentDiaryForm() {
         .in("status", ["ativo", "Operando"])
         .order("frota");
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
   });
 
-  const { data: funcionarios = [] } = useQuery({
+  const { data: funcionarios = [], isLoading: loadingFuncionarios } = useQuery({
     queryKey: ["funcionarios"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -296,7 +296,7 @@ export default function EquipmentDiaryForm() {
         .select("id, nome, funcao")
         .order("nome");
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
   });
 
@@ -309,7 +309,7 @@ export default function EquipmentDiaryForm() {
         .select("id, nome, vinculo_rdo")
         .order("nome");
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
   });
 
@@ -410,7 +410,7 @@ export default function EquipmentDiaryForm() {
     enabled: isCarreta,
   });
 
-  // Fetch equipment_fleets for Carreta transport equipment selectors & Comboio fleet dropdown
+  // Fetch equipment_fleets globally for all modules
   const { data: equipmentFleets = [] } = useQuery({
     queryKey: ["equipment_fleets"],
     queryFn: async () => {
@@ -419,9 +419,8 @@ export default function EquipmentDiaryForm() {
         .select("*")
         .order("fleet_number");
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
-    enabled: isCarreta || isComboio,
   });
 
   // Determine which static fleet list to use
