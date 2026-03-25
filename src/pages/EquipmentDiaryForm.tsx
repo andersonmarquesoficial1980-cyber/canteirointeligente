@@ -886,12 +886,12 @@ export default function EquipmentDiaryForm() {
                   </SelectContent>
                 </Select>
               ) : (
-                <Select value={selectedFleet} onValueChange={setSelectedFleet}>
+                <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Selecione..." />
+                    <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : "Selecione..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(isFresadora ? filteredFleet : equipamentos).map((eq: any) => (
+                    {(isFresadora ? filteredFleet : equipamentos).filter((eq: any) => eq.frota).map((eq: any) => (
                       <SelectItem key={eq.id} value={eq.frota}>
                         {eq.frota} — {eq.nome}
                       </SelectItem>
@@ -922,12 +922,12 @@ export default function EquipmentDiaryForm() {
           )}
 
           <Field label={isTruck ? "Motorista" : "Operador"}>
-            <Select value={operator} onValueChange={setOperator}>
+            <Select value={operator} onValueChange={setOperator} disabled={loadingFuncionarios}>
               <SelectTrigger className="bg-secondary border-border">
-                <SelectValue placeholder={isTruck ? "Selecione o motorista..." : "Selecione o operador..."} />
+                <SelectValue placeholder={loadingFuncionarios ? "Carregando..." : (isTruck ? "Selecione o motorista..." : "Selecione o operador...")} />
               </SelectTrigger>
               <SelectContent>
-                {getOperatorList().map((f: any) => (
+                {getOperatorList().filter((f: any) => f.nome).map((f: any) => (
                   <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
@@ -1016,11 +1016,11 @@ export default function EquipmentDiaryForm() {
               <Field label="OGS">
                 <Select value={ogsNumber} onValueChange={setOgsNumber}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Selecione OGS..." />
+                    <SelectValue placeholder={uniqueOgs.length === 0 ? "Carregando OGS..." : "Selecione OGS..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {uniqueOgs.map((o: any) => (
-                      <SelectItem key={o.id} value={o.ogs_number || ""}>
+                    {uniqueOgs.filter((o: any) => o.ogs_number).map((o: any) => (
+                      <SelectItem key={o.id} value={o.ogs_number}>
                         {o.ogs_number} — {o.client_name}
                       </SelectItem>
                     ))}
