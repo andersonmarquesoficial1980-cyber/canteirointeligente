@@ -913,7 +913,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder="Selecione a prancha..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {trailerFleets.map((t: any) => (
+                  {trailerFleets.filter((t: any) => t.fleet_number).map((t: any) => (
                     <SelectItem key={t.id} value={t.fleet_number}>{t.fleet_number}</SelectItem>
                   ))}
                 </SelectContent>
@@ -982,12 +982,12 @@ export default function EquipmentDiaryForm() {
 
           {isFresadora && (
             <Field label="Operador Solo">
-              <Select value={operatorSolo} onValueChange={setOperatorSolo}>
+              <Select value={operatorSolo} onValueChange={setOperatorSolo} disabled={loadingFuncionarios}>
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione o operador solo..." />
+                  <SelectValue placeholder={loadingFuncionarios ? "Carregando..." : "Selecione o operador solo..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {operadoresSolo.map((f: any) => (
+                  {operadoresSolo.filter((f: any) => f.nome).map((f: any) => (
                     <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                   ))}
                 </SelectContent>
