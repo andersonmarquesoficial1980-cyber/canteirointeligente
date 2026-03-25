@@ -10,7 +10,6 @@ import Home from "./pages/Home";
 import Index from "./pages/Index";
 import RdoForm from "./pages/RdoForm";
 import FrotaNovo from "./pages/FrotaNovo";
-import FleetDashboard from "./pages/FleetDashboard";
 import EquipmentHome from "./pages/EquipmentHome";
 import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
 import AdminConfiguracoes from "./pages/AdminConfiguracoes";
@@ -40,7 +39,6 @@ function AppRoutes() {
       <Routes>
         {/* Hub — no sidebar/layout */}
         <Route path="/" element={<Home />} />
-        <Route path="/dashboard" element={<AppLayout><FleetDashboard /></AppLayout>} />
 
         {/* Obras module */}
         <Route path="/obras" element={<AppLayout><Index /></AppLayout>} />
@@ -48,18 +46,17 @@ function AppRoutes() {
 
         {/* Equipamentos module — standalone layout */}
         <Route path="/equipamentos" element={<EquipmentHome />} />
-        <Route path="/carreteiros" element={<TruckerHome />} />
         <Route path="/equipamentos/frota" element={<AppLayout><FrotaNovo /></AppLayout>} />
-        
         <Route path="/equipamentos/diario" element={<EquipmentDiaryForm />} />
 
-        {/* Admin */}
+        {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}
+        <Route path="/carreteiros" element={<TruckerHome />} />
+
+        {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) */}
         <Route path="/admin/configuracoes" element={
-          <AppLayout>
-            <ErrorBoundary fallbackMessage="Erro ao carregar Configurações.">
-              <AdminConfiguracoes />
-            </ErrorBoundary>
-          </AppLayout>
+          <ErrorBoundary fallbackMessage="Erro ao carregar o Painel de Controle.">
+            <AdminConfiguracoes />
+          </ErrorBoundary>
         } />
 
         <Route path="*" element={<NotFound />} />

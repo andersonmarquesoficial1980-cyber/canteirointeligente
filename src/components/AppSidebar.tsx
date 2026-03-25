@@ -1,6 +1,5 @@
-import { LayoutDashboard, FileText, Settings, BarChart3, Truck } from "lucide-react";
+import { LayoutDashboard, FileText, Truck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 import logoCi from "@/assets/logo-ci.png";
 
 import {
@@ -16,19 +15,13 @@ import {
 
 const baseItems = [
   { title: "Hub", url: "/", icon: LayoutDashboard },
-  { title: "Painel de Controle", url: "/dashboard", icon: BarChart3 },
   { title: "CI Obras", url: "/obras", icon: LayoutDashboard },
   { title: "Novo RDO", url: "/obras/rdo", icon: FileText },
   { title: "CI Equipamentos", url: "/equipamentos", icon: FileText },
   { title: "CI Carreteiros", url: "/carreteiros", icon: Truck },
 ];
 
-const adminItems = [
-  { title: "Configurações", url: "/admin/configuracoes", icon: Settings },
-];
-
 export function AppSidebar() {
-  const { isAdmin } = useIsAdmin();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -57,7 +50,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {[...baseItems, ...(isAdmin ? adminItems : [])].map((item) => (
+              {baseItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
