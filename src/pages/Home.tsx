@@ -70,6 +70,7 @@ export default function Home() {
           <ChevronRight className="w-6 h-6 text-primary-foreground/50 group-hover:text-primary-foreground transition-colors" />
         </button>
 
+        {/* CI Carreteiros — card permanente */}
         <button
           onClick={() => navigate("/carreteiros")}
           className="group relative flex items-center gap-5 rounded-3xl bg-header-gradient text-primary-foreground p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-primary"
