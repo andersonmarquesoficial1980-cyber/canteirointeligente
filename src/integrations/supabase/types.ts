@@ -1476,6 +1476,36 @@ export type Database = {
         }
         Relationships: []
       }
+      truck_registry: {
+        Row: {
+          capacidade_m3: number
+          cor: string | null
+          created_at: string | null
+          fornecedor: string | null
+          id: string
+          modelo: string | null
+          placa: string
+        }
+        Insert: {
+          capacidade_m3?: number
+          cor?: string | null
+          created_at?: string | null
+          fornecedor?: string | null
+          id?: string
+          modelo?: string | null
+          placa: string
+        }
+        Update: {
+          capacidade_m3?: number
+          cor?: string | null
+          created_at?: string | null
+          fornecedor?: string | null
+          id?: string
+          modelo?: string | null
+          placa?: string
+        }
+        Relationships: []
+      }
       truck_tank_supplies: {
         Row: {
           created_at: string | null
