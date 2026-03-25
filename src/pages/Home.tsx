@@ -1,12 +1,23 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck } from "lucide-react";
+import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck, LogOut } from "lucide-react";
 
 import logoCi from "@/assets/logo-ci.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Home() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try { await supabase.auth.signOut(); } catch {}
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.replace("/");
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-12 bg-background relative overflow-hidden">
@@ -31,6 +42,16 @@ export default function Home() {
           Plataforma de Gestão e Integração de Campo
         </p>
       </div>
+
+      {/* Logout */}
+      <button
+        type="button"
+        disabled={loggingOut}
+        onClick={handleLogout}
+        className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-destructive/30 text-destructive bg-background hover:bg-destructive/10 text-sm font-medium cursor-pointer disabled:opacity-50 transition-colors"
+      >
+        <LogOut className="w-4 h-4" /> {loggingOut ? "Saindo..." : "Sair"}
+      </button>
 
       {/* Module buttons — stacked layout */}
       <div className="flex flex-col gap-4 w-full max-w-md relative z-10">
