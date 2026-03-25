@@ -794,8 +794,32 @@ export default function AdminConfiguracoes() {
         </div>
       </header>
 
+      {/* Mobile tabs (horizontal scroll) */}
+      <div className="md:hidden sticky top-[52px] z-40 bg-card border-b border-border overflow-x-auto">
+        <div className="flex gap-1 px-2 py-2 min-w-max">
+          {MENU_SECTIONS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeSection === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setActiveSection(item.key)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs whitespace-nowrap transition-colors shrink-0 ${
+                  isActive
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar navigation */}
+        {/* Sidebar navigation — desktop only */}
         <nav className="w-56 shrink-0 border-r border-border bg-card overflow-y-auto hidden md:block">
           <div className="py-2">
             {MENU_SECTIONS.map((item) => {
@@ -818,28 +842,6 @@ export default function AdminConfiguracoes() {
             })}
           </div>
         </nav>
-
-        {/* Mobile tabs (horizontal scroll) */}
-        <div className="md:hidden sticky top-[52px] z-40 bg-card border-b border-border overflow-x-auto flex gap-1 px-2 py-2">
-          {MENU_SECTIONS.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSection === item.key;
-            return (
-              <button
-                key={item.key}
-                onClick={() => setActiveSection(item.key)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs whitespace-nowrap transition-colors shrink-0 ${
-                  isActive
-                    ? "bg-primary text-primary-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-muted/50"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
 
         {/* Content area */}
         <main className="flex-1 overflow-y-auto">
