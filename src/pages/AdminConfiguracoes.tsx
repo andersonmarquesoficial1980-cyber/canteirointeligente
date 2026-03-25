@@ -645,6 +645,81 @@ function OgsManager() {
   );
 }
 
+// Truck Registry Manager (Carreteiros)
+function TruckRegistryManager() {
+  const { items, add, remove } = useCrudTable("truck_registry");
+  const { toast } = useToast();
+  const [placa, setPlaca] = useState("");
+  const [modelo, setModelo] = useState("");
+  const [cor, setCor] = useState("");
+  const [fornecedor, setFornecedor] = useState("");
+  const [capacidade, setCapacidade] = useState("");
+
+  const handleAdd = async () => {
+    if (!placa.trim() || !capacidade.trim()) {
+      toast({ title: "Atenção", description: "Preencha Placa e Capacidade (m³).", variant: "destructive" });
+      return;
+    }
+    const ok = await add({
+      placa: placa.trim().toUpperCase(),
+      modelo: modelo.trim() || null,
+      cor: cor.trim() || null,
+      fornecedor: fornecedor.trim() || null,
+      capacidade_m3: parseFloat(capacidade),
+    });
+    if (ok) { setPlaca(""); setModelo(""); setCor(""); setFornecedor(""); setCapacidade(""); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Placa *</Label>
+            <Input value={placa} onChange={e => setPlaca(e.target.value)} className="h-11 bg-secondary border-border" placeholder="ABC-1234" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Capacidade (m³) *</Label>
+            <Input type="number" inputMode="decimal" value={capacidade} onChange={e => setCapacidade(e.target.value)} className="h-11 bg-secondary border-border" placeholder="12" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Modelo</Label>
+            <Input value={modelo} onChange={e => setModelo(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Volvo FMX" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Cor</Label>
+            <Input value={cor} onChange={e => setCor(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Branco" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Fornecedor</Label>
+          <Input value={fornecedor} onChange={e => setFornecedor(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Transportadora X" />
+        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Caminhão</Button>
+      </div>
+
+      <div className="space-y-2">
+        {items.map((t: any) => (
+          <div key={t.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm text-foreground">{t.placa} — {t.capacidade_m3} m³</p>
+              <div className="flex gap-2 mt-0.5 flex-wrap">
+                {t.modelo && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{t.modelo}</span>}
+                {t.cor && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{t.cor}</span>}
+                {t.fornecedor && <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{t.fornecedor}</span>}
+              </div>
+            </div>
+            <button onClick={() => remove(t.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum caminhão cadastrado.</p>}
+      </div>
+    </div>
+  );
+}
+
 // Material manager with tipo_uso
 function MaterialManager() {
   const { items, add, remove } = useCrudTable("materiais");
@@ -743,6 +818,7 @@ export default function AdminConfiguracoes() {
             <TabsTrigger value="fornecedores" className="text-xs flex-1 min-w-[80px]">Fornecedores</TabsTrigger>
             <TabsTrigger value="usinas" className="text-xs flex-1 min-w-[80px]">Usinas</TabsTrigger>
             <TabsTrigger value="ogs" className="text-xs flex-1 min-w-[80px]">OGS</TabsTrigger>
+            <TabsTrigger value="caminhoes" className="text-xs flex-1 min-w-[80px]">Caminhões</TabsTrigger>
             <TabsTrigger value="usuarios" className="text-xs flex-1 min-w-[80px]">Usuários</TabsTrigger>
             <TabsTrigger value="emails" className="text-xs flex-1 min-w-[80px]">E-mails</TabsTrigger>
           </TabsList>
@@ -755,6 +831,7 @@ export default function AdminConfiguracoes() {
           <TabsContent value="fornecedores"><EntityManager tableName="fornecedores" label="Fornecedor" /></TabsContent>
           <TabsContent value="usinas"><EntityManager tableName="usinas" label="Usina" /></TabsContent>
           <TabsContent value="ogs"><OgsManager /></TabsContent>
+          <TabsContent value="caminhoes"><TruckRegistryManager /></TabsContent>
           <TabsContent value="usuarios"><UsersManager /></TabsContent>
           <TabsContent value="emails"><EmailConfig /></TabsContent>
         </Tabs>

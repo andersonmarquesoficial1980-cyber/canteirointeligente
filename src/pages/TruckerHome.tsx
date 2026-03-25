@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Truck, MapPin, Package, Send, CheckCircle2, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { toast } from "sonner";
@@ -20,25 +20,33 @@ function DepartureForm() {
   const queryClient = useQueryClient();
   const { data: ogsData } = useOgsReference();
   const [placa, setPlaca] = useState("");
-  const [placaCustom, setPlacaCustom] = useState("");
   const [material, setMaterial] = useState("");
   const [quantity, setQuantity] = useState("");
   const [originOgs, setOriginOgs] = useState("");
   const [destination, setDestination] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const { data: trailerFleets } = useQuery({
-    queryKey: ["trailer_fleets_trucker"],
+  const { data: trucks, isLoading: loadingTrucks } = useQuery({
+    queryKey: ["truck_registry_list"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("trailer_fleets").select("*").order("fleet_number");
+      const { data, error } = await supabase.from("truck_registry").select("*").order("placa");
       if (error) throw error;
-      return data;
+      return data || [];
     },
   });
 
+  const handlePlacaChange = (val: string) => {
+    setPlaca(val);
+    const truck = trucks?.find((t) => t.placa === val);
+    if (truck) {
+      setQuantity(String(truck.capacidade_m3));
+    } else {
+      setQuantity("");
+    }
+  };
+
   const handleSubmit = async () => {
-    const finalPlaca = placa === "__custom__" ? placaCustom.trim().toUpperCase() : placa;
-    if (!finalPlaca || !material || !quantity || !destination) {
+    if (!placa || !material || !quantity || !destination) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -55,7 +63,7 @@ function DepartureForm() {
     }
 
     const { error } = await supabase.from("trucker_trips").insert({
-      truck_plate: finalPlaca,
+      truck_plate: placa,
       material_type: material,
       quantity: parseFloat(quantity),
       origin_ogs_id: originOgs || null,
@@ -73,13 +81,25 @@ function DepartureForm() {
       toast.success("Saída registrada com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["trucker_in_transit"] });
       setPlaca("");
-      setPlacaCustom("");
       setMaterial("");
       setQuantity("");
       setOriginOgs("");
       setDestination("");
     }
   };
+
+  // Expand OGS with multiple addresses
+  const expandedOgs = (ogsData || []).flatMap((o) => {
+    const addresses = (o.location_address || "").split(";").map((a: string) => a.trim()).filter(Boolean);
+    if (addresses.length <= 1) {
+      return [{ id: o.id, label: `${o.ogs_number} — ${o.client_name}${o.location_address ? ` — ${o.location_address}` : ""}`, value: `${o.id}` }];
+    }
+    return addresses.map((addr: string, idx: number) => ({
+      id: `${o.id}_${idx}`,
+      label: `${o.ogs_number} — ${addr}`,
+      value: `${o.id}_${idx}`,
+    }));
+  });
 
   return (
     <div className="space-y-5 p-1">
@@ -93,18 +113,16 @@ function DepartureForm() {
           {/* Placa */}
           <div className="space-y-1.5">
             <Label>Placa do Caminhão *</Label>
-            <Select value={placa} onValueChange={setPlaca}>
-              <SelectTrigger><SelectValue placeholder="Selecione ou digite" /></SelectTrigger>
+            <Select value={placa} onValueChange={handlePlacaChange}>
+              <SelectTrigger><SelectValue placeholder={loadingTrucks ? "Carregando..." : "Selecione a placa"} /></SelectTrigger>
               <SelectContent>
-                {trailerFleets?.map((f) => (
-                  <SelectItem key={f.id} value={f.fleet_number || f.id}>{f.fleet_number}</SelectItem>
+                {(trucks || []).filter((t) => t.placa).map((t) => (
+                  <SelectItem key={t.id} value={t.placa}>
+                    {t.placa}{t.modelo ? ` — ${t.modelo}` : ""}{t.fornecedor ? ` (${t.fornecedor})` : ""}
+                  </SelectItem>
                 ))}
-                <SelectItem value="__custom__">Outro (digitar)</SelectItem>
               </SelectContent>
             </Select>
-            {placa === "__custom__" && (
-              <Input placeholder="Digite a placa" value={placaCustom} onChange={(e) => setPlacaCustom(e.target.value)} className="mt-1" />
-            )}
           </div>
 
           {/* Material */}
@@ -120,10 +138,17 @@ function DepartureForm() {
             </Select>
           </div>
 
-          {/* Quantidade */}
+          {/* Quantidade (auto-filled, read-only) */}
           <div className="space-y-1.5">
             <Label>Quantidade (m³) *</Label>
-            <Input type="number" inputMode="decimal" placeholder="0.00" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            <Input
+              type="number"
+              inputMode="decimal"
+              placeholder="Selecione a placa primeiro"
+              value={quantity}
+              readOnly
+              className="bg-muted cursor-not-allowed"
+            />
           </div>
 
           {/* OGS Origem */}
@@ -132,8 +157,8 @@ function DepartureForm() {
             <Select value={originOgs} onValueChange={setOriginOgs}>
               <SelectTrigger><SelectValue placeholder="Selecione a OGS" /></SelectTrigger>
               <SelectContent>
-                {ogsData?.map((o) => (
-                  <SelectItem key={o.id} value={o.ogs_number || o.id}>{o.ogs_number} — {o.client_name}</SelectItem>
+                {expandedOgs.map((o) => (
+                  <SelectItem key={o.id} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -253,7 +278,6 @@ export default function TruckerHome() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
         <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
@@ -265,7 +289,6 @@ export default function TruckerHome() {
         </div>
       </header>
 
-      {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-5">
         <Tabs defaultValue="saida" className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-11">
