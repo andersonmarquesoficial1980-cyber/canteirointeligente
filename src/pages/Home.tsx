@@ -32,8 +32,8 @@ export default function Home() {
         </p>
       </div>
 
-      {/* Module buttons — giant glassmorphism cards */}
-      <div className="flex flex-col gap-6 w-full max-w-md relative z-10">
+      {/* Module buttons — responsive grid: 2 cols mobile, 2×2 desktop */}
+      <div className="grid grid-cols-2 gap-4 w-full max-w-2xl relative z-10">
         <button
           onClick={() => navigate("/obras")}
           className="group relative flex items-center gap-5 rounded-3xl bg-header-gradient text-primary-foreground p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-primary"
