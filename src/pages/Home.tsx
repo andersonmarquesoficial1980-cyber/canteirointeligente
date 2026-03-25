@@ -32,81 +32,77 @@ export default function Home() {
         </p>
       </div>
 
-      {/* Module buttons — giant glassmorphism cards */}
-      <div className="flex flex-col gap-6 w-full max-w-md relative z-10">
+      {/* Module buttons — responsive grid: 2 cols mobile, 2×2 desktop */}
+      <div className="grid grid-cols-2 gap-4 w-full max-w-2xl relative z-10">
         <button
           onClick={() => navigate("/obras")}
-          className="group relative flex items-center gap-5 rounded-3xl bg-header-gradient text-primary-foreground p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-primary"
+          className="group relative flex flex-col items-center gap-3 rounded-3xl bg-header-gradient text-primary-foreground p-5 md:p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-primary"
         >
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 glass shrink-0">
-            <ClipboardList className="w-8 h-8 text-primary-foreground" />
+          <div className="flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/20 glass shrink-0">
+            <ClipboardList className="w-7 h-7 md:w-8 md:h-8 text-primary-foreground" />
           </div>
-          <div className="text-left flex-1">
-            <span className="block text-[1.75rem] leading-tight font-display font-extrabold tracking-tight">
+          <div className="text-center flex-1">
+            <span className="block text-lg md:text-xl leading-tight font-display font-extrabold tracking-tight">
               CI Obras
             </span>
-            <span className="block text-sm text-primary-foreground/70 mt-1">
-              RDO — Diário de Obras
+            <span className="block text-xs md:text-sm text-primary-foreground/70 mt-1">
+              Diário de Obras
             </span>
           </div>
-          <ChevronRight className="w-6 h-6 text-primary-foreground/50 group-hover:text-primary-foreground transition-colors" />
         </button>
 
         <button
           onClick={() => navigate("/equipamentos")}
-          className="group relative flex items-center gap-5 rounded-3xl bg-header-gradient text-primary-foreground p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-accent"
+          className="group relative flex flex-col items-center gap-3 rounded-3xl bg-header-gradient text-primary-foreground p-5 md:p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-accent"
         >
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 glass shrink-0">
-            <Cog className="w-8 h-8 text-primary-foreground" />
+          <div className="flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/20 glass shrink-0">
+            <Cog className="w-7 h-7 md:w-8 md:h-8 text-primary-foreground" />
           </div>
-          <div className="text-left flex-1">
-            <span className="block text-[1.75rem] leading-tight font-display font-extrabold tracking-tight">
+          <div className="text-center flex-1">
+            <span className="block text-lg md:text-xl leading-tight font-display font-extrabold tracking-tight">
               CI Equipamentos
             </span>
-            <span className="block text-sm text-primary-foreground/70 mt-1">
+            <span className="block text-xs md:text-sm text-primary-foreground/70 mt-1">
               Gestão de Equipamentos
             </span>
           </div>
-          <ChevronRight className="w-6 h-6 text-primary-foreground/50 group-hover:text-primary-foreground transition-colors" />
         </button>
 
         {/* CI Carreteiros — card permanente (NUNCA REMOVER) */}
         <button
           onClick={() => navigate("/carreteiros")}
-          className="group relative flex items-center gap-5 rounded-3xl bg-header-gradient text-primary-foreground p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-primary"
+          className="group relative flex flex-col items-center gap-3 rounded-3xl bg-header-gradient text-primary-foreground p-5 md:p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-primary"
         >
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 glass shrink-0">
-            <Truck className="w-8 h-8 text-primary-foreground" />
+          <div className="flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/20 glass shrink-0">
+            <Truck className="w-7 h-7 md:w-8 md:h-8 text-primary-foreground" />
           </div>
-          <div className="text-left flex-1">
-            <span className="block text-[1.75rem] leading-tight font-display font-extrabold tracking-tight">
+          <div className="text-center flex-1">
+            <span className="block text-lg md:text-xl leading-tight font-display font-extrabold tracking-tight">
               CI Carreteiros
             </span>
-            <span className="block text-sm text-primary-foreground/70 mt-1">
+            <span className="block text-xs md:text-sm text-primary-foreground/70 mt-1">
               Logística de Materiais
             </span>
           </div>
-          <ChevronRight className="w-6 h-6 text-primary-foreground/50 group-hover:text-primary-foreground transition-colors" />
         </button>
 
-        {/* Painel de Controle — admin only */}
+        {/* Painel de Controle — admin only, visível em TODAS as telas */}
         {isAdmin && (
           <button
             onClick={() => navigate("/admin/configuracoes")}
-            className="group relative flex items-center gap-5 rounded-3xl bg-header-gradient text-primary-foreground p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-accent"
+            className="group relative flex flex-col items-center gap-3 rounded-3xl bg-header-gradient text-primary-foreground p-5 md:p-7 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer glow-accent"
           >
-            <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 glass shrink-0">
-              <ShieldCheck className="w-8 h-8 text-primary-foreground" />
+            <div className="flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/20 glass shrink-0">
+              <ShieldCheck className="w-7 h-7 md:w-8 md:h-8 text-primary-foreground" />
             </div>
-            <div className="text-left flex-1">
-              <span className="block text-[1.75rem] leading-tight font-display font-extrabold tracking-tight">
+            <div className="text-center flex-1">
+              <span className="block text-lg md:text-xl leading-tight font-display font-extrabold tracking-tight">
                 Painel de Controle
               </span>
-              <span className="block text-sm text-primary-foreground/70 mt-1">
-                Dashboards e Gerenciamento
+              <span className="block text-xs md:text-sm text-primary-foreground/70 mt-1">
+                Dashboards e Gestão
               </span>
             </div>
-            <ChevronRight className="w-6 h-6 text-primary-foreground/50 group-hover:text-primary-foreground transition-colors" />
           </button>
         )}
       </div>
