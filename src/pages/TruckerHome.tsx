@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -283,10 +283,16 @@ export default function TruckerHome() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <img src={logoCi} alt="CI" className="h-7 object-contain" />
-        <div>
+        <div className="flex-1">
           <h1 className="font-display font-bold text-base leading-tight">CI Carreteiros</h1>
           <p className="text-[10px] text-primary-foreground/70">Logística de Materiais</p>
         </div>
+        <button
+          onClick={async () => { try { await supabase.auth.signOut(); } catch {} localStorage.clear(); sessionStorage.clear(); window.location.replace("/"); }}
+          className="p-1.5 rounded-lg hover:bg-white/10 transition"
+        >
+          <LogOut className="h-5 w-5" />
+        </button>
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-5">

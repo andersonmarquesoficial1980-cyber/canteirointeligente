@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
-  Wrench, Factory, Hammer, Mail, ShieldCheck,
+  Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -785,12 +785,18 @@ export default function AdminConfiguracoes() {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <img src={logoCi} alt="CI" className="h-7 object-contain" />
-          <div>
+          <div className="flex-1">
             <h1 className="font-display font-bold text-base leading-tight flex items-center gap-2">
               <ShieldCheck className="w-4 h-4" /> Painel de Controle
             </h1>
             <p className="text-[10px] text-primary-foreground/70">Administração Centralizada</p>
           </div>
+          <button
+            onClick={async () => { try { await supabase.auth.signOut(); } catch {} localStorage.clear(); sessionStorage.clear(); window.location.replace("/"); }}
+            className="p-1.5 rounded-lg hover:bg-white/10 transition"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
         </div>
       </header>
 
