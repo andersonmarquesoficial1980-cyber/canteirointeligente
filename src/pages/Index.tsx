@@ -1,15 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Truck, HardHat, ClipboardList, Settings, LogOut } from "lucide-react";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { FileText, Truck, HardHat, ClipboardList, LogOut } from "lucide-react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-ci.png";
 
 export default function Index() {
   const navigate = useNavigate();
-  const { isAdmin } = useIsAdmin();
   const { profile } = useUserProfile();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -79,17 +77,6 @@ export default function Index() {
           <FileText className="w-6 h-6" /> Novo RDO
         </Button>
       </div>
-
-      {isAdmin && (
-        <Button
-          variant="outline"
-          onClick={() => navigate("/admin/configuracoes")}
-          className="w-full h-14 gap-2 text-sm font-semibold rounded-xl border-border"
-        >
-          <Settings className="w-5 h-5" />
-          Configurações
-        </Button>
-      )}
     </div>
   );
 }

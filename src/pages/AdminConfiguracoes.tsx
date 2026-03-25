@@ -1,17 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, Save, Pencil } from "lucide-react";
+import {
+  ArrowLeft, Plus, Trash2, Save, Pencil,
+  Users, MapPin, Package, Truck, BarChart3,
+  Wrench, Factory, Hammer, Mail, ShieldCheck,
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
+import logoCi from "@/assets/logo-ci.png";
+
+const FleetDashboard = lazy(() => import("./FleetDashboard"));
 
 const VINCULO_OPTIONS = ["CAUQ", "INFRA", "CANTEIRO", "TODOS"];
 const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
@@ -33,7 +39,6 @@ function useCrudTable(tableName: string) {
   useEffect(() => { load(); }, []);
 
   const add = async (item: any) => {
-    console.log(`[CRUD] Tentando adicionar em "${tableName}":`, item);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -42,16 +47,13 @@ function useCrudTable(tableName: string) {
       }
       const { error } = await supabase.from(tableName as any).insert(item);
       if (error) {
-        console.error(`[CRUD] Erro ao inserir em "${tableName}":`, error);
         toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
         return false;
       }
-      console.log(`[CRUD] Inserido com sucesso em "${tableName}"`);
       toast({ title: "✅ Adicionado com sucesso!" });
       await load();
       return true;
     } catch (err: any) {
-      console.error(`[CRUD] Exceção em "${tableName}":`, err);
       toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
       return false;
     }
@@ -79,10 +81,7 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
   const [vinculo, setVinculo] = useState("TODOS");
 
   const handleAdd = async () => {
-    if (!nome.trim()) { 
-      toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); 
-      return; 
-    }
+    if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); return; }
     const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo });
     if (ok) { setNome(""); setVinculo("TODOS"); }
   };
@@ -105,7 +104,6 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
       </div>
-
       <div className="space-y-2">
         {items.map((item: any) => (
           <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
@@ -122,7 +120,7 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
   );
 }
 
-// Machines manager (includes frota, categoria, vinculo_rdo)
+// Machines manager
 function MaquinasManager() {
   const { items, add, remove } = useCrudTable("maquinas_frota");
   const { toast } = useToast();
@@ -183,7 +181,6 @@ function MaquinasManager() {
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Máquina</Button>
       </div>
-
       <div className="space-y-2">
         {items.map((m: any) => (
           <div key={m.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
@@ -269,15 +266,11 @@ function UsersManager() {
   const [password, setPassword] = useState("");
   const [perfil, setPerfil] = useState("Apontador");
   const [creating, setCreating] = useState(false);
-
-  // Edit state
   const [editing, setEditing] = useState<any | null>(null);
   const [editNome, setEditNome] = useState("");
   const [editPerfil, setEditPerfil] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
-
-  // Delete state
   const [deleting, setDeleting] = useState<any | null>(null);
   const [deletingLoading, setDeletingLoading] = useState(false);
 
@@ -331,10 +324,8 @@ function UsersManager() {
       if (editNome.trim() && editNome !== editing.nome_completo) body.nome_completo = editNome.trim();
       if (editPerfil && editPerfil !== editing.perfil) body.perfil = editPerfil;
       if (editPassword.trim()) body.password = editPassword;
-
       const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", { body });
       if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao atualizar");
-
       toast({ title: "✅ Usuário atualizado!" });
       setEditing(null);
       await load();
@@ -351,7 +342,6 @@ function UsersManager() {
         body: { action: "delete", user_id: deleting.user_id },
       });
       if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao excluir");
-
       toast({ title: "✅ Usuário excluído!" });
       setDeleting(null);
       await load();
@@ -402,24 +392,17 @@ function UsersManager() {
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{u.perfil}</span>
             </div>
             <div className="flex items-center gap-1 ml-2">
-              <button onClick={() => openEdit(u)} className="text-muted-foreground hover:text-foreground p-1.5">
-                <Pencil className="w-4 h-4" />
-              </button>
-              <button onClick={() => setDeleting(u)} className="text-destructive p-1.5">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <button onClick={() => openEdit(u)} className="text-muted-foreground hover:text-foreground p-1.5"><Pencil className="w-4 h-4" /></button>
+              <button onClick={() => setDeleting(u)} className="text-destructive p-1.5"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
         {users.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum usuário cadastrado.</p>}
       </div>
 
-      {/* Edit Dialog */}
       <Dialog open={!!editing} onOpenChange={open => !open && setEditing(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Editar Usuário</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Editar Usuário</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">E-mail</Label>
@@ -453,7 +436,6 @@ function UsersManager() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleting} onOpenChange={open => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -499,26 +481,14 @@ function OgsManager() {
     }
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({ title: "Sessão expirada", description: "Faça login novamente.", variant: "destructive" });
-        return;
-      }
-
+      if (!session) { toast({ title: "Sessão expirada", variant: "destructive" }); return; }
       if (editingId) {
-        const { error } = await supabase.from("ogs_reference").update({
-          ogs_number: numero.trim(),
-          client_name: cliente.trim(),
-          location_address: endereco.trim(),
-        }).eq("id", editingId);
+        const { error } = await supabase.from("ogs_reference").update({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim() }).eq("id", editingId);
         if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
         toast({ title: "✅ OGS atualizada!" });
         setEditingId(null);
       } else {
-        const { error } = await supabase.from("ogs_reference").insert({
-          ogs_number: numero.trim(),
-          client_name: cliente.trim(),
-          location_address: endereco.trim(),
-        });
+        const { error } = await supabase.from("ogs_reference").insert({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim() });
         if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
         toast({ title: "✅ Endereço adicionado!" });
       }
@@ -534,20 +504,16 @@ function OgsManager() {
     setNumero(o.ogs_number || "");
     setCliente(o.client_name || "");
     setEndereco(o.location_address || "");
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setNumero(""); setCliente(""); setEndereco("");
-  };
+  const cancelEdit = () => { setEditingId(null); setNumero(""); setCliente(""); setEndereco(""); };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeletingLoading(true);
     const { error } = await supabase.from("ogs_reference").delete().eq("id", deleteTarget.id);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); }
-    else { toast({ title: "✅ Removido!" }); }
+    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+    else toast({ title: "✅ Removido!" });
     setDeleteTarget(null);
     setDeletingLoading(false);
     await load();
@@ -577,16 +543,13 @@ function OgsManager() {
           <Button onClick={handleAdd} className="flex-1 h-11 gap-2">
             {editingId ? <><Save className="w-4 h-4" /> Salvar Alterações</> : <><Plus className="w-4 h-4" /> Adicionar Endereço</>}
           </Button>
-          {editingId && (
-            <Button variant="outline" onClick={cancelEdit} className="h-11">Cancelar</Button>
-          )}
+          {editingId && <Button variant="outline" onClick={cancelEdit} className="h-11">Cancelar</Button>}
         </div>
       </div>
 
-      {/* OGS Consultation Table */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <p className="text-sm font-bold text-[hsl(var(--primary))]">📋 Tabela de OGS Cadastradas</p>
+          <p className="text-sm font-bold text-primary">📋 Tabela de OGS Cadastradas</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -606,32 +569,23 @@ function OgsManager() {
                   <td className="px-4 py-2.5 text-muted-foreground">{o.location_address}</td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openEdit(o)} className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-secondary">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => setDeleteTarget(o)} className="text-destructive p-1.5 rounded-md hover:bg-destructive/10">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <button onClick={() => openEdit(o)} className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-secondary"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setDeleteTarget(o)} className="text-destructive p-1.5 rounded-md hover:bg-destructive/10"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {items.length === 0 && (
-                <tr><td colSpan={4} className="text-center py-6 text-muted-foreground text-sm">Nenhuma OGS cadastrada.</td></tr>
-              )}
+              {items.length === 0 && <tr><td colSpan={4} className="text-center py-6 text-muted-foreground text-sm">Nenhuma OGS cadastrada.</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
-            <AlertDialogDescription>
-              Excluir OGS <strong>{deleteTarget?.ogs_number}</strong> — {deleteTarget?.location_address}? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Excluir OGS <strong>{deleteTarget?.ogs_number}</strong> — {deleteTarget?.location_address}?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -645,7 +599,7 @@ function OgsManager() {
   );
 }
 
-// Truck Registry Manager (Carreteiros)
+// Truck Registry Manager
 function TruckRegistryManager() {
   const { items, add, remove } = useCrudTable("truck_registry");
   const { toast } = useToast();
@@ -660,13 +614,7 @@ function TruckRegistryManager() {
       toast({ title: "Atenção", description: "Preencha Placa e Capacidade (m³).", variant: "destructive" });
       return;
     }
-    const ok = await add({
-      placa: placa.trim().toUpperCase(),
-      modelo: modelo.trim() || null,
-      cor: cor.trim() || null,
-      fornecedor: fornecedor.trim() || null,
-      capacidade_m3: parseFloat(capacidade),
-    });
+    const ok = await add({ placa: placa.trim().toUpperCase(), modelo: modelo.trim() || null, cor: cor.trim() || null, fornecedor: fornecedor.trim() || null, capacidade_m3: parseFloat(capacidade) });
     if (ok) { setPlaca(""); setModelo(""); setCor(""); setFornecedor(""); setCapacidade(""); }
   };
 
@@ -699,7 +647,6 @@ function TruckRegistryManager() {
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Caminhão</Button>
       </div>
-
       <div className="space-y-2">
         {items.map((t: any) => (
           <div key={t.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
@@ -720,7 +667,7 @@ function TruckRegistryManager() {
   );
 }
 
-// Material manager with tipo_uso
+// Material manager
 function MaterialManager() {
   const { items, add, remove } = useCrudTable("materiais");
   const { toast } = useToast();
@@ -729,10 +676,7 @@ function MaterialManager() {
   const [tipoUso, setTipoUso] = useState("Nota Fiscal");
 
   const handleAdd = async () => {
-    if (!nome.trim()) {
-      toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" });
-      return;
-    }
+    if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" }); return; }
     const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_uso: tipoUso });
     if (ok) { setNome(""); setVinculo("TODOS"); setTipoUso("Nota Fiscal"); }
   };
@@ -749,24 +693,19 @@ function MaterialManager() {
             <Label className="text-xs text-muted-foreground">Vincular ao RDO</Label>
             <Select value={vinculo} onValueChange={setVinculo}>
               <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
+              <SelectContent>{VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
             <Select value={tipoUso} onValueChange={setTipoUso}>
               <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TIPO_USO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
+              <SelectContent>{TIPO_USO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
       </div>
-
       <div className="space-y-2">
         {items.map((item: any) => (
           <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
@@ -786,55 +725,136 @@ function MaterialManager() {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SIDEBAR MENU ITEMS
+// ═══════════════════════════════════════════════════════════════
+const MENU_SECTIONS = [
+  { key: "dashboard", label: "Dashboards", icon: BarChart3 },
+  { key: "usuarios", label: "Usuários", icon: Users },
+  { key: "ogs", label: "OGS / Obras", icon: MapPin },
+  { key: "materiais", label: "Materiais", icon: Package },
+  { key: "maquinas", label: "Frota (Máquinas)", icon: Wrench },
+  { key: "caminhoes", label: "Frota (Caminhões)", icon: Truck },
+  { key: "funcionarios", label: "Funcionários", icon: Users },
+  { key: "tipos_servico", label: "Tipos de Serviço", icon: Hammer },
+  { key: "empreiteiros", label: "Empreiteiros", icon: Hammer },
+  { key: "fornecedores", label: "Fornecedores", icon: Factory },
+  { key: "usinas", label: "Usinas", icon: Factory },
+  { key: "emails", label: "E-mails", icon: Mail },
+];
+
 export default function AdminConfiguracoes() {
   const navigate = useNavigate();
   const { isAdmin, loading } = useIsAdmin();
+  const [activeSection, setActiveSection] = useState("dashboard");
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!isAdmin) { navigate("/"); return null; }
 
+  const renderContent = () => {
+    switch (activeSection) {
+      case "dashboard":
+        return (
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Carregando dashboard...</p></div>}>
+            <FleetDashboard />
+          </Suspense>
+        );
+      case "usuarios": return <UsersManager />;
+      case "ogs": return <OgsManager />;
+      case "materiais": return <MaterialManager />;
+      case "maquinas": return <MaquinasManager />;
+      case "caminhoes": return <TruckRegistryManager />;
+      case "funcionarios": return <FuncionariosManager />;
+      case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" />;
+      case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />;
+      case "fornecedores": return <EntityManager tableName="fornecedores" label="Fornecedor" />;
+      case "usinas": return <EntityManager tableName="usinas" label="Usina" />;
+      case "emails": return <EmailConfig />;
+      default: return null;
+    }
+  };
+
+  const currentItem = MENU_SECTIONS.find(s => s.key === activeSection);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 bg-card/95 backdrop-blur border-b border-border px-4 py-3">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-header-gradient text-primary-foreground px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground p-2">
-            <ArrowLeft className="w-6 h-6" />
+          <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+            <ArrowLeft className="h-5 w-5" />
           </button>
+          <img src={logoCi} alt="CI" className="h-7 object-contain" />
           <div>
-            <h1 className="text-lg font-bold text-foreground">⚙️ Gerenciamento</h1>
-            <p className="text-xs text-muted-foreground">Administração Centralizada</p>
+            <h1 className="font-display font-bold text-base leading-tight flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" /> Painel de Controle
+            </h1>
+            <p className="text-[10px] text-primary-foreground/70">Administração Centralizada</p>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 p-4">
-        <Tabs defaultValue="maquinas" className="w-full">
-          <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-secondary p-1 rounded-xl">
-            <TabsTrigger value="maquinas" className="text-xs flex-1 min-w-[80px]">Máquinas</TabsTrigger>
-            <TabsTrigger value="funcionarios" className="text-xs flex-1 min-w-[80px]">Funcionários</TabsTrigger>
-            <TabsTrigger value="tipos_servico" className="text-xs flex-1 min-w-[80px]">Serviços</TabsTrigger>
-            <TabsTrigger value="materiais" className="text-xs flex-1 min-w-[80px]">Materiais</TabsTrigger>
-            <TabsTrigger value="empreiteiros" className="text-xs flex-1 min-w-[80px]">Empreiteiros</TabsTrigger>
-            <TabsTrigger value="fornecedores" className="text-xs flex-1 min-w-[80px]">Fornecedores</TabsTrigger>
-            <TabsTrigger value="usinas" className="text-xs flex-1 min-w-[80px]">Usinas</TabsTrigger>
-            <TabsTrigger value="ogs" className="text-xs flex-1 min-w-[80px]">OGS</TabsTrigger>
-            <TabsTrigger value="caminhoes" className="text-xs flex-1 min-w-[80px]">Caminhões</TabsTrigger>
-            <TabsTrigger value="usuarios" className="text-xs flex-1 min-w-[80px]">Usuários</TabsTrigger>
-            <TabsTrigger value="emails" className="text-xs flex-1 min-w-[80px]">E-mails</TabsTrigger>
-          </TabsList>
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar navigation */}
+        <nav className="w-56 shrink-0 border-r border-border bg-card overflow-y-auto hidden md:block">
+          <div className="py-2">
+            {MENU_SECTIONS.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeSection === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => setActiveSection(item.key)}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${
+                    isActive
+                      ? "bg-primary/10 text-primary font-semibold border-r-2 border-primary"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
-          <TabsContent value="maquinas"><MaquinasManager /></TabsContent>
-          <TabsContent value="funcionarios"><FuncionariosManager /></TabsContent>
-          <TabsContent value="tipos_servico"><EntityManager tableName="tipos_servico" label="Tipo de Serviço" /></TabsContent>
-          <TabsContent value="materiais"><MaterialManager /></TabsContent>
-          <TabsContent value="empreiteiros"><EntityManager tableName="empreiteiros" label="Empreiteiro" /></TabsContent>
-          <TabsContent value="fornecedores"><EntityManager tableName="fornecedores" label="Fornecedor" /></TabsContent>
-          <TabsContent value="usinas"><EntityManager tableName="usinas" label="Usina" /></TabsContent>
-          <TabsContent value="ogs"><OgsManager /></TabsContent>
-          <TabsContent value="caminhoes"><TruckRegistryManager /></TabsContent>
-          <TabsContent value="usuarios"><UsersManager /></TabsContent>
-          <TabsContent value="emails"><EmailConfig /></TabsContent>
-        </Tabs>
+        {/* Mobile tabs (horizontal scroll) */}
+        <div className="md:hidden sticky top-[52px] z-40 bg-card border-b border-border overflow-x-auto flex gap-1 px-2 py-2">
+          {MENU_SECTIONS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeSection === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setActiveSection(item.key)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs whitespace-nowrap transition-colors shrink-0 ${
+                  isActive
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Content area */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-4 md:p-6 max-w-5xl">
+            {currentItem && activeSection !== "dashboard" && (
+              <div className="mb-6">
+                <h2 className="text-lg font-display font-extrabold text-foreground flex items-center gap-2">
+                  {(() => { const Icon = currentItem.icon; return <Icon className="w-5 h-5 text-primary" />; })()}
+                  {currentItem.label}
+                </h2>
+              </div>
+            )}
+            {renderContent()}
+          </div>
+        </main>
       </div>
     </div>
   );

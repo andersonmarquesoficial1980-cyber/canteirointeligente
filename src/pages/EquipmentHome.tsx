@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, Settings, ChevronRight } from "lucide-react";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { LogOut, ChevronRight } from "lucide-react";
 import logoCi from "@/assets/logo-ci.png";
 
 import imgFresadora from "@/assets/equip-fresadora.png";
@@ -32,7 +31,6 @@ const EQUIPMENT_TYPES = [
 
 export default function EquipmentHome() {
   const navigate = useNavigate();
-  const { isAdmin } = useIsAdmin();
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -62,11 +60,6 @@ export default function EquipmentHome() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button variant="ghost" size="icon" onClick={() => navigate("/admin/configuracoes")} className="text-primary-foreground hover:bg-white/15">
-              <Settings className="w-5 h-5" />
-            </Button>
-          )}
           <Button variant="ghost" size="icon" onClick={handleLogout} disabled={loggingOut} className="text-primary-foreground hover:bg-white/15">
             <LogOut className="w-5 h-5" />
           </Button>
@@ -86,25 +79,17 @@ export default function EquipmentHome() {
               onClick={() => handleSelect(eq.id)}
               className="group flex items-center gap-3 rounded-2xl bg-white border border-border p-3 hover:border-primary hover:shadow-[0_4px_24px_-4px_hsl(215_80%_50%/0.25)] hover:scale-[1.02] transition-all duration-200 cursor-pointer shadow-[0_2px_12px_-2px_hsl(215_20%_50%/0.12)] text-left"
             >
-              {/* Circular photo with glow */}
               <div className="relative flex-shrink-0">
                 <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-primary/40 group-hover:border-primary transition-colors">
-                  <img
-                    src={eq.img}
-                    alt={eq.label}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={eq.img} alt={eq.label} className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute inset-0 rounded-full bg-primary/15 blur-md -z-10 scale-125 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-
-              {/* Title */}
               <div className="flex-1 min-w-0">
                 <span className="block text-sm font-display font-extrabold text-[hsl(215_80%_22%)] leading-tight truncate">
                   {eq.label}
                 </span>
               </div>
-
               <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary transition-colors flex-shrink-0" />
             </button>
           ))}
