@@ -275,7 +275,7 @@ export default function EquipmentDiaryForm() {
   }, [ogsData]);
 
   // Fetch equipment list
-  const { data: equipamentos = [] } = useQuery({
+  const { data: equipamentos = [], isLoading: loadingEquipamentos } = useQuery({
     queryKey: ["maquinas_frota"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -284,11 +284,11 @@ export default function EquipmentDiaryForm() {
         .in("status", ["ativo", "Operando"])
         .order("frota");
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
   });
 
-  const { data: funcionarios = [] } = useQuery({
+  const { data: funcionarios = [], isLoading: loadingFuncionarios } = useQuery({
     queryKey: ["funcionarios"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -296,7 +296,7 @@ export default function EquipmentDiaryForm() {
         .select("id, nome, funcao")
         .order("nome");
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
   });
 
@@ -309,7 +309,7 @@ export default function EquipmentDiaryForm() {
         .select("id, nome, vinculo_rdo")
         .order("nome");
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
   });
 
@@ -410,7 +410,7 @@ export default function EquipmentDiaryForm() {
     enabled: isCarreta,
   });
 
-  // Fetch equipment_fleets for Carreta transport equipment selectors & Comboio fleet dropdown
+  // Fetch equipment_fleets globally for all modules
   const { data: equipmentFleets = [] } = useQuery({
     queryKey: ["equipment_fleets"],
     queryFn: async () => {
@@ -419,9 +419,8 @@ export default function EquipmentDiaryForm() {
         .select("*")
         .order("fleet_number");
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
-    enabled: isCarreta || isComboio,
   });
 
   // Determine which static fleet list to use
@@ -887,12 +886,12 @@ export default function EquipmentDiaryForm() {
                   </SelectContent>
                 </Select>
               ) : (
-                <Select value={selectedFleet} onValueChange={setSelectedFleet}>
+                <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Selecione..." />
+                    <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : "Selecione..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(isFresadora ? filteredFleet : equipamentos).map((eq: any) => (
+                    {(isFresadora ? filteredFleet : equipamentos).filter((eq: any) => eq.frota).map((eq: any) => (
                       <SelectItem key={eq.id} value={eq.frota}>
                         {eq.frota} — {eq.nome}
                       </SelectItem>
@@ -914,7 +913,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder="Selecione a prancha..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {trailerFleets.map((t: any) => (
+                  {trailerFleets.filter((t: any) => t.fleet_number).map((t: any) => (
                     <SelectItem key={t.id} value={t.fleet_number}>{t.fleet_number}</SelectItem>
                   ))}
                 </SelectContent>
@@ -923,12 +922,12 @@ export default function EquipmentDiaryForm() {
           )}
 
           <Field label={isTruck ? "Motorista" : "Operador"}>
-            <Select value={operator} onValueChange={setOperator}>
+            <Select value={operator} onValueChange={setOperator} disabled={loadingFuncionarios}>
               <SelectTrigger className="bg-secondary border-border">
-                <SelectValue placeholder={isTruck ? "Selecione o motorista..." : "Selecione o operador..."} />
+                <SelectValue placeholder={loadingFuncionarios ? "Carregando..." : (isTruck ? "Selecione o motorista..." : "Selecione o operador...")} />
               </SelectTrigger>
               <SelectContent>
-                {getOperatorList().map((f: any) => (
+                {getOperatorList().filter((f: any) => f.nome).map((f: any) => (
                   <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
@@ -983,12 +982,12 @@ export default function EquipmentDiaryForm() {
 
           {isFresadora && (
             <Field label="Operador Solo">
-              <Select value={operatorSolo} onValueChange={setOperatorSolo}>
+              <Select value={operatorSolo} onValueChange={setOperatorSolo} disabled={loadingFuncionarios}>
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione o operador solo..." />
+                  <SelectValue placeholder={loadingFuncionarios ? "Carregando..." : "Selecione o operador solo..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {operadoresSolo.map((f: any) => (
+                  {operadoresSolo.filter((f: any) => f.nome).map((f: any) => (
                     <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1017,11 +1016,11 @@ export default function EquipmentDiaryForm() {
               <Field label="OGS">
                 <Select value={ogsNumber} onValueChange={setOgsNumber}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Selecione OGS..." />
+                    <SelectValue placeholder={uniqueOgs.length === 0 ? "Carregando OGS..." : "Selecione OGS..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {uniqueOgs.map((o: any) => (
-                      <SelectItem key={o.id} value={o.ogs_number || ""}>
+                    {uniqueOgs.filter((o: any) => o.ogs_number).map((o: any) => (
+                      <SelectItem key={o.id} value={o.ogs_number}>
                         {o.ogs_number} — {o.client_name}
                       </SelectItem>
                     ))}
