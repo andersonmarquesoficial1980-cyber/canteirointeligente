@@ -49,10 +49,11 @@ function AppRoutes() {
         <Route path="/equipamentos/frota" element={<AppLayout><FrotaNovo /></AppLayout>} />
         <Route path="/equipamentos/diario" element={<EquipmentDiaryForm />} />
 
+        {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}
         <Route path="/carreteiros" element={<TruckerHome />} />
 
-        {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) */}
+        {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
         <Route path="/admin/configuracoes" element={
           <ErrorBoundary fallbackMessage="Erro ao carregar o Painel de Controle.">
             <AdminConfiguracoes />
