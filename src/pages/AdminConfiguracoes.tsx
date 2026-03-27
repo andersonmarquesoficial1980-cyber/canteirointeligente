@@ -296,12 +296,16 @@ function UsersManager() {
         body: { email: email.trim().toLowerCase(), password, nome_completo: nome.trim(), perfil },
       });
 
-      // Edge function returns {error: "..."} in body on failure
+      // Log raw response for debugging
+      console.error("RAW create-user response:", { result, invokeError });
+
       const errorMsg = result?.error || invokeError?.message;
       if (errorMsg) {
-        // Friendly message for duplicate email
         if (errorMsg.includes("already been registered") || errorMsg.includes("já está cadastrado")) {
           throw new Error("Este e-mail já está cadastrado no sistema.");
+        }
+        if (errorMsg.includes("administradores")) {
+          throw new Error("Erro de permissão: seu usuário não está reconhecido como Admin. Verifique a tabela user_roles no Supabase.");
         }
         throw new Error(errorMsg);
       }
