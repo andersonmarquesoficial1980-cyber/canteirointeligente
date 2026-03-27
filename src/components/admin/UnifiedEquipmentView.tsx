@@ -278,13 +278,18 @@ export default function UnifiedEquipmentView() {
               </div>
             ) : (
               <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
                   <p className="text-sm font-bold text-primary">📊 {tab.label} — {consolidatedRows.length} registros</p>
-                  {consolidatedRows.some(r => r.meterMismatch) && (
-                    <Badge variant="outline" className="text-[10px] border-orange-500 text-orange-500 gap-1">
-                      <AlertTriangle className="w-3 h-3" /> Divergências
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {consolidatedRows.some(r => r.meterMismatch) && (
+                      <Badge variant="outline" className="text-[10px] border-orange-500 text-orange-500 gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Divergências
+                      </Badge>
+                    )}
+                    <Button size="sm" variant="outline" onClick={exportToExcel} className="h-8 text-xs gap-1.5">
+                      <Download className="w-3.5 h-3.5" /> Exportar Totvs (Excel)
+                    </Button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <Table>
