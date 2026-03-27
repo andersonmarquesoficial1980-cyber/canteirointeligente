@@ -30,21 +30,23 @@ function AppRoutes() {
   useEffect(() => {
     if (!session?.user?.id) { setBlocked(false); return; }
     setCheckingAccess(true);
-    supabase
-      .from("profiles")
-      .select("status")
-      .eq("user_id", session.user.id)
-      .maybeSingle()
-      .then(({ data }) => {
+    const check = async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("status")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
         if (data && data.status === "inativo") {
           setBlocked(true);
           signOut();
         } else {
           setBlocked(false);
         }
-        setCheckingAccess(false);
-      })
-      .catch(() => setCheckingAccess(false));
+      } catch {}
+      setCheckingAccess(false);
+    };
+    check();
   }, [session?.user?.id]);
 
   if (loading || checkingAccess) {
