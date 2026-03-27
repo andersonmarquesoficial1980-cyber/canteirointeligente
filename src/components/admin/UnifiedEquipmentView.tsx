@@ -1,13 +1,15 @@
 // CRITICAL CORE: Visão Unificada por Equipamento — Painel de Controle
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CalendarIcon, AlertTriangle, Fuel, Ruler } from "lucide-react";
+import { CalendarIcon, AlertTriangle, Fuel, Ruler, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 interface DiaryRow {
   id: string;
@@ -198,6 +200,41 @@ export default function UnifiedEquipmentView() {
     rows.sort((a, b) => (b.diary.date || "").localeCompare(a.diary.date || ""));
     return rows;
   }, [diaries, productions, comboioRefuelings, fleetRefuelings, diaryDateMap, activeTab]);
+
+  const exportToExcel = useCallback(() => {
+    const tab = EQUIPMENT_TABS.find(t => t.key === activeTab);
+    if (!tab || consolidatedRows.length === 0) return;
+
+    const rows = consolidatedRows.map(r => ({
+      DATA: r.diary.date ? new Date(r.diary.date + "T12:00:00").toLocaleDateString("pt-BR") : "",
+      PREFIXO: r.diary.equipment_fleet || "",
+      OPERADOR: r.diary.operator_name || "",
+      OGS: r.diary.ogs_number || "",
+      HORIMETRO_INICIAL: r.diary.meter_initial ?? "",
+      HORIMETRO_FINAL: r.diary.meter_final ?? "",
+      PRODUCAO_M2: r.totalM2 > 0 ? Number(r.totalM2.toFixed(1)) : 0,
+      COMBUSTIVEL_L: r.dieselTotal > 0 ? Number(r.dieselTotal.toFixed(0)) : 0,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Column widths
+    ws["!cols"] = [
+      { wch: 12 }, // DATA
+      { wch: 10 }, // PREFIXO
+      { wch: 22 }, // OPERADOR
+      { wch: 8 },  // OGS
+      { wch: 18 }, // HORIMETRO_INICIAL
+      { wch: 16 }, // HORIMETRO_FINAL
+      { wch: 14 }, // PRODUCAO_M2
+      { wch: 16 }, // COMBUSTIVEL_L
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, tab.label);
+    const today = new Date().toISOString().split("T")[0];
+    XLSX.writeFile(wb, `Export_Totvs_${tab.label}_${today}.xlsx`);
+  }, [consolidatedRows, activeTab]);
 
   return (
     <div className="space-y-4">
