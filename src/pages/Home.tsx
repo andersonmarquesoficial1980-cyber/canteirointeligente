@@ -1,3 +1,4 @@
+// CRITICAL CORE: DO NOT ALTER MODULE ARRAY, VERTICAL LAYOUT OR USER CREATION FLOW.
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck, LogOut } from "lucide-react";
@@ -5,6 +6,16 @@ import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck, LogOut } from "lu
 import logoCi from "@/assets/logo-ci.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
+
+// @LOCK: Array fixo de módulos do HUB — NUNCA remover itens ou alterar ordem
+const APP_MODULES = [
+  { id: "obras", label: "CI Obras", subtitle: "Diário de Obras", icon: "ClipboardList", route: "/obras", adminOnly: false },
+  { id: "equipamentos", label: "CI Equipamentos", subtitle: "Gestão de Equipamentos", icon: "Cog", route: "/equipamentos", adminOnly: false },
+  { id: "carreteiros", label: "CI Carreteiros", subtitle: "Logística de Materiais", icon: "Truck", route: "/carreteiros", adminOnly: false },
+  { id: "admin", label: "Painel de Controle", subtitle: "Dashboards e Gestão", icon: "ShieldCheck", route: "/admin/configuracoes", adminOnly: true },
+] as const;
+
+const ICON_MAP = { ClipboardList, Cog, Truck, ShieldCheck } as const;
 
 export default function Home() {
   const navigate = useNavigate();
@@ -56,67 +67,29 @@ export default function Home() {
       {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
       {/* @LOCK-UI: Single-column vertical layout — DO NOT change to grid-cols-2 */}
       <div className="flex flex-col gap-3 w-full max-w-lg relative z-10">
-        {/* 1. CI Obras */}
-        <button
-          onClick={() => navigate("/obras")}
-          className="group relative flex items-center gap-4 rounded-2xl bg-header-gradient text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
-        >
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-            <ClipboardList className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div className="text-left">
-            <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">CI Obras</span>
-            <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Diário de Obras</span>
-          </div>
-          <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
-        </button>
-
-        {/* 2. CI Equipamentos */}
-        <button
-          onClick={() => navigate("/equipamentos")}
-          className="group relative flex items-center gap-4 rounded-2xl bg-header-gradient text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
-        >
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-            <Cog className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div className="text-left">
-            <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">CI Equipamentos</span>
-            <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Gestão de Equipamentos</span>
-          </div>
-          <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
-        </button>
-
-        {/* 3. CI Carreteiros — NUNCA REMOVER */}
-        <button
-          onClick={() => navigate("/carreteiros")}
-          className="group relative flex items-center gap-4 rounded-2xl bg-header-gradient text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
-        >
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-            <Truck className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div className="text-left">
-            <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">CI Carreteiros</span>
-            <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Logística de Materiais</span>
-          </div>
-          <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
-        </button>
-
-        {/* 4. Painel de Controle — admin only, NUNCA REMOVER */}
-        {isAdmin && (
-          <button
-            onClick={() => navigate("/admin/configuracoes")}
-            className="group relative flex items-center gap-4 rounded-2xl bg-[hsl(220,60%,20%)] text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
-          >
-            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-              <ShieldCheck className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div className="text-left">
-              <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">Painel de Controle</span>
-              <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Dashboards e Gestão</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
-          </button>
-        )}
+        {APP_MODULES
+          .filter(mod => !mod.adminOnly || isAdmin)
+          .map(mod => {
+            const Icon = ICON_MAP[mod.icon as keyof typeof ICON_MAP];
+            return (
+              <button
+                key={mod.id}
+                onClick={() => navigate(mod.route)}
+                className={`group relative flex items-center gap-4 rounded-2xl text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer ${
+                  mod.id === "admin" ? "bg-[hsl(220,60%,20%)]" : "bg-header-gradient"
+                }`}
+              >
+                <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
+                  <Icon className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <div className="text-left">
+                  <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">{mod.label}</span>
+                  <span className="block text-[10px] text-primary-foreground/70 mt-0.5">{mod.subtitle}</span>
+                </div>
+                <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
+              </button>
+            );
+          })}
       </div>
     </div>
   );
