@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck, LogOut, Settings } from "lucide-react";
+import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck, LogOut } from "lucide-react";
 
 import logoCi from "@/assets/logo-ci.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
