@@ -1498,7 +1498,7 @@ export default function EquipmentDiaryForm() {
             onFornecedorChange={setComboioFornecedor}
             entries={comboioRefuels}
             onChange={setComboioRefuels}
-            equipamentos={equipmentFleets.length > 0 ? equipmentFleets.map((f: any) => ({ id: f.id, frota: f.fleet_number, nome: f.equipment_type })) : equipamentos}
+            equipamentos={equipamentos}
             ogsData={ogsData}
             fornecedoresDb={fornecedoresDiesel}
             onGeneratePdf={() =>
