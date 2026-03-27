@@ -306,12 +306,16 @@ export default function EquipmentDiaryForm() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fornecedores")
-        .select("id, nome, vinculo_rdo")
+        .select("id, nome, vinculo_rdo, tipo_insumo")
         .order("nome");
       if (error) throw error;
       return (data || []) as any[];
     },
   });
+
+  // Filtered suppliers: Diesel for Comboio, Emulsão for Espargidor
+  const fornecedoresDiesel = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Diesel");
+  const fornecedoresEmulsao = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Emulsão");
 
   // Log data arrival for debugging
   useEffect(() => {
@@ -1496,7 +1500,7 @@ export default function EquipmentDiaryForm() {
             onChange={setComboioRefuels}
             equipamentos={equipmentFleets.length > 0 ? equipmentFleets.map((f: any) => ({ id: f.id, frota: f.fleet_number, nome: f.equipment_type })) : equipamentos}
             ogsData={ogsData}
-            fornecedoresDb={fornecedoresDb}
+            fornecedoresDb={fornecedoresDiesel}
             onGeneratePdf={() =>
               generateComboioPdf({
                 fleet: selectedFleet,

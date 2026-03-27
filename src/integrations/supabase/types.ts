@@ -658,18 +658,21 @@ export type Database = {
           created_at: string | null
           id: string
           nome: string
+          tipo_insumo: string
           vinculo_rdo: string
         }
         Insert: {
           created_at?: string | null
           id?: string
           nome: string
+          tipo_insumo?: string
           vinculo_rdo?: string
         }
         Update: {
           created_at?: string | null
           id?: string
           nome?: string
+          tipo_insumo?: string
           vinculo_rdo?: string
         }
         Relationships: []
