@@ -188,6 +188,14 @@ export default function ComboioRefuelingSection({
 
         {entries.map((entry, idx) => {
           const meterLabel = entry.fleetFueled && isVehicleFleet(entry.fleetFueled) ? "KM" : "H";
+          const selectedType = EQUIPMENT_TYPE_OPTIONS.find((t) => t.value === entry.tipoEquipamento);
+          const filteredEquipamentos = selectedType
+            ? selectedType.prefixes.length > 0
+              ? equipamentos.filter((eq: any) =>
+                  selectedType.prefixes.some((p) => eq.frota?.toUpperCase().startsWith(p))
+                )
+              : equipamentos
+            : [];
 
           return (
             <div
@@ -199,10 +207,10 @@ export default function ComboioRefuelingSection({
                 #{idx + 1}
               </div>
 
-              {/* ── LINHA 1: Hora + Frota ── */}
+              {/* ── LINHA 1: Hora + Tipo ── */}
               <div className="grid grid-cols-[100px_1fr] gap-3 pt-2">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase flex items-center gap-1">
+                  <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase flex items-center gap-1">
                     <Clock className="w-3 h-3" /> Hora
                   </span>
                   <Input
@@ -213,23 +221,49 @@ export default function ComboioRefuelingSection({
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">Frota</span>
+                  <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">Tipo de Equipamento</span>
                   <Select
-                    value={entry.fleetFueled}
-                    onValueChange={(v) => updateEntry(idx, "fleetFueled", v)}
+                    value={entry.tipoEquipamento}
+                    onValueChange={(v) => {
+                      const updated = [...entries];
+                      updated[idx] = { ...updated[idx], tipoEquipamento: v, fleetFueled: "" };
+                      onChange(updated);
+                    }}
                   >
                     <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                      <SelectValue placeholder="Selecione a frota..." />
+                      <SelectValue placeholder="Selecione o tipo..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {equipamentos.map((eq: any) => (
-                        <SelectItem key={eq.id} value={eq.frota}>
-                          {eq.frota} — {eq.nome}
+                      {EQUIPMENT_TYPE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* ── LINHA 2: Frota (filtrada) ── */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">Frota</span>
+                <Select
+                  value={entry.fleetFueled}
+                  onValueChange={(v) => updateEntry(idx, "fleetFueled", v)}
+                  disabled={!entry.tipoEquipamento}
+                >
+                  <SelectTrigger className={`bg-secondary border-border h-9 text-xs ${!entry.tipoEquipamento ? "opacity-50" : ""}`}>
+                    <SelectValue placeholder={entry.tipoEquipamento ? "Selecione a frota..." : "Selecione o tipo primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredEquipamentos.map((eq: any) => (
+                      <SelectItem key={eq.id} value={eq.frota}>
+                        {eq.frota} — {eq.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               </div>
 
               {/* ── LINHA 2: Litros + Medição ── */}
