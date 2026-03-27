@@ -1,4 +1,3 @@
-// @LOCK-UI: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL.
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -55,11 +54,6 @@ function AppRoutes() {
         <Route path="/carreteiros" element={<TruckerHome />} />
 
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
-        <Route path="/admin" element={
-          <ErrorBoundary fallbackMessage="Erro ao carregar o Painel de Controle.">
-            <AdminConfiguracoes />
-          </ErrorBoundary>
-        } />
         <Route path="/admin/configuracoes" element={
           <ErrorBoundary fallbackMessage="Erro ao carregar o Painel de Controle.">
             <AdminConfiguracoes />
