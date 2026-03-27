@@ -23,6 +23,18 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// @LOCK: Rotas obrigatórias do sistema — NUNCA remover
+const APP_ROUTES = [
+  { path: "/", component: "Home" },
+  { path: "/obras", component: "Index" },
+  { path: "/obras/rdo", component: "RdoForm" },
+  { path: "/equipamentos", component: "EquipmentHome" },
+  { path: "/equipamentos/frota", component: "FrotaNovo" },
+  { path: "/equipamentos/diario", component: "EquipmentDiaryForm" },
+  { path: "/carreteiros", component: "TruckerHome" },
+  { path: "/admin/configuracoes", component: "AdminConfiguracoes" },
+] as const;
+
 function AppRoutes() {
   const { session, loading, signOut } = useAuth();
   const [blocked, setBlocked] = useState(false);
