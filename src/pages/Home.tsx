@@ -1,3 +1,4 @@
+// CRITICAL CORE: DO NOT ALTER MODULE ARRAY, VERTICAL LAYOUT OR USER CREATION FLOW.
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck, LogOut } from "lucide-react";
@@ -5,6 +6,16 @@ import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck, LogOut } from "lu
 import logoCi from "@/assets/logo-ci.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
+
+// @LOCK: Array fixo de módulos do HUB — NUNCA remover itens ou alterar ordem
+const APP_MODULES = [
+  { id: "obras", label: "CI Obras", subtitle: "Diário de Obras", icon: "ClipboardList", route: "/obras", adminOnly: false },
+  { id: "equipamentos", label: "CI Equipamentos", subtitle: "Gestão de Equipamentos", icon: "Cog", route: "/equipamentos", adminOnly: false },
+  { id: "carreteiros", label: "CI Carreteiros", subtitle: "Logística de Materiais", icon: "Truck", route: "/carreteiros", adminOnly: false },
+  { id: "admin", label: "Painel de Controle", subtitle: "Dashboards e Gestão", icon: "ShieldCheck", route: "/admin/configuracoes", adminOnly: true },
+] as const;
+
+const ICON_MAP = { ClipboardList, Cog, Truck, ShieldCheck } as const;
 
 export default function Home() {
   const navigate = useNavigate();
