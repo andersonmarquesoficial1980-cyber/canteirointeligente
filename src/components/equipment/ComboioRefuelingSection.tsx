@@ -8,6 +8,7 @@ import { Plus, Trash2, Fuel, Droplets, Truck, FileDown, Clock } from "lucide-rea
 export interface ComboioRefuelEntry {
   id: string;
   hora: string;
+  tipoEquipamento: string;
   fleetFueled: string;
   equipmentMeter: string;
   litersFueled: string;
@@ -20,6 +21,7 @@ export function createEmptyComboioRefuel(): ComboioRefuelEntry {
   return {
     id: crypto.randomUUID(),
     hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    tipoEquipamento: "",
     fleetFueled: "",
     equipmentMeter: "",
     litersFueled: "",
@@ -28,6 +30,17 @@ export function createEmptyComboioRefuel(): ComboioRefuelEntry {
     isWashed: false,
   };
 }
+
+/* Mapeamento Tipo → Prefixos */
+const EQUIPMENT_TYPE_OPTIONS = [
+  { value: "Fresadora", label: "Fresadora", prefixes: ["FA"] },
+  { value: "Bobcat", label: "Bobcat", prefixes: ["BC"] },
+  { value: "Rolo Chapa", label: "Rolo Chapa", prefixes: ["CH", "RD"] },
+  { value: "Rolo Pneu", label: "Rolo Pneu", prefixes: ["PN"] },
+  { value: "Vibroacabadora", label: "Vibroacabadora", prefixes: ["VA"] },
+  { value: "Caminhão", label: "Caminhão", prefixes: ["CM", "CC", "CP", "CE"] },
+  { value: "Outros", label: "Outros", prefixes: [] },
+] as const;
 
 interface Props {
   saldoInicial: string;
@@ -168,13 +181,21 @@ export default function ComboioRefuelingSection({
 
       {/* ── CARD 02: ABASTECIMENTO DE FROTA ── */}
       <div className="space-y-4">
-        <h3 className="text-lg font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase tracking-wide flex items-center gap-2">
+        <h3 className="text-lg font-display font-extrabold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
           <Truck className="w-5 h-5 text-primary" />
           ABASTECIMENTO DE FROTA
         </h3>
 
         {entries.map((entry, idx) => {
           const meterLabel = entry.fleetFueled && isVehicleFleet(entry.fleetFueled) ? "KM" : "H";
+          const selectedType = EQUIPMENT_TYPE_OPTIONS.find((t) => t.value === entry.tipoEquipamento);
+          const filteredEquipamentos = selectedType
+            ? selectedType.prefixes.length > 0
+              ? equipamentos.filter((eq: any) =>
+                  selectedType.prefixes.some((p) => eq.frota?.toUpperCase().startsWith(p))
+                )
+              : equipamentos
+            : [];
 
           return (
             <div
@@ -186,10 +207,10 @@ export default function ComboioRefuelingSection({
                 #{idx + 1}
               </div>
 
-              {/* ── LINHA 1: Hora + Frota ── */}
+              {/* ── LINHA 1: Hora + Tipo ── */}
               <div className="grid grid-cols-[100px_1fr] gap-3 pt-2">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase flex items-center gap-1">
+                  <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase flex items-center gap-1">
                     <Clock className="w-3 h-3" /> Hora
                   </span>
                   <Input
@@ -200,18 +221,22 @@ export default function ComboioRefuelingSection({
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">Frota</span>
+                  <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">Tipo de Equipamento</span>
                   <Select
-                    value={entry.fleetFueled}
-                    onValueChange={(v) => updateEntry(idx, "fleetFueled", v)}
+                    value={entry.tipoEquipamento}
+                    onValueChange={(v) => {
+                      const updated = [...entries];
+                      updated[idx] = { ...updated[idx], tipoEquipamento: v, fleetFueled: "" };
+                      onChange(updated);
+                    }}
                   >
                     <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                      <SelectValue placeholder="Selecione a frota..." />
+                      <SelectValue placeholder="Selecione o tipo..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {equipamentos.map((eq: any) => (
-                        <SelectItem key={eq.id} value={eq.frota}>
-                          {eq.frota} — {eq.nome}
+                      {EQUIPMENT_TYPE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -219,10 +244,31 @@ export default function ComboioRefuelingSection({
                 </div>
               </div>
 
-              {/* ── LINHA 2: Litros + Medição ── */}
+              {/* ── LINHA 2: Frota (filtrada) ── */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">Frota</span>
+                <Select
+                  value={entry.fleetFueled}
+                  onValueChange={(v) => updateEntry(idx, "fleetFueled", v)}
+                  disabled={!entry.tipoEquipamento}
+                >
+                  <SelectTrigger className={`bg-secondary border-border h-9 text-xs ${!entry.tipoEquipamento ? "opacity-50" : ""}`}>
+                    <SelectValue placeholder={entry.tipoEquipamento ? "Selecione a frota..." : "Selecione o tipo primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredEquipamentos.map((eq: any) => (
+                      <SelectItem key={eq.id} value={eq.frota}>
+                        {eq.frota} — {eq.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* ── LINHA 3: Litros + Medição ── */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">
+                  <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">
                     Litros Abastecidos
                   </span>
                   <Input
@@ -235,7 +281,7 @@ export default function ComboioRefuelingSection({
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">
+                  <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">
                     Medição ({meterLabel})
                   </span>
                   <Input
@@ -251,7 +297,7 @@ export default function ComboioRefuelingSection({
 
               {/* ── LINHA 3: OGS full-width ── */}
               <div className="space-y-1">
-                <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">
+                <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">
                   OGS — Local de Trabalho
                 </span>
                 <Select
