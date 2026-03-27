@@ -1,15 +1,71 @@
+// @LOCK-UI: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL.
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck, LogOut, Settings } from "lucide-react";
+import { ClipboardList, Cog, Truck, ShieldCheck, LogOut, type LucideIcon } from "lucide-react";
 
 import logoCi from "@/assets/logo-ci.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 
+type HubCard = {
+  key: "obras" | "equipamentos" | "carreteiros" | "painel";
+  title: string;
+  subtitle: string;
+  path: string;
+  icon: LucideIcon;
+  adminOnly?: boolean;
+  tone: "default" | "carreteiros" | "admin";
+};
+
+// CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL
+const HUB_CARDS: HubCard[] = [
+  {
+    key: "obras",
+    title: "CI Obras",
+    subtitle: "Diário de Obras",
+    path: "/obras",
+    icon: ClipboardList,
+    tone: "default",
+  },
+  {
+    key: "equipamentos",
+    title: "CI Equipamentos",
+    subtitle: "Gestão de Equipamentos",
+    path: "/equipamentos",
+    icon: Cog,
+    tone: "default",
+  },
+  {
+    key: "carreteiros",
+    title: "CI Carreteiros",
+    subtitle: "Logística de Materiais",
+    path: "/carreteiros",
+    icon: Truck,
+    tone: "carreteiros",
+  },
+  {
+    key: "painel",
+    title: "Painel de Controle",
+    subtitle: "Dashboards e Gestão",
+    path: "/admin",
+    icon: ShieldCheck,
+    adminOnly: true,
+    tone: "admin",
+  },
+];
+
+const cardToneClasses: Record<HubCard["tone"], string> = {
+  default: "bg-header-gradient text-primary-foreground",
+  carreteiros: "bg-primary text-primary-foreground",
+  admin: "bg-secondary text-secondary-foreground",
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const visibleCards = HUB_CARDS.filter((card) => !card.adminOnly || isAdmin);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -54,79 +110,27 @@ export default function Home() {
       </button>
 
       {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
-      {/* Module buttons — 2-column grid on mobile, stacked on wide screens */}
-      <div className="grid grid-cols-2 gap-3 w-full max-w-lg relative z-10">
-        {/* 1. CI Obras */}
-        <button
-          onClick={() => navigate("/obras")}
-          className="group relative flex flex-col items-center gap-2 rounded-2xl bg-header-gradient text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
-        >
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-            <ClipboardList className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div className="text-center">
-            <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">CI Obras</span>
-            <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Diário de Obras</span>
-          </div>
-        </button>
+      {/* Layout travado em coluna única (sem grid) */}
+      <div className="flex flex-col gap-3 w-full max-w-lg relative z-10">
+        {visibleCards.map((card) => {
+          const Icon = card.icon;
 
-        {/* 2. CI Equipamentos */}
-        <button
-          onClick={() => navigate("/equipamentos")}
-          className="group relative flex flex-col items-center gap-2 rounded-2xl bg-header-gradient text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
-        >
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-            <Cog className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div className="text-center">
-            <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">CI Equipamentos</span>
-            <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Gestão de Equipamentos</span>
-          </div>
-        </button>
-
-        {/* 3. CI Carreteiros — NUNCA REMOVER */}
-        <button
-          onClick={() => navigate("/carreteiros")}
-          className="group relative flex flex-col items-center gap-2 rounded-2xl bg-header-gradient text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
-        >
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-            <Truck className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div className="text-center">
-            <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">CI Carreteiros</span>
-            <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Logística de Materiais</span>
-          </div>
-        </button>
-
-        {/* 4. Gerenciamento — para todos os usuários */}
-        <button
-          onClick={() => navigate("/admin/configuracoes")}
-          className="group relative flex flex-col items-center gap-2 rounded-2xl bg-header-gradient text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
-        >
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-            <Settings className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div className="text-center">
-            <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">Gerenciamento</span>
-            <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Cadastros e Configurações</span>
-          </div>
-        </button>
-
-        {/* 5. Painel de Controle — admin only, NUNCA REMOVER */}
-        {isAdmin && (
-          <button
-            onClick={() => navigate("/admin/configuracoes")}
-            className="group relative flex flex-col items-center gap-2 rounded-2xl bg-[hsl(220,60%,20%)] text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer col-span-2"
-          >
-            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-              <ShieldCheck className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div className="text-center">
-              <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">Painel de Controle</span>
-              <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Dashboards e Gestão</span>
-            </div>
-          </button>
-        )}
+          return (
+            <button
+              key={card.key}
+              onClick={() => navigate(card.path)}
+              className={`group relative flex w-full items-center gap-4 rounded-2xl p-5 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] shadow-xl hover:shadow-2xl cursor-pointer ${cardToneClasses[card.tone]}`}
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
+                <Icon className="w-6 h-6" />
+              </div>
+              <div className="text-left">
+                <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">{card.title}</span>
+                <span className="block text-[10px] opacity-80 mt-0.5">{card.subtitle}</span>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
