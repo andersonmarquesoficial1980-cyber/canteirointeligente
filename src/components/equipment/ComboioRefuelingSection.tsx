@@ -34,12 +34,14 @@ export function createEmptyComboioRefuel(): ComboioRefuelEntry {
 /* Mapeamento Tipo → Prefixos */
 const EQUIPMENT_TYPE_OPTIONS = [
   { value: "Fresadora", label: "Fresadora", prefixes: ["FA"] },
-  { value: "Bobcat", label: "Bobcat", prefixes: ["BC"] },
-  { value: "Rolo Chapa", label: "Rolo Chapa", prefixes: ["CH", "RD"] },
-  { value: "Rolo Pneu", label: "Rolo Pneu", prefixes: ["PN"] },
   { value: "Vibroacabadora", label: "Vibroacabadora", prefixes: ["VA"] },
-  { value: "Caminhão", label: "Caminhão", prefixes: ["CM", "CC", "CP", "CE"] },
-  { value: "Outros", label: "Outros", prefixes: [] },
+  { value: "Bobcat", label: "Bobcat", prefixes: ["BC"] },
+  { value: "Rolo Chapa/Liso", label: "Rolo Chapa/Liso", prefixes: ["CH", "RD"] },
+  { value: "Rolo Pneu", label: "Rolo Pneu", prefixes: ["PN"] },
+  { value: "Rolo Pé de Carneiro", label: "Rolo Pé de Carneiro", prefixes: ["PC"] },
+  { value: "Usina Móvel", label: "Usina Móvel", prefixes: ["US"] },
+  { value: "Caminhão", label: "Caminhão", prefixes: ["CA", "CM", "CC", "CP", "CE"] },
+  { value: "Apoio/Outros", label: "Apoio/Outros", prefixes: [] },
 ] as const;
 
 interface Props {
