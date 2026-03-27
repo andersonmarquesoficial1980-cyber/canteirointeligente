@@ -21,6 +21,7 @@ export function createEmptyComboioRefuel(): ComboioRefuelEntry {
   return {
     id: crypto.randomUUID(),
     hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    tipoEquipamento: "",
     fleetFueled: "",
     equipmentMeter: "",
     litersFueled: "",
@@ -29,6 +30,17 @@ export function createEmptyComboioRefuel(): ComboioRefuelEntry {
     isWashed: false,
   };
 }
+
+/* Mapeamento Tipo → Prefixos */
+const EQUIPMENT_TYPE_OPTIONS = [
+  { value: "Fresadora", label: "Fresadora", prefixes: ["FA"] },
+  { value: "Bobcat", label: "Bobcat", prefixes: ["BC"] },
+  { value: "Rolo Chapa", label: "Rolo Chapa", prefixes: ["CH", "RD"] },
+  { value: "Rolo Pneu", label: "Rolo Pneu", prefixes: ["PN"] },
+  { value: "Vibroacabadora", label: "Vibroacabadora", prefixes: ["VA"] },
+  { value: "Caminhão", label: "Caminhão", prefixes: ["CM", "CC", "CP", "CE"] },
+  { value: "Outros", label: "Outros", prefixes: [] },
+] as const;
 
 interface Props {
   saldoInicial: string;
