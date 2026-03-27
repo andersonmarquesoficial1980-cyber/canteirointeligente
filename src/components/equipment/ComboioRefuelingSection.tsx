@@ -181,7 +181,7 @@ export default function ComboioRefuelingSection({
 
       {/* ── CARD 02: ABASTECIMENTO DE FROTA ── */}
       <div className="space-y-4">
-        <h3 className="text-lg font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase tracking-wide flex items-center gap-2">
+        <h3 className="text-lg font-display font-extrabold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
           <Truck className="w-5 h-5 text-primary" />
           ABASTECIMENTO DE FROTA
         </h3>
@@ -281,7 +281,7 @@ export default function ComboioRefuelingSection({
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">
+                  <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">
                     Medição ({meterLabel})
                   </span>
                   <Input
@@ -297,7 +297,7 @@ export default function ComboioRefuelingSection({
 
               {/* ── LINHA 3: OGS full-width ── */}
               <div className="space-y-1">
-                <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">
+                <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">
                   OGS — Local de Trabalho
                 </span>
                 <Select
