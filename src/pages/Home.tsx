@@ -1,21 +1,13 @@
 // CRITICAL CORE: DO NOT ALTER MODULE ARRAY, VERTICAL LAYOUT OR USER CREATION FLOW.
+// STATIC_UI_LOCK: MANDATORY MODULES
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Cog, Truck, ChevronRight, ShieldCheck, LogOut } from "lucide-react";
+import { ChevronRight, LogOut } from "lucide-react";
 
 import logoCi from "@/assets/logo-ci.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { supabase } from "@/integrations/supabase/client";
-
-// @LOCK: Array fixo de módulos do HUB — NUNCA remover itens ou alterar ordem
-const APP_MODULES = [
-  { id: "obras", label: "CI Obras", subtitle: "Diário de Obras", icon: "ClipboardList", route: "/obras", adminOnly: false },
-  { id: "equipamentos", label: "CI Equipamentos", subtitle: "Gestão de Equipamentos", icon: "Cog", route: "/equipamentos", adminOnly: false },
-  { id: "carreteiros", label: "CI Carreteiros", subtitle: "Logística de Materiais", icon: "Truck", route: "/carreteiros", adminOnly: false },
-  { id: "admin", label: "Painel de Controle", subtitle: "Dashboards e Gestão", icon: "ShieldCheck", route: "/admin/configuracoes", adminOnly: true },
-] as const;
-
-const ICON_MAP = { ClipboardList, Cog, Truck, ShieldCheck } as const;
+import { HUB_MODULES } from "@/config/navigation";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -64,13 +56,12 @@ export default function Home() {
         <LogOut className="w-4 h-4" /> {loggingOut ? "Saindo..." : "Sair"}
       </button>
 
-      {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
       {/* @LOCK-UI: Single-column vertical layout — DO NOT change to grid-cols-2 */}
       <div className="flex flex-col gap-3 w-full max-w-lg relative z-10">
-        {APP_MODULES
+        {HUB_MODULES
           .filter(mod => !mod.adminOnly || isAdmin)
           .map(mod => {
-            const Icon = ICON_MAP[mod.icon as keyof typeof ICON_MAP];
+            const Icon = mod.icon;
             return (
               <button
                 key={mod.id}
