@@ -62,6 +62,10 @@ function useCrudTable(tableName: string) {
   };
 
   const remove = async (id: string) => {
+    if (!id) {
+      toast({ title: "Erro interno", description: "Identificador não encontrado.", variant: "destructive" });
+      return;
+    }
     try {
       const { error } = await supabase.from(tableName as any).delete().eq("id", id);
       if (error) { toast({ title: "Erro ao remover", description: error.message, variant: "destructive" }); return; }
@@ -327,7 +331,10 @@ function UsersManager() {
   };
 
   const handleSaveEdit = async () => {
-    if (!editing) return;
+    if (!editing || !editing.user_id) {
+      if (editing && !editing.user_id) toast({ title: "Erro interno", description: "Identificador não encontrado.", variant: "destructive" });
+      return;
+    }
     setSavingEdit(true);
     try {
       const body: any = { action: "update", user_id: editing.user_id };
@@ -357,8 +364,14 @@ function UsersManager() {
         return;
       }
 
+      if (!deactivating.id) {
+        toast({ title: "Erro interno", description: "Identificador não encontrado.", variant: "destructive" });
+        setDeactivating(null);
+        setDeactivatingLoading(false);
+        return;
+      }
       const newStatus = deactivating.status === "inativo" ? "ativo" : "inativo";
-      const { error } = await supabase.from("profiles").update({ status: newStatus }).eq("id", deactivating.id);
+      const { error } = await supabase.from("profiles").update({ status: newStatus } as any).eq("id", deactivating.id);
       if (error) throw error;
       toast({ title: newStatus === "inativo" ? "✅ Usuário desativado!" : "✅ Usuário reativado!" });
       setDeactivating(null);
@@ -520,7 +533,8 @@ function OgsManager() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast({ title: "Sessão expirada", variant: "destructive" }); return; }
       if (editingId) {
-        const { error } = await supabase.from("ogs_reference").update({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim() }).eq("id", editingId);
+        if (!editingId) { toast({ title: "Erro interno", description: "Identificador não encontrado.", variant: "destructive" }); return; }
+        const { error } = await supabase.from("ogs_reference").update({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim() } as any).eq("id", editingId);
         if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
         toast({ title: "✅ OGS atualizada!" });
         setEditingId(null);
@@ -546,7 +560,11 @@ function OgsManager() {
   const cancelEdit = () => { setEditingId(null); setNumero(""); setCliente(""); setEndereco(""); };
 
   const handleDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || !deleteTarget.id) {
+      toast({ title: "Erro interno", description: "Identificador não encontrado.", variant: "destructive" });
+      setDeleteTarget(null);
+      return;
+    }
     setDeletingLoading(true);
     const { error } = await supabase.from("ogs_reference").delete().eq("id", deleteTarget.id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
