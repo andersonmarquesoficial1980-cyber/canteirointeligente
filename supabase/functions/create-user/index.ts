@@ -31,7 +31,7 @@ serve(async (req) => {
       .maybeSingle();
 
     // Also check hardcoded admin email
-    const isHardcodedAdmin = caller.email?.toLowerCase() === "anderson@fremix.com.br";
+    const isHardcodedAdmin = caller.email?.toLowerCase() === "anderson@fremix.com.br" || caller.email?.toLowerCase() === "andersonmarquesoficial1980@gmail.com";
     if (!roleData && !isHardcodedAdmin) throw new Error("Apenas administradores podem gerenciar usuários");
 
     const body = await req.json();
