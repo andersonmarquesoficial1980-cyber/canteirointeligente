@@ -54,77 +54,67 @@ export default function Home() {
       </button>
 
       {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
-      {/* Module buttons — 2-column grid on mobile, stacked on wide screens */}
-      <div className="grid grid-cols-2 gap-3 w-full max-w-lg relative z-10">
+      {/* @LOCK-UI: Single-column vertical layout — DO NOT change to grid-cols-2 */}
+      <div className="flex flex-col gap-3 w-full max-w-lg relative z-10">
         {/* 1. CI Obras */}
         <button
           onClick={() => navigate("/obras")}
-          className="group relative flex flex-col items-center gap-2 rounded-2xl bg-header-gradient text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
+          className="group relative flex items-center gap-4 rounded-2xl bg-header-gradient text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
         >
           <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
             <ClipboardList className="w-6 h-6 text-primary-foreground" />
           </div>
-          <div className="text-center">
+          <div className="text-left">
             <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">CI Obras</span>
             <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Diário de Obras</span>
           </div>
+          <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
         </button>
 
         {/* 2. CI Equipamentos */}
         <button
           onClick={() => navigate("/equipamentos")}
-          className="group relative flex flex-col items-center gap-2 rounded-2xl bg-header-gradient text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
+          className="group relative flex items-center gap-4 rounded-2xl bg-header-gradient text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
         >
           <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
             <Cog className="w-6 h-6 text-primary-foreground" />
           </div>
-          <div className="text-center">
+          <div className="text-left">
             <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">CI Equipamentos</span>
             <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Gestão de Equipamentos</span>
           </div>
+          <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
         </button>
 
         {/* 3. CI Carreteiros — NUNCA REMOVER */}
         <button
           onClick={() => navigate("/carreteiros")}
-          className="group relative flex flex-col items-center gap-2 rounded-2xl bg-header-gradient text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
+          className="group relative flex items-center gap-4 rounded-2xl bg-header-gradient text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
         >
           <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
             <Truck className="w-6 h-6 text-primary-foreground" />
           </div>
-          <div className="text-center">
+          <div className="text-left">
             <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">CI Carreteiros</span>
             <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Logística de Materiais</span>
           </div>
+          <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
         </button>
 
-        {/* 4. Gerenciamento — para todos os usuários */}
-        <button
-          onClick={() => navigate("/admin/configuracoes")}
-          className="group relative flex flex-col items-center gap-2 rounded-2xl bg-header-gradient text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
-        >
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-            <Settings className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div className="text-center">
-            <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">Gerenciamento</span>
-            <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Cadastros e Configurações</span>
-          </div>
-        </button>
-
-        {/* 5. Painel de Controle — admin only, NUNCA REMOVER */}
+        {/* 4. Painel de Controle — admin only, NUNCA REMOVER */}
         {isAdmin && (
           <button
             onClick={() => navigate("/admin/configuracoes")}
-            className="group relative flex flex-col items-center gap-2 rounded-2xl bg-[hsl(220,60%,20%)] text-primary-foreground p-5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer col-span-2"
+            className="group relative flex items-center gap-4 rounded-2xl bg-[hsl(220,60%,20%)] text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer"
           >
             <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
               <ShieldCheck className="w-6 h-6 text-primary-foreground" />
             </div>
-            <div className="text-center">
+            <div className="text-left">
               <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">Painel de Controle</span>
               <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Dashboards e Gestão</span>
             </div>
+            <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
           </button>
         )}
       </div>
