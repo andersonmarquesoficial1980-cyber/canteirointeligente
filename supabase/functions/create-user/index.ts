@@ -116,6 +116,18 @@ serve(async (req) => {
 
     if (createError) {
       if (createError.message?.includes("already been registered")) {
+        // Check if profile already exists for this email
+        const { data: existingProfileByEmail } = await supabaseAdmin
+          .from("profiles")
+          .select("user_id, status")
+          .eq("email", email)
+          .maybeSingle();
+
+        if (existingProfileByEmail && existingProfileByEmail.status === "ativo") {
+          throw new Error("Este e-mail já está cadastrado no sistema.");
+        }
+
+        // Reactivate inactive user or link existing auth user
         const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
         if (listError) throw new Error("Erro ao buscar usuário existente");
         const existing = listData.users.find((u: any) => u.email === email);
