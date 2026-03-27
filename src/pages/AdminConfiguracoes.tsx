@@ -331,7 +331,10 @@ function UsersManager() {
   };
 
   const handleSaveEdit = async () => {
-    if (!editing) return;
+    if (!editing || !editing.user_id) {
+      if (editing && !editing.user_id) toast({ title: "Erro interno", description: "Identificador não encontrado.", variant: "destructive" });
+      return;
+    }
     setSavingEdit(true);
     try {
       const body: any = { action: "update", user_id: editing.user_id };
