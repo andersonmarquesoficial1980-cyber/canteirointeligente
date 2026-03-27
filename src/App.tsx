@@ -1,4 +1,5 @@
 // CRITICAL CORE: DO NOT ALTER MODULE ARRAY, VERTICAL LAYOUT OR USER CREATION FLOW.
+// @PRODUCTION-READY: DO NOT REMOVE MODULES OR CHANGE VERTICAL LAYOUT.
 import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -21,6 +22,18 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// @LOCK: Rotas obrigatórias do sistema — NUNCA remover
+const APP_ROUTES = [
+  { path: "/", component: "Home" },
+  { path: "/obras", component: "Index" },
+  { path: "/obras/rdo", component: "RdoForm" },
+  { path: "/equipamentos", component: "EquipmentHome" },
+  { path: "/equipamentos/frota", component: "FrotaNovo" },
+  { path: "/equipamentos/diario", component: "EquipmentDiaryForm" },
+  { path: "/carreteiros", component: "TruckerHome" },
+  { path: "/admin/configuracoes", component: "AdminConfiguracoes" },
+] as const;
 
 function AppRoutes() {
   const { session, loading, signOut } = useAuth();
