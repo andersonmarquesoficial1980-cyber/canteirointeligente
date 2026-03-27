@@ -264,12 +264,11 @@ export default function ComboioRefuelingSection({
                   </SelectContent>
                 </Select>
               </div>
-              </div>
 
-              {/* ── LINHA 2: Litros + Medição ── */}
+              {/* ── LINHA 3: Litros + Medição ── */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-display font-extrabold text-[hsl(var(--navy,220,60%,30%))] uppercase">
+                  <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">
                     Litros Abastecidos
                   </span>
                   <Input
