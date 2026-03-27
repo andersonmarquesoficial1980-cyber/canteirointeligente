@@ -292,24 +292,25 @@ function UsersManager() {
     }
     setCreating(true);
     try {
-      const response = await supabase.functions.invoke("create-user", {
-        body: { email: email.trim(), password, nome_completo: nome.trim(), perfil },
+      const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", {
+        body: { email: email.trim().toLowerCase(), password, nome_completo: nome.trim(), perfil },
       });
-      const { data: result, error: invokeError } = response;
-      if (invokeError) {
-        let msg = "Erro ao criar usuário";
-        if (result?.error) msg = result.error;
-        else if (typeof invokeError === "object" && invokeError.message) {
-          try { const parsed = JSON.parse(invokeError.message); if (parsed?.error) msg = parsed.error; } catch { msg = invokeError.message; }
+
+      // Edge function returns {error: "..."} in body on failure
+      const errorMsg = result?.error || invokeError?.message;
+      if (errorMsg) {
+        // Friendly message for duplicate email
+        if (errorMsg.includes("already been registered") || errorMsg.includes("já está cadastrado")) {
+          throw new Error("Este e-mail já está cadastrado no sistema.");
         }
-        throw new Error(msg);
+        throw new Error(errorMsg);
       }
-      if (result?.error) throw new Error(result.error);
+
       toast({ title: "✅ Usuário cadastrado com sucesso!" });
       setNome(""); setEmail(""); setPassword(""); setPerfil("Apontador");
       await load();
     } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao criar usuário", description: err.message, variant: "destructive" });
     } finally { setCreating(false); }
   };
 
