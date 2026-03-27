@@ -272,8 +272,9 @@ function UsersManager() {
   const [editPerfil, setEditPerfil] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
-  const [deleting, setDeleting] = useState<any | null>(null);
-  const [deletingLoading, setDeletingLoading] = useState(false);
+  const [deactivating, setDeactivating] = useState<any | null>(null);
+  const [deactivatingLoading, setDeactivatingLoading] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
@@ -281,6 +282,8 @@ function UsersManager() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const filteredUsers = showInactive ? users : users.filter(u => u.status !== "inativo");
 
   const handleCreate = async () => {
     if (!nome.trim() || !email.trim() || !password.trim()) {
@@ -335,20 +338,28 @@ function UsersManager() {
     } finally { setSavingEdit(false); }
   };
 
-  const handleDelete = async () => {
-    if (!deleting) return;
-    setDeletingLoading(true);
+  const handleDeactivate = async () => {
+    if (!deactivating) return;
+    setDeactivatingLoading(true);
     try {
-      const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", {
-        body: { action: "delete", user_id: deleting.user_id },
-      });
-      if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao excluir");
-      toast({ title: "✅ Usuário excluído!" });
-      setDeleting(null);
+      // Check self-deactivation
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && deactivating.user_id === user.id) {
+        toast({ title: "Bloqueado", description: "Você não pode desativar sua própria conta.", variant: "destructive" });
+        setDeactivating(null);
+        setDeactivatingLoading(false);
+        return;
+      }
+
+      const newStatus = deactivating.status === "inativo" ? "ativo" : "inativo";
+      const { error } = await supabase.from("profiles").update({ status: newStatus }).eq("id", deactivating.id);
+      if (error) throw error;
+      toast({ title: newStatus === "inativo" ? "✅ Usuário desativado!" : "✅ Usuário reativado!" });
+      setDeactivating(null);
       await load();
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally { setDeletingLoading(false); }
+    } finally { setDeactivatingLoading(false); }
   };
 
   return (
@@ -383,22 +394,38 @@ function UsersManager() {
         </Button>
       </div>
 
-      <p className="text-sm font-semibold text-foreground">Usuários Cadastrados</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-foreground">Usuários Cadastrados</p>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+          <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} className="rounded" />
+          Mostrar Desativados
+        </label>
+      </div>
       <div className="space-y-2">
-        {users.map((u: any) => (
-          <div key={u.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-sm text-foreground truncate">{u.nome_completo}</p>
-              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{u.perfil}</span>
+        {filteredUsers.map((u: any) => {
+          const isInactive = u.status === "inativo";
+          return (
+            <div key={u.id} className={`bg-card rounded-lg border border-border p-3 flex items-center justify-between ${isInactive ? "opacity-60" : ""}`}>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm text-foreground truncate">{u.nome_completo}</p>
+                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                <div className="flex gap-1.5 mt-1">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{u.perfil}</span>
+                  <Badge variant={isInactive ? "destructive" : "default"} className="text-[10px] px-2 py-0.5">
+                    {isInactive ? "Inativo" : "Ativo"}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 ml-2">
+                <button onClick={() => openEdit(u)} className="text-muted-foreground hover:text-foreground p-1.5"><Pencil className="w-4 h-4" /></button>
+                <button onClick={() => setDeactivating(u)} className={isInactive ? "text-green-600 p-1.5" : "text-destructive p-1.5"}>
+                  {isInactive ? <UserCheck className="w-4 h-4" /> : <UserMinus className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1 ml-2">
-              <button onClick={() => openEdit(u)} className="text-muted-foreground hover:text-foreground p-1.5"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => setDeleting(u)} className="text-destructive p-1.5"><Trash2 className="w-4 h-4" /></button>
-            </div>
-          </div>
-        ))}
-        {users.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum usuário cadastrado.</p>}
+          );
+        })}
+        {filteredUsers.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum usuário cadastrado.</p>}
       </div>
 
       <Dialog open={!!editing} onOpenChange={open => !open && setEditing(null)}>
@@ -437,18 +464,21 @@ function UsersManager() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleting} onOpenChange={open => !open && setDeleting(null)}>
+      <AlertDialog open={!!deactivating} onOpenChange={open => !open && setDeactivating(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Usuário</AlertDialogTitle>
+            <AlertDialogTitle>{deactivating?.status === "inativo" ? "Reativar Usuário" : "Desativar Usuário"}</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{deleting?.nome_completo}</strong> ({deleting?.email})? Esta ação não pode ser desfeita.
+              {deactivating?.status === "inativo"
+                ? <>Deseja reativar <strong>{deactivating?.nome_completo}</strong> ({deactivating?.email})?</>
+                : <>Tem certeza que deseja desativar <strong>{deactivating?.nome_completo}</strong> ({deactivating?.email})? O usuário não conseguirá mais acessar o sistema.</>
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={deletingLoading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {deletingLoading ? "Excluindo..." : "Excluir"}
+            <AlertDialogAction onClick={handleDeactivate} disabled={deactivatingLoading} className={deactivating?.status === "inativo" ? "bg-green-600 hover:bg-green-700" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}>
+              {deactivatingLoading ? "Aguarde..." : deactivating?.status === "inativo" ? "Reativar" : "Desativar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
