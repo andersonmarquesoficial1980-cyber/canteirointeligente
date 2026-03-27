@@ -79,6 +79,10 @@ export default function FuncionariosManager() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!id) {
+      toast({ title: "Erro interno", description: "Identificador não encontrado.", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("funcionarios" as any).delete().eq("id", id);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -95,7 +99,10 @@ export default function FuncionariosManager() {
   };
 
   const handleSaveEdit = async () => {
-    if (!editing || !editNome.trim() || !editFuncao.trim()) return;
+    if (!editing || !editing.id || !editNome.trim() || !editFuncao.trim()) {
+      if (editing && !editing.id) toast({ title: "Erro interno", description: "Identificador não encontrado.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     const { error } = await supabase
       .from("funcionarios" as any)
