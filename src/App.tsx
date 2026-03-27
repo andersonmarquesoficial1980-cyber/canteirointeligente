@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
 import Index from "./pages/Index";
 import RdoForm from "./pages/RdoForm";
@@ -20,12 +22,44 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { session, loading } = useAuth();
+  const { session, loading, signOut } = useAuth();
+  const [blocked, setBlocked] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(false);
 
-  if (loading) {
+  // Check if user is active after session loads
+  useEffect(() => {
+    if (!session?.user?.id) { setBlocked(false); return; }
+    setCheckingAccess(true);
+    supabase
+      .from("profiles")
+      .select("status")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && data.status === "inativo") {
+          setBlocked(true);
+          signOut();
+        } else {
+          setBlocked(false);
+        }
+        setCheckingAccess(false);
+      })
+      .catch(() => setCheckingAccess(false));
+  }, [session?.user?.id]);
+
+  if (loading || checkingAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (blocked) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center gap-4">
+        <p className="text-lg font-bold text-destructive">Acesso bloqueado</p>
+        <p className="text-sm text-muted-foreground">Sua conta foi desativada. Procure o Administrador.</p>
       </div>
     );
   }
