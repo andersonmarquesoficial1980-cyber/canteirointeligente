@@ -8,6 +8,7 @@ import { Plus, Trash2, Fuel, Droplets, Truck, FileDown, Clock } from "lucide-rea
 export interface ComboioRefuelEntry {
   id: string;
   hora: string;
+  tipoEquipamento: string;
   fleetFueled: string;
   equipmentMeter: string;
   litersFueled: string;
