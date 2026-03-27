@@ -19,6 +19,7 @@ import FuncionariosManager from "@/components/admin/FuncionariosManager";
 import logoCi from "@/assets/logo-ci.png";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
+const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
 
 const VINCULO_OPTIONS = ["CAUQ", "INFRA", "CANTEIRO", "TODOS"];
 const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
@@ -766,6 +767,7 @@ function MaterialManager() {
 // ═══════════════════════════════════════════════════════════════
 const MENU_SECTIONS = [
   { key: "dashboard", label: "Dashboards", icon: BarChart3 },
+  { key: "visao_equipamentos", label: "Visão Equipamentos", icon: Wrench },
   { key: "usuarios", label: "Usuários", icon: Users },
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
   { key: "materiais", label: "Materiais", icon: Package },
@@ -793,6 +795,12 @@ export default function AdminConfiguracoes() {
         return (
           <Suspense fallback={<div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Carregando dashboard...</p></div>}>
             <FleetDashboard />
+          </Suspense>
+        );
+      case "visao_equipamentos":
+        return (
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Carregando...</p></div>}>
+            <UnifiedEquipmentView />
           </Suspense>
         );
       case "usuarios": return <UsersManager />;
