@@ -1,3 +1,4 @@
+// @UI-LOCK: MANDATORY MODULES AND VERTICAL LAYOUT. DO NOT ALTER THIS STRUCTURE.
 // STATIC_UI_LOCK: MANDATORY MODULES — NEVER remove items or alter order.
 // This file is the single source of truth for HUB navigation.
 // It is intentionally decoupled from any database or Edge Function logic.
