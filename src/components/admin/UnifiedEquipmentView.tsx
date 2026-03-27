@@ -118,7 +118,7 @@ export default function UnifiedEquipmentView() {
     if (!tab) return [];
 
     const filtered = diaries.filter(d =>
-      d.equipment_type && tab.types.includes(d.equipment_type.toLowerCase())
+      d.equipment_type && (tab.types as readonly string[]).includes(d.equipment_type.toLowerCase())
     );
 
     // Group productions by diary_id
