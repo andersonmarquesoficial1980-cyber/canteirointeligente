@@ -426,15 +426,18 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                   )}
                 </>
               ) : (
-                <div className="space-y-1">
-                  <span className="text-[10px] font-semibold text-accent uppercase">Observações do Transporte</span>
-                  <Textarea
-                    value={entry.transportObs || ""}
-                    onChange={(e) => updateEntry(idx, "transportObs", e.target.value)}
-                    placeholder="Detalhes do transporte..."
-                    className="bg-secondary border-border text-xs min-h-[50px]"
-                  />
-                </div>
+                // Hide transport observations for Comboio — only show for other equipment types
+                equipmentType.toLowerCase() !== "comboio" ? (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Observações do Transporte</span>
+                    <Textarea
+                      value={entry.transportObs || ""}
+                      onChange={(e) => updateEntry(idx, "transportObs", e.target.value)}
+                      placeholder="Detalhes do transporte..."
+                      className="bg-secondary border-border text-xs min-h-[50px]"
+                    />
+                  </div>
+                ) : null
               )}
             </div>
           )}
