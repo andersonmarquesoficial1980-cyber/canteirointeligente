@@ -341,7 +341,7 @@ export default function EquipmentDiaryForm() {
         // Search refueling logs for this fleet on this date
         const { data: refuelLogs } = await supabase
           .from("comboio_equipment_refueling")
-          .select("liters_fueled")
+          .select("liters_fueled, equipment_meter")
           .in("diary_id", diaryIds)
           .eq("equipment_fleet_fueled", selectedFleet);
 
@@ -353,13 +353,18 @@ export default function EquipmentDiaryForm() {
             0
           );
           if (totalLiters > 0) {
+            const lastMeter = refuelLogs.reduce((best: number, r: any) => {
+              const m = Number(r.equipment_meter) || 0;
+              return m > best ? m : best;
+            }, 0);
             setFueling((prev) => ({
               ...prev,
               fuelType: prev.fuelType || "Diesel S10",
               liters: String(totalLiters),
+              fuelMeter: lastMeter > 0 ? String(lastMeter) : prev.fuelMeter,
             }));
             setFuelSyncedFromComboio(true);
-            console.log(`[FuelSync] ${selectedFleet} em ${date}: ${totalLiters}L sincronizados do Comboio`);
+            console.log(`[FuelSync] ${selectedFleet} em ${date}: ${totalLiters}L, meter=${lastMeter} sincronizados do Comboio`);
             return;
           }
         }
@@ -367,7 +372,7 @@ export default function EquipmentDiaryForm() {
         // Also check fleet_refueling_logs
         const { data: fleetLogs } = await supabase
           .from("fleet_refueling_logs")
-          .select("liters_refueled")
+          .select("liters_refueled, meter_reading")
           .in("diary_id", diaryIds)
           .eq("target_equipment_fleet", selectedFleet);
 
@@ -379,13 +384,18 @@ export default function EquipmentDiaryForm() {
             0
           );
           if (totalLiters > 0) {
+            const lastMeter = fleetLogs.reduce((best: number, r: any) => {
+              const m = Number(r.meter_reading) || 0;
+              return m > best ? m : best;
+            }, 0);
             setFueling((prev) => ({
               ...prev,
               fuelType: prev.fuelType || "Diesel S10",
               liters: String(totalLiters),
+              fuelMeter: lastMeter > 0 ? String(lastMeter) : prev.fuelMeter,
             }));
             setFuelSyncedFromComboio(true);
-            console.log(`[FuelSync] ${selectedFleet} em ${date}: ${totalLiters}L sincronizados (fleet_refueling_logs)`);
+            console.log(`[FuelSync] ${selectedFleet} em ${date}: ${totalLiters}L, meter=${lastMeter} sincronizados (fleet_refueling_logs)`);
             return;
           }
         }
