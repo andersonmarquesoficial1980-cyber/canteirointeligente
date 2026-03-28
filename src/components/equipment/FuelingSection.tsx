@@ -22,7 +22,7 @@ export function createEmptyFueling(): FuelingData {
 
 export default function FuelingSection({ data, onChange, meterLabel = "Horímetro", syncedFromComboio = false }: Props) {
   const update = (field: keyof FuelingData, value: string) => {
-    if (syncedFromComboio && field === "liters") return;
+    if (syncedFromComboio && (field === "liters" || field === "fuelMeter")) return;
     onChange({ ...data, [field]: value });
   };
 
@@ -75,7 +75,8 @@ export default function FuelingSection({ data, onChange, meterLabel = "Horímetr
             value={data.fuelMeter}
             onChange={(e) => update("fuelMeter", e.target.value)}
             placeholder="0"
-            className="bg-secondary border-border"
+            className={`bg-secondary border-border ${syncedFromComboio && data.fuelMeter ? "opacity-70 cursor-not-allowed" : ""}`}
+            readOnly={syncedFromComboio && !!data.fuelMeter}
           />
         </div>
       </div>
