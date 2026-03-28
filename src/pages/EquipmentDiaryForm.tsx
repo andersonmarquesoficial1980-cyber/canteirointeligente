@@ -191,6 +191,7 @@ export default function EquipmentDiaryForm() {
   const [productionAreas, setProductionAreas] = useState<ProductionArea[]>([createEmptyArea()]);
   const [bits, setBits] = useState<BitEntry[]>([]);
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
+  const [fuelSyncedFromComboio, setFuelSyncedFromComboio] = useState(false);
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
 
   // Bobcat-specific
@@ -313,7 +314,93 @@ export default function EquipmentDiaryForm() {
     },
   });
 
-  // Filtered suppliers: Diesel for Comboio, Emulsão for Espargidor
+  // ── SINCRONIZAÇÃO AUTOMÁTICA DE COMBUSTÍVEL (Comboio → Equipamento) ──
+  useEffect(() => {
+    if (isComboio || !selectedFleet || !date) {
+      setFuelSyncedFromComboio(false);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchComboioFuel = async () => {
+      try {
+        // Find diaries from Comboio for the same date
+        const { data: comboioDiaries } = await supabase
+          .from("equipment_diaries")
+          .select("id")
+          .eq("equipment_type", "Comboio")
+          .eq("date", date);
+
+        if (!comboioDiaries || comboioDiaries.length === 0) {
+          if (!cancelled) setFuelSyncedFromComboio(false);
+          return;
+        }
+
+        const diaryIds = comboioDiaries.map((d: any) => d.id);
+
+        // Search refueling logs for this fleet on this date
+        const { data: refuelLogs } = await supabase
+          .from("comboio_equipment_refueling")
+          .select("liters_fueled")
+          .in("diary_id", diaryIds)
+          .eq("equipment_fleet_fueled", selectedFleet);
+
+        if (cancelled) return;
+
+        if (refuelLogs && refuelLogs.length > 0) {
+          const totalLiters = refuelLogs.reduce(
+            (sum: number, r: any) => sum + (Number(r.liters_fueled) || 0),
+            0
+          );
+          if (totalLiters > 0) {
+            setFueling((prev) => ({
+              ...prev,
+              fuelType: prev.fuelType || "Diesel S10",
+              liters: String(totalLiters),
+            }));
+            setFuelSyncedFromComboio(true);
+            console.log(`[FuelSync] ${selectedFleet} em ${date}: ${totalLiters}L sincronizados do Comboio`);
+            return;
+          }
+        }
+
+        // Also check fleet_refueling_logs
+        const { data: fleetLogs } = await supabase
+          .from("fleet_refueling_logs")
+          .select("liters_refueled")
+          .in("diary_id", diaryIds)
+          .eq("target_equipment_fleet", selectedFleet);
+
+        if (cancelled) return;
+
+        if (fleetLogs && fleetLogs.length > 0) {
+          const totalLiters = fleetLogs.reduce(
+            (sum: number, r: any) => sum + (Number(r.liters_refueled) || 0),
+            0
+          );
+          if (totalLiters > 0) {
+            setFueling((prev) => ({
+              ...prev,
+              fuelType: prev.fuelType || "Diesel S10",
+              liters: String(totalLiters),
+            }));
+            setFuelSyncedFromComboio(true);
+            console.log(`[FuelSync] ${selectedFleet} em ${date}: ${totalLiters}L sincronizados (fleet_refueling_logs)`);
+            return;
+          }
+        }
+
+        setFuelSyncedFromComboio(false);
+      } catch (err) {
+        console.error("[FuelSync] Erro ao buscar combustível do Comboio:", err);
+        if (!cancelled) setFuelSyncedFromComboio(false);
+      }
+    };
+
+    fetchComboioFuel();
+    return () => { cancelled = true; };
+  }, [selectedFleet, date, isComboio]);
+
   const fornecedoresDiesel = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Diesel");
   const fornecedoresEmulsao = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Emulsão");
 
@@ -1520,7 +1607,7 @@ export default function EquipmentDiaryForm() {
 
         {/* ABASTECIMENTO + METER FINAL */}
         {!isComboio && (
-          <FuelingSection data={fueling} onChange={setFueling} meterLabel={meterLabel} />
+          <FuelingSection data={fueling} onChange={setFueling} meterLabel={meterLabel} syncedFromComboio={fuelSyncedFromComboio} />
         )}
 
         <Section title={`${meterLabel} FINAL`}>
