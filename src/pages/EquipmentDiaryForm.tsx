@@ -856,9 +856,13 @@ export default function EquipmentDiaryForm() {
           }
 
           if (htmlReport) {
+            const fmtDateEmail = (d: string) => { const [y,m,day] = d.split("-"); return `${day}/${m}/${y}`; };
+            const emailSubject = isComboio
+              ? `Abastecimento de Equipamentos - ${selectedFleet} - ${fmtDateEmail(date)}`
+              : `Transporte de Equipamentos - ${selectedFleet} - ${fmtDateEmail(date)}`;
             console.log(`📧 Enviando e-mail do ${isComboio ? "Comboio" : "Carreta"}...`);
             const { error: emailError } = await supabase.functions.invoke("send-rdo-email", {
-              body: { rdo_id: diary.id, html_report: htmlReport },
+              body: { rdo_id: diary.id, html_report: htmlReport, subject: emailSubject },
             });
             if (emailError) {
               console.error("❌ Erro ao enviar e-mail:", emailError);

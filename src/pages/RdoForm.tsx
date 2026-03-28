@@ -263,8 +263,10 @@ export default function RdoForm() {
       let emailSent = false;
       try {
         console.log("Iniciando envio de e-mail...");
+        const fmtDate = (d: string) => { const [y,m,day] = d.split("-"); return `${day}/${m}/${y}`; };
+        const rdoSubject = `RDO - ${header.obra_nome} - ${fmtDate(header.data)}`;
         const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-rdo-email", {
-          body: { rdo_id: rdoId, html_report: htmlReport },
+          body: { rdo_id: rdoId, html_report: htmlReport, subject: rdoSubject },
         });
         console.log("Resposta da função de e-mail:", emailResult);
 

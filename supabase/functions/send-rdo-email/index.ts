@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     }
     console.log("✅ User authenticated:", user.email);
 
-    const { rdo_id, html_report } = await req.json();
+    const { rdo_id, html_report, subject: customSubject } = await req.json();
 
     if (!rdo_id || !html_report) {
       return new Response(
@@ -64,16 +64,19 @@ Deno.serve(async (req) => {
       console.log("📧 Recipients found:", emails);
     }
 
-    // Get RDO info for subject
-    const { data: rdo } = await supabase
-      .from("rdo_diarios")
-      .select("obra_nome, data")
-      .eq("id", rdo_id)
-      .single();
+    // Use custom subject if provided, otherwise fallback to RDO lookup
+    let subject = customSubject;
+    if (!subject) {
+      const { data: rdo } = await supabase
+        .from("rdo_diarios")
+        .select("obra_nome, data")
+        .eq("id", rdo_id)
+        .single();
 
-    const subject = rdo
-      ? `Novo RDO - Obra: ${rdo.obra_nome} - Data: ${rdo.data}`
-      : `Novo RDO - Relatório Diário de Obra`;
+      subject = rdo
+        ? `Novo RDO - Obra: ${rdo.obra_nome} - Data: ${rdo.data}`
+        : `Novo RDO - Relatório Diário de Obra`;
+    }
 
     // Check Resend key
     const resendKey = Deno.env.get("RESEND_API_KEY");
