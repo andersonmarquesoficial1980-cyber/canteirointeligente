@@ -1607,7 +1607,7 @@ export default function EquipmentDiaryForm() {
 
         {/* ABASTECIMENTO + METER FINAL */}
         {!isComboio && (
-          <FuelingSection data={fueling} onChange={setFueling} meterLabel={meterLabel} />
+          <FuelingSection data={fueling} onChange={setFueling} meterLabel={meterLabel} syncedFromComboio={fuelSyncedFromComboio} />
         )}
 
         <Section title={`${meterLabel} FINAL`}>
