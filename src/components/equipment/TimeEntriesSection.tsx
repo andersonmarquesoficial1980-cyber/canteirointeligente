@@ -127,12 +127,25 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
 export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [], isCarreta = false, allFleets = [], equipmentType = "" }: Props) {
   const showReturnReason = PRODUCTION_EQUIPMENT_TYPES.some(t => equipmentType.toLowerCase().includes(t));
   const fleetOptions = useMemo(() => {
-    const opts = allFleets
-      .map((f: any) => f.fleet_number || f.frota)
-      .filter(Boolean)
-      .sort();
-    return [...opts, "Outro"];
+    return allFleets
+      .map((f: any) => ({ frota: f.fleet_number || f.frota, nome: f.nome || f.equipment_type || "" }))
+      .filter((f) => f.frota)
+      .sort((a, b) => a.frota.localeCompare(b.frota));
   }, [allFleets]);
+
+  /* Per-equipment-slot cascade state: track selected type for each of 3 slots */
+  const [equipTypeSlots, setEquipTypeSlots] = useState<Record<string, string>>({});
+
+  const getFilteredFleets = (slotKey: string) => {
+    const selectedType = equipTypeSlots[slotKey];
+    if (!selectedType) return [];
+    const typeOpt = EQUIPMENT_TYPE_OPTIONS.find((t) => t.value === selectedType);
+    if (!typeOpt) return [];
+    if (typeOpt.prefixes.length === 0) return fleetOptions;
+    return fleetOptions.filter((f) =>
+      typeOpt.prefixes.some((p) => f.frota.toUpperCase().startsWith(p))
+    );
+  };
   const ogsLocationOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
   const addEntry = () => {
     const lastEnd = entries.length > 0 ? entries[entries.length - 1].endTime : "";
