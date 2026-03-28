@@ -480,10 +480,14 @@ export default function EquipmentDiaryForm() {
 
   const meterLabel = usesOdometer ? "Odômetro" : "Horímetro";
 
+  const fuelMeterValue = fuelSyncedFromComboio && fueling.fuelMeter ? Number(fueling.fuelMeter) : null;
+
   const horimeterError =
     meterInitial && meterFinal && Number(meterFinal) < Number(meterInitial)
       ? `${meterLabel} Final não pode ser menor que o Inicial`
-      : null;
+      : meterFinal && fuelMeterValue && Number(meterFinal) < fuelMeterValue
+        ? `Erro: O ${meterLabel.toLowerCase()} final não pode ser menor que o ${meterLabel.toLowerCase()} registrado no abastecimento (${fuelMeterValue})!`
+        : null;
 
   const horasTrabalhadas =
     meterInitial && meterFinal && Number(meterFinal) >= Number(meterInitial)
