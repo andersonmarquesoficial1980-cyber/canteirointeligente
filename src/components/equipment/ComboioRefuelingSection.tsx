@@ -39,7 +39,7 @@ const EQUIPMENT_TYPE_OPTIONS = [
   { value: "Rolo Chapa/Liso", label: "Rolo Chapa/Liso", prefixes: ["CH", "RD"] },
   { value: "Rolo Pneu", label: "Rolo Pneu", prefixes: ["PN"] },
   { value: "Rolo Pé de Carneiro", label: "Rolo Pé de Carneiro", prefixes: ["PC"] },
-  { value: "Usina Móvel", label: "Usina Móvel", prefixes: ["US"] },
+  { value: "Usina Móvel", label: "Usina Móvel", prefixes: ["KMA"] },
   { value: "Caminhão", label: "Caminhão", prefixes: ["CA", "CM", "CC", "CP", "CE"] },
   { value: "Apoio/Outros", label: "Apoio/Outros", prefixes: [] },
 ] as const;
