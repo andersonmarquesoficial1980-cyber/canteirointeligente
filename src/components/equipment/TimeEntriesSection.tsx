@@ -1,9 +1,22 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Clock, Warehouse } from "lucide-react";
+
+/* Mapeamento Tipo → Prefixos (mesmo do Comboio) */
+const EQUIPMENT_TYPE_OPTIONS = [
+  { value: "Fresadora", label: "Fresadora", prefixes: ["FA"] },
+  { value: "Vibroacabadora", label: "Vibroacabadora", prefixes: ["VA"] },
+  { value: "Bobcat", label: "Bobcat", prefixes: ["BC"] },
+  { value: "Rolo Chapa/Liso", label: "Rolo Chapa/Liso", prefixes: ["CH", "RD"] },
+  { value: "Rolo Pneu", label: "Rolo Pneu", prefixes: ["PN"] },
+  { value: "Rolo Pé de Carneiro", label: "Rolo Pé de Carneiro", prefixes: ["PC"] },
+  { value: "Usina Móvel", label: "Usina Móvel", prefixes: ["US"] },
+  { value: "Caminhão", label: "Caminhão", prefixes: ["CA", "CM", "CC", "CP", "CE"] },
+  { value: "Apoio/Outros", label: "Apoio/Outros", prefixes: [] },
+] as const;
 
 const BASE_PATIO_VALUE = "BASE / PÁTIO CENTRAL";
 const RETURN_REASONS = ["Manutenção / Oficina", "Término de Obra / Desmobilização"] as const;

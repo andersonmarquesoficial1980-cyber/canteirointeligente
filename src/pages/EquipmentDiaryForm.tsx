@@ -1247,7 +1247,7 @@ export default function EquipmentDiaryForm() {
           showTransportPassengers={isVeiculo}
           ogsData={ogsData}
           isCarreta={isCarreta}
-          allFleets={isCarreta ? equipmentFleets : equipamentos}
+          allFleets={equipamentos}
           equipmentType={equipmentType}
         />
 
