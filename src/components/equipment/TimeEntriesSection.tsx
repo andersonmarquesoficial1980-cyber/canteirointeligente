@@ -1,9 +1,22 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Clock, Warehouse } from "lucide-react";
+
+/* Mapeamento Tipo → Prefixos (mesmo do Comboio) */
+const EQUIPMENT_TYPE_OPTIONS = [
+  { value: "Fresadora", label: "Fresadora", prefixes: ["FA"] },
+  { value: "Vibroacabadora", label: "Vibroacabadora", prefixes: ["VA"] },
+  { value: "Bobcat", label: "Bobcat", prefixes: ["BC"] },
+  { value: "Rolo Chapa/Liso", label: "Rolo Chapa/Liso", prefixes: ["CH", "RD"] },
+  { value: "Rolo Pneu", label: "Rolo Pneu", prefixes: ["PN"] },
+  { value: "Rolo Pé de Carneiro", label: "Rolo Pé de Carneiro", prefixes: ["PC"] },
+  { value: "Usina Móvel", label: "Usina Móvel", prefixes: ["US"] },
+  { value: "Caminhão", label: "Caminhão", prefixes: ["CA", "CM", "CC", "CP", "CE"] },
+  { value: "Apoio/Outros", label: "Apoio/Outros", prefixes: [] },
+] as const;
 
 const BASE_PATIO_VALUE = "BASE / PÁTIO CENTRAL";
 const RETURN_REASONS = ["Manutenção / Oficina", "Término de Obra / Desmobilização"] as const;
@@ -114,12 +127,25 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
 export default function TimeEntriesSection({ entries, onChange, turno, showTransportOgs, showTransportPassengers, ogsData = [], isCarreta = false, allFleets = [], equipmentType = "" }: Props) {
   const showReturnReason = PRODUCTION_EQUIPMENT_TYPES.some(t => equipmentType.toLowerCase().includes(t));
   const fleetOptions = useMemo(() => {
-    const opts = allFleets
-      .map((f: any) => f.fleet_number || f.frota)
-      .filter(Boolean)
-      .sort();
-    return [...opts, "Outro"];
+    return allFleets
+      .map((f: any) => ({ frota: f.fleet_number || f.frota, nome: f.nome || f.equipment_type || "" }))
+      .filter((f) => f.frota)
+      .sort((a, b) => a.frota.localeCompare(b.frota));
   }, [allFleets]);
+
+  /* Per-equipment-slot cascade state: track selected type for each of 3 slots */
+  const [equipTypeSlots, setEquipTypeSlots] = useState<Record<string, string>>({});
+
+  const getFilteredFleets = (slotKey: string) => {
+    const selectedType = equipTypeSlots[slotKey];
+    if (!selectedType) return [];
+    const typeOpt = EQUIPMENT_TYPE_OPTIONS.find((t) => t.value === selectedType);
+    if (!typeOpt) return [];
+    if (typeOpt.prefixes.length === 0) return fleetOptions;
+    return fleetOptions.filter((f) =>
+      typeOpt.prefixes.some((p) => f.frota.toUpperCase().startsWith(p))
+    );
+  };
   const ogsLocationOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
   const addEntry = () => {
     const lastEnd = entries.length > 0 ? entries[entries.length - 1].endTime : "";
@@ -378,37 +404,56 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                 </div>
               )}
 
-              {/* Carreta: 3 equipment fields instead of Observações */}
+              {/* Carreta: 3 equipment fields with cascade Type→Fleet */}
               {isCarreta ? (
                 <>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {([
-                      { field: "transportEquip1" as keyof TimeEntry, customField: "transportEquip1Custom" as keyof TimeEntry, label: "Equipamento 01" },
-                      { field: "transportEquip2" as keyof TimeEntry, customField: "transportEquip2Custom" as keyof TimeEntry, label: "Equipamento 02" },
-                      { field: "transportEquip3" as keyof TimeEntry, customField: "transportEquip3Custom" as keyof TimeEntry, label: "Equipamento 03" },
-                    ]).map(({ field, customField, label }) => (
-                      <div key={field} className="space-y-1">
-                        <span className="text-[10px] font-semibold text-accent uppercase">{label}</span>
-                        <Select value={(entry[field] as string) || ""} onValueChange={(v) => updateEntry(idx, field, v)}>
-                          <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                            <SelectValue placeholder="Selecione a frota..." />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[300px]">
-                            {fleetOptions.map((f) => (
-                              <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {entry[field] === "Outro" && (
-                          <Input
-                            value={(entry[customField] as string) || ""}
-                            onChange={(e) => updateEntry(idx, customField, e.target.value)}
-                            placeholder="Descreva o item transportado..."
-                            className="bg-secondary border-border text-xs h-9"
-                          />
-                        )}
-                      </div>
-                    ))}
+                      { field: "transportEquip1" as keyof TimeEntry, label: "Equipamento 01", slotKey: `${entry.id}-1` },
+                      { field: "transportEquip2" as keyof TimeEntry, label: "Equipamento 02", slotKey: `${entry.id}-2` },
+                      { field: "transportEquip3" as keyof TimeEntry, label: "Equipamento 03", slotKey: `${entry.id}-3` },
+                    ]).map(({ field, label, slotKey }) => {
+                      const filtered = getFilteredFleets(slotKey);
+                      return (
+                        <div key={field} className="space-y-1">
+                          <span className="text-[10px] font-semibold text-accent uppercase">{label}</span>
+                          <div className="grid grid-cols-[1fr_1fr] gap-2">
+                            <Select
+                              value={equipTypeSlots[slotKey] || ""}
+                              onValueChange={(v) => {
+                                setEquipTypeSlots((prev) => ({ ...prev, [slotKey]: v }));
+                                updateEntry(idx, field, "");
+                              }}
+                            >
+                              <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                                <SelectValue placeholder="Tipo..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {EQUIPMENT_TYPE_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={(entry[field] as string) || ""}
+                              onValueChange={(v) => updateEntry(idx, field, v)}
+                              disabled={!equipTypeSlots[slotKey]}
+                            >
+                              <SelectTrigger className={`bg-secondary border-border h-9 text-xs ${!equipTypeSlots[slotKey] ? "opacity-50" : ""}`}>
+                                <SelectValue placeholder={equipTypeSlots[slotKey] ? "Frota..." : "Tipo primeiro"} />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-[300px]">
+                                {filtered.map((f) => (
+                                  <SelectItem key={f.frota} value={f.frota} className="text-xs">
+                                    {f.frota} — {f.nome}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   {entry.origin && entry.destination && entry.origin === entry.destination && (
                     <div className="space-y-1 mt-2">
