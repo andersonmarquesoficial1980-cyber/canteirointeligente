@@ -191,6 +191,7 @@ export default function EquipmentDiaryForm() {
   const [productionAreas, setProductionAreas] = useState<ProductionArea[]>([createEmptyArea()]);
   const [bits, setBits] = useState<BitEntry[]>([]);
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
+  const [fuelSyncedFromComboio, setFuelSyncedFromComboio] = useState(false);
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
 
   // Bobcat-specific
