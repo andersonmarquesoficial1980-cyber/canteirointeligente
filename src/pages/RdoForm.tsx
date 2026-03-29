@@ -89,6 +89,7 @@ export default function RdoForm() {
   // Global hours for Efetivo
   const [globalEntrada, setGlobalEntrada] = useState("");
   const [globalSaida, setGlobalSaida] = useState("");
+  const [savingDraft, setSavingDraft] = useState(false);
 
   // Auto-fill hours based on turno
   useEffect(() => {
@@ -100,6 +101,40 @@ export default function RdoForm() {
       setGlobalSaida("05:00");
     }
   }, [header.turno]);
+
+  // Save Draft handler
+  const handleSaveDraft = useCallback(async () => {
+    const normalizedTurno = header.turno?.trim().toLowerCase() || "";
+    if (!header.obra_nome || !header.data) {
+      toast({ title: "Atenção", description: "Preencha pelo menos OGS e Data para salvar.", variant: "destructive" });
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
+        setSavingDraft(false);
+        return;
+      }
+      const responsavelNome = profile?.nome_completo || "Não identificado";
+      const { error } = await supabase.from("rdo_diarios").insert({
+        data: header.data,
+        obra_nome: header.obra_nome,
+        turno: normalizedTurno || "diurno",
+        clima: header.status_obra || null,
+        responsavel: responsavelNome,
+        user_id: user.id,
+      });
+      if (error) throw error;
+      toast({ title: "✅ Rascunho Salvo!", description: "Progresso registrado no banco de dados." });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Erro ao salvar rascunho", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingDraft(false);
+    }
+  }, [header, profile, toast]);
 
   const formatDateBR = (d: string) => {
     if (!d) return "";
