@@ -31,26 +31,27 @@ const ACTIVITIES = [
 ] as const;
 
 export interface TimeEntry {
-  id: string;
-  startTime: string;
-  endTime: string;
-  activity: string;
-  isParada: boolean;
-  maintenanceDetails?: string;
-  origin?: string;
-  destination?: string;
-  transportObs?: string;
-  transportOgs?: string;
-  transportPassengers?: string;
-  transportEquip1?: string;
-  transportEquip1Custom?: string;
-  transportEquip2?: string;
-  transportEquip2Custom?: string;
-  transportEquip3?: string;
-  transportEquip3Custom?: string;
-  transportInternalDetails?: string;
-  returnReason?: string;
-  returnDetails?: string;
+   id: string;
+   startTime: string;
+   endTime: string;
+   activity: string;
+   isParada: boolean;
+   maintenanceDetails?: string;
+   origin?: string;
+   destination?: string;
+   transportObs?: string;
+   transportOgs?: string;
+   transportPassengers?: string;
+   transportEquip1?: string;
+   transportEquip1Custom?: string;
+   transportEquip2?: string;
+   transportEquip2Custom?: string;
+   transportEquip3?: string;
+   transportEquip3Custom?: string;
+   transportInternalDetails?: string;
+   returnReason?: string;
+   returnDetails?: string;
+   transportVazio?: boolean;
 }
 
 const PRODUCTION_EQUIPMENT_TYPES = ["fresadora", "bobcat", "retroescavadeira", "rolo", "vibroacabadora", "usina"];
@@ -404,57 +405,75 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                 </div>
               )}
 
-              {/* Carreta: 3 equipment fields with cascade Type→Fleet */}
-              {isCarreta ? (
-                <>
-                  <div className="space-y-3">
-                    {([
-                      { field: "transportEquip1" as keyof TimeEntry, label: "Equipamento 01", slotKey: `${entry.id}-1` },
-                      { field: "transportEquip2" as keyof TimeEntry, label: "Equipamento 02", slotKey: `${entry.id}-2` },
-                      { field: "transportEquip3" as keyof TimeEntry, label: "Equipamento 03", slotKey: `${entry.id}-3` },
-                    ]).map(({ field, label, slotKey }) => {
-                      const filtered = getFilteredFleets(slotKey);
-                      return (
-                        <div key={field} className="space-y-1">
-                          <span className="text-[10px] font-semibold text-accent uppercase">{label}</span>
-                          <div className="grid grid-cols-[1fr_1fr] gap-2">
-                            <Select
-                              value={equipTypeSlots[slotKey] || ""}
-                              onValueChange={(v) => {
-                                setEquipTypeSlots((prev) => ({ ...prev, [slotKey]: v }));
-                                updateEntry(idx, field, "");
-                              }}
-                            >
-                              <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                                <SelectValue placeholder="Tipo..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {EQUIPMENT_TYPE_OPTIONS.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Select
-                              value={(entry[field] as string) || ""}
-                              onValueChange={(v) => updateEntry(idx, field, v)}
-                              disabled={!equipTypeSlots[slotKey]}
-                            >
-                              <SelectTrigger className={`bg-secondary border-border h-9 text-xs ${!equipTypeSlots[slotKey] ? "opacity-50" : ""}`}>
-                                <SelectValue placeholder={equipTypeSlots[slotKey] ? "Frota..." : "Tipo primeiro"} />
-                              </SelectTrigger>
-                              <SelectContent className="max-h-[300px]">
-                                {filtered.map((f) => (
-                                  <SelectItem key={f.frota} value={f.frota} className="text-xs">
-                                    {f.frota} — {f.nome}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+              {/* Carreta: VAZIO toggle + 3 equipment fields with cascade Type→Fleet */}
+               {isCarreta ? (
+                 <>
+                   <div className="flex items-center gap-2 py-1">
+                     <input
+                       type="checkbox"
+                       id={`vazio-${entry.id}`}
+                       checked={!!entry.transportVazio}
+                       onChange={(e) => updateEntry(idx, "transportVazio", e.target.checked, {
+                         transportEquip1: "", transportEquip2: "", transportEquip3: "",
+                         transportEquip1Custom: "", transportEquip2Custom: "", transportEquip3Custom: "",
+                       })}
+                       className="h-4 w-4 rounded border-border text-primary accent-primary"
+                     />
+                     <label htmlFor={`vazio-${entry.id}`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer">
+                       VAZIO (sem equipamento)
+                     </label>
+                   </div>
+
+                   {!entry.transportVazio && (
+                   <div className="space-y-3">
+                     {([
+                       { field: "transportEquip1" as keyof TimeEntry, label: "Equipamento 01", slotKey: `${entry.id}-1` },
+                       { field: "transportEquip2" as keyof TimeEntry, label: "Equipamento 02", slotKey: `${entry.id}-2` },
+                       { field: "transportEquip3" as keyof TimeEntry, label: "Equipamento 03", slotKey: `${entry.id}-3` },
+                     ]).map(({ field, label, slotKey }) => {
+                       const filtered = getFilteredFleets(slotKey);
+                       return (
+                         <div key={field} className="space-y-1">
+                           <span className="text-[10px] font-semibold text-accent uppercase">{label}</span>
+                           <div className="grid grid-cols-[1fr_1fr] gap-2">
+                             <Select
+                               value={equipTypeSlots[slotKey] || ""}
+                               onValueChange={(v) => {
+                                 setEquipTypeSlots((prev) => ({ ...prev, [slotKey]: v }));
+                                 updateEntry(idx, field, "");
+                               }}
+                             >
+                               <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                                 <SelectValue placeholder="Tipo..." />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 {EQUIPMENT_TYPE_OPTIONS.map((opt) => (
+                                   <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                                 ))}
+                               </SelectContent>
+                             </Select>
+                             <Select
+                               value={(entry[field] as string) || ""}
+                               onValueChange={(v) => updateEntry(idx, field, v)}
+                               disabled={!equipTypeSlots[slotKey]}
+                             >
+                               <SelectTrigger className={`bg-secondary border-border h-9 text-xs ${!equipTypeSlots[slotKey] ? "opacity-50" : ""}`}>
+                                 <SelectValue placeholder={equipTypeSlots[slotKey] ? "Frota..." : "Tipo primeiro"} />
+                               </SelectTrigger>
+                               <SelectContent className="max-h-[300px]">
+                                 {filtered.map((f) => (
+                                   <SelectItem key={f.frota} value={f.frota} className="text-xs">
+                                     {f.frota} — {f.nome}
+                                   </SelectItem>
+                                 ))}
+                               </SelectContent>
+                             </Select>
+                           </div>
+                         </div>
+                       );
+                     })}
+                   </div>
+                   )}
                   {entry.origin && entry.destination && entry.origin === entry.destination && (
                     <div className="space-y-1 mt-2">
                       <span className="text-[10px] font-extrabold text-foreground uppercase tracking-wide">

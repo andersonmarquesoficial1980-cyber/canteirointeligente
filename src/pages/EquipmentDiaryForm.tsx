@@ -43,7 +43,7 @@ const KMA_OPERATION_TYPES = ["Usinagem", "Limpeza", "Manutenção"] as const;
 const CAP_TYPES = ["CAP 50/70", "CAP 30/45", "AMP 55/75", "AMP 60/85"];
 const FILER_TYPES = ["Calcário", "Cal Hidratada", "Cimento Portland"];
 const SILO_MATERIALS = ["Brita 0", "Brita 1", "Pedrisco", "Pó de Pedra", "Areia", "RAP"];
-const AGUA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
+const AGUA_FORNECEDORES = ["CLIENTE", "PRÓPRIO"];
 
 interface KmaOperationData {
   operationType: string;
@@ -413,6 +413,7 @@ export default function EquipmentDiaryForm() {
 
   const fornecedoresDiesel = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Diesel");
   const fornecedoresEmulsao = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Emulsão");
+  const fornecedoresAgua = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Água");
 
   // Log data arrival for debugging
   useEffect(() => {
@@ -615,13 +616,17 @@ export default function EquipmentDiaryForm() {
           let description = null;
           if (t.activity === "Manutenção") description = t.maintenanceDetails || null;
           else if (t.activity === "Transporte" && isCarreta) {
-            const equips = [
-              t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
-              t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
-              t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
-            ].filter(Boolean);
             const parts: string[] = [];
-            if (equips.length > 0) parts.push(equips.join(", "));
+            if (t.transportVazio) {
+              parts.push("VAZIO");
+            } else {
+              const equips = [
+                t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
+                t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
+                t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
+              ].filter(Boolean);
+              if (equips.length > 0) parts.push(equips.join(", "));
+            }
             if (t.origin && t.destination && t.origin === t.destination && t.transportInternalDetails) {
               parts.push(`Trecho: ${t.transportInternalDetails}`);
             }
@@ -754,27 +759,36 @@ export default function EquipmentDiaryForm() {
         });
       }
 
-      // Save checklist results
+      // Save checklist results (batch insert for stability)
       if (hasChecklist && diary && checklistResults.length > 0) {
+        const checklistRows: any[] = [];
         for (const cr of checklistResults) {
           let photoUrl: string | null = null;
           if (cr.photoFile) {
-            const path = `checklist/${diary.id}/${cr.itemId}_${Date.now()}.jpg`;
-            const { error: upErr } = await supabase.storage
-              .from("notas_fiscais")
-              .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
-            if (!upErr) {
-              const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
-              photoUrl = urlData.publicUrl;
+            try {
+              const path = `checklist/${diary.id}/${cr.itemId}_${Date.now()}.jpg`;
+              const { error: upErr } = await supabase.storage
+                .from("notas_fiscais")
+                .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
+              if (!upErr) {
+                const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
+                photoUrl = urlData.publicUrl;
+              }
+            } catch (photoErr) {
+              console.warn("[Checklist] Falha no upload da foto, salvando sem foto:", photoErr);
             }
           }
-          await supabase.from("checklist_entries").insert({
+          checklistRows.push({
             diary_id: diary.id,
             item_id: cr.itemId,
             status: cr.status as any,
             observation: cr.observation || null,
             photo_url: photoUrl,
           });
+        }
+        const { error: checklistErr } = await supabase.from("checklist_entries").insert(checklistRows);
+        if (checklistErr) {
+          console.error("[Checklist] Erro ao salvar checklist:", checklistErr);
         }
       }
 
@@ -1351,7 +1365,7 @@ export default function EquipmentDiaryForm() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Nº NF</span>
-                      <Input value={kmaOperation.capNfNumber} onChange={(e) => setKmaOperation({ ...kmaOperation, capNfNumber: e.target.value })} placeholder="NF..." className="bg-secondary border-border text-xs h-9" />
+                      <Input inputMode="numeric" value={kmaOperation.capNfNumber} onChange={(e) => setKmaOperation({ ...kmaOperation, capNfNumber: e.target.value })} placeholder="NF..." className="bg-secondary border-border text-xs h-9" />
                     </div>
                   </div>
                 </div>
@@ -1440,15 +1454,15 @@ export default function EquipmentDiaryForm() {
                       <Input type="number" inputMode="decimal" value={kmaOperation.waterLiters} onChange={(e) => setKmaOperation({ ...kmaOperation, waterLiters: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
                     </div>
                     <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                       <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
                       <Select value={kmaOperation.waterSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, waterSupplier: v })}>
-                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                         <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                           <SelectValue placeholder="Selecione..." />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {AGUA_FORNECEDORES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                         </SelectContent>
+                       </Select>
                     </div>
                   </div>
                 </div>
@@ -1485,25 +1499,25 @@ export default function EquipmentDiaryForm() {
                       className="bg-secondary border-border text-xs h-9"
                     />
                   </div>
-                  <div className="flex-1 space-y-1">
-                    <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
-                    <Select
-                      value={supply.supplier}
-                      onValueChange={(v) => {
-                        const u = [...tankSupplies];
-                        u[idx] = { ...u[idx], supplier: v };
-                        setTankSupplies(u);
-                      }}
-                    >
-                      <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {fornecedoresDb.map((f: any) => (
-                          <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                   <div className="flex-1 space-y-1">
+                     <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                     <Select
+                       value={supply.supplier}
+                       onValueChange={(v) => {
+                         const u = [...tankSupplies];
+                         u[idx] = { ...u[idx], supplier: v };
+                         setTankSupplies(u);
+                       }}
+                     >
+                       <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                         <SelectValue placeholder="Selecione..." />
+                       </SelectTrigger>
+                       <SelectContent>
+                         {fornecedoresAgua.map((f: any) => (
+                           <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
                   </div>
                   {tankSupplies.length > 1 && (
                     <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => setTankSupplies(tankSupplies.filter((_, i) => i !== idx))}>
@@ -1629,6 +1643,14 @@ export default function EquipmentDiaryForm() {
         )}
 
         <Section title={`${meterLabel} FINAL`}>
+          {meterInitial && (
+            <p className="text-[10px] text-muted-foreground">
+              Inicial (Ref): <span className="font-medium">{meterInitial}</span>
+              {fuelSyncedFromComboio && fueling.fuelMeter && (
+                <span className="ml-2">| Abastecimento: <span className="font-medium">{fueling.fuelMeter}</span></span>
+              )}
+            </p>
+          )}
           <Field label={`${meterLabel} Final`}>
             <Input
               type="number"
