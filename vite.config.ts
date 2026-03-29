@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => ({
       },
       manifest: {
         name: "Canteiro Inteligente",
-        short_name: "CI App",
+        short_name: "Canteiro",
         description: "Plataforma de Gestão e Integração de Campo",
         theme_color: "#0047AB",
         background_color: "#ffffff",
