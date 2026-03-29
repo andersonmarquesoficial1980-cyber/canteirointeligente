@@ -90,8 +90,14 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <span className="rdo-label">Sentido</span>
-                <Input value={entry.sentido} onChange={e => update(entry.id, "sentido", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="N/S" />
+                <span className="rdo-label">Sentido *</span>
+                <Select value={entry.sentido} onValueChange={(v) => update(entry.id, "sentido", v)}>
+                  <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CRESCENTE">CRESCENTE</SelectItem>
+                    <SelectItem value="DECRESCENTE">DECRESCENTE</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <span className="rdo-label">Estaca Ini.</span>
