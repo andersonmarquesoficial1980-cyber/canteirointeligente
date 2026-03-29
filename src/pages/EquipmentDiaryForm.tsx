@@ -616,13 +616,17 @@ export default function EquipmentDiaryForm() {
           let description = null;
           if (t.activity === "Manutenção") description = t.maintenanceDetails || null;
           else if (t.activity === "Transporte" && isCarreta) {
-            const equips = [
-              t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
-              t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
-              t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
-            ].filter(Boolean);
             const parts: string[] = [];
-            if (equips.length > 0) parts.push(equips.join(", "));
+            if (t.transportVazio) {
+              parts.push("VAZIO");
+            } else {
+              const equips = [
+                t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
+                t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
+                t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
+              ].filter(Boolean);
+              if (equips.length > 0) parts.push(equips.join(", "));
+            }
             if (t.origin && t.destination && t.origin === t.destination && t.transportInternalDetails) {
               parts.push(`Trecho: ${t.transportInternalDetails}`);
             }
