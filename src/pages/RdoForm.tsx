@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, MessageCircle, FileText } from "lucide-react";
+import { ArrowLeft, Send, MessageCircle, FileText, Save } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -89,6 +89,7 @@ export default function RdoForm() {
   // Global hours for Efetivo
   const [globalEntrada, setGlobalEntrada] = useState("");
   const [globalSaida, setGlobalSaida] = useState("");
+  const [savingDraft, setSavingDraft] = useState(false);
 
   // Auto-fill hours based on turno
   useEffect(() => {
@@ -100,6 +101,40 @@ export default function RdoForm() {
       setGlobalSaida("05:00");
     }
   }, [header.turno]);
+
+  // Save Draft handler
+  const handleSaveDraft = useCallback(async () => {
+    const normalizedTurno = header.turno?.trim().toLowerCase() || "";
+    if (!header.obra_nome || !header.data) {
+      toast({ title: "Atenção", description: "Preencha pelo menos OGS e Data para salvar.", variant: "destructive" });
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
+        setSavingDraft(false);
+        return;
+      }
+      const responsavelNome = profile?.nome_completo || "Não identificado";
+      const { error } = await supabase.from("rdo_diarios").insert({
+        data: header.data,
+        obra_nome: header.obra_nome,
+        turno: normalizedTurno || "diurno",
+        clima: header.status_obra || null,
+        responsavel: responsavelNome,
+        user_id: user.id,
+      });
+      if (error) throw error;
+      toast({ title: "✅ Rascunho Salvo!", description: "Progresso registrado no banco de dados." });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Erro ao salvar rascunho", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingDraft(false);
+    }
+  }, [header, profile, toast]);
 
   const formatDateBR = (d: string) => {
     if (!d) return "";
@@ -305,10 +340,20 @@ export default function RdoForm() {
             <ArrowLeft className="w-6 h-6" />
           </button>
           <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
-          <div>
+          <div className="flex-1">
             <h1 className="text-lg font-display font-bold text-white">RDO Digital</h1>
             <p className="text-xs text-white/70">Relatório Diário de Obra</p>
           </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSaveDraft}
+            disabled={savingDraft || !header.obra_nome}
+            className="bg-white/15 border-white/30 text-white hover:bg-white/25 gap-1.5 text-xs font-bold rounded-lg"
+          >
+            <Save className="w-4 h-4" />
+            {savingDraft ? "Salvando..." : "Rascunho"}
+          </Button>
         </div>
       </header>
 
