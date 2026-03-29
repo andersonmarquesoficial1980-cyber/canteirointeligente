@@ -64,5 +64,9 @@ export function useMaquinasFrotaFiltered(tipoRdo: string) {
       return data as any[];
     },
     enabled: !!tipoRdo,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+    staleTime: 5 * 60 * 1000,
+    refetchOnReconnect: true,
   });
 }
