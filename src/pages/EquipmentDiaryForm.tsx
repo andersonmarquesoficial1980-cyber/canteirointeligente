@@ -759,27 +759,36 @@ export default function EquipmentDiaryForm() {
         });
       }
 
-      // Save checklist results
+      // Save checklist results (batch insert for stability)
       if (hasChecklist && diary && checklistResults.length > 0) {
+        const checklistRows: any[] = [];
         for (const cr of checklistResults) {
           let photoUrl: string | null = null;
           if (cr.photoFile) {
-            const path = `checklist/${diary.id}/${cr.itemId}_${Date.now()}.jpg`;
-            const { error: upErr } = await supabase.storage
-              .from("notas_fiscais")
-              .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
-            if (!upErr) {
-              const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
-              photoUrl = urlData.publicUrl;
+            try {
+              const path = `checklist/${diary.id}/${cr.itemId}_${Date.now()}.jpg`;
+              const { error: upErr } = await supabase.storage
+                .from("notas_fiscais")
+                .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
+              if (!upErr) {
+                const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
+                photoUrl = urlData.publicUrl;
+              }
+            } catch (photoErr) {
+              console.warn("[Checklist] Falha no upload da foto, salvando sem foto:", photoErr);
             }
           }
-          await supabase.from("checklist_entries").insert({
+          checklistRows.push({
             diary_id: diary.id,
             item_id: cr.itemId,
             status: cr.status as any,
             observation: cr.observation || null,
             photo_url: photoUrl,
           });
+        }
+        const { error: checklistErr } = await supabase.from("checklist_entries").insert(checklistRows);
+        if (checklistErr) {
+          console.error("[Checklist] Erro ao salvar checklist:", checklistErr);
         }
       }
 
