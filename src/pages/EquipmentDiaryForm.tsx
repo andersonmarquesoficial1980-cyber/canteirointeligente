@@ -43,7 +43,7 @@ const KMA_OPERATION_TYPES = ["Usinagem", "Limpeza", "Manutenção"] as const;
 const CAP_TYPES = ["CAP 50/70", "CAP 30/45", "AMP 55/75", "AMP 60/85"];
 const FILER_TYPES = ["Calcário", "Cal Hidratada", "Cimento Portland"];
 const SILO_MATERIALS = ["Brita 0", "Brita 1", "Pedrisco", "Pó de Pedra", "Areia", "RAP"];
-const AGUA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
+const AGUA_FORNECEDORES = ["CLIENTE", "PRÓPRIO"];
 
 interface KmaOperationData {
   operationType: string;
@@ -413,6 +413,7 @@ export default function EquipmentDiaryForm() {
 
   const fornecedoresDiesel = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Diesel");
   const fornecedoresEmulsao = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Emulsão");
+  const fornecedoresAgua = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Água");
 
   // Log data arrival for debugging
   useEffect(() => {
@@ -1351,7 +1352,7 @@ export default function EquipmentDiaryForm() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Nº NF</span>
-                      <Input value={kmaOperation.capNfNumber} onChange={(e) => setKmaOperation({ ...kmaOperation, capNfNumber: e.target.value })} placeholder="NF..." className="bg-secondary border-border text-xs h-9" />
+                      <Input inputMode="numeric" value={kmaOperation.capNfNumber} onChange={(e) => setKmaOperation({ ...kmaOperation, capNfNumber: e.target.value })} placeholder="NF..." className="bg-secondary border-border text-xs h-9" />
                     </div>
                   </div>
                 </div>
@@ -1440,15 +1441,15 @@ export default function EquipmentDiaryForm() {
                       <Input type="number" inputMode="decimal" value={kmaOperation.waterLiters} onChange={(e) => setKmaOperation({ ...kmaOperation, waterLiters: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
                     </div>
                     <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                       <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
                       <Select value={kmaOperation.waterSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, waterSupplier: v })}>
-                        <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                         <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                           <SelectValue placeholder="Selecione..." />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {AGUA_FORNECEDORES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                         </SelectContent>
+                       </Select>
                     </div>
                   </div>
                 </div>
@@ -1485,25 +1486,25 @@ export default function EquipmentDiaryForm() {
                       className="bg-secondary border-border text-xs h-9"
                     />
                   </div>
-                  <div className="flex-1 space-y-1">
-                    <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
-                    <Select
-                      value={supply.supplier}
-                      onValueChange={(v) => {
-                        const u = [...tankSupplies];
-                        u[idx] = { ...u[idx], supplier: v };
-                        setTankSupplies(u);
-                      }}
-                    >
-                      <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {fornecedoresDb.map((f: any) => (
-                          <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                   <div className="flex-1 space-y-1">
+                     <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
+                     <Select
+                       value={supply.supplier}
+                       onValueChange={(v) => {
+                         const u = [...tankSupplies];
+                         u[idx] = { ...u[idx], supplier: v };
+                         setTankSupplies(u);
+                       }}
+                     >
+                       <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                         <SelectValue placeholder="Selecione..." />
+                       </SelectTrigger>
+                       <SelectContent>
+                         {fornecedoresAgua.map((f: any) => (
+                           <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
                   </div>
                   {tankSupplies.length > 1 && (
                     <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => setTankSupplies(tankSupplies.filter((_, i) => i !== idx))}>
@@ -1629,6 +1630,14 @@ export default function EquipmentDiaryForm() {
         )}
 
         <Section title={`${meterLabel} FINAL`}>
+          {meterInitial && (
+            <p className="text-[10px] text-muted-foreground">
+              Inicial (Ref): <span className="font-medium">{meterInitial}</span>
+              {fuelSyncedFromComboio && fueling.fuelMeter && (
+                <span className="ml-2">| Abastecimento: <span className="font-medium">{fueling.fuelMeter}</span></span>
+              )}
+            </p>
+          )}
           <Field label={`${meterLabel} Final`}>
             <Input
               type="number"
