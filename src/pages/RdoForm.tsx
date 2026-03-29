@@ -340,10 +340,20 @@ export default function RdoForm() {
             <ArrowLeft className="w-6 h-6" />
           </button>
           <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
-          <div>
+          <div className="flex-1">
             <h1 className="text-lg font-display font-bold text-white">RDO Digital</h1>
             <p className="text-xs text-white/70">Relatório Diário de Obra</p>
           </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSaveDraft}
+            disabled={savingDraft || !header.obra_nome}
+            className="bg-white/15 border-white/30 text-white hover:bg-white/25 gap-1.5 text-xs font-bold rounded-lg"
+          >
+            <Save className="w-4 h-4" />
+            {savingDraft ? "Salvando..." : "Rascunho"}
+          </Button>
         </div>
       </header>
 
