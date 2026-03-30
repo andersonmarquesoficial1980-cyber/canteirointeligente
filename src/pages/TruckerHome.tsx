@@ -43,6 +43,15 @@ function DepartureForm() {
     },
   });
 
+  const { data: insumos, isLoading: loadingInsumos } = useQuery({
+    queryKey: ["insumos_materiais_list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("insumos_materiais").select("*").eq("ativo", true).order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const handlePlacaChange = (val: string) => {
     setPlaca(val);
     const truck = trucks?.find((t) => t.placa === val);
