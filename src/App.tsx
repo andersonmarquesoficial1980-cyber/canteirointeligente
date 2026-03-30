@@ -19,6 +19,7 @@ import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
 import AdminConfiguracoes from "./pages/AdminConfiguracoes";
 import TruckerHome from "./pages/TruckerHome";
 import Login from "./pages/Login";
+import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,7 +70,12 @@ function AppRoutes() {
   }
 
   if (!session) {
-    return <Login />;
+    return (
+      <Routes>
+        <Route path="/update-password" element={<UpdatePassword />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    );
   }
 
   return (
