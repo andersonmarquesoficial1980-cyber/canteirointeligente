@@ -743,6 +743,30 @@ export type Database = {
         }
         Relationships: []
       }
+      insumos_materiais: {
+        Row: {
+          ativo: boolean
+          created_at: string | null
+          id: string
+          nome: string
+          unidade_medida: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string | null
+          id?: string
+          nome: string
+          unidade_medida?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string | null
+          id?: string
+          nome?: string
+          unidade_medida?: string
+        }
+        Relationships: []
+      }
       kma_calibration_entries: {
         Row: {
           adjustment_factor: number | null

@@ -13,7 +13,7 @@ import { useOgsReference } from "@/hooks/useOgsReference";
 import { toast } from "sonner";
 import logoCi from "@/assets/logo-ci.png";
 
-const MATERIALS = ["FRESA", "BGS", "RAP ESPUMADO"];
+// Materials are now loaded dynamically from insumos_materiais
 
 function DepartureForm() {
   const queryClient = useQueryClient();
@@ -38,6 +38,15 @@ function DepartureForm() {
     queryKey: ["trucker_destinations_list"],
     queryFn: async () => {
       const { data, error } = await supabase.from("trucker_destinations").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: insumos, isLoading: loadingInsumos } = useQuery({
+    queryKey: ["insumos_materiais_list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("insumos_materiais").select("*").eq("ativo", true).order("nome");
       if (error) throw error;
       return data || [];
     },
@@ -136,11 +145,18 @@ function DepartureForm() {
           {/* Material */}
           <div className="space-y-1.5">
             <Label>Material *</Label>
-            <Select value={material} onValueChange={setMaterial}>
-              <SelectTrigger><SelectValue placeholder="Selecione o material" /></SelectTrigger>
+            <Select value={material} onValueChange={(val) => {
+              setMaterial(val);
+              // Auto-suggest unit based on material
+              const found = insumos?.find((i) => i.nome === val);
+              if (found) {
+                // Update quantity label hint (unit)
+              }
+            }}>
+              <SelectTrigger><SelectValue placeholder={loadingInsumos ? "Carregando..." : "Selecione o material"} /></SelectTrigger>
               <SelectContent>
-                {MATERIALS.map((m) => (
-                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                {(insumos || []).map((m: any) => (
+                  <SelectItem key={m.id} value={m.nome}>{m.nome} ({m.unidade_medida})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -148,7 +164,7 @@ function DepartureForm() {
 
           {/* Quantidade (auto-filled, read-only) */}
           <div className="space-y-1.5">
-            <Label>Quantidade (m³) *</Label>
+            <Label>Quantidade ({insumos?.find(i => i.nome === material)?.unidade_medida || 'm³'}) *</Label>
             <Input
               type="number"
               inputMode="decimal"

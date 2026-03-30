@@ -814,6 +814,71 @@ function DestinosManager() {
   );
 }
 
+// Insumos / Materiais Manager (insumos_materiais)
+const UNIDADE_OPTIONS = ["m³", "Ton", "L", "Kg", "Un"];
+function InsumosMaterialManager() {
+  const { items, add, remove } = useCrudTable("insumos_materiais");
+  const { toast } = useToast();
+  const [nome, setNome] = useState("");
+  const [unidade, setUnidade] = useState("m³");
+
+  const handleAdd = async () => {
+    if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" }); return; }
+    const ok = await add({ nome: nome.trim().toUpperCase(), unidade_medida: unidade, ativo: true });
+    if (ok) { setNome(""); setUnidade("m³"); }
+  };
+
+  const toggleAtivo = async (item: any) => {
+    if (!item.id) return;
+    const { error } = await supabase.from("insumos_materiais" as any).update({ ativo: !item.ativo } as any).eq("id", item.id);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: item.ativo ? "Material desativado" : "Material reativado" });
+    // Force reload
+    window.location.reload();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Nome do Material</Label>
+          <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Ex: RAP ESPUMADO, MASSA ASFÁLTICA" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Unidade de Medida</Label>
+          <Select value={unidade} onValueChange={setUnidade}>
+            <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
+            <SelectContent>{UNIDADE_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Material</Button>
+      </div>
+      <div className="space-y-2">
+        {items.map((item: any) => (
+          <div key={item.id} className={`bg-card rounded-lg border border-border p-3 flex items-center justify-between ${!item.ativo ? 'opacity-50' : ''}`}>
+            <div>
+              <p className="font-medium text-sm text-foreground">{item.nome}</p>
+              <div className="flex gap-2 mt-0.5">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{item.unidade_medida}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${item.ativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {item.ativo ? 'Ativo' : 'Inativo'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => toggleAtivo(item)} className="text-muted-foreground p-1 hover:text-foreground">
+                {item.ativo ? <UserMinus className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+              </button>
+              <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum material cadastrado.</p>}
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SIDEBAR MENU ITEMS
 // ═══════════════════════════════════════════════════════════════
@@ -822,7 +887,8 @@ const MENU_SECTIONS = [
   { key: "visao_equipamentos", label: "Visão Equipamentos", icon: Wrench },
   { key: "usuarios", label: "Usuários", icon: Users },
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
-  { key: "materiais", label: "Materiais", icon: Package },
+  { key: "materiais", label: "Materiais (RDO)", icon: Package },
+  { key: "insumos", label: "Insumos / Materiais", icon: Package },
   { key: "maquinas", label: "Frota (Máquinas)", icon: Wrench },
   { key: "caminhoes", label: "Frota (Caminhões)", icon: Truck },
   { key: "funcionarios", label: "Funcionários", icon: Users },
@@ -859,6 +925,7 @@ export default function AdminConfiguracoes() {
       case "usuarios": return <UsersManager />;
       case "ogs": return <OgsManager />;
       case "materiais": return <MaterialManager />;
+      case "insumos": return <InsumosMaterialManager />;
       case "maquinas": return <MaquinasManager />;
       case "caminhoes": return <TruckRegistryManager />;
       case "funcionarios": return <FuncionariosManager />;
