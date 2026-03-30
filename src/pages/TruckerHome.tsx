@@ -176,10 +176,10 @@ function DepartureForm() {
           <div className="space-y-1.5">
             <Label>Destino *</Label>
             <Select value={destination} onValueChange={setDestination}>
-              <SelectTrigger><SelectValue placeholder="Selecione o destino" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={loadingDestinations ? "Carregando..." : "Selecione o destino"} /></SelectTrigger>
               <SelectContent>
-                {DESTINATIONS.map((d) => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                {(destinations || []).map((d) => (
+                  <SelectItem key={d.id} value={d.nome}>{d.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
