@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import logoCi from "@/assets/logo-ci.png";
 
 const MATERIALS = ["FRESA", "BGS", "RAP ESPUMADO"];
-const DESTINATIONS = ["Canteiro", "Bota-fora"];
 
 function DepartureForm() {
   const queryClient = useQueryClient();
@@ -30,6 +29,15 @@ function DepartureForm() {
     queryKey: ["truck_registry_list"],
     queryFn: async () => {
       const { data, error } = await supabase.from("truck_registry").select("*").order("placa");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: destinations, isLoading: loadingDestinations } = useQuery({
+    queryKey: ["trucker_destinations_list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("trucker_destinations").select("*").order("nome");
       if (error) throw error;
       return data || [];
     },
@@ -168,10 +176,10 @@ function DepartureForm() {
           <div className="space-y-1.5">
             <Label>Destino *</Label>
             <Select value={destination} onValueChange={setDestination}>
-              <SelectTrigger><SelectValue placeholder="Selecione o destino" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={loadingDestinations ? "Carregando..." : "Selecione o destino"} /></SelectTrigger>
               <SelectContent>
-                {DESTINATIONS.map((d) => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                {(destinations || []).map((d) => (
+                  <SelectItem key={d.id} value={d.nome}>{d.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

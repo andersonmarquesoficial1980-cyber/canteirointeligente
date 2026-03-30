@@ -1554,6 +1554,24 @@ export type Database = {
           },
         ]
       }
+      trucker_destinations: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
       trucker_trips: {
         Row: {
           arrival_geo: string | null
