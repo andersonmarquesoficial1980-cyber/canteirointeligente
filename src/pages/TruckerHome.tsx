@@ -13,7 +13,7 @@ import { useOgsReference } from "@/hooks/useOgsReference";
 import { toast } from "sonner";
 import logoCi from "@/assets/logo-ci.png";
 
-const MATERIALS = ["FRESA", "BGS", "RAP ESPUMADO"];
+// Materials are now loaded dynamically from insumos_materiais
 
 function DepartureForm() {
   const queryClient = useQueryClient();

@@ -925,6 +925,7 @@ export default function AdminConfiguracoes() {
       case "usuarios": return <UsersManager />;
       case "ogs": return <OgsManager />;
       case "materiais": return <MaterialManager />;
+      case "insumos": return <InsumosMaterialManager />;
       case "maquinas": return <MaquinasManager />;
       case "caminhoes": return <TruckRegistryManager />;
       case "funcionarios": return <FuncionariosManager />;
