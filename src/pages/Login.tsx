@@ -16,7 +16,6 @@ export default function Login() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -29,37 +28,30 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 relative overflow-hidden">
-      {/* Gradient accent bar */}
-      <div className="absolute top-0 left-0 right-0 h-56 bg-header-gradient rounded-b-[3rem]" />
-      {/* Ambient glows */}
-      <div className="absolute top-10 left-[-60px] w-[240px] h-[240px] rounded-full bg-accent/15 blur-[80px] pointer-events-none" />
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
+         style={{ background: "hsl(var(--primary))" }}>
 
-      {/* Branding */}
-      <div className="relative text-center mb-8 space-y-4 z-10">
-        <div className="relative inline-block">
-          <img src={logoCi} alt="Canteiro Inteligente" className="h-32 mx-auto object-contain drop-shadow-2xl" />
-          <div className="absolute inset-0 rounded-full bg-white/25 blur-2xl -z-10 scale-125" />
-        </div>
-        <p className="text-sm text-primary-foreground/90 tracking-wide font-medium">
-          Plataforma de Gestão e Integração de Campo
-        </p>
+      {/* Subtle radial glow */}
+      <div className="absolute inset-0 pointer-events-none"
+           style={{ background: "radial-gradient(ellipse at 50% 30%, hsl(215 100% 65% / 0.3) 0%, transparent 70%)" }} />
+
+      {/* Logo */}
+      <div className="relative z-10 mb-10">
+        <img src={logoCi} alt="Canteiro Inteligente" className="h-28 sm:h-36 mx-auto object-contain drop-shadow-2xl" />
       </div>
 
       {/* Login card */}
-      <div className="relative z-10 w-full max-w-sm border border-border rounded-3xl p-7 space-y-5 bg-card shadow-card">
-        {/* Title row */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <LogIn className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-display font-extrabold tracking-widest uppercase text-foreground">
-              Entrar
-            </h2>
-          </div>
-          <div className="h-1 bg-header-gradient rounded-full w-full" />
+      <div className="relative z-10 w-full max-w-sm bg-card rounded-3xl p-8 space-y-6"
+           style={{ boxShadow: "0 25px 60px -12px rgba(0,0,0,0.35)" }}>
+
+        <div className="text-center space-y-1">
+          <h1 className="text-xl font-display font-extrabold tracking-widest uppercase text-foreground">
+            Acesso ao Sistema
+          </h1>
+          <div className="mx-auto h-1 w-16 rounded-full" style={{ background: "hsl(var(--primary))" }} />
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-4">
+        <form onSubmit={handleAuth} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email" className="flex items-center gap-1.5 text-sm font-bold text-foreground">
               <Mail className="w-4 h-4 text-primary" /> Email
@@ -91,7 +83,7 @@ export default function Login() {
           </div>
           <Button
             type="submit"
-            className="w-full h-14 gap-2 text-base font-extrabold rounded-2xl bg-header-gradient hover:opacity-90 shadow-lg glow-primary"
+            className="w-full h-14 gap-2 text-base font-extrabold rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
             disabled={loading}
           >
             <LogIn className="w-5 h-5" />
@@ -103,6 +95,11 @@ export default function Login() {
           Contate o administrador para obter suas credenciais.
         </p>
       </div>
+
+      {/* Footer */}
+      <p className="relative z-10 mt-8 text-xs text-primary-foreground/70 tracking-wide">
+        Fremix Pavimentação © 2026 — Powered by Canteiro Inteligente
+      </p>
     </div>
   );
 }
