@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import logoCi from "@/assets/logo-ci.png";
 
 const MATERIALS = ["FRESA", "BGS", "RAP ESPUMADO"];
-const DESTINATIONS = ["Canteiro", "Bota-fora"];
 
 function DepartureForm() {
   const queryClient = useQueryClient();

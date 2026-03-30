@@ -780,6 +780,40 @@ function MaterialManager() {
   );
 }
 
+// Destinos Manager (trucker_destinations)
+function DestinosManager() {
+  const { items, add, remove } = useCrudTable("trucker_destinations");
+  const { toast } = useToast();
+  const [nome, setNome] = useState("");
+
+  const handleAdd = async () => {
+    if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome do destino.", variant: "destructive" }); return; }
+    const ok = await add({ nome: nome.trim() });
+    if (ok) setNome("");
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Nome do Destino</Label>
+          <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Ex: Canteiro, Bota-fora, Usina" />
+        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Destino</Button>
+      </div>
+      <div className="space-y-2">
+        {items.map((item: any) => (
+          <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
+            <p className="font-medium text-sm text-foreground">{item.nome}</p>
+            <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum destino cadastrado.</p>}
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SIDEBAR MENU ITEMS
 // ═══════════════════════════════════════════════════════════════
@@ -796,6 +830,7 @@ const MENU_SECTIONS = [
   { key: "empreiteiros", label: "Empreiteiros", icon: Hammer },
   { key: "fornecedores", label: "Fornecedores", icon: Factory },
   { key: "usinas", label: "Usinas", icon: Factory },
+  { key: "destinos", label: "Destinos (Carreteiro)", icon: MapPin },
   { key: "emails", label: "E-mails", icon: Mail },
 ];
 
@@ -831,6 +866,7 @@ export default function AdminConfiguracoes() {
       case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />;
       case "fornecedores": return <EntityManager tableName="fornecedores" label="Fornecedor" />;
       case "usinas": return <EntityManager tableName="usinas" label="Usina" />;
+      case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;
       default: return null;
     }
