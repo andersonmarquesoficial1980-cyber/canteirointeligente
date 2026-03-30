@@ -145,11 +145,18 @@ function DepartureForm() {
           {/* Material */}
           <div className="space-y-1.5">
             <Label>Material *</Label>
-            <Select value={material} onValueChange={setMaterial}>
-              <SelectTrigger><SelectValue placeholder="Selecione o material" /></SelectTrigger>
+            <Select value={material} onValueChange={(val) => {
+              setMaterial(val);
+              // Auto-suggest unit based on material
+              const found = insumos?.find((i) => i.nome === val);
+              if (found) {
+                // Update quantity label hint (unit)
+              }
+            }}>
+              <SelectTrigger><SelectValue placeholder={loadingInsumos ? "Carregando..." : "Selecione o material"} /></SelectTrigger>
               <SelectContent>
-                {MATERIALS.map((m) => (
-                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                {(insumos || []).map((m: any) => (
+                  <SelectItem key={m.id} value={m.nome}>{m.nome} ({m.unidade_medida})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
