@@ -164,7 +164,7 @@ function DepartureForm() {
 
           {/* Quantidade (auto-filled, read-only) */}
           <div className="space-y-1.5">
-            <Label>Quantidade (m³) *</Label>
+            <Label>Quantidade ({insumos?.find(i => i.nome === material)?.unidade_medida || 'm³'}) *</Label>
             <Input
               type="number"
               inputMode="decimal"
