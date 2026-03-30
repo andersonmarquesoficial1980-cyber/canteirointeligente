@@ -34,6 +34,15 @@ function DepartureForm() {
     },
   });
 
+  const { data: destinations, isLoading: loadingDestinations } = useQuery({
+    queryKey: ["trucker_destinations_list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("trucker_destinations").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const handlePlacaChange = (val: string) => {
     setPlaca(val);
     const truck = trucks?.find((t) => t.placa === val);
