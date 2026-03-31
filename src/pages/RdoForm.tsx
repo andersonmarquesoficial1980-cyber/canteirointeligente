@@ -377,7 +377,7 @@ export default function RdoForm() {
           ? "Relatório registrado e e-mail enviado com sucesso."
           : "Relatório registrado. O e-mail não pôde ser enviado.",
       });
-      navigate("/");
+      if (showNavigate) navigate("/");
     } catch (err: any) {
       console.error(err);
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
@@ -385,6 +385,8 @@ export default function RdoForm() {
       setSaving(false);
     }
   };
+
+  const handleSubmit = () => handleSubmitInternal(true);
 
   return (
     <div className="min-h-screen bg-page flex flex-col">
