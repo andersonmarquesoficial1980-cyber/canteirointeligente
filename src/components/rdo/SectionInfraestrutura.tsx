@@ -142,7 +142,10 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
                 <Checkbox checked={entry.is_retrabalho} onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)} />
                 <span className="text-xs text-muted-foreground">É Retrabalho?</span>
               </div>
-              {area > 0 && <span className="text-sm font-bold text-primary">Área: {area.toFixed(2)} m²</span>}
+              <div className="flex flex-col items-end gap-0.5">
+                {area > 0 && <span className="text-sm font-bold text-primary">Área: {area.toFixed(2)} m²</span>}
+                {volume > 0 && <span className="text-sm font-bold" style={{ color: "hsl(215 100% 40%)" }}>Volume: {volume.toFixed(3)} m³</span>}
+              </div>
             </div>
           </div>
         );
