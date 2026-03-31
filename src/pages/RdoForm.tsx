@@ -91,7 +91,7 @@ export default function RdoForm() {
   });
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
-    id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
+    id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
   }]);
 
 
@@ -201,11 +201,6 @@ export default function RdoForm() {
       lines.push(`👤 Cliente: ${pvData.cliente}`);
       lines.push(`📍 ${pvData.rua}${pvData.bairro ? `, ${pvData.bairro}` : ""} - ${pvData.cidade}`);
       lines.push(`⚙️ Modo: ${pvData.modo_execucao === "mecanizado" ? "Mecanizado" : "Manual"}`);
-      if (pvData.modo_execucao === "mecanizado") {
-        lines.push(`  Bobcat: ${pvData.equipamento_bobcat} | FC: ${pvData.acoplamento_fc}`);
-      } else {
-        lines.push(`  Compressor: ${pvData.compressor} | Martelete: ${pvData.martelete}`);
-      }
       lines.push(`🔢 PVs Executados: *${pvData.qtd_pvs || "0"}*`);
       const filledMats = pvData.materiais.filter(m => m.material && m.quantidade);
       if (filledMats.length > 0) {

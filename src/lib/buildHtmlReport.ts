@@ -86,11 +86,12 @@ th{background:#f3f4f6;font-weight:600}
   const filledEquip = equipamentos.filter(e => e.frota || e.categoria);
   if (filledEquip.length > 0) {
     html += `<h2>🚜 Equipamentos (${filledEquip.length})</h2>
-<table><tr><th style="text-align:center">FROTA</th><th>EQUIPAMENTO</th><th>MODELO/PLACA</th><th>EMPRESA</th></tr>`;
+<table><tr><th style="text-align:center">FROTA</th><th>EQUIPAMENTO</th><th>MODELO/PLACA</th><th>ACESSÓRIO</th><th>EMPRESA</th></tr>`;
     filledEquip.forEach(e => {
       const modeloParts = [e.nome, e.patrimonio].filter(Boolean);
       const modeloPlaca = modeloParts.length > 1 ? modeloParts.join(" / ") : modeloParts[0] || "";
-      html += `<tr><td style="text-align:center;font-weight:600">${e.frota}</td><td>${e.tipo || e.categoria}</td><td>${modeloPlaca}</td><td>${e.empresa_dona}</td></tr>`;
+      const acessorio = e.fresadora_conica ? `FC: ${e.fresadora_conica}` : "";
+      html += `<tr><td style="text-align:center;font-weight:600">${e.frota}</td><td>${e.tipo || e.categoria}</td><td>${modeloPlaca}</td><td>${acessorio}</td><td>${e.empresa_dona}</td></tr>`;
     });
     html += `</table>`;
   }
@@ -164,11 +165,7 @@ ${canteiroData.atividadesCanteiro}
 <tr><th>Cliente</th><td>${pvData.cliente}</td><th>Contrato</th><td>${pvData.contrato}</td></tr>
 <tr><th>Rua</th><td>${pvData.rua}</td><th>Bairro</th><td>${pvData.bairro}</td></tr>
 <tr><th>Cidade</th><td>${pvData.cidade}</td><th>Modo</th><td>${pvData.modo_execucao === "mecanizado" ? "Mecanizado" : "Manual"}</td></tr>`;
-    if (pvData.modo_execucao === "mecanizado") {
-      html += `<tr><th>Bobcat</th><td>${pvData.equipamento_bobcat}</td><th>Fresadora Cônica</th><td>${pvData.acoplamento_fc}</td></tr>`;
-    } else {
-      html += `<tr><th>Compressor</th><td>${pvData.compressor}</td><th>Martelete</th><td>${pvData.martelete}</td></tr>`;
-    }
+    // Equipment details now come from the general Equipamentos section
     html += `<tr><th>PVs Executados</th><td colspan="3" style="font-size:18px;font-weight:bold">${pvData.qtd_pvs || "0"}</td></tr>
 </table>`;
 

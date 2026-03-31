@@ -15,6 +15,7 @@ export interface EquipamentoEntry {
   patrimonio: string;
   empresa_dona: string;
   is_menor: boolean;
+  fresadora_conica: string;
 }
 
 interface Props {
@@ -66,6 +67,8 @@ const CATEGORIA_TIPO_MAP: Record<string, string[]> = {
   "USINA MÓVEL": ["USINA MÓVEL"],
 };
 
+const FC_OPTIONS = ["FC001", "FC002", "FC003", "FC004", "FC005"];
+
 const emptyEquip = (): EquipamentoEntry => ({
   id: crypto.randomUUID(),
   categoria: "",
@@ -76,6 +79,7 @@ const emptyEquip = (): EquipamentoEntry => ({
   patrimonio: "",
   empresa_dona: "",
   is_menor: false,
+  fresadora_conica: "",
 });
 
 export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Props) {
@@ -95,7 +99,7 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
       onChange(
         entries.map((e) =>
           e.id === id
-            ? { ...e, categoria: value, subTipo: "", frota: "", tipo: "", nome: "", empresa_dona: "" }
+            ? { ...e, categoria: value, subTipo: "", frota: "", tipo: "", nome: "", empresa_dona: "", fresadora_conica: "" }
             : e
         )
       );
@@ -259,9 +263,26 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
                       <p className="text-xs text-muted-foreground italic py-2">
                         Nenhum equipamento disponível para este tipo.
                       </p>
-                    )}
+                )}
+
+                {/* Step 4: Fresadora Cônica for Bobcats */}
+                {entry.categoria === "BOBCAT" && entry.frota && (
+                  <div className="space-y-1.5">
+                    <span className="rdo-label">Fresadora Cônica *</span>
+                    <Select value={entry.fresadora_conica} onValueChange={(v) => update(entry.id, "fresadora_conica", v)}>
+                      <SelectTrigger className="h-11 bg-white border-border rounded-xl">
+                        <SelectValue placeholder="Selecione FC" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FC_OPTIONS.map((fc) => (
+                          <SelectItem key={fc} value={fc}>{fc}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
+              </div>
+            )}
               </div>
             )}
           </div>

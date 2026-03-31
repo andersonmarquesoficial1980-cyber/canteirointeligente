@@ -179,29 +179,10 @@ export default function SectionPV({ data, onChange }: SectionPVProps) {
         </div>
 
         {data.modo_execucao === "mecanizado" && (
-          <div className="space-y-3 pt-2">
-            <div className="space-y-1.5">
-              <span className="rdo-label">Bobcat</span>
-              <Select value={data.equipamento_bobcat} onValueChange={v => update("equipamento_bobcat", v)}>
-                <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
-                  <SelectValue placeholder="Selecione a Bobcat" />
-                </SelectTrigger>
-                <SelectContent>
-                  {BOBCATS_PV.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Acoplamento - Fresadora Cônica *</span>
-              <Select value={data.acoplamento_fc} onValueChange={v => update("acoplamento_fc", v)}>
-                <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
-                  <SelectValue placeholder="Selecione FC" />
-                </SelectTrigger>
-                <SelectContent>
-                  {FC_OPTIONS.map(fc => <SelectItem key={fc} value={fc}>{fc}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="pt-2">
+            <p className="text-xs text-muted-foreground italic">
+              💡 Bobcat e Fresadora Cônica devem ser lançados na seção geral de Equipamentos do RDO.
+            </p>
           </div>
         )}
 
