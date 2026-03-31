@@ -15,8 +15,7 @@ import {
 
 const baseItems = [
   { title: "Hub", url: "/", icon: LayoutDashboard },
-  { title: "CI Obras", url: "/obras", icon: LayoutDashboard },
-  { title: "Novo RDO", url: "/obras/rdo", icon: FileText },
+  { title: "CI RDO", url: "/obras", icon: FileText },
   { title: "CI Equipamentos", url: "/equipamentos", icon: FileText },
   { title: "CI Carreteiros", url: "/carreteiros", icon: Truck },
 ];
