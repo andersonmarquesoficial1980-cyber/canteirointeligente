@@ -13,6 +13,7 @@ import SectionInfraestrutura, { type InfraProducaoEntry } from "@/components/rdo
 import SectionCauq, { type NotaFiscalMassaEntry } from "@/components/rdo/SectionCauq";
 import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/SectionCanteiro";
 import SectionNfConcreto, { type NfConcretoEntry } from "@/components/rdo/SectionNfConcreto";
+import SectionPV, { type PVData, type PVMaterialEntry } from "@/components/rdo/SectionPV";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 
 
