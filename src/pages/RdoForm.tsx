@@ -13,6 +13,7 @@ import SectionInfraestrutura, { type InfraProducaoEntry } from "@/components/rdo
 import SectionCauq, { type NotaFiscalMassaEntry } from "@/components/rdo/SectionCauq";
 import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/SectionCanteiro";
 import SectionNfConcreto, { type NfConcretoEntry } from "@/components/rdo/SectionNfConcreto";
+import SectionPV, { type PVData, type PVMaterialEntry } from "@/components/rdo/SectionPV";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 
 
@@ -79,6 +80,15 @@ export default function RdoForm() {
   const [atividadesCanteiro, setAtividadesCanteiro] = useState("");
   const [observacoesGerais, setObservacoesGerais] = useState("");
 
+  // PV (Poço de Visita)
+  const [pvData, setPvData] = useState<PVData>({
+    cliente: "", contrato: "", rua: "", bairro: "", cidade: "",
+    modo_execucao: "mecanizado", equipamento_bobcat: "", acoplamento_fc: "",
+    compressor: "", martelete: "", qtd_pvs: "",
+    materiais: [{ id: crypto.randomUUID(), material: "", quantidade: "", unidade: "Ton" }],
+    fotos_antes: [], fotos_durante: [], fotos_depois: [],
+    observacoes: "",
+  });
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
@@ -183,6 +193,28 @@ export default function RdoForm() {
       lines.push(`📊 *Resumo Geral:*`);
       lines.push(`  Área Total: ${fmtBR(totalArea)} m²`);
       lines.push(`  Toneladas Totais: ${fmtBR(totalTon)} Ton`);
+    }
+
+    if (tipoRdo === "PV") {
+      lines.push(``);
+      lines.push(`🕳️ *Poço de Visita (PV)*`);
+      lines.push(`👤 Cliente: ${pvData.cliente}`);
+      lines.push(`📍 ${pvData.rua}${pvData.bairro ? `, ${pvData.bairro}` : ""} - ${pvData.cidade}`);
+      lines.push(`⚙️ Modo: ${pvData.modo_execucao === "mecanizado" ? "Mecanizado" : "Manual"}`);
+      if (pvData.modo_execucao === "mecanizado") {
+        lines.push(`  Bobcat: ${pvData.equipamento_bobcat} | FC: ${pvData.acoplamento_fc}`);
+      } else {
+        lines.push(`  Compressor: ${pvData.compressor} | Martelete: ${pvData.martelete}`);
+      }
+      lines.push(`🔢 PVs Executados: *${pvData.qtd_pvs || "0"}*`);
+      const filledMats = pvData.materiais.filter(m => m.material && m.quantidade);
+      if (filledMats.length > 0) {
+        lines.push(`📦 Materiais:`);
+        filledMats.forEach(m => lines.push(`  ▸ ${m.material}: ${m.quantidade} ${m.unidade}`));
+      }
+      if (pvData.observacoes) {
+        lines.push(`📝 Obs: ${pvData.observacoes}`);
+      }
     }
 
     const text = lines.join("\n");
@@ -297,7 +329,7 @@ export default function RdoForm() {
       }
 
       // Build HTML report and send email
-      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome);
+      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome, tipoRdo === "PV" ? pvData : undefined);
       let emailSent = false;
       try {
         console.log("Iniciando envio de e-mail...");
@@ -391,6 +423,7 @@ export default function RdoForm() {
           </>
         )}
         {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
+        {tipoRdo === "PV" && <SectionPV data={pvData} onChange={setPvData} />}
 
         {tipoRdo && (
           <>
@@ -435,7 +468,7 @@ export default function RdoForm() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-4 space-y-2 shadow-[0_-4px_20px_-4px_hsl(215_60%_50%/0.1)]">
-        {tipoRdo === "CAUQ" && (
+        {(tipoRdo === "CAUQ" || tipoRdo === "PV") && (
           <Button
             type="button"
             onClick={handleWhatsAppResume}

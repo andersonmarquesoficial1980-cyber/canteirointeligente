@@ -2,6 +2,7 @@ import type { ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
 import type { NotaFiscalMassaEntry } from "@/components/rdo/SectionCauq";
 import type { EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import type { EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
+import type { PVData } from "@/components/rdo/SectionPV";
 
 
 interface HeaderData {
@@ -32,6 +33,7 @@ export function buildHtmlReport(
   globalSaida: string,
   canteiroData?: CanteiroReportData,
   responsavel?: string,
+  pvData?: PVData,
 ): string {
   const formatDate = (d: string) => {
     if (!d) return "";
@@ -152,6 +154,37 @@ th{background:#f3f4f6;font-weight:600}
 <div style="background:#f3f4f6;padding:12px 16px;border-radius:8px;white-space:pre-wrap">
 ${canteiroData.atividadesCanteiro}
 </div>`;
+    }
+  }
+
+  // PV (Poço de Visita) report
+  if (tipoRdo === "PV" && pvData) {
+    html += `<h2>🕳️ Poço de Visita</h2>
+<table>
+<tr><th>Cliente</th><td>${pvData.cliente}</td><th>Contrato</th><td>${pvData.contrato}</td></tr>
+<tr><th>Rua</th><td>${pvData.rua}</td><th>Bairro</th><td>${pvData.bairro}</td></tr>
+<tr><th>Cidade</th><td>${pvData.cidade}</td><th>Modo</th><td>${pvData.modo_execucao === "mecanizado" ? "Mecanizado" : "Manual"}</td></tr>`;
+    if (pvData.modo_execucao === "mecanizado") {
+      html += `<tr><th>Bobcat</th><td>${pvData.equipamento_bobcat}</td><th>Fresadora Cônica</th><td>${pvData.acoplamento_fc}</td></tr>`;
+    } else {
+      html += `<tr><th>Compressor</th><td>${pvData.compressor}</td><th>Martelete</th><td>${pvData.martelete}</td></tr>`;
+    }
+    html += `<tr><th>PVs Executados</th><td colspan="3" style="font-size:18px;font-weight:bold">${pvData.qtd_pvs || "0"}</td></tr>
+</table>`;
+
+    const filledMats = pvData.materiais.filter(m => m.material && m.quantidade);
+    if (filledMats.length > 0) {
+      html += `<h2>📦 Materiais Consumidos</h2>
+<table><tr><th>Material</th><th>Quantidade</th><th>Unidade</th></tr>`;
+      filledMats.forEach(m => {
+        html += `<tr><td>${m.material}</td><td>${m.quantidade}</td><td>${m.unidade}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+
+    if (pvData.observacoes) {
+      html += `<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;margin:12px 0;border-radius:0 8px 8px 0">
+<strong>📝 Observações:</strong><br><span style="white-space:pre-wrap">${pvData.observacoes}</span></div>`;
     }
   }
 
