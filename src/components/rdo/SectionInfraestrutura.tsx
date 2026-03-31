@@ -77,7 +77,11 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
       <h3 className="text-sm font-display font-bold pt-1" style={{ color: "hsl(220 70% 30%)" }}>Produção</h3>
 
       {producao.map((entry, idx) => {
-        const area = (parseFloat(entry.comprimento_m) || 0) * (parseFloat(entry.largura_m) || 0);
+        const comp = parseFloat(entry.comprimento_m) || 0;
+        const larg = parseFloat(entry.largura_m) || 0;
+        const esp = parseFloat(entry.espessura_cm) || 0;
+        const area = comp * larg;
+        const volume = area * (esp / 100);
         return (
           <div key={entry.id} className="rdo-card space-y-3">
             <div className="flex items-center justify-between">
