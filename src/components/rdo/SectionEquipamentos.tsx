@@ -67,6 +67,8 @@ const CATEGORIA_TIPO_MAP: Record<string, string[]> = {
   "USINA MÓVEL": ["USINA MÓVEL"],
 };
 
+const FC_OPTIONS = ["FC001", "FC002", "FC003", "FC004", "FC005"];
+
 const emptyEquip = (): EquipamentoEntry => ({
   id: crypto.randomUUID(),
   categoria: "",
@@ -77,6 +79,7 @@ const emptyEquip = (): EquipamentoEntry => ({
   patrimonio: "",
   empresa_dona: "",
   is_menor: false,
+  fresadora_conica: "",
 });
 
 export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Props) {
