@@ -164,11 +164,7 @@ ${canteiroData.atividadesCanteiro}
 <tr><th>Cliente</th><td>${pvData.cliente}</td><th>Contrato</th><td>${pvData.contrato}</td></tr>
 <tr><th>Rua</th><td>${pvData.rua}</td><th>Bairro</th><td>${pvData.bairro}</td></tr>
 <tr><th>Cidade</th><td>${pvData.cidade}</td><th>Modo</th><td>${pvData.modo_execucao === "mecanizado" ? "Mecanizado" : "Manual"}</td></tr>`;
-    if (pvData.modo_execucao === "mecanizado") {
-      html += `<tr><th>Bobcat</th><td>${pvData.equipamento_bobcat}</td><th>Fresadora Cônica</th><td>${pvData.acoplamento_fc}</td></tr>`;
-    } else {
-      html += `<tr><th>Compressor</th><td>${pvData.compressor}</td><th>Martelete</th><td>${pvData.martelete}</td></tr>`;
-    }
+    // Equipment details now come from the general Equipamentos section
     html += `<tr><th>PVs Executados</th><td colspan="3" style="font-size:18px;font-weight:bold">${pvData.qtd_pvs || "0"}</td></tr>
 </table>`;
 
