@@ -80,6 +80,15 @@ export default function RdoForm() {
   const [atividadesCanteiro, setAtividadesCanteiro] = useState("");
   const [observacoesGerais, setObservacoesGerais] = useState("");
 
+  // PV (Poço de Visita)
+  const [pvData, setPvData] = useState<PVData>({
+    cliente: "", contrato: "", rua: "", bairro: "", cidade: "",
+    modo_execucao: "mecanizado", equipamento_bobcat: "", acoplamento_fc: "",
+    compressor: "", martelete: "", qtd_pvs: "",
+    materiais: [{ id: crypto.randomUUID(), material: "", quantidade: "", unidade: "Ton" }],
+    fotos_antes: [], fotos_durante: [], fotos_depois: [],
+    observacoes: "",
+  });
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
