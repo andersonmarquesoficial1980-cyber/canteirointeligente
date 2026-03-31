@@ -33,6 +33,7 @@ export function buildHtmlReport(
   globalSaida: string,
   canteiroData?: CanteiroReportData,
   responsavel?: string,
+  pvData?: PVData,
 ): string {
   const formatDate = (d: string) => {
     if (!d) return "";
