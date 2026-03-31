@@ -12,6 +12,7 @@ import RdoTipoSelector from "@/components/rdo/RdoTipoSelector";
 import SectionInfraestrutura, { type InfraProducaoEntry } from "@/components/rdo/SectionInfraestrutura";
 import SectionCauq, { type NotaFiscalMassaEntry } from "@/components/rdo/SectionCauq";
 import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/SectionCanteiro";
+import SectionNfConcreto, { type NfConcretoEntry } from "@/components/rdo/SectionNfConcreto";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 
 
@@ -47,6 +48,11 @@ export default function RdoForm() {
   const [infraProducao, setInfraProducao] = useState<InfraProducaoEntry[]>([{
     id: crypto.randomUUID(), sentido: "", estaca_inicial: "", estaca_final: "",
     comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false, material: "",
+  }]);
+
+  // NF Concreto (Infra)
+  const [nfConcreto, setNfConcreto] = useState<NfConcretoEntry[]>([{
+    id: crypto.randomUUID(), nf: "", quantidade_m3: "", tipo_concreto: "", fornecedor: "", foto_url: "",
   }]);
 
   // CAUQ
@@ -364,15 +370,18 @@ export default function RdoForm() {
         </div>
 
         {tipoRdo === "INFRAESTRUTURA" && (
-          <SectionInfraestrutura
-            empreiteiro={empreiteiro}
-            tipoServico={tipoServico}
-            producao={infraProducao}
-            onChangeEmpreiteiro={setEmpreiteiro}
-            onChangeTipoServico={setTipoServico}
-            onChangeProducao={setInfraProducao}
-            tipoRdo="INFRA"
-          />
+          <>
+            <SectionInfraestrutura
+              empreiteiro={empreiteiro}
+              tipoServico={tipoServico}
+              producao={infraProducao}
+              onChangeEmpreiteiro={setEmpreiteiro}
+              onChangeTipoServico={setTipoServico}
+              onChangeProducao={setInfraProducao}
+              tipoRdo="INFRA"
+            />
+            <SectionNfConcreto entries={nfConcreto} onChange={setNfConcreto} />
+          </>
         )}
 
         {tipoRdo === "CAUQ" && (

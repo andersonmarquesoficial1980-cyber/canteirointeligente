@@ -77,7 +77,11 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
       <h3 className="text-sm font-display font-bold pt-1" style={{ color: "hsl(220 70% 30%)" }}>Produção</h3>
 
       {producao.map((entry, idx) => {
-        const area = (parseFloat(entry.comprimento_m) || 0) * (parseFloat(entry.largura_m) || 0);
+        const comp = parseFloat(entry.comprimento_m) || 0;
+        const larg = parseFloat(entry.largura_m) || 0;
+        const esp = parseFloat(entry.espessura_cm) || 0;
+        const area = comp * larg;
+        const volume = area * (esp / 100);
         return (
           <div key={entry.id} className="rdo-card space-y-3">
             <div className="flex items-center justify-between">
@@ -138,7 +142,10 @@ export default function SectionInfraestrutura({ empreiteiro, tipoServico, produc
                 <Checkbox checked={entry.is_retrabalho} onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)} />
                 <span className="text-xs text-muted-foreground">É Retrabalho?</span>
               </div>
-              {area > 0 && <span className="text-sm font-bold text-primary">Área: {area.toFixed(2)} m²</span>}
+              <div className="flex flex-col items-end gap-0.5">
+                {area > 0 && <span className="text-sm font-bold text-primary">Área: {area.toFixed(2)} m²</span>}
+                {volume > 0 && <span className="text-sm font-bold" style={{ color: "hsl(215 100% 40%)" }}>Volume: {volume.toFixed(3)} m³</span>}
+              </div>
             </div>
           </div>
         );
