@@ -9,6 +9,7 @@ const TIPOS = [
   { value: "CAUQ", label: "CAUQ", icon: "🛣️", desc: "Concreto Asfáltico" },
   { value: "INFRAESTRUTURA", label: "Infra", icon: "🏗️", desc: "Infraestrutura" },
   { value: "CANTEIRO", label: "Canteiro", icon: "🏭", desc: "Canteiro / Insumos" },
+  { value: "PV", label: "PV", icon: "🕳️", desc: "Poço de Visita" },
 ];
 
 export default function RdoTipoSelector({ value, onChange }: RdoTipoSelectorProps) {
