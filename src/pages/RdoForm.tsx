@@ -50,6 +50,11 @@ export default function RdoForm() {
     comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false, material: "",
   }]);
 
+  // NF Concreto (Infra)
+  const [nfConcreto, setNfConcreto] = useState<NfConcretoEntry[]>([{
+    id: crypto.randomUUID(), nf: "", quantidade_m3: "", tipo_concreto: "", fornecedor: "", foto_url: "",
+  }]);
+
   // CAUQ
   const [nfMassa, setNfMassa] = useState<NotaFiscalMassaEntry[]>([{
     id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "", tipo_material_outro: "",
