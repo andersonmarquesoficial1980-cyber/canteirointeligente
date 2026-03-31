@@ -12,6 +12,7 @@ import RdoTipoSelector from "@/components/rdo/RdoTipoSelector";
 import SectionInfraestrutura, { type InfraProducaoEntry } from "@/components/rdo/SectionInfraestrutura";
 import SectionCauq, { type NotaFiscalMassaEntry } from "@/components/rdo/SectionCauq";
 import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/SectionCanteiro";
+import SectionNfConcreto, { type NfConcretoEntry } from "@/components/rdo/SectionNfConcreto";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 
 
