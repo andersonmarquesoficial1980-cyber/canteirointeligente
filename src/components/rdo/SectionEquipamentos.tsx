@@ -15,6 +15,7 @@ export interface EquipamentoEntry {
   patrimonio: string;
   empresa_dona: string;
   is_menor: boolean;
+  fresadora_conica: string;
 }
 
 interface Props {
