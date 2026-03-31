@@ -206,13 +206,9 @@ export default function SectionPV({ data, onChange }: SectionPVProps) {
         )}
 
         {data.modo_execucao === "manual" && (
-          <div className="space-y-3 pt-2">
-            <div className="space-y-1.5">
-              <span className="rdo-label">Martelete</span>
-              <Input value={data.martelete} onChange={e => update("martelete", e.target.value)} placeholder="Identificação do martelete" className="h-12 text-base bg-white border-border rounded-xl" />
-            </div>
+          <div className="pt-2">
             <p className="text-xs text-muted-foreground italic">
-              💡 O compressor deve ser lançado na seção geral de Equipamentos do RDO.
+              💡 Compressor e Martelete devem ser lançados na seção geral de Equipamentos do RDO.
             </p>
           </div>
         )}
