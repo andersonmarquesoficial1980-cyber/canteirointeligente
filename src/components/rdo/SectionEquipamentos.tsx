@@ -263,9 +263,26 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
                       <p className="text-xs text-muted-foreground italic py-2">
                         Nenhum equipamento disponível para este tipo.
                       </p>
-                    )}
+                )}
+
+                {/* Step 4: Fresadora Cônica for Bobcats */}
+                {entry.categoria === "BOBCAT" && entry.frota && (
+                  <div className="space-y-1.5">
+                    <span className="rdo-label">Fresadora Cônica *</span>
+                    <Select value={entry.fresadora_conica} onValueChange={(v) => update(entry.id, "fresadora_conica", v)}>
+                      <SelectTrigger className="h-11 bg-white border-border rounded-xl">
+                        <SelectValue placeholder="Selecione FC" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FC_OPTIONS.map((fc) => (
+                          <SelectItem key={fc} value={fc}>{fc}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
+              </div>
+            )}
               </div>
             )}
           </div>

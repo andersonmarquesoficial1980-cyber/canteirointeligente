@@ -91,7 +91,7 @@ export default function RdoForm() {
   });
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
-    id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
+    id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
   }]);
 
 
