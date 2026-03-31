@@ -78,9 +78,6 @@ export default function RdoForm() {
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
   }]);
 
-  const [basculantes, setBasculantes] = useState<BasculanteEntry[]>([{
-    id: crypto.randomUUID(), placa: "", material: "", viagens: "", empresa_dona: "",
-  }]);
 
   const [efetivo, setEfetivo] = useState<EfetivoEntry[]>([{
     id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
