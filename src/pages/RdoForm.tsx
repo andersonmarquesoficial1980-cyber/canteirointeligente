@@ -370,15 +370,18 @@ export default function RdoForm() {
         </div>
 
         {tipoRdo === "INFRAESTRUTURA" && (
-          <SectionInfraestrutura
-            empreiteiro={empreiteiro}
-            tipoServico={tipoServico}
-            producao={infraProducao}
-            onChangeEmpreiteiro={setEmpreiteiro}
-            onChangeTipoServico={setTipoServico}
-            onChangeProducao={setInfraProducao}
-            tipoRdo="INFRA"
-          />
+          <>
+            <SectionInfraestrutura
+              empreiteiro={empreiteiro}
+              tipoServico={tipoServico}
+              producao={infraProducao}
+              onChangeEmpreiteiro={setEmpreiteiro}
+              onChangeTipoServico={setTipoServico}
+              onChangeProducao={setInfraProducao}
+              tipoRdo="INFRA"
+            />
+            <SectionNfConcreto entries={nfConcreto} onChange={setNfConcreto} />
+          </>
         )}
 
         {tipoRdo === "CAUQ" && (
