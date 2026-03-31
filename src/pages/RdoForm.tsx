@@ -195,6 +195,28 @@ export default function RdoForm() {
       lines.push(`  Toneladas Totais: ${fmtBR(totalTon)} Ton`);
     }
 
+    if (tipoRdo === "PV") {
+      lines.push(``);
+      lines.push(`🕳️ *Poço de Visita (PV)*`);
+      lines.push(`👤 Cliente: ${pvData.cliente}`);
+      lines.push(`📍 ${pvData.rua}${pvData.bairro ? `, ${pvData.bairro}` : ""} - ${pvData.cidade}`);
+      lines.push(`⚙️ Modo: ${pvData.modo_execucao === "mecanizado" ? "Mecanizado" : "Manual"}`);
+      if (pvData.modo_execucao === "mecanizado") {
+        lines.push(`  Bobcat: ${pvData.equipamento_bobcat} | FC: ${pvData.acoplamento_fc}`);
+      } else {
+        lines.push(`  Compressor: ${pvData.compressor} | Martelete: ${pvData.martelete}`);
+      }
+      lines.push(`🔢 PVs Executados: *${pvData.qtd_pvs || "0"}*`);
+      const filledMats = pvData.materiais.filter(m => m.material && m.quantidade);
+      if (filledMats.length > 0) {
+        lines.push(`📦 Materiais:`);
+        filledMats.forEach(m => lines.push(`  ▸ ${m.material}: ${m.quantidade} ${m.unidade}`));
+      }
+      if (pvData.observacoes) {
+        lines.push(`📝 Obs: ${pvData.observacoes}`);
+      }
+    }
+
     const text = lines.join("\n");
 
     try {
