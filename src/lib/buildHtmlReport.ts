@@ -28,7 +28,6 @@ export function buildHtmlReport(
   nfMassa: NotaFiscalMassaEntry[],
   efetivo: EfetivoEntry[],
   equipamentos: EquipamentoEntry[],
-  basculantes: BasculanteEntry[],
   globalEntrada: string,
   globalSaida: string,
   canteiroData?: CanteiroReportData,
