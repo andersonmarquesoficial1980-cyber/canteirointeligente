@@ -198,7 +198,7 @@ export default function RdoForm() {
     if (tipoRdo === "PV") {
       lines.push(``);
       lines.push(`🕳️ *Poço de Visita (PV)*`);
-      lines.push(`👤 Cliente: ${pvData.cliente}`);
+      lines.push(`👤 Cliente: ${header.cliente}`);
       lines.push(`📍 ${pvData.rua}${pvData.bairro ? `, ${pvData.bairro}` : ""} - ${pvData.cidade}`);
       lines.push(`⚙️ Modo: ${pvData.modo_execucao === "mecanizado" ? "Mecanizado" : "Manual"}`);
       lines.push(`🔢 PVs Executados: *${pvData.qtd_pvs || "0"}*`);
