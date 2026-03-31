@@ -86,11 +86,12 @@ th{background:#f3f4f6;font-weight:600}
   const filledEquip = equipamentos.filter(e => e.frota || e.categoria);
   if (filledEquip.length > 0) {
     html += `<h2>🚜 Equipamentos (${filledEquip.length})</h2>
-<table><tr><th style="text-align:center">FROTA</th><th>EQUIPAMENTO</th><th>MODELO/PLACA</th><th>EMPRESA</th></tr>`;
+<table><tr><th style="text-align:center">FROTA</th><th>EQUIPAMENTO</th><th>MODELO/PLACA</th><th>ACESSÓRIO</th><th>EMPRESA</th></tr>`;
     filledEquip.forEach(e => {
       const modeloParts = [e.nome, e.patrimonio].filter(Boolean);
       const modeloPlaca = modeloParts.length > 1 ? modeloParts.join(" / ") : modeloParts[0] || "";
-      html += `<tr><td style="text-align:center;font-weight:600">${e.frota}</td><td>${e.tipo || e.categoria}</td><td>${modeloPlaca}</td><td>${e.empresa_dona}</td></tr>`;
+      const acessorio = e.fresadora_conica ? `FC: ${e.fresadora_conica}` : "";
+      html += `<tr><td style="text-align:center;font-weight:600">${e.frota}</td><td>${e.tipo || e.categoria}</td><td>${modeloPlaca}</td><td>${acessorio}</td><td>${e.empresa_dona}</td></tr>`;
     });
     html += `</table>`;
   }
