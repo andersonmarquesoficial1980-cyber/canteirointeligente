@@ -499,6 +499,16 @@ export default function RdoForm() {
             <MessageCircle className="w-5 h-5" /> 📱 Gerar Resumo WhatsApp
           </Button>
         )}
+        {tipoRdo === "PV" && (
+          <Button
+            type="button"
+            onClick={handleSaveAndNewStreet}
+            disabled={saving || !header.obra_nome || !header.turno}
+            className="w-full h-12 text-base gap-2 font-semibold rounded-xl border-2 border-primary bg-white text-primary hover:bg-primary/5"
+          >
+            <RotateCw className="w-5 h-5" /> Salvar e Iniciar Nova Rua
+          </Button>
+        )}
         <Button
           onClick={handleSubmit}
           disabled={saving || !header.obra_nome || !header.turno}
