@@ -226,7 +226,32 @@ export default function RdoForm() {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSaveAndNewStreet = async () => {
+    if (!header.obra_nome || !header.turno) {
+      toast({ title: "Atenção", description: "Preencha OGS e Turno antes de salvar.", variant: "destructive" });
+      return;
+    }
+    // Submit the current RDO first
+    await handleSubmitInternal(false);
+    // Reset only street-specific fields, keeping shared data
+    setPvData(prev => ({
+      ...prev,
+      rua: "",
+      bairro: "",
+      cidade: prev.cidade,
+      qtd_pvs: "",
+      materiais: [{ id: crypto.randomUUID(), material: "", quantidade: "", unidade: "Ton" }],
+      fotos_antes: [],
+      fotos_durante: [],
+      fotos_depois: [],
+      observacoes: "",
+    }));
+    setObservacoesGerais("");
+    toast({ title: "✅ RDO salvo!", description: "Novo formulário pronto. Preencha a nova Rua e Produção." });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleSubmitInternal = async (showNavigate = true) => {
     const normalizedTurno = header.turno.trim().toLowerCase();
     if (!header.obra_nome || !header.data || !normalizedTurno) {
       toast({ title: "Erro", description: "Preencha OGS, Data e Turno.", variant: "destructive" });
