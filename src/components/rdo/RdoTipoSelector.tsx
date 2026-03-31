@@ -1,4 +1,5 @@
 import { Layers } from "lucide-react";
+// PV module active v2
 
 interface RdoTipoSelectorProps {
   value: string;
