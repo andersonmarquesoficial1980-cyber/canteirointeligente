@@ -162,7 +162,7 @@ ${canteiroData.atividadesCanteiro}
   if (tipoRdo === "PV" && pvData) {
     html += `<h2>🕳️ Poço de Visita</h2>
 <table>
-<tr><th>Cliente</th><td>${pvData.cliente}</td><th>Contrato</th><td>${pvData.contrato}</td></tr>
+<tr><th>Cliente</th><td>${header.cliente || pvData.cliente}</td><th>Contrato</th><td>${header.obra_nome || pvData.contrato}</td></tr>
 <tr><th>Rua</th><td>${pvData.rua}</td><th>Bairro</th><td>${pvData.bairro}</td></tr>
 <tr><th>Cidade</th><td>${pvData.cidade}</td><th>Modo</th><td>${pvData.modo_execucao === "mecanizado" ? "Mecanizado" : "Manual"}</td></tr>`;
     // Equipment details now come from the general Equipamentos section

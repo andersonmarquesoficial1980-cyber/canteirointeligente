@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, MessageCircle, FileText, Save } from "lucide-react";
+import { ArrowLeft, Send, MessageCircle, FileText, Save, RotateCw } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -198,7 +198,7 @@ export default function RdoForm() {
     if (tipoRdo === "PV") {
       lines.push(``);
       lines.push(`🕳️ *Poço de Visita (PV)*`);
-      lines.push(`👤 Cliente: ${pvData.cliente}`);
+      lines.push(`👤 Cliente: ${header.cliente}`);
       lines.push(`📍 ${pvData.rua}${pvData.bairro ? `, ${pvData.bairro}` : ""} - ${pvData.cidade}`);
       lines.push(`⚙️ Modo: ${pvData.modo_execucao === "mecanizado" ? "Mecanizado" : "Manual"}`);
       lines.push(`🔢 PVs Executados: *${pvData.qtd_pvs || "0"}*`);
@@ -226,7 +226,32 @@ export default function RdoForm() {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSaveAndNewStreet = async () => {
+    if (!header.obra_nome || !header.turno) {
+      toast({ title: "Atenção", description: "Preencha OGS e Turno antes de salvar.", variant: "destructive" });
+      return;
+    }
+    // Submit the current RDO first
+    await handleSubmitInternal(false);
+    // Reset only street-specific fields, keeping shared data
+    setPvData(prev => ({
+      ...prev,
+      rua: "",
+      bairro: "",
+      cidade: prev.cidade,
+      qtd_pvs: "",
+      materiais: [{ id: crypto.randomUUID(), material: "", quantidade: "", unidade: "Ton" }],
+      fotos_antes: [],
+      fotos_durante: [],
+      fotos_depois: [],
+      observacoes: "",
+    }));
+    setObservacoesGerais("");
+    toast({ title: "✅ RDO salvo!", description: "Novo formulário pronto. Preencha a nova Rua e Produção." });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleSubmitInternal = async (showNavigate = true) => {
     const normalizedTurno = header.turno.trim().toLowerCase();
     if (!header.obra_nome || !header.data || !normalizedTurno) {
       toast({ title: "Erro", description: "Preencha OGS, Data e Turno.", variant: "destructive" });
@@ -352,7 +377,7 @@ export default function RdoForm() {
           ? "Relatório registrado e e-mail enviado com sucesso."
           : "Relatório registrado. O e-mail não pôde ser enviado.",
       });
-      navigate("/");
+      if (showNavigate) navigate("/");
     } catch (err: any) {
       console.error(err);
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
@@ -360,6 +385,8 @@ export default function RdoForm() {
       setSaving(false);
     }
   };
+
+  const handleSubmit = () => handleSubmitInternal(true);
 
   return (
     <div className="min-h-screen bg-page flex flex-col">
@@ -470,6 +497,16 @@ export default function RdoForm() {
             className="w-full h-12 text-base gap-2 font-semibold bg-[#25D366] hover:bg-[#1da851] text-white rounded-xl"
           >
             <MessageCircle className="w-5 h-5" /> 📱 Gerar Resumo WhatsApp
+          </Button>
+        )}
+        {tipoRdo === "PV" && (
+          <Button
+            type="button"
+            onClick={handleSaveAndNewStreet}
+            disabled={saving || !header.obra_nome || !header.turno}
+            className="w-full h-12 text-base gap-2 font-semibold rounded-xl border-2 border-primary bg-white text-primary hover:bg-primary/5"
+          >
+            <RotateCw className="w-5 h-5" /> Salvar e Iniciar Nova Rua
           </Button>
         )}
         <Button

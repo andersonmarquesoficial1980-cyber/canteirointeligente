@@ -103,44 +103,31 @@ export default function SectionPV({ data, onChange }: SectionPVProps) {
     <div className="px-4 space-y-4">
       <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
 
-      {/* Identificação da Obra */}
+      {/* Localização da Rua */}
       <div className="rdo-card space-y-4">
         <h2 className="rdo-section-title">
           <HardHat className="w-5 h-5 text-primary" />
-          Identificação da Obra (PV)
+          Localização (PV)
         </h2>
 
+        <p className="text-xs text-muted-foreground italic">
+          💡 Cliente e OGS são preenchidos no cabeçalho geral do RDO.
+        </p>
+
         <div className="space-y-1.5">
-          <span className="rdo-label">Cliente *</span>
-          <Select value={data.cliente} onValueChange={v => update("cliente", v)}>
-            <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
-              <SelectValue placeholder="Selecione o cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              {CLIENTES_PV.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <span className="rdo-label">Rua *</span>
+          <Input value={data.rua} onChange={e => update("rua", e.target.value)} placeholder="Nome da rua" className="h-12 text-base bg-white border-border rounded-xl" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <span className="rdo-label">OGS / Contrato</span>
-            <Input value={data.contrato} onChange={e => update("contrato", e.target.value)} placeholder="Nº Contrato" className="h-12 text-base bg-white border-border rounded-xl" />
+            <span className="rdo-label">Bairro</span>
+            <Input value={data.bairro} onChange={e => update("bairro", e.target.value)} placeholder="Bairro" className="h-12 text-base bg-white border-border rounded-xl" />
           </div>
           <div className="space-y-1.5">
             <span className="rdo-label">Cidade</span>
             <Input value={data.cidade} onChange={e => update("cidade", e.target.value)} placeholder="Ex: Belo Horizonte" className="h-12 text-base bg-white border-border rounded-xl" />
           </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <span className="rdo-label">Rua</span>
-          <Input value={data.rua} onChange={e => update("rua", e.target.value)} placeholder="Nome da rua" className="h-12 text-base bg-white border-border rounded-xl" />
-        </div>
-
-        <div className="space-y-1.5">
-          <span className="rdo-label">Bairro</span>
-          <Input value={data.bairro} onChange={e => update("bairro", e.target.value)} placeholder="Bairro" className="h-12 text-base bg-white border-border rounded-xl" />
         </div>
       </div>
 
