@@ -19,7 +19,7 @@ export default function RdoTipoSelector({ value, onChange }: RdoTipoSelectorProp
         <Layers className="w-5 h-5 text-primary" />
         Tipo de RDO
       </h2>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {TIPOS.map(t => (
           <button
             key={t.value}
