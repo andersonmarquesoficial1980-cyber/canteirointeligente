@@ -2,6 +2,7 @@ import type { ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
 import type { NotaFiscalMassaEntry } from "@/components/rdo/SectionCauq";
 import type { EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import type { EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
+import type { PVData } from "@/components/rdo/SectionPV";
 
 
 interface HeaderData {
