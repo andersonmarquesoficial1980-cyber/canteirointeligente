@@ -677,6 +677,33 @@ export type Database = {
         }
         Relationships: []
       }
+      frotas_terceiros: {
+        Row: {
+          ativo: boolean
+          created_at: string | null
+          empresa_nome: string
+          id: string
+          placa: string
+          tipo_veiculo: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string | null
+          empresa_nome: string
+          id?: string
+          placa: string
+          tipo_veiculo?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string | null
+          empresa_nome?: string
+          id?: string
+          placa?: string
+          tipo_veiculo?: string
+        }
+        Relationships: []
+      }
       fueling_entries: {
         Row: {
           created_at: string | null
