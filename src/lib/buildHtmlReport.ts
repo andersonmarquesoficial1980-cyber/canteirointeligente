@@ -155,6 +155,7 @@ ${canteiroData.atividadesCanteiro}
     }
   }
 
+  // PV report data (passed via canteiroData hack or separate)
   html += `<hr><p style="color:#9ca3af;font-size:12px;margin-top:20px">Relatório gerado automaticamente pelo Canteiro Inteligente</p></body></html>`;
   return html;
 }
