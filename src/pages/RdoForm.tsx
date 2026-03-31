@@ -13,7 +13,7 @@ import SectionInfraestrutura, { type InfraProducaoEntry } from "@/components/rdo
 import SectionCauq, { type NotaFiscalMassaEntry } from "@/components/rdo/SectionCauq";
 import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/SectionCanteiro";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
-import SectionBasculante, { type BasculanteEntry } from "@/components/rdo/SectionBasculante";
+
 
 import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import SectionProducaoCauq, { type ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
@@ -78,9 +78,6 @@ export default function RdoForm() {
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false,
   }]);
 
-  const [basculantes, setBasculantes] = useState<BasculanteEntry[]>([{
-    id: crypto.randomUUID(), placa: "", material: "", viagens: "", empresa_dona: "",
-  }]);
 
   const [efetivo, setEfetivo] = useState<EfetivoEntry[]>([{
     id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
@@ -294,7 +291,7 @@ export default function RdoForm() {
       }
 
       // Build HTML report and send email
-      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, basculantes, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome);
+      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome);
       let emailSent = false;
       try {
         console.log("Iniciando envio de e-mail...");
@@ -389,7 +386,7 @@ export default function RdoForm() {
         {tipoRdo && (
           <>
             <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
-            <SectionBasculante entries={basculantes} onChange={setBasculantes} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
+            
             <StepEfetivo
               entries={efetivo}
               onChange={setEfetivo}

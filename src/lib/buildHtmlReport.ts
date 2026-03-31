@@ -2,7 +2,7 @@ import type { ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
 import type { NotaFiscalMassaEntry } from "@/components/rdo/SectionCauq";
 import type { EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import type { EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
-import type { BasculanteEntry } from "@/components/rdo/SectionBasculante";
+
 
 interface HeaderData {
   data: string;
@@ -28,7 +28,6 @@ export function buildHtmlReport(
   nfMassa: NotaFiscalMassaEntry[],
   efetivo: EfetivoEntry[],
   equipamentos: EquipamentoEntry[],
-  basculantes: BasculanteEntry[],
   globalEntrada: string,
   globalSaida: string,
   canteiroData?: CanteiroReportData,
@@ -94,19 +93,6 @@ th{background:#f3f4f6;font-weight:600}
     html += `</table>`;
   }
 
-  // Basculantes (Placa | Material | Viagens only)
-  const filledBasc = basculantes.filter(b => b.placa);
-  if (filledBasc.length > 0) {
-    html += `<h2>🚛 Basculantes (${filledBasc.length})</h2>
-<table><tr><th>Placa</th><th>Material</th><th>Viagens</th></tr>`;
-    let totalViagens = 0;
-    filledBasc.forEach(b => {
-      const v = parseInt(b.viagens) || 0;
-      totalViagens += v;
-      html += `<tr><td>${b.placa}</td><td>${b.material}</td><td>${b.viagens}</td></tr>`;
-    });
-    html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="2">TOTAL</td><td>${totalViagens}</td></tr></table>`;
-  }
 
   // Notas Fiscais de Massa (before Produção)
   if (tipoRdo === "CAUQ") {
