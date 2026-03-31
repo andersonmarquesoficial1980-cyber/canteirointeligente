@@ -99,7 +99,7 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
       onChange(
         entries.map((e) =>
           e.id === id
-            ? { ...e, categoria: value, subTipo: "", frota: "", tipo: "", nome: "", empresa_dona: "" }
+            ? { ...e, categoria: value, subTipo: "", frota: "", tipo: "", nome: "", empresa_dona: "", fresadora_conica: "" }
             : e
         )
       );
