@@ -451,6 +451,7 @@ export default function RdoForm() {
         )}
         {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
         {tipoRdo === "PV" && <SectionPV data={pvData} onChange={setPvData} />}
+        {tipoRdo === "AEROPAV" && <SectionAeroPavGru data={aeroPavData} onChange={setAeroPavData} turno={header.turno} />}
 
         {tipoRdo && (
           <>
