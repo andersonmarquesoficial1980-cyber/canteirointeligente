@@ -11,6 +11,7 @@ const TIPOS = [
   { value: "INFRAESTRUTURA", label: "Infra", icon: "🏗️", desc: "Infraestrutura" },
   { value: "CANTEIRO", label: "Canteiro", icon: "🏭", desc: "Canteiro / Insumos" },
   { value: "PV", label: "PV", icon: "🕳️", desc: "Poço de Visita" },
+  { value: "AEROPAV", label: "AEROPAV", icon: "✈️", desc: "AEROPAV GRU" },
 ];
 
 export default function RdoTipoSelector({ value, onChange }: RdoTipoSelectorProps) {
@@ -20,7 +21,7 @@ export default function RdoTipoSelector({ value, onChange }: RdoTipoSelectorProp
         <Layers className="w-5 h-5 text-primary" />
         Tipo de RDO
       </h2>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {TIPOS.map(t => (
           <button
             key={t.value}

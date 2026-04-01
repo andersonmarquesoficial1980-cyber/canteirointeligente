@@ -14,6 +14,7 @@ import SectionCauq, { type NotaFiscalMassaEntry } from "@/components/rdo/Section
 import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/SectionCanteiro";
 import SectionNfConcreto, { type NfConcretoEntry } from "@/components/rdo/SectionNfConcreto";
 import SectionPV, { type PVData, type PVMaterialEntry } from "@/components/rdo/SectionPV";
+import SectionAeroPavGru, { type AeroPavData } from "@/components/rdo/SectionAeroPavGru";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 
 
@@ -88,6 +89,10 @@ export default function RdoForm() {
     materiais: [{ id: crypto.randomUUID(), material: "", quantidade: "", unidade: "Ton" }],
     fotos_antes: [], fotos_durante: [], fotos_depois: [],
     observacoes: "",
+  });
+  // AEROPAV GRU
+  const [aeroPavData, setAeroPavData] = useState<AeroPavData>({
+    origem_pessoal: "", origem_equipamento: "", marmitas_quantidade: "", marmitas_turno: "", observacoes_logistica: "",
   });
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
@@ -209,6 +214,17 @@ export default function RdoForm() {
       }
       if (pvData.observacoes) {
         lines.push(`📝 Obs: ${pvData.observacoes}`);
+      }
+    }
+
+    if (tipoRdo === "AEROPAV") {
+      lines.push(``);
+      lines.push(`✈️ *AEROPAV GRU*`);
+      lines.push(`🏢 Origem Pessoal: ${aeroPavData.origem_pessoal || "—"}`);
+      lines.push(`🏢 Origem Equipamentos: ${aeroPavData.origem_equipamento || "—"}`);
+      lines.push(`🍽️ Marmitas: *${aeroPavData.marmitas_quantidade || "0"}* (Turno ${header.turno === "noturno" ? "Noturno" : "Diurno"})`);
+      if (aeroPavData.observacoes_logistica) {
+        lines.push(`📝 Logística: ${aeroPavData.observacoes_logistica}`);
       }
     }
 
@@ -446,6 +462,7 @@ export default function RdoForm() {
         )}
         {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
         {tipoRdo === "PV" && <SectionPV data={pvData} onChange={setPvData} />}
+        {tipoRdo === "AEROPAV" && <SectionAeroPavGru data={aeroPavData} onChange={setAeroPavData} turno={header.turno} />}
 
         {tipoRdo && (
           <>
@@ -490,7 +507,7 @@ export default function RdoForm() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-4 space-y-2 shadow-[0_-4px_20px_-4px_hsl(215_60%_50%/0.1)]">
-        {(tipoRdo === "CAUQ" || tipoRdo === "PV") && (
+        {(tipoRdo === "CAUQ" || tipoRdo === "PV" || tipoRdo === "AEROPAV") && (
           <Button
             type="button"
             onClick={handleWhatsAppResume}
