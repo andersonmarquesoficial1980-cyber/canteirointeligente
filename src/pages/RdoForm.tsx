@@ -507,7 +507,7 @@ export default function RdoForm() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-4 space-y-2 shadow-[0_-4px_20px_-4px_hsl(215_60%_50%/0.1)]">
-        {(tipoRdo === "CAUQ" || tipoRdo === "PV") && (
+        {(tipoRdo === "CAUQ" || tipoRdo === "PV" || tipoRdo === "AEROPAV") && (
           <Button
             type="button"
             onClick={handleWhatsAppResume}
