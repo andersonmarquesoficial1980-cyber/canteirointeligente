@@ -90,6 +90,10 @@ export default function RdoForm() {
     fotos_antes: [], fotos_durante: [], fotos_depois: [],
     observacoes: "",
   });
+  // AEROPAV GRU
+  const [aeroPavData, setAeroPavData] = useState<AeroPavData>({
+    origem_pessoal: "", origem_equipamento: "", marmitas_quantidade: "", marmitas_turno: "", observacoes_logistica: "",
+  });
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
