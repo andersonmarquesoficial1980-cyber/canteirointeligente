@@ -102,6 +102,9 @@ function AppRoutes() {
         {/* Diretório — busca global */}
         <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
 
+        {/* Vale Transporte */}
+        <Route path="/vale-transporte" element={<ValeTransporte />} />
+
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
         <Route path="/admin/configuracoes" element={
           <ErrorBoundary fallbackMessage="Erro ao carregar o Painel de Controle.">
