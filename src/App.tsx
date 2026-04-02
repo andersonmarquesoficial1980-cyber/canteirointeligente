@@ -21,6 +21,8 @@ import TruckerHome from "./pages/TruckerHome";
 import Diretorio from "./pages/Diretorio";
 import ValeTransporte from "./pages/ValeTransporte";
 import FreightCalculator from "./pages/FreightCalculator";
+import RhHome from "./pages/RhHome";
+import TrajetoVT from "./pages/TrajetoVT";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
