@@ -1653,6 +1653,71 @@ export type Database = {
         }
         Relationships: []
       }
+      trucker_freight_calculations: {
+        Row: {
+          adicionais: number
+          adicionais_descricao: string | null
+          contrato: string | null
+          created_at: string
+          destination_address: string
+          distance_km: number
+          duration_minutes: number | null
+          id: string
+          notes: string | null
+          ogs_id: string | null
+          origin_address: string
+          pedagio_estimado: number
+          quantidade_eixos: number | null
+          total_frete: number
+          user_id: string | null
+          valor_por_km: number
+        }
+        Insert: {
+          adicionais?: number
+          adicionais_descricao?: string | null
+          contrato?: string | null
+          created_at?: string
+          destination_address: string
+          distance_km?: number
+          duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          ogs_id?: string | null
+          origin_address: string
+          pedagio_estimado?: number
+          quantidade_eixos?: number | null
+          total_frete?: number
+          user_id?: string | null
+          valor_por_km?: number
+        }
+        Update: {
+          adicionais?: number
+          adicionais_descricao?: string | null
+          contrato?: string | null
+          created_at?: string
+          destination_address?: string
+          distance_km?: number
+          duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          ogs_id?: string | null
+          origin_address?: string
+          pedagio_estimado?: number
+          quantidade_eixos?: number | null
+          total_frete?: number
+          user_id?: string | null
+          valor_por_km?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trucker_freight_calculations_ogs_id_fkey"
+            columns: ["ogs_id"]
+            isOneToOne: false
+            referencedRelation: "ogs_reference"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trucker_trips: {
         Row: {
           arrival_geo: string | null
