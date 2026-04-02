@@ -95,6 +95,9 @@ export default function RdoForm() {
   const [aeroPavData, setAeroPavData] = useState<AeroPavData>({
     marmitas_quantidade: "", marmitas_turno: "", observacoes_logistica: "",
   });
+  const [terceirizados, setTerceirizados] = useState<TerceirizadoEntry[]>([{
+    id: crypto.randomUUID(), nome: "", empresa: "", empresa_outra: "",
+  }]);
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
