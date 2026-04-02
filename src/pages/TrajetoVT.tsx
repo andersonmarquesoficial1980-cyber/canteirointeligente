@@ -57,32 +57,55 @@ function PlacesAutocomplete({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<any>(null);
+  const [mapsReady, setMapsReady] = useState(false);
 
   useEffect(() => {
-    if (!inputRef.current || !window.google?.maps?.places) return;
     if (autocompleteRef.current) return;
 
-    autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
-      componentRestrictions: { country: "br" },
-      fields: ["formatted_address"],
-    });
-
-    autocompleteRef.current.addListener("place_changed", () => {
-      const place = autocompleteRef.current.getPlace();
-      if (place?.formatted_address) {
-        onChange(place.formatted_address);
+    const tryInit = () => {
+      if (!inputRef.current || !window.google?.maps?.places) return false;
+      try {
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
+          componentRestrictions: { country: "br" },
+          fields: ["formatted_address"],
+        });
+        autocompleteRef.current.addListener("place_changed", () => {
+          const place = autocompleteRef.current.getPlace();
+          if (place?.formatted_address) {
+            onChange(place.formatted_address);
+          }
+        });
+        setMapsReady(true);
+        return true;
+      } catch {
+        return false;
       }
-    });
+    };
+
+    if (!tryInit()) {
+      const interval = setInterval(() => {
+        if (tryInit()) clearInterval(interval);
+      }, 1000);
+      const timeout = setTimeout(() => clearInterval(interval), 10000);
+      return () => { clearInterval(interval); clearTimeout(timeout); };
+    }
   }, []);
 
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input
+      <Label className="flex items-center gap-1.5">
+        {label}
+        {!mapsReady && (
+          <span className="text-[10px] text-muted-foreground font-normal">(digitação manual)</span>
+        )}
+      </Label>
+      <input
         ref={inputRef}
+        type="text"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm"
       />
     </div>
   );
