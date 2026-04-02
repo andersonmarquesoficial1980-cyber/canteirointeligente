@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, Truck, Search } from "lucide-react";
+import { LayoutDashboard, FileText, Truck, Search, Bus } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import logoCi from "@/assets/logo-ci.png";
 
