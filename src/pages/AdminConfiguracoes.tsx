@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
+import AeroPavStaffManager from "@/components/admin/AeroPavStaffManager";
 import logoCi from "@/assets/logo-ci.png";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
@@ -898,6 +899,7 @@ const MENU_SECTIONS = [
   { key: "usinas", label: "Usinas", icon: Factory },
   { key: "destinos", label: "Destinos (Carreteiro)", icon: MapPin },
   { key: "emails", label: "E-mails", icon: Mail },
+  { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
 ];
 
 export default function AdminConfiguracoes() {
@@ -935,6 +937,7 @@ export default function AdminConfiguracoes() {
       case "usinas": return <EntityManager tableName="usinas" label="Usina" />;
       case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;
+      case "aeropav_staff": return <AeroPavStaffManager />;
       default: return null;
     }
   };

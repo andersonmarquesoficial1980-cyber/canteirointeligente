@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      aero_pav_gru_staff: {
+        Row: {
+          ativo: boolean
+          created_at: string | null
+          funcao: string
+          id: string
+          nome: string
+          telefone: string | null
+          turno: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string | null
+          funcao?: string
+          id?: string
+          nome: string
+          telefone?: string | null
+          turno?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string | null
+          funcao?: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          turno?: string
+        }
+        Relationships: []
+      }
       bit_entries: {
         Row: {
           brand: string

@@ -1,11 +1,8 @@
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plane, Users, Utensils } from "lucide-react";
+import { Plane, Utensils } from "lucide-react";
 
 export interface AeroPavData {
-  origem_pessoal: string;
-  origem_equipamento: string;
   marmitas_quantidade: string;
   marmitas_turno: string;
   observacoes_logistica: string;
@@ -16,8 +13,6 @@ interface SectionAeroPavGruProps {
   onChange: (data: AeroPavData) => void;
   turno: string;
 }
-
-const ORIGENS = ["AEROPAV (Consórcio)", "Fremix", "Dang", "Paupedra"];
 
 export default function SectionAeroPavGru({ data, onChange, turno }: SectionAeroPavGruProps) {
   const update = (field: keyof AeroPavData, value: string) => {
@@ -37,42 +32,6 @@ export default function SectionAeroPavGru({ data, onChange, turno }: SectionAero
           </h2>
         </div>
         <p className="text-xs text-muted-foreground">Consórcio Fremix • Dang • Paupedra — Terraplanagem & Drenagem</p>
-      </div>
-
-      {/* Origem / Proprietário */}
-      <div className="rdo-card space-y-4">
-        <h2 className="rdo-section-title">
-          <Users className="w-5 h-5 text-primary" />
-          Origem / Proprietário
-        </h2>
-        <p className="text-xs text-muted-foreground italic">
-          Defina a empresa responsável pelo pessoal e equipamentos deste lançamento.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <span className="rdo-label">Origem do Pessoal *</span>
-            <Select value={data.origem_pessoal} onValueChange={v => update("origem_pessoal", v)}>
-              <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
-                <SelectValue placeholder="Selecione a origem" />
-              </SelectTrigger>
-              <SelectContent>
-                {ORIGENS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <span className="rdo-label">Origem dos Equipamentos *</span>
-            <Select value={data.origem_equipamento} onValueChange={v => update("origem_equipamento", v)}>
-              <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
-                <SelectValue placeholder="Selecione a origem" />
-              </SelectTrigger>
-              <SelectContent>
-                {ORIGENS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
       </div>
 
       {/* Controle de Logística — Marmitas */}
