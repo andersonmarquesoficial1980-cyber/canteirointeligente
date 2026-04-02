@@ -293,7 +293,18 @@ export default function TrajetoVT() {
             }
           }
 
-          const fareEstimate = estimateFareFromSteps(steps, tarifas);
+          let fareValue = 0;
+          let fareSource: "google" | "tabela" = "tabela";
+
+          // Try to read fare from Google response
+          const googleFare = response.routes[0].fare;
+          if (googleFare && googleFare.value > 0) {
+            fareValue = googleFare.value;
+            fareSource = "google";
+          } else {
+            fareValue = estimateFareFromSteps(steps, tarifas);
+            fareSource = "tabela";
+          }
 
           setResult({
             duration: leg.duration.text,
@@ -301,7 +312,8 @@ export default function TrajetoVT() {
             departureTime: leg.departure_time?.text || "",
             arrivalTime: leg.arrival_time?.text || "",
             steps,
-            fareEstimate,
+            fareEstimate: fareValue,
+            fareSource,
           });
         }
       );
