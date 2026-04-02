@@ -92,7 +92,7 @@ export default function RdoForm() {
   });
   // AEROPAV GRU
   const [aeroPavData, setAeroPavData] = useState<AeroPavData>({
-    origem_pessoal: "", origem_equipamento: "", marmitas_quantidade: "", marmitas_turno: "", observacoes_logistica: "",
+    marmitas_quantidade: "", marmitas_turno: "", observacoes_logistica: "",
   });
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
