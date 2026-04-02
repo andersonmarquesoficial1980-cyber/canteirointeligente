@@ -19,6 +19,7 @@ import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
 import AdminConfiguracoes from "./pages/AdminConfiguracoes";
 import TruckerHome from "./pages/TruckerHome";
 import Diretorio from "./pages/Diretorio";
+import ValeTransporte from "./pages/ValeTransporte";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
@@ -100,6 +101,9 @@ function AppRoutes() {
 
         {/* Diretório — busca global */}
         <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
+
+        {/* Vale Transporte */}
+        <Route path="/vale-transporte" element={<ValeTransporte />} />
 
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
         <Route path="/admin/configuracoes" element={

@@ -1743,6 +1743,69 @@ export type Database = {
         }
         Relationships: []
       }
+      vt_funcionario_conducoes: {
+        Row: {
+          created_at: string | null
+          funcionario_id: string
+          id: string
+          quantidade: number
+          tarifa_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          funcionario_id: string
+          id?: string
+          quantidade?: number
+          tarifa_id: string
+        }
+        Update: {
+          created_at?: string | null
+          funcionario_id?: string
+          id?: string
+          quantidade?: number
+          tarifa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vt_funcionario_conducoes_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "aero_pav_gru_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vt_funcionario_conducoes_tarifa_id_fkey"
+            columns: ["tarifa_id"]
+            isOneToOne: false
+            referencedRelation: "vt_tarifas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vt_tarifas: {
+        Row: {
+          ativo: boolean
+          created_at: string | null
+          id: string
+          tipo_transporte: string
+          valor_unitario: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string | null
+          id?: string
+          tipo_transporte: string
+          valor_unitario?: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string | null
+          id?: string
+          tipo_transporte?: string
+          valor_unitario?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       v_frota_status_atual: {
