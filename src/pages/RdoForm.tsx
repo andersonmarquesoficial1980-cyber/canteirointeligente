@@ -494,6 +494,9 @@ export default function RdoForm() {
               onChangeGlobalEntrada={setGlobalEntrada}
               onChangeGlobalSaida={setGlobalSaida}
             />
+            {tipoRdo === "AEROPAV" && (
+              <SectionEfetivoTerceirizado entries={terceirizados} onChange={setTerceirizados} />
+            )}
             {tipoRdo === "CANTEIRO" && (
               <SectionAtividadesCanteiro
                 teveUsinagem={teveUsinagem}
