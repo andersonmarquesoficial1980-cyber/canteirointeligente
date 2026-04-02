@@ -42,6 +42,7 @@ interface TransitResult {
   arrivalTime: string;
   steps: TransitStep[];
   fareEstimate: number;
+  fareSource: "google" | "tabela";
 }
 
 function PlacesAutocomplete({
