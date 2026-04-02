@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, Truck } from "lucide-react";
+import { LayoutDashboard, FileText, Truck, Search } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import logoCi from "@/assets/logo-ci.png";
 
@@ -18,6 +18,7 @@ const baseItems = [
   { title: "CI RDO", url: "/obras", icon: FileText },
   { title: "CI Equipamentos", url: "/equipamentos", icon: FileText },
   { title: "CI Carreteiros", url: "/carreteiros", icon: Truck },
+  { title: "Diretório", url: "/diretorio", icon: Search },
 ];
 
 export function AppSidebar() {

@@ -18,6 +18,7 @@ import EquipmentHome from "./pages/EquipmentHome";
 import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
 import AdminConfiguracoes from "./pages/AdminConfiguracoes";
 import TruckerHome from "./pages/TruckerHome";
+import Diretorio from "./pages/Diretorio";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
@@ -96,6 +97,9 @@ function AppRoutes() {
         {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}
         <Route path="/carreteiros" element={<TruckerHome />} />
+
+        {/* Diretório — busca global */}
+        <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
 
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
         <Route path="/admin/configuracoes" element={
