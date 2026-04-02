@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2, LogOut } from "lucide-react";
+import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2, LogOut, Calculator } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -320,6 +320,16 @@ export default function TruckerHome() {
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-5">
+        {/* Quick access to freight calculator */}
+        <Button
+          variant="outline"
+          className="w-full mb-4 h-11 justify-start gap-2 font-semibold"
+          onClick={() => navigate("/calculadora-fretes")}
+        >
+          <Calculator className="h-5 w-5 text-primary" />
+          Calculadora de Fretes
+        </Button>
+
         <Tabs defaultValue="saida" className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-11">
             <TabsTrigger value="saida" className="text-sm font-semibold">🚚 Saída (Obra)</TabsTrigger>

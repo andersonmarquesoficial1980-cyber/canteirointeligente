@@ -20,6 +20,7 @@ import AdminConfiguracoes from "./pages/AdminConfiguracoes";
 import TruckerHome from "./pages/TruckerHome";
 import Diretorio from "./pages/Diretorio";
 import ValeTransporte from "./pages/ValeTransporte";
+import FreightCalculator from "./pages/FreightCalculator";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
@@ -104,6 +105,7 @@ function AppRoutes() {
 
         {/* Vale Transporte */}
         <Route path="/vale-transporte" element={<ValeTransporte />} />
+        <Route path="/calculadora-fretes" element={<FreightCalculator />} />
 
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
         <Route path="/admin/configuracoes" element={
