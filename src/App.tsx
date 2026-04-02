@@ -21,6 +21,8 @@ import TruckerHome from "./pages/TruckerHome";
 import Diretorio from "./pages/Diretorio";
 import ValeTransporte from "./pages/ValeTransporte";
 import FreightCalculator from "./pages/FreightCalculator";
+import RhHome from "./pages/RhHome";
+import TrajetoVT from "./pages/TrajetoVT";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
@@ -102,6 +104,10 @@ function AppRoutes() {
 
         {/* Diretório — busca global */}
         <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
+
+        {/* CI RH module */}
+        <Route path="/rh" element={<RhHome />} />
+        <Route path="/rh/trajeto-vt" element={<TrajetoVT />} />
 
         {/* Vale Transporte */}
         <Route path="/vale-transporte" element={<ValeTransporte />} />
