@@ -899,6 +899,7 @@ const MENU_SECTIONS = [
   { key: "usinas", label: "Usinas", icon: Factory },
   { key: "destinos", label: "Destinos (Carreteiro)", icon: MapPin },
   { key: "emails", label: "E-mails", icon: Mail },
+  { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
 ];
 
 export default function AdminConfiguracoes() {
