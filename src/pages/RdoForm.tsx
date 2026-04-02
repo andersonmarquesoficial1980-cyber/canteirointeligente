@@ -228,6 +228,22 @@ export default function RdoForm() {
       if (aeroPavData.observacoes_logistica) {
         lines.push(`📝 Logística: ${aeroPavData.observacoes_logistica}`);
       }
+
+      // Terceirizados agrupados por empresa
+      const filledTerc = terceirizados.filter(t => t.nome.trim());
+      if (filledTerc.length > 0) {
+        lines.push(``);
+        lines.push(`🏗️ *Efetivo Terceirizado (${filledTerc.length}):*`);
+        const grouped: Record<string, string[]> = {};
+        filledTerc.forEach(t => {
+          const emp = t.empresa === "Outros" ? (t.empresa_outra || "Outros") : (t.empresa || "Sem empresa");
+          if (!grouped[emp]) grouped[emp] = [];
+          grouped[emp].push(t.nome);
+        });
+        Object.entries(grouped).forEach(([emp, nomes]) => {
+          lines.push(`  ▸ ${emp}: ${nomes.join(", ")}`);
+        });
+      }
     }
 
     const text = lines.join("\n");
