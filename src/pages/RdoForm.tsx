@@ -15,6 +15,7 @@ import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/Se
 import SectionNfConcreto, { type NfConcretoEntry } from "@/components/rdo/SectionNfConcreto";
 import SectionPV, { type PVData, type PVMaterialEntry } from "@/components/rdo/SectionPV";
 import SectionAeroPavGru, { type AeroPavData } from "@/components/rdo/SectionAeroPavGru";
+import SectionEfetivoTerceirizado, { type TerceirizadoEntry } from "@/components/rdo/SectionEfetivoTerceirizado";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 
 
