@@ -105,6 +105,7 @@ function AppRoutes() {
 
         {/* Vale Transporte */}
         <Route path="/vale-transporte" element={<ValeTransporte />} />
+        <Route path="/calculadora-fretes" element={<FreightCalculator />} />
 
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
         <Route path="/admin/configuracoes" element={
