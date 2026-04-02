@@ -458,7 +458,12 @@ export default function TrajetoVT() {
                   <p className="font-bold text-sm">Estimativa de Custo</p>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Passagem (1 trecho):</span>
+                  <span className="flex items-center gap-1">
+                    Passagem (1 trecho)
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 h-auto font-normal">
+                      {result.fareSource === "google" ? "Valor real via Google" : "Estimado via Tabela"}
+                    </Badge>
+                  </span>
                   <span className="font-medium">R$ {result.fareEstimate.toFixed(2).replace(".", ",")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
