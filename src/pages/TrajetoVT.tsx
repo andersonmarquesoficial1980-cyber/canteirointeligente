@@ -470,7 +470,9 @@ export default function TrajetoVT() {
                   <span className="text-primary">R$ {custoMensal.toFixed(2).replace(".", ",")}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  * Valores calculados com base na tabela de tarifas fixas cadastrada no sistema.
+                  {result.fareSource === "google"
+                    ? "* Valor real obtido via Google Maps."
+                    : "* Valor estimado com base na tabela de tarifas fixas cadastrada no sistema."}
                 </p>
               </CardContent>
             </Card>
