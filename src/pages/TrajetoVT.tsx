@@ -55,27 +55,22 @@ function PlacesAutocomplete({
   value: string;
   onChange: (val: string) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<any>(null);
-  const [mapsReady, setMapsReady] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [suggestions, setSuggestions] = useState<Array<{ place_id: string; description: string }>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const serviceRef = useRef<any>(null);
+  const sessionTokenRef = useRef<any>(null);
+  const placesServiceRef = useRef<any>(null);
 
   useEffect(() => {
-    if (autocompleteRef.current) return;
-
     const tryInit = () => {
-      if (!inputRef.current || !window.google?.maps?.places) return false;
+      if (!window.google?.maps?.places) return false;
       try {
-        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
-          componentRestrictions: { country: "br" },
-          fields: ["formatted_address"],
-        });
-        autocompleteRef.current.addListener("place_changed", () => {
-          const place = autocompleteRef.current.getPlace();
-          if (place?.formatted_address) {
-            onChange(place.formatted_address);
-          }
-        });
-        setMapsReady(true);
+        serviceRef.current = new window.google.maps.places.AutocompleteService();
+        sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+        // We need a PlacesService for getDetails — requires a dummy div
+        const dummyDiv = document.createElement("div");
+        placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
         return true;
       } catch {
         return false;
@@ -85,28 +80,83 @@ function PlacesAutocomplete({
     if (!tryInit()) {
       const interval = setInterval(() => {
         if (tryInit()) clearInterval(interval);
-      }, 1000);
+      }, 1500);
       const timeout = setTimeout(() => clearInterval(interval), 10000);
       return () => { clearInterval(interval); clearTimeout(timeout); };
     }
   }, []);
 
+  const handleInputChange = (text: string) => {
+    onChange(text);
+    if (!serviceRef.current || text.trim().length < 3) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    serviceRef.current.getPlacePredictions(
+      {
+        input: text,
+        componentRestrictions: { country: "br" },
+        sessionToken: sessionTokenRef.current,
+      },
+      (predictions: any[] | null, status: string) => {
+        if (status === "OK" && predictions) {
+          setSuggestions(predictions.map((p) => ({ place_id: p.place_id, description: p.description })));
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      }
+    );
+  };
+
+  const handleSelect = (placeId: string, description: string) => {
+    onChange(description);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    // Refresh session token after selection
+    if (window.google?.maps?.places) {
+      sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+    }
+  };
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   return (
-    <div className="space-y-1.5">
-      <Label className="flex items-center gap-1.5">
-        {label}
-        {!mapsReady && (
-          <span className="text-[10px] text-muted-foreground font-normal">(digitação manual)</span>
-        )}
-      </Label>
+    <div className="space-y-1.5 relative" ref={containerRef}>
+      <Label>{label}</Label>
       <input
-        ref={inputRef}
         type="text"
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => handleInputChange(e.target.value)}
+        onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+        autoComplete="off"
         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm"
       />
+      {showSuggestions && suggestions.length > 0 && (
+        <ul className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+          {suggestions.map((s) => (
+            <li
+              key={s.place_id}
+              className="px-3 py-2.5 text-sm cursor-pointer hover:bg-accent transition-colors"
+              onMouseDown={() => handleSelect(s.place_id, s.description)}
+            >
+              {s.description}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
