@@ -98,6 +98,9 @@ function AppRoutes() {
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}
         <Route path="/carreteiros" element={<TruckerHome />} />
 
+        {/* Diretório — busca global */}
+        <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
+
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
         <Route path="/admin/configuracoes" element={
           <ErrorBoundary fallbackMessage="Erro ao carregar o Painel de Controle.">

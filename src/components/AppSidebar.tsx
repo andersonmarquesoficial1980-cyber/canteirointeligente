@@ -18,6 +18,7 @@ const baseItems = [
   { title: "CI RDO", url: "/obras", icon: FileText },
   { title: "CI Equipamentos", url: "/equipamentos", icon: FileText },
   { title: "CI Carreteiros", url: "/carreteiros", icon: Truck },
+  { title: "Diretório", url: "/diretorio", icon: Search },
 ];
 
 export function AppSidebar() {
