@@ -937,6 +937,7 @@ export default function AdminConfiguracoes() {
       case "usinas": return <EntityManager tableName="usinas" label="Usina" />;
       case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;
+      case "aeropav_staff": return <AeroPavStaffManager />;
       default: return null;
     }
   };
