@@ -207,7 +207,9 @@ export default function TrajetoVT() {
   const [destination, setDestination] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TransitResult | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [tarifas, setTarifas] = useState<Tarifa[]>([]);
+  const calculatingRef = useRef(false);
 
   useEffect(() => {
     supabase
@@ -222,78 +224,92 @@ export default function TrajetoVT() {
 
   const handleCalculate = () => {
     if (!origin.trim() || !destination.trim()) return;
-    if (!window.google?.maps) {
-      alert("Google Maps não carregou. Recarregue a página.");
+    // Prevent double-fire
+    if (calculatingRef.current) return;
+    calculatingRef.current = true;
+
+    if (!window.google?.maps?.DirectionsService) {
+      setErrorMsg("Google Maps não carregou. Recarregue a página ou insira os valores manualmente.");
+      calculatingRef.current = false;
       return;
     }
 
     setLoading(true);
     setResult(null);
+    setErrorMsg(null);
 
-    const service = new window.google.maps.DirectionsService();
-    service.route(
-      {
-        origin,
-        destination,
-        travelMode: window.google.maps.TravelMode.TRANSIT,
-        transitOptions: {
-          modes: [
-            window.google.maps.TransitMode.BUS,
-            window.google.maps.TransitMode.RAIL,
-            window.google.maps.TransitMode.SUBWAY,
-            window.google.maps.TransitMode.TRAM,
-          ],
+    try {
+      const service = new window.google.maps.DirectionsService();
+      service.route(
+        {
+          origin,
+          destination,
+          travelMode: window.google.maps.TravelMode.TRANSIT,
+          transitOptions: {
+            modes: [
+              window.google.maps.TransitMode.BUS,
+              window.google.maps.TransitMode.RAIL,
+              window.google.maps.TransitMode.SUBWAY,
+              window.google.maps.TransitMode.TRAM,
+            ],
+          },
         },
-      },
-      (response: any, status: string) => {
-        setLoading(false);
-        if (status !== "OK" || !response?.routes?.[0]?.legs?.[0]) {
-          alert("Não foi possível calcular a rota de transporte público para esses endereços.");
-          return;
-        }
+        (response: any, status: string) => {
+          setLoading(false);
+          calculatingRef.current = false;
 
-        const leg = response.routes[0].legs[0];
-        const steps: TransitStep[] = [];
-
-        for (const step of leg.steps) {
-          if (step.travel_mode === "TRANSIT") {
-            const transit = step.transit;
-            steps.push({
-              mode: transit.line.vehicle.type,
-              line: transit.line.short_name || transit.line.name || "",
-              vehicle: transit.line.vehicle.name || "",
-              departureStop: transit.departure_stop.name,
-              arrivalStop: transit.arrival_stop.name,
-              numStops: transit.num_stops || 0,
-              duration: step.duration.text,
-              distance: step.distance.text,
-            });
-          } else {
-            steps.push({
-              mode: "WALKING",
-              line: "",
-              vehicle: "A pé",
-              departureStop: "",
-              arrivalStop: "",
-              numStops: 0,
-              duration: step.duration.text,
-              distance: step.distance.text,
-            });
+          if (status !== "OK" || !response?.routes?.[0]?.legs?.[0]) {
+            setErrorMsg("Rota de transporte público não encontrada. Insira os valores manualmente.");
+            return;
           }
+
+          const leg = response.routes[0].legs[0];
+          const steps: TransitStep[] = [];
+
+          for (const step of leg.steps) {
+            if (step.travel_mode === "TRANSIT") {
+              const transit = step.transit;
+              steps.push({
+                mode: transit.line.vehicle.type,
+                line: transit.line.short_name || transit.line.name || "",
+                vehicle: transit.line.vehicle.name || "",
+                departureStop: transit.departure_stop.name,
+                arrivalStop: transit.arrival_stop.name,
+                numStops: transit.num_stops || 0,
+                duration: step.duration.text,
+                distance: step.distance.text,
+              });
+            } else {
+              steps.push({
+                mode: "WALKING",
+                line: "",
+                vehicle: "A pé",
+                departureStop: "",
+                arrivalStop: "",
+                numStops: 0,
+                duration: step.duration.text,
+                distance: step.distance.text,
+              });
+            }
+          }
+
+          const fareEstimate = estimateFareFromSteps(steps, tarifas);
+
+          setResult({
+            duration: leg.duration.text,
+            distance: leg.distance.text,
+            departureTime: leg.departure_time?.text || "",
+            arrivalTime: leg.arrival_time?.text || "",
+            steps,
+            fareEstimate,
+          });
         }
-
-        const fareEstimate = estimateFareFromSteps(steps, tarifas);
-
-        setResult({
-          duration: leg.duration.text,
-          distance: leg.distance.text,
-          departureTime: leg.departure_time?.text || "",
-          arrivalTime: leg.arrival_time?.text || "",
-          steps,
-          fareEstimate,
-        });
-      }
-    );
+      );
+    } catch (err) {
+      setLoading(false);
+      calculatingRef.current = false;
+      setErrorMsg("Erro ao acessar o Google Maps. Verifique se a API está ativada.");
+    }
   };
 
   const custoMensal = result ? result.fareEstimate * 2 * 22 : 0;
@@ -344,6 +360,11 @@ export default function TrajetoVT() {
               )}
               Calcular Trajeto
             </Button>
+            {errorMsg && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {errorMsg}
+              </div>
+            )}
           </CardContent>
         </Card>
 
