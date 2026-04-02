@@ -360,6 +360,11 @@ export default function TrajetoVT() {
               )}
               Calcular Trajeto
             </Button>
+            {errorMsg && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {errorMsg}
+              </div>
+            )}
           </CardContent>
         </Card>
 
