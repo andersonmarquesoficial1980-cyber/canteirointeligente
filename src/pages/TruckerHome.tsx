@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2, LogOut } from "lucide-react";
+import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2, LogOut, Calculator } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
