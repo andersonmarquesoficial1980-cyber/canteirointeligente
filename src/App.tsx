@@ -105,6 +105,10 @@ function AppRoutes() {
         {/* Diretório — busca global */}
         <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
 
+        {/* CI RH module */}
+        <Route path="/rh" element={<RhHome />} />
+        <Route path="/rh/trajeto-vt" element={<TrajetoVT />} />
+
         {/* Vale Transporte */}
         <Route path="/vale-transporte" element={<ValeTransporte />} />
         <Route path="/calculadora-fretes" element={<FreightCalculator />} />
