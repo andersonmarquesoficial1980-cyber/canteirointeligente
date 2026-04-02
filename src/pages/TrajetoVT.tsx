@@ -42,6 +42,7 @@ interface TransitResult {
   arrivalTime: string;
   steps: TransitStep[];
   fareEstimate: number;
+  fareSource: "google" | "tabela";
 }
 
 function PlacesAutocomplete({
@@ -293,7 +294,18 @@ export default function TrajetoVT() {
             }
           }
 
-          const fareEstimate = estimateFareFromSteps(steps, tarifas);
+          let fareValue = 0;
+          let fareSource: "google" | "tabela" = "tabela";
+
+          // Try to read fare from Google response
+          const googleFare = response.routes[0].fare;
+          if (googleFare && googleFare.value > 0) {
+            fareValue = googleFare.value;
+            fareSource = "google";
+          } else {
+            fareValue = estimateFareFromSteps(steps, tarifas);
+            fareSource = "tabela";
+          }
 
           setResult({
             duration: leg.duration.text,
@@ -301,7 +313,8 @@ export default function TrajetoVT() {
             departureTime: leg.departure_time?.text || "",
             arrivalTime: leg.arrival_time?.text || "",
             steps,
-            fareEstimate,
+            fareEstimate: fareValue,
+            fareSource,
           });
         }
       );
@@ -445,7 +458,12 @@ export default function TrajetoVT() {
                   <p className="font-bold text-sm">Estimativa de Custo</p>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Passagem (1 trecho):</span>
+                  <span className="flex items-center gap-1">
+                    Passagem (1 trecho)
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 h-auto font-normal">
+                      {result.fareSource === "google" ? "Valor real via Google" : "Estimado via Tabela"}
+                    </Badge>
+                  </span>
                   <span className="font-medium">R$ {result.fareEstimate.toFixed(2).replace(".", ",")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -457,7 +475,9 @@ export default function TrajetoVT() {
                   <span className="text-primary">R$ {custoMensal.toFixed(2).replace(".", ",")}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  * Valores calculados com base na tabela de tarifas fixas cadastrada no sistema.
+                  {result.fareSource === "google"
+                    ? "* Valor real obtido via Google Maps."
+                    : "* Valor estimado com base na tabela de tarifas fixas cadastrada no sistema."}
                 </p>
               </CardContent>
             </Card>
