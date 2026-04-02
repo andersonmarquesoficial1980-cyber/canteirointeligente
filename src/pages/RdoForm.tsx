@@ -15,6 +15,7 @@ import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/Se
 import SectionNfConcreto, { type NfConcretoEntry } from "@/components/rdo/SectionNfConcreto";
 import SectionPV, { type PVData, type PVMaterialEntry } from "@/components/rdo/SectionPV";
 import SectionAeroPavGru, { type AeroPavData } from "@/components/rdo/SectionAeroPavGru";
+import SectionEfetivoTerceirizado, { type TerceirizadoEntry } from "@/components/rdo/SectionEfetivoTerceirizado";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 
 
@@ -94,6 +95,9 @@ export default function RdoForm() {
   const [aeroPavData, setAeroPavData] = useState<AeroPavData>({
     marmitas_quantidade: "", marmitas_turno: "", observacoes_logistica: "",
   });
+  const [terceirizados, setTerceirizados] = useState<TerceirizadoEntry[]>([{
+    id: crypto.randomUUID(), nome: "", empresa: "", empresa_outra: "",
+  }]);
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
@@ -223,6 +227,22 @@ export default function RdoForm() {
       lines.push(`🍽️ Marmitas: *${aeroPavData.marmitas_quantidade || "0"}* (Turno ${header.turno === "noturno" ? "Noturno" : "Diurno"})`);
       if (aeroPavData.observacoes_logistica) {
         lines.push(`📝 Logística: ${aeroPavData.observacoes_logistica}`);
+      }
+
+      // Terceirizados agrupados por empresa
+      const filledTerc = terceirizados.filter(t => t.nome.trim());
+      if (filledTerc.length > 0) {
+        lines.push(``);
+        lines.push(`🏗️ *Efetivo Terceirizado (${filledTerc.length}):*`);
+        const grouped: Record<string, string[]> = {};
+        filledTerc.forEach(t => {
+          const emp = t.empresa === "Outros" ? (t.empresa_outra || "Outros") : (t.empresa || "Sem empresa");
+          if (!grouped[emp]) grouped[emp] = [];
+          grouped[emp].push(t.nome);
+        });
+        Object.entries(grouped).forEach(([emp, nomes]) => {
+          lines.push(`  ▸ ${emp}: ${nomes.join(", ")}`);
+        });
       }
     }
 
@@ -474,6 +494,9 @@ export default function RdoForm() {
               onChangeGlobalEntrada={setGlobalEntrada}
               onChangeGlobalSaida={setGlobalSaida}
             />
+            {tipoRdo === "AEROPAV" && (
+              <SectionEfetivoTerceirizado entries={terceirizados} onChange={setTerceirizados} />
+            )}
             {tipoRdo === "CANTEIRO" && (
               <SectionAtividadesCanteiro
                 teveUsinagem={teveUsinagem}
