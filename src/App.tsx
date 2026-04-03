@@ -23,6 +23,8 @@ import ValeTransporte from "./pages/ValeTransporte";
 import FreightCalculator from "./pages/FreightCalculator";
 import RhHome from "./pages/RhHome";
 import TrajetoVT from "./pages/TrajetoVT";
+import RegistrarPonto from "./pages/RegistrarPonto";
+import EspelhoPonto from "./pages/EspelhoPonto";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
