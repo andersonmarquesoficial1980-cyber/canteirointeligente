@@ -364,7 +364,7 @@ export default function EquipmentDiaryForm() {
               fuelMeter: lastMeter > 0 ? String(lastMeter) : prev.fuelMeter,
             }));
             setFuelSyncedFromComboio(true);
-            console.log(`[FuelSync] ${selectedFleet} em ${date}: ${totalLiters}L, meter=${lastMeter} sincronizados do Comboio`);
+            // FuelSync complete
             return;
           }
         }
