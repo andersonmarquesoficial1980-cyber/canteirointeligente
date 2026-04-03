@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Pencil, Search, Sun, Moon, Users } from "lucide-react";
+import { Plus, Trash2, Pencil, Search, Sun, Moon, Users, Camera, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import * as faceapi from "face-api.js";
 
 interface StaffMember {
   id: string;
@@ -16,6 +17,7 @@ interface StaffMember {
   telefone: string;
   turno: string;
   ativo: boolean;
+  hasFace?: boolean;
 }
 
 const TURNOS = ["dia", "noite", "indefinido"];
