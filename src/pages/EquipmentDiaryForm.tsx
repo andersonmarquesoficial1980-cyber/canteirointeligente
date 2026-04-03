@@ -876,7 +876,7 @@ export default function EquipmentDiaryForm() {
             if (emailError) {
               console.error("❌ Erro ao enviar e-mail:", emailError);
             } else {
-              console.log("✅ E-mail enviado com sucesso!");
+              // Email sent ok
             }
           }
         } catch (emailErr) {
