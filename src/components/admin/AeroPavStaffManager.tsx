@@ -370,6 +370,27 @@ export default function AeroPavStaffManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Face registration dialog */}
+      <Dialog open={faceDialogOpen} onOpenChange={(open) => { if (!open) closeFaceDialog(); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>📸 Cadastrar Face — {faceTarget?.nome}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="relative bg-black rounded-lg overflow-hidden aspect-[4/3]">
+              <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+            <p className="text-xs text-muted-foreground text-center">Posicione o rosto do funcionário na câmera e clique em capturar.</p>
+            <Button
+              onClick={handleCaptureFace}
+              disabled={faceCapturing || !modelsLoaded}
+              className="w-full h-11 gap-2"
+            >
+              {faceCapturing ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</> : <><Camera className="w-4 h-4" /> Capturar e Salvar</>}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
