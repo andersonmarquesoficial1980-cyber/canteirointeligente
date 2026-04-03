@@ -110,6 +110,8 @@ function AppRoutes() {
         {/* CI RH module */}
         <Route path="/rh" element={<RhHome />} />
         <Route path="/rh/trajeto-vt" element={<TrajetoVT />} />
+        <Route path="/rh/registrar-ponto" element={<RegistrarPonto />} />
+        <Route path="/rh/espelho-ponto" element={<EspelhoPonto />} />
 
         {/* Vale Transporte */}
         <Route path="/vale-transporte" element={<ValeTransporte />} />
