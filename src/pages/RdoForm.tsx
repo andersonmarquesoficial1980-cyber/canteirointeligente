@@ -223,7 +223,7 @@ export default function RdoForm() {
 
     if (tipoRdo === "AEROPAV") {
       lines.push(``);
-      lines.push(`✈️ *AEROPAV GRU*`);
+      lines.push(`✈️ *Logística de Campo*`);
       lines.push(`🍽️ Marmitas: *${aeroPavData.marmitas_quantidade || "0"}* (Turno ${header.turno === "noturno" ? "Noturno" : "Diurno"})`);
       if (aeroPavData.observacoes_logistica) {
         lines.push(`📝 Logística: ${aeroPavData.observacoes_logistica}`);
