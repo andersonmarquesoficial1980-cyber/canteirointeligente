@@ -23,18 +23,16 @@ export default function SectionAeroPavGru({ data, onChange, turno }: SectionAero
 
   return (
     <div className="px-4 space-y-4">
-      {/* Header AEROPAV */}
       <div className="rdo-card space-y-1" style={{ borderLeft: "4px solid hsl(215 100% 50%)" }}>
         <div className="flex items-center gap-2">
           <Plane className="w-6 h-6 text-primary" />
-          <h2 className="font-display font-extrabold text-xl" style={{ color: "hsl(220 70% 20%)" }}>
-            AEROPAV GRU
+          <h2 className="font-display font-extrabold text-xl text-foreground">
+            Logística de Campo
           </h2>
         </div>
-        <p className="text-xs text-muted-foreground">Consórcio Fremix • Dang • Paupedra — Terraplanagem & Drenagem</p>
+        <p className="text-xs text-muted-foreground">Controle de refeições e logística da obra</p>
       </div>
 
-      {/* Controle de Logística — Marmitas */}
       <div className="rdo-card space-y-4">
         <h2 className="rdo-section-title">
           <Utensils className="w-5 h-5 text-primary" />
@@ -55,7 +53,7 @@ export default function SectionAeroPavGru({ data, onChange, turno }: SectionAero
           </div>
           <div className="space-y-1.5">
             <span className="rdo-label">Turno</span>
-            <div className="h-14 flex items-center justify-center rounded-xl bg-muted/50 border border-border text-base font-display font-bold" style={{ color: "hsl(220 70% 20%)" }}>
+            <div className="h-14 flex items-center justify-center rounded-xl bg-muted/50 border border-border text-base font-display font-bold text-foreground">
               {turnoLabel}
             </div>
           </div>
