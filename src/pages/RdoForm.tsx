@@ -392,7 +392,7 @@ export default function RdoForm() {
         const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-rdo-email", {
           body: { rdo_id: rdoId, html_report: htmlReport, subject: rdoSubject },
         });
-        console.log("Resposta da função de e-mail:", emailResult);
+        // Email response received
 
         if (emailError) {
           console.error("Email invoke error:", emailError);
