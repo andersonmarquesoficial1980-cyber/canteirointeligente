@@ -1,10 +1,24 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bus, MapPin, LogOut } from "lucide-react";
+import { ArrowLeft, Bus, MapPin, LogOut, Camera, ClipboardList } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-ci.png";
 
 const RH_SECTIONS = [
+  {
+    id: "registrar-ponto",
+    label: "Registrar Ponto",
+    description: "Ponto facial com GPS e geofencing automático",
+    icon: Camera,
+    route: "/rh/registrar-ponto",
+  },
+  {
+    id: "espelho-ponto",
+    label: "Espelho de Ponto",
+    description: "Histórico mensal, horas trabalhadas e extras",
+    icon: ClipboardList,
+    route: "/rh/espelho-ponto",
+  },
   {
     id: "trajeto-vt",
     label: "Trajeto e VT",
@@ -20,7 +34,6 @@ const RH_SECTIONS = [
     route: "/vale-transporte",
   },
 ];
-
 export default function RhHome() {
   const navigate = useNavigate();
 
