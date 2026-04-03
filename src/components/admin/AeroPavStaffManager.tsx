@@ -49,6 +49,34 @@ export default function AeroPavStaffManager() {
   const [editTurno, setEditTurno] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Face registration
+  const [faceDialogOpen, setFaceDialogOpen] = useState(false);
+  const [faceTarget, setFaceTarget] = useState<StaffMember | null>(null);
+  const [faceCapturing, setFaceCapturing] = useState(false);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [faceRegisteredIds, setFaceRegisteredIds] = useState<Set<string>>(new Set());
+
+  // Load face-api models once
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/";
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
+        setModelsLoaded(true);
+      } catch (e) {
+        console.error("Face models failed", e);
+      }
+    };
+    loadModels();
+  }, []);
+
   const load = async () => {
     const { data } = await supabase
       .from("aero_pav_gru_staff" as any)
