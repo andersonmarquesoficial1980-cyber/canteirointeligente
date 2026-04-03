@@ -306,6 +306,13 @@ export default function AeroPavStaffManager() {
             </div>
             <div className="flex items-center gap-1 ml-2">
               <button
+                onClick={() => openFaceDialog(f)}
+                className={`p-1.5 rounded-md hover:bg-secondary ${faceRegisteredIds.has(f.id) ? "text-green-500" : "text-muted-foreground"}`}
+                title={faceRegisteredIds.has(f.id) ? "Face cadastrada ✅" : "Cadastrar face"}
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => toggleTurno(f)}
                 className="p-1.5 rounded-md hover:bg-secondary"
                 title={`Turno: ${f.turno} — clique para alternar`}
