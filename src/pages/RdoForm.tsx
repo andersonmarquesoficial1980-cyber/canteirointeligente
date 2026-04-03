@@ -314,7 +314,7 @@ export default function RdoForm() {
         responsavel: responsavelNome,
         user_id: user.id,
       };
-      console.log("Payload rdo_diarios:", rdoPayload);
+      // RDO payload ready
 
       const { data: rdo, error: rdoError } = await supabase
         .from("rdo_diarios")
