@@ -33,18 +33,7 @@
   <meta name="twitter:title" content="RDO Digital | Web Development, Design &amp; Digital Marketing">
   <meta property="og:description" content="RDO Digital crafts high-performance websites, apps, and digital strategies for brands ready to stand out.">
   <meta name="twitter:description" content="RDO Digital crafts high-performance websites, apps, and digital strategies for brands ready to stand out.">
-    <script>
-      (function() {
-        var k = '%VITE_GOOGLE_MAPS_KEY%';
-        if (k && !k.startsWith('%')) {
-          var s = document.createElement('script');
-          s.src = 'https://maps.googleapis.com/maps/api/js?key=' + k + '&libraries=places';
-          s.async = true;
-          s.defer = true;
-          document.head.appendChild(s);
-        }
-      })();
-    </script>
+    <!-- Google Maps loaded dynamically from src/lib/loadGoogleMaps.ts -->
 </head>
 
   <body>
