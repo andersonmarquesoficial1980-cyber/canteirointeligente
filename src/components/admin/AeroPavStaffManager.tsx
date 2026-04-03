@@ -343,7 +343,7 @@ export default function AeroPavStaffManager() {
               <Select value={editFuncao} onValueChange={setEditFuncao}>
                 <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent className="max-h-[250px]">
-                  {FUNCOES_AEROPAV.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  {FUNCOES_PADRAO.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
