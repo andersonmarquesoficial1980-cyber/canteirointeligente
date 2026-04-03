@@ -78,15 +78,80 @@ export default function AeroPavStaffManager() {
   }, []);
 
   const load = async () => {
-    const { data } = await supabase
-      .from("aero_pav_gru_staff" as any)
-      .select("*")
-      .eq("ativo", true)
-      .order("nome", { ascending: true });
-    if (data) setItems(data as any as StaffMember[]);
+    const [staffRes, faceRes] = await Promise.all([
+      supabase.from("aero_pav_gru_staff" as any).select("*").eq("ativo", true).order("nome", { ascending: true }),
+      supabase.from("face_registrations" as any).select("staff_id"),
+    ]);
+    if (staffRes.data) setItems(staffRes.data as any as StaffMember[]);
+    if (faceRes.data) setFaceRegisteredIds(new Set((faceRes.data as any[]).map((r: any) => r.staff_id)));
   };
 
   useEffect(() => { load(); }, []);
+
+  // Face dialog helpers
+  const openFaceDialog = async (member: StaffMember) => {
+    setFaceTarget(member);
+    setFaceDialogOpen(true);
+    setTimeout(async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } } });
+        streamRef.current = stream;
+        if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      } catch { toast({ title: "Erro ao abrir câmera", variant: "destructive" }); }
+    }, 300);
+  };
+
+  const closeFaceDialog = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setFaceDialogOpen(false);
+    setFaceTarget(null);
+  };
+
+  const handleCaptureFace = async () => {
+    if (!videoRef.current || !canvasRef.current || !faceTarget || !modelsLoaded) return;
+    setFaceCapturing(true);
+    try {
+      const detection = await faceapi.detectSingleFace(videoRef.current).withFaceLandmarks().withFaceDescriptor();
+      if (!detection) {
+        toast({ title: "Nenhum rosto detectado", description: "Posicione o rosto na câmera.", variant: "destructive" });
+        setFaceCapturing(false);
+        return;
+      }
+
+      // Capture photo
+      const v = videoRef.current; const c = canvasRef.current;
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext("2d")?.drawImage(v, 0, 0);
+      const blob = await new Promise<Blob>((res) => c.toBlob((b) => res(b!), "image/jpeg", 0.8));
+
+      // Upload photo
+      const fileName = `faces/${faceTarget.id}_${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage.from("face-photos").upload(fileName, blob, { contentType: "image/jpeg" });
+      let photoUrl: string | null = null;
+      if (!upErr) {
+        const { data: urlData } = await supabase.storage.from("face-photos").createSignedUrl(fileName, 60 * 60 * 24 * 365);
+        photoUrl = urlData?.signedUrl || null;
+      }
+
+      // Save descriptor
+      const descriptor = Array.from(detection.descriptor);
+      const { error } = await supabase.from("face_registrations" as any).upsert({
+        staff_id: faceTarget.id,
+        descriptor,
+        photo_url: photoUrl,
+      } as any, { onConflict: "staff_id" });
+
+      if (error) throw error;
+
+      toast({ title: "✅ Face cadastrada!", description: `${faceTarget.nome} registrado com sucesso.` });
+      setFaceRegisteredIds(prev => new Set(prev).add(faceTarget.id));
+      closeFaceDialog();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setFaceCapturing(false);
+  };
 
   const countDia = useMemo(() => items.filter(f => f.turno === "dia").length, [items]);
   const countNoite = useMemo(() => items.filter(f => f.turno === "noite").length, [items]);
