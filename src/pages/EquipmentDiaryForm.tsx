@@ -426,7 +426,7 @@ export default function EquipmentDiaryForm() {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("FRESADORA") || fn === "OP DE FRESADORA";
     });
-    console.log(`[Operadores Fresa] ${filtered.length} encontrados`);
+    // operadores fresa filtered
     return filtered.length > 0 ? filtered : funcionarios;
   }, [funcionarios]);
 
