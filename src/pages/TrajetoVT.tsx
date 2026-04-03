@@ -70,7 +70,6 @@ function PlacesAutocomplete({
       try {
         serviceRef.current = new window.google.maps.places.AutocompleteService();
         sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
-        // We need a PlacesService for getDetails — requires a dummy div
         const dummyDiv = document.createElement("div");
         placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDiv);
         return true;
@@ -79,13 +78,18 @@ function PlacesAutocomplete({
       }
     };
 
-    if (!tryInit()) {
-      const interval = setInterval(() => {
-        if (tryInit()) clearInterval(interval);
-      }, 1500);
-      const timeout = setTimeout(() => clearInterval(interval), 10000);
-      return () => { clearInterval(interval); clearTimeout(timeout); };
-    }
+    loadGoogleMaps()
+      .then(() => {
+        if (!tryInit()) {
+          const interval = setInterval(() => {
+            if (tryInit()) clearInterval(interval);
+          }, 500);
+          setTimeout(() => clearInterval(interval), 5000);
+        }
+      })
+      .catch(() => {
+        // Google Maps unavailable — manual input still works
+      });
   }, []);
 
   const handleInputChange = (text: string) => {
