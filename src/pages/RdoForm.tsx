@@ -386,7 +386,7 @@ export default function RdoForm() {
       const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome, tipoRdo === "PV" ? pvData : undefined);
       let emailSent = false;
       try {
-        console.log("Iniciando envio de e-mail...");
+        // Sending email
         const fmtDate = (d: string) => { const [y,m,day] = d.split("-"); return `${day}/${m}/${y}`; };
         const rdoSubject = `RDO - ${header.obra_nome} - ${fmtDate(header.data)}`;
         const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-rdo-email", {
