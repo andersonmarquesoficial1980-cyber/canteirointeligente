@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Pencil, Search, Sun, Moon, Users } from "lucide-react";
+import { Plus, Trash2, Pencil, Search, Sun, Moon, Users, Camera, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import * as faceapi from "face-api.js";
 
 interface StaffMember {
   id: string;
@@ -16,6 +17,7 @@ interface StaffMember {
   telefone: string;
   turno: string;
   ativo: boolean;
+  hasFace?: boolean;
 }
 
 const TURNOS = ["dia", "noite", "indefinido"];
@@ -47,16 +49,109 @@ export default function AeroPavStaffManager() {
   const [editTurno, setEditTurno] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Face registration
+  const [faceDialogOpen, setFaceDialogOpen] = useState(false);
+  const [faceTarget, setFaceTarget] = useState<StaffMember | null>(null);
+  const [faceCapturing, setFaceCapturing] = useState(false);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [faceRegisteredIds, setFaceRegisteredIds] = useState<Set<string>>(new Set());
+
+  // Load face-api models once
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/";
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
+        setModelsLoaded(true);
+      } catch (e) {
+        console.error("Face models failed", e);
+      }
+    };
+    loadModels();
+  }, []);
+
   const load = async () => {
-    const { data } = await supabase
-      .from("aero_pav_gru_staff" as any)
-      .select("*")
-      .eq("ativo", true)
-      .order("nome", { ascending: true });
-    if (data) setItems(data as any as StaffMember[]);
+    const [staffRes, faceRes] = await Promise.all([
+      supabase.from("aero_pav_gru_staff" as any).select("*").eq("ativo", true).order("nome", { ascending: true }),
+      supabase.from("face_registrations" as any).select("staff_id"),
+    ]);
+    if (staffRes.data) setItems(staffRes.data as any as StaffMember[]);
+    if (faceRes.data) setFaceRegisteredIds(new Set((faceRes.data as any[]).map((r: any) => r.staff_id)));
   };
 
   useEffect(() => { load(); }, []);
+
+  // Face dialog helpers
+  const openFaceDialog = async (member: StaffMember) => {
+    setFaceTarget(member);
+    setFaceDialogOpen(true);
+    setTimeout(async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } } });
+        streamRef.current = stream;
+        if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      } catch { toast({ title: "Erro ao abrir câmera", variant: "destructive" }); }
+    }, 300);
+  };
+
+  const closeFaceDialog = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setFaceDialogOpen(false);
+    setFaceTarget(null);
+  };
+
+  const handleCaptureFace = async () => {
+    if (!videoRef.current || !canvasRef.current || !faceTarget || !modelsLoaded) return;
+    setFaceCapturing(true);
+    try {
+      const detection = await faceapi.detectSingleFace(videoRef.current).withFaceLandmarks().withFaceDescriptor();
+      if (!detection) {
+        toast({ title: "Nenhum rosto detectado", description: "Posicione o rosto na câmera.", variant: "destructive" });
+        setFaceCapturing(false);
+        return;
+      }
+
+      // Capture photo
+      const v = videoRef.current; const c = canvasRef.current;
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext("2d")?.drawImage(v, 0, 0);
+      const blob = await new Promise<Blob>((res) => c.toBlob((b) => res(b!), "image/jpeg", 0.8));
+
+      // Upload photo
+      const fileName = `faces/${faceTarget.id}_${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage.from("face-photos").upload(fileName, blob, { contentType: "image/jpeg" });
+      let photoUrl: string | null = null;
+      if (!upErr) {
+        const { data: urlData } = await supabase.storage.from("face-photos").createSignedUrl(fileName, 60 * 60 * 24 * 365);
+        photoUrl = urlData?.signedUrl || null;
+      }
+
+      // Save descriptor
+      const descriptor = Array.from(detection.descriptor);
+      const { error } = await supabase.from("face_registrations" as any).upsert({
+        staff_id: faceTarget.id,
+        descriptor,
+        photo_url: photoUrl,
+      } as any, { onConflict: "staff_id" });
+
+      if (error) throw error;
+
+      toast({ title: "✅ Face cadastrada!", description: `${faceTarget.nome} registrado com sucesso.` });
+      setFaceRegisteredIds(prev => new Set(prev).add(faceTarget.id));
+      closeFaceDialog();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+    setFaceCapturing(false);
+  };
 
   const countDia = useMemo(() => items.filter(f => f.turno === "dia").length, [items]);
   const countNoite = useMemo(() => items.filter(f => f.turno === "noite").length, [items]);
@@ -211,6 +306,13 @@ export default function AeroPavStaffManager() {
             </div>
             <div className="flex items-center gap-1 ml-2">
               <button
+                onClick={() => openFaceDialog(f)}
+                className={`p-1.5 rounded-md hover:bg-secondary ${faceRegisteredIds.has(f.id) ? "text-green-500" : "text-muted-foreground"}`}
+                title={faceRegisteredIds.has(f.id) ? "Face cadastrada ✅" : "Cadastrar face"}
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => toggleTurno(f)}
                 className="p-1.5 rounded-md hover:bg-secondary"
                 title={`Turno: ${f.turno} — clique para alternar`}
@@ -266,6 +368,27 @@ export default function AeroPavStaffManager() {
               {saving ? "Salvando..." : "Salvar Alterações"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Face registration dialog */}
+      <Dialog open={faceDialogOpen} onOpenChange={(open) => { if (!open) closeFaceDialog(); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>📸 Cadastrar Face — {faceTarget?.nome}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="relative bg-black rounded-lg overflow-hidden aspect-[4/3]">
+              <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+            <p className="text-xs text-muted-foreground text-center">Posicione o rosto do funcionário na câmera e clique em capturar.</p>
+            <Button
+              onClick={handleCaptureFace}
+              disabled={faceCapturing || !modelsLoaded}
+              className="w-full h-11 gap-2"
+            >
+              {faceCapturing ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</> : <><Camera className="w-4 h-4" /> Capturar e Salvar</>}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

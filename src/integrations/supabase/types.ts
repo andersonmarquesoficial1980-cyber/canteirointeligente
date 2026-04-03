@@ -632,6 +632,38 @@ export type Database = {
           },
         ]
       }
+      face_registrations: {
+        Row: {
+          created_at: string | null
+          descriptor: Json
+          id: string
+          photo_url: string | null
+          staff_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          descriptor?: Json
+          id?: string
+          photo_url?: string | null
+          staff_id: string
+        }
+        Update: {
+          created_at?: string | null
+          descriptor?: Json
+          id?: string
+          photo_url?: string | null
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "face_registrations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "aero_pav_gru_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_refueling_logs: {
         Row: {
           created_at: string | null
@@ -1053,22 +1085,91 @@ export type Database = {
         Row: {
           client_name: string | null
           id: string
+          jornada_horas: number | null
+          lat: number | null
+          lng: number | null
           location_address: string | null
           ogs_number: string | null
         }
         Insert: {
           client_name?: string | null
           id?: string
+          jornada_horas?: number | null
+          lat?: number | null
+          lng?: number | null
           location_address?: string | null
           ogs_number?: string | null
         }
         Update: {
           client_name?: string | null
           id?: string
+          jornada_horas?: number | null
+          lat?: number | null
+          lng?: number | null
           location_address?: string | null
           ogs_number?: string | null
         }
         Relationships: []
+      }
+      ponto_registros: {
+        Row: {
+          created_at: string | null
+          data: string
+          hora: string
+          id: string
+          lat: number | null
+          lng: number | null
+          metodo: string
+          ogs_id: string | null
+          ogs_number: string | null
+          photo_url: string | null
+          staff_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string | null
+          data?: string
+          hora?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          metodo?: string
+          ogs_id?: string | null
+          ogs_number?: string | null
+          photo_url?: string | null
+          staff_id: string
+          tipo?: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          hora?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          metodo?: string
+          ogs_id?: string | null
+          ogs_number?: string | null
+          photo_url?: string | null
+          staff_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ponto_registros_ogs_id_fkey"
+            columns: ["ogs_id"]
+            isOneToOne: false
+            referencedRelation: "ogs_reference"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ponto_registros_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "aero_pav_gru_staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       production_entries: {
         Row: {
