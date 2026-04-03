@@ -435,7 +435,7 @@ export default function EquipmentDiaryForm() {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("OP SOLO") || fn.includes("AJUDANTE");
     });
-    console.log(`[Operadores Solo] ${filtered.length} encontrados`);
+    // operadores solo filtered
     return filtered.length > 0 ? filtered : funcionarios;
   }, [funcionarios]);
 
