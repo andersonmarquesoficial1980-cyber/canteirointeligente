@@ -417,12 +417,7 @@ export default function EquipmentDiaryForm() {
 
   // Log data arrival for debugging
   useEffect(() => {
-    if (funcionarios.length > 0) {
-      const funcoes = [...new Set(funcionarios.map((f: any) => f.funcao))];
-      console.log(`[EquipmentDiaryForm] ${funcionarios.length} funcionários carregados. Funções:`, funcoes);
-    } else {
-      console.log("[EquipmentDiaryForm] Nenhum funcionário carregado ainda.");
-    }
+    // funcionarios loaded
   }, [funcionarios]);
 
   // Filtered operators — matches actual DB values like "OP DE FRESADORA"
