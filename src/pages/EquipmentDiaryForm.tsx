@@ -869,7 +869,7 @@ export default function EquipmentDiaryForm() {
             const emailSubject = isComboio
               ? `Abastecimento de Equipamentos - ${selectedFleet} - ${fmtDateEmail(date)}`
               : `Transporte de Equipamentos - ${selectedFleet} - ${fmtDateEmail(date)}`;
-            console.log(`📧 Enviando e-mail do ${isComboio ? "Comboio" : "Carreta"}...`);
+            // Sending email
             const { error: emailError } = await supabase.functions.invoke("send-rdo-email", {
               body: { rdo_id: diary.id, html_report: htmlReport, subject: emailSubject },
             });
