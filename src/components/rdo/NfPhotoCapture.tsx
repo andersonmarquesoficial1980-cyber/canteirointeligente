@@ -49,7 +49,7 @@ export default function NfPhotoCapture({ tipo, onExtracted }: Props) {
       if (error) throw error;
 
       if (data?.extracted && Object.keys(data.extracted).length > 0) {
-        console.log("[OCR] Extracted:", data.extracted);
+        // OCR data extracted
         // Only pass text/number fields, strip any select-related fields
         const clean: Record<string, string> = {};
         if (tipo === "CAUQ") {

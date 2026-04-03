@@ -223,7 +223,7 @@ export default function RdoForm() {
 
     if (tipoRdo === "AEROPAV") {
       lines.push(``);
-      lines.push(`✈️ *AEROPAV GRU*`);
+      lines.push(`✈️ *Logística de Campo*`);
       lines.push(`🍽️ Marmitas: *${aeroPavData.marmitas_quantidade || "0"}* (Turno ${header.turno === "noturno" ? "Noturno" : "Diurno"})`);
       if (aeroPavData.observacoes_logistica) {
         lines.push(`📝 Logística: ${aeroPavData.observacoes_logistica}`);
@@ -314,7 +314,7 @@ export default function RdoForm() {
         responsavel: responsavelNome,
         user_id: user.id,
       };
-      console.log("Payload rdo_diarios:", rdoPayload);
+      // RDO payload ready
 
       const { data: rdo, error: rdoError } = await supabase
         .from("rdo_diarios")
@@ -386,13 +386,13 @@ export default function RdoForm() {
       const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, responsavelNome, tipoRdo === "PV" ? pvData : undefined);
       let emailSent = false;
       try {
-        console.log("Iniciando envio de e-mail...");
+        // Sending email
         const fmtDate = (d: string) => { const [y,m,day] = d.split("-"); return `${day}/${m}/${y}`; };
         const rdoSubject = `RDO - ${header.obra_nome} - ${fmtDate(header.data)}`;
         const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-rdo-email", {
           body: { rdo_id: rdoId, html_report: htmlReport, subject: rdoSubject },
         });
-        console.log("Resposta da função de e-mail:", emailResult);
+        // Email response received
 
         if (emailError) {
           console.error("Email invoke error:", emailError);

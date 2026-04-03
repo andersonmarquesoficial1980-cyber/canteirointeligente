@@ -364,7 +364,7 @@ export default function EquipmentDiaryForm() {
               fuelMeter: lastMeter > 0 ? String(lastMeter) : prev.fuelMeter,
             }));
             setFuelSyncedFromComboio(true);
-            console.log(`[FuelSync] ${selectedFleet} em ${date}: ${totalLiters}L, meter=${lastMeter} sincronizados do Comboio`);
+            // FuelSync complete
             return;
           }
         }
@@ -395,7 +395,7 @@ export default function EquipmentDiaryForm() {
               fuelMeter: lastMeter > 0 ? String(lastMeter) : prev.fuelMeter,
             }));
             setFuelSyncedFromComboio(true);
-            console.log(`[FuelSync] ${selectedFleet} em ${date}: ${totalLiters}L, meter=${lastMeter} sincronizados (fleet_refueling_logs)`);
+            // FuelSync from fleet_refueling_logs complete
             return;
           }
         }
@@ -417,12 +417,7 @@ export default function EquipmentDiaryForm() {
 
   // Log data arrival for debugging
   useEffect(() => {
-    if (funcionarios.length > 0) {
-      const funcoes = [...new Set(funcionarios.map((f: any) => f.funcao))];
-      console.log(`[EquipmentDiaryForm] ${funcionarios.length} funcionários carregados. Funções:`, funcoes);
-    } else {
-      console.log("[EquipmentDiaryForm] Nenhum funcionário carregado ainda.");
-    }
+    // funcionarios loaded
   }, [funcionarios]);
 
   // Filtered operators — matches actual DB values like "OP DE FRESADORA"
@@ -431,7 +426,7 @@ export default function EquipmentDiaryForm() {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("FRESADORA") || fn === "OP DE FRESADORA";
     });
-    console.log(`[Operadores Fresa] ${filtered.length} encontrados`);
+    // operadores fresa filtered
     return filtered.length > 0 ? filtered : funcionarios;
   }, [funcionarios]);
 
@@ -440,7 +435,7 @@ export default function EquipmentDiaryForm() {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("OP SOLO") || fn.includes("AJUDANTE");
     });
-    console.log(`[Operadores Solo] ${filtered.length} encontrados`);
+    // operadores solo filtered
     return filtered.length > 0 ? filtered : funcionarios;
   }, [funcionarios]);
 
@@ -874,14 +869,14 @@ export default function EquipmentDiaryForm() {
             const emailSubject = isComboio
               ? `Abastecimento de Equipamentos - ${selectedFleet} - ${fmtDateEmail(date)}`
               : `Transporte de Equipamentos - ${selectedFleet} - ${fmtDateEmail(date)}`;
-            console.log(`📧 Enviando e-mail do ${isComboio ? "Comboio" : "Carreta"}...`);
+            // Sending email
             const { error: emailError } = await supabase.functions.invoke("send-rdo-email", {
               body: { rdo_id: diary.id, html_report: htmlReport, subject: emailSubject },
             });
             if (emailError) {
               console.error("❌ Erro ao enviar e-mail:", emailError);
             } else {
-              console.log("✅ E-mail enviado com sucesso!");
+              // Email sent ok
             }
           }
         } catch (emailErr) {

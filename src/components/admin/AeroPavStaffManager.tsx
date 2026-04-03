@@ -21,7 +21,7 @@ interface StaffMember {
 }
 
 const TURNOS = ["dia", "noite", "indefinido"];
-const FUNCOES_AEROPAV = [
+const FUNCOES_PADRAO = [
   "ENCARREGADO GERAL", "ENCARREGADO DE TERRAPLANAGEM", "ENCARREGADO DE DRENAGEM",
   "TOPÓGRAFO", "AUXILIAR DE TOPOGRAFIA", "OPERADOR DE ESCAVADEIRA",
   "OPERADOR DE MOTONIVELADORA", "OPERADOR DE PÁ CARREGADEIRA", "OPERADOR DE ROLO",
@@ -249,7 +249,7 @@ export default function AeroPavStaffManager() {
             <Select value={funcao} onValueChange={setFuncao}>
               <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent className="max-h-[250px]">
-                {FUNCOES_AEROPAV.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                {FUNCOES_PADRAO.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -343,7 +343,7 @@ export default function AeroPavStaffManager() {
               <Select value={editFuncao} onValueChange={setEditFuncao}>
                 <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent className="max-h-[250px]">
-                  {FUNCOES_AEROPAV.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  {FUNCOES_PADRAO.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
