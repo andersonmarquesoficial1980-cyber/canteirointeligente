@@ -328,6 +328,7 @@ function CalculadoraTab({
 // ─── Main Page ───
 export default function ValeTransporte() {
   const navigate = useNavigate();
+  const { profile } = useUserProfile();
   const [tarifas, setTarifas] = useState<Tarifa[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [conducoes, setConducoes] = useState<Conducao[]>([]);
@@ -417,11 +418,11 @@ export default function ValeTransporte() {
           </TabsList>
 
           <TabsContent value="calculadora" className="mt-4">
-            <CalculadoraTab tarifas={tarifas} staff={staff} conducoes={conducoes} onRefresh={loadAll} />
+            <CalculadoraTab tarifas={tarifas} staff={staff} conducoes={conducoes} onRefresh={loadAll} companyId={profile?.company_id || null} />
           </TabsContent>
 
           <TabsContent value="tarifas" className="mt-4">
-            <TarifasTab tarifas={tarifas} onRefresh={loadAll} />
+            <TarifasTab tarifas={tarifas} onRefresh={loadAll} companyId={profile?.company_id || null} />
           </TabsContent>
         </Tabs>
       </div>
