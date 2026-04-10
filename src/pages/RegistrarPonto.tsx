@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, MapPin, AlertTriangle, User, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
