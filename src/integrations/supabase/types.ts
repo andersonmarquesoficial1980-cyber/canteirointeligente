@@ -17,6 +17,7 @@ export type Database = {
       aero_pav_gru_staff: {
         Row: {
           ativo: boolean
+          company_id: string | null
           created_at: string | null
           funcao: string
           id: string
@@ -26,6 +27,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          company_id?: string | null
           created_at?: string | null
           funcao?: string
           id?: string
@@ -35,6 +37,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          company_id?: string | null
           created_at?: string | null
           funcao?: string
           id?: string
@@ -42,7 +45,15 @@ export type Database = {
           telefone?: string | null
           turno?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "aero_pav_gru_staff_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bit_entries: {
         Row: {
@@ -1113,6 +1124,7 @@ export type Database = {
       }
       ponto_registros: {
         Row: {
+          company_id: string | null
           created_at: string | null
           data: string
           hora: string
@@ -1127,6 +1139,7 @@ export type Database = {
           tipo: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
           data?: string
           hora?: string
@@ -1141,6 +1154,7 @@ export type Database = {
           tipo?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
           data?: string
           hora?: string
@@ -1155,6 +1169,13 @@ export type Database = {
           tipo?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ponto_registros_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ponto_registros_ogs_id_fkey"
             columns: ["ogs_id"]
@@ -1911,6 +1932,7 @@ export type Database = {
       }
       vt_funcionario_conducoes: {
         Row: {
+          company_id: string | null
           created_at: string | null
           funcionario_id: string
           id: string
@@ -1918,6 +1940,7 @@ export type Database = {
           tarifa_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
           funcionario_id: string
           id?: string
@@ -1925,6 +1948,7 @@ export type Database = {
           tarifa_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
           funcionario_id?: string
           id?: string
@@ -1932,6 +1956,13 @@ export type Database = {
           tarifa_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "vt_funcionario_conducoes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vt_funcionario_conducoes_funcionario_id_fkey"
             columns: ["funcionario_id"]
@@ -1951,6 +1982,7 @@ export type Database = {
       vt_tarifas: {
         Row: {
           ativo: boolean
+          company_id: string | null
           created_at: string | null
           id: string
           tipo_transporte: string
@@ -1958,6 +1990,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          company_id?: string | null
           created_at?: string | null
           id?: string
           tipo_transporte: string
@@ -1965,12 +1998,21 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          company_id?: string | null
           created_at?: string | null
           id?: string
           tipo_transporte?: string
           valor_unitario?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vt_tarifas_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -2006,6 +2048,7 @@ export type Database = {
       }
     }
     Functions: {
+      get_user_company_id: { Args: never; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
     }
     Enums: {
