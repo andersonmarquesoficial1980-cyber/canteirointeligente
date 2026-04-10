@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, MapPin, AlertTriangle, User, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 export default function RegistrarPonto() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useUserProfile();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -288,6 +290,7 @@ export default function RegistrarPonto() {
         ogs_number: selectedOgs.ogs_number,
         photo_url: photoUrl,
         metodo: recognizedStaff ? "facial" : "manual",
+        company_id: profile?.company_id,
       } as any);
 
       if (error) throw error;

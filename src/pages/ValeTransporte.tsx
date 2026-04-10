@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,7 @@ interface Conducao {
 }
 
 // ─── Tariff Config Tab ───
-function TarifasTab({ tarifas, onRefresh }: { tarifas: Tarifa[]; onRefresh: () => void }) {
+function TarifasTab({ tarifas, onRefresh, companyId }: { tarifas: Tarifa[]; onRefresh: () => void; companyId: string | null }) {
   const { isAdmin } = useIsAdmin();
   const { toast } = useToast();
   const [editId, setEditId] = useState<string | null>(null);
@@ -52,7 +53,7 @@ function TarifasTab({ tarifas, onRefresh }: { tarifas: Tarifa[]; onRefresh: () =
   const handleAdd = async () => {
     if (!newTipo.trim()) return;
     const val = parseFloat(newValor.replace(",", ".")) || 0;
-    await supabase.from("vt_tarifas").insert({ tipo_transporte: newTipo.trim(), valor_unitario: val } as any);
+    await supabase.from("vt_tarifas").insert({ tipo_transporte: newTipo.trim(), valor_unitario: val, company_id: companyId } as any);
     toast({ title: "Tarifa adicionada" });
     setNewTipo("");
     setNewValor("");
@@ -156,11 +157,13 @@ function CalculadoraTab({
   staff,
   conducoes,
   onRefresh,
+  companyId,
 }: {
   tarifas: Tarifa[];
   staff: StaffMember[];
   conducoes: Conducao[];
   onRefresh: () => void;
+  companyId: string | null;
 }) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -200,6 +203,7 @@ function CalculadoraTab({
         funcionario_id: selectedId,
         tarifa_id: tarifaId,
         quantidade: 1,
+        company_id: companyId,
       } as any);
     }
     onRefresh();
@@ -324,6 +328,7 @@ function CalculadoraTab({
 // ─── Main Page ───
 export default function ValeTransporte() {
   const navigate = useNavigate();
+  const { profile } = useUserProfile();
   const [tarifas, setTarifas] = useState<Tarifa[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [conducoes, setConducoes] = useState<Conducao[]>([]);
@@ -413,11 +418,11 @@ export default function ValeTransporte() {
           </TabsList>
 
           <TabsContent value="calculadora" className="mt-4">
-            <CalculadoraTab tarifas={tarifas} staff={staff} conducoes={conducoes} onRefresh={loadAll} />
+            <CalculadoraTab tarifas={tarifas} staff={staff} conducoes={conducoes} onRefresh={loadAll} companyId={profile?.company_id || null} />
           </TabsContent>
 
           <TabsContent value="tarifas" className="mt-4">
-            <TarifasTab tarifas={tarifas} onRefresh={loadAll} />
+            <TarifasTab tarifas={tarifas} onRefresh={loadAll} companyId={profile?.company_id || null} />
           </TabsContent>
         </Tabs>
       </div>

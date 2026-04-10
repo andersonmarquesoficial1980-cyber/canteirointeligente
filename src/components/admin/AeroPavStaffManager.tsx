@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ const FUNCOES_PADRAO = [
 
 export default function AeroPavStaffManager() {
   const { toast } = useToast();
+  const { profile } = useUserProfile();
   const [items, setItems] = useState<StaffMember[]>([]);
   const [search, setSearch] = useState("");
   const [filterTurno, setFilterTurno] = useState("TODOS");
@@ -176,6 +178,7 @@ export default function AeroPavStaffManager() {
       funcao: funcao.trim().toUpperCase(),
       telefone: telefone.trim(),
       turno,
+      company_id: profile?.company_id,
     } as any);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "✅ Funcionário adicionado!" });
