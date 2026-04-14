@@ -40,11 +40,15 @@ export default function ProgramadorHome() {
   const [progData, setProgData] = useState(new Date().toISOString().split("T")[0]);
   const [progEquipe, setProgEquipe] = useState("");
   const [progOgs, setProgOgs] = useState("");
+  const [progRua, setProgRua] = useState("");
   const [progCliente, setProgCliente] = useState("");
   const [progLocal, setProgLocal] = useState("");
   const [progPeriodo, setProgPeriodo] = useState("NOTURNO");
   const [progStatus, setProgStatus] = useState("TRABALHOU");
   const [progObs, setProgObs] = useState("");
+
+  // Utilitário: divide endereços com ;
+  const splitRuas = (address: string) => address.split(";").map(r => r.trim()).filter(Boolean);
 
   // Form: Movimentação funcionário
   const [modoFunc, setModoFunc] = useState<ModoFunc>("status");
@@ -88,8 +92,13 @@ export default function ProgramadorHome() {
 
   const handleOgsChange = (ogs: string) => {
     setProgOgs(ogs);
+    setProgRua("");
     const o = ogsList.find(o => o.ogs_number === ogs);
-    if (o) { setProgCliente(o.client_name); setProgLocal(o.location_address); }
+    if (o) {
+      setProgCliente(o.client_name);
+      const ruas = splitRuas(o.location_address);
+      setProgLocal(ruas.length === 1 ? ruas[0] : o.location_address);
+    }
   };
 
   const handleFuncSelect = (id: string) => {
@@ -111,7 +120,7 @@ export default function ProgramadorHome() {
       data: progData, equipe: progEquipe,
       responsavel: equipeInfo?.responsavel,
       ogs: progOgs || null, cliente: progCliente || null,
-      local: progLocal || null, periodo: progPeriodo,
+      local: progRua || progLocal || null, periodo: progPeriodo,
       status_equipe: progStatus, obs: progObs || null,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -262,7 +271,21 @@ export default function ProgramadorHome() {
                 </Select>
               </div>
 
-              {progCliente && <p className="text-xs text-muted-foreground">📍 {progLocal}</p>}
+              {/* Rua específica se OGS tiver múltiplos endereços */}
+              {progOgs && (() => {
+                const o = ogsList.find(o => o.ogs_number === progOgs);
+                const ruas = o ? splitRuas(o.location_address) : [];
+                if (ruas.length <= 1) return progCliente ? <p className="text-xs text-muted-foreground">📍 {progLocal}</p> : null;
+                return (
+                  <div className="space-y-1.5">
+                    <Label>Rua específica</Label>
+                    <Select value={progRua} onValueChange={v => { setProgRua(v); setProgLocal(v); }}>
+                      <SelectTrigger><SelectValue placeholder="Selecione a rua" /></SelectTrigger>
+                      <SelectContent>{ruas.map((r, i) => <SelectItem key={i} value={r}>{r}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                );
+              })()}
 
               <div className="space-y-1.5">
                 <Label>Observações</Label>
