@@ -25,6 +25,7 @@ import RhHome from "./pages/RhHome";
 import TrajetoVT from "./pages/TrajetoVT";
 import RegistrarPonto from "./pages/RegistrarPonto";
 import EspelhoPonto from "./pages/EspelhoPonto";
+import ProgramadorHome from "./pages/ProgramadorHome";
 import DemandasHome from "./pages/DemandasHome";
 import MinhasDemandas from "./pages/MinhasDemandas";
 import Login from "./pages/Login";
@@ -125,6 +126,9 @@ function AppRoutes() {
             <AdminConfiguracoes />
           </ErrorBoundary>
         } />
+
+        {/* CI Programador */}
+        <Route path="/programador" element={<ProgramadorHome />} />
 
         {/* CI Demandas */}
         <Route path="/demandas" element={<AppLayout><DemandasHome /></AppLayout>} />
