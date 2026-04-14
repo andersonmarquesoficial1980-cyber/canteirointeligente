@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, MapPin } from "lucide-react";
 import type { Demanda } from "@/hooks/useDemandas";
 
 const TITULOS = [
@@ -22,21 +23,34 @@ const TITULOS = [
 const DEPARTAMENTOS = ["Engenharia", "Suprimentos", "Manutenção", "Financeiro", "RH", "Outro"];
 const CENTROS_CUSTO = ["Engenharia", "Suprimentos", "Manutenção", "Financeiro", "RH"];
 
-// Tipos de frota relevantes para demandas
-const TIPOS_FROTA_RELEVANTES = [
-  "CAMINHÃO ESPARGIDOR",
-  "CAMINHÃO PIPA",
-  "CAMINHÃO CARROCERIA",
-  "CAMINHÃO BASCULANTE",
-  "CAMINHÃO COMBOIO",
-  "CAMINHÃO PLATAFORMA",
-  "CAVALO MECANICO",
-  "VAN",
-  "MICROONIBUS",
+const TIPOS_VEICULO = [
+  "CAMINHÃO ESPARGIDOR", "CAMINHÃO PIPA", "CAMINHÃO CARROCERIA",
+  "CAMINHÃO BASCULANTE", "CAMINHÃO COMBOIO", "CAMINHÃO PLATAFORMA",
+  "CAVALO MECANICO", "VAN", "MICROONIBUS",
 ];
 
 interface Funcionario { id: string; name: string; matricula: string | null; }
 interface Veiculo { id: string; frota: string; tipo: string; }
+interface Ogs { id: string; ogs_number: string; client_name: string; location_address: string; }
+
+interface EquipViagem { tipo: string; frota: string; }
+interface Viagem {
+  id: string;
+  origem_ogs: string;
+  origem_maps: string;
+  destino_ogs: string;
+  destino_maps: string;
+  equipamentos: EquipViagem[];
+}
+
+function novaViagem(): Viagem {
+  return {
+    id: crypto.randomUUID(),
+    origem_ogs: "", origem_maps: "",
+    destino_ogs: "", destino_maps: "",
+    equipamentos: [{ tipo: "", frota: "" }, { tipo: "", frota: "" }, { tipo: "", frota: "" }],
+  };
+}
 
 interface Props {
   open: boolean;
@@ -49,38 +63,35 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
   const [todaFrota, setTodaFrota] = useState<Veiculo[]>([]);
+  const [ogsList, setOgsList] = useState<Ogs[]>([]);
 
-  const empty = {
+  const emptyForm = () => ({
     titulo: "", titulo_outro: "", descricao: "",
     solicitante_nome: "", solicitante_departamento: "",
     funcionario_id: "", funcionario_nome: "",
     veiculo_id: "", equipamento: "",
     centro_de_custo: "", data_prevista: "", observacoes: "",
-    // Transporte de equipamento
-    equip_transportar: "", origem: "", destino: "",
-  };
-  const [form, setForm] = useState(empty);
+    viagens: [novaViagem()],
+  });
+  const [form, setForm] = useState(emptyForm());
 
   const isTransporte = form.titulo === "Transporte de equipamento";
   const isOutro = form.titulo === "Outro";
 
   useEffect(() => {
     if (!open) return;
-    // Funcionários
     supabase.from("employees").select("id, name, matricula").order("name").then(({ data }) => {
       if (data) setFuncionarios(data as Funcionario[]);
     });
-    // Veículos filtrados (para campo "Veículo/Motorista")
-    (supabase as any).from("maquinas_frota")
-      .select("id, frota, tipo")
-      .in("tipo", TIPOS_FROTA_RELEVANTES)
+    (supabase as any).from("maquinas_frota").select("id, frota, tipo")
+      .in("tipo", TIPOS_VEICULO).order("tipo").order("frota")
+      .then(({ data }: any) => { if (data) setVeiculos(data); });
+    (supabase as any).from("maquinas_frota").select("id, frota, tipo")
       .order("tipo").order("frota")
-      .then(({ data }: any) => { if (data) setVeiculos(data as Veiculo[]); });
-    // Toda a frota (para campo "Equipamento a transportar")
-    (supabase as any).from("maquinas_frota")
-      .select("id, frota, tipo")
-      .order("tipo").order("frota")
-      .then(({ data }: any) => { if (data) setTodaFrota(data as Veiculo[]); });
+      .then(({ data }: any) => { if (data) setTodaFrota(data); });
+    (supabase as any).from("ogs_reference").select("id, ogs_number, client_name, location_address")
+      .order("ogs_number")
+      .then(({ data }: any) => { if (data) setOgsList(data); });
   }, [open]);
 
   const set = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
@@ -95,24 +106,67 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
     setForm(prev => ({ ...prev, veiculo_id: id, equipamento: v ? `${v.frota} (${v.tipo})` : "" }));
   };
 
-  const handleEquipTransportar = (id: string) => {
-    const v = todaFrota.find(v => v.id === id);
-    setForm(prev => ({ ...prev, equip_transportar: v ? `${v.frota} (${v.tipo})` : "" }));
+  // Viagens
+  const addViagem = () => setForm(prev => ({ ...prev, viagens: [...prev.viagens, novaViagem()] }));
+  const removeViagem = (id: string) => setForm(prev => ({ ...prev, viagens: prev.viagens.filter(v => v.id !== id) }));
+
+  const updateViagem = (id: string, field: keyof Viagem, value: any) => {
+    setForm(prev => ({
+      ...prev,
+      viagens: prev.viagens.map(v => v.id === id ? { ...v, [field]: value } : v),
+    }));
   };
 
-  const tituloFinal = form.titulo === "Outro" ? form.titulo_outro : form.titulo;
+  const updateEquip = (viagemId: string, idx: number, field: keyof EquipViagem, value: string) => {
+    setForm(prev => ({
+      ...prev,
+      viagens: prev.viagens.map(v => {
+        if (v.id !== viagemId) return v;
+        const equipamentos = [...v.equipamentos];
+        equipamentos[idx] = { ...equipamentos[idx], [field]: value };
+        // Se mudou o tipo, limpa a frota
+        if (field === "tipo") equipamentos[idx].frota = "";
+        return { ...v, equipamentos };
+      }),
+    }));
+  };
+
+  const frotaPorTipo = (tipo: string) => todaFrota.filter(v => v.tipo === tipo);
+  const tiposUnicos = [...new Set(todaFrota.map(v => v.tipo))].sort();
+
+  const ogsLabel = (ogs: Ogs) => `OGS ${ogs.ogs_number} — ${ogs.client_name}`;
+  const ogsEndereco = (ogsNumber: string) => {
+    const o = ogsList.find(o => o.ogs_number === ogsNumber);
+    return o?.location_address ?? "";
+  };
+
+  const buildDescricaoTransporte = () => {
+    const linhas: string[] = [];
+    form.viagens.forEach((v, i) => {
+      linhas.push(`\nViagem ${i + 1}:`);
+      const origemOgs = ogsList.find(o => o.ogs_number === v.origem_ogs);
+      const destinoOgs = ogsList.find(o => o.ogs_number === v.destino_ogs);
+      if (origemOgs) linhas.push(`  Origem: OGS ${origemOgs.ogs_number} - ${origemOgs.client_name} | ${origemOgs.location_address}`);
+      if (v.origem_maps) linhas.push(`  Maps origem: ${v.origem_maps}`);
+      if (destinoOgs) linhas.push(`  Destino: OGS ${destinoOgs.ogs_number} - ${destinoOgs.client_name} | ${destinoOgs.location_address}`);
+      if (v.destino_maps) linhas.push(`  Maps destino: ${v.destino_maps}`);
+      v.equipamentos.forEach((eq, j) => {
+        if (eq.frota) linhas.push(`  Equip ${j + 1}: ${eq.frota} (${eq.tipo})`);
+      });
+    });
+    return linhas.join("\n").trim();
+  };
+
+  const tituloFinal = isOutro ? form.titulo_outro : form.titulo;
 
   const handleSubmit = async () => {
     if (!tituloFinal || !form.solicitante_nome || !form.solicitante_departamento || !form.centro_de_custo) return;
     setSaving(true);
 
     let descricaoFinal = form.descricao;
-    if (isTransporte && (form.equip_transportar || form.origem || form.destino)) {
-      const partes = [];
-      if (form.equip_transportar) partes.push(`Equipamento: ${form.equip_transportar}`);
-      if (form.origem) partes.push(`Origem: ${form.origem}`);
-      if (form.destino) partes.push(`Destino: ${form.destino}`);
-      descricaoFinal = partes.join(" | ") + (form.descricao ? `\n${form.descricao}` : "");
+    if (isTransporte) {
+      const transpDesc = buildDescricaoTransporte();
+      descricaoFinal = transpDesc + (form.descricao ? `\n\n${form.descricao}` : "");
     }
 
     const payload: any = {
@@ -130,7 +184,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
     };
 
     const ok = await onCreate(payload);
-    if (ok) { setForm(empty); onClose(); }
+    if (ok) { setForm(emptyForm()); onClose(); }
     setSaving(false);
   };
 
@@ -159,38 +213,106 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
             )}
           </div>
 
-          {/* Campos extras para Transporte de Equipamento */}
+          {/* BLOCO TRANSPORTE DE EQUIPAMENTO */}
           {isTransporte && (
-            <div className="space-y-3 p-3 rounded-xl bg-muted/40 border border-border">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Dados do Transporte</p>
-              <div className="space-y-1.5">
-                <Label>Equipamento a transportar</Label>
-                <Select onValueChange={handleEquipTransportar}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o equipamento" /></SelectTrigger>
-                  <SelectContent>
-                    {todaFrota.map(v => (
-                      <SelectItem key={v.id} value={v.id}>{v.frota} — {v.tipo}</SelectItem>
+            <div className="space-y-4">
+              {form.viagens.map((viagem, vIdx) => (
+                <div key={viagem.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-primary uppercase tracking-wide">Viagem {vIdx + 1}</span>
+                    {form.viagens.length > 1 && (
+                      <button onClick={() => removeViagem(viagem.id)} className="text-destructive hover:text-destructive/80 p-1">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Origem */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Origem</Label>
+                    <Select value={viagem.origem_ogs} onValueChange={v => updateViagem(viagem.id, "origem_ogs", v)}>
+                      <SelectTrigger className="text-sm"><SelectValue placeholder="Selecione a OGS de origem" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BASE">BASE (Pátio)</SelectItem>
+                        {ogsList.map(o => <SelectItem key={o.id} value={o.ogs_number}>{ogsLabel(o)}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {viagem.origem_ogs && viagem.origem_ogs !== "BASE" && (
+                      <p className="text-xs text-muted-foreground pl-1">📍 {ogsEndereco(viagem.origem_ogs)}</p>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <Input
+                        placeholder="Link Google Maps (opcional)"
+                        value={viagem.origem_maps}
+                        onChange={e => updateViagem(viagem.id, "origem_maps", e.target.value)}
+                        className="text-xs h-8"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Destino */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Destino</Label>
+                    <Select value={viagem.destino_ogs} onValueChange={v => updateViagem(viagem.id, "destino_ogs", v)}>
+                      <SelectTrigger className="text-sm"><SelectValue placeholder="Selecione a OGS de destino" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BASE">BASE (Pátio)</SelectItem>
+                        {ogsList.map(o => <SelectItem key={o.id} value={o.ogs_number}>{ogsLabel(o)}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {viagem.destino_ogs && viagem.destino_ogs !== "BASE" && (
+                      <p className="text-xs text-muted-foreground pl-1">📍 {ogsEndereco(viagem.destino_ogs)}</p>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <Input
+                        placeholder="Link Google Maps (opcional)"
+                        value={viagem.destino_maps}
+                        onChange={e => updateViagem(viagem.id, "destino_maps", e.target.value)}
+                        className="text-xs h-8"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Equipamentos */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Equipamentos</Label>
+                    {viagem.equipamentos.map((eq, eIdx) => (
+                      <div key={eIdx} className="grid grid-cols-2 gap-2">
+                        <Select value={eq.tipo} onValueChange={v => updateEquip(viagem.id, eIdx, "tipo", v)}>
+                          <SelectTrigger className="text-xs h-8"><SelectValue placeholder={`Tipo ${eIdx + 1}`} /></SelectTrigger>
+                          <SelectContent>
+                            {tiposUnicos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Select value={eq.frota} onValueChange={v => updateEquip(viagem.id, eIdx, "frota", v)} disabled={!eq.tipo}>
+                          <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Frota" /></SelectTrigger>
+                          <SelectContent>
+                            {frotaPorTipo(eq.tipo).map(v => <SelectItem key={v.id} value={v.frota}>{v.frota}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Origem</Label>
-                  <Input placeholder="De onde?" value={form.origem} onChange={e => set("origem", e.target.value)} />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Destino</Label>
-                  <Input placeholder="Para onde?" value={form.destino} onChange={e => set("destino", e.target.value)} />
-                </div>
-              </div>
+              ))}
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addViagem}
+                className="w-full border-dashed text-sm gap-2"
+              >
+                <Plus className="w-4 h-4" /> Adicionar viagem
+              </Button>
             </div>
           )}
 
           {/* Descrição */}
           <div className="space-y-1.5">
-            <Label>Descrição / Observações</Label>
-            <Textarea placeholder="Detalhes da demanda..." value={form.descricao} onChange={e => set("descricao", e.target.value)} rows={2} />
+            <Label>Observações{isTransporte ? " adicionais" : ""}</Label>
+            <Textarea placeholder="Informações adicionais..." value={form.descricao} onChange={e => set("descricao", e.target.value)} rows={2} />
           </div>
 
           {/* Solicitante */}
@@ -212,7 +334,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
 
           {/* Funcionário */}
           <div className="space-y-1.5">
-            <Label>Funcionário atribuído</Label>
+            <Label>{isTransporte ? "Motorista carreteiro" : "Funcionário atribuído"}</Label>
             <Select value={form.funcionario_id} onValueChange={handleFuncionario}>
               <SelectTrigger><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
               <SelectContent>
@@ -225,18 +347,35 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
             </Select>
           </div>
 
-          {/* Veículo */}
-          <div className="space-y-1.5">
-            <Label>Veículo / Equipamento</Label>
-            <Select value={form.veiculo_id} onValueChange={handleVeiculo}>
-              <SelectTrigger><SelectValue placeholder="Selecione o veículo" /></SelectTrigger>
-              <SelectContent>
-                {veiculos.map(v => (
-                  <SelectItem key={v.id} value={v.id}>{v.frota} — {v.tipo}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Veículo — só mostra se não for transporte (transporte usa as viagens) */}
+          {!isTransporte && (
+            <div className="space-y-1.5">
+              <Label>Veículo / Equipamento</Label>
+              <Select value={form.veiculo_id} onValueChange={handleVeiculo}>
+                <SelectTrigger><SelectValue placeholder="Selecione o veículo" /></SelectTrigger>
+                <SelectContent>
+                  {veiculos.map(v => (
+                    <SelectItem key={v.id} value={v.id}>{v.frota} — {v.tipo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Carreta (só transporte) */}
+          {isTransporte && (
+            <div className="space-y-1.5">
+              <Label>Carreta / Cavalo mecânico</Label>
+              <Select value={form.veiculo_id} onValueChange={handleVeiculo}>
+                <SelectTrigger><SelectValue placeholder="Selecione a carreta" /></SelectTrigger>
+                <SelectContent>
+                  {veiculos.filter(v => v.tipo === "CAVALO MECANICO").map(v => (
+                    <SelectItem key={v.id} value={v.id}>{v.frota}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Centro de custo + Data */}
           <div className="grid grid-cols-2 gap-3">
