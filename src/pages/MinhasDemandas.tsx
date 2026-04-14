@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ClipboardList } from "lucide-react";
+import { ArrowLeft, ClipboardList, MapPin, ExternalLink, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,100 @@ const STATUS_CLASSES: Record<StatusDemanda, string> = {
   cancelada: "bg-red-100 text-red-800 border-red-200",
 };
 
+// Detecta se a descrição é uma programação de transporte
+function isTransporte(titulo: string) {
+  return titulo === "Transporte de equipamento";
+}
+
+// Parseia a descrição de transporte em viagens estruturadas
+interface ViagemParsed {
+  label: string;
+  origem?: string;
+  origemMaps?: string;
+  destino?: string;
+  destinoMaps?: string;
+  equipamentos?: string;
+}
+
+function parseTransporte(descricao: string): ViagemParsed[] {
+  if (!descricao) return [];
+  const blocos = descricao.split(/\n\n+/);
+  return blocos.map(bloco => {
+    const linhas = bloco.split("\n").map(l => l.trim()).filter(Boolean);
+    const viagem: ViagemParsed = { label: linhas[0] ?? "Viagem" };
+    for (const linha of linhas.slice(1)) {
+      if (linha.startsWith("Origem:")) viagem.origem = linha.replace("Origem:", "").trim();
+      else if (linha.startsWith("Destino:")) viagem.destino = linha.replace("Destino:", "").trim();
+      else if (linha.startsWith("Maps:") && !viagem.origemMaps && !viagem.destino) viagem.origemMaps = linha.replace("Maps:", "").trim();
+      else if (linha.startsWith("Maps:") && viagem.destino) viagem.destinoMaps = linha.replace("Maps:", "").trim();
+      else if (linha.startsWith("Maps:")) {
+        if (!viagem.origemMaps) viagem.origemMaps = linha.replace("Maps:", "").trim();
+        else viagem.destinoMaps = linha.replace("Maps:", "").trim();
+      }
+      else if (linha.startsWith("Equipamentos:")) viagem.equipamentos = linha.replace("Equipamentos:", "").trim();
+    }
+    return viagem;
+  }).filter(v => v.label.toLowerCase().includes("viagem"));
+}
+
+function TransporteCard({ descricao }: { descricao: string }) {
+  const viagens = parseTransporte(descricao);
+  if (viagens.length === 0) return <p className="text-sm text-muted-foreground whitespace-pre-wrap">{descricao}</p>;
+
+  return (
+    <div className="space-y-3">
+      {viagens.map((v, i) => (
+        <div key={i} className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+          <p className="text-xs font-bold text-primary uppercase tracking-wide flex items-center gap-1.5">
+            <Truck className="w-3.5 h-3.5" /> {v.label}
+          </p>
+
+          {v.origem && (
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-muted-foreground">🔴 Origem</p>
+              <p className="text-sm">{v.origem}</p>
+              {v.origemMaps && (
+                <a
+                  href={v.origemMaps}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium hover:underline"
+                >
+                  <MapPin className="w-3 h-3" /> Abrir no Maps <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+          )}
+
+          {v.destino && (
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-muted-foreground">🟢 Destino</p>
+              <p className="text-sm">{v.destino}</p>
+              {v.destinoMaps && (
+                <a
+                  href={v.destinoMaps}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium hover:underline"
+                >
+                  <MapPin className="w-3 h-3" /> Abrir no Maps <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+          )}
+
+          {v.equipamentos && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">📦 Equipamentos</p>
+              <p className="text-sm">{v.equipamentos}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function MinhasDemandas() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -38,7 +132,6 @@ export default function MinhasDemandas() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    // Busca demandas onde o perfil do usuário está atribuído
     const { data: profile } = await supabase
       .from("profiles")
       .select("id")
@@ -108,59 +201,50 @@ export default function MinhasDemandas() {
                 </Badge>
               </div>
 
-              {d.descricao && <p className="text-sm text-muted-foreground">{d.descricao}</p>}
-
+              {/* Info básica */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span><strong>Solicitante:</strong> {d.solicitante_nome}</span>
                 <span><strong>Depto:</strong> {d.solicitante_departamento}</span>
-                {d.equipamento && <span><strong>Equipamento:</strong> {d.equipamento}</span>}
+                {d.equipamento && <span className="col-span-2"><strong>Veículo:</strong> {d.equipamento}</span>}
                 {d.data_prevista && (
                   <span><strong>Data:</strong> {new Date(d.data_prevista + "T12:00:00").toLocaleDateString("pt-BR")}</span>
                 )}
               </div>
 
+              {/* Descrição: transporte ou texto simples */}
+              {d.descricao && (
+                isTransporte(d.titulo)
+                  ? <TransporteCard descricao={d.descricao} />
+                  : <p className="text-sm text-muted-foreground">{d.descricao}</p>
+              )}
+
               {d.observacoes && (
                 <p className="text-xs text-muted-foreground italic border-t pt-2">{d.observacoes}</p>
               )}
 
-              {/* Ações por status */}
+              {/* Ações */}
               {d.status === "pendente" && (
-                <Button
-                  size="sm"
-                  onClick={() => avancarStatus(d, "aceita")}
-                  disabled={saving === d.id}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs h-9"
-                >
+                <Button size="sm" onClick={() => avancarStatus(d, "aceita")} disabled={saving === d.id}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs h-9">
                   {saving === d.id ? "Atualizando..." : "✅ Confirmar Recebimento"}
                 </Button>
               )}
-
               {d.status === "aceita" && (
-                <Button
-                  size="sm"
-                  onClick={() => avancarStatus(d, "em_execucao")}
-                  disabled={saving === d.id}
-                  className="w-full bg-header-gradient text-white font-bold rounded-xl text-xs h-9"
-                >
+                <Button size="sm" onClick={() => avancarStatus(d, "em_execucao")} disabled={saving === d.id}
+                  className="w-full bg-header-gradient text-white font-bold rounded-xl text-xs h-9">
                   {saving === d.id ? "Atualizando..." : "▶️ Iniciar Execução"}
                 </Button>
               )}
-
               {d.status === "em_execucao" && (
                 <div className="space-y-2">
                   <Textarea
                     placeholder="Observações ao concluir (opcional)..."
                     value={observacoes[d.id] ?? ""}
                     onChange={e => setObservacoes(prev => ({ ...prev, [d.id]: e.target.value }))}
-                    rows={2}
-                    className="text-sm"
+                    rows={2} className="text-sm"
                   />
-                  <Button
-                    size="sm"
-                    onClick={() => avancarStatus(d, "concluida")}
-                    disabled={saving === d.id}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-xs h-9"
-                  >
+                  <Button size="sm" onClick={() => avancarStatus(d, "concluida")} disabled={saving === d.id}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-xs h-9">
                     {saving === d.id ? "Concluindo..." : "🏁 Concluir Tarefa"}
                   </Button>
                 </div>

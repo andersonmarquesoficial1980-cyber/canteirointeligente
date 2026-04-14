@@ -22,7 +22,6 @@ const TITULOS = [
 
 const DEPARTAMENTOS = ["Engenharia", "Suprimentos", "Manutenção", "Financeiro", "RH", "Outro"];
 const CENTROS_CUSTO = ["Engenharia", "Suprimentos", "Manutenção", "Financeiro", "RH"];
-
 const TIPOS_VEICULO = [
   "CAMINHÃO ESPARGIDOR", "CAMINHÃO PIPA", "CAMINHÃO CARROCERIA",
   "CAMINHÃO BASCULANTE", "CAMINHÃO COMBOIO", "CAMINHÃO PLATAFORMA",
@@ -37,8 +36,10 @@ interface EquipViagem { tipo: string; frota: string; }
 interface Viagem {
   id: string;
   origem_ogs: string;
+  origem_rua: string;
   origem_maps: string;
   destino_ogs: string;
+  destino_rua: string;
   destino_maps: string;
   equipamentos: EquipViagem[];
 }
@@ -46,10 +47,75 @@ interface Viagem {
 function novaViagem(): Viagem {
   return {
     id: crypto.randomUUID(),
-    origem_ogs: "", origem_maps: "",
-    destino_ogs: "", destino_maps: "",
+    origem_ogs: "", origem_rua: "", origem_maps: "",
+    destino_ogs: "", destino_rua: "", destino_maps: "",
     equipamentos: [{ tipo: "", frota: "" }, { tipo: "", frota: "" }, { tipo: "", frota: "" }],
   };
+}
+
+// Divide endereços separados por ";" em array
+function splitRuas(address: string): string[] {
+  return address.split(";").map(r => r.trim()).filter(Boolean);
+}
+
+interface OgsFieldProps {
+  label: string;
+  ogsList: Ogs[];
+  ogsValue: string;
+  ruaValue: string;
+  mapsValue: string;
+  onOgsChange: (v: string) => void;
+  onRuaChange: (v: string) => void;
+  onMapsChange: (v: string) => void;
+}
+
+function OgsField({ label, ogsList, ogsValue, ruaValue, mapsValue, onOgsChange, onRuaChange, onMapsChange }: OgsFieldProps) {
+  const ogsSelected = ogsList.find(o => o.ogs_number === ogsValue);
+  const ruas = ogsSelected ? splitRuas(ogsSelected.location_address) : [];
+  const temMultiplasRuas = ruas.length > 1;
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground uppercase tracking-wide">{label}</Label>
+      <Select value={ogsValue} onValueChange={v => { onOgsChange(v); onRuaChange(""); }}>
+        <SelectTrigger className="text-sm"><SelectValue placeholder={`Selecione a OGS de ${label.toLowerCase()}`} /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="BASE">BASE (Pátio)</SelectItem>
+          {ogsList.map(o => (
+            <SelectItem key={o.id} value={o.ogs_number}>
+              OGS {o.ogs_number} — {o.client_name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Endereço único */}
+      {ogsSelected && !temMultiplasRuas && (
+        <p className="text-xs text-muted-foreground pl-1">📍 {ogsSelected.location_address}</p>
+      )}
+
+      {/* Múltiplas ruas — select */}
+      {ogsSelected && temMultiplasRuas && (
+        <Select value={ruaValue} onValueChange={onRuaChange}>
+          <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Selecione a rua específica" /></SelectTrigger>
+          <SelectContent>
+            {ruas.map((r, i) => <SelectItem key={i} value={r}>{r}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Link Maps */}
+      <div className="flex items-center gap-1.5">
+        <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+        <Input
+          placeholder="Link Google Maps (opcional)"
+          value={mapsValue}
+          onChange={e => onMapsChange(e.target.value)}
+          className="text-xs h-8"
+        />
+      </div>
+    </div>
+  );
 }
 
 interface Props {
@@ -106,14 +172,13 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
     setForm(prev => ({ ...prev, veiculo_id: id, equipamento: v ? `${v.frota} (${v.tipo})` : "" }));
   };
 
-  // Viagens
   const addViagem = () => setForm(prev => ({ ...prev, viagens: [...prev.viagens, novaViagem()] }));
   const removeViagem = (id: string) => setForm(prev => ({ ...prev, viagens: prev.viagens.filter(v => v.id !== id) }));
 
-  const updateViagem = (id: string, field: keyof Viagem, value: any) => {
+  const updateViagem = (id: string, fields: Partial<Viagem>) => {
     setForm(prev => ({
       ...prev,
-      viagens: prev.viagens.map(v => v.id === id ? { ...v, [field]: value } : v),
+      viagens: prev.viagens.map(v => v.id === id ? { ...v, ...fields } : v),
     }));
   };
 
@@ -124,7 +189,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
         if (v.id !== viagemId) return v;
         const equipamentos = [...v.equipamentos];
         equipamentos[idx] = { ...equipamentos[idx], [field]: value };
-        // Se mudou o tipo, limpa a frota
         if (field === "tipo") equipamentos[idx].frota = "";
         return { ...v, equipamentos };
       }),
@@ -134,41 +198,40 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
   const frotaPorTipo = (tipo: string) => todaFrota.filter(v => v.tipo === tipo);
   const tiposUnicos = [...new Set(todaFrota.map(v => v.tipo))].sort();
 
-  const ogsLabel = (ogs: Ogs) => `OGS ${ogs.ogs_number} — ${ogs.client_name}`;
-  const ogsEndereco = (ogsNumber: string) => {
-    const o = ogsList.find(o => o.ogs_number === ogsNumber);
-    return o?.location_address ?? "";
+  const enderecoViagem = (ogs_number: string, rua: string) => {
+    if (ogs_number === "BASE") return "BASE (Pátio)";
+    const o = ogsList.find(o => o.ogs_number === ogs_number);
+    if (!o) return "";
+    const ruas = splitRuas(o.location_address);
+    return rua || (ruas.length === 1 ? ruas[0] : o.location_address);
   };
 
   const buildDescricaoTransporte = () => {
-    const linhas: string[] = [];
-    form.viagens.forEach((v, i) => {
-      linhas.push(`\nViagem ${i + 1}:`);
-      const origemOgs = ogsList.find(o => o.ogs_number === v.origem_ogs);
-      const destinoOgs = ogsList.find(o => o.ogs_number === v.destino_ogs);
-      if (origemOgs) linhas.push(`  Origem: OGS ${origemOgs.ogs_number} - ${origemOgs.client_name} | ${origemOgs.location_address}`);
-      if (v.origem_maps) linhas.push(`  Maps origem: ${v.origem_maps}`);
-      if (destinoOgs) linhas.push(`  Destino: OGS ${destinoOgs.ogs_number} - ${destinoOgs.client_name} | ${destinoOgs.location_address}`);
-      if (v.destino_maps) linhas.push(`  Maps destino: ${v.destino_maps}`);
-      v.equipamentos.forEach((eq, j) => {
-        if (eq.frota) linhas.push(`  Equip ${j + 1}: ${eq.frota} (${eq.tipo})`);
-      });
-    });
-    return linhas.join("\n").trim();
+    return form.viagens.map((v, i) => {
+      const linhas = [`Viagem ${i + 1}:`];
+      const origemLabel = enderecoViagem(v.origem_ogs, v.origem_rua);
+      const destinoLabel = enderecoViagem(v.destino_ogs, v.destino_rua);
+      if (origemLabel) linhas.push(`  Origem: ${v.origem_ogs !== "BASE" ? `OGS ${v.origem_ogs} - ` : ""}${origemLabel}`);
+      if (v.origem_maps) linhas.push(`  Maps: ${v.origem_maps}`);
+      if (destinoLabel) linhas.push(`  Destino: ${v.destino_ogs !== "BASE" ? `OGS ${v.destino_ogs} - ` : ""}${destinoLabel}`);
+      if (v.destino_maps) linhas.push(`  Maps: ${v.destino_maps}`);
+      const equips = v.equipamentos.filter(e => e.frota).map(e => `${e.frota}`).join(", ");
+      if (equips) linhas.push(`  Equipamentos: ${equips}`);
+      return linhas.join("\n");
+    }).join("\n\n");
   };
 
   const tituloFinal = isOutro ? form.titulo_outro : form.titulo;
+  const canSubmit = tituloFinal && form.solicitante_nome && form.solicitante_departamento && form.centro_de_custo;
 
   const handleSubmit = async () => {
-    if (!tituloFinal || !form.solicitante_nome || !form.solicitante_departamento || !form.centro_de_custo) return;
+    if (!canSubmit) return;
     setSaving(true);
-
     let descricaoFinal = form.descricao;
     if (isTransporte) {
-      const transpDesc = buildDescricaoTransporte();
-      descricaoFinal = transpDesc + (form.descricao ? `\n\n${form.descricao}` : "");
+      const td = buildDescricaoTransporte();
+      descricaoFinal = td + (form.descricao ? `\n\n${form.descricao}` : "");
     }
-
     const payload: any = {
       titulo: tituloFinal,
       descricao: descricaoFinal || undefined,
@@ -182,13 +245,10 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
       observacoes: form.observacoes || undefined,
       status: "pendente",
     };
-
     const ok = await onCreate(payload);
     if (ok) { setForm(emptyForm()); onClose(); }
     setSaving(false);
   };
-
-  const canSubmit = tituloFinal && form.solicitante_nome && form.solicitante_departamento && form.centro_de_custo;
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
@@ -198,7 +258,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-
           {/* Título */}
           <div className="space-y-1.5">
             <Label>Tipo de demanda *</Label>
@@ -213,7 +272,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
             )}
           </div>
 
-          {/* BLOCO TRANSPORTE DE EQUIPAMENTO */}
+          {/* VIAGENS (só transporte) */}
           {isTransporte && (
             <div className="space-y-4">
               {form.viagens.map((viagem, vIdx) => (
@@ -221,59 +280,33 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-primary uppercase tracking-wide">Viagem {vIdx + 1}</span>
                     {form.viagens.length > 1 && (
-                      <button onClick={() => removeViagem(viagem.id)} className="text-destructive hover:text-destructive/80 p-1">
+                      <button onClick={() => removeViagem(viagem.id)} className="text-destructive p-1">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>
 
-                  {/* Origem */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Origem</Label>
-                    <Select value={viagem.origem_ogs} onValueChange={v => updateViagem(viagem.id, "origem_ogs", v)}>
-                      <SelectTrigger className="text-sm"><SelectValue placeholder="Selecione a OGS de origem" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BASE">BASE (Pátio)</SelectItem>
-                        {ogsList.map(o => <SelectItem key={o.id} value={o.ogs_number}>{ogsLabel(o)}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    {viagem.origem_ogs && viagem.origem_ogs !== "BASE" && (
-                      <p className="text-xs text-muted-foreground pl-1">📍 {ogsEndereco(viagem.origem_ogs)}</p>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      <Input
-                        placeholder="Link Google Maps (opcional)"
-                        value={viagem.origem_maps}
-                        onChange={e => updateViagem(viagem.id, "origem_maps", e.target.value)}
-                        className="text-xs h-8"
-                      />
-                    </div>
-                  </div>
+                  <OgsField
+                    label="Origem"
+                    ogsList={ogsList}
+                    ogsValue={viagem.origem_ogs}
+                    ruaValue={viagem.origem_rua}
+                    mapsValue={viagem.origem_maps}
+                    onOgsChange={v => updateViagem(viagem.id, { origem_ogs: v, origem_rua: "" })}
+                    onRuaChange={v => updateViagem(viagem.id, { origem_rua: v })}
+                    onMapsChange={v => updateViagem(viagem.id, { origem_maps: v })}
+                  />
 
-                  {/* Destino */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Destino</Label>
-                    <Select value={viagem.destino_ogs} onValueChange={v => updateViagem(viagem.id, "destino_ogs", v)}>
-                      <SelectTrigger className="text-sm"><SelectValue placeholder="Selecione a OGS de destino" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BASE">BASE (Pátio)</SelectItem>
-                        {ogsList.map(o => <SelectItem key={o.id} value={o.ogs_number}>{ogsLabel(o)}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    {viagem.destino_ogs && viagem.destino_ogs !== "BASE" && (
-                      <p className="text-xs text-muted-foreground pl-1">📍 {ogsEndereco(viagem.destino_ogs)}</p>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      <Input
-                        placeholder="Link Google Maps (opcional)"
-                        value={viagem.destino_maps}
-                        onChange={e => updateViagem(viagem.id, "destino_maps", e.target.value)}
-                        className="text-xs h-8"
-                      />
-                    </div>
-                  </div>
+                  <OgsField
+                    label="Destino"
+                    ogsList={ogsList}
+                    ogsValue={viagem.destino_ogs}
+                    ruaValue={viagem.destino_rua}
+                    mapsValue={viagem.destino_maps}
+                    onOgsChange={v => updateViagem(viagem.id, { destino_ogs: v, destino_rua: "" })}
+                    onRuaChange={v => updateViagem(viagem.id, { destino_rua: v })}
+                    onMapsChange={v => updateViagem(viagem.id, { destino_maps: v })}
+                  />
 
                   {/* Equipamentos */}
                   <div className="space-y-2">
@@ -298,20 +331,28 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
                 </div>
               ))}
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addViagem}
-                className="w-full border-dashed text-sm gap-2"
-              >
+              <Button type="button" variant="outline" onClick={addViagem} className="w-full border-dashed text-sm gap-2">
                 <Plus className="w-4 h-4" /> Adicionar viagem
               </Button>
+
+              {/* Carreta */}
+              <div className="space-y-1.5">
+                <Label>Carreta / Cavalo mecânico</Label>
+                <Select value={form.veiculo_id} onValueChange={handleVeiculo}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a carreta" /></SelectTrigger>
+                  <SelectContent>
+                    {veiculos.filter(v => v.tipo === "CAVALO MECANICO").map(v => (
+                      <SelectItem key={v.id} value={v.id}>{v.frota}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 
-          {/* Descrição */}
+          {/* Descrição / obs */}
           <div className="space-y-1.5">
-            <Label>Observações{isTransporte ? " adicionais" : ""}</Label>
+            <Label>{isTransporte ? "Observações adicionais" : "Descrição / Observações"}</Label>
             <Textarea placeholder="Informações adicionais..." value={form.descricao} onChange={e => set("descricao", e.target.value)} rows={2} />
           </div>
 
@@ -347,7 +388,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
             </Select>
           </div>
 
-          {/* Veículo — só mostra se não for transporte (transporte usa as viagens) */}
+          {/* Veículo (demandas normais) */}
           {!isTransporte && (
             <div className="space-y-1.5">
               <Label>Veículo / Equipamento</Label>
@@ -356,21 +397,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
                 <SelectContent>
                   {veiculos.map(v => (
                     <SelectItem key={v.id} value={v.id}>{v.frota} — {v.tipo}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Carreta (só transporte) */}
-          {isTransporte && (
-            <div className="space-y-1.5">
-              <Label>Carreta / Cavalo mecânico</Label>
-              <Select value={form.veiculo_id} onValueChange={handleVeiculo}>
-                <SelectTrigger><SelectValue placeholder="Selecione a carreta" /></SelectTrigger>
-                <SelectContent>
-                  {veiculos.filter(v => v.tipo === "CAVALO MECANICO").map(v => (
-                    <SelectItem key={v.id} value={v.id}>{v.frota}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -393,7 +419,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
               <Input type="date" value={form.data_prevista} onChange={e => set("data_prevista", e.target.value)} />
             </div>
           </div>
-
         </div>
 
         <DialogFooter className="gap-2">
