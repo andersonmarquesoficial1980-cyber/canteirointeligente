@@ -86,7 +86,7 @@ export default function ProgramadorHome() {
       .then(({ data }) => { if (data) setFuncionarios(data as Funcionario[]); });
     (supabase as any).from("maquinas_frota").select("id, frota, tipo").order("tipo").order("frota")
       .then(({ data }: any) => { if (data) setFrota(data); });
-    (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address").order("ogs_number")
+    (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address").order("ogs_number", { ascending: false })
       .then(({ data }: any) => { if (data) setOgsList(data); });
   }, []);
 

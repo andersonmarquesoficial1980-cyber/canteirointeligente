@@ -156,7 +156,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
       .order("tipo").order("frota")
       .then(({ data }: any) => { if (data) setTodaFrota(data); });
     (supabase as any).from("ogs_reference").select("id, ogs_number, client_name, location_address")
-      .order("ogs_number")
+      .order("ogs_number", { ascending: false })
       .then(({ data }: any) => { if (data) setOgsList(data); });
   }, [open]);
 
