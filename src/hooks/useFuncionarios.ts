@@ -8,7 +8,6 @@ export interface Funcionario {
   funcao: string;
 }
 
-// Unify all "MOTORISTA ..." roles into a single "MOTORISTA" entry
 function unifyMotorista(funcao: string): string {
   if (funcao.toUpperCase().includes("MOTORISTA")) return "MOTORISTA";
   return funcao;
@@ -20,14 +19,15 @@ export function useFuncionarios() {
 
   const load = async () => {
     const { data, error } = await supabase
-      .from("funcionarios" as any)
-      .select("*")
-      .order("nome", { ascending: true });
+      .from("employees")
+      .select("id, matricula, name, role")
+      .order("name", { ascending: true });
     if (!error && data) {
-      // Normalize: unify all motorista variants into "MOTORISTA"
-      const normalized = (data as any as Funcionario[]).map(f => ({
-        ...f,
-        funcao: unifyMotorista(f.funcao),
+      const normalized = data.map(f => ({
+        id: f.id,
+        matricula: f.matricula ?? "",
+        nome: f.name,
+        funcao: unifyMotorista(f.role ?? ""),
       }));
       setFuncionarios(normalized);
     }
