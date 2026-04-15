@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function NovoDocumentoModal({ open, onClose, integracaoId, onSaved }: Props) {
-  const { data: funcionarios } = useFuncionarios();
+  const { funcionarios } = useFuncionarios();
   const [funcionarioNome, setFuncionarioNome] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
@@ -82,7 +82,7 @@ export default function NovoDocumentoModal({ open, onClose, integracaoId, onSave
               <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent className="max-h-[200px]">
                 {(funcionarios ?? []).map(f => (
-                  <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>
+                  <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
