@@ -28,6 +28,7 @@ import EspelhoPonto from "./pages/EspelhoPonto";
 import ProgramadorHome from "./pages/ProgramadorHome";
 import DemandasHome from "./pages/DemandasHome";
 import MinhasDemandas from "./pages/MinhasDemandas";
+import ExportarProtheus from "./pages/ExportarProtheus";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
@@ -102,6 +103,7 @@ function AppRoutes() {
         <Route path="/equipamentos" element={<EquipmentHome />} />
         <Route path="/equipamentos/frota" element={<AppLayout><FrotaNovo /></AppLayout>} />
         <Route path="/equipamentos/diario" element={<EquipmentDiaryForm />} />
+        <Route path="/equipamentos/exportar-protheus" element={<ExportarProtheus />} />
 
         {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}

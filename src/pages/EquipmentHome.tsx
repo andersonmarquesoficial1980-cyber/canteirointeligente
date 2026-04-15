@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, ChevronRight } from "lucide-react";
+import { LogOut, ChevronRight, FileSpreadsheet } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import logoCi from "@/assets/logo-ci.png";
 
 import imgFresadora from "@/assets/equip-fresadora.png";
@@ -32,6 +33,7 @@ const EQUIPMENT_TYPES = [
 export default function EquipmentHome() {
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
+  const isAdmin = useIsAdmin();
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -94,6 +96,17 @@ export default function EquipmentHome() {
             </button>
           ))}
         </div>
+
+        {isAdmin && (
+          <Button
+            variant="outline"
+            className="mt-2 w-full h-12 gap-2 text-sm font-semibold border-blue-200 text-blue-700 hover:bg-blue-50"
+            onClick={() => navigate("/equipamentos/exportar-protheus")}
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            Exportar para Protheus
+          </Button>
+        )}
 
         <Button
           variant="ghost"
