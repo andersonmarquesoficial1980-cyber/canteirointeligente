@@ -208,11 +208,12 @@ function estimateFareFromSteps(steps: TransitStep[], tarifas: Tarifa[]): number 
     tarifaMap[key] = t.valor_unitario;
   }
 
-  // Tarifa padrão do metrô/trem SP (caso não tenha na tabela)
-  const tarifaMetro = tarifaMap["metrô"] || tarifaMap["metro"] || tarifaMap["trem"] || 5.40;
-  const tarifaOnibusMetro = tarifaMap["ônibus metropolitano"] || tarifaMap["metropolitano"] || 6.70;
-  const tarifaOnibusIntermunic = tarifaMap["ônibus intermunicipal"] || tarifaMap["intermunicipal"] || 7.15;
-  const tarifaOnibusMunicipal = tarifaMap["ônibus municipal"] || tarifaMap["ônibus"] || tarifaMap["municipal"] || 4.40;
+  // Tarifas base (da tabela ou valores reais SP 2026)
+  const tarifaMetro      = tarifaMap["metrô"] || tarifaMap["metro"] || tarifaMap["trem"] || 5.40;
+  const tarifaEmtu       = tarifaMap["emtu"] || tarifaMap["aeroporto"] || tarifaMap["airport"] || 8.00;
+  const tarifaMetropoMet = tarifaMap["ônibus metropolitano"] || tarifaMap["metropolitano"] || 6.70;
+  const tarifaIntermunic = tarifaMap["ônibus intermunicipal"] || tarifaMap["intermunicipal"] || 7.15;
+  const tarifaMunicipal  = tarifaMap["ônibus municipal"] || tarifaMap["ônibus"] || tarifaMap["municipal"] || 6.10;
 
   let total = 0;
   let jaCobrouMetroFerroviario = false;
@@ -221,45 +222,42 @@ function estimateFareFromSteps(steps: TransitStep[], tarifas: Tarifa[]): number 
     const step = steps[i];
     if (step.mode === "WALKING") continue;
 
-    // Sistema metroferroviário — cobrar só uma vez (integração gratuita)
+    // Sistema metroferroviário SP — cobrar só uma vez (integração gratuita entre Metrô/CPTM/ViaMobilidade)
     if (isMetroFerroviario(step)) {
       if (!jaCobrouMetroFerroviario) {
         total += tarifaMetro;
         jaCobrouMetroFerroviario = true;
       }
-      // Demais conexões metrô/trem = integração gratuita
       continue;
     }
 
-    // Ônibus
+    // Ônibus — cada um cobrado separadamente (sem integração entre ônibus)
     if (step.mode === "BUS") {
-      // Ônibus saindo de terminal de metrô = integração gratuita
-      if (jaCobrouMetroFerroviario && isBusConectadoMetro(step, steps, i)) {
+      const line    = (step.line || "").toLowerCase();
+      const vehicle = (step.vehicle || "").toLowerCase();
+      const depart  = (step.departureStop || "").toLowerCase();
+      const arrive  = (step.arrivalStop || "").toLowerCase();
+
+      // EMTU / Airport Bus Service (linha 257, aeroporto, etc.)
+      const isEmtu = line === "257" || line.includes("airport") || line.includes("aeroporto") ||
+                     vehicle.includes("airport") || arrive.includes("aeroporto") || arrive.includes("airport");
+      if (isEmtu) { total += tarifaEmtu; continue; }
+
+      // Ônibus intermunicipais (linhas 1xx, 2xx, 3xx da região)
+      const lineNum = parseInt(line.replace(/\D/g, ""));
+      if (!isNaN(lineNum) && lineNum >= 100 && lineNum <= 399) {
+        total += tarifaIntermunic;
         continue;
       }
 
-      const line = (step.line || "").toLowerCase();
-      const depart = (step.departureStop || "").toLowerCase();
-
-      // Detectar tipo de ônibus pela linha/rota
-      // Intermunicipais geralmente têm números 3 dígitos começando com 1xx, 2xx em SP região
-      // Metropolitanos: EMTU
-      if (line.includes("emtu") || depart.includes("carapicuíba") || depart.includes("alphaville") ||
-          depart.includes("barueri") || depart.includes("osasco")) {
-        total += tarifaOnibusMetro;
-      } else if (step.distance && parseFloat(step.distance) > 15) {
-        total += tarifaOnibusIntermunic;
-      } else {
-        // Tentar identificar pelo número da linha
-        const lineNum = parseInt(line.replace(/\D/g, ""));
-        if (!isNaN(lineNum) && (lineNum >= 200 && lineNum <= 299)) {
-          total += tarifaOnibusIntermunic; // linha 228 = intermunicipal
-        } else if (!isNaN(lineNum) && (lineNum >= 400 && lineNum <= 499)) {
-          total += tarifaOnibusMetro; // linha 450 = metropolitano
-        } else {
-          total += tarifaOnibusMunicipal;
-        }
+      // Ônibus metropolitanos EMTU (linhas 4xx, 5xx)
+      if (!isNaN(lineNum) && lineNum >= 400 && lineNum <= 599) {
+        total += tarifaMetropoMet;
+        continue;
       }
+
+      // Municipal (linhas com letra como A165C1, A112 = Barueri)
+      total += tarifaMunicipal;
     }
   }
 
