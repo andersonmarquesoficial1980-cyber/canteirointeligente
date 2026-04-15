@@ -8,18 +8,19 @@ import { useTiposServico } from "@/hooks/useFilteredData";
 export interface TrechoCauqEntry {
   id: string;
   tipo_servico: string;
-  sentido_faixa: string;
+  sentido: string;
+  faixa: string;
   estaca_inicial: string;
   estaca_final: string;
   comprimento_m: string;
   largura_m: string;
   espessura_m: string;
-  total_toneladas: string;
   observacoes: string;
 }
 
 export interface ProducaoCauqData {
   trechos: TrechoCauqEntry[];
+  tonelagem_aplicada: string;
 }
 
 interface Props {
@@ -30,13 +31,15 @@ interface Props {
 
 const emptyTrecho = (): TrechoCauqEntry => ({
   id: crypto.randomUUID(),
-  tipo_servico: "", sentido_faixa: "", estaca_inicial: "", estaca_final: "",
-  comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "", observacoes: "",
+  tipo_servico: "", sentido: "", faixa: "", estaca_inicial: "", estaca_final: "",
+  comprimento_m: "", largura_m: "", espessura_m: "", observacoes: "",
 });
 
-export default function SectionProducaoCauq({ data, onChange, tipoRdo }: Props) {
+export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries }: Props & { nfEntries?: { tonelagem: string }[] }) {
   const { data: servicosData } = useTiposServico(tipoRdo);
   const servicos = servicosData?.map(s => s.nome) ?? [];
+
+  const totalNF = (nfEntries ?? []).reduce((sum, e) => sum + (parseFloat(e.tonelagem) || 0), 0);
 
   const updateTrecho = (id: string, field: string, value: string) =>
     onChange({ ...data, trechos: data.trechos.map(t => t.id === id ? { ...t, [field]: value } : t) });
@@ -81,9 +84,21 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo }: Props) 
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <span className="rdo-label">Sentido / Faixa</span>
-            <Input value={trecho.sentido_faixa} onChange={e => updateTrecho(trecho.id, "sentido_faixa", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: Faixa 1 e 2" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <span className="rdo-label">Sentido</span>
+              <Select value={trecho.sentido} onValueChange={v => updateTrecho(trecho.id, "sentido", v)}>
+                <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CRESCENTE">CRESCENTE</SelectItem>
+                  <SelectItem value="DECRESCENTE">DECRESCENTE</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <span className="rdo-label">Faixa</span>
+              <Input value={trecho.faixa} onChange={e => updateTrecho(trecho.id, "faixa", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 1, 2, Acost." />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -112,15 +127,9 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo }: Props) 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <span className="rdo-label">Espessura (cm)</span>
-              <Input inputMode="decimal" value={trecho.espessura_m} onChange={e => updateTrecho(trecho.id, "espessura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 5" />
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Total / Toneladas</span>
-              <Input inputMode="decimal" value={trecho.total_toneladas} onChange={e => updateTrecho(trecho.id, "total_toneladas", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
-            </div>
+          <div className="space-y-1.5">
+            <span className="rdo-label">Espessura (cm)</span>
+            <Input inputMode="decimal" value={trecho.espessura_m} onChange={e => updateTrecho(trecho.id, "espessura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 5" />
           </div>
 
           <div className="space-y-1.5">
@@ -133,6 +142,29 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo }: Props) 
       <Button size="sm" onClick={addTrecho} className="w-full h-12 gap-2 text-base rounded-xl font-display font-bold">
         <Plus className="w-5 h-5" /> Adicionar Trecho
       </Button>
+
+      {/* Tonelagem */}
+      <div className="rdo-card space-y-3 border-l-4 border-l-blue-500">
+        <h3 className="text-sm font-display font-bold text-blue-700">Tonelagem</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <span className="rdo-label">Total via NF (automático)</span>
+            <div className="h-11 bg-muted/50 border border-border rounded-xl flex items-center px-3 text-base font-bold text-primary">
+              {totalNF > 0 ? `${totalNF.toFixed(2)} t` : "—"}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <span className="rdo-label">Tonelagem Aplicada (real)</span>
+            <Input
+              inputMode="decimal"
+              value={data.tonelagem_aplicada ?? ""}
+              onChange={e => onChange({ ...data, tonelagem_aplicada: e.target.value })}
+              className="h-11 bg-white border-border rounded-xl"
+              placeholder="Ex: 48.5"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

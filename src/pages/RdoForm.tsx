@@ -66,9 +66,10 @@ export default function RdoForm() {
   // Produção CAUQ
   const [producaoCauq, setProducaoCauq] = useState<ProducaoCauqData>({
     trechos: [{
-      id: crypto.randomUUID(), tipo_servico: "", sentido_faixa: "", estaca_inicial: "", estaca_final: "",
-      comprimento_m: "", largura_m: "", espessura_m: "", total_toneladas: "", observacoes: "",
+      id: crypto.randomUUID(), tipo_servico: "", sentido: "", faixa: "", estaca_inicial: "", estaca_final: "",
+      comprimento_m: "", largura_m: "", espessura_m: "", observacoes: "",
     }],
+    tonelagem_aplicada: "",
   });
 
   // Canteiro
@@ -185,7 +186,7 @@ export default function RdoForm() {
         lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
         lines.push(`  ${fmtBR(c)} x ${fmtBR(l)} = ${fmtBR(area)} m²`);
         const espM = t.espessura_m ? (parseFloat(t.espessura_m) / 100) : 0;
-        lines.push(`  Espessura: ${espM ? fmtBR(espM) : "—"} m | Total: ${t.total_toneladas ? fmtBR(parseFloat(t.total_toneladas)) : "—"} Ton`);
+        lines.push(`  Espessura: ${espM ? fmtBR(espM) : "—"} m`);
         if (t.observacoes) {
           lines.push(`  Obs: ${t.observacoes}`);
         }
@@ -196,7 +197,7 @@ export default function RdoForm() {
         const l = parseFloat(t.largura_m) || 0;
         return s + c * l;
       }, 0);
-      const totalTon = producaoCauq.trechos.reduce((s, t) => s + (parseFloat(t.total_toneladas) || 0), 0);
+      const totalTon = parseFloat(producaoCauq.tonelagem_aplicada || "0") || 0;
 
       lines.push(``);
       lines.push(`📊 *Resumo Geral:*`);
@@ -461,10 +462,8 @@ export default function RdoForm() {
           <>
             <SectionInfraestrutura
               empreiteiro={empreiteiro}
-              tipoServico={tipoServico}
               producao={infraProducao}
               onChangeEmpreiteiro={setEmpreiteiro}
-              onChangeTipoServico={setTipoServico}
               onChangeProducao={setInfraProducao}
               tipoRdo="INFRA"
             />
@@ -475,7 +474,7 @@ export default function RdoForm() {
         {tipoRdo === "CAUQ" && (
           <>
             <SectionCauq entries={nfMassa} onChange={setNfMassa} tipoRdo="CAUQ" />
-            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} tipoRdo="CAUQ" />
+            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} tipoRdo="CAUQ" nfEntries={nfMassa} />
           </>
         )}
         {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
