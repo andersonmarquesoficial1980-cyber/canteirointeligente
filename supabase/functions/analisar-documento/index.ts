@@ -82,6 +82,25 @@ serve(async (req) => {
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) throw new Error("OPENAI_API_KEY não configurada");
 
+    // Verificar se é PDF — GPT-4o Vision não aceita PDF diretamente
+    const isPDF = arquivo_url.toLowerCase().includes(".pdf") || arquivo_url.toLowerCase().includes("pdf");
+    if (isPDF) {
+      // Para PDF, usar análise por texto com prompt mais genérico
+      const { error: updatePdfError } = await supabase
+        .from("ci_documentos")
+        .update({
+          status: "atencao",
+          ia_observacao: "Arquivo em PDF — não é possível analisar automaticamente. Verifique manualmente.",
+          ia_resultado: { observacao: "PDF não suportado para análise automática. Prefira enviar foto do documento." },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", documento_id);
+      
+      return new Response(JSON.stringify({ success: true, status: "atencao", info: "PDF detectado — análise manual necessária" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",

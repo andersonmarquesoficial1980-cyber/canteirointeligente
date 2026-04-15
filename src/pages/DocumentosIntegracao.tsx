@@ -41,6 +41,7 @@ export default function DocumentosIntegracao() {
   const [analisando, setAnalisando] = useState(false);
   const [modalAberto, setModalAberto] = useState(false);
   const [docExpandido, setDocExpandido] = useState<string | null>(null);
+  const [erroIA, setErroIA] = useState("");
 
   useEffect(() => { if (id) buscarDados(); }, [id]);
 
@@ -59,18 +60,20 @@ export default function DocumentosIntegracao() {
     const pendentes = documentos.filter(d => d.status === "pendente" && d.arquivo_url);
     if (pendentes.length === 0) return;
     setAnalisando(true);
+    setErroIA("");
 
     for (const doc of pendentes) {
       try {
-        await supabase.functions.invoke("analisar-documento", {
+        const { error } = await supabase.functions.invoke("analisar-documento", {
           body: {
             documento_id: doc.id,
             arquivo_url: doc.arquivo_url,
             tipo_documento: doc.tipo_documento,
           },
         });
-      } catch (e) {
-        console.error("Erro ao analisar doc", doc.id, e);
+        if (error) setErroIA(`Erro em ${doc.tipo_documento}: ${error.message}`);
+      } catch (e: any) {
+        setErroIA(`Erro: ${e.message}`);
       }
     }
 
@@ -137,6 +140,12 @@ export default function DocumentosIntegracao() {
             {analisando ? <><Loader2 className="w-4 h-4 animate-spin" /> Analisando...</> : <><Brain className="w-4 h-4" /> Analisar com IA</>}
           </Button>
         </div>
+
+        {erroIA && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+            {erroIA}
+          </div>
+        )}
 
         {totalPendentes > 0 && !analisando && (
           <p className="text-xs text-center text-muted-foreground">
