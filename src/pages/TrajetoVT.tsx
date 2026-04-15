@@ -178,6 +178,29 @@ function getModeLabel(mode: string): string {
   return map[mode] || mode;
 }
 
+// Linhas que fazem parte do sistema metroferroviário integrado de SP
+// Metrô (1-5,15) + CPTM (7-13) + ViaMobilidade (8,9) — integração gratuita entre si
+const METRO_FERROVIARIO_PREFIXES = [
+  "linha 1", "linha 2", "linha 3", "linha 4", "linha 5", "linha 15",
+  "linha 7", "linha 8", "linha 9", "linha 10", "linha 11", "linha 12", "linha 13",
+  "l1-", "l2-", "l3-", "l4-", "l5-",
+];
+
+function isMetroFerroviario(step: TransitStep): boolean {
+  if (step.mode === "SUBWAY") return true;
+  if (step.mode !== "RAIL" && step.mode !== "HEAVY_RAIL") return false;
+  const lineName = (step.line || "").toLowerCase();
+  return METRO_FERROVIARIO_PREFIXES.some(p => lineName.startsWith(p)) || lineName.includes("linha");
+}
+
+function isBusConectadoMetro(step: TransitStep, steps: TransitStep[], idx: number): boolean {
+  // Ônibus que parte de terminal de metrô/trem pode ter integração
+  // Detectar pelo nome da parada de origem
+  const origem = (step.departureStop || "").toLowerCase();
+  const integracaoKeywords = ["terminal metrô", "terminal metro", "estação", "metro ", "metrô ", "cptm", "terminal"];
+  return integracaoKeywords.some(k => origem.includes(k));
+}
+
 function estimateFareFromSteps(steps: TransitStep[], tarifas: Tarifa[]): number {
   const tarifaMap: Record<string, number> = {};
   for (const t of tarifas) {
@@ -185,25 +208,61 @@ function estimateFareFromSteps(steps: TransitStep[], tarifas: Tarifa[]): number 
     tarifaMap[key] = t.valor_unitario;
   }
 
+  // Tarifa padrão do metrô/trem SP (caso não tenha na tabela)
+  const tarifaMetro = tarifaMap["metrô"] || tarifaMap["metro"] || tarifaMap["trem"] || 5.40;
+  const tarifaOnibusMetro = tarifaMap["ônibus metropolitano"] || tarifaMap["metropolitano"] || 6.70;
+  const tarifaOnibusIntermunic = tarifaMap["ônibus intermunicipal"] || tarifaMap["intermunicipal"] || 7.15;
+  const tarifaOnibusMunicipal = tarifaMap["ônibus municipal"] || tarifaMap["ônibus"] || tarifaMap["municipal"] || 4.40;
+
   let total = 0;
-  for (const step of steps) {
+  let jaCobrouMetroFerroviario = false;
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
     if (step.mode === "WALKING") continue;
-    const modeKey = step.mode.toLowerCase();
-    // Try to match tarifa
-    if (modeKey === "bus" && (tarifaMap["ônibus municipal"] || tarifaMap["ônibus intermunicipal"] || tarifaMap["ônibus"])) {
-      total += tarifaMap["ônibus municipal"] || tarifaMap["ônibus intermunicipal"] || tarifaMap["ônibus"] || 0;
-    } else if (modeKey === "subway" && (tarifaMap["metrô"] || tarifaMap["metro"])) {
-      total += tarifaMap["metrô"] || tarifaMap["metro"] || 0;
-    } else if (modeKey === "rail" && (tarifaMap["trem"] || tarifaMap["train"])) {
-      total += tarifaMap["trem"] || tarifaMap["train"] || 0;
-    } else if (modeKey === "tram" && (tarifaMap["vlt"] || tarifaMap["brt"])) {
-      total += tarifaMap["vlt"] || tarifaMap["brt"] || 0;
-    } else {
-      // fallback: try any partial match
-      const match = Object.entries(tarifaMap).find(([k]) => k.includes(modeKey) || modeKey.includes(k));
-      if (match) total += match[1];
+
+    // Sistema metroferroviário — cobrar só uma vez (integração gratuita)
+    if (isMetroFerroviario(step)) {
+      if (!jaCobrouMetroFerroviario) {
+        total += tarifaMetro;
+        jaCobrouMetroFerroviario = true;
+      }
+      // Demais conexões metrô/trem = integração gratuita
+      continue;
+    }
+
+    // Ônibus
+    if (step.mode === "BUS") {
+      // Ônibus saindo de terminal de metrô = integração gratuita
+      if (jaCobrouMetroFerroviario && isBusConectadoMetro(step, steps, i)) {
+        continue;
+      }
+
+      const line = (step.line || "").toLowerCase();
+      const depart = (step.departureStop || "").toLowerCase();
+
+      // Detectar tipo de ônibus pela linha/rota
+      // Intermunicipais geralmente têm números 3 dígitos começando com 1xx, 2xx em SP região
+      // Metropolitanos: EMTU
+      if (line.includes("emtu") || depart.includes("carapicuíba") || depart.includes("alphaville") ||
+          depart.includes("barueri") || depart.includes("osasco")) {
+        total += tarifaOnibusMetro;
+      } else if (step.distance && parseFloat(step.distance) > 15) {
+        total += tarifaOnibusIntermunic;
+      } else {
+        // Tentar identificar pelo número da linha
+        const lineNum = parseInt(line.replace(/\D/g, ""));
+        if (!isNaN(lineNum) && (lineNum >= 200 && lineNum <= 299)) {
+          total += tarifaOnibusIntermunic; // linha 228 = intermunicipal
+        } else if (!isNaN(lineNum) && (lineNum >= 400 && lineNum <= 499)) {
+          total += tarifaOnibusMetro; // linha 450 = metropolitano
+        } else {
+          total += tarifaOnibusMunicipal;
+        }
+      }
     }
   }
+
   return total;
 }
 
