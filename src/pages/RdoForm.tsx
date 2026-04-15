@@ -546,13 +546,23 @@ export default function RdoForm() {
             <RotateCw className="w-5 h-5" /> Salvar e Iniciar Nova Rua
           </Button>
         )}
-        <Button
-          onClick={handleSubmit}
-          disabled={saving || !header.obra_nome || !header.turno}
-          className="w-full h-14 text-base gap-2 font-display font-bold rounded-xl bg-header-gradient hover:opacity-90 transition-opacity"
-        >
-          <Send className="w-5 h-5" /> {saving ? "Salvando..." : "Enviar RDO"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleSaveDraft}
+            disabled={savingDraft || !header.obra_nome}
+            variant="outline"
+            className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl border-2 border-primary text-primary hover:bg-primary/5"
+          >
+            <Save className="w-4 h-4" /> {savingDraft ? "Salvando..." : "Salvar Rascunho"}
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={saving || !header.obra_nome || !header.turno}
+            className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl bg-header-gradient hover:opacity-90 transition-opacity"
+          >
+            <Send className="w-4 h-4" /> {saving ? "Enviando..." : "Enviar RDO"}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -32,7 +32,7 @@ import { generateKmaPdf } from "@/lib/generateKmaPdf";
 import { generateComboioPdf } from "@/lib/generateComboioPdf";
 import { buildComboioEmailReport, buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 
-const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Manutenção"] as const;
+const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Inoperante"] as const;
 
 const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
 const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
@@ -180,6 +180,7 @@ export default function EquipmentDiaryForm() {
   const [meterInitial, setMeterInitial] = useState("");
   const [meterFinal, setMeterFinal] = useState("");
   const [workStatus, setWorkStatus] = useState("");
+  const isModoSimples = workStatus === "Folga" || workStatus === "Inoperante";
   const [ogsNumber, setOgsNumber] = useState("");
   const [clientName, setClientName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
@@ -1247,6 +1248,9 @@ export default function EquipmentDiaryForm() {
           </Field>
         </Section>
 
+        {/* CAMPOS COLAPSADOS quando Folga ou Inoperante */}
+        {!isModoSimples && (<>
+
         {/* APONTAMENTO DE HORAS */}
         <TimeEntriesSection
           entries={timeEntries}
@@ -1670,7 +1674,10 @@ export default function EquipmentDiaryForm() {
           )}
         </Section>
 
-        {/* OBSERVAÇÕES */}
+        {/* FIM CAMPOS COLAPSÁVEIS */}
+        </>)}
+
+        {/* OBSERVAÇÕES — sempre visível */}
         <Section title="OBSERVAÇÕES">
           <Textarea
             value={observations}
