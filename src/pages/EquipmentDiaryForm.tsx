@@ -1138,6 +1138,9 @@ export default function EquipmentDiaryForm() {
                     <SelectValue placeholder={uniqueOgs.length === 0 ? "Carregando OGS..." : "Selecione OGS..."} />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="BASE / PÁTIO CENTRAL">
+                      🏠 BASE / PÁTIO CENTRAL
+                    </SelectItem>
                     {uniqueOgs.filter((o: any) => o.ogs_number).map((o: any) => (
                       <SelectItem key={o.id} value={o.ogs_number}>
                         {o.ogs_number} — {o.client_name}
