@@ -840,6 +840,29 @@ export default function EquipmentDiaryForm() {
             initial_diesel_balance: comboioSaldoInicial ? Number(comboioSaldoInicial) : null,
           }));
           await supabase.from("comboio_equipment_refueling").insert(rows);
+
+          // Sincronizar com tabela consolidada de abastecimentos
+          if (!isDraft) {
+            const abastRows = validRefuels
+              .filter(r => r.fleetFueled && r.litersFueled)
+              .map(r => ({
+                equipment_fleet: r.fleetFueled,
+                equipment_type: r.tipoEquipamento || null,
+                data: date,
+                hora: r.hora || null,
+                litros: Number(r.litersFueled),
+                horimetro: r.equipmentMeter ? Number(r.equipmentMeter) : null,
+                fonte: "comboio",
+                comboio_fleet: selectedFleet,
+                lubrificado: r.isLubricated,
+                lavado: r.isWashed,
+                ogs: r.ogsDestination || null,
+                diary_id: diary.id,
+              }));
+            if (abastRows.length > 0) {
+              await supabase.from("abastecimentos").insert(abastRows);
+            }
+          }
         }
       }
 
@@ -1665,6 +1688,11 @@ export default function EquipmentDiaryForm() {
           />
         )}
 
+        {/* ABASTECIMENTO DO COMBOIO (informativo) */}
+        {!isComboio && selectedFleet && date && (
+          <ComboioAbastInfo fleet={selectedFleet} date={date} />
+        )}
+
         {/* ABASTECIMENTO + METER FINAL */}
         {!isComboio && (
           <FuelingSection data={fueling} onChange={setFueling} meterLabel={meterLabel} syncedFromComboio={fuelSyncedFromComboio} />
@@ -1769,4 +1797,38 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function FieldRow({ children }: { children: React.ReactNode }) {
   return <div className="flex gap-3">{children}</div>;
+}
+
+function ComboioAbastInfo({ fleet, date }: { fleet: string; date: string }) {
+  const [abast, setAbast] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!fleet || !date) return;
+    supabase
+      .from("abastecimentos")
+      .select("*")
+      .eq("equipment_fleet", fleet)
+      .eq("data", date)
+      .eq("fonte", "comboio")
+      .then(({ data }) => { if (data && data.length > 0) setAbast(data); });
+  }, [fleet, date]);
+
+  if (abast.length === 0) return null;
+
+  const totalLitros = abast.reduce((s, a) => s + (a.litros || 0), 0);
+
+  return (
+    <div className="mx-4 bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-1">
+      <p className="text-xs font-bold text-blue-700">🚛 Abastecido pelo Comboio hoje</p>
+      {abast.map((a, i) => (
+        <div key={i} className="text-xs text-blue-600 flex gap-3">
+          <span>{a.litros.toFixed(1)} L</span>
+          {a.comboio_fleet && <span>Comboio: {a.comboio_fleet}</span>}
+          {a.hora && <span>{a.hora}</span>}
+          {a.lubrificado && <span>🔧 Lubrificado</span>}
+        </div>
+      ))}
+      <p className="text-xs font-bold text-blue-700 border-t border-blue-200 pt-1">Total: {totalLitros.toFixed(1)} L</p>
+    </div>
+  );
 }

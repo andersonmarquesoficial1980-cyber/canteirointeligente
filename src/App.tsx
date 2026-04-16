@@ -34,6 +34,7 @@ import DocumentosIntegracao from "./pages/DocumentosIntegracao";
 import ManutencaoHome from "./pages/ManutencaoHome";
 import ManutencaoOS from "./pages/ManutencaoOS";
 import ManutencaoDocumentos from "./pages/ManutencaoDocumentos";
+import AbastecimentoHome from "./pages/AbastecimentoHome";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
@@ -114,6 +115,7 @@ function AppRoutes() {
         <Route path="/manutencao" element={<ManutencaoHome />} />
         <Route path="/manutencao/os/:id" element={<ManutencaoOS />} />
         <Route path="/manutencao/documentos" element={<ManutencaoDocumentos />} />
+        <Route path="/abastecimento" element={<AbastecimentoHome />} />
 
         {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}
