@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
 import AeroPavStaffManager from "@/components/admin/AeroPavStaffManager";
+import PermissoesManager from "@/components/admin/PermissoesManager";
 import logoCi from "@/assets/logo-workflux.png";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
@@ -887,6 +888,7 @@ const MENU_SECTIONS = [
   { key: "dashboard", label: "Dashboards", icon: BarChart3 },
   { key: "visao_equipamentos", label: "Visão Equipamentos", icon: Wrench },
   { key: "usuarios", label: "Usuários", icon: Users },
+  { key: "permissoes", label: "Permissões", icon: Users },
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
   { key: "materiais", label: "Materiais (RDO)", icon: Package },
   { key: "insumos", label: "Insumos / Materiais", icon: Package },
@@ -925,6 +927,7 @@ export default function AdminConfiguracoes() {
           </Suspense>
         );
       case "usuarios": return <UsersManager />;
+      case "permissoes": return <PermissoesManager />;
       case "ogs": return <OgsManager />;
       case "materiais": return <MaterialManager />;
       case "insumos": return <InsumosMaterialManager />;

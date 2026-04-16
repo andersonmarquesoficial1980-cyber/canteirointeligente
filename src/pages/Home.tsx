@@ -6,12 +6,14 @@ import { ChevronRight, LogOut } from "lucide-react";
 
 import logoCi from "@/assets/logo-workflux.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { usePermissions } from "@/hooks/usePermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { HUB_MODULES } from "@/config/navigation";
 
 export default function Home() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
+  const { permissions, loading: loadingPerms } = usePermissions();
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -59,7 +61,28 @@ export default function Home() {
       {/* @LOCK-UI: Single-column vertical layout — DO NOT change to grid-cols-2 */}
       <div className="flex flex-col gap-3 w-full max-w-lg relative z-10">
         {HUB_MODULES
-          .filter(mod => !mod.adminOnly || isAdmin)
+          .filter(mod => {
+            if (mod.adminOnly && !isAdmin) return false;
+            if (!permissions || loadingPerms) return true; // enquanto carrega, mostra tudo
+            if (isAdmin) return true; // admin vê tudo
+            // Filtrar por permissão
+            const permMap: Record<string, keyof typeof permissions> = {
+              obras: "modulo_obras",
+              equipamentos: "modulo_equipamentos",
+              rh: "modulo_rh",
+              carreteiros: "modulo_carreteiros",
+              programador: "modulo_programador",
+              demandas: "modulo_demandas",
+              manutencao: "modulo_manutencao",
+              abastecimento: "modulo_abastecimento",
+              documentos: "modulo_documentos",
+              relatorios: "modulo_relatorios",
+              dashboard: "modulo_dashboard",
+            };
+            const permKey = permMap[mod.id];
+            if (!permKey) return true; // módulos sem mapeamento aparecem pra todos
+            return permissions[permKey] === true;
+          })
           .map(mod => {
             const Icon = mod.icon;
             return (
