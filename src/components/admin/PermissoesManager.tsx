@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, UserCog } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Save, UserCog, UserPlus, Search } from "lucide-react";
 
 interface Usuario {
   id: string;
@@ -55,8 +58,64 @@ export default function PermissoesManager() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState<string | null>(null);
   const [salvoOk, setSalvoOk] = useState<string | null>(null);
+  const [modalConvite, setModalConvite] = useState(false);
+  const [funcionarios, setFuncionarios] = useState<any[]>([]);
+  const [buscaFunc, setBuscaFunc] = useState("");
+  const [funcSelecionado, setFuncSelecionado] = useState<any>(null);
+  const [conviteEmail, setConviteEmail] = useState("");
+  const [conviteSenha, setConviteSenha] = useState("");
+  const [convitePerms, setConvitePerms] = useState<Record<string, boolean>>({});
+  const [criando, setCriando] = useState(false);
+  const [conviteErro, setConviteErro] = useState("");
 
-  useEffect(() => { buscarDados(); }, []);
+  useEffect(() => {
+    buscarDados();
+    // Carregar funcionários para o convite
+    supabase.from("employees").select("id, name, role").order("name")
+      .then(({ data }) => setFuncionarios(data || []));
+  }, []);
+
+  async function criarConvite() {
+    if (!funcSelecionado || !conviteEmail || !conviteSenha) {
+      setConviteErro("Preencha todos os campos."); return;
+    }
+    setCriando(true);
+    setConviteErro("");
+    try {
+      // Criar usuário via Edge Function
+      const { data: result, error } = await supabase.functions.invoke("create-user", {
+        body: {
+          email: conviteEmail.trim().toLowerCase(),
+          password: conviteSenha,
+          nome_completo: funcSelecionado.name,
+          perfil: funcSelecionado.role || "Operador",
+        },
+      });
+      const errMsg = result?.error || error?.message;
+      if (errMsg) throw new Error(errMsg);
+
+      // Buscar o user_id criado
+      const { data: profile } = await supabase
+        .from("profiles").select("user_id").eq("email", conviteEmail.trim().toLowerCase()).single();
+
+      if (profile?.user_id) {
+        // Salvar permissões
+        const permsObj: any = { user_id: profile.user_id, is_admin: false, updated_at: new Date().toISOString() };
+        MODULOS.forEach(m => { permsObj[m.key] = convitePerms[m.key] || false; });
+        await supabase.from("user_permissions").upsert(permsObj, { onConflict: "user_id" });
+      }
+
+      setModalConvite(false);
+      setFuncSelecionado(null);
+      setConviteEmail("");
+      setConviteSenha("");
+      setConvitePerms({});
+      setBuscaFunc("");
+      buscarDados();
+    } catch (e: any) {
+      setConviteErro(e.message || "Erro ao criar usuário");
+    } finally { setCriando(false); }
+  }
 
   async function buscarDados() {
     setLoading(true);
@@ -103,14 +162,97 @@ export default function PermissoesManager() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4">
-        <UserCog className="w-5 h-5 text-primary" />
-        <h2 className="font-display font-bold text-base">Permissões de Usuários</h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <UserCog className="w-5 h-5 text-primary" />
+          <h2 className="font-display font-bold text-base">Permissões de Usuários</h2>
+        </div>
+        <Button size="sm" onClick={() => setModalConvite(true)} className="gap-1.5 h-8 text-xs">
+          <UserPlus className="w-3.5 h-3.5" /> Convidar Funcionário
+        </Button>
       </div>
 
       {usuarios.length === 0 && (
         <p className="text-sm text-muted-foreground italic text-center py-6">Nenhum usuário cadastrado.</p>
       )}
+
+      {/* Modal Convidar Funcionário */}
+      <Dialog open={modalConvite} onOpenChange={setModalConvite}>
+        <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="font-display font-bold">Convidar Funcionário</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            {/* Buscar funcionário */}
+            <div className="space-y-1.5">
+              <span className="rdo-label">Funcionário *</span>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar nome..."
+                  value={buscaFunc}
+                  onChange={e => { setBuscaFunc(e.target.value); setFuncSelecionado(null); }}
+                  className="pl-9 h-11 rounded-xl"
+                />
+              </div>
+              {buscaFunc.length >= 2 && !funcSelecionado && (
+                <div className="border border-border rounded-xl max-h-40 overflow-y-auto">
+                  {funcionarios
+                    .filter(f => f.name.toLowerCase().includes(buscaFunc.toLowerCase()))
+                    .slice(0, 10)
+                    .map(f => (
+                      <button key={f.id} onClick={() => { setFuncSelecionado(f); setBuscaFunc(f.name); }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 border-b border-border/50 last:border-0">
+                        <p className="font-medium">{f.name}</p>
+                        <p className="text-xs text-muted-foreground">{f.role}</p>
+                      </button>
+                    ))}
+                </div>
+              )}
+              {funcSelecionado && (
+                <div className="bg-primary/10 rounded-xl px-3 py-2 text-sm">
+                  <p className="font-bold text-primary">{funcSelecionado.name}</p>
+                  <p className="text-xs text-muted-foreground">{funcSelecionado.role}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="rdo-label">E-mail de acesso *</span>
+              <Input value={conviteEmail} onChange={e => setConviteEmail(e.target.value)} placeholder="email@empresa.com" className="h-11 rounded-xl" />
+            </div>
+            <div className="space-y-1.5">
+              <span className="rdo-label">Senha *</span>
+              <Input type="password" value={conviteSenha} onChange={e => setConviteSenha(e.target.value)} placeholder="Mínimo 6 caracteres" className="h-11 rounded-xl" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="rdo-label">Módulos de acesso</span>
+                <div className="flex gap-2">
+                  <button onClick={() => { const p: any = {}; MODULOS.forEach(m => p[m.key] = true); setConvitePerms(p); }} className="text-xs text-primary underline">Todos</button>
+                  <button onClick={() => setConvitePerms({})} className="text-xs text-muted-foreground underline">Nenhum</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {MODULOS.map(m => (
+                  <label key={m.key} className="flex items-center gap-2 cursor-pointer bg-secondary/50 rounded-lg px-2 py-1.5">
+                    <input type="checkbox" checked={convitePerms[m.key] || false}
+                      onChange={e => setConvitePerms(p => ({ ...p, [m.key]: e.target.checked }))}
+                      className="w-3.5 h-3.5 accent-primary" />
+                    <span className="text-xs">{m.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {conviteErro && <p className="text-sm text-red-600">{conviteErro}</p>}
+
+            <Button onClick={criarConvite} disabled={criando || !funcSelecionado || !conviteEmail || !conviteSenha}
+              className="w-full h-11 rounded-xl font-display font-bold gap-2">
+              {criando ? <><Loader2 className="w-4 h-4 animate-spin" />Criando...</> : <><UserPlus className="w-4 h-4" />Criar Acesso</>}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {usuarios.map(u => {
         const perms = permsMap[u.id] || emptyPerms(u.id);
