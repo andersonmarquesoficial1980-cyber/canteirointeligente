@@ -65,9 +65,45 @@ export default function GestaoFrotasHome() {
 
   async function buscarVeiculos() {
     setLoading(true);
-    const { data } = await supabase.from("frotas_gestao").select("*").eq("status", "ativo").order("codigo_custo");
-    if (data) setVeiculos(data);
+
+    // Fonte 1: veículos leves (frotas_gestao)
+    const { data: veicLeves } = await supabase.from("frotas_gestao").select("*").eq("status", "ativo").order("codigo_custo");
+
+    // Fonte 2: máquinas e caminhões (maquinas_frota) — que ainda não estão em frotas_gestao
+    const { data: maquinas } = await supabase.from("maquinas_frota").select("*").order("tipo,frota");
+
+    const frotasLevesIds = new Set((veicLeves || []).map(v => v.frota_operacional).filter(Boolean));
+
+    // Converter maquinas para formato unificado (apenas as que não têm entrada em frotas_gestao)
+    const maquinasUnificadas: Veiculo[] = (maquinas || [])
+      .filter(m => !frotasLevesIds.has(m.frota))
+      .map(m => ({
+        id: m.id,
+        codigo_custo: m.frota,
+        placa: m.frota,
+        modelo: m.nome || m.tipo,
+        ano: "",
+        setor: "",
+        condutor_atual: "",
+        tipo_veiculo: tipoMaquina(m.tipo),
+        categoria: m.empresa === "PRÓPRIO" ? "proprio" : "locado",
+        locadora: m.empresa !== "PRÓPRIO" ? m.empresa : "",
+        frota_operacional: m.frota,
+        status: m.status === "Operando" ? "ativo" : "inativo",
+        observacoes: "",
+      }));
+
+    setVeiculos([...(veicLeves || []), ...maquinasUnificadas]);
     setLoading(false);
+  }
+
+  function tipoMaquina(tipo: string): string {
+    const t = tipo?.toUpperCase() || "";
+    if (t.includes("CAMINH")) return "caminhao";
+    if (t.includes("CARRETA") || t.includes("CAVALO")) return "carreta";
+    if (t.includes("VAN") || t.includes("MICRO")) return "van";
+    if (t.includes("FRESADORA") || t.includes("BOBCAT") || t.includes("ROLO") || t.includes("VIBRO") || t.includes("USINA") || t.includes("RETRO") || t.includes("PÁ CARR") || t.includes("MOTO")) return "maquina";
+    return "outro";
   }
 
   async function salvar() {
