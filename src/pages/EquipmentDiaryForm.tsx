@@ -539,7 +539,8 @@ export default function EquipmentDiaryForm() {
   // Determine which static fleet list to use
   const getStaticFleetList = () => {
     if (isBobcat) return BOBCAT_FLEETS;
-    if (isRetro) return RETRO_FLEETS;
+    if (isRetro && attachmentType === "Retroescavadeira") return RETRO_FLEETS;
+    if (isRetro && attachmentType && attachmentType !== "Retroescavadeira") return []; // outros tipos sem frota ainda
     if (isVibro) return VIBRO_FLEETS;
     if (isUsinaKma) return KMA_FLEETS;
     if (isPipa) return PIPA_FLEETS;
@@ -973,6 +974,22 @@ export default function EquipmentDiaryForm() {
             </Field>
           )}
 
+          {/* Linha Amarela: Tipo de Equipamento — antes da Frota */}
+          {isRetro && (
+            <Field label="Tipo de Equipamento">
+              <Select value={attachmentType} onValueChange={(v) => { setAttachmentType(v); setSelectedFleet(""); setAttachmentId(""); }}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder="Selecione o tipo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {LINHA_AMARELA_TIPOS.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
           <FieldRow>
             <Field label="Frota">
               {isCaminhoes && !caminhaoTipo ? (
@@ -1003,6 +1020,20 @@ export default function EquipmentDiaryForm() {
                       <SelectItem key={f} value={f}>{f}</SelectItem>
                     ))}
                   </SelectContent>
+                </Select>
+              ) : isRetro && !attachmentType ? (
+                <Select disabled>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Escolha o tipo primeiro" />
+                  </SelectTrigger>
+                  <SelectContent />
+                </Select>
+              ) : isRetro && attachmentType !== "Retroescavadeira" ? (
+                <Select disabled>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Frotas não cadastradas ainda" />
+                  </SelectTrigger>
+                  <SelectContent />
                 </Select>
               ) : staticFleetList ? (
                 <Select value={selectedFleet} onValueChange={setSelectedFleet}>
@@ -1092,22 +1123,6 @@ export default function EquipmentDiaryForm() {
                 </Select>
               </Field>
             </FieldRow>
-          )}
-
-          {/* Linha Amarela: Tipo de Equipamento */}
-          {isRetro && (
-            <Field label="Tipo de Equipamento">
-              <Select value={attachmentType} onValueChange={(v) => { setAttachmentType(v); setAttachmentId(""); }}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione o tipo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {LINHA_AMARELA_TIPOS.map((t) => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
           )}
 
           {isFresadora && (
