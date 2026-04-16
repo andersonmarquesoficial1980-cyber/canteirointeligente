@@ -102,9 +102,6 @@ const LINHA_AMARELA_TIPOS = [
   "Motoniveladora",
   "Trator de Esteira",
   "Mini Escavadeira",
-  "Compactador de Solo",
-  "Rolo Pé de Carneiro",
-  "Skid Steer",
   "Perfuratriz",
   "Guindaste sobre Esteiras",
 ] as const;
