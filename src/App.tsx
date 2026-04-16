@@ -38,6 +38,8 @@ import AbastecimentoHome from "./pages/AbastecimentoHome";
 import RelatoriosHome from "./pages/RelatoriosHome";
 import RelatorioEquipamento from "./pages/RelatorioEquipamento";
 import DashboardAdmin from "./pages/DashboardAdmin";
+import GestaoFrotasHome from "./pages/GestaoFrotasHome";
+import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
@@ -122,6 +124,8 @@ function AppRoutes() {
         <Route path="/relatorios" element={<RelatoriosHome />} />
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
         <Route path="/dashboard" element={<DashboardAdmin />} />
+        <Route path="/gestao-frotas" element={<GestaoFrotasHome />} />
+        <Route path="/gestao-frotas/veiculo/:id" element={<GestaoFrotasVeiculo />} />
 
         {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}
