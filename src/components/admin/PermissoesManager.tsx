@@ -61,12 +61,12 @@ export default function PermissoesManager() {
   async function buscarDados() {
     setLoading(true);
     const [{ data: profiles }, { data: perms }] = await Promise.all([
-      supabase.from("profiles").select("id, email, name").order("name"),
+      supabase.from("profiles").select("user_id, email, nome_completo, role").order("nome_completo"),
       supabase.from("user_permissions").select("*"),
     ]);
 
     const users: Usuario[] = (profiles || []).map((p: any) => ({
-      id: p.id, email: p.email || "", nome: p.name || p.email || p.id,
+      id: p.user_id, email: p.email || "", nome: p.nome_completo || p.email || p.user_id,
     }));
     setUsuarios(users);
 

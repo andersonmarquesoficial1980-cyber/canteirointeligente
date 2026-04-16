@@ -48,11 +48,11 @@ export function usePermissions() {
       // Verificar se é admin pelo hook existente
       const { data: profile } = await supabase
         .from("profiles")
-        .select("is_admin, company_id")
-        .eq("id", user.id)
+        .select("role, company_id")
+        .eq("user_id", user.id)
         .single();
 
-      if (profile?.is_admin) {
+      if (profile?.role === "admin") {
         setPermissions(ADMIN_PERMISSIONS);
         setLoading(false);
         return;
