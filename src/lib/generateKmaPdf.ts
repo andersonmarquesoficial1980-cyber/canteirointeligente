@@ -36,7 +36,7 @@ export async function generateKmaPdf({ fleet, date, operator, entries }: KmaPdfP
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
-  doc.text("Calibração de Pesagem — Canteiro Inteligente", pageW / 2, y, { align: "center" });
+  doc.text("Calibração de Pesagem — Workflux", pageW / 2, y, { align: "center" });
   doc.setTextColor(0);
   y += 10;
 
@@ -129,7 +129,7 @@ export async function generateKmaPdf({ fleet, date, operator, entries }: KmaPdfP
   y = doc.internal.pageSize.getHeight() - 10;
   doc.setFontSize(7);
   doc.setTextColor(150);
-  doc.text("Canteiro Inteligente — Plataforma de Gestão v2.0", pageW / 2, y, { align: "center" });
+  doc.text("Workflux — Plataforma de Gestão v2.0", pageW / 2, y, { align: "center" });
 
   doc.save("Demonstrativo_KMA.pdf");
 }

@@ -238,7 +238,7 @@ export async function generateComboioPdf(params: ComboioPdfParams) {
   doc.setFont("helvetica", "italic");
   doc.setTextColor(140, 140, 140);
   doc.text(
-    "Documento gerado digitalmente pelo sistema Canteiro Inteligente — Plataforma de Gestão v2.0",
+    "Documento gerado digitalmente pelo sistema Workflux — Plataforma de Gestão v2.0",
     pageW / 2, footY, { align: "center" }
   );
   doc.text(

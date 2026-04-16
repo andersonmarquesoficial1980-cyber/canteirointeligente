@@ -53,11 +53,11 @@ export default function EquipmentHome() {
       <header className="flex items-center justify-between px-4 py-3 bg-header-gradient shadow-lg">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <img src={logoCi} alt="Canteiro Inteligente" className="h-11 object-contain drop-shadow-lg" />
+            <img src={logoCi} alt="Workflux" className="h-11 object-contain drop-shadow-lg" />
             <div className="absolute inset-0 rounded-full bg-white/20 blur-md -z-10 scale-110" />
           </div>
           <div>
-            <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Canteiro Inteligente</span>
+            <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Workflux</span>
             <span className="block text-[11px] text-primary-foreground/80 font-medium leading-tight">Gestão de Equipamentos</span>
           </div>
         </div>

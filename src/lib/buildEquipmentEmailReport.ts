@@ -191,7 +191,7 @@ export function buildComboioEmailReport(params: {
     html += `<h2>📝 Observações</h2><p>${observations}</p>`;
   }
 
-  html += `<div class="footer">Documento gerado automaticamente pelo sistema Canteiro Inteligente — ${new Date().toLocaleString("pt-BR")}</div>`;
+  html += `<div class="footer">Documento gerado automaticamente pelo sistema Workflux — ${new Date().toLocaleString("pt-BR")}</div>`;
   html += `</body></html>`;
   return html;
 }
@@ -295,7 +295,7 @@ export function buildCarretaEmailReport(params: {
     html += `<h2>📝 Observações</h2><p>${observations}</p>`;
   }
 
-  html += `<div class="footer">Documento gerado automaticamente pelo sistema Canteiro Inteligente — ${new Date().toLocaleString("pt-BR")}</div>`;
+  html += `<div class="footer">Documento gerado automaticamente pelo sistema Workflux — ${new Date().toLocaleString("pt-BR")}</div>`;
   html += `</body></html>`;
   return html;
 }

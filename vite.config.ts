@@ -27,8 +27,8 @@ export default defineConfig(({ mode }) => ({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       manifest: {
-        name: "Canteiro Inteligente",
-        short_name: "Canteiro",
+        name: "Workflux",
+        short_name: "Workflux",
         description: "Plataforma de Gestão e Integração de Campo",
         theme_color: "#1A56DB",
         background_color: "#1A56DB",

@@ -36,7 +36,7 @@ export function AppSidebar() {
               <img src={logoCi} alt="CI" className="h-8 object-contain" />
               <div>
                 <p className="font-display font-bold text-sm text-sidebar-foreground leading-tight">
-                  Canteiro Inteligente
+                  Workflux
                 </p>
                 <p className="text-[10px] text-muted-foreground leading-tight">
                   Plataforma de Gestão

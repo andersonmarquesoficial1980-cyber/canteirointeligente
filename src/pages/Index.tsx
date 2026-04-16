@@ -56,10 +56,10 @@ export default function Index() {
 
       {/* Hero card */}
       <div className="border border-border rounded-2xl p-6 md:p-10 text-center space-y-5 bg-card shadow-sm">
-        <img src={logoCi} alt="Canteiro Inteligente" className="h-16 md:h-20 mx-auto object-contain" />
+        <img src={logoCi} alt="Workflux" className="h-16 md:h-20 mx-auto object-contain" />
         <div className="space-y-2">
           <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight text-foreground">
-            Canteiro Inteligente
+            Workflux
           </h1>
           <p className="text-sm md:text-base text-muted-foreground max-w-lg mx-auto leading-relaxed">
             Módulo de Obras — apontamento, efetivo, produção e relatórios.

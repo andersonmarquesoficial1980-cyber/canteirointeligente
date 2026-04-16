@@ -191,7 +191,7 @@ export default function Login() {
       />
 
       <div className="relative z-10 mb-10">
-        <img src={logoCi} alt="Canteiro Inteligente" className="h-28 sm:h-36 mx-auto object-contain drop-shadow-2xl" />
+        <img src={logoCi} alt="Workflux" className="h-28 sm:h-36 mx-auto object-contain drop-shadow-2xl" />
       </div>
 
       <div
@@ -203,7 +203,7 @@ export default function Login() {
 
       {/* Footer */}
       <p className="relative z-10 mt-8 text-xs text-primary-foreground/70 tracking-wide">
-        Fremix Pavimentação © 2026 — Powered by Canteiro Inteligente
+        Fremix Pavimentação © 2026 — Powered by Workflux
       </p>
     </div>
   );

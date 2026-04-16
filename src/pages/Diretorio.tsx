@@ -31,7 +31,7 @@ function WhatsAppButton({ phone }: { phone: string | null }) {
   if (!clean) return <span className="text-xs text-muted-foreground">Sem telefone</span>;
 
   const fullNumber = clean.startsWith("55") ? clean : `55${clean}`;
-  const message = encodeURIComponent("Olá, aqui é do Canteiro Inteligente. Tudo bem?");
+  const message = encodeURIComponent("Olá, aqui é do Workflux. Tudo bem?");
   const url = `https://wa.me/${fullNumber}?text=${message}`;
 
   return (

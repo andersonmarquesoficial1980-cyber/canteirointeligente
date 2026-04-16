@@ -33,13 +33,13 @@ export default function Home() {
         <div className="relative inline-block">
           <img
             src={logoCi}
-            alt="Canteiro Inteligente"
+            alt="Workflux"
             className="h-32 mx-auto object-contain drop-shadow-2xl animate-float"
           />
           <div className="absolute inset-0 rounded-full bg-primary/10 blur-2xl -z-10 scale-125" />
         </div>
         <h1 className="text-gradient text-2xl font-display font-extrabold tracking-tight">
-          Canteiro Inteligente
+          Workflux
         </h1>
         <p className="text-sm text-muted-foreground tracking-wide">
           Plataforma de Gestão e Integração de Campo

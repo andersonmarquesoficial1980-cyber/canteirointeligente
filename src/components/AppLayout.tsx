@@ -15,7 +15,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="absolute inset-0 rounded-full bg-white/20 blur-md -z-10 scale-110" />
             </div>
             <div className="ml-2">
-              <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Canteiro Inteligente</span>
+              <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Workflux</span>
               <span className="block text-[10px] text-primary-foreground/80 font-medium leading-tight">Plataforma de Gestão</span>
             </div>
           </header>

@@ -324,7 +324,7 @@ export default function RegistrarPonto() {
         </button>
         <div className="flex-1">
           <h1 className="font-display font-bold text-base">Registrar Ponto</h1>
-          <p className="text-[10px] text-primary-foreground/70">Ponto Facial Canteiro Inteligente</p>
+          <p className="text-[10px] text-primary-foreground/70">Ponto Facial Workflux</p>
         </div>
       </header>
 
