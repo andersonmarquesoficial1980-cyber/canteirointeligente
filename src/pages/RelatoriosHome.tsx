@@ -37,17 +37,17 @@ export default function RelatoriosHome() {
   const [ogsList, setOgsList] = useState<{ ogs: string; cliente: string }[]>([]);
 
   useEffect(() => {
-    // Carregar frotas agrupadas por tipo
-    supabase.from("equipment_diaries")
-      .select("equipment_fleet,equipment_type")
-      .order("equipment_type,equipment_fleet")
+    // Carregar frotas da tabela maquinas_frota (frota completa)
+    supabase.from("maquinas_frota")
+      .select("frota,tipo")
+      .order("tipo,frota")
       .then(({ data }) => {
         if (!data) return;
         const byType: Record<string, Set<string>> = {};
         data.forEach(d => {
-          const t = d.equipment_type || "Outros";
+          const t = d.tipo || "Outros";
           if (!byType[t]) byType[t] = new Set();
-          byType[t].add(d.equipment_fleet);
+          byType[t].add(d.frota);
         });
         const tipos = Object.keys(byType).sort();
         setTiposEquip(tipos);
