@@ -31,6 +31,9 @@ import MinhasDemandas from "./pages/MinhasDemandas";
 import ExportarProtheus from "./pages/ExportarProtheus";
 import DocumentosHome from "./pages/DocumentosHome";
 import DocumentosIntegracao from "./pages/DocumentosIntegracao";
+import ManutencaoHome from "./pages/ManutencaoHome";
+import ManutencaoOS from "./pages/ManutencaoOS";
+import ManutencaoDocumentos from "./pages/ManutencaoDocumentos";
 import Login from "./pages/Login";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
@@ -108,6 +111,9 @@ function AppRoutes() {
         <Route path="/equipamentos/exportar-protheus" element={<ExportarProtheus />} />
         <Route path="/documentos" element={<DocumentosHome />} />
         <Route path="/documentos/:id" element={<DocumentosIntegracao />} />
+        <Route path="/manutencao" element={<ManutencaoHome />} />
+        <Route path="/manutencao/os/:id" element={<ManutencaoOS />} />
+        <Route path="/manutencao/documentos" element={<ManutencaoDocumentos />} />
 
         {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}
