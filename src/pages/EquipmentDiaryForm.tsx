@@ -95,6 +95,20 @@ const ROLO_FLEETS: Record<string, string[]> = {
 const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
 const RETRO_ATTACHMENT_TYPES = ["Concha", "Rompedor"] as const;
 
+const LINHA_AMARELA_TIPOS = [
+  "Retroescavadeira",
+  "Escavadeira Hidráulica",
+  "Pá Carregadeira",
+  "Motoniveladora",
+  "Trator de Esteira",
+  "Mini Escavadeira",
+  "Compactador de Solo",
+  "Rolo Pé de Carneiro",
+  "Skid Steer",
+  "Perfuratriz",
+  "Guindaste sobre Esteiras",
+] as const;
+
 // ── Caminhão configs ──
 const CAMINHAO_TIPOS = ["Pipa", "Carroceria", "Espargidor"] as const;
 const PIPA_FLEETS = ["CP01", "CP02", "CP03", "CP04", "CP05"];
@@ -1083,15 +1097,15 @@ export default function EquipmentDiaryForm() {
             </FieldRow>
           )}
 
-          {/* Retro: Acoplamento */}
+          {/* Linha Amarela: Tipo de Equipamento */}
           {isRetro && (
-            <Field label="Tipo de Acoplamento">
+            <Field label="Tipo de Equipamento">
               <Select value={attachmentType} onValueChange={(v) => { setAttachmentType(v); setAttachmentId(""); }}>
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione o acoplamento..." />
+                  <SelectValue placeholder="Selecione o tipo..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {RETRO_ATTACHMENT_TYPES.map((t) => (
+                  {LINHA_AMARELA_TIPOS.map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1193,7 +1207,7 @@ export default function EquipmentDiaryForm() {
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
                 <ChecklistSection
-                  equipmentType={equipmentType}
+                  equipmentType={isRetro ? "Linha Amarela" : equipmentType}
                   results={checklistResults}
                   onChange={setChecklistResults}
                 />

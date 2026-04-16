@@ -26,7 +26,7 @@ const EQUIPMENT_TYPES = [
   { id: "Caminhões", label: "Caminhões", img: imgCaminhao },
   { id: "Comboio", label: "Comboio", img: imgComboio },
   { id: "Veículo", label: "Veículo de Transporte", img: imgVeiculo },
-  { id: "Retro", label: "Retroescavadeira", img: imgRetro },
+  { id: "Retro", label: "Linha Amarela", img: imgRetro },
   { id: "Carreta", label: "Carreta", img: imgCarreta },
 ];
 
