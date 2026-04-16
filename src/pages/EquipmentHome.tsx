@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { LogOut, ChevronRight, FileSpreadsheet } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import logoCi from "@/assets/logo-workflux.png";
@@ -33,7 +34,22 @@ const EQUIPMENT_TYPES = [
 export default function EquipmentHome() {
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
-  const isAdmin = useIsAdmin();
+  const { isAdmin } = useIsAdmin();
+  const [equipamentosPermitidos, setEquipamentosPermitidos] = useState<string[]>([]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("user_permissions").select("equipamentos_permitidos, is_admin")
+        .eq("user_id", user.id).single()
+        .then(({ data }) => {
+          if (data?.is_admin) return;
+          if (data?.equipamentos_permitidos?.length > 0) {
+            setEquipamentosPermitidos(data.equipamentos_permitidos);
+          }
+        });
+    });
+  }, []);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -75,7 +91,9 @@ export default function EquipmentHome() {
         </h2>
 
         <div className="grid grid-cols-2 gap-3">
-          {EQUIPMENT_TYPES.map((eq) => (
+          {EQUIPMENT_TYPES.filter(eq =>
+            equipamentosPermitidos.length === 0 || equipamentosPermitidos.includes(eq.id)
+          ).map((eq) => (
             <button
               key={eq.id}
               onClick={() => handleSelect(eq.id)}

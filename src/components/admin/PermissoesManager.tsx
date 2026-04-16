@@ -26,7 +26,13 @@ interface Perms {
   modulo_documentos: boolean;
   modulo_relatorios: boolean;
   modulo_dashboard: boolean;
+  equipamentos_permitidos: string[];
 }
+
+const TIPOS_EQUIPAMENTO = [
+  "Fresadora", "Bobcat", "Rolo", "Vibroacabadora", "Usina KMA",
+  "Caminhões", "Comboio", "Veículo", "Retro", "Carreta",
+];
 
 const MODULOS = [
   { key: "modulo_obras", label: "WF Obras" },
@@ -49,6 +55,7 @@ function emptyPerms(userId: string): Perms {
     modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false,
     modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false,
     modulo_relatorios: false, modulo_dashboard: false,
+    equipamentos_permitidos: [],
   };
 }
 
@@ -298,15 +305,42 @@ export default function PermissoesManager() {
 
                 <div className="grid grid-cols-2 gap-2">
                   {MODULOS.map(m => (
-                    <label key={m.key} className="flex items-center gap-2 cursor-pointer bg-secondary/50 rounded-xl px-3 py-2">
-                      <input
-                        type="checkbox"
-                        checked={(perms as any)[m.key] || false}
-                        onChange={() => toggle(u.id, m.key as keyof Perms)}
-                        className="w-4 h-4 accent-primary"
-                      />
-                      <span className="text-xs font-medium">{m.label}</span>
-                    </label>
+                    <div key={m.key}>
+                      <label className="flex items-center gap-2 cursor-pointer bg-secondary/50 rounded-xl px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={(perms as any)[m.key] || false}
+                          onChange={() => toggle(u.id, m.key as keyof Perms)}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <span className="text-xs font-medium">{m.label}</span>
+                      </label>
+                      {/* Sub-seleção de tipos de equipamento */}
+                      {m.key === "modulo_equipamentos" && perms.modulo_equipamentos && (
+                        <div className="mt-1 ml-2 space-y-1">
+                          <p className="text-[10px] text-muted-foreground font-semibold pl-1">Tipos permitidos (vazio = todos):</p>
+                          <div className="grid grid-cols-1 gap-0.5">
+                            {TIPOS_EQUIPAMENTO.map(t => (
+                              <label key={t} className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-lg hover:bg-muted/50">
+                                <input
+                                  type="checkbox"
+                                  checked={(perms.equipamentos_permitidos || []).includes(t)}
+                                  onChange={e => {
+                                    const atual = perms.equipamentos_permitidos || [];
+                                    const novo = e.target.checked
+                                      ? [...atual, t]
+                                      : atual.filter(x => x !== t);
+                                    setPermsMap(prev => ({ ...prev, [u.id]: { ...prev[u.id], equipamentos_permitidos: novo } }));
+                                  }}
+                                  className="w-3 h-3 accent-primary"
+                                />
+                                <span className="text-[10px]">{t}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </>
