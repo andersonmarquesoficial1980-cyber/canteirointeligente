@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Download, FileSpreadsheet, Printer, Loader2, Fuel, Wrench, ClipboardList, AlertTriangle } from "lucide-react";
@@ -77,11 +77,19 @@ function calcHoras(ini: number, fin: number): number {
 export default function RelatorioEquipamento() {
   const { fleet } = useParams<{ fleet: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const ano = String(new Date().getFullYear());
   const mesAtual = String(new Date().getMonth() + 1).padStart(2, "0");
 
-  const [mes, setMes] = useState(mesAtual);
-  const [anoSel, setAnoSel] = useState(ano);
+  // Pegar datas da URL (vindas do RelatoriosHome)
+  const urlIni = searchParams.get("ini");
+  const urlFim = searchParams.get("fim");
+
+  const [mes, setMes] = useState(urlIni ? urlIni.split("-")[1] : mesAtual);
+  const [anoSel, setAnoSel] = useState(urlIni ? urlIni.split("-")[0] : ano);
+  const [dataIni, setDataIni] = useState(urlIni || "");
+  const [dataFim, setDataFim] = useState(urlFim || "");
+  const [modoPeriodo] = useState(!!(urlIni && urlFim && urlIni !== urlFim));
   const [loading, setLoading] = useState(false);
   const [diarios, setDiarios] = useState<DiarioItem[]>([]);
   const [abastecimentos, setAbastecimentos] = useState<AbastItem[]>([]);
@@ -92,8 +100,8 @@ export default function RelatorioEquipamento() {
   async function buscar() {
     if (!fleet) return;
     setLoading(true);
-    const ini = `${anoSel}-${mes}-01`;
-    const fim = `${anoSel}-${mes}-${new Date(parseInt(anoSel), parseInt(mes), 0).getDate()}`;
+    const ini = modoPeriodo && dataIni ? dataIni : `${anoSel}-${mes}-01`;
+    const fim = modoPeriodo && dataFim ? dataFim : `${anoSel}-${mes}-${new Date(parseInt(anoSel), parseInt(mes), 0).getDate()}`;
 
     const [{ data: d }, { data: ab }, { data: os }, { data: ck }] = await Promise.all([
       supabase.from("equipment_diaries").select("*").eq("equipment_fleet", fleet).gte("date", ini).lte("date", fim).order("date"),
