@@ -15,7 +15,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 20%;
 
-    --primary: 215 100% 50%;
+    --primary: 197 100% 50%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 25% 96%;
@@ -24,8 +24,8 @@
     --muted: 210 15% 94%;
     --muted-foreground: 215 10% 45%;
 
-    --accent: 195 100% 45%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 42 100% 50%;
+    --accent-foreground: 0 0% 10%;
 
     --destructive: 0 85% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -39,27 +39,27 @@
     /* RDO page background */
     --page-bg: 210 20% 98%;
 
-    --sidebar-background: 215 60% 97%;
-    --sidebar-foreground: 215 30% 25%;
-    --sidebar-primary: 215 100% 50%;
+    --sidebar-background: 225 50% 97%;
+    --sidebar-foreground: 225 30% 25%;
+    --sidebar-primary: 197 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 40% 92%;
-    --sidebar-accent-foreground: 215 30% 20%;
-    --sidebar-border: 215 20% 90%;
-    --sidebar-ring: 215 100% 50%;
+    --sidebar-accent: 197 40% 92%;
+    --sidebar-accent-foreground: 225 30% 20%;
+    --sidebar-border: 225 20% 90%;
+    --sidebar-ring: 197 100% 50%;
 
     --success: 145 80% 42%;
     --success-foreground: 0 0% 100%;
 
-    /* Electric header gradient */
-    --header-gradient-from: 220 90% 42%;
-    --header-gradient-to: 195 100% 50%;
+    /* Workflux header gradient: navy → electric blue */
+    --header-gradient-from: 225 70% 15%;
+    --header-gradient-to: 197 100% 50%;
 
     /* Glow & depth */
-    --card-shadow: 0 8px 32px -8px hsl(215 80% 50% / 0.15);
-    --card-shadow-hover: 0 12px 40px -8px hsl(215 80% 50% / 0.25);
-    --glow-primary: 0 0 24px 4px hsl(215 100% 55% / 0.35);
-    --glow-accent: 0 0 24px 4px hsl(195 100% 50% / 0.3);
+    --card-shadow: 0 8px 32px -8px hsl(197 80% 50% / 0.15);
+    --card-shadow-hover: 0 12px 40px -8px hsl(197 80% 50% / 0.25);
+    --glow-primary: 0 0 24px 4px hsl(197 100% 55% / 0.35);
+    --glow-accent: 0 0 24px 4px hsl(42 100% 50% / 0.3);
   }
 }
 

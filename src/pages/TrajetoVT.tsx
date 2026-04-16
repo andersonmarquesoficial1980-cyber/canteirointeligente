@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Bus, MapPin, Clock, Route, Search, Loader2, DollarSign,
 } from "lucide-react";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 declare global {
   interface Window {

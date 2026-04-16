@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Truck, HardHat, ClipboardList, LogOut } from "lucide-react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 export default function Index() {
   const navigate = useNavigate();

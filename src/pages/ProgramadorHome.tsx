@@ -1,4 +1,4 @@
-// CI Programador — Gestão de equipes, funcionários e equipamentos
+// WF Programador — Gestão de equipes, funcionários e equipamentos
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, Wrench, UserPlus, RefreshCw, Calendar } from "lucide-react";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 const STATUS_FUNC = ["TRABALHOU", "AFASTADO", "DISPOSIÇÃO", "FÉRIAS", "FALTA"];
 const STATUS_EQUIP = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE"];
@@ -196,7 +196,7 @@ export default function ProgramadorHome() {
           </button>
           <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
           <div className="flex-1">
-            <h1 className="text-lg font-display font-bold text-white">CI Programador</h1>
+            <h1 className="text-lg font-display font-bold text-white">WF Programador</h1>
             <p className="text-xs text-white/70">Equipes · Funcionários · Equipamentos</p>
           </div>
         </div>

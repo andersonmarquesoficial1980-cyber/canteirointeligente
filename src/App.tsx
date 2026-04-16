@@ -116,7 +116,7 @@ function AppRoutes() {
         {/* Diretório — busca global */}
         <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
 
-        {/* CI RH module */}
+        {/* WF RH module */}
         <Route path="/rh" element={<RhHome />} />
         <Route path="/rh/trajeto-vt" element={<TrajetoVT />} />
         <Route path="/rh/registrar-ponto" element={<RegistrarPonto />} />
@@ -133,10 +133,10 @@ function AppRoutes() {
           </ErrorBoundary>
         } />
 
-        {/* CI Programador */}
+        {/* WF Programador */}
         <Route path="/programador" element={<ProgramadorHome />} />
 
-        {/* CI Demandas */}
+        {/* WF Demandas */}
         <Route path="/demandas" element={<AppLayout><DemandasHome /></AppLayout>} />
         <Route path="/minhas-demandas" element={<MinhasDemandas />} />
 

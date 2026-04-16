@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Demanda, StatusDemanda } from "@/hooks/useDemandas";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 const STATUS_LABELS: Record<StatusDemanda, string> = {
   pendente: "Pendente",

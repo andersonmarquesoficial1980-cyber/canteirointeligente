@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useDemandas, type Demanda, type StatusDemanda } from "@/hooks/useDemandas";
 import NovaDemandaModal from "@/components/demandas/NovaDemandaModal";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 const STATUS_LABELS: Record<StatusDemanda, string> = {
   pendente: "Pendente",
@@ -101,7 +101,7 @@ export default function DemandasHome() {
           </button>
           <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
           <div className="flex-1">
-            <h1 className="text-lg font-display font-bold text-white">CI Demandas</h1>
+            <h1 className="text-lg font-display font-bold text-white">WF Demandas</h1>
             <p className="text-xs text-white/70">Gestão de Tarefas e Ordens de Serviço</p>
           </div>
           <button onClick={reload} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">

@@ -17,7 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
 import AeroPavStaffManager from "@/components/admin/AeroPavStaffManager";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));

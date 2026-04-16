@@ -100,7 +100,7 @@ export default function DocumentosHome() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">CI Documentos</span>
+          <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">WF Documentos</span>
           <span className="block text-[11px] text-primary-foreground/80">Gestão de Documentos com IA</span>
         </div>
         <Button size="sm" onClick={() => setModalAberto(true)} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1">

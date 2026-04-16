@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { ComboioRefuelEntry } from "@/components/equipment/ComboioRefuelingSection";
-import logoSrc from "@/assets/logo-ci.png";
+import logoSrc from "@/assets/logo-workflux.png";
 
 interface ComboioPdfParams {
   fleet: string;

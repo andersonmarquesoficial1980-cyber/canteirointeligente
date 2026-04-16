@@ -258,7 +258,7 @@ export default function ExportarProtheus() {
         </button>
         <div>
           <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Exportar para Protheus</span>
-          <span className="block text-[11px] text-primary-foreground/80">CI Equipamentos</span>
+          <span className="block text-[11px] text-primary-foreground/80">WF Equipamentos</span>
         </div>
       </header>
 

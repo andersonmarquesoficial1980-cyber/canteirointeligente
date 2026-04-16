@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bus, MapPin, LogOut, Camera, ClipboardList } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 const RH_SECTIONS = [
   {
@@ -45,7 +45,7 @@ export default function RhHome() {
         </button>
         <img src={logoCi} alt="CI" className="h-7 object-contain" />
         <div className="flex-1">
-          <h1 className="font-display font-bold text-base leading-tight">CI RH</h1>
+          <h1 className="font-display font-bold text-base leading-tight">WF RH</h1>
           <p className="text-[10px] text-primary-foreground/70">Gestão de Pessoas</p>
         </div>
         <button

@@ -1,6 +1,6 @@
 import { LayoutDashboard, FileText, Truck, Search, Bus } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 import {
   Sidebar,
@@ -16,8 +16,8 @@ import {
 const baseItems = [
   { title: "Hub", url: "/", icon: LayoutDashboard },
   { title: "CI RDO", url: "/obras", icon: FileText },
-  { title: "CI Equipamentos", url: "/equipamentos", icon: FileText },
-  { title: "CI Carreteiros", url: "/carreteiros", icon: Truck },
+  { title: "WF Equipamentos", url: "/equipamentos", icon: FileText },
+  { title: "WF Carreteiros", url: "/carreteiros", icon: Truck },
   { title: "Diretório", url: "/diretorio", icon: Search },
   { title: "VT Transporte", url: "/vale-transporte", icon: Bus },
 ];

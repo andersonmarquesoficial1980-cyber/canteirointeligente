@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogOut, ChevronRight, FileSpreadsheet } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 import imgFresadora from "@/assets/equip-fresadora.png";
 import imgBobcat from "@/assets/equip-bobcat.webp";

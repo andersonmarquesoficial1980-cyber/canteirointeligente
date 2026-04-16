@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut, Settings } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 interface Props {
   title: string;

@@ -15,7 +15,7 @@ import {
   ArrowLeft, Calculator, MapPin, Route, DollarSign, Clock,
   Save, Loader2, Trash2, History, Truck
 } from "lucide-react";
-import logoCi from "@/assets/logo-ci.png";
+import logoCi from "@/assets/logo-workflux.png";
 
 declare global {
   interface Window {
