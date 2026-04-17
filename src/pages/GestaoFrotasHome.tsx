@@ -145,7 +145,19 @@ export default function GestaoFrotasHome() {
         {/* PASSO 1: Tipo */}
         {step === "tipo" && (
           <>
-            {/* Dashboard de custos */}
+            {/* Dashboard detalhado por equipe/tipo */}
+            <button onClick={() => navigate("/gestao-frotas/dashboard")} className="w-full rdo-card border-l-4 border-l-blue-400 hover:shadow-md transition-all flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <BarChart3 className="w-5 h-5 text-blue-500" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-display font-bold text-sm">Dashboard por Equipe / Tipo</p>
+                <p className="text-xs text-muted-foreground">Visão detalhada com tabelas para apresentação</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+            </button>
+
+        {/* Dashboard de custos */}
             <button onClick={() => setStep("dashboard")} className="w-full rdo-card border-l-4 border-l-orange-400 hover:shadow-md transition-all flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
                 <DollarSign className="w-5 h-5 text-orange-500" />
