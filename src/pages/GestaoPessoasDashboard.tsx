@@ -100,16 +100,51 @@ function getInfo(func: string) {
   return FUNCAO_INFO[func] || { emoji: "👤", cor: "#444444", bg: "rgba(68,68,68,0.08)" };
 }
 
+function fmtBRL(v: number | null) {
+  if (!v) return "—";
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function fmtDate(d: string) {
+  if (!d) return "";
+  const [y, m, day] = d.split("-");
+  return `${day}/${m}/${y}`;
+}
+
+function tempoEmpresa(admissao: string): string {
+  if (!admissao) return "";
+  const adm = new Date(admissao);
+  const hoje = new Date();
+  let anos = hoje.getFullYear() - adm.getFullYear();
+  let meses = hoje.getMonth() - adm.getMonth();
+  if (meses < 0) { anos--; meses += 12; }
+  if (anos > 0) return `${anos}a ${meses}m`;
+  return `${meses} meses`;
+}
+
 // ─── Tabela executiva ──────────────────────────────────────────────────────────
-function TabelaExecutiva({ titulo, items, onVoltar, corTema }: {
-  titulo: string; items: Funcionario[]; onVoltar: () => void; corTema: string;
+function TabelaExecutiva({ titulo, items, onVoltar, corTema, mostrarSalario }: {
+  titulo: string; items: Funcionario[]; onVoltar: () => void; corTema: string; mostrarSalario: boolean;
 }) {
   const [busca, setBusca] = useState("");
-  const filtrados = items.filter(f =>
+
+  // Ordenar: Encarregado primeiro, depois por função, depois por nome
+  const ordenados = [...items].sort((a, b) => {
+    const fa = funcaoBase(a.role); const fb = funcaoBase(b.role);
+    const aEnc = fa.includes("ENCARREGADO") ? 0 : 1;
+    const bEnc = fb.includes("ENCARREGADO") ? 0 : 1;
+    if (aEnc !== bEnc) return aEnc - bEnc;
+    if (fa !== fb) return fa.localeCompare(fb, "pt-BR");
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+
+  const filtrados = ordenados.filter(f =>
     !busca || f.name.toLowerCase().includes(busca.toLowerCase()) ||
     (f.matricula || "").includes(busca) ||
     (f.equipe || "").toLowerCase().includes(busca.toLowerCase())
   );
+
+  const totalSalario = items.reduce((s, f) => s + ((f as any).salario || 0), 0);
 
   return (
     <div>
@@ -118,11 +153,17 @@ function TabelaExecutiva({ titulo, items, onVoltar, corTema }: {
           ← Voltar
         </button>
         <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 20, marginBottom: 12 }}>{titulo}</h2>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 18px", textAlign: "center" }}>
             <p style={{ fontSize: 26, fontWeight: 900, color: "#00C6FF", fontFamily: "Montserrat" }}>{items.length}</p>
             <p style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Funcionários</p>
           </div>
+          {mostrarSalario && totalSalario > 0 && (
+            <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 18px", textAlign: "center" }}>
+              <p style={{ fontSize: 18, fontWeight: 900, color: "#f97316", fontFamily: "Montserrat" }}>{fmtBRL(totalSalario)}</p>
+              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Custo salarial/mês</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -134,23 +175,34 @@ function TabelaExecutiva({ titulo, items, onVoltar, corTema }: {
       <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8 }}>{filtrados.length} resultado{filtrados.length !== 1 ? "s" : ""}</p>
 
       <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 20px rgba(0,0,0,0.07)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "36px 80px 1fr 1fr 1fr", background: "#f8fafc", borderBottom: "2px solid #e5e7eb", padding: "8px 14px", gap: 8 }}>
-          {["Nº", "MAT.", "NOME", "FUNÇÃO", "EQUIPE / RESP."].map(h => (
+        <div style={{ display: "grid", gridTemplateColumns: mostrarSalario ? "36px 80px 1fr 1fr 100px 80px" : "36px 80px 1fr 1fr 1fr", background: "#f8fafc", borderBottom: "2px solid #e5e7eb", padding: "8px 14px", gap: 8 }}>
+          {["Nº", "MAT.", "NOME", "FUNÇÃO", ...(mostrarSalario ? ["SALÁRIO", "TEMPO"] : ["EQUIPE / RESP."])].map(h => (
             <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>{h}</span>
           ))}
         </div>
-        {filtrados.map((f, i) => (
-          <div key={f.id} style={{ display: "grid", gridTemplateColumns: "36px 80px 1fr 1fr 1fr", padding: "9px 14px", borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "white" : "#fafbfc", gap: 8 }}>
+        {filtrados.map((f, i) => {
+          const func = funcaoBase(f.role);
+          const isEnc = func.includes("ENCARREGADO");
+          return (
+          <div key={f.id} style={{ display: "grid", gridTemplateColumns: mostrarSalario ? "36px 80px 1fr 1fr 100px 80px" : "36px 80px 1fr 1fr 1fr", padding: "9px 14px", borderBottom: "1px solid #f1f5f9", background: isEnc ? "#eff6ff" : i % 2 === 0 ? "white" : "#fafbfc", gap: 8, borderLeft: isEnc ? "3px solid #0055AA" : "3px solid transparent" }}>
             <span style={{ fontSize: 11, color: "#94a3b8", textAlign: "center" }}>{i + 1}</span>
             <span style={{ fontSize: 12, fontFamily: "Montserrat", fontWeight: 700, color: "#0A0F2C" }}>{f.matricula || "—"}</span>
-            <span style={{ fontSize: 12, color: "#374151" }}>{f.name}</span>
+            <span style={{ fontSize: 12, color: isEnc ? "#0055AA" : "#374151", fontWeight: isEnc ? 700 : 400 }}>{f.name}</span>
             <span style={{ fontSize: 11, color: "#6b7280" }}>{f.role}</span>
-            <div>
-              {f.equipe && <p style={{ fontSize: 11, color: "#374151", fontWeight: 600 }}>{f.equipe}</p>}
-              {f.responsavel && <p style={{ fontSize: 10, color: "#9ca3af" }}>{f.responsavel}</p>}
-            </div>
+            {mostrarSalario ? (
+              <>
+                <span style={{ fontSize: 12, color: "#f97316", fontWeight: 600 }}>{fmtBRL((f as any).salario)}</span>
+                <span style={{ fontSize: 11, color: "#6b7280" }}>{tempoEmpresa((f as any).data_admissao)}</span>
+              </>
+            ) : (
+              <div>
+                {f.equipe && <p style={{ fontSize: 11, color: "#374151", fontWeight: 600 }}>{f.equipe}</p>}
+                {f.responsavel && <p style={{ fontSize: 10, color: "#9ca3af" }}>{f.responsavel}</p>}
+              </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -165,6 +217,8 @@ export default function GestaoPessoasDashboard() {
   const [selecao, setSelecao] = useState("");
   const [mostrando, setMostrando] = useState(false);
   const [busca, setBusca] = useState("");
+  const [mostrarSalario, setMostrarSalario] = useState(false);
+  const [abaAniv, setAbaAniv] = useState(false);
 
   useEffect(() => {
     supabase.from("employees").select("*").order("name")
@@ -196,6 +250,21 @@ export default function GestaoPessoasDashboard() {
   const itensSel = selecao ? (grupos[selecao] || []) : [];
   const corTema = visao === "funcao" ? (getInfo(selecao).cor || "#0055AA") : visao === "equipe" ? "#0055AA" : "#006640";
 
+  // Aniversariantes do mês
+  const mesAtual = new Date().getMonth() + 1;
+  const aniversariantes = todos
+    .filter(f => {
+      const nasc = (f as any).data_nascimento;
+      if (!nasc) return false;
+      const m = parseInt(nasc.split("-")[1]);
+      return m === mesAtual;
+    })
+    .sort((a, b) => {
+      const da = parseInt(((a as any).data_nascimento || "").split("-")[2] || "0");
+      const db = parseInt(((b as any).data_nascimento || "").split("-")[2] || "0");
+      return da - db;
+    });
+
   const filtradosBusca = busca
     ? todos.filter(f => f.name.toLowerCase().includes(busca.toLowerCase()) || (f.matricula || "").includes(busca) || (f.equipe || "").toLowerCase().includes(busca.toLowerCase()) || (f.role || "").toLowerCase().includes(busca.toLowerCase()))
     : [];
@@ -219,7 +288,13 @@ export default function GestaoPessoasDashboard() {
           <p style={{ textAlign: "center", color: "#9ca3af", padding: "64px 0" }}>Carregando...</p>
 
         ) : mostrando ? (
-          <TabelaExecutiva titulo={selecao} items={itensSel} onVoltar={voltar} corTema={corTema} />
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, color: mostrarSalario ? "#f97316" : "#64748b" }}>
+              <input type="checkbox" checked={mostrarSalario} onChange={e => setMostrarSalario(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#f97316" }} />
+              Ver salário e tempo de empresa
+            </label>
+          </div>
+          <TabelaExecutiva titulo={selecao} items={itensSel} onVoltar={voltar} corTema={corTema} mostrarSalario={mostrarSalario} />
 
         ) : (
           <div>
@@ -268,17 +343,18 @@ export default function GestaoPessoasDashboard() {
             {!busca && (
               <>
                 {/* Seletor de visão */}
-                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                   {[
                     { key: "funcao", label: "Por Função", emoji: "🔧" },
                     { key: "equipe", label: "Por Equipe", emoji: "👷" },
                     { key: "responsavel", label: "Por Responsável", emoji: "👤" },
+                    { key: "aniversariantes", label: `🎂 Aniversariantes (${aniversariantes.length})`, emoji: "" },
                   ].map(v => (
-                    <button key={v.key} onClick={() => setVisao(v.key as any)}
+                    <button key={v.key} onClick={() => { if (v.key === 'aniversariantes') setAbaAniv(true); else { setAbaAniv(false); setVisao(v.key as any); } }}
                       style={{ flex: 1, padding: "10px 8px", borderRadius: 12, border: "2px solid", cursor: "pointer", fontFamily: "Montserrat", fontWeight: 700, fontSize: 13, transition: "all 0.15s",
-                        borderColor: visao === v.key ? "#0055AA" : "#e5e7eb",
-                        background: visao === v.key ? "#0055AA" : "white",
-                        color: visao === v.key ? "white" : "#374151",
+                        borderColor: (v.key === 'aniversariantes' ? abaAniv : !abaAniv && visao === v.key) ? "#0055AA" : "#e5e7eb",
+                        background: (v.key === 'aniversariantes' ? abaAniv : !abaAniv && visao === v.key) ? "#0055AA" : "white",
+                        color: (v.key === 'aniversariantes' ? abaAniv : !abaAniv && visao === v.key) ? "white" : "#374151",
                       }}>
                       {v.emoji} {v.label}
                     </button>
@@ -286,7 +362,36 @@ export default function GestaoPessoasDashboard() {
                 </div>
 
                 {/* Cards */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 10 }}>
+                {/* Aniversariantes */}
+                {abaAniv && (
+                  <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 20px rgba(0,0,0,0.07)", marginBottom: 16 }}>
+                    <div style={{ background: "linear-gradient(135deg, #0A0F2C, #AA0055)", padding: "16px 20px", color: "white" }}>
+                      <p style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: 16 }}>🎂 Aniversariantes do Mês</p>
+                      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" })} — {aniversariantes.length} aniversariante{aniversariantes.length !== 1 ? "s" : ""}</p>
+                    </div>
+                    {aniversariantes.length === 0 ? (
+                      <p style={{ textAlign: "center", color: "#9ca3af", padding: "24px 0", fontSize: 13 }}>Nenhum aniversariante este mês.</p>
+                    ) : (
+                      aniversariantes.map((f, i) => {
+                        const nasc = (f as any).data_nascimento || "";
+                        const dia = nasc.split("-")[2] || "";
+                        return (
+                          <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 20px", borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "white" : "#fafbfc" }}>
+                            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #AA0055, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontFamily: "Montserrat", fontWeight: 900, fontSize: 14, flexShrink: 0 }}>
+                              {dia}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{f.name}</p>
+                              <p style={{ fontSize: 11, color: "#9ca3af" }}>{f.role} {f.equipe ? `· ${f.equipe}` : ""}</p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                {!abaAniv && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 10 }}>
                   {chaves.map(chave => {
                     const itens = grupos[chave];
                     const info = visao === "funcao" ? getInfo(chave) : { emoji: visao === "equipe" ? "👷" : "👤", cor: visao === "equipe" ? "#0055AA" : "#006640", bg: visao === "equipe" ? "rgba(0,85,170,0.08)" : "rgba(0,102,64,0.08)" };
@@ -306,7 +411,7 @@ export default function GestaoPessoasDashboard() {
                       </button>
                     );
                   })}
-                </div>
+                </div>}
               </>
             )}
           </div>
