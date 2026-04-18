@@ -288,6 +288,7 @@ export default function GestaoPessoasDashboard() {
           <p style={{ textAlign: "center", color: "#9ca3af", padding: "64px 0" }}>Carregando...</p>
 
         ) : mostrando ? (
+          <>
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, color: mostrarSalario ? "#f97316" : "#64748b" }}>
               <input type="checkbox" checked={mostrarSalario} onChange={e => setMostrarSalario(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#f97316" }} />
@@ -295,6 +296,7 @@ export default function GestaoPessoasDashboard() {
             </label>
           </div>
           <TabelaExecutiva titulo={selecao} items={itensSel} onVoltar={voltar} corTema={corTema} mostrarSalario={mostrarSalario} />
+          </>
 
         ) : (
           <div>
