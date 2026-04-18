@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, Briefcase, Search, ChevronLeft } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { ArrowLeft, Users, Briefcase, Search, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Funcionario {
@@ -9,117 +8,149 @@ interface Funcionario {
   name: string;
   role: string;
   matricula: string;
+  equipe: string;
+  responsavel: string;
+  data_admissao: string;
 }
 
-// Normaliza função para agrupamento
-function normFunc(role: string): string {
-  const r = role?.toUpperCase().trim() || "";
-  if (r.includes("ENCARREGADO")) return "ENCARREGADO";
-  if (r.includes("APONTADOR")) return "APONTADOR";
+// Remove sufixos de nível (JR I, PL II, SR III, ESP I, ESPEC I, etc.)
+function funcaoBase(role: string): string {
+  if (!role) return "OUTROS";
+  let r = role.toUpperCase().trim();
+  // Remover sufixos de nível
+  r = r.replace(/\s+(JR|PL|SR|ESP|ESPEC|ESPECIALIS|ESPECIAL)\s*(I{1,3}|IV|V|VI)?\s*$/i, "").trim();
+  r = r.replace(/\s+(A|B)\s*$/i, "").trim();
+  // Normalizar variações
+  if (r.includes("APONTADOR")) return "APONTADOR DE OBRAS";
+  if (r.includes("ENCARREGADO DE INFRAEST") || r.includes("ENC DE INFRAEST")) return "ENCARREGADO DE INFRAESTRUTURA";
+  if (r.includes("ENCARREGADO")) return "ENCARREGADO DE OBRAS";
+  if (r.includes("AJUDANTE DE MECAN")) return "AJUDANTE DE MECÂNICA";
   if (r.includes("AJUDANTE")) return "AJUDANTE GERAL";
-  if (r.includes("MOTORISTA CARRETEIRO") || r.includes("CARRETEIRO")) return "MOTORISTA CARRETEIRO";
+  if (r.includes("LUBRIFICADOR")) return "LUBRIFICADOR";
+  if (r.includes("MECANICO DE MAQUINA") || r.includes("MECÂNICO DE MÁQUINA")) return "MECÂNICO DE MÁQUINA";
+  if (r.includes("MECANICO") || r.includes("MECÂNICO")) return "MECÂNICO";
+  if (r.includes("MOTORISTA CARRETEIRO")) return "MOTORISTA CARRETEIRO";
+  if (r.includes("MOTORISTA COMBOIO") || r.includes("MOTORISTA DE COMBOIO")) return "MOTORISTA COMBOIO";
   if (r.includes("MOTORISTA ESPARGIDOR")) return "MOTORISTA ESPARGIDOR";
+  if (r.includes("MOTORISTA CAMINHAO BASCULANTE") || r.includes("MOTORISTA CAMINHAO")) return "MOTORISTA CAMINHÃO";
+  if (r.includes("MOTORISTA DE CAMINHAO") || r.includes("MOTORISTA CAMINHÃO")) return "MOTORISTA CAMINHÃO";
+  if (r.includes("MOTORISTA PIPA")) return "MOTORISTA PIPA";
   if (r.includes("MOTORISTA")) return "MOTORISTA";
-  if (r.includes("OPERADOR DE FRESADORA") || r.includes("OPERADOR DE FRESA") || r.includes("OP DE FRESA") || r.includes("FRESA")) return "OPERADOR DE FRESADORA";
-  if (r.includes("OPERADOR BOBCAT") || r.includes("BOBCAT")) return "OPERADOR BOBCAT";
+  if (r.includes("MOTONIVELADORA")) return "MOTONIVELADORA";
+  if (r.includes("OP USINA") || r.includes("OP DE USINA") || r.includes("USINA MOVEL KMA")) return "OPERADOR USINA KMA";
   if (r.includes("VIBROACABADORA") || r.includes("VIBRO")) return "OPERADOR VIBROACABADORA";
-  if (r.includes("USINA") || r.includes("KMA")) return "OPERADOR USINA KMA";
-  if (r.includes("RETROES") || r.includes("RETRO")) return "OPERADOR RETROESCAVADEIRA";
-  if (r.includes("OPERADOR DE ROLO") || r.includes("ROLO")) return "OPERADOR DE ROLO";
-  if (r.includes("OPERADOR SOLO") || r.includes("OP SOLO")) return "OPERADOR SOLO";
-  if (r.includes("OPERADOR")) return "OPERADOR DE MÁQUINAS";
+  if (r.includes("OPERADOR BOBCAT") || r.includes("BOBCAT")) return "OPERADOR BOBCAT";
+  if (r.includes("OPERADOR DE FRESADORA") || r.includes("OPERADOR DE FRESA")) return "OPERADOR DE FRESADORA";
+  if (r.includes("OPERADOR DE RETROES") || r.includes("OPERADOR RETROESCAVADEIRA") || r.includes("RETROES")) return "OPERADOR RETROESCAVADEIRA";
+  if (r.includes("OPERADOR DE ESCAVADEIRA")) return "OPERADOR DE ESCAVADEIRA";
+  if (r.includes("OPERADOR DE PA CARREGADEIRA") || r.includes("PA CARREGADEIRA")) return "OPERADOR PÁ CARREGADEIRA";
+  if (r.includes("OPERADOR DE ROLO")) return "OPERADOR DE ROLO";
+  if (r.includes("OPERADOR TRATOR ESTEIRA") || r.includes("TRATOR ESTEIRA")) return "OPERADOR TRATOR ESTEIRA";
+  if (r.includes("TRATOR AGRICOLA")) return "TRATOR AGRÍCOLA";
+  if (r.includes("OPERADOR SOLO")) return "OPERADOR SOLO";
+  if (r.includes("OPERADOR DE MAQUINAS") || r.includes("OPERADOR DE MÁQUINAS")) return "OPERADOR DE MÁQUINAS";
+  if (r.includes("OPERADOR")) return "OPERADOR";
   if (r.includes("SINALEIRO")) return "SINALEIRO";
   if (r.includes("PEDREIRO")) return "PEDREIRO";
-  if (r.includes("RASTELEIRO") || r.includes("RASTELE")) return "RASTELEIRO";
+  if (r.includes("RASTELEIRO")) return "RASTELEIRO";
   if (r.includes("MARTELETEIRO")) return "MARTELETEIRO";
   if (r.includes("MANGUEIRISTA")) return "MANGUEIRISTA";
-  if (r.includes("TEC") && r.includes("SEG")) return "TÉC. SEGURANÇA DO TRABALHO";
-  if (r.includes("ASSISTENTE")) return "ASSISTENTE ADMINISTRATIVO";
+  if (r.includes("TEC") && r.includes("SEG")) return "TÉC. SEG. TRABALHO";
   if (r.includes("MESISTA")) return "MESISTA";
-  if (r.includes("JOVEM")) return "JOVEM APRENDIZ";
-  return role?.trim() || "OUTROS";
+  if (r.includes("AMOXARIFE")) return "AMOXARIFE";
+  if (r.includes("CARPINTEIRO")) return "CARPINTEIRO";
+  if (r.includes("ELETRICISTA")) return "ELETRICISTA";
+  if (r.includes("DESENHISTA")) return "DESENHISTA TÉCNICO";
+  if (r.includes("ANALISTA")) return "ANALISTA";
+  if (r.includes("ASSISTENTE")) return "ASSISTENTE ADMINISTRATIVO";
+  if (r.includes("COMPRADOR")) return "COMPRADOR";
+  return r;
 }
 
-const GRUPO_COR: Record<string, { cor: string; bg: string; emoji: string }> = {
-  "ENCARREGADO":               { cor: "#0055AA", bg: "rgba(0,85,170,0.08)", emoji: "👷" },
-  "APONTADOR":                 { cor: "#006640", bg: "rgba(0,102,64,0.08)",  emoji: "📋" },
-  "AJUDANTE GERAL":            { cor: "#555555", bg: "rgba(85,85,85,0.08)",  emoji: "🔨" },
-  "MOTORISTA":                 { cor: "#AA5500", bg: "rgba(170,85,0,0.08)",  emoji: "🚛" },
-  "MOTORISTA CARRETEIRO":      { cor: "#AA3300", bg: "rgba(170,51,0,0.08)",  emoji: "🚚" },
-  "MOTORISTA ESPARGIDOR":      { cor: "#885500", bg: "rgba(136,85,0,0.08)",  emoji: "🚒" },
-  "OPERADOR DE FRESADORA":     { cor: "#CC4400", bg: "rgba(204,68,0,0.08)",  emoji: "⚙️" },
-  "OPERADOR BOBCAT":           { cor: "#5500AA", bg: "rgba(85,0,170,0.08)",  emoji: "🚜" },
-  "OPERADOR VIBROACABADORA":   { cor: "#006666", bg: "rgba(0,102,102,0.08)", emoji: "🏗️" },
-  "OPERADOR USINA KMA":        { cor: "#AA0055", bg: "rgba(170,0,85,0.08)",  emoji: "🏭" },
-  "OPERADOR RETROESCAVADEIRA": { cor: "#884400", bg: "rgba(136,68,0,0.08)",  emoji: "🔧" },
-  "OPERADOR DE ROLO":          { cor: "#446600", bg: "rgba(68,102,0,0.08)",  emoji: "🛞" },
-  "OPERADOR SOLO":             { cor: "#004488", bg: "rgba(0,68,136,0.08)",  emoji: "👤" },
-  "OPERADOR DE MÁQUINAS":      { cor: "#664400", bg: "rgba(102,68,0,0.08)",  emoji: "⚒️" },
-  "SINALEIRO":                 { cor: "#AA8800", bg: "rgba(170,136,0,0.08)", emoji: "🚦" },
-  "PEDREIRO":                  { cor: "#666666", bg: "rgba(102,102,102,0.08)", emoji: "🧱" },
-  "RASTELEIRO":                { cor: "#448800", bg: "rgba(68,136,0,0.08)",  emoji: "🌿" },
+const FUNCAO_INFO: Record<string, { emoji: string; cor: string; bg: string }> = {
+  "ENCARREGADO DE OBRAS":       { emoji: "👷", cor: "#0055AA", bg: "rgba(0,85,170,0.08)" },
+  "ENCARREGADO DE INFRAESTRUTURA": { emoji: "🏗️", cor: "#003388", bg: "rgba(0,51,136,0.08)" },
+  "APONTADOR DE OBRAS":         { emoji: "📋", cor: "#006640", bg: "rgba(0,102,64,0.08)" },
+  "OPERADOR DE FRESADORA":      { emoji: "⚙️", cor: "#CC4400", bg: "rgba(204,68,0,0.08)" },
+  "OPERADOR VIBROACABADORA":    { emoji: "🏗️", cor: "#006666", bg: "rgba(0,102,102,0.08)" },
+  "OPERADOR BOBCAT":            { emoji: "🚜", cor: "#5500AA", bg: "rgba(85,0,170,0.08)" },
+  "OPERADOR USINA KMA":         { emoji: "🏭", cor: "#AA0055", bg: "rgba(170,0,85,0.08)" },
+  "OPERADOR RETROESCAVADEIRA":  { emoji: "🔧", cor: "#884400", bg: "rgba(136,68,0,0.08)" },
+  "OPERADOR DE ESCAVADEIRA":    { emoji: "🦾", cor: "#664400", bg: "rgba(102,68,0,0.08)" },
+  "OPERADOR PÁ CARREGADEIRA":   { emoji: "🚛", cor: "#446600", bg: "rgba(68,102,0,0.08)" },
+  "OPERADOR DE ROLO":           { emoji: "🛞", cor: "#004488", bg: "rgba(0,68,136,0.08)" },
+  "OPERADOR TRATOR ESTEIRA":    { emoji: "🚧", cor: "#AA6600", bg: "rgba(170,102,0,0.08)" },
+  "MOTONIVELADORA":             { emoji: "🏔️", cor: "#558800", bg: "rgba(85,136,0,0.08)" },
+  "MOTORISTA CAMINHÃO":         { emoji: "🚚", cor: "#AA3300", bg: "rgba(170,51,0,0.08)" },
+  "MOTORISTA CARRETEIRO":       { emoji: "🚛", cor: "#880000", bg: "rgba(136,0,0,0.08)" },
+  "MOTORISTA COMBOIO":          { emoji: "⛽", cor: "#AA5500", bg: "rgba(170,85,0,0.08)" },
+  "MOTORISTA ESPARGIDOR":       { emoji: "🚒", cor: "#885500", bg: "rgba(136,85,0,0.08)" },
+  "MOTORISTA PIPA":             { emoji: "💧", cor: "#0066AA", bg: "rgba(0,102,170,0.08)" },
+  "MOTORISTA":                  { emoji: "🚗", cor: "#AA4400", bg: "rgba(170,68,0,0.08)" },
+  "AJUDANTE GERAL":             { emoji: "🔨", cor: "#555555", bg: "rgba(85,85,85,0.08)" },
+  "SINALEIRO":                  { emoji: "🚦", cor: "#AA8800", bg: "rgba(170,136,0,0.08)" },
+  "PEDREIRO":                   { emoji: "🧱", cor: "#666666", bg: "rgba(102,102,102,0.08)" },
+  "RASTELEIRO":                 { emoji: "🌿", cor: "#448800", bg: "rgba(68,136,0,0.08)" },
+  "MECÂNICO":                   { emoji: "🔩", cor: "#336699", bg: "rgba(51,102,153,0.08)" },
+  "TÉC. SEG. TRABALHO":         { emoji: "🦺", cor: "#CC6600", bg: "rgba(204,102,0,0.08)" },
+  "LUBRIFICADOR":               { emoji: "🛢️", cor: "#663300", bg: "rgba(102,51,0,0.08)" },
 };
 
-function getInfo(funcao: string) {
-  return GRUPO_COR[funcao] || { cor: "#444444", bg: "rgba(68,68,68,0.08)", emoji: "👤" };
+function getInfo(func: string) {
+  return FUNCAO_INFO[func] || { emoji: "👤", cor: "#444444", bg: "rgba(68,68,68,0.08)" };
 }
 
-function formatBRL(v: number) {
-  return v.toLocaleString("pt-BR");
-}
-
-// ─── Tabela executiva de funcionários ─────────────────────────────────────────
-function TabelaFuncionarios({ titulo, items, onVoltar }: {
-  titulo: string; items: Funcionario[]; onVoltar: () => void;
+// ─── Tabela executiva ──────────────────────────────────────────────────────────
+function TabelaExecutiva({ titulo, items, onVoltar, corTema }: {
+  titulo: string; items: Funcionario[]; onVoltar: () => void; corTema: string;
 }) {
   const [busca, setBusca] = useState("");
   const filtrados = items.filter(f =>
     !busca || f.name.toLowerCase().includes(busca.toLowerCase()) ||
-    (f.matricula || "").includes(busca)
+    (f.matricula || "").includes(busca) ||
+    (f.equipe || "").toLowerCase().includes(busca.toLowerCase())
   );
 
   return (
     <div>
-      <div style={{ background: "linear-gradient(135deg, #0A0F2C, #0D1B4B)", borderRadius: 20, padding: "24px 28px", marginBottom: 16, color: "white" }}>
+      <div style={{ background: `linear-gradient(135deg, #0A0F2C, ${corTema})`, borderRadius: 20, padding: "24px 28px", marginBottom: 16, color: "white" }}>
         <button onClick={onVoltar} style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8, padding: "6px 14px", color: "white", fontSize: 12, cursor: "pointer", marginBottom: 12 }}>
           ← Voltar
         </button>
-        <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 22, marginBottom: 4 }}>{titulo}</h2>
-        <div style={{ display: "flex", gap: 20, marginTop: 12 }}>
-          <div style={{ textAlign: "center", background: "rgba(255,255,255,0.08)", borderRadius: 12, padding: "12px 20px" }}>
-            <p style={{ fontSize: 28, fontWeight: 900, color: "#00C6FF", fontFamily: "Montserrat" }}>{items.length}</p>
+        <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 20, marginBottom: 12 }}>{titulo}</h2>
+        <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 18px", textAlign: "center" }}>
+            <p style={{ fontSize: 26, fontWeight: 900, color: "#00C6FF", fontFamily: "Montserrat" }}>{items.length}</p>
             <p style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Funcionários</p>
           </div>
         </div>
       </div>
 
-      {/* Busca */}
-      <div style={{ position: "relative", marginBottom: 12 }}>
+      <div style={{ position: "relative", marginBottom: 10 }}>
         <Search style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#9ca3af" }} />
-        <input placeholder="Buscar nome ou matrícula..." value={busca} onChange={e => setBusca(e.target.value)}
-          style={{ width: "100%", paddingLeft: 30, paddingRight: 12, height: 36, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        <input placeholder="Buscar..." value={busca} onChange={e => setBusca(e.target.value)}
+          style={{ width: "100%", paddingLeft: 30, height: 36, borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
       </div>
-      <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8 }}>{filtrados.length} funcionário{filtrados.length !== 1 ? "s" : ""}</p>
+      <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8 }}>{filtrados.length} resultado{filtrados.length !== 1 ? "s" : ""}</p>
 
-      {/* Tabela */}
       <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 20px rgba(0,0,0,0.07)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "40px 90px 1fr 1fr", background: "#f8fafc", borderBottom: "2px solid #e5e7eb", padding: "8px 16px", gap: 8 }}>
-          {["Nº", "MATRÍCULA", "NOME", "FUNÇÃO"].map(h => (
-            <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</span>
+        <div style={{ display: "grid", gridTemplateColumns: "36px 80px 1fr 1fr 1fr", background: "#f8fafc", borderBottom: "2px solid #e5e7eb", padding: "8px 14px", gap: 8 }}>
+          {["Nº", "MAT.", "NOME", "FUNÇÃO", "EQUIPE / RESP."].map(h => (
+            <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>{h}</span>
           ))}
         </div>
-        {filtrados.length === 0 ? (
-          <p style={{ textAlign: "center", color: "#9ca3af", padding: "24px 0", fontSize: 13 }}>Nenhum resultado.</p>
-        ) : (
-          filtrados.map((f, i) => (
-            <div key={f.id} style={{ display: "grid", gridTemplateColumns: "40px 90px 1fr 1fr", padding: "10px 16px", gap: 8, borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "white" : "#fafbfc" }}>
-              <span style={{ fontSize: 11, color: "#94a3b8", textAlign: "center" }}>{i + 1}</span>
-              <span style={{ fontSize: 12, fontFamily: "Montserrat", fontWeight: 700, color: "#0A0F2C" }}>{f.matricula || "—"}</span>
-              <span style={{ fontSize: 12, color: "#374151" }}>{f.name}</span>
-              <span style={{ fontSize: 11, color: "#6b7280" }}>{f.role}</span>
+        {filtrados.map((f, i) => (
+          <div key={f.id} style={{ display: "grid", gridTemplateColumns: "36px 80px 1fr 1fr 1fr", padding: "9px 14px", borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "white" : "#fafbfc", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "#94a3b8", textAlign: "center" }}>{i + 1}</span>
+            <span style={{ fontSize: 12, fontFamily: "Montserrat", fontWeight: 700, color: "#0A0F2C" }}>{f.matricula || "—"}</span>
+            <span style={{ fontSize: 12, color: "#374151" }}>{f.name}</span>
+            <span style={{ fontSize: 11, color: "#6b7280" }}>{f.role}</span>
+            <div>
+              {f.equipe && <p style={{ fontSize: 11, color: "#374151", fontWeight: 600 }}>{f.equipe}</p>}
+              {f.responsavel && <p style={{ fontSize: 10, color: "#9ca3af" }}>{f.responsavel}</p>}
             </div>
-          ))
-        )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -130,67 +161,81 @@ export default function GestaoPessoasDashboard() {
   const navigate = useNavigate();
   const [todos, setTodos] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modo, setModo] = useState<"inicio" | "funcao">("inicio");
-  const [funcaoSel, setFuncaoSel] = useState("");
-  const [buscaGlobal, setBuscaGlobal] = useState("");
+  const [visao, setVisao] = useState<"funcao" | "equipe" | "responsavel">("funcao");
+  const [selecao, setSelecao] = useState("");
+  const [mostrando, setMostrando] = useState(false);
+  const [busca, setBusca] = useState("");
 
   useEffect(() => {
     supabase.from("employees").select("*").order("name")
-      .then(({ data }) => { if (data) setTodos(data); setLoading(false); });
+      .then(({ data }) => { if (data) setTodos(data as any); setLoading(false); });
   }, []);
 
-  // Agrupar por função normalizada
+  // Grupos por visão
   const porFuncao: Record<string, Funcionario[]> = {};
+  const porEquipe: Record<string, Funcionario[]> = {};
+  const porResp: Record<string, Funcionario[]> = {};
+
   todos.forEach(f => {
-    const g = normFunc(f.role);
-    if (!porFuncao[g]) porFuncao[g] = [];
-    porFuncao[g].push(f);
+    const fb = funcaoBase(f.role);
+    if (!porFuncao[fb]) porFuncao[fb] = [];
+    porFuncao[fb].push(f);
+
+    const eq = f.equipe || "SEM EQUIPE";
+    if (!porEquipe[eq]) porEquipe[eq] = [];
+    porEquipe[eq].push(f);
+
+    const resp = f.responsavel || "SEM RESPONSÁVEL";
+    if (!porResp[resp]) porResp[resp] = [];
+    porResp[resp].push(f);
   });
 
-  const funcoes = Object.keys(porFuncao).sort();
-  const itensFuncao = funcaoSel ? (porFuncao[funcaoSel] || []) : [];
+  const grupos = visao === "funcao" ? porFuncao : visao === "equipe" ? porEquipe : porResp;
+  const chaves = Object.keys(grupos).sort();
 
-  const filtradosGlobal = buscaGlobal
-    ? todos.filter(f => f.name.toLowerCase().includes(buscaGlobal.toLowerCase()) || (f.role || "").toLowerCase().includes(buscaGlobal.toLowerCase()) || (f.matricula || "").includes(buscaGlobal))
+  const itensSel = selecao ? (grupos[selecao] || []) : [];
+  const corTema = visao === "funcao" ? (getInfo(selecao).cor || "#0055AA") : visao === "equipe" ? "#0055AA" : "#006640";
+
+  const filtradosBusca = busca
+    ? todos.filter(f => f.name.toLowerCase().includes(busca.toLowerCase()) || (f.matricula || "").includes(busca) || (f.equipe || "").toLowerCase().includes(busca.toLowerCase()) || (f.role || "").toLowerCase().includes(busca.toLowerCase()))
     : [];
 
-  function voltar() {
-    setModo("inicio"); setFuncaoSel("");
-  }
+  function voltar() { setMostrando(false); setSelecao(""); }
 
   return (
     <div style={{ minHeight: "100vh", background: "#f0f4f8" }}>
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg" style={{ position: "sticky", top: 0, zIndex: 50 }}>
-        <button onClick={modo === "inicio" ? () => navigate("/") : voltar} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={mostrando ? voltar : () => navigate("/")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div style={{ flex: 1 }}>
           <span style={{ display: "block", fontFamily: "Montserrat", fontWeight: 800, fontSize: 14, color: "white" }}>WF Gestão de Pessoas</span>
-          <span style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.7)" }}>{todos.length} funcionários · {funcoes.length} funções</span>
+          <span style={{ display: "block", fontSize: 11, color: "rgba(255,255,255,0.7)" }}>{todos.length} funcionários</span>
         </div>
       </header>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 16px" }}>
+      <div style={{ maxWidth: 950, margin: "0 auto", padding: "20px 16px" }}>
         {loading ? (
           <p style={{ textAlign: "center", color: "#9ca3af", padding: "64px 0" }}>Carregando...</p>
 
-        ) : modo === "funcao" ? (
-          <TabelaFuncionarios titulo={funcaoSel} items={itensFuncao} onVoltar={voltar} />
+        ) : mostrando ? (
+          <TabelaExecutiva titulo={selecao} items={itensSel} onVoltar={voltar} corTema={corTema} />
 
         ) : (
           <div>
             {/* Painel resumo */}
-            <div style={{ background: "linear-gradient(135deg, #0A0F2C, #0D1B4B)", borderRadius: 24, padding: "28px", color: "white", marginBottom: 24 }}>
+            <div style={{ background: "linear-gradient(135deg, #0A0F2C, #0D1B4B)", borderRadius: 24, padding: "28px", color: "white", marginBottom: 20 }}>
               <h2 style={{ fontFamily: "Montserrat", fontWeight: 900, fontSize: 26, marginBottom: 4 }}>Gestão de Pessoas</h2>
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginBottom: 20 }}>Selecione uma função para a reunião de eficiência</p>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginBottom: 20 }}>Reunião de Eficiência — visão completa do quadro</p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {[
                   { label: "Total", value: todos.length, cor: "#00C6FF" },
-                  { label: "Funções", value: funcoes.length, cor: "#FFB300" },
-                  { label: "Com Matrícula", value: todos.filter(f => f.matricula).length, cor: "#22c55e" },
+                  { label: "Equipes", value: Object.keys(porEquipe).length, cor: "#FFB300" },
+                  { label: "Funções", value: Object.keys(porFuncao).length, cor: "#22c55e" },
+                  { label: "Responsáveis", value: Object.keys(porResp).filter(k => k !== "SEM RESPONSÁVEL").length, cor: "#f97316" },
                 ].map(s => (
-                  <div key={s.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "14px 20px", flex: 1, textAlign: "center" }}>
-                    <p style={{ fontSize: 28, fontWeight: 900, color: s.cor, fontFamily: "Montserrat" }}>{s.value}</p>
+                  <div key={s.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "12px 18px", flex: 1, textAlign: "center", minWidth: 80 }}>
+                    <p style={{ fontSize: 26, fontWeight: 900, color: s.cor, fontFamily: "Montserrat" }}>{s.value}</p>
                     <p style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>{s.label}</p>
                   </div>
                 ))}
@@ -200,49 +245,63 @@ export default function GestaoPessoasDashboard() {
             {/* Busca global */}
             <div style={{ position: "relative", marginBottom: 16 }}>
               <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: "#9ca3af" }} />
-              <input placeholder="Buscar funcionário por nome, função ou matrícula..." value={buscaGlobal} onChange={e => setBuscaGlobal(e.target.value)}
+              <input placeholder="Buscar funcionário por nome, matrícula, função ou equipe..." value={busca} onChange={e => setBusca(e.target.value)}
                 style={{ width: "100%", paddingLeft: 36, paddingRight: 12, height: 44, borderRadius: 14, border: "2px solid #e5e7eb", fontSize: 14, outline: "none", background: "white", boxSizing: "border-box" }} />
             </div>
 
-            {/* Resultado da busca global */}
-            {buscaGlobal && filtradosGlobal.length > 0 && (
-              <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 20px rgba(0,0,0,0.07)", marginBottom: 20 }}>
-                <div style={{ padding: "10px 16px", background: "#f8fafc", borderBottom: "1px solid #e5e7eb" }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b" }}>{filtradosGlobal.length} resultado{filtradosGlobal.length !== 1 ? "s" : ""}</span>
+            {busca && filtradosBusca.length > 0 && (
+              <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.07)", marginBottom: 20 }}>
+                <div style={{ padding: "8px 14px", background: "#f8fafc", borderBottom: "1px solid #e5e7eb", fontSize: 12, fontWeight: 700, color: "#64748b" }}>
+                  {filtradosBusca.length} resultado{filtradosBusca.length !== 1 ? "s" : ""}
                 </div>
-                {filtradosGlobal.slice(0, 20).map((f, i) => (
-                  <div key={f.id} style={{ display: "grid", gridTemplateColumns: "90px 1fr 1fr", padding: "9px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 12, background: i % 2 === 0 ? "white" : "#fafbfc" }}>
+                {filtradosBusca.slice(0, 30).map((f, i) => (
+                  <div key={f.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr 1fr", padding: "8px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 12, background: i % 2 === 0 ? "white" : "#fafbfc", gap: 8 }}>
                     <span style={{ fontFamily: "Montserrat", fontWeight: 700, color: "#0A0F2C" }}>{f.matricula || "—"}</span>
                     <span style={{ color: "#374151" }}>{f.name}</span>
-                    <span style={{ color: "#6b7280" }}>{f.role}</span>
+                    <span style={{ color: "#6b7280", fontSize: 11 }}>{f.role}</span>
+                    <span style={{ color: "#9ca3af", fontSize: 11 }}>{f.equipe}</span>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Cards por função */}
-            {!buscaGlobal && (
+            {!busca && (
               <>
-                <h3 style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: 16, color: "#0A0F2C", marginBottom: 12 }}>
-                  <Briefcase style={{ display: "inline", width: 18, height: 18, marginRight: 6, color: "#CC4400" }} />
-                  Por Função
-                </h3>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-                  {funcoes.map(func => {
-                    const itens = porFuncao[func];
-                    const info = getInfo(func);
+                {/* Seletor de visão */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                  {[
+                    { key: "funcao", label: "Por Função", emoji: "🔧" },
+                    { key: "equipe", label: "Por Equipe", emoji: "👷" },
+                    { key: "responsavel", label: "Por Responsável", emoji: "👤" },
+                  ].map(v => (
+                    <button key={v.key} onClick={() => setVisao(v.key as any)}
+                      style={{ flex: 1, padding: "10px 8px", borderRadius: 12, border: "2px solid", cursor: "pointer", fontFamily: "Montserrat", fontWeight: 700, fontSize: 13, transition: "all 0.15s",
+                        borderColor: visao === v.key ? "#0055AA" : "#e5e7eb",
+                        background: visao === v.key ? "#0055AA" : "white",
+                        color: visao === v.key ? "white" : "#374151",
+                      }}>
+                      {v.emoji} {v.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Cards */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 10 }}>
+                  {chaves.map(chave => {
+                    const itens = grupos[chave];
+                    const info = visao === "funcao" ? getInfo(chave) : { emoji: visao === "equipe" ? "👷" : "👤", cor: visao === "equipe" ? "#0055AA" : "#006640", bg: visao === "equipe" ? "rgba(0,85,170,0.08)" : "rgba(0,102,64,0.08)" };
                     return (
-                      <button key={func} onClick={() => { setFuncaoSel(func); setModo("funcao"); }}
-                        style={{ background: "white", border: "2px solid #e5e7eb", borderRadius: 16, padding: "16px 14px", cursor: "pointer", textAlign: "left", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", transition: "all 0.15s" }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = info.cor; e.currentTarget.style.boxShadow = `0 4px 20px ${info.cor}22`; }}
+                      <button key={chave} onClick={() => { setSelecao(chave); setMostrando(true); }}
+                        style={{ background: "white", border: "2px solid #e5e7eb", borderRadius: 16, padding: "14px 12px", cursor: "pointer", textAlign: "left", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", transition: "all 0.15s" }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = info.cor; e.currentTarget.style.boxShadow = `0 4px 16px ${info.cor}22`; }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.05)"; }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                          <span style={{ fontSize: 20 }}>{info.emoji}</span>
-                          <p style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: 12, color: "#0A0F2C", lineHeight: 1.3 }}>{func}</p>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 18 }}>{info.emoji}</span>
+                          <p style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: 11, color: "#0A0F2C", lineHeight: 1.3 }}>{chave}</p>
                         </div>
-                        <div style={{ background: info.bg, borderRadius: 10, padding: "6px 10px", display: "inline-block" }}>
-                          <span style={{ fontSize: 18, fontWeight: 900, color: info.cor, fontFamily: "Montserrat" }}>{itens.length}</span>
-                          <span style={{ fontSize: 10, color: info.cor, marginLeft: 4 }}>func.</span>
+                        <div style={{ background: info.bg, borderRadius: 10, padding: "5px 10px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontSize: 20, fontWeight: 900, color: info.cor, fontFamily: "Montserrat" }}>{itens.length}</span>
+                          <span style={{ fontSize: 10, color: info.cor }}>func.</span>
                         </div>
                       </button>
                     );
