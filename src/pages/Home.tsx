@@ -7,6 +7,7 @@ import { ChevronRight, LogOut } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { supabase } from "@/integrations/supabase/client";
 import { HUB_MODULES } from "@/config/navigation";
 
@@ -14,6 +15,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const { permissions, loading: loadingPerms } = usePermissions();
+  const { hasModule, loading: loadingModules } = useCompanyModules();
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -63,9 +65,12 @@ export default function Home() {
         {HUB_MODULES
           .filter(mod => {
             if (mod.adminOnly && !isAdmin) return false;
-            if (!permissions || loadingPerms) return true; // enquanto carrega, mostra tudo
-            if (isAdmin) return true; // admin vê tudo
-            // Filtrar por permissão
+            if (loadingPerms || loadingModules) return true; // enquanto carrega, mostra tudo
+            // Super-admin (dono do Workflux) vê tudo
+            // Admin da empresa vê módulos contratados pela empresa
+            if (!hasModule(mod.id)) return false;
+            if (isAdmin) return true; // admin da empresa vê todos os módulos liberados
+            // Filtrar por permissão individual do usuário
             const permMap: Record<string, keyof typeof permissions> = {
               obras: "modulo_obras",
               equipamentos: "modulo_equipamentos",
@@ -79,8 +84,9 @@ export default function Home() {
               relatorios: "modulo_relatorios",
               dashboard: "modulo_dashboard",
             };
+            if (!permissions) return false;
             const permKey = permMap[mod.id];
-            if (!permKey) return true; // módulos sem mapeamento aparecem pra todos
+            if (!permKey) return true;
             return permissions[permKey] === true;
           })
           .map(mod => {
