@@ -1234,6 +1234,7 @@ export type Database = {
           nome_completo: string
           perfil: string
           role: string | null
+          senha_temporaria: boolean | null
           status: string
           updated_at: string | null
           user_id: string
@@ -1246,6 +1247,7 @@ export type Database = {
           nome_completo: string
           perfil: string
           role?: string | null
+          senha_temporaria?: boolean | null
           status?: string
           updated_at?: string | null
           user_id: string
@@ -1258,6 +1260,7 @@ export type Database = {
           nome_completo?: string
           perfil?: string
           role?: string | null
+          senha_temporaria?: boolean | null
           status?: string
           updated_at?: string | null
           user_id?: string

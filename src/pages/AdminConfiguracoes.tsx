@@ -267,10 +267,11 @@ function EmailConfig() {
 
 // Users manager
 function UsersManager() {
+  const LOGIN_DOMAIN = "@workflux.app";
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [perfil, setPerfil] = useState("Apontador");
   const [creating, setCreating] = useState(false);
@@ -293,14 +294,18 @@ function UsersManager() {
   const filteredUsers = showInactive ? users : users.filter(u => u.status !== "inativo");
 
   const handleCreate = async () => {
-    if (!nome.trim() || !email.trim() || !password.trim()) {
+    if (!nome.trim() || !login.trim() || !password.trim()) {
       toast({ title: "Erro", description: "Preencha todos os campos.", variant: "destructive" });
       return;
     }
+
+    const loginValue = login.trim().toLowerCase();
+    const authEmail = loginValue.includes("@") ? loginValue : `${loginValue}${LOGIN_DOMAIN}`;
+
     setCreating(true);
     try {
       const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", {
-        body: { email: email.trim().toLowerCase(), password, nome_completo: nome.trim(), perfil },
+        body: { email: authEmail, password, nome_completo: nome.trim(), perfil, login_original: loginValue },
       });
 
       // Log raw response for debugging
@@ -318,7 +323,7 @@ function UsersManager() {
       }
 
       toast({ title: "✅ Usuário cadastrado com sucesso!" });
-      setNome(""); setEmail(""); setPassword(""); setPerfil("Apontador");
+      setNome(""); setLogin(""); setPassword(""); setPerfil("Apontador");
       await load();
     } catch (err: any) {
       toast({ title: "Erro ao criar usuário", description: err.message, variant: "destructive" });
@@ -392,8 +397,8 @@ function UsersManager() {
           <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Nome do funcionário" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">E-mail *</Label>
-          <Input type="email" value={email} onChange={e => setEmail(e.target.value)} className="h-11 bg-secondary border-border" placeholder="email@empresa.com" />
+          <Label className="text-xs text-muted-foreground">Login (usuário) *</Label>
+          <Input type="text" value={login} onChange={e => setLogin(e.target.value)} className="h-11 bg-secondary border-border" placeholder="usuario ou email@empresa.com" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Senha *</Label>

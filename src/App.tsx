@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,6 +43,7 @@ import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
 import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
 import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
 import Login from "./pages/Login";
+import TrocarSenha from "./pages/TrocarSenha";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
 
@@ -51,24 +52,28 @@ const queryClient = new QueryClient();
 function AppRoutes() {
   const { session, loading, signOut } = useAuth();
   const [blocked, setBlocked] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(false);
+  const location = useLocation();
 
   // Check if user is active after session loads
   useEffect(() => {
-    if (!session?.user?.id) { setBlocked(false); return; }
+    if (!session?.user?.id) { setBlocked(false); setMustChangePassword(false); return; }
     setCheckingAccess(true);
     const check = async () => {
       try {
         const { data } = await supabase
           .from("profiles")
-          .select("status")
+          .select("status, senha_temporaria")
           .eq("user_id", session.user.id)
           .maybeSingle();
         if (data && data.status === "inativo") {
           setBlocked(true);
+          setMustChangePassword(false);
           signOut();
         } else {
           setBlocked(false);
+          setMustChangePassword(Boolean((data as any)?.senha_temporaria));
         }
       } catch {}
       setCheckingAccess(false);
@@ -102,9 +107,15 @@ function AppRoutes() {
     );
   }
 
+  if (mustChangePassword && location.pathname !== "/trocar-senha") {
+    return <Navigate to="/trocar-senha" replace />;
+  }
+
   return (
     <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
       <Routes>
+        <Route path="/trocar-senha" element={<TrocarSenha />} />
+
         {/* Hub — no sidebar/layout */}
         <Route path="/" element={<Home />} />
 

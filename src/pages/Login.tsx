@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, Mail, Lock, ArrowLeft } from "lucide-react";
+import { LogIn, Mail, Lock, ArrowLeft, User } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
+
+const LOGIN_DOMAIN = "@workflux.app";
 
 export default function Login() {
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -22,7 +24,9 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const input = login.trim().toLowerCase();
+      const authEmail = input.includes("@") ? input : `${input}${LOGIN_DOMAIN}`;
+      const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password });
       if (error) throw error;
     } catch (err: any) {
       const msg = err.message || "Erro desconhecido";
@@ -116,15 +120,15 @@ export default function Login() {
 
       <form onSubmit={handleAuth} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="email" className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-            <Mail className="w-4 h-4 text-primary" /> Email
+          <Label htmlFor="login" className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+            <User className="w-4 h-4 text-primary" /> Login
           </Label>
           <Input
-            id="email"
-            type="email"
-            placeholder="seu@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="login"
+            type="text"
+            placeholder="usuario ou email@empresa.com"
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
             required
             className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground rounded-xl"
           />

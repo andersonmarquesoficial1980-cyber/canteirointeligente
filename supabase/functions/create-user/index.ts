@@ -98,7 +98,7 @@ serve(async (req) => {
     }
 
     // === CREATE USER (default) ===
-    const { email, password, nome_completo, perfil } = body;
+    const { email, password, nome_completo, perfil, login_original } = body;
     if (!email || !password || !nome_completo || !perfil) {
       throw new Error("Campos obrigatórios: email, password, nome_completo, perfil");
     }
@@ -112,6 +112,11 @@ serve(async (req) => {
       email,
       password,
       email_confirm: true,
+      user_metadata: {
+        login_original: typeof login_original === "string" && login_original.trim().length > 0
+          ? login_original.trim().toLowerCase()
+          : email.split("@")[0],
+      },
     });
 
     if (createError) {
@@ -142,6 +147,14 @@ serve(async (req) => {
 
     const perfilDb = perfil === "Administrador" ? "Administrador" : "Apontador";
     const role = perfil === "Administrador" ? "admin" : "apontador";
+    const normalizedLogin =
+      typeof login_original === "string" && login_original.trim().length > 0
+        ? login_original.trim().toLowerCase()
+        : email.split("@")[0];
+
+    await supabaseAdmin.auth.admin.updateUserById(userId, {
+      user_metadata: { login_original: normalizedLogin },
+    });
 
     const { data: existingProfile } = await supabaseAdmin
       .from("profiles")
@@ -152,12 +165,12 @@ serve(async (req) => {
     if (existingProfile) {
       await supabaseAdmin
         .from("profiles")
-        .update({ nome_completo, perfil: perfilDb, email, status: "ativo" })
+        .update({ nome_completo, perfil: perfilDb, email, status: "ativo", senha_temporaria: true })
         .eq("user_id", userId);
     } else {
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
-        .insert({ user_id: userId, email, nome_completo, perfil: perfilDb, status: "ativo" });
+        .insert({ user_id: userId, email, nome_completo, perfil: perfilDb, status: "ativo", senha_temporaria: true });
       if (profileError) throw new Error("Erro ao criar perfil: " + profileError.message);
     }
 
