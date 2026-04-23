@@ -37,7 +37,8 @@ export default function TrocarSenha() {
       if (profileError) throw profileError;
 
       toast({ title: "Senha alterada com sucesso!" });
-      navigate("/", { replace: true });
+      // Recarrega a página para que o App.tsx releia o banco e limpe o mustChangePassword
+      window.location.replace("/");
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
