@@ -38,6 +38,14 @@ export default function Index() {
     <div className="p-4 md:p-6 space-y-6 pb-8 max-w-4xl mx-auto">
       {/* Top bar */}
       <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mr-3"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+          Início
+        </button>
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground truncate">{profile?.nome_completo || "Usuário"}</p>
           <p className="text-xs text-muted-foreground truncate">{profile?.email || ""}</p>
