@@ -598,7 +598,6 @@ export default function EquipmentDiaryForm() {
         location_address: isCarreta ? null : (locationAddress || null),
         observations: observations || null,
         company_id: profile?.company_id || null,
-        operator_id: session.user.id,
         user_id: session.user.id,
         created_by: session.user.id,
         fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
