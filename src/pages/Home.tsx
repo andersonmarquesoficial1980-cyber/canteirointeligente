@@ -2,7 +2,7 @@
 // STATIC_UI_LOCK: MANDATORY MODULES
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, LogOut } from "lucide-react";
+import { ChevronRight, Crown, LogOut } from "lucide-react";
 
 import logoCi from "@/assets/logo-workflux.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -15,7 +15,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
   const { permissions, loading: loadingPerms } = usePermissions();
-  const { hasModule, loading: loadingModules } = useCompanyModules();
+  const { hasModule, loading: loadingModules, isSuperAdmin } = useCompanyModules();
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -110,6 +110,22 @@ export default function Home() {
               </button>
             );
           })}
+
+        {isSuperAdmin && (
+          <button
+            onClick={() => navigate("/super-admin")}
+            className="group relative flex items-center gap-4 rounded-2xl text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer bg-[hsl(220,65%,24%)]"
+          >
+            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
+              <Crown className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <div className="text-left">
+              <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">Super Admin</span>
+              <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Gestão de Empresas Clientes</span>
+            </div>
+            <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
+          </button>
+        )}
       </div>
     </div>
   );

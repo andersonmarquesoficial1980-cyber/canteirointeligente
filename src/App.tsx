@@ -38,6 +38,7 @@ import AbastecimentoHome from "./pages/AbastecimentoHome";
 import RelatoriosHome from "./pages/RelatoriosHome";
 import RelatorioEquipamento from "./pages/RelatorioEquipamento";
 import DashboardAdmin from "./pages/DashboardAdmin";
+import SuperAdmin from "./pages/SuperAdmin";
 import GestaoFrotasHome from "./pages/GestaoFrotasHome";
 import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
 import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
@@ -137,6 +138,7 @@ function AppRoutes() {
         <Route path="/relatorios" element={<RelatoriosHome />} />
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
         <Route path="/dashboard" element={<DashboardAdmin />} />
+        <Route path="/super-admin" element={<SuperAdmin />} />
         <Route path="/gestao-frotas" element={<GestaoFrotasHome />} />
         <Route path="/gestao-frotas/veiculo/:id" element={<GestaoFrotasVeiculo />} />
         <Route path="/gestao-frotas/dashboard" element={<GestaoFrotasDashboard />} />
