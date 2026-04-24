@@ -1082,18 +1082,19 @@ export default function EquipmentDiaryForm() {
             const c = Number(a.comp) || 0;
             const l = Number(a.larg) || 0;
             const e = Number(a.esp) || 0;
-            const m2Val = c && l ? c * l : null;
-            const m3Val = m2Val && e ? m2Val * (e / 100) : null;
             return {
               diary_id: diary.id,
               length_m: a.comp ? c : null,
               width_m: a.larg ? l : null,
               thickness_cm: a.esp ? e : null,
-              m2: m2Val,
-              m3: m3Val,
+              // m2 e m3 são generated columns — calculadas automaticamente pelo banco
             };
           });
-          await supabase.from("equipment_production_areas").insert(rows);
+          const { error: areasErr } = await supabase.from("equipment_production_areas").insert(rows);
+          if (areasErr) {
+            console.error("[Produção] Erro ao salvar áreas:", areasErr);
+            toast({ title: "Aviso", description: `Erro ao salvar produção: ${areasErr.message}`, variant: "destructive" });
+          }
         }
       }
 
@@ -1108,7 +1109,8 @@ export default function EquipmentDiaryForm() {
             status: b.status,
             horimeter: b.horimeter || null,
           }));
-          await supabase.from("bit_entries").insert(rows);
+          const { error: bitsErr } = await supabase.from("bit_entries").insert(rows);
+          if (bitsErr) console.error("[Bits] Erro ao salvar:", bitsErr);
         }
       }
 
