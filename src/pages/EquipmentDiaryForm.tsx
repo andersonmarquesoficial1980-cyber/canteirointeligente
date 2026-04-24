@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,6 +140,15 @@ function createEmptyTankSupply(): TankSupplyEntry {
   return { id: crypto.randomUUID(), quantity: "", supplier: "", emulsionType: "", materialType: "" };
 }
 
+function toText(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function isRemoteUrl(value: string | null | undefined): boolean {
+  return !!value && /^https?:\/\//i.test(value);
+}
+
 function getAttachmentIds(type: string): string[] {
   if (type === "Vassoura Mecânica") {
     return Array.from({ length: 30 }, (_, i) => `VM${70 + i}`);
@@ -157,6 +166,13 @@ export default function EquipmentDiaryForm() {
   const { profile } = useUserProfile();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [loadingEditData, setLoadingEditData] = useState(false);
+  const [preserveManualClientLocation, setPreserveManualClientLocation] = useState(false);
+  const loadedEditIdRef = useRef<string | null>(null);
+
+  const editId = searchParams.get("edit");
+  const fleetFromQuery = searchParams.get("frota") || "";
+  const isEditMode = !!editId;
 
   const equipmentType = searchParams.get("tipo") || "Fresadora";
   const isFresadora = equipmentType === "Fresadora";
@@ -265,6 +281,7 @@ export default function EquipmentDiaryForm() {
   const hasMultipleAddresses = ogsAddressList.length > 1;
 
   useEffect(() => {
+    if (preserveManualClientLocation) return;
     if (selectedOgs) {
       setClientName(selectedOgs.client_name || "");
       if (!hasMultipleAddresses && ogsAddressList.length === 1) {
@@ -276,7 +293,13 @@ export default function EquipmentDiaryForm() {
       setClientName("");
       setLocationAddress("");
     }
-  }, [selectedOgs, ogsAddressList, hasMultipleAddresses]);
+  }, [selectedOgs, ogsAddressList, hasMultipleAddresses, preserveManualClientLocation]);
+
+  useEffect(() => {
+    if (!isEditMode && fleetFromQuery) {
+      setSelectedFleet(fleetFromQuery.toUpperCase());
+    }
+  }, [isEditMode, fleetFromQuery]);
 
   const uniqueOgs = useMemo(() => {
     const seen = new Set<string>();
@@ -286,6 +309,11 @@ export default function EquipmentDiaryForm() {
       return true;
     });
   }, [ogsData]);
+
+  const handleOgsChange = (value: string) => {
+    setPreserveManualClientLocation(false);
+    setOgsNumber(value);
+  };
 
   // Fetch equipment list
   const { data: equipamentos = [], isLoading: loadingEquipamentos } = useQuery({
@@ -328,7 +356,7 @@ export default function EquipmentDiaryForm() {
 
   // ── SINCRONIZAÇÃO AUTOMÁTICA DE COMBUSTÍVEL (Comboio → Equipamento) ──
   useEffect(() => {
-    if (isComboio || !selectedFleet || !date) {
+    if (isEditMode || isComboio || !selectedFleet || !date) {
       setFuelSyncedFromComboio(false);
       return;
     }
@@ -421,7 +449,7 @@ export default function EquipmentDiaryForm() {
 
     fetchComboioFuel();
     return () => { cancelled = true; };
-  }, [selectedFleet, date, isComboio]);
+  }, [selectedFleet, date, isComboio, isEditMode]);
 
   const fornecedoresDiesel = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Diesel");
   const fornecedoresEmulsao = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Emulsão");
@@ -536,6 +564,294 @@ export default function EquipmentDiaryForm() {
     },
   });
 
+  useEffect(() => {
+    if (!editId) return;
+    if (!session?.user?.id) return;
+    if (loadedEditIdRef.current === editId) return;
+
+    let cancelled = false;
+    const loadDiaryForEdit = async () => {
+      setLoadingEditData(true);
+      try {
+        const [
+          { data: diary, error: diaryError },
+          { data: timeRows },
+          { data: kmaRows },
+          { data: areaRows },
+          { data: bitRows },
+          { data: supplyRows },
+          { data: comboioRows },
+          { data: checklistRows },
+          { data: kmaOperationRows },
+          { data: abastRows },
+        ] = await Promise.all([
+          (supabase as any)
+            .from("equipment_diaries")
+            .select("*")
+            .eq("id", editId)
+            .single(),
+          supabase.from("equipment_time_entries").select("*").eq("diary_id", editId),
+          supabase
+            .from("kma_calibration_entries")
+            .select("*")
+            .eq("equipment_diary_id", editId)
+            .order("attempt_number"),
+          supabase.from("equipment_production_areas").select("*").eq("diary_id", editId),
+          supabase.from("bit_entries").select("*").eq("diary_id", editId),
+          supabase.from("truck_tank_supplies").select("*").eq("diary_id", editId),
+          supabase.from("comboio_equipment_refueling").select("*").eq("diary_id", editId),
+          supabase.from("checklist_entries").select("*").eq("diary_id", editId),
+          supabase.from("kma_operations").select("*").eq("diary_id", editId),
+          (supabase as any).from("abastecimentos").select("*").eq("diary_id", editId),
+        ]);
+
+        if (diaryError) throw diaryError;
+        if (!diary) throw new Error("Lançamento não encontrado.");
+        if (diary.user_id && diary.user_id !== session.user.id) {
+          throw new Error("Você não tem permissão para editar este lançamento.");
+        }
+        if (cancelled) return;
+
+        setPreserveManualClientLocation(true);
+        setFuelSyncedFromComboio(false);
+
+        setSelectedFleet((diary.equipment_fleet || fleetFromQuery || "").toUpperCase());
+        setDate(diary.date || new Date().toISOString().split("T")[0]);
+        setOperator(diary.operator_name || "");
+        setTurno(diary.period === "noturno" ? "noturno" : "diurno");
+        setWorkStatus(diary.work_status || "");
+        setOgsNumber(diary.ogs_number || "");
+        setClientName(diary.client_name || "");
+        setLocationAddress(diary.location_address || "");
+        setObservations(diary.observations || "");
+        setFueling({
+          fuelType: diary.fuel_type || "",
+          liters: toText(diary.fuel_liters),
+          fuelMeter: toText(diary.fuel_meter),
+        });
+
+        if (usesOdometer) {
+          setMeterInitial(toText(diary.odometer_initial));
+          setMeterFinal(toText(diary.odometer_final));
+        } else {
+          setMeterInitial(toText(diary.meter_initial));
+          setMeterFinal(toText(diary.meter_final));
+        }
+
+        if (isCaminhoes) setCaminhaoTipo(diary.fresagem_type || "");
+        if (isRolo) setRoloType(diary.fresagem_type || "");
+        if (isVeiculo) setVeiculoType(diary.fresagem_type || "");
+
+        if (isCarreta) {
+          setPrancha(diary.attachment_type || "");
+        } else if (isBobcat) {
+          const rawAttachment = diary.attachment_type || "";
+          const [type, id] = rawAttachment.split("—").map((v: string) => v.trim());
+          setAttachmentType(type || rawAttachment);
+          setAttachmentId(id || "");
+        } else if (isRetro) {
+          setAttachmentType(diary.attachment_type || "");
+        }
+
+        setOperatorSolo((isFresadora || isUsinaKma) && diary.operator_solo ? diary.operator_solo : "");
+        setOperator2(isUsinaKma ? (diary.operator_solo || "") : "");
+
+        const loadedTurno = diary.period === "noturno" ? "noturno" : "diurno";
+        const mappedTimeEntries = ((timeRows || []) as any[])
+          .sort((a, b) => String(a.start_time || "").localeCompare(String(b.start_time || "")))
+          .map((row: any) => ({
+            id: row.id || crypto.randomUUID(),
+            startTime: row.start_time || "",
+            endTime: row.end_time || "",
+            activity: row.activity || "",
+            isParada: ["Refeições", "À Disposição", "Manutenção"].includes(row.activity || ""),
+            maintenanceDetails: row.activity === "Manutenção" ? row.description || "" : "",
+            origin: row.origin || "",
+            destination: row.destination || "",
+            transportObs: row.activity === "Transporte" ? row.description || "" : "",
+            transportOgs: row.ogs_destination || "",
+            transportPassengers: "",
+            transportEquip1: "",
+            transportEquip1Custom: "",
+            transportEquip2: "",
+            transportEquip2Custom: "",
+            transportEquip3: "",
+            transportEquip3Custom: "",
+            transportInternalDetails: "",
+            returnReason: "",
+            returnDetails: "",
+            transportVazio: row.description === "VAZIO",
+          }));
+        setTimeEntries(
+          mappedTimeEntries.length > 0 ? mappedTimeEntries : [createDefaultTimeEntry(loadedTurno)],
+        );
+
+        const mappedAreas = ((areaRows || []) as any[]).map((row: any) => ({
+          id: row.id || crypto.randomUUID(),
+          comp: toText(row.length_m),
+          larg: toText(row.width_m),
+          esp: toText(row.thickness_cm),
+        }));
+        setProductionAreas(mappedAreas.length > 0 ? mappedAreas : [createEmptyArea()]);
+
+        const mappedBits = ((bitRows || []) as any[]).map((row: any) => ({
+          id: row.id || crypto.randomUUID(),
+          brand: row.brand || "",
+          quantity: toText(row.quantity),
+          status: row.status || "Novo",
+          horimeter: row.horimeter || "",
+        }));
+        setBits(mappedBits);
+
+        const mappedKmaEntries = ((kmaRows || []) as any[]).map((row: any, index: number) => ({
+          tentativa: row.attempt_number || index + 1,
+          tara: toText(row.truck_tara),
+          pesoNominal: toText(row.nominal_weight_usina),
+          pesoReal: toText(row.real_weight_reference),
+          fator: toText(row.adjustment_factor),
+          ticketPhotoFile: null,
+          ticketPhotoPreview: row.ticket_photo_url || null,
+        }));
+        setKmaEntries(mappedKmaEntries.length > 0 ? mappedKmaEntries : [createEmptyCalibration(1)]);
+
+        const firstKmaOperation = ((kmaOperationRows || []) as any[])[0];
+        if (firstKmaOperation) {
+          setKmaOperation({
+            operationType: firstKmaOperation.operation_type || "",
+            capType: firstKmaOperation.cap_type || "",
+            capSupplier: firstKmaOperation.cap_supplier || "",
+            capQtyTon: toText(firstKmaOperation.cap_qty_ton),
+            capNfNumber: firstKmaOperation.cap_nf_number || "",
+            filerType: firstKmaOperation.filer_type || "",
+            filerSupplier: firstKmaOperation.filer_supplier || "",
+            filerQtyTon: toText(firstKmaOperation.filer_qty_ton),
+            silo1Material: firstKmaOperation.silo1_material || "",
+            silo1Qty: toText(firstKmaOperation.silo1_qty),
+            silo2Material: firstKmaOperation.silo2_material || "",
+            silo2Qty: toText(firstKmaOperation.silo2_qty),
+            waterLiters: toText(firstKmaOperation.water_liters),
+            waterSupplier: firstKmaOperation.water_supplier || "",
+            aggregatesSupplier: firstKmaOperation.aggregates_supplier || "",
+            totalVolumeMachinedTon: toText(firstKmaOperation.total_volume_machined_ton),
+          });
+        } else {
+          setKmaOperation(createEmptyKmaOperation());
+        }
+
+        const tankRows = ((supplyRows || []) as any[]).map((row: any) => ({
+          id: row.id || crypto.randomUUID(),
+          quantity: toText(row.quantity),
+          supplier: row.supplier || "",
+          emulsionType: row.emulsion_type || "",
+          materialType: row.material_type || "",
+        }));
+        const dieselSupply = tankRows.find((row) => row.materialType === "Diesel");
+        setComboioSaldoInicial(dieselSupply?.quantity || "");
+        setComboioFornecedor(dieselSupply?.supplier || "");
+        const onlyPipaEspargidorSupplies = tankRows.filter((row) => row.materialType !== "Diesel");
+        setTankSupplies(
+          onlyPipaEspargidorSupplies.length > 0
+            ? onlyPipaEspargidorSupplies
+            : [createEmptyTankSupply()],
+        );
+
+        const abastBuckets = new Map<string, any[]>();
+        ((abastRows || []) as any[]).forEach((row: any) => {
+          const key = [
+            row.equipment_fleet || "",
+            toText(row.litros),
+            toText(row.horimetro),
+            row.ogs || "",
+          ].join("|");
+          const list = abastBuckets.get(key) || [];
+          list.push(row);
+          abastBuckets.set(key, list);
+        });
+
+        const mappedComboioEntries = ((comboioRows || []) as any[]).map((row: any) => {
+          const key = [
+            row.equipment_fleet_fueled || "",
+            toText(row.liters_fueled),
+            toText(row.equipment_meter),
+            row.ogs_destination || "",
+          ].join("|");
+          const matches = abastBuckets.get(key) || [];
+          const matchedAbast = matches.length > 0 ? matches.shift() : null;
+          if (matches.length === 0) abastBuckets.delete(key);
+          else abastBuckets.set(key, matches);
+
+          let tipoEquipamento = matchedAbast?.equipment_type || "";
+          if (!tipoEquipamento && row.equipment_fleet_fueled) {
+            const foundFleet = equipmentFleets.find(
+              (f: any) => f.fleet_number === row.equipment_fleet_fueled,
+            );
+            tipoEquipamento = foundFleet?.equipment_type || "";
+          }
+
+          return {
+            id: row.id || crypto.randomUUID(),
+            hora: matchedAbast?.hora || "",
+            tipoEquipamento,
+            fleetFueled: row.equipment_fleet_fueled || "",
+            equipmentMeter: toText(row.equipment_meter),
+            litersFueled: toText(row.liters_fueled),
+            ogsDestination: row.ogs_destination || "",
+            isLubricated: !!row.is_lubricated,
+            isWashed: !!row.is_washed,
+          };
+        });
+        setComboioRefuels(
+          mappedComboioEntries.length > 0 ? mappedComboioEntries : [createEmptyComboioRefuel()],
+        );
+
+        const mappedChecklist = ((checklistRows || []) as any[]).map((row: any) => ({
+          itemId: row.item_id,
+          itemName: "",
+          status: row.status,
+          observation: row.observation || "",
+          photoFile: null,
+          photoPreview: row.photo_url || null,
+        }));
+        setChecklistResults(mappedChecklist);
+        loadedEditIdRef.current = editId;
+      } catch (err: any) {
+        if (!cancelled) {
+          toast({
+            title: "Erro ao carregar lançamento",
+            description: err?.message || "Não foi possível carregar os dados para edição.",
+            variant: "destructive",
+          });
+          navigate("/meus-lancamentos");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingEditData(false);
+        }
+      }
+    };
+
+    loadDiaryForEdit();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    editId,
+    session?.user?.id,
+    usesOdometer,
+    isCaminhoes,
+    isRolo,
+    isVeiculo,
+    isCarreta,
+    isBobcat,
+    isRetro,
+    isFresadora,
+    isUsinaKma,
+    fleetFromQuery,
+    equipmentFleets,
+    navigate,
+    toast,
+  ]);
+
   // Determine which static fleet list to use
   const getStaticFleetList = () => {
     if (isBobcat) return BOBCAT_FLEETS;
@@ -613,13 +929,45 @@ export default function EquipmentDiaryForm() {
         diaryPayload.meter_final = meterFinal ? Number(meterFinal) : null;
       }
 
-      const { data: diary, error } = await supabase
-        .from("equipment_diaries")
-        .insert(diaryPayload)
-        .select()
-        .single();
+      let diary: any = null;
+      let error: any = null;
+
+      if (isEditMode && editId) {
+        const { data: updatedDiary, error: updateError } = await (supabase as any)
+          .from("equipment_diaries")
+          .update(diaryPayload)
+          .eq("id", editId)
+          .eq("user_id", session.user.id)
+          .select()
+          .single();
+        diary = updatedDiary;
+        error = updateError;
+      } else {
+        const { data: insertedDiary, error: insertError } = await supabase
+          .from("equipment_diaries")
+          .insert(diaryPayload)
+          .select()
+          .single();
+        diary = insertedDiary;
+        error = insertError;
+      }
 
       if (error) throw error;
+      if (!diary?.id) throw new Error("Não foi possível salvar o diário.");
+
+      if (isEditMode) {
+        await Promise.all([
+          supabase.from("equipment_time_entries").delete().eq("diary_id", diary.id),
+          supabase.from("kma_calibration_entries").delete().eq("equipment_diary_id", diary.id),
+          supabase.from("kma_operations").delete().eq("diary_id", diary.id),
+          supabase.from("equipment_production_areas").delete().eq("diary_id", diary.id),
+          supabase.from("bit_entries").delete().eq("diary_id", diary.id),
+          supabase.from("checklist_entries").delete().eq("diary_id", diary.id),
+          supabase.from("truck_tank_supplies").delete().eq("diary_id", diary.id),
+          supabase.from("comboio_equipment_refueling").delete().eq("diary_id", diary.id),
+          (supabase as any).from("abastecimentos").delete().eq("diary_id", diary.id),
+        ]);
+      }
 
       // Save time entries
       const validTimeEntries = timeEntries.filter((t) => t.startTime && t.activity);
@@ -679,7 +1027,9 @@ export default function EquipmentDiaryForm() {
       if (isUsinaKma && diary) {
         const validKma = kmaEntries.filter((e) => e.pesoNominal || e.pesoReal);
         for (const entry of validKma) {
-          let ticketUrl: string | null = null;
+          let ticketUrl: string | null = isRemoteUrl(entry.ticketPhotoPreview)
+            ? entry.ticketPhotoPreview
+            : null;
           if (entry.ticketPhotoFile) {
             const path = `kma-tickets/${diary.id}/tentativa_${entry.tentativa}_${Date.now()}.jpg`;
             const { error: uploadErr } = await supabase.storage
@@ -775,7 +1125,7 @@ export default function EquipmentDiaryForm() {
       if (hasChecklist && diary && checklistResults.length > 0) {
         const checklistRows: any[] = [];
         for (const cr of checklistResults) {
-          let photoUrl: string | null = null;
+          let photoUrl: string | null = isRemoteUrl(cr.photoPreview) ? cr.photoPreview : null;
           if (cr.photoFile) {
             try {
               const path = `checklist/${diary.id}/${cr.itemId}_${Date.now()}.jpg`;
@@ -926,10 +1276,16 @@ export default function EquipmentDiaryForm() {
       }
 
       toast({
-        title: isDraft ? "📝 Rascunho salvo!" : "✅ Diário enviado!",
-        description: `Diário para ${normalizedSelectedFleet} salvo com sucesso.`,
+        title: isEditMode
+          ? "✅ Lançamento atualizado!"
+          : isDraft
+            ? "📝 Rascunho salvo!"
+            : "✅ Diário enviado!",
+        description: isEditMode
+          ? `Lançamento para ${normalizedSelectedFleet} atualizado com sucesso.`
+          : `Diário para ${normalizedSelectedFleet} salvo com sucesso.`,
       });
-      navigate("/equipamentos");
+      navigate(isEditMode ? "/meus-lancamentos" : "/equipamentos");
     } catch (err: any) {
       const msg = err?.message || "Erro desconhecido";
       if (msg.includes("row-level security") || msg.includes("policy")) {
@@ -1186,7 +1542,7 @@ export default function EquipmentDiaryForm() {
           {!isCarreta && !isComboio && (
             <FieldRow>
               <Field label="OGS">
-                <Select value={ogsNumber} onValueChange={setOgsNumber}>
+                <Select value={ogsNumber} onValueChange={handleOgsChange}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder={uniqueOgs.length === 0 ? "Carregando OGS..." : "Selecione OGS..."} />
                   </SelectTrigger>
@@ -1754,20 +2110,26 @@ export default function EquipmentDiaryForm() {
         <div className="max-w-lg mx-auto space-y-2">
           <Button
             onClick={() => handleSave(false)}
-            disabled={saving || !!horimeterError}
+            disabled={saving || !!horimeterError || loadingEditData}
             className="w-full font-extrabold text-base py-6 rounded-2xl bg-header-gradient hover:opacity-90 shadow-lg glow-primary"
           >
             <Send className="w-5 h-5 mr-2" />
-            {saving ? "Enviando..." : "Enviar Diário"}
+            {saving
+              ? isEditMode
+                ? "Salvando..."
+                : "Enviando..."
+              : isEditMode
+                ? "Salvar Edição"
+                : "Enviar Diário"}
           </Button>
           <Button
             onClick={() => handleSave(true)}
-            disabled={saving}
+            disabled={saving || loadingEditData}
             variant="outline"
             className="w-full text-sm py-3"
           >
             <Save className="w-4 h-4 mr-2" />
-            Salvar Rascunho
+            {isEditMode ? "Salvar Edição como Rascunho" : "Salvar Rascunho"}
           </Button>
         </div>
       </div>

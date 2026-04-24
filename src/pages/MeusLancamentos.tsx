@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -232,28 +233,43 @@ export default function MeusLancamentos() {
           </DialogHeader>
 
           {selecionado && (
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <Info label="Data" value={fmtDate(selecionado.date)} />
-                <Info label="Turno" value={selecionado.period || "-"} />
-                <Info label="Frota" value={selecionado.equipment_fleet || "-"} />
-                <Info label="Tipo" value={selecionado.equipment_type || "-"} />
-                <Info label="Status" value={selecionado.work_status || "-"} />
-                <Info label="Operador" value={selecionado.operator_name || "-"} />
-                <Info label="OGS" value={selecionado.ogs_number || "-"} />
-                <Info label="Cliente" value={selecionado.client_name || "-"} />
+            <div className="space-y-4 text-sm">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Info label="Data" value={fmtDate(selecionado.date)} />
+                  <Info label="Turno" value={selecionado.period || "-"} />
+                  <Info label="Frota" value={selecionado.equipment_fleet || "-"} />
+                  <Info label="Tipo" value={selecionado.equipment_type || "-"} />
+                  <Info label="Status" value={selecionado.work_status || "-"} />
+                  <Info label="Operador" value={selecionado.operator_name || "-"} />
+                  <Info label="OGS" value={selecionado.ogs_number || "-"} />
+                  <Info label="Cliente" value={selecionado.client_name || "-"} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Info label="Horímetro Inicial" value={String(selecionado.meter_initial ?? "-")} />
+                  <Info label="Horímetro Final" value={String(selecionado.meter_final ?? "-")} />
+                  <Info label="Odômetro Inicial" value={String(selecionado.odometer_initial ?? "-")} />
+                  <Info label="Odômetro Final" value={String(selecionado.odometer_final ?? "-")} />
+                </div>
+
+                <Info label="Litros" value={String(selecionado.fuel_liters ?? "-")} />
+                <Info label="Local" value={selecionado.location_address || "-"} />
+                <Info label="Observações" value={selecionado.observations || "-"} />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Info label="Horímetro Inicial" value={String(selecionado.meter_initial ?? "-")} />
-                <Info label="Horímetro Final" value={String(selecionado.meter_final ?? "-")} />
-                <Info label="Odômetro Inicial" value={String(selecionado.odometer_initial ?? "-")} />
-                <Info label="Odômetro Final" value={String(selecionado.odometer_final ?? "-")} />
-              </div>
-
-              <Info label="Litros" value={String(selecionado.fuel_liters ?? "-")} />
-              <Info label="Local" value={selecionado.location_address || "-"} />
-              <Info label="Observações" value={selecionado.observations || "-"} />
+              <Button
+                className="w-full"
+                onClick={() =>
+                  navigate(
+                    `/equipamentos/diario?edit=${selecionado.id}&tipo=${encodeURIComponent(
+                      selecionado.equipment_type || "",
+                    )}&frota=${encodeURIComponent(selecionado.equipment_fleet || "")}`,
+                  )
+                }
+              >
+                Editar Lançamento
+              </Button>
             </div>
           )}
         </DialogContent>
