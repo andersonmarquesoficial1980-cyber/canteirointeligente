@@ -70,7 +70,7 @@ export default function MeusLancamentos() {
     let query = (supabase as any)
       .from("equipment_diaries")
       .select("*")
-      .eq("operator_id", user.id)
+      .eq("user_id", user.id)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -89,7 +89,7 @@ export default function MeusLancamentos() {
       (supabase as any)
         .from("equipment_diaries")
         .select("equipment_type")
-        .eq("operator_id", user.id)
+        .eq("user_id", user.id)
         .not("equipment_type", "is", null),
     ]);
 
