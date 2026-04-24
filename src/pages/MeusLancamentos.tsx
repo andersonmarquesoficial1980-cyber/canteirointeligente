@@ -271,10 +271,17 @@ export default function MeusLancamentos() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Info label="Horímetro Inicial" value={String(selecionado.meter_initial ?? "-")} />
-                  <Info label="Horímetro Final" value={String(selecionado.meter_final ?? "-")} />
-                  <Info label="Odômetro Inicial" value={String(selecionado.odometer_initial ?? "-")} />
-                  <Info label="Odômetro Final" value={String(selecionado.odometer_final ?? "-")} />
+                  {['Caminhões','Comboio','Carreta','Veículo'].includes(selecionado.equipment_type || '') ? (
+                    <>
+                      <Info label="Odômetro Inicial" value={String(selecionado.odometer_initial ?? "-")} />
+                      <Info label="Odômetro Final" value={String(selecionado.odometer_final ?? "-")} />
+                    </>
+                  ) : (
+                    <>
+                      <Info label="Horímetro Inicial" value={String(selecionado.meter_initial ?? "-")} />
+                      <Info label="Horímetro Final" value={String(selecionado.meter_final ?? "-")} />
+                    </>
+                  )}
                 </div>
 
                 <Info label="Litros Diesel" value={String(selecionado.fuel_liters ?? "-")} />
