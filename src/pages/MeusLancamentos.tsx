@@ -61,20 +61,23 @@ export default function MeusLancamentos() {
     setSelecionado(item);
     setDetalheExtra({ areas: [], bits: [], horas: null });
     const [{ data: areas }, { data: bits }, { data: times }] = await Promise.all([
-      supabase.from('equipment_production_areas').select('*').eq('diary_id', item.id),
-      (supabase as any).from('bit_entries').select('*').eq('diary_id', item.id),
-      supabase.from('equipment_time_entries').select('start_time, end_time, activity').eq('diary_id', item.id),
+      supabase.from('equipment_production_areas').select('length_m,width_m,thickness_cm,m2,m3').eq('diary_id', item.id),
+      supabase.from('bit_entries').select('quantity,brand,status,meter_at_change').eq('diary_id', item.id),
+      supabase.from('equipment_time_entries').select('start_time,end_time,activity').eq('diary_id', item.id),
     ]);
-    // Calcula horas trabalhadas
+    // Atividades produtivas (horas trabalhando)
+    const PARADAS = ['Refeições', 'À Disposição', 'Manutenção'];
     let horasTotal = 0;
     (times || []).forEach((t: any) => {
-      if (t.start_time && t.end_time && !['Refeições', 'À Disposição', 'Manutenção'].includes(t.activity)) {
+      if (t.start_time && t.end_time && !PARADAS.includes(t.activity || '')) {
         const [sh, sm] = t.start_time.split(':').map(Number);
         const [eh, em] = t.end_time.split(':').map(Number);
-        horasTotal += (eh * 60 + em - sh * 60 - sm) / 60;
+        let diff = (eh * 60 + em) - (sh * 60 + sm);
+        if (diff < 0) diff += 24 * 60; // virada de turno
+        horasTotal += diff / 60;
       }
     });
-    setDetalheExtra({ areas: areas || [], bits: bits || [], horas: horasTotal > 0 ? horasTotal : null });
+    setDetalheExtra({ areas: areas || [], bits: bits || [], horas: horasTotal > 0 ? Math.round(horasTotal * 10) / 10 : null });
   };
 
   const carregar = async () => {
