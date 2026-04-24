@@ -100,15 +100,32 @@ export default function RelatorioEquipamento() {
   async function buscar() {
     if (!fleet) return;
     setLoading(true);
+    const fleetKey = fleet.trim();
     const ini = modoPeriodo && dataIni ? dataIni : `${anoSel}-${mes}-01`;
     const fim = modoPeriodo && dataFim ? dataFim : `${anoSel}-${mes}-${new Date(parseInt(anoSel), parseInt(mes), 0).getDate()}`;
 
-    const [{ data: d }, { data: ab }, { data: os }, { data: ck }] = await Promise.all([
-      supabase.from("equipment_diaries").select("*").eq("equipment_fleet", fleet).gte("date", ini).lte("date", fim).order("date"),
-      supabase.from("abastecimentos").select("*").eq("equipment_fleet", fleet).gte("data", ini).lte("data", fim).order("data"),
-      supabase.from("manutencao_os").select("*").eq("equipment_fleet", fleet).or(`data_abertura.gte.${ini},data_conclusao.gte.${ini}`).order("data_abertura"),
-      supabase.from("checklist_entries").select("*, checklist_items_standard(item_name)").in("diary_id", (d || []).map((x: any) => x.id)).eq("status", "nao_ok"),
+    const [{ data: d }, { data: ab }, { data: os }] = await Promise.all([
+      supabase.from("equipment_diaries").select("*").ilike("equipment_fleet", fleetKey).gte("date", ini).lte("date", fim).order("date"),
+      supabase.from("abastecimentos").select("*").ilike("equipment_fleet", fleetKey).gte("data", ini).lte("data", fim).order("data"),
+      supabase.from("manutencao_os").select("*").ilike("equipment_fleet", fleetKey).or(`data_abertura.gte.${ini},data_conclusao.gte.${ini}`).order("data_abertura"),
     ]);
+
+    const diaryIds = (d || []).map((x: any) => x.id);
+    const { data: ck } = diaryIds.length > 0
+      ? await supabase
+          .from("checklist_entries")
+          .select("*, checklist_items_standard(item_name)")
+          .in("diary_id", diaryIds)
+          .eq("status", "nao_ok")
+      : { data: [] as any[] };
+
+    console.info("[RelatorioEquipamento] busca", {
+      fleet: fleetKey,
+      periodo: { ini, fim },
+      diarios: d?.length || 0,
+      abastecimentos: ab?.length || 0,
+      os: os?.length || 0,
+    });
 
     setDiarios(d || []);
     setAbastecimentos(ab || []);

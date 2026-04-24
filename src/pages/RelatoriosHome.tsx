@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft } from "lucide-react";
+import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const TIPOS_RELATORIO = [
@@ -127,6 +127,14 @@ export default function RelatoriosHome() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-2">
+        <Button
+          variant="outline"
+          className="w-full h-11 gap-2 font-semibold"
+          onClick={() => navigate("/meus-lancamentos")}
+        >
+          <ClipboardList className="w-4 h-4" />
+          Meus Lançamentos
+        </Button>
 
         {/* PASSO 1: Tipo de Relatório */}
         {step === "tipo" && (

@@ -28,6 +28,7 @@ import EspelhoPonto from "./pages/EspelhoPonto";
 import ProgramadorHome from "./pages/ProgramadorHome";
 import DemandasHome from "./pages/DemandasHome";
 import MinhasDemandas from "./pages/MinhasDemandas";
+import MeusLancamentos from "./pages/MeusLancamentos";
 import ExportarProtheus from "./pages/ExportarProtheus";
 import DocumentosHome from "./pages/DocumentosHome";
 import DocumentosIntegracao from "./pages/DocumentosIntegracao";
@@ -128,6 +129,7 @@ function AppRoutes() {
         <Route path="/equipamentos" element={<EquipmentHome />} />
         <Route path="/equipamentos/frota" element={<AppLayout><FrotaNovo /></AppLayout>} />
         <Route path="/equipamentos/diario" element={<EquipmentDiaryForm />} />
+        <Route path="/meus-lancamentos" element={<MeusLancamentos />} />
         <Route path="/equipamentos/exportar-protheus" element={<ExportarProtheus />} />
         <Route path="/documentos" element={<DocumentosHome />} />
         <Route path="/documentos/:id" element={<DocumentosIntegracao />} />

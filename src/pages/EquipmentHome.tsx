@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { LogOut, ChevronRight, FileSpreadsheet } from "lucide-react";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { LogOut, ChevronRight, FileSpreadsheet, ClipboardList } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
 
 import imgFresadora from "@/assets/equip-fresadora.png";
@@ -125,6 +124,15 @@ export default function EquipmentHome() {
             Exportar para Protheus
           </Button>
         )}
+
+        <Button
+          variant="outline"
+          className="mt-2 w-full h-12 gap-2 text-sm font-semibold"
+          onClick={() => navigate("/meus-lancamentos")}
+        >
+          <ClipboardList className="w-5 h-5" />
+          Meus Lançamentos
+        </Button>
 
         <Button
           variant="ghost"

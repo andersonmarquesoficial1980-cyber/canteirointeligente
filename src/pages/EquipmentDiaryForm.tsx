@@ -578,10 +578,12 @@ export default function EquipmentDiaryForm() {
       return;
     }
 
+    const normalizedSelectedFleet = selectedFleet.trim().toUpperCase();
+
     setSaving(true);
     try {
       const diaryPayload: any = {
-        equipment_fleet: selectedFleet,
+        equipment_fleet: normalizedSelectedFleet,
         equipment_type: equipmentType,
         date,
         operator_name: operator || null,
@@ -596,6 +598,9 @@ export default function EquipmentDiaryForm() {
         location_address: isCarreta ? null : (locationAddress || null),
         observations: observations || null,
         company_id: profile?.company_id || null,
+        operator_id: session.user.id,
+        user_id: session.user.id,
+        created_by: session.user.id,
         fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
         attachment_type: isCarreta ? (prancha || null) : (attachmentType || null),
         status: isDraft ? "rascunho" : "enviado",
@@ -853,7 +858,7 @@ export default function EquipmentDiaryForm() {
                 litros: Number(r.litersFueled),
                 horimetro: r.equipmentMeter ? Number(r.equipmentMeter) : null,
                 fonte: "comboio",
-                comboio_fleet: selectedFleet,
+                comboio_fleet: normalizedSelectedFleet,
                 lubrificado: r.isLubricated,
                 lavado: r.isWashed,
                 ogs: r.ogsDestination || null,
@@ -873,7 +878,7 @@ export default function EquipmentDiaryForm() {
 
           if (isComboio) {
             htmlReport = buildComboioEmailReport({
-              fleet: selectedFleet,
+              fleet: normalizedSelectedFleet,
               date,
               operator,
               turno,
@@ -887,7 +892,7 @@ export default function EquipmentDiaryForm() {
             });
           } else if (isCarreta) {
             htmlReport = buildCarretaEmailReport({
-              fleet: selectedFleet,
+              fleet: normalizedSelectedFleet,
               prancha: prancha || "",
               date,
               operator,
@@ -903,8 +908,8 @@ export default function EquipmentDiaryForm() {
           if (htmlReport) {
             const fmtDateEmail = (d: string) => { const [y,m,day] = d.split("-"); return `${day}/${m}/${y}`; };
             const emailSubject = isComboio
-              ? `Abastecimento de Equipamentos - ${selectedFleet} - ${fmtDateEmail(date)}`
-              : `Transporte de Equipamentos - ${selectedFleet} - ${fmtDateEmail(date)}`;
+              ? `Abastecimento de Equipamentos - ${normalizedSelectedFleet} - ${fmtDateEmail(date)}`
+              : `Transporte de Equipamentos - ${normalizedSelectedFleet} - ${fmtDateEmail(date)}`;
             // Sending email
             const { error: emailError } = await supabase.functions.invoke("send-rdo-email", {
               body: { rdo_id: diary.id, html_report: htmlReport, subject: emailSubject },
@@ -923,7 +928,7 @@ export default function EquipmentDiaryForm() {
 
       toast({
         title: isDraft ? "📝 Rascunho salvo!" : "✅ Diário enviado!",
-        description: `Diário para ${selectedFleet} salvo com sucesso.`,
+        description: `Diário para ${normalizedSelectedFleet} salvo com sucesso.`,
       });
       navigate("/equipamentos");
     } catch (err: any) {
