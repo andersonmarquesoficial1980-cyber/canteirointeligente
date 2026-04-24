@@ -55,6 +55,27 @@ export default function MeusLancamentos() {
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [selecionado, setSelecionado] = useState<Lancamento | null>(null);
+  const [detalheExtra, setDetalheExtra] = useState<{ areas: any[]; bits: any[]; horas: number | null }>({ areas: [], bits: [], horas: null });
+
+  const abrirDetalhe = async (item: Lancamento) => {
+    setSelecionado(item);
+    setDetalheExtra({ areas: [], bits: [], horas: null });
+    const [{ data: areas }, { data: bits }, { data: times }] = await Promise.all([
+      supabase.from('equipment_production_areas').select('*').eq('diary_id', item.id),
+      (supabase as any).from('bit_entries').select('*').eq('diary_id', item.id),
+      supabase.from('equipment_time_entries').select('start_time, end_time, activity').eq('diary_id', item.id),
+    ]);
+    // Calcula horas trabalhadas
+    let horasTotal = 0;
+    (times || []).forEach((t: any) => {
+      if (t.start_time && t.end_time && !['Refeições', 'À Disposição', 'Manutenção'].includes(t.activity)) {
+        const [sh, sm] = t.start_time.split(':').map(Number);
+        const [eh, em] = t.end_time.split(':').map(Number);
+        horasTotal += (eh * 60 + em - sh * 60 - sm) / 60;
+      }
+    });
+    setDetalheExtra({ areas: areas || [], bits: bits || [], horas: horasTotal > 0 ? horasTotal : null });
+  };
 
   const carregar = async () => {
     setLoading(true);
@@ -184,7 +205,7 @@ export default function MeusLancamentos() {
             {lancamentos.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setSelecionado(item)}
+                onClick={() => abrirDetalhe(item)}
                 className="w-full text-left rdo-card hover:shadow-md transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -253,10 +274,36 @@ export default function MeusLancamentos() {
                   <Info label="Odômetro Final" value={String(selecionado.odometer_final ?? "-")} />
                 </div>
 
-                <Info label="Litros" value={String(selecionado.fuel_liters ?? "-")} />
+                <Info label="Litros Diesel" value={String(selecionado.fuel_liters ?? "-")} />
+                {detalheExtra.horas !== null && (
+                  <Info label="Horas Trabalhadas" value={`${detalheExtra.horas.toFixed(1)}h`} />
+                )}
                 <Info label="Local" value={selecionado.location_address || "-"} />
                 <Info label="Observações" value={selecionado.observations || "-"} />
               </div>
+
+              {detalheExtra.areas.length > 0 && (
+                <div className="rounded-lg border border-border p-3 space-y-1">
+                  <p className="text-xs font-bold uppercase text-muted-foreground">Produção (Fresagem)</p>
+                  {detalheExtra.areas.map((a: any, i: number) => (
+                    <p key={i} className="text-xs">
+                      {a.length_m}m × {a.width_m}m × {a.thickness_cm}cm = <b>{a.m2?.toFixed(1)} m²</b> / {a.m3?.toFixed(2)} m³
+                    </p>
+                  ))}
+                  <p className="text-xs font-bold text-primary">
+                    Total: {detalheExtra.areas.reduce((s: number, a: any) => s + (a.m2 || 0), 0).toFixed(1)} m²
+                  </p>
+                </div>
+              )}
+
+              {detalheExtra.bits.length > 0 && (
+                <div className="rounded-lg border border-border p-3 space-y-1">
+                  <p className="text-xs font-bold uppercase text-muted-foreground">Bits Lançados</p>
+                  {detalheExtra.bits.map((b: any, i: number) => (
+                    <p key={i} className="text-xs">{b.quantity}x {b.brand} — {b.status}</p>
+                  ))}
+                </div>
+              )}
 
               <Button
                 className="w-full"
