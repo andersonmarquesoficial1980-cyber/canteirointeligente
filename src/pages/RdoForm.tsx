@@ -7,6 +7,8 @@ import { ArrowLeft, Send, MessageCircle, FileText, Save, RotateCw } from "lucide
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { saveRdoOffline } from "@/hooks/useOfflineSync";
 import RdoHeader from "@/components/rdo/RdoHeader";
 import RdoTipoSelector from "@/components/rdo/RdoTipoSelector";
 import SectionInfraestrutura, { type InfraProducaoEntry } from "@/components/rdo/SectionInfraestrutura";
@@ -33,6 +35,7 @@ export default function RdoForm() {
   const [saving, setSaving] = useState(false);
   const isMobile = useIsMobile();
   const { profile } = useUserProfile();
+  const isOnline = useOnlineStatus();
   const today = new Date().toISOString().split("T")[0];
 
   // Header
@@ -298,23 +301,47 @@ export default function RdoForm() {
       return;
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
+      return;
+    }
+    const responsavelNome = profile?.nome_completo || "Não identificado";
+    const rdoPayload = {
+      data: header.data,
+      obra_nome: header.obra_nome,
+      turno: normalizedTurno,
+      clima: header.status_obra || null,
+      responsavel: responsavelNome,
+      user_id: user.id,
+    };
+
+    if (!isOnline) {
+      await saveRdoOffline(
+        {
+          rdoPayload,
+          tipoRdo,
+          tipoServico,
+          infraProducao,
+          producaoCauq,
+          efetivo,
+          globalEntrada,
+          globalSaida,
+        },
+        tipoRdo || "RDO",
+      );
+
+      toast({
+        title: "Lançamento salvo offline ✅",
+        description: "Será sincronizado quando a internet voltar.",
+      });
+
+      if (showNavigate) navigate("/");
+      return;
+    }
+
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
-        setSaving(false);
-        return;
-      }
-      const responsavelNome = profile?.nome_completo || "Não identificado";
-      const rdoPayload = {
-        data: header.data,
-        obra_nome: header.obra_nome,
-        turno: normalizedTurno,
-        clima: header.status_obra || null,
-        responsavel: responsavelNome,
-        user_id: user.id,
-      };
       // RDO payload ready
 
       const { data: rdo, error: rdoError } = await supabase

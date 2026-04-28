@@ -18,39 +18,32 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "pwa-icon-192.png", "pwa-icon-512.png"],
-      workbox: {
-        navigateFallbackDenylist: [/^\/~oauth/],
-        cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-      },
+      includeAssets: ["favicon.ico", "logo-workflux.png"],
       manifest: {
         name: "Workflux",
         short_name: "Workflux",
-        description: "Plataforma de Gestão e Integração de Campo",
-        theme_color: "#1A56DB",
-        background_color: "#1A56DB",
+        description: "Gestão de Campo - Workflux",
+        theme_color: "#1e3a5f",
+        background_color: "#ffffff",
         display: "standalone",
-        orientation: "portrait",
         start_url: "/",
         icons: [
+          { src: "/logo-workflux.png", sizes: "192x192", type: "image/png" },
+          { src: "/logo-workflux.png", sizes: "512x512", type: "image/png" },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,avif,woff2}"],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        runtimeCaching: [
           {
-            src: "/pwa-icon-192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-icon-512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-icon-512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
+            urlPattern: /^https:\/\/ucgcqexunnsrffzrfhqu\.supabase\.co\/.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "supabase-cache",
+              expiration: { maxEntries: 200, maxAgeSeconds: 86400 },
+              networkTimeoutSeconds: 5,
+            },
           },
         ],
       },

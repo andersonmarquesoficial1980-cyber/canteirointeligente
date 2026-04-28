@@ -8,8 +8,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import OfflineIndicator from "@/components/OfflineIndicator";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
@@ -213,16 +215,26 @@ function AppRoutes() {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const { isOnline, pendingCount, syncing, lastSync } = useOfflineSync();
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <OfflineIndicator
+            isOnline={isOnline}
+            pendingCount={pendingCount}
+            syncing={syncing}
+            lastSync={lastSync}
+          />
+          <AppRoutes />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

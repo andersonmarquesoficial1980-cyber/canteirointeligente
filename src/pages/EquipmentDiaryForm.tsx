@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { saveDiaryOffline } from "@/hooks/useOfflineSync";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { useToast } from "@/hooks/use-toast";
@@ -165,6 +167,7 @@ export default function EquipmentDiaryForm() {
   const { session } = useAuth();
   const { profile } = useUserProfile();
   const { toast } = useToast();
+  const isOnline = useOnlineStatus();
   const [saving, setSaving] = useState(false);
   const [loadingEditData, setLoadingEditData] = useState(false);
   const [preserveManualClientLocation, setPreserveManualClientLocation] = useState(false);
@@ -920,39 +923,91 @@ export default function EquipmentDiaryForm() {
     }
 
     const normalizedSelectedFleet = selectedFleet.trim().toUpperCase();
+    const diaryPayload: any = {
+      equipment_fleet: normalizedSelectedFleet,
+      equipment_type: equipmentType,
+      date,
+      operator_name: operator || null,
+      operator_solo: isFresadora ? (operatorSolo || null) : (isUsinaKma ? (operator2 || null) : null),
+      period: turno,
+      fuel_liters: fueling.liters ? Number(fueling.liters) : null,
+      fuel_type: fueling.fuelType || null,
+      fuel_meter: fueling.fuelMeter ? Number(fueling.fuelMeter) : null,
+      work_status: workStatus || null,
+      ogs_number: isCarreta ? null : (ogsNumber || null),
+      client_name: isCarreta ? null : (clientName || null),
+      location_address: isCarreta ? null : (locationAddress || null),
+      observations: observations || null,
+      company_id: profile?.company_id || null,
+      user_id: session.user.id,
+      created_by: session.user.id,
+      fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
+      attachment_type: isCarreta ? (prancha || null) : (attachmentType || null),
+      status: isDraft ? "rascunho" : "enviado",
+    };
+
+    if (usesOdometer) {
+      diaryPayload.odometer_initial = meterInitial ? Number(meterInitial) : null;
+      diaryPayload.odometer_final = meterFinal ? Number(meterFinal) : null;
+    } else {
+      diaryPayload.meter_initial = meterInitial ? Number(meterInitial) : null;
+      diaryPayload.meter_final = meterFinal ? Number(meterFinal) : null;
+    }
+
+    if (!isOnline) {
+      if (isEditMode) {
+        toast({
+          title: "Edição offline indisponível",
+          description: "Conecte-se à internet para editar um lançamento existente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await saveDiaryOffline(
+        {
+          diaryPayload,
+          selectedFleet: normalizedSelectedFleet,
+          attachmentType,
+          attachmentId,
+          date,
+          normalizedSelectedFleet,
+          timeEntries,
+          kmaEntries,
+          kmaOperation,
+          productionAreas,
+          bits,
+          checklistResults,
+          tankSupplies,
+          comboioSaldoInicial,
+          comboioFornecedor,
+          comboioRefuels,
+          meta: {
+            isDraft,
+            isComboio,
+            isCarreta,
+            isPipa,
+            isEspargidor,
+            isBobcat,
+            isRetro,
+            isFresadora,
+            isUsinaKma,
+            hasChecklist,
+          },
+        },
+        equipmentType,
+      );
+
+      toast({
+        title: "Lançamento salvo offline ✅",
+        description: "Será sincronizado quando a internet voltar.",
+      });
+      navigate(-1);
+      return;
+    }
 
     setSaving(true);
     try {
-      const diaryPayload: any = {
-        equipment_fleet: normalizedSelectedFleet,
-        equipment_type: equipmentType,
-        date,
-        operator_name: operator || null,
-        operator_solo: isFresadora ? (operatorSolo || null) : (isUsinaKma ? (operator2 || null) : null),
-        period: turno,
-        fuel_liters: fueling.liters ? Number(fueling.liters) : null,
-        fuel_type: fueling.fuelType || null,
-        fuel_meter: fueling.fuelMeter ? Number(fueling.fuelMeter) : null,
-        work_status: workStatus || null,
-        ogs_number: isCarreta ? null : (ogsNumber || null),
-        client_name: isCarreta ? null : (clientName || null),
-        location_address: isCarreta ? null : (locationAddress || null),
-        observations: observations || null,
-        company_id: profile?.company_id || null,
-        user_id: session.user.id,
-        created_by: session.user.id,
-        fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
-        attachment_type: isCarreta ? (prancha || null) : (attachmentType || null),
-        status: isDraft ? "rascunho" : "enviado",
-      };
-
-      if (usesOdometer) {
-        diaryPayload.odometer_initial = meterInitial ? Number(meterInitial) : null;
-        diaryPayload.odometer_final = meterFinal ? Number(meterFinal) : null;
-      } else {
-        diaryPayload.meter_initial = meterInitial ? Number(meterInitial) : null;
-        diaryPayload.meter_final = meterFinal ? Number(meterFinal) : null;
-      }
 
       let diary: any = null;
       let error: any = null;
