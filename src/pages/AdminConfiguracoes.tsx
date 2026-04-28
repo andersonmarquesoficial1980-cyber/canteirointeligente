@@ -937,11 +937,27 @@ function OperadoresHabilitadosManager() {
   };
 
   const addOperador = async (equipType: string, funcId: string) => {
-    if (!companyId) return;
+    if (!companyId) {
+      toast({ title: "Erro", description: "Company ID não encontrado. Faça login novamente.", variant: "destructive" });
+      return;
+    }
     const already = links.some(l => l.equipment_type === equipType && l.funcionario_id === funcId);
-    if (already) return;
+    if (already) {
+      toast({ title: "Já adicionado", description: "Este funcionário já está habilitado para este equipamento." });
+      return;
+    }
+    // Verifica se a sessão ainda está ativa
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({ title: "Sessão expirada", description: "Faça login novamente.", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("equipment_type_operators" as any).insert({ company_id: companyId, equipment_type: equipType, funcionario_id: funcId });
-    if (error) { toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" }); return; }
+    if (error) {
+      console.error("[addOperador] erro:", error);
+      toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
+      return;
+    }
     await refresh();
     setSearchByType(prev => ({ ...prev, [equipType]: "" }));
     toast({ title: "Operador adicionado! ✅" });
