@@ -915,8 +915,13 @@ function OperadoresHabilitadosManager() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
-      const cid = (profile as any)?.company_id || null;
+      const { data: profile } = await supabase.from("profiles").select("company_id, role").eq("user_id", user.id).maybeSingle();
+      let cid = (profile as any)?.company_id || null;
+      // Superadmin não tem company_id — busca a primeira empresa
+      if (!cid && (profile as any)?.role === "superadmin") {
+        const { data: firstCompany } = await supabase.from("companies" as any).select("id").order("created_at").limit(1).maybeSingle();
+        cid = (firstCompany as any)?.id || null;
+      }
       setCompanyId(cid);
 
       const [{ data: funcs }, { data: lnks }] = await Promise.all([
