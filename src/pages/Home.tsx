@@ -111,6 +111,22 @@ export default function Home() {
             );
           })}
 
+        {isAdmin && (
+          <button
+            onClick={() => navigate("/admin/operadores-habilitados")}
+            className="group relative flex items-center gap-4 rounded-2xl text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer bg-[hsl(220,60%,22%)]"
+          >
+            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0 text-xl">
+              ⚙️
+            </div>
+            <div className="text-left">
+              <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">Operadores Habilitados</span>
+              <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Configurar por tipo de equipamento</span>
+            </div>
+            <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
+          </button>
+        )}
+
         {isSuperAdmin && (
           <button
             onClick={() => navigate("/super-admin")}

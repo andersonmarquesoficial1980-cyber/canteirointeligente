@@ -9,6 +9,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AppLayout } from "@/components/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
 import Index from "./pages/Index";
@@ -44,12 +46,32 @@ import GestaoFrotasHome from "./pages/GestaoFrotasHome";
 import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
 import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
 import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
+import OperadoresHabilitados from "./pages/OperadoresHabilitados";
 import Login from "./pages/Login";
 import TrocarSenha from "./pages/TrocarSenha";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function RequireAdminOrSuperAdmin({ children }: { children: JSX.Element }) {
+  const { isAdmin, loading: loadingAdmin } = useIsAdmin();
+  const { isSuperAdmin, loading: loadingModules } = useCompanyModules();
+
+  if (loadingAdmin || loadingModules) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (!isAdmin && !isSuperAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
 
 function AppRoutes() {
   const { session, loading, signOut } = useAuth();
@@ -169,6 +191,14 @@ function AppRoutes() {
             <AdminConfiguracoes />
           </ErrorBoundary>
         } />
+        <Route
+          path="/admin/operadores-habilitados"
+          element={
+            <RequireAdminOrSuperAdmin>
+              <OperadoresHabilitados />
+            </RequireAdminOrSuperAdmin>
+          }
+        />
 
         {/* WF Programador */}
         <Route path="/programador" element={<ProgramadorHome />} />

@@ -341,6 +341,31 @@ export default function EquipmentDiaryForm() {
     },
   });
 
+  const { data: enabledOperatorIds = [] } = useQuery({
+    queryKey: ["equipment_type_operators_ids", profile?.company_id, equipmentType],
+    queryFn: async () => {
+      if (!profile?.company_id || !equipmentType) return [];
+
+      const { data, error } = await supabase
+        .from("equipment_type_operators" as any)
+        .select("funcionario_id")
+        .eq("company_id", profile.company_id)
+        .eq("equipment_type", equipmentType);
+
+      if (error) throw error;
+      return (data || []).map((row: any) => row.funcionario_id).filter(Boolean) as string[];
+    },
+    enabled: !!profile?.company_id && !!equipmentType,
+  });
+
+  const hasEnabledOperatorsForType = enabledOperatorIds.length > 0;
+
+  const funcionariosForType = useMemo(() => {
+    if (!hasEnabledOperatorsForType) return funcionarios;
+    const enabledSet = new Set(enabledOperatorIds);
+    return funcionarios.filter((f: any) => enabledSet.has(f.id));
+  }, [funcionarios, enabledOperatorIds, hasEnabledOperatorsForType]);
+
   // Fetch fornecedores from DB for supplier selects
   const { data: fornecedoresDb = [] } = useQuery({
     queryKey: ["fornecedores_equipamentos"],
@@ -462,22 +487,22 @@ export default function EquipmentDiaryForm() {
 
   // Filtered operators — matches actual DB values like "OP DE FRESADORA"
   const operadoresFresa = useMemo(() => {
-    const filtered = funcionarios.filter((f: any) => {
+    const filtered = funcionariosForType.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("FRESADORA") || fn === "OP DE FRESADORA";
     });
     // operadores fresa filtered
-    return filtered.length > 0 ? filtered : funcionarios;
-  }, [funcionarios]);
+    return filtered.length > 0 ? filtered : funcionariosForType;
+  }, [funcionariosForType]);
 
   const operadoresSolo = useMemo(() => {
-    const filtered = funcionarios.filter((f: any) => {
+    const filtered = funcionariosForType.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("OP SOLO") || fn.includes("AJUDANTE");
     });
     // operadores solo filtered
-    return filtered.length > 0 ? filtered : funcionarios;
-  }, [funcionarios]);
+    return filtered.length > 0 ? filtered : funcionariosForType;
+  }, [funcionariosForType]);
 
   const filteredFleet = useMemo(() => {
     if (isFresadora) {
@@ -491,28 +516,28 @@ export default function EquipmentDiaryForm() {
   }, [equipamentos, isFresadora]);
 
   const operadoresBobcat = useMemo(() => {
-    const filtered = funcionarios.filter((f: any) => {
+    const filtered = funcionariosForType.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("BOBCAT");
     });
-    return filtered.length > 0 ? filtered : funcionarios;
-  }, [funcionarios]);
+    return filtered.length > 0 ? filtered : funcionariosForType;
+  }, [funcionariosForType]);
 
   const operadoresRetro = useMemo(() => {
-    const filtered = funcionarios.filter((f: any) => {
+    const filtered = funcionariosForType.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("RETROESCAVADEIRA") || fn.includes("RETRO") || fn.includes("ESCAVADEIRA") || fn.includes("PA CARREGADEIRA");
     });
-    return filtered.length > 0 ? filtered : funcionarios;
-  }, [funcionarios]);
+    return filtered.length > 0 ? filtered : funcionariosForType;
+  }, [funcionariosForType]);
 
   const motoristas = useMemo(() => {
-    const filtered = funcionarios.filter((f: any) => {
+    const filtered = funcionariosForType.filter((f: any) => {
       const fn = f.funcao?.toUpperCase() || "";
       return fn.includes("MOTORISTA") || fn.includes("COMBOIO");
     });
-    return filtered.length > 0 ? filtered : funcionarios;
-  }, [funcionarios]);
+    return filtered.length > 0 ? filtered : funcionariosForType;
+  }, [funcionariosForType]);
 
   const meterLabel = usesOdometer ? "Odômetro" : "Horímetro";
 
@@ -872,11 +897,11 @@ export default function EquipmentDiaryForm() {
 
   const getOperatorList = () => {
     if (isFresadora) return operadoresFresa;
-    if (isBobcat) return operadoresBobcat.length > 0 ? operadoresBobcat : funcionarios;
-    if (isRetro) return operadoresRetro.length > 0 ? operadoresRetro : funcionarios;
-    if (isUsinaKma) return funcionarios;
-    if (isTruck) return motoristas.length > 0 ? motoristas : funcionarios;
-    return funcionarios;
+    if (isBobcat) return operadoresBobcat.length > 0 ? operadoresBobcat : funcionariosForType;
+    if (isRetro) return operadoresRetro.length > 0 ? operadoresRetro : funcionariosForType;
+    if (isUsinaKma) return funcionariosForType;
+    if (isTruck) return motoristas.length > 0 ? motoristas : funcionariosForType;
+    return funcionariosForType;
   };
 
   const handleSave = async (isDraft = false) => {
@@ -1528,12 +1553,12 @@ export default function EquipmentDiaryForm() {
           {/* KMA: Operador 02 */}
           {isUsinaKma && (
             <Field label="Operador 02">
-              <Select value={operator2} onValueChange={setOperator2}>
+              <Select value={operator2} onValueChange={setOperator2} disabled={loadingFuncionarios}>
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione o operador 02..." />
+                  <SelectValue placeholder={loadingFuncionarios ? "Carregando..." : "Selecione o operador 02..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {funcionarios.map((f: any) => (
+                  {funcionariosForType.map((f: any) => (
                     <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                   ))}
                 </SelectContent>
