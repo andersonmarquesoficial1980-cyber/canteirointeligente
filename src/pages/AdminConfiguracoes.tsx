@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
-  Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck,
+  Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -887,6 +887,149 @@ function InsumosMaterialManager() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// OPERADORES HABILITADOS
+// ═══════════════════════════════════════════════════════════════
+const EQUIP_TYPES_FOR_HABILITADOS = [
+  { id: "Fresadora", label: "Fresadora" },
+  { id: "Bobcat", label: "Bobcat" },
+  { id: "Rolo", label: "Rolo Compactador" },
+  { id: "Vibroacabadora", label: "Vibroacabadora" },
+  { id: "Usina KMA", label: "Usina Móvel KMA" },
+  { id: "Caminhões", label: "Caminhões" },
+  { id: "Comboio", label: "Comboio" },
+  { id: "Veículo", label: "Veículo de Transporte" },
+  { id: "Retro", label: "Linha Amarela" },
+  { id: "Carreta", label: "Carreta" },
+];
+
+function OperadoresHabilitadosManager() {
+  const { toast } = useToast();
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [funcionarios, setFuncionarios] = useState<any[]>([]);
+  const [links, setLinks] = useState<any[]>([]);
+  const [searchByType, setSearchByType] = useState<Record<string, string>>({});
+  const [openType, setOpenType] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
+      const cid = (profile as any)?.company_id || null;
+      setCompanyId(cid);
+
+      const [{ data: funcs }, { data: lnks }] = await Promise.all([
+        supabase.from("funcionarios" as any).select("id, nome, funcao").order("nome"),
+        cid ? supabase.from("equipment_type_operators" as any).select("id, equipment_type, funcionario_id").eq("company_id", cid) : Promise.resolve({ data: [] }),
+      ]);
+      setFuncionarios((funcs || []) as any[]);
+      setLinks((lnks || []) as any[]);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const refresh = async () => {
+    if (!companyId) return;
+    const { data } = await supabase.from("equipment_type_operators" as any).select("id, equipment_type, funcionario_id").eq("company_id", companyId);
+    setLinks((data || []) as any[]);
+  };
+
+  const addOperador = async (equipType: string, funcId: string) => {
+    if (!companyId) return;
+    const already = links.some(l => l.equipment_type === equipType && l.funcionario_id === funcId);
+    if (already) return;
+    const { error } = await supabase.from("equipment_type_operators" as any).insert({ company_id: companyId, equipment_type: equipType, funcionario_id: funcId });
+    if (error) { toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" }); return; }
+    await refresh();
+    setSearchByType(prev => ({ ...prev, [equipType]: "" }));
+    toast({ title: "Operador adicionado! ✅" });
+  };
+
+  const removeOperador = async (equipType: string, funcId: string) => {
+    if (!companyId) return;
+    const { error } = await supabase.from("equipment_type_operators" as any).delete().eq("company_id", companyId).eq("equipment_type", equipType).eq("funcionario_id", funcId);
+    if (error) { toast({ title: "Erro ao remover", description: error.message, variant: "destructive" }); return; }
+    await refresh();
+  };
+
+  if (loading) return <div className="py-10 text-center text-muted-foreground">Carregando...</div>;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground mb-4">Configure quais funcionários aparecem como opções ao lançar o diário de cada equipamento.</p>
+      {EQUIP_TYPES_FOR_HABILITADOS.map(({ id, label }) => {
+        const habilitados = links.filter(l => l.equipment_type === id).map(l => funcionarios.find(f => f.id === l.funcionario_id)).filter(Boolean);
+        const habIds = new Set(habilitados.map((f: any) => f.id));
+        const search = (searchByType[id] || "").toLowerCase();
+        const disponiveis = funcionarios.filter(f => !habIds.has(f.id) && (!search || f.nome.toLowerCase().includes(search) || f.funcao.toLowerCase().includes(search)));
+        const isOpen = openType === id;
+
+        return (
+          <div key={id} className="rounded-xl border border-border bg-card">
+            <button
+              onClick={() => setOpenType(isOpen ? null : id)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/30 transition-colors rounded-xl"
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm text-foreground">{label}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{habilitados.length} habilitado(s)</span>
+              </div>
+              <span className="text-muted-foreground text-xs">{isOpen ? "▲" : "▼"}</span>
+            </button>
+
+            {isOpen && (
+              <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+                {habilitados.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhum operador habilitado. Busque abaixo para adicionar.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {habilitados.map((f: any) => (
+                      <div key={f.id} className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 text-primary rounded-full px-3 py-1 text-xs font-medium">
+                        {f.nome}
+                        <button onClick={() => removeOperador(id, f.id)} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div>
+                  <input
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="Buscar funcionário para adicionar..."
+                    value={searchByType[id] || ""}
+                    onChange={e => setSearchByType(prev => ({ ...prev, [id]: e.target.value }))}
+                  />
+                  {search && (
+                    <div className="mt-2 rounded-lg border border-border bg-card max-h-48 overflow-y-auto">
+                      {disponiveis.length === 0 ? (
+                        <p className="text-xs text-muted-foreground px-3 py-2">Nenhum resultado.</p>
+                      ) : disponiveis.map((f: any) => (
+                        <button
+                          key={f.id}
+                          onClick={() => addOperador(id, f.id)}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between"
+                        >
+                          <div>
+                            <span className="font-medium">{f.nome}</span>
+                            <span className="text-muted-foreground text-xs ml-2">{f.funcao}</span>
+                          </div>
+                          <span className="text-xs text-primary">+ Adicionar</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SIDEBAR MENU ITEMS
 // ═══════════════════════════════════════════════════════════════
 const MENU_SECTIONS = [
@@ -907,6 +1050,7 @@ const MENU_SECTIONS = [
   { key: "destinos", label: "Destinos (Carreteiro)", icon: MapPin },
   { key: "emails", label: "E-mails", icon: Mail },
   { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
+  { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
 ];
 
 export default function AdminConfiguracoes() {
@@ -946,6 +1090,7 @@ export default function AdminConfiguracoes() {
       case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;
       case "aeropav_staff": return <AeroPavStaffManager />;
+      case "operadores_habilitados": return <OperadoresHabilitadosManager />;
       default: return null;
     }
   };
