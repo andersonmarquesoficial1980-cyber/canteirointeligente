@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "logo-workflux.png"],
+      includeAssets: ["favicon.ico", "apple-touch-icon.png", "pwa-icon-192.png", "pwa-icon-512.png"],
       manifest: {
         name: "Workflux",
         short_name: "Workflux",
@@ -28,8 +28,9 @@ export default defineConfig(({ mode }) => ({
         display: "standalone",
         start_url: "/",
         icons: [
-          { src: "/logo-workflux.png", sizes: "192x192", type: "image/png" },
-          { src: "/logo-workflux.png", sizes: "512x512", type: "image/png" },
+          { src: "/pwa-icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/pwa-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          { src: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
         ],
       },
       workbox: {
