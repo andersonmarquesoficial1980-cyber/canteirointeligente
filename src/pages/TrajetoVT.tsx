@@ -279,7 +279,9 @@ export default function TrajetoVT() {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<TransitResult | null>(null);
+  const [results, setResults] = useState<TransitResult[]>([]);
+  const [selectedRoute, setSelectedRoute] = useState(0);
+  const result = results[selectedRoute] ?? null;
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [tarifas, setTarifas] = useState<Tarifa[]>([]);
   const calculatingRef = useRef(false);
@@ -308,7 +310,8 @@ export default function TrajetoVT() {
     }
 
     setLoading(true);
-    setResult(null);
+    setResults([]);
+    setSelectedRoute(0);
     setErrorMsg(null);
 
     try {
@@ -318,6 +321,7 @@ export default function TrajetoVT() {
           origin,
           destination,
           travelMode: window.google.maps.TravelMode.TRANSIT,
+          provideRouteAlternatives: true, // pede até 3 rotas alternativas
           transitOptions: {
             modes: [
               window.google.maps.TransitMode.BUS,
@@ -331,67 +335,72 @@ export default function TrajetoVT() {
           setLoading(false);
           calculatingRef.current = false;
 
-          if (status !== "OK" || !response?.routes?.[0]?.legs?.[0]) {
+          if (status !== "OK" || !response?.routes?.length) {
             setErrorMsg("Rota de transporte público não encontrada. Insira os valores manualmente.");
             return;
           }
 
-          const leg = response.routes[0].legs[0];
-          const steps: TransitStep[] = [];
+          // Processa todas as rotas retornadas
+          const allResults: TransitResult[] = [];
 
-          for (const step of leg.steps) {
-            if (step.travel_mode === "TRANSIT") {
-              const transit = step.transit;
-              steps.push({
-                mode: transit.line.vehicle.type,
-                line: transit.line.short_name || transit.line.name || "",
-                vehicle: transit.line.vehicle.name || "",
-                departureStop: transit.departure_stop.name,
-                arrivalStop: transit.arrival_stop.name,
-                numStops: transit.num_stops || 0,
-                duration: step.duration.text,
-                distance: step.distance.text,
-              });
-            } else {
-              steps.push({
-                mode: "WALKING",
-                line: "",
-                vehicle: "A pé",
-                departureStop: "",
-                arrivalStop: "",
-                numStops: 0,
-                duration: step.duration.text,
-                distance: step.distance.text,
-              });
+          for (let ri = 0; ri < response.routes.length; ri++) {
+            const route = response.routes[ri];
+            const leg = route.legs[0];
+            if (!leg) continue;
+
+            const steps: TransitStep[] = [];
+            for (const step of leg.steps) {
+              if (step.travel_mode === "TRANSIT") {
+                const transit = step.transit;
+                steps.push({
+                  mode: transit.line.vehicle.type,
+                  line: transit.line.short_name || transit.line.name || "",
+                  vehicle: transit.line.vehicle.name || "",
+                  departureStop: transit.departure_stop.name,
+                  arrivalStop: transit.arrival_stop.name,
+                  numStops: transit.num_stops || 0,
+                  duration: step.duration.text,
+                  distance: step.distance.text,
+                });
+              } else {
+                steps.push({
+                  mode: "WALKING",
+                  line: "",
+                  vehicle: "A pé",
+                  departureStop: "",
+                  arrivalStop: "",
+                  numStops: 0,
+                  duration: step.duration.text,
+                  distance: step.distance.text,
+                });
+              }
             }
+
+            let fareValue = 0;
+            let fareSource: "google" | "tabela" = "tabela";
+            const qtdOnibusNaRota = steps.filter(s => s.mode === "BUS").length;
+            const googleFare = route.fare;
+            if (googleFare && googleFare.value > 0 && qtdOnibusNaRota <= 1) {
+              fareValue = googleFare.value;
+              fareSource = "google";
+            } else {
+              fareValue = estimateFareFromSteps(steps, tarifas);
+              fareSource = "tabela";
+            }
+
+            allResults.push({
+              duration: leg.duration.text,
+              distance: leg.distance.text,
+              departureTime: leg.departure_time?.text || "",
+              arrivalTime: leg.arrival_time?.text || "",
+              steps,
+              fareEstimate: fareValue,
+              fareSource,
+            });
           }
 
-          let fareValue = 0;
-          let fareSource: "google" | "tabela" = "tabela";
-
-          // Conta ônibus na rota
-          const qtdOnibusNaRota = steps.filter(s => s.mode === "BUS").length;
-
-          // Usa Google só quando há 1 ônibus (ou só metrô)
-          // Com múltiplos ônibus o Google retorna só o valor de 1 trecho — calcular pela tabela
-          const googleFare = response.routes[0].fare;
-          if (googleFare && googleFare.value > 0 && qtdOnibusNaRota <= 1) {
-            fareValue = googleFare.value;
-            fareSource = "google";
-          } else {
-            fareValue = estimateFareFromSteps(steps, tarifas);
-            fareSource = "tabela";
-          }
-
-          setResult({
-            duration: leg.duration.text,
-            distance: leg.distance.text,
-            departureTime: leg.departure_time?.text || "",
-            arrivalTime: leg.arrival_time?.text || "",
-            steps,
-            fareEstimate: fareValue,
-            fareSource,
-          });
+          setResults(allResults);
+          setSelectedRoute(0);
         }
       );
     } catch (err) {
@@ -456,6 +465,34 @@ export default function TrajetoVT() {
             )}
           </CardContent>
         </Card>
+
+        {/* Seletor de rotas alternativas */}
+        {results.length > 1 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {results.length} rotas encontradas
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {results.map((r, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedRoute(i)}
+                  className={`shrink-0 flex flex-col items-start px-3 py-2 rounded-xl border text-left transition-colors ${
+                    selectedRoute === i
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border hover:border-primary/50"
+                  }`}
+                >
+                  <span className="text-xs font-bold">Opção {i + 1}</span>
+                  <span className="text-[11px] opacity-80">{r.duration} · {r.distance}</span>
+                  <span className="text-[11px] font-semibold">
+                    R$ {r.fareEstimate.toFixed(2).replace(".", ",")}/trecho
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Result */}
         {result && (
