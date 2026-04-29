@@ -353,14 +353,18 @@ export default function EquipmentDiaryForm() {
     },
   });
 
+  // Se o usuário for SuperAdmin (não tem company_id), vamos pegar o ID da primeira empresa (Fremix)
+  // para ele ver as listas filtradas igual aos usuários normais
+  const effectiveCompanyId = profile?.company_id || (profile?.role === "superadmin" ? "a1b2c3d4-e5f6-7890-abcd-ef1234567890" : null);
+
   const { data: enabledOperatorIds = [] } = useQuery({
-    queryKey: ["equipment_type_operators_ids", profile?.company_id, equipmentType, isOnline],
+    queryKey: ["equipment_type_operators_ids", effectiveCompanyId, equipmentType, isOnline],
     queryFn: async () => {
-      if (!profile?.company_id || !equipmentType) return [];
+      if (!effectiveCompanyId || !equipmentType) return [];
       if (!isOnline) {
         // Offline: usa cache do IndexedDB
         const cached = await offlineDb.cachedOperadoresHabilitados
-          .where("company_id").equals(profile.company_id)
+          .where("company_id").equals(effectiveCompanyId)
           .toArray();
         return cached
           .filter((r: any) => r.equipment_type === equipmentType)
@@ -370,13 +374,13 @@ export default function EquipmentDiaryForm() {
       const { data, error } = await supabase
         .from("equipment_type_operators" as any)
         .select("funcionario_id")
-        .eq("company_id", profile.company_id)
+        .eq("company_id", effectiveCompanyId)
         .eq("equipment_type", equipmentType);
 
       if (error) throw error;
       return (data || []).map((row: any) => row.funcionario_id).filter(Boolean) as string[];
     },
-    enabled: !!profile?.company_id && !!equipmentType,
+    enabled: !!effectiveCompanyId && !!equipmentType,
   });
 
   const hasEnabledOperatorsForType = enabledOperatorIds.length > 0;
