@@ -149,7 +149,7 @@ function AppRoutes() {
 
         {/* Obras module */}
         <Route path="/obras" element={<Index />} />
-        <Route path="/obras/rdo" element={<AppLayout><RdoForm /></AppLayout>} />
+        <Route path="/obras/rdo" element={<RdoForm />} />
 
         {/* Equipamentos module — standalone layout */}
         <Route path="/equipamentos" element={<EquipmentHome />} />
