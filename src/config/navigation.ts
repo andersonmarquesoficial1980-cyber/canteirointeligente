@@ -16,7 +16,6 @@ export const HUB_MODULES = [
   { id: "manutencao", label: "WF Manutenção", subtitle: "OS & Documentos de Frotas", icon: Wrench, route: "/manutencao", adminOnly: false },
   { id: "abastecimento", label: "WF Abastecimento", subtitle: "Comboio, Posto e Shelbox", icon: Fuel, route: "/abastecimento", adminOnly: false },
   { id: "relatorios", label: "WF Relatórios", subtitle: "Relatórios por Equipamento", icon: BarChart3, route: "/relatorios", adminOnly: false },
-  { id: "dashboard", label: "Painel Admin", subtitle: "Visão geral em tempo real", icon: LayoutDashboard, route: "/dashboard", adminOnly: true },
   { id: "gestao-frotas", label: "WF Gestão de Frotas", subtitle: "Veículos, máquinas e documentos", icon: Car, route: "/gestao-frotas", adminOnly: false },
   { id: "gestao-pessoas", label: "WF Gestão de Pessoas", subtitle: "Dashboard de pessoas e funções", icon: UserCheck, route: "/gestao-pessoas", adminOnly: false },
   { id: "admin", label: "Painel de Controle", subtitle: "Dashboards e Gestão", icon: ShieldCheck, route: "/admin/configuracoes", adminOnly: true },
