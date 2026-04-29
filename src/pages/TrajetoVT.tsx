@@ -213,9 +213,11 @@ function isOnibusRodoviario(step: TransitStep): boolean {
   // Terminal rodoviário como origem/destino
   if (depart.includes("rodoviário") || arrive.includes("rodoviário") ||
       depart.includes("rodoviario") || arrive.includes("rodoviario")) return true;
-  // Distâncias longas (>50km) indicam interestadual
-  const distKm = parseFloat((step.distance || "0").replace(/[^0-9.]/g, ""));
-  if (step.distance?.includes("km") && distKm > 50) return true;
+  // Distâncias longas (>80km) indicam interestadual
+  // Converte corretamente: "11,0 km" -> 11.0, "283 km" -> 283
+  const distStr = (step.distance || "0").replace(",", ".").replace(/[^0-9.]/g, "");
+  const distKm = parseFloat(distStr);
+  if (step.distance?.includes("km") && distKm > 80) return true;
   return false;
 }
 
