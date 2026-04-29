@@ -740,16 +740,52 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
 
                         <div className="space-y-2">
                           <Label>Foto (opcional)</Label>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              const base64 = await fileToBase64(file);
-                              setManutencaoItem(idx, { fotoUrl: base64 });
-                            }}
-                          />
+                          {item.fotoUrl ? (
+                            <div className="relative">
+                              <img src={item.fotoUrl} alt="Foto da avaria" className="w-full max-h-48 object-cover rounded-xl border" />
+                              <button
+                                type="button"
+                                onClick={() => setManutencaoItem(idx, { fotoUrl: undefined })}
+                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold"
+                              >✕</button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              {/* Botão Câmera */}
+                              <label className="flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border-2 border-dashed border-border cursor-pointer hover:bg-muted/30 transition-colors">
+                                <span className="text-xl">📷</span>
+                                <span className="text-xs text-muted-foreground font-medium">Tirar foto</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const base64 = await fileToBase64(file);
+                                    setManutencaoItem(idx, { fotoUrl: base64 });
+                                  }}
+                                />
+                              </label>
+                              {/* Botão Galeria */}
+                              <label className="flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border-2 border-dashed border-border cursor-pointer hover:bg-muted/30 transition-colors">
+                                <span className="text-xl">🖼️</span>
+                                <span className="text-xs text-muted-foreground font-medium">Galeria</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const base64 = await fileToBase64(file);
+                                    setManutencaoItem(idx, { fotoUrl: base64 });
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
