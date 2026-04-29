@@ -77,9 +77,13 @@ async function cacheMainData() {
     await offlineDb.cachedMateriais.bulkPut(materiaisRes.data || []);
   }
 
-  if (operadoresRes && !operadoresRes.error) {
-    await offlineDb.cachedOperadoresHabilitados.clear();
-    await offlineDb.cachedOperadoresHabilitados.bulkPut(operadoresRes.data || []);
+  if (operadoresRes && !operadoresRes.error && offlineDb.cachedOperadoresHabilitados) {
+    try {
+      await offlineDb.cachedOperadoresHabilitados.clear();
+      await offlineDb.cachedOperadoresHabilitados.bulkPut(operadoresRes.data || []);
+    } catch (e) {
+      console.error("Erro ao cachear operadores:", e);
+    }
   }
 }
 

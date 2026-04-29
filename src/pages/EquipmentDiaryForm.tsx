@@ -362,14 +362,21 @@ export default function EquipmentDiaryForm() {
     queryFn: async () => {
       if (!effectiveCompanyId || !equipmentType) return [];
       if (!isOnline) {
-        // Offline: usa cache do IndexedDB
-        const cached = await offlineDb.cachedOperadoresHabilitados
-          .where("company_id").equals(effectiveCompanyId)
-          .toArray();
-        return cached
-          .filter((r: any) => r.equipment_type === equipmentType)
-          .map((r: any) => r.funcionario_id)
-          .filter(Boolean) as string[];
+        // Offline: usa cache do IndexedDB com fallback de seguranca caso o Dexie nao tenha atualizado
+        if (!offlineDb.cachedOperadoresHabilitados) return [];
+        
+        try {
+          const cached = await offlineDb.cachedOperadoresHabilitados
+            .where("company_id").equals(effectiveCompanyId)
+            .toArray();
+          return cached
+            .filter((r: any) => r.equipment_type === equipmentType)
+            .map((r: any) => r.funcionario_id)
+            .filter(Boolean) as string[];
+        } catch (e) {
+          console.error("Erro ao ler cache de operadores:", e);
+          return [];
+        }
       }
       const { data, error } = await supabase
         .from("equipment_type_operators" as any)
