@@ -54,8 +54,6 @@ export default function FilaManutencao() {
     });
   }, [demandas]);
 
-  const abertas = demandasOrdenadas.length;
-
   const assumir = async (id: string) => {
     setSavingId(id);
     const { error } = await (supabase as any)
@@ -87,7 +85,7 @@ export default function FilaManutencao() {
       .eq("user_id", user?.id)
       .maybeSingle();
 
-    const respondidoPor = profile?.nome_completo || user?.email || "Equipe Manutenção";
+    const respondidoPor = (profile as any)?.nome_completo || user?.email || "Equipe Manutenção";
 
     const { error } = await (supabase as any)
       .from("demandas")
@@ -121,7 +119,7 @@ export default function FilaManutencao() {
           <Wrench className="w-8 h-8 text-yellow-400" />
           <div className="flex-1">
             <h1 className="text-3xl font-display font-bold">Fila de Manutenção</h1>
-            <p className="text-base text-zinc-400">{abertas} demanda{abertas !== 1 ? "s" : ""} aberta{abertas !== 1 ? "s" : ""}</p>
+            <p className="text-base text-zinc-400">{demandasOrdenadas.length} demanda(s) aberta(s)</p>
           </div>
           <Button onClick={load} variant="outline" className="border-zinc-700 text-zinc-200 hover:bg-zinc-800 hover:text-white">
             <RefreshCw className="w-4 h-4 mr-2" /> Atualizar
@@ -140,29 +138,30 @@ export default function FilaManutencao() {
           demandasOrdenadas.map((demanda) => {
             const tipo = getTipoMeta(demanda.tipo);
             const urgencia = getUrgenciaMeta(demanda.urgencia);
-            const urgente = demanda.urgencia === "urgente";
             const horas = horasAbertas(demanda.created_at);
 
             return (
               <article key={demanda.id} className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-4 shadow-lg">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1 max-w-4xl">
                     <h2 className="text-2xl font-display font-bold leading-tight">
                       {tipo.icon} {demanda.equipamento || demanda.titulo}
                     </h2>
-                    <p className="text-lg text-zinc-300 whitespace-pre-wrap">{demanda.descricao}</p>
+                    <p className="text-lg text-zinc-300 whitespace-pre-wrap">{demanda.descricao || "Sem descrição"}</p>
+                    {demanda.foto_url && (
+                      <img src={demanda.foto_url} alt="Foto manutenção" className="mt-2 rounded-xl border border-zinc-700 max-h-72" />
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    <span className={`text-sm font-bold px-3 py-1 rounded-full border ${urgencia.badgeClass} ${urgente ? "animate-pulse" : ""}`}>
+                    <span className={`text-sm font-bold px-3 py-1 rounded-full border ${urgencia.badgeClass}`}>
                       {urgencia.label.toUpperCase()}
                     </span>
-                    {urgente && <span className="text-red-400 text-sm font-semibold animate-pulse">ATENÇÃO IMEDIATA</span>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 text-base text-zinc-300">
                   <p><strong>Solicitante:</strong> {demanda.solicitante_nome}</p>
-                  <p><strong>Status:</strong> {demanda.status === "em_execucao" ? "Em execução" : "Aberta"}</p>
+                  <p><strong>Status:</strong> {demanda.status === "em_execucao" || demanda.status === "aceita" ? "Em execução" : "Pendente"}</p>
                   <p><strong>Há:</strong> {horas}h</p>
                 </div>
 
@@ -181,7 +180,7 @@ export default function FilaManutencao() {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     onClick={() => assumir(demanda.id)}
-                    disabled={savingId === demanda.id || demanda.status === "em_execucao"}
+                    disabled={savingId === demanda.id || demanda.status === "em_execucao" || demanda.status === "aceita"}
                     className="h-12 px-6 text-base bg-blue-600 hover:bg-blue-700"
                   >
                     Assumir

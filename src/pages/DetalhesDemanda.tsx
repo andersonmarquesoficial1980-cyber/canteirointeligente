@@ -1,27 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { useDemandaById, useDemandas, type StatusDemanda } from "@/hooks/useDemandas";
+import { useDemandaById, useDemandas } from "@/hooks/useDemandas";
 import { supabase } from "@/integrations/supabase/client";
-import { getSetorLabel, getStatusLabel, getTipoMeta, getUrgenciaMeta } from "@/lib/demandas";
+import { getSetorLabel, getStatusLabel, getTipoMeta, getUrgenciaMeta, type StatusDemanda } from "@/lib/demandas";
 
 const STATUS_STEPS: Array<{ status: StatusDemanda; label: string }> = [
-  { status: "pendente", label: "Abrir" },
+  { status: "pendente", label: "Pendente" },
   { status: "em_execucao", label: "Em Andamento" },
   { status: "concluida", label: "Concluída" },
 ];
 
-function statusIndex(status?: StatusDemanda) {
-  if (!status) return 0;
-  if (status === "aberta") return 0;
-  if (status === "aceita") return 1;
-  if (status === "pendente") return 0;
-  if (status === "em_execucao") return 1;
+function statusIndex(status?: string | null) {
+  if (status === "pendente" || status === "aberta") return 0;
+  if (status === "aceita" || status === "em_execucao") return 1;
   if (status === "concluida") return 2;
   return -1;
+}
+
+function isProbablyUrl(value?: string | null) {
+  return Boolean(value && /^https?:\/\//i.test(value));
+}
+
+function safeJsonArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  return [];
 }
 
 export default function DetalhesDemanda() {
@@ -50,12 +56,12 @@ export default function DetalhesDemanda() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (profile?.nome_completo) setCurrentUserName(profile.nome_completo);
+      if ((profile as any)?.nome_completo) setCurrentUserName((profile as any).nome_completo);
       else if (user.email) setCurrentUserName(user.email);
     };
 
     hydrateUser();
-  }, [id, marcarVisualizada]);
+  }, [id]);
 
   useEffect(() => {
     if (!demanda) return;
@@ -107,6 +113,8 @@ export default function DetalhesDemanda() {
 
   const tipoMeta = getTipoMeta(demanda.tipo);
   const urgenciaMeta = getUrgenciaMeta(demanda.urgencia);
+  const equipamentos = safeJsonArray(demanda.equipamentos_json);
+  const itensMaterial = safeJsonArray(demanda.itens_material);
 
   return (
     <div className="min-h-screen bg-page">
@@ -131,8 +139,8 @@ export default function DetalhesDemanda() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Status atual</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Status</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {STATUS_STEPS.map((step, idx) => {
                 const active = idx <= stepIndex;
                 const disabled = demanda.status === "cancelada" || savingStatus;
@@ -158,16 +166,90 @@ export default function DetalhesDemanda() {
           <p className="text-sm text-muted-foreground whitespace-pre-wrap">{demanda.descricao || "Sem descrição."}</p>
         </section>
 
-        {(demanda.equipamento || demanda.funcionario_nome) && (
+        {demanda.tipo === "manutencao" && (
           <section className="rounded-2xl border border-border bg-card p-4 space-y-2">
-            <h2 className="font-semibold">Equipamento / Funcionário</h2>
-            {demanda.equipamento && <p className="text-sm"><strong>Equipamento:</strong> {demanda.equipamento}</p>}
+            <h2 className="font-semibold">Dados da Manutenção</h2>
+            <p className="text-sm"><strong>Equipamento:</strong> {demanda.equipamento || "-"}</p>
+            <p className="text-sm"><strong>Problema:</strong> {demanda.descricao || "-"}</p>
+            {demanda.foto_url && (
+              <img src={demanda.foto_url} alt="Foto do problema" className="w-full max-h-80 object-contain rounded-xl border" />
+            )}
+          </section>
+        )}
+
+        {demanda.tipo === "transporte" && (
+          <section className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <h2 className="font-semibold">Dados do Transporte</h2>
+
+            {equipamentos.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Equipamentos</p>
+                <ul className="text-sm space-y-1">
+                  {equipamentos.map((e: any, idx) => (
+                    <li key={idx}>• {e.frota || e.id} {e.tipo ? `(${e.tipo})` : ""}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <p className="text-sm"><strong>Origem:</strong> {demanda.origem || "-"}</p>
+            {isProbablyUrl(demanda.origem_maps) && (
+              <a href={demanda.origem_maps} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                Abrir Maps origem <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+
+            <p className="text-sm"><strong>Destino:</strong> {demanda.destino || "-"}</p>
+            {isProbablyUrl(demanda.destino_maps) && (
+              <a href={demanda.destino_maps} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                Abrir Maps destino <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+
+            <p className="text-sm"><strong>Horário:</strong> {demanda.horario_transporte || "-"}</p>
+          </section>
+        )}
+
+        {demanda.tipo === "rh" && (
+          <section className="rounded-2xl border border-border bg-card p-4 space-y-2">
+            <h2 className="font-semibold">Dados RH</h2>
+            <p className="text-sm"><strong>Sub-tipo:</strong> {demanda.sub_tipo || "-"}</p>
             {demanda.funcionario_nome && <p className="text-sm"><strong>Funcionário:</strong> {demanda.funcionario_nome}</p>}
+            {demanda.funcao_solicitada && <p className="text-sm"><strong>Função solicitada:</strong> {demanda.funcao_solicitada}</p>}
+            <p className="text-sm"><strong>Justificativa/Motivo:</strong> {demanda.descricao || "-"}</p>
+            {demanda.observacoes && <p className="text-sm"><strong>Tipo:</strong> {demanda.observacoes}</p>}
+          </section>
+        )}
+
+        {demanda.tipo === "material" && (
+          <section className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <h2 className="font-semibold">Itens Solicitados</h2>
+            {itensMaterial.length > 0 ? (
+              <ul className="space-y-1 text-sm">
+                {itensMaterial.map((item: any, idx) => (
+                  <li key={idx}>• {item.item} - {item.quantidade} {item.unidade}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sem itens formatados.</p>
+            )}
+            {demanda.funcionario_solicitado_nome && (
+              <p className="text-sm"><strong>Funcionário destinatário:</strong> {demanda.funcionario_solicitado_nome}</p>
+            )}
+          </section>
+        )}
+
+        {demanda.tipo === "tarefa" && (
+          <section className="rounded-2xl border border-border bg-card p-4 space-y-2">
+            <h2 className="font-semibold">Tarefa da Equipe</h2>
+            <p className="text-sm"><strong>Funcionário:</strong> {demanda.funcionario_nome || "-"}</p>
+            <p className="text-sm"><strong>Data prevista:</strong> {demanda.data_prevista ? new Date(`${demanda.data_prevista}T12:00:00`).toLocaleDateString("pt-BR") : "-"}</p>
+            <p className="text-sm"><strong>Horário:</strong> {demanda.horario_transporte || "-"}</p>
           </section>
         )}
 
         <section className="rounded-2xl border border-border bg-card p-4 space-y-3">
-          <h2 className="font-semibold">Resposta / Feedback</h2>
+          <h2 className="font-semibold">Resposta</h2>
           <Textarea
             value={resposta}
             onChange={(e) => setResposta(e.target.value)}
@@ -181,7 +263,7 @@ export default function DetalhesDemanda() {
               className="bg-green-600 hover:bg-green-700 text-white"
               disabled={savingResposta || !resposta.trim() || demanda.status === "cancelada"}
             >
-              {savingResposta ? "Enviando..." : "Enviar Resposta e Concluir"}
+              {savingResposta ? "Enviando..." : "Responder e Concluir"}
             </Button>
             <Button
               variant="outline"
@@ -203,6 +285,7 @@ export default function DetalhesDemanda() {
 
         <section className="rounded-2xl border border-border bg-card p-4 text-xs text-muted-foreground space-y-1">
           <p><strong>Solicitante:</strong> {demanda.solicitante_nome} ({demanda.solicitante_departamento})</p>
+          <p><strong>Setor origem:</strong> {demanda.setor_origem || "-"}</p>
           <p><strong>Criada em:</strong> {new Date(demanda.created_at).toLocaleString("pt-BR")}</p>
         </section>
       </main>

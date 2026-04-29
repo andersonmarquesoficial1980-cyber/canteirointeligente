@@ -1,60 +1,61 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ClipboardList, Plus, RefreshCw, Tv } from "lucide-react";
+import { ClipboardList, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useDemandas, type Demanda } from "@/hooks/useDemandas";
 import NovaDemandaModal from "@/components/demandas/NovaDemandaModal";
 import logoCi from "@/assets/logo-workflux.png";
-import { getSetorLabel, getStatusLabel, getTipoMeta, getUrgenciaMeta, SETORES_DESTINATARIOS, URGENCIAS } from "@/lib/demandas";
+import { getSetorLabel, getStatusLabel, getTipoMeta, getUrgenciaMeta } from "@/lib/demandas";
 
-type SetorFiltro = "todos" | "manutencao" | "programador" | "rh" | "engenharia" | "admin";
-type UrgenciaFiltro = "todas" | "baixa" | "normal" | "alta" | "urgente";
+type FiltroStatus = "todas" | "abertas" | "andamento" | "concluidas";
 
-function isAberta(status: Demanda["status"]) {
+type FiltroSetor = "todos" | string;
+
+function statusEhAberto(status: Demanda["status"]) {
   return status === "pendente" || status === "aberta" || status === "aceita" || status === "em_execucao";
 }
 
-function horasAguardando(createdAt: string) {
-  const diff = Date.now() - new Date(createdAt).getTime();
+function statusEhAndamento(status: Demanda["status"]) {
+  return status === "aceita" || status === "em_execucao";
+}
+
+function horasSemResposta(d: Demanda) {
+  if (d.resposta || d.respondido_at) return 0;
+  const diff = Date.now() - new Date(d.created_at).getTime();
   return Math.max(0, Math.floor(diff / (1000 * 60 * 60)));
 }
 
 function CardDemanda({ demanda, onClick }: { demanda: Demanda; onClick: () => void }) {
   const tipo = getTipoMeta(demanda.tipo);
   const urgencia = getUrgenciaMeta(demanda.urgencia);
-  const aguardando = isAberta(demanda.status) ? horasAguardando(demanda.created_at) : 0;
-
-  let esperaClass = "";
-  if (aguardando >= 8) esperaClass = "text-red-600";
-  else if (aguardando >= 4) esperaClass = "text-orange-600";
+  const semRespostaHoras = statusEhAberto(demanda.status) ? horasSemResposta(demanda) : 0;
 
   return (
     <button
       onClick={onClick}
-      className="w-full text-left rounded-2xl border border-border bg-card p-4 shadow-sm space-y-3 hover:border-primary/50 hover:shadow-md transition-all"
+      className="w-full text-left rounded-2xl border border-border bg-card p-4 space-y-2 shadow-sm hover:border-primary/50"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-display font-bold text-base leading-tight truncate">{tipo.icon} {demanda.titulo}</p>
           <p className="text-xs text-muted-foreground">{getSetorLabel(demanda.destinatario_setor)}</p>
         </div>
-        <div className="flex flex-col gap-1 items-end">
-          <Badge className={`text-xs border ${urgencia.badgeClass}`}>{urgencia.label}</Badge>
-          <Badge variant="outline" className="text-[11px]">{getStatusLabel(demanda.status)}</Badge>
-        </div>
+        <Badge className={`text-xs border ${urgencia.badgeClass}`}>{urgencia.label}</Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Badge variant="outline" className="text-[11px]">{getStatusLabel(demanda.status)}</Badge>
+        <span>{demanda.solicitante_nome}</span>
+        <span>•</span>
+        <span>{new Date(demanda.created_at).toLocaleString("pt-BR")}</span>
       </div>
 
       {demanda.descricao && <p className="text-sm text-muted-foreground line-clamp-2">{demanda.descricao}</p>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs text-muted-foreground">
-        <span><strong>Solicitante:</strong> {demanda.solicitante_nome}</span>
-        {demanda.equipamento && <span><strong>Equipamento:</strong> {demanda.equipamento}</span>}
-      </div>
-
-      {isAberta(demanda.status) && aguardando >= 1 && (
-        <p className={`text-xs font-semibold ${esperaClass || "text-muted-foreground"}`}>
-          ⏰ Aguardando há {aguardando}h
+      {semRespostaHoras >= 4 && (
+        <p className={`text-xs font-semibold ${semRespostaHoras >= 8 ? "text-red-600" : "text-orange-600"}`}>
+          ⏰ Sem resposta há {semRespostaHoras}h
         </p>
       )}
     </button>
@@ -63,108 +64,109 @@ function CardDemanda({ demanda, onClick }: { demanda: Demanda; onClick: () => vo
 
 export default function DemandasHome() {
   const navigate = useNavigate();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [setorFiltro, setSetorFiltro] = useState<SetorFiltro>("todos");
-  const [urgenciaFiltro, setUrgenciaFiltro] = useState<UrgenciaFiltro>("todas");
-  const { demandas, loading, criar, reload } = useDemandas();
+  const [novoOpen, setNovoOpen] = useState(false);
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todas");
+  const [filtroSetor, setFiltroSetor] = useState<FiltroSetor>("todos");
+  const { demandas, loading, criar, criarMuitas, reload } = useDemandas();
+
+  const abertasCount = useMemo(() => {
+    return demandas.filter((d) => d.status === "pendente" || d.status === "aberta" || d.status === "em_execucao" || d.status === "aceita")
+      .length;
+  }, [demandas]);
+
+  const setoresExistentes = useMemo(() => {
+    const set = new Set<string>();
+    demandas.forEach((d) => {
+      if (d.destinatario_setor) set.add(d.destinatario_setor);
+    });
+    return Array.from(set.values());
+  }, [demandas]);
 
   const demandasFiltradas = useMemo(() => {
-    return demandas.filter((demanda) => {
-      const bySetor = setorFiltro === "todos" ? true : demanda.destinatario_setor === setorFiltro;
-      const byUrgencia = urgenciaFiltro === "todas" ? true : demanda.urgencia === urgenciaFiltro;
-      return bySetor && byUrgencia;
-    });
-  }, [demandas, setorFiltro, urgenciaFiltro]);
+    return demandas.filter((d) => {
+      const okStatus =
+        filtroStatus === "todas"
+          ? true
+          : filtroStatus === "abertas"
+            ? statusEhAberto(d.status)
+            : filtroStatus === "andamento"
+              ? statusEhAndamento(d.status)
+              : d.status === "concluida";
 
-  const abertasCount = useMemo(() => demandas.filter((d) => isAberta(d.status)).length, [demandas]);
+      const okSetor = filtroSetor === "todos" ? true : d.destinatario_setor === filtroSetor;
+      return okStatus && okSetor;
+    });
+  }, [demandas, filtroStatus, filtroSetor]);
 
   return (
     <div className="min-h-screen bg-page flex flex-col">
       <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
-            <ArrowLeft className="w-6 h-6" />
-          </button>
           <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
-          <div className="flex-1">
-            <h1 className="text-lg font-display font-bold text-white">WF Demandas</h1>
-            <p className="text-xs text-white/80">Abertas: {abertasCount}</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-display font-bold text-white">Demandas</h1>
+            <p className="text-xs text-white/80">{abertasCount} abertas</p>
           </div>
+
           <button onClick={reload} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <RefreshCw className="w-5 h-5" />
           </button>
+
           <Button
-            onClick={() => navigate("/manutencao/fila")}
-            size="sm"
-            variant="outline"
-            className="bg-white/10 border-white/30 text-white hover:bg-white/20 gap-1.5 font-bold rounded-lg"
-          >
-            <Tv className="w-4 h-4" /> Fila
-          </Button>
-          <Button
-            onClick={() => setModalOpen(true)}
+            onClick={() => setNovoOpen(true)}
             size="sm"
             className="bg-white/20 border border-white/30 text-white hover:bg-white/30 gap-1.5 font-bold rounded-lg"
           >
-            <Plus className="w-4 h-4" /> Nova
+            <Plus className="w-4 h-4" /> Nova Demanda
           </Button>
         </div>
       </header>
 
       <div className="px-4 pt-4 pb-2 space-y-3">
         <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">Setor destinatário</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">Status</p>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            <button
-              onClick={() => setSetorFiltro("todos")}
-              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                setorFiltro === "todos"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:border-primary/50"
-              }`}
-            >
-              Todos
-            </button>
-            {SETORES_DESTINATARIOS.map((setor) => (
+            {[
+              { id: "todas", label: "Todas" },
+              { id: "abertas", label: "Abertas" },
+              { id: "andamento", label: "Em Andamento" },
+              { id: "concluidas", label: "Concluídas" },
+            ].map((item) => (
               <button
-                key={setor.value}
-                onClick={() => setSetorFiltro(setor.value)}
-                className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                  setorFiltro === setor.value
+                key={item.id}
+                onClick={() => setFiltroStatus(item.id as FiltroStatus)}
+                className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border ${
+                  filtroStatus === item.id
                     ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card text-muted-foreground border-border hover:border-primary/50"
+                    : "bg-card text-muted-foreground border-border"
                 }`}
               >
-                {setor.label}
+                {item.label}
               </button>
             ))}
           </div>
         </div>
 
         <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">Urgência</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">Setor destinatário</p>
           <div className="flex gap-2 overflow-x-auto pb-1">
             <button
-              onClick={() => setUrgenciaFiltro("todas")}
-              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                urgenciaFiltro === "todas"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:border-primary/50"
+              onClick={() => setFiltroSetor("todos")}
+              className={`shrink-0 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border ${
+                filtroSetor === "todos" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
               }`}
             >
-              Todas
+              Todos
             </button>
-            {URGENCIAS.map((urg) => (
+            {setoresExistentes.map((setor) => (
               <button
-                key={urg.value}
-                onClick={() => setUrgenciaFiltro(urg.value)}
-                className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                  urgenciaFiltro === urg.value
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card text-muted-foreground border-border hover:border-primary/50"
+                key={setor}
+                onClick={() => setFiltroSetor(setor)}
+                className={`shrink-0 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border ${
+                  filtroSetor === setor ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
                 }`}
               >
-                {urg.label}
+                {getSetorLabel(setor)}
               </button>
             ))}
           </div>
@@ -178,7 +180,7 @@ export default function DemandasHome() {
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
             <ClipboardList className="w-12 h-12 opacity-30" />
             <p className="text-sm">Nenhuma demanda encontrada</p>
-            <Button onClick={() => setModalOpen(true)} size="sm" className="bg-header-gradient text-white font-bold rounded-xl">
+            <Button onClick={() => setNovoOpen(true)} size="sm" className="bg-header-gradient text-white font-bold rounded-xl">
               <Plus className="w-4 h-4 mr-1" /> Criar demanda
             </Button>
           </div>
@@ -189,7 +191,7 @@ export default function DemandasHome() {
         )}
       </div>
 
-      <NovaDemandaModal open={modalOpen} onClose={() => setModalOpen(false)} onCreate={criar} />
+      <NovaDemandaModal open={novoOpen} onClose={() => setNovoOpen(false)} onCreate={criar} onCreateMany={criarMuitas} />
     </div>
   );
 }

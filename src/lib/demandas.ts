@@ -1,9 +1,11 @@
 export type TipoDemanda =
   | "manutencao"
   | "transporte"
+  | "rh"
+  | "material"
+  | "tarefa"
   | "troca_funcionario"
   | "acessorio"
-  | "rh"
   | "reclamacao"
   | "sugestao"
   | "comunicado"
@@ -14,16 +16,43 @@ export type SetorDestinatario =
   | "programador"
   | "rh"
   | "engenharia"
-  | "admin";
+  | "admin"
+  | "suprimentos"
+  | "equipe";
 
 export type UrgenciaDemanda = "baixa" | "normal" | "alta" | "urgente";
+
+export type StatusDemanda = "aberta" | "pendente" | "aceita" | "em_execucao" | "concluida" | "cancelada";
+
+export const EQUIPMENT_TYPES = [
+  "Fresadora",
+  "Bobcat",
+  "Rolo",
+  "Vibroacabadora",
+  "Usina KMA",
+  "Caminhões",
+  "Comboio",
+  "Veículo",
+  "Retro",
+  "Carreta",
+] as const;
+
+export const TRANSPORTE_HORARIOS = [
+  "Início da noite (19h-20h)",
+  "Meia-noite",
+  "Madrugada (2h-4h)",
+  "Manhã (6h-8h)",
+  "Horário específico...",
+] as const;
 
 export const TIPOS_DEMANDA: Array<{ value: TipoDemanda; icon: string; label: string }> = [
   { value: "manutencao", icon: "🔧", label: "Manutenção de Equipamento" },
   { value: "transporte", icon: "🚛", label: "Transporte de Equipamento" },
-  { value: "troca_funcionario", icon: "👷", label: "Troca / Reforço de Funcionário" },
+  { value: "rh", icon: "👷", label: "Solicitação RH" },
+  { value: "material", icon: "📦", label: "Material / Acessório" },
+  { value: "tarefa", icon: "📋", label: "Tarefa" },
+  { value: "troca_funcionario", icon: "👥", label: "Troca / Reforço de Funcionário" },
   { value: "acessorio", icon: "📦", label: "Acessório / Material" },
-  { value: "rh", icon: "📋", label: "Dúvida RH (salário, VT, benefício)" },
   { value: "reclamacao", icon: "⚠️", label: "Reclamação" },
   { value: "sugestao", icon: "💡", label: "Sugestão" },
   { value: "comunicado", icon: "📢", label: "Comunicado / Engenharia" },
@@ -33,6 +62,8 @@ export const TIPOS_DEMANDA: Array<{ value: TipoDemanda; icon: string; label: str
 export const SETORES_DESTINATARIOS: Array<{ value: SetorDestinatario; label: string }> = [
   { value: "manutencao", label: "Manutenção" },
   { value: "programador", label: "Programador de Obras" },
+  { value: "suprimentos", label: "Suprimentos" },
+  { value: "equipe", label: "Equipe" },
   { value: "rh", label: "RH" },
   { value: "engenharia", label: "Engenharia" },
   { value: "admin", label: "Administração" },
@@ -44,6 +75,8 @@ export const URGENCIAS: Array<{ value: UrgenciaDemanda; label: string; badgeClas
   { value: "alta", label: "Alta", badgeClass: "bg-orange-100 text-orange-700 border-orange-200" },
   { value: "urgente", label: "Urgente", badgeClass: "bg-red-100 text-red-700 border-red-200" },
 ];
+
+export const URGENCIAS_FASE1 = URGENCIAS.filter((u) => u.value !== "baixa");
 
 export const URGENCIA_ORDEM: Record<UrgenciaDemanda, number> = {
   urgente: 0,

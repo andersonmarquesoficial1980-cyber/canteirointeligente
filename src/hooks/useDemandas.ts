@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import type { SetorDestinatario, TipoDemanda, UrgenciaDemanda } from "@/lib/demandas";
+import type { SetorDestinatario, StatusDemanda, TipoDemanda, UrgenciaDemanda } from "@/lib/demandas";
 
 export interface Demanda {
   id: string;
@@ -12,9 +12,9 @@ export interface Demanda {
   funcionario_id?: string;
   funcionario_nome?: string;
   equipamento?: string;
-  centro_de_custo: string;
+  centro_de_custo?: string;
   data_prevista?: string;
-  status: "aberta" | "pendente" | "aceita" | "em_execucao" | "concluida" | "cancelada";
+  status: StatusDemanda;
   observacoes?: string;
   created_by?: string;
   created_at: string;
@@ -27,24 +27,42 @@ export interface Demanda {
   resposta?: string;
   respondido_por?: string;
   respondido_at?: string;
-  lembrete_1h_at?: string;
-  lembrete_4h_at?: string;
-  lembrete_8h_at?: string;
   viewed_by?: string[];
+
+  equipamentos_ids?: string[];
+  equipamentos_json?: any[];
+  horario_transporte?: string;
+  origem?: string;
+  origem_maps?: string;
+  destino?: string;
+  destino_maps?: string;
+  foto_url?: string;
+  sub_tipo?: string;
+  setor_reclamacao?: string;
+  itens_material?: any[];
+  funcionario_solicitado_id?: string;
+  funcionario_solicitado_nome?: string;
+  funcao_solicitada?: string;
+  setor_origem?: string;
+  centro_custo_origem?: string;
 }
 
-export type StatusDemanda = Demanda["status"];
+export type NovaDemandaPayload = Omit<Demanda, "id" | "created_at">;
 
-function normalizeStatus(status?: string) {
+function normalizeStatus(status?: string): StatusDemanda {
   if (status === "aberta") return "pendente";
-  return status;
+  if (status === "aceita") return "em_execucao";
+  if (status === "pendente" || status === "em_execucao" || status === "concluida" || status === "cancelada") {
+    return status;
+  }
+  return "pendente";
 }
 
 function normalizeDemanda(demanda: Demanda): Demanda {
-  if (demanda.status === "aberta") {
-    return { ...demanda, status: "pendente" };
-  }
-  return demanda;
+  return {
+    ...demanda,
+    status: normalizeStatus(demanda.status),
+  };
 }
 
 export function useDemandas(filtroStatus?: StatusDemanda) {
@@ -54,11 +72,20 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    let query = (supabase as any).from("demandas").select("*").order("created_at", { ascending: false });
+    let query = (supabase as any)
+      .from("demandas")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (filtroStatus) {
       const statusNormalizado = normalizeStatus(filtroStatus);
-      query = query.eq("status", statusNormalizado);
+      if (statusNormalizado === "em_execucao") {
+        query = query.in("status", ["em_execucao", "aceita"]);
+      } else if (statusNormalizado === "pendente") {
+        query = query.in("status", ["pendente", "aberta"]);
+      } else {
+        query = query.eq("status", statusNormalizado);
+      }
     }
 
     const { data, error } = await query;
@@ -67,6 +94,7 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
     } else if (data) {
       setDemandas((data as Demanda[]).map(normalizeDemanda));
     }
+
     setLoading(false);
   }, [filtroStatus, toast]);
 
@@ -74,10 +102,10 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
     load();
   }, [load]);
 
-  const criar = async (demanda: Omit<Demanda, "id" | "created_at">) => {
+  const criar = async (demanda: NovaDemandaPayload) => {
     const payload: any = {
       ...demanda,
-      status: normalizeStatus(demanda.status) ?? "pendente",
+      status: normalizeStatus(demanda.status),
       updated_at: new Date().toISOString(),
     };
 
@@ -87,7 +115,27 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
       return false;
     }
 
-    toast({ title: "✅ Demanda criada!" });
+    toast({ title: "Demanda criada" });
+    await load();
+    return true;
+  };
+
+  const criarMuitas = async (demandasPayload: NovaDemandaPayload[]) => {
+    if (demandasPayload.length === 0) return false;
+
+    const payload = demandasPayload.map((item) => ({
+      ...item,
+      status: normalizeStatus(item.status),
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { error } = await (supabase as any).from("demandas").insert(payload);
+    if (error) {
+      toast({ title: "Erro ao criar demandas", description: error.message, variant: "destructive" });
+      return false;
+    }
+
+    toast({ title: `${demandasPayload.length} demanda(s) criada(s)` });
     await load();
     return true;
   };
@@ -106,7 +154,7 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
       return false;
     }
 
-    toast({ title: "✅ Status atualizado!" });
+    toast({ title: "Status atualizado" });
     await load();
     return true;
   };
@@ -125,7 +173,7 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
       return false;
     }
 
-    toast({ title: "✅ Demanda atualizada!" });
+    toast({ title: "Demanda atualizada" });
     await load();
     return true;
   };
@@ -147,7 +195,7 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
       return false;
     }
 
-    toast({ title: "✅ Resposta enviada e demanda concluída!" });
+    toast({ title: "Resposta enviada e demanda concluída" });
     await load();
     return true;
   };
@@ -188,6 +236,7 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
     demandas,
     loading,
     criar,
+    criarMuitas,
     atualizar,
     atualizarStatus,
     responderDemanda,
@@ -231,3 +280,5 @@ export function useDemandaById(id?: string) {
 
   return { demanda, loading, reload: load };
 }
+
+export type { StatusDemanda };
