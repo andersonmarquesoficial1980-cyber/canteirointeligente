@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Wrench, FileText, Fuel, ChevronRight, AlertTriangle, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Wrench, FileText, Fuel, ChevronRight, AlertTriangle, Clock, CheckCircle, Loader2, Tv } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import NovaOSModal from "@/components/manutencao/NovaOSModal";
@@ -105,6 +105,9 @@ export default function ManutencaoHome() {
           <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">WF Manutenção</span>
           <span className="block text-[11px] text-primary-foreground/80">Ordens de Serviço & Documentos</span>
         </div>
+        <Button size="sm" variant="outline" onClick={() => navigate("/manutencao/fila")} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
+          <Tv className="w-4 h-4" /> Fila de Manutenção
+        </Button>
         <Button size="sm" onClick={() => setModalNovaOS(true)} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1">
           <Plus className="w-4 h-4" /> Nova OS
         </Button>

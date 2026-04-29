@@ -32,6 +32,8 @@ import EspelhoPonto from "./pages/EspelhoPonto";
 import ProgramadorHome from "./pages/ProgramadorHome";
 import DemandasHome from "./pages/DemandasHome";
 import MinhasDemandas from "./pages/MinhasDemandas";
+import DetalhesDemanda from "./pages/DetalhesDemanda";
+import FilaManutencao from "./pages/FilaManutencao";
 import MeusLancamentos from "./pages/MeusLancamentos";
 import ExportarProtheus from "./pages/ExportarProtheus";
 import DocumentosHome from "./pages/DocumentosHome";
@@ -207,7 +209,9 @@ function AppRoutes() {
 
         {/* WF Demandas */}
         <Route path="/demandas" element={<AppLayout><DemandasHome /></AppLayout>} />
+        <Route path="/demandas/:id" element={<AppLayout><DetalhesDemanda /></AppLayout>} />
         <Route path="/minhas-demandas" element={<MinhasDemandas />} />
+        <Route path="/manutencao/fila" element={<FilaManutencao />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -10,6 +10,7 @@ import type { Demanda, StatusDemanda } from "@/hooks/useDemandas";
 import logoCi from "@/assets/logo-workflux.png";
 
 const STATUS_LABELS: Record<StatusDemanda, string> = {
+  aberta: "Aberta",
   pendente: "Pendente",
   aceita: "Aceita",
   em_execucao: "Em Execução",
@@ -18,6 +19,7 @@ const STATUS_LABELS: Record<StatusDemanda, string> = {
 };
 
 const STATUS_CLASSES: Record<StatusDemanda, string> = {
+  aberta: "bg-yellow-100 text-yellow-800 border-yellow-200",
   pendente: "bg-yellow-100 text-yellow-800 border-yellow-200",
   aceita: "bg-blue-100 text-blue-800 border-blue-200",
   em_execucao: "bg-green-100 text-green-800 border-green-200",
