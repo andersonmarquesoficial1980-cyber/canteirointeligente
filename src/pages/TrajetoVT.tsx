@@ -171,9 +171,12 @@ function getModeLabel(mode: string): string {
   const map: Record<string, string> = {
     BUS: "🚌 Ônibus",
     SUBWAY: "🚇 Metrô",
-    RAIL: "🚆 Trem",
+    RAIL: "🚆 Trem / CPTM",
+    HEAVY_RAIL: "🚆 Trem Metropolitano",
     TRAM: "🚊 VLT",
     WALKING: "🚶 A pé",
+    INTERCITY_BUS: "🚌 Ônibus Intermunicipal",
+    TROLLEYBUS: "🚌 Troléibus",
   };
   return map[mode] || mode;
 }
@@ -188,7 +191,9 @@ const METRO_FERROVIARIO_PREFIXES = [
 
 function isMetroFerroviario(step: TransitStep): boolean {
   if (step.mode === "SUBWAY") return true;
-  if (step.mode !== "RAIL" && step.mode !== "HEAVY_RAIL") return false;
+  // HEAVY_RAIL = Linhas 7-13 CPTM + ViaMobilidade (8, 9, 11) — sempre metroférroviario em SP
+  if (step.mode === "HEAVY_RAIL") return true;
+  if (step.mode !== "RAIL") return false;
   const lineName = (step.line || "").toLowerCase();
   return METRO_FERROVIARIO_PREFIXES.some(p => lineName.startsWith(p)) || lineName.includes("linha");
 }
