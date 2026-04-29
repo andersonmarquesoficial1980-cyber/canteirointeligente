@@ -508,21 +508,11 @@ export default function EquipmentDiaryForm() {
 
   // Filtered operators — matches actual DB values like "OP DE FRESADORA"
   const operadoresFresa = useMemo(() => {
-    const filtered = funcionariosForType.filter((f: any) => {
-      const fn = f.funcao?.toUpperCase() || "";
-      return fn.includes("FRESADORA") || fn === "OP DE FRESADORA";
-    });
-    // operadores fresa filtered
-    return filtered.length > 0 ? filtered : funcionariosForType;
+    return funcionariosForType;
   }, [funcionariosForType]);
 
   const operadoresSolo = useMemo(() => {
-    const filtered = funcionariosForType.filter((f: any) => {
-      const fn = f.funcao?.toUpperCase() || "";
-      return fn.includes("OP SOLO") || fn.includes("AJUDANTE");
-    });
-    // operadores solo filtered
-    return filtered.length > 0 ? filtered : funcionariosForType;
+    return funcionariosForType;
   }, [funcionariosForType]);
 
   const filteredFleet = useMemo(() => {
@@ -537,27 +527,15 @@ export default function EquipmentDiaryForm() {
   }, [equipamentos, isFresadora]);
 
   const operadoresBobcat = useMemo(() => {
-    const filtered = funcionariosForType.filter((f: any) => {
-      const fn = f.funcao?.toUpperCase() || "";
-      return fn.includes("BOBCAT");
-    });
-    return filtered.length > 0 ? filtered : funcionariosForType;
+    return funcionariosForType;
   }, [funcionariosForType]);
 
   const operadoresRetro = useMemo(() => {
-    const filtered = funcionariosForType.filter((f: any) => {
-      const fn = f.funcao?.toUpperCase() || "";
-      return fn.includes("RETROESCAVADEIRA") || fn.includes("RETRO") || fn.includes("ESCAVADEIRA") || fn.includes("PA CARREGADEIRA");
-    });
-    return filtered.length > 0 ? filtered : funcionariosForType;
+    return funcionariosForType;
   }, [funcionariosForType]);
 
   const motoristas = useMemo(() => {
-    const filtered = funcionariosForType.filter((f: any) => {
-      const fn = f.funcao?.toUpperCase() || "";
-      return fn.includes("MOTORISTA") || fn.includes("COMBOIO");
-    });
-    return filtered.length > 0 ? filtered : funcionariosForType;
+    return funcionariosForType;
   }, [funcionariosForType]);
 
   const meterLabel = usesOdometer ? "Odômetro" : "Horímetro";
@@ -1535,7 +1513,7 @@ export default function EquipmentDiaryForm() {
                     <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : "Selecione..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(isFresadora ? filteredFleet : equipamentos).filter((eq: any) => eq.frota).map((eq: any) => (
+                    {(isFresadora ? filteredFleet || [] : equipamentos || []).filter((eq: any) => eq.frota).map((eq: any) => (
                       <SelectItem key={eq.id} value={eq.frota}>
                         {eq.frota} — {eq.nome}
                       </SelectItem>
