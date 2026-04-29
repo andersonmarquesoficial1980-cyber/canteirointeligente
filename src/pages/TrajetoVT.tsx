@@ -221,34 +221,49 @@ function estimateFareFromSteps(steps: TransitStep[], tarifas: Tarifa[]): number 
   const tarifaIntegracaoComum= findTarifa(["integração ônibus + metrô", "comum"]) ?? 9.38;
 
   // Usar VT como padrão (empresa paga VT)
-  const tarifaMetro   = tarifaMetroVT;
-  const tarifaOnibus  = tarifaBarueri; // padrão Fremix (região oeste)
+  const tarifaMetro  = tarifaMetroVT;
+  const tarifaOnibus = tarifaBarueri; // padrão Fremix (região oeste)
 
+  // Detecta município pelas paradas
+  const allStops = steps.flatMap(s => [s.departureStop, s.arrivalStop]).join(" ").toLowerCase();
+  const tarifaOnibusLocal = allStops.includes("guarulhos") ? (findTarifa(["guarulhos"]) ?? 6.20)
+    : allStops.includes("são bernardo") || allStops.includes(" sbc") ? (findTarifa(["são bernardo"]) ?? 5.95)
+    : allStops.includes("santo andré") ? (findTarifa(["santo andré", "vale-transporte"]) ?? 7.25)
+    : tarifaOnibus;
+
+  let qtdOnibus = 0;
+  let jaCobrouMetro = false;
   let total = 0;
-  let temOnibus = false;
-  let temMetroFerroviario = false;
 
   for (const step of steps) {
     if (step.mode === "WALKING") continue;
-    if (isMetroFerroviario(step)) { temMetroFerroviario = true; continue; }
-    if (step.mode === "BUS") { temOnibus = true; continue; }
+
+    if (isMetroFerroviario(step)) {
+      // Sistema metroferroviário — cobra só uma vez (integração gratuita Metrô/CPTM)
+      if (!jaCobrouMetro) { jaCobrouMetro = true; }
+      continue;
+    }
+
+    if (step.mode === "BUS") {
+      qtdOnibus++;
+    }
   }
 
-  // Lógica de cobrança conforme sistema SP:
-  // - Só metrô/trem → tarifa unitária metrô VT
-  // - Só ônibus → tarifa ônibus (município detectado)
-  // - Ônibus + metrô → integração (tarifa especial mais barata que cobrar os dois)
-  if (temOnibus && temMetroFerroviario) {
+  // Lógica de cobrança:
+  // Ônibus + Metrô: o PRIMEIRO ônibus tem integração com metrô (tarifa especial)
+  //                 demais ônibus são cobrados normalmente
+  // Só metrô: tarifa unitária metrô
+  // Só ônibus: cada um cobrado separadamente (sem integração entre ônibus)
+  if (jaCobrouMetro && qtdOnibus > 0) {
+    // Primeiro ônibus integrado com metrô
     total = tarifaIntegracaoVT;
-  } else if (temMetroFerroviario) {
+    // Ônibus adicionais além do integrado
+    if (qtdOnibus > 1) total += tarifaOnibusLocal * (qtdOnibus - 1);
+  } else if (jaCobrouMetro) {
     total = tarifaMetro;
-  } else if (temOnibus) {
-    // Detectar município pelo nome das paradas
-    const allStops = steps.flatMap(s => [s.departureStop, s.arrivalStop]).join(" ").toLowerCase();
-    if (allStops.includes("guarulhos")) total = findTarifa(["guarulhos"]) ?? 6.20;
-    else if (allStops.includes("são bernardo") || allStops.includes("sbc")) total = findTarifa(["são bernardo"]) ?? 5.95;
-    else if (allStops.includes("santo andré")) total = findTarifa(["santo andré", "vale-transporte"]) ?? 7.25;
-    else total = tarifaOnibus; // padrão região oeste (Barueri/Osasco)
+  } else {
+    // Só ônibus — cobra cada um
+    total = tarifaOnibusLocal * qtdOnibus;
   }
 
   return total;
@@ -349,9 +364,13 @@ export default function TrajetoVT() {
           let fareValue = 0;
           let fareSource: "google" | "tabela" = "tabela";
 
-          // Try to read fare from Google response
+          // Conta ônibus na rota
+          const qtdOnibusNaRota = steps.filter(s => s.mode === "BUS").length;
+
+          // Usa Google só quando há 1 ônibus (ou só metrô)
+          // Com múltiplos ônibus o Google retorna só o valor de 1 trecho — calcular pela tabela
           const googleFare = response.routes[0].fare;
-          if (googleFare && googleFare.value > 0) {
+          if (googleFare && googleFare.value > 0 && qtdOnibusNaRota <= 1) {
             fareValue = googleFare.value;
             fareSource = "google";
           } else {
