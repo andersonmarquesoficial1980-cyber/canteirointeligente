@@ -98,6 +98,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
 
   const [maquinas, setMaquinas] = useState<Maquina[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
+  const [usuariosWorkflux, setUsuariosWorkflux] = useState<Array<{id: string; user_id: string; nome_completo: string; perfil: string}>>([]);
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [userNome, setUserNome] = useState("Usuário");
   const [userPerfil, setUserPerfil] = useState("");
@@ -184,12 +185,14 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
 
       setUserId(user?.id);
 
-      const [profileRes, maquinasRes, funcionariosRes] = await Promise.all([
+      const [profileRes, maquinasRes, funcionariosRes, usuariosRes] = await Promise.all([
         user?.id
           ? supabase.from("profiles").select("nome_completo, perfil, company_id").eq("user_id", user.id).maybeSingle()
           : Promise.resolve({ data: null, error: null } as any),
         (supabase as any).from("maquinas_frota").select("id, frota, tipo, status, nome").order("tipo").order("frota"),
         (supabase as any).from("funcionarios").select("id, nome, funcao").order("nome"),
+        // Busca usuários do Workflux para delegar tarefas
+        supabase.from("profiles").select("id, user_id, nome_completo, perfil").neq("status", "inativo").order("nome_completo"),
       ]);
 
       if (profileRes?.data) {
@@ -204,6 +207,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
 
       if (!maquinasRes.error && maquinasRes.data) setMaquinas(maquinasRes.data as Maquina[]);
       if (!funcionariosRes.error && funcionariosRes.data) setFuncionarios(funcionariosRes.data as Funcionario[]);
+      if (!usuariosRes.error && usuariosRes.data) setUsuariosWorkflux(usuariosRes.data as any[]);
 
       if (maquinasRes.error) {
         toast({ title: "Erro ao carregar equipamentos", description: maquinasRes.error.message, variant: "destructive" });
@@ -552,13 +556,14 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
     }
 
     if (!tarefaFuncionarioId || !tarefaTitulo.trim()) {
-      toast({ title: "Selecione o funcionário e informe o título da tarefa" });
+      toast({ title: "Selecione o usuário e informe o título da tarefa" });
       return;
     }
 
-    const funcionario = getFuncionarioById(tarefaFuncionarioId);
-    if (!funcionario) {
-      toast({ title: "Funcionário inválido" });
+    // tarefaFuncionarioId agora é o user_id do usuário do Workflux
+    const usuarioDestino = usuariosWorkflux.find(u => u.user_id === tarefaFuncionarioId);
+    if (!usuarioDestino) {
+      toast({ title: "Usuário inválido" });
       return;
     }
 
@@ -577,8 +582,8 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
       urgencia,
       created_by: userId,
       company_id: companyId || undefined,
-      funcionario_id: funcionario.id,
-      funcionario_nome: funcionario.nome,
+      funcionario_id: usuarioDestino.id, // id do profile
+      funcionario_nome: usuarioDestino.nome_completo,
       data_prevista: tarefaData || undefined,
       horario_transporte: horarioFinal || undefined,
       sub_tipo: "tarefa_programador",
@@ -935,6 +940,8 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
                         <SelectItem value="Engenharia">Engenharia</SelectItem>
                         <SelectItem value="Manutenção">Manutenção</SelectItem>
                         <SelectItem value="Segurança">Segurança</SelectItem>
+                        <SelectItem value="Suprimentos">Suprimentos</SelectItem>
+                        <SelectItem value="Compras">Compras</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1025,13 +1032,17 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
                   ) : (
                     <>
                       <div className="space-y-2">
-                        <Label>Funcionário da equipe *</Label>
+                        <Label>Usuário do Workflux *</Label>
                         <Select value={tarefaFuncionarioId} onValueChange={setTarefaFuncionarioId}>
-                          <SelectTrigger className="h-11"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectTrigger className="h-11"><SelectValue placeholder="Selecione o usuário" /></SelectTrigger>
                           <SelectContent>
-                            {funcionariosEquipe.map((f) => (
-                              <SelectItem key={f.id} value={f.id}>{f.nome} - {f.funcao}</SelectItem>
-                            ))}
+                            {usuariosWorkflux
+                              .filter(u => u.user_id !== userId) // não mostrar o próprio usuário
+                              .map((u) => (
+                                <SelectItem key={u.user_id} value={u.user_id}>
+                                  {u.nome_completo} ({u.perfil})
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>

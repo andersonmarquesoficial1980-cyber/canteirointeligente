@@ -24,17 +24,33 @@ export type UrgenciaDemanda = "baixa" | "normal" | "alta" | "urgente";
 
 export type StatusDemanda = "aberta" | "pendente" | "aceita" | "em_execucao" | "concluida" | "cancelada";
 
+// Tipos de equipamento — mapeados para os valores EXATOS do banco (maquinas_frota.tipo)
 export const EQUIPMENT_TYPES = [
-  "Fresadora",
-  "Bobcat",
-  "Rolo",
-  "Vibroacabadora",
-  "Usina KMA",
-  "Caminhões",
-  "Comboio",
-  "Veículo",
-  "Retro",
-  "Carreta",
+  "FRESADORA",
+  "BOBCAT",
+  "ROLO CHAPA",
+  "ROLO PÉ DE CARNEIRO",
+  "ROLO PNEU",
+  "VIBRO ACABADORA",
+  "USINA MÓVEL",
+  "CAMINHÃO BASCULANTE",
+  "CAMINHÃO CARROCERIA",
+  "CAMINHÃO COMBOIO",
+  "CAMINHÃO ESPARGIDOR",
+  "CAMINHÃO PIPA",
+  "CAMINHÃO PLATAFORMA",
+  "CAVALO MECANICO",
+  "MICROONIBUS",
+  "VAN",
+  "RETROESCAVADEIRA",
+  "PA CARREGADEIRA",
+  "COMPRESSOR",
+  "GERADOR",
+  "PLACA VIBRATÓRIA",
+  "ROMPEDOR ELÉTRICO",
+  "ROMPEDOR PNEUMATICO",
+  "MISTURADOR DE ARGAMASSA",
+  "SERRA CLIPER",
 ] as const;
 
 export const TRANSPORTE_HORARIOS = [
