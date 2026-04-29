@@ -44,6 +44,9 @@ interface TransitResult {
   steps: TransitStep[];
   fareEstimate: number;
   fareSource: "google" | "tabela";
+  temRodoviario: boolean; // true se tiver ônibus interestadual/intermunicipal longo
+  fareRodoviario: number; // valor do trecho rodoviário (editavel pelo usuario)
+  fareLocal: number; // valor dos trechos municipais/metrô
 }
 
 function PlacesAutocomplete({
@@ -198,6 +201,24 @@ function isMetroFerroviario(step: TransitStep): boolean {
   return METRO_FERROVIARIO_PREFIXES.some(p => lineName.startsWith(p)) || lineName.includes("linha");
 }
 
+// Detecta ônibus rodoviario/interestadual pelo nome da linha ou distância
+function isOnibusRodoviario(step: TransitStep): boolean {
+  if (step.mode !== "BUS") return false;
+  const line = (step.line || "").toLowerCase();
+  const depart = (step.departureStop || "").toLowerCase();
+  const arrive = (step.arrivalStop || "").toLowerCase();
+  // Empresas rodoviarias comuns SP
+  const empresas = ["guerino", "prata", "cometa", "util", "catarinense", "garcia", "penha", "andorinha", "itapemirim", "reunidas", "são luiz", "expresso"];
+  if (empresas.some(e => line.includes(e))) return true;
+  // Terminal rodoviário como origem/destino
+  if (depart.includes("rodoviário") || arrive.includes("rodoviário") ||
+      depart.includes("rodoviario") || arrive.includes("rodoviario")) return true;
+  // Distâncias longas (>50km) indicam interestadual
+  const distKm = parseFloat((step.distance || "0").replace(/[^0-9.]/g, ""));
+  if (step.distance?.includes("km") && distKm > 50) return true;
+  return false;
+}
+
 function isBusConectadoMetro(step: TransitStep, steps: TransitStep[], idx: number): boolean {
   // Ônibus que parte de terminal de metrô/trem pode ter integração
   // Detectar pelo nome da parada de origem
@@ -281,7 +302,10 @@ export default function TrajetoVT() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<TransitResult[]>([]);
   const [selectedRoute, setSelectedRoute] = useState(0);
+  const [valoresRodoviario, setValoresRodoviario] = useState<Record<number, string>>({});
   const result = results[selectedRoute] ?? null;
+  const valorRodoviarioEditado = parseFloat((valoresRodoviario[selectedRoute] || "0").replace(",", ".")) || 0;
+  const fareTotal = result ? (result.fareLocal + valorRodoviarioEditado) : 0;
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [tarifas, setTarifas] = useState<Tarifa[]>([]);
   const calculatingRef = useRef(false);
@@ -376,16 +400,23 @@ export default function TrajetoVT() {
               }
             }
 
-            let fareValue = 0;
+            // Detecta se tem ônibus rodoviário na rota
+            const stepsRodoviario = steps.filter(s => isOnibusRodoviario(s));
+            const stepsLocais = steps.filter(s => !isOnibusRodoviario(s));
+            const temRodoviario = stepsRodoviario.length > 0;
+
+            // Calcula trecho local (municipal + metrô)
+            let fareLocal = estimateFareFromSteps(stepsLocais, tarifas);
             let fareSource: "google" | "tabela" = "tabela";
-            const qtdOnibusNaRota = steps.filter(s => s.mode === "BUS").length;
-            const googleFare = route.fare;
-            if (googleFare && googleFare.value > 0 && qtdOnibusNaRota <= 1) {
-              fareValue = googleFare.value;
-              fareSource = "google";
-            } else {
-              fareValue = estimateFareFromSteps(steps, tarifas);
-              fareSource = "tabela";
+
+            // Se só metrô/municipal (sem rodoviario), tenta usar Google
+            if (!temRodoviario) {
+              const qtdOnibusNaRota = steps.filter(s => s.mode === "BUS").length;
+              const googleFare = route.fare;
+              if (googleFare && googleFare.value > 0 && qtdOnibusNaRota <= 1) {
+                fareLocal = googleFare.value;
+                fareSource = "google";
+              }
             }
 
             allResults.push({
@@ -394,8 +425,11 @@ export default function TrajetoVT() {
               departureTime: leg.departure_time?.text || "",
               arrivalTime: leg.arrival_time?.text || "",
               steps,
-              fareEstimate: fareValue,
+              fareEstimate: fareLocal, // total inicial sem rodoviário
               fareSource,
+              temRodoviario,
+              fareRodoviario: 0, // usuário preenche manualmente
+              fareLocal,
             });
           }
 
@@ -410,7 +444,7 @@ export default function TrajetoVT() {
     }
   };
 
-  const custoMensal = result ? result.fareEstimate * 2 * 22 : 0;
+  const custoMensal = fareTotal * 2 * 22;
 
   return (
     <div className="min-h-screen bg-background">
@@ -577,11 +611,42 @@ export default function TrajetoVT() {
                       {result.fareSource === "google" ? "Valor real via Google" : "Estimado via Tabela"}
                     </Badge>
                   </span>
-                  <span className="font-medium">R$ {result.fareEstimate.toFixed(2).replace(".", ",")}</span>
+                  <span className="font-medium">R$ {result.fareLocal.toFixed(2).replace(".", ",")}</span>
                 </div>
+
+                {/* Campo de ônibus rodoviário */}
+                {result.temRodoviario && (
+                  <div className="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-orange-800 flex items-center gap-1">
+                      ⚠️ Rota inclui ônibus rodoviário/interestadual
+                    </p>
+                    <p className="text-xs text-orange-700">O valor varia por empresa e data. Informe o valor real da passagem:</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0,00"
+                        value={valoresRodoviario[selectedRoute] || ""}
+                        onChange={e => setValoresRodoviario(prev => ({ ...prev, [selectedRoute]: e.target.value }))}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                      />
+                    </div>
+                    <p className="text-[10px] text-orange-600">Ex: Bauru → São Paulo (Expresso de Prata): R$ 156,60</p>
+                  </div>
+                )}
+
+                {result.temRodoviario && valorRodoviarioEditado > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Ônibus rodoviário:</span>
+                    <span className="font-medium">R$ {valorRodoviarioEditado.toFixed(2).replace(".", ",")}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between text-sm">
                   <span>Custo diário (ida + volta):</span>
-                  <span className="font-medium">R$ {(result.fareEstimate * 2).toFixed(2).replace(".", ",")}</span>
+                  <span className="font-medium">R$ {(fareTotal * 2).toFixed(2).replace(".", ",")}</span>
                 </div>
                 <div className="flex justify-between text-base font-bold border-t pt-2">
                   <span>Custo mensal (22 dias):</span>
