@@ -202,63 +202,53 @@ function isBusConectadoMetro(step: TransitStep, steps: TransitStep[], idx: numbe
 }
 
 function estimateFareFromSteps(steps: TransitStep[], tarifas: Tarifa[]): number {
-  const tarifaMap: Record<string, number> = {};
-  for (const t of tarifas) {
-    const key = t.tipo_transporte.toLowerCase();
-    tarifaMap[key] = t.valor_unitario;
-  }
+  // Monta mapa de tarifas do banco
+  const findTarifa = (keywords: string[]): number | null => {
+    for (const t of tarifas) {
+      const k = t.tipo_transporte.toLowerCase();
+      if (keywords.some(kw => k.includes(kw.toLowerCase()))) return t.valor_unitario;
+    }
+    return null;
+  };
 
-  // Tarifas base (da tabela ou valores reais SP 2026)
-  const tarifaMetro      = tarifaMap["metrô"] || tarifaMap["metro"] || tarifaMap["trem"] || 5.40;
-  const tarifaEmtu       = tarifaMap["emtu"] || tarifaMap["aeroporto"] || tarifaMap["airport"] || 8.00;
-  const tarifaMetropoMet = tarifaMap["ônibus metropolitano"] || tarifaMap["metropolitano"] || 6.70;
-  const tarifaIntermunic = tarifaMap["ônibus intermunicipal"] || tarifaMap["intermunicipal"] || 7.15;
-  const tarifaMunicipal  = tarifaMap["ônibus municipal"] || tarifaMap["ônibus"] || tarifaMap["municipal"] || 6.10;
+  // Tarifas base Jan/2026
+  const tarifaMetroUnitario  = findTarifa(["metrô sp (unitário)"]) ?? 5.40;
+  const tarifaMetroVT        = findTarifa(["metrô sp - vale"]) ?? 5.92;
+  const tarifaOnibusSpComum  = findTarifa(["sptrans", "sp (sptrans)"]) ?? 5.30;
+  const tarifaOnibusSpVT     = findTarifa(["sptrans", "vale-transporte"]) ?? 5.82;
+  const tarifaBarueri        = findTarifa(["barueri", "osasco", "carapicuíba"]) ?? 6.10;
+  const tarifaIntegracaoVT   = findTarifa(["integração ônibus + metrô", "vale-transporte"]) ?? 11.32;
+  const tarifaIntegracaoComum= findTarifa(["integração ônibus + metrô", "comum"]) ?? 9.38;
+
+  // Usar VT como padrão (empresa paga VT)
+  const tarifaMetro   = tarifaMetroVT;
+  const tarifaOnibus  = tarifaBarueri; // padrão Fremix (região oeste)
 
   let total = 0;
-  let jaCobrouMetroFerroviario = false;
+  let temOnibus = false;
+  let temMetroFerroviario = false;
 
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
+  for (const step of steps) {
     if (step.mode === "WALKING") continue;
+    if (isMetroFerroviario(step)) { temMetroFerroviario = true; continue; }
+    if (step.mode === "BUS") { temOnibus = true; continue; }
+  }
 
-    // Sistema metroferroviário SP — cobrar só uma vez (integração gratuita entre Metrô/CPTM/ViaMobilidade)
-    if (isMetroFerroviario(step)) {
-      if (!jaCobrouMetroFerroviario) {
-        total += tarifaMetro;
-        jaCobrouMetroFerroviario = true;
-      }
-      continue;
-    }
-
-    // Ônibus — cada um cobrado separadamente (sem integração entre ônibus)
-    if (step.mode === "BUS") {
-      const line    = (step.line || "").toLowerCase();
-      const vehicle = (step.vehicle || "").toLowerCase();
-      const depart  = (step.departureStop || "").toLowerCase();
-      const arrive  = (step.arrivalStop || "").toLowerCase();
-
-      // EMTU / Airport Bus Service (linha 257, aeroporto, etc.)
-      const isEmtu = line === "257" || line.includes("airport") || line.includes("aeroporto") ||
-                     vehicle.includes("airport") || arrive.includes("aeroporto") || arrive.includes("airport");
-      if (isEmtu) { total += tarifaEmtu; continue; }
-
-      // Ônibus intermunicipais (linhas 1xx, 2xx, 3xx da região)
-      const lineNum = parseInt(line.replace(/\D/g, ""));
-      if (!isNaN(lineNum) && lineNum >= 100 && lineNum <= 399) {
-        total += tarifaIntermunic;
-        continue;
-      }
-
-      // Ônibus metropolitanos EMTU (linhas 4xx, 5xx)
-      if (!isNaN(lineNum) && lineNum >= 400 && lineNum <= 599) {
-        total += tarifaMetropoMet;
-        continue;
-      }
-
-      // Municipal (linhas com letra como A165C1, A112 = Barueri)
-      total += tarifaMunicipal;
-    }
+  // Lógica de cobrança conforme sistema SP:
+  // - Só metrô/trem → tarifa unitária metrô VT
+  // - Só ônibus → tarifa ônibus (município detectado)
+  // - Ônibus + metrô → integração (tarifa especial mais barata que cobrar os dois)
+  if (temOnibus && temMetroFerroviario) {
+    total = tarifaIntegracaoVT;
+  } else if (temMetroFerroviario) {
+    total = tarifaMetro;
+  } else if (temOnibus) {
+    // Detectar município pelo nome das paradas
+    const allStops = steps.flatMap(s => [s.departureStop, s.arrivalStop]).join(" ").toLowerCase();
+    if (allStops.includes("guarulhos")) total = findTarifa(["guarulhos"]) ?? 6.20;
+    else if (allStops.includes("são bernardo") || allStops.includes("sbc")) total = findTarifa(["são bernardo"]) ?? 5.95;
+    else if (allStops.includes("santo andré")) total = findTarifa(["santo andré", "vale-transporte"]) ?? 7.25;
+    else total = tarifaOnibus; // padrão região oeste (Barueri/Osasco)
   }
 
   return total;
