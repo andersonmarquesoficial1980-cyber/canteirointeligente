@@ -208,8 +208,8 @@ function AppRoutes() {
         <Route path="/programador" element={<ProgramadorHome />} />
 
         {/* WF Demandas */}
-        <Route path="/demandas" element={<AppLayout><DemandasHome /></AppLayout>} />
-        <Route path="/demandas/:id" element={<AppLayout><DetalhesDemanda /></AppLayout>} />
+        <Route path="/demandas" element={<DemandasHome />} />
+        <Route path="/demandas/:id" element={<DetalhesDemanda />} />
         <Route path="/minhas-demandas" element={<MinhasDemandas />} />
         <Route path="/manutencao/fila" element={<FilaManutencao />} />
 

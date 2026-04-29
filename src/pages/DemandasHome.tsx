@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, ClipboardList, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useDemandas, type Demanda } from "@/hooks/useDemandas";
@@ -102,7 +102,10 @@ export default function DemandasHome() {
     <div className="min-h-screen bg-page flex flex-col">
       <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
+          <button onClick={() => navigate(-1)} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <img src={logoCi} alt="CI" className="w-8 h-8 rounded-full border-2 border-white/30 shadow-md" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-display font-bold text-white">Demandas</h1>
             <p className="text-xs text-white/80">{abertasCount} abertas</p>
