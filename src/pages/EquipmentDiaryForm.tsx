@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { saveDiaryOffline } from "@/hooks/useOfflineSync";
+import { offlineDb } from "@/lib/offlineDb";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { useToast } from "@/hooks/use-toast";
@@ -318,10 +319,14 @@ export default function EquipmentDiaryForm() {
     setOgsNumber(value);
   };
 
-  // Fetch equipment list
+  // Fetch equipment list — usa cache offline quando sem internet
   const { data: equipamentos = [], isLoading: loadingEquipamentos } = useQuery({
     queryKey: ["maquinas_frota"],
     queryFn: async () => {
+      if (!isOnline) {
+        const cached = await offlineDb.cachedEquipamentos.toArray();
+        return cached.filter((e: any) => ["ativo", "Operando"].includes(e.status));
+      }
       const { data, error } = await supabase
         .from("maquinas_frota")
         .select("*")
@@ -335,6 +340,10 @@ export default function EquipmentDiaryForm() {
   const { data: funcionarios = [], isLoading: loadingFuncionarios } = useQuery({
     queryKey: ["funcionarios"],
     queryFn: async () => {
+      if (!isOnline) {
+        const cached = await offlineDb.cachedFuncionarios.orderBy("nome").toArray();
+        return cached;
+      }
       const { data, error } = await supabase
         .from("funcionarios")
         .select("id, nome, funcao")
@@ -345,10 +354,19 @@ export default function EquipmentDiaryForm() {
   });
 
   const { data: enabledOperatorIds = [] } = useQuery({
-    queryKey: ["equipment_type_operators_ids", profile?.company_id, equipmentType],
+    queryKey: ["equipment_type_operators_ids", profile?.company_id, equipmentType, isOnline],
     queryFn: async () => {
       if (!profile?.company_id || !equipmentType) return [];
-
+      if (!isOnline) {
+        // Offline: usa cache do IndexedDB
+        const cached = await offlineDb.cachedOperadoresHabilitados
+          .where("company_id").equals(profile.company_id)
+          .toArray();
+        return cached
+          .filter((r: any) => r.equipment_type === equipmentType)
+          .map((r: any) => r.funcionario_id)
+          .filter(Boolean) as string[];
+      }
       const { data, error } = await supabase
         .from("equipment_type_operators" as any)
         .select("funcionario_id")

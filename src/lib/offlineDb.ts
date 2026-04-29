@@ -35,6 +35,7 @@ class WorkfluxOfflineDB extends Dexie {
   cachedEquipamentos!: Table<any>;
   cachedObras!: Table<any>;
   cachedMateriais!: Table<any>;
+  cachedOperadoresHabilitados!: Table<any>; // { id, company_id, equipment_type, funcionario_id }
   syncLog!: Table<SyncLogEntry>;
 
   constructor() {
@@ -46,6 +47,16 @@ class WorkfluxOfflineDB extends Dexie {
       cachedEquipamentos: "id, tipo",
       cachedObras: "id, nome",
       cachedMateriais: "id, nome",
+      syncLog: "++id, type, status, timestamp",
+    });
+    this.version(2).stores({
+      pendingDiaries: "++id, localId, synced, equipmentType, createdAt",
+      pendingRdos: "++id, localId, synced, rdoType, createdAt",
+      cachedFuncionarios: "id, nome",
+      cachedEquipamentos: "id, tipo",
+      cachedObras: "id, nome",
+      cachedMateriais: "id, nome",
+      cachedOperadoresHabilitados: "++id, company_id, equipment_type, funcionario_id",
       syncLog: "++id, type, status, timestamp",
     });
   }

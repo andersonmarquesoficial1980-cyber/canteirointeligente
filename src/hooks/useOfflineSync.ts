@@ -49,11 +49,12 @@ async function refreshPendingCount() {
 }
 
 async function cacheMainData() {
-  const [funcionariosRes, equipamentosRes, obrasRes, materiaisRes] = await Promise.all([
+  const [funcionariosRes, equipamentosRes, obrasRes, materiaisRes, operadoresRes] = await Promise.all([
     supabase.from("funcionarios").select("*").order("nome"),
     supabase.from("maquinas_frota").select("*").order("frota"),
     supabase.from("ogs_reference").select("*").order("ogs_number", { ascending: false }),
     supabase.from("materiais").select("*").order("nome"),
+    (supabase as any).from("equipment_type_operators").select("*"),
   ]);
 
   if (!funcionariosRes.error) {
@@ -74,6 +75,11 @@ async function cacheMainData() {
   if (!materiaisRes.error) {
     await offlineDb.cachedMateriais.clear();
     await offlineDb.cachedMateriais.bulkPut(materiaisRes.data || []);
+  }
+
+  if (operadoresRes && !operadoresRes.error) {
+    await offlineDb.cachedOperadoresHabilitados.clear();
+    await offlineDb.cachedOperadoresHabilitados.bulkPut(operadoresRes.data || []);
   }
 }
 
