@@ -207,12 +207,12 @@ function isOnibusRodoviario(step: TransitStep): boolean {
   const line = (step.line || "").toLowerCase();
   const depart = (step.departureStop || "").toLowerCase();
   const arrive = (step.arrivalStop || "").toLowerCase();
-  // Empresas rodoviarias comuns SP
-  const empresas = ["guerino", "prata", "cometa", "util", "catarinense", "garcia", "penha", "andorinha", "itapemirim", "reunidas", "são luiz", "expresso"];
+  // Empresas rodoviarias comuns SP (nomes de empresa, NAO prefixos de linha de trem/metro)
+  const empresas = ["guerino seiscento", "viacao prata", "expresso de prata", "cometa", "util ", "catarinense", "garcia ", "andorinha", "itapemirim", "reunidas", "são luiz"];
   if (empresas.some(e => line.includes(e))) return true;
-  // Terminal rodoviário como origem/destino
-  if (depart.includes("rodoviário") || arrive.includes("rodoviário") ||
-      depart.includes("rodoviario") || arrive.includes("rodoviario")) return true;
+  // Terminal rodoviário como origem/destino (cidade de origem/destino diferente indica interestadual)
+  if ((depart.includes("rodoviário") && arrive.includes("rodoviário")) ||
+      (depart.includes("rodoviario") && arrive.includes("rodoviario"))) return true;
   // Distâncias longas (>80km) indicam interestadual
   // Converte corretamente: "11,0 km" -> 11.0, "283 km" -> 283
   const distStr = (step.distance || "0").replace(",", ".").replace(/[^0-9.]/g, "");
@@ -227,6 +227,60 @@ function isBusConectadoMetro(step: TransitStep, steps: TransitStep[], idx: numbe
   const origem = (step.departureStop || "").toLowerCase();
   const integracaoKeywords = ["terminal metrô", "terminal metro", "estação", "metro ", "metrô ", "cptm", "terminal"];
   return integracaoKeywords.some(k => origem.includes(k));
+}
+
+// Retorna label de custo para cada step individual (para exibir no itinerário)
+function getFarePerStep(steps: TransitStep[], tarifas: Tarifa[]): Record<number, string> {
+  const findTarifa = (keywords: string[]): number | null => {
+    for (const t of tarifas) {
+      const k = t.tipo_transporte.toLowerCase();
+      if (keywords.some(kw => k.includes(kw.toLowerCase()))) return t.valor_unitario;
+    }
+    return null;
+  };
+  const tarifaMetroVT = findTarifa(["metrô sp - vale"]) ?? 5.92;
+  const tarifaBarueri = findTarifa(["barueri", "osasco", "carapicuíba"]) ?? 6.10;
+  const tarifaIntegracaoVT = findTarifa(["integração ônibus + metrô", "vale-transporte"]) ?? 11.32;
+  const allStops = steps.flatMap(s => [s.departureStop, s.arrivalStop]).join(" ").toLowerCase();
+  const tarifaOnibus = allStops.includes("guarulhos") ? (findTarifa(["guarulhos"]) ?? 6.20) : tarifaBarueri;
+
+  const result: Record<number, string> = {};
+  let temMetro = false;
+  let primeiroOnibus = true;
+
+  // Primeiro pass: detecta se tem metrô
+  for (const s of steps) {
+    if (isMetroFerroviario(s)) { temMetro = true; break; }
+  }
+
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    if (s.mode === "WALKING") { result[i] = ""; continue; }
+    if (isMetroFerroviario(s)) {
+      if (temMetro && steps.some(st => st.mode === "BUS" && !isOnibusRodoviario(st))) {
+        result[i] = "Integrado";
+      } else {
+        result[i] = `R$ ${tarifaMetroVT.toFixed(2).replace(".", ",")}`;
+      }
+      continue;
+    }
+    if (s.mode === "BUS" && !isOnibusRodoviario(s)) {
+      if (temMetro && primeiroOnibus) {
+        result[i] = `R$ ${tarifaIntegracaoVT.toFixed(2).replace(".", ",")} (c/ metrô)`;
+        primeiroOnibus = false;
+      } else {
+        result[i] = `R$ ${tarifaOnibus.toFixed(2).replace(".", ",")}`;
+        primeiroOnibus = false;
+      }
+      continue;
+    }
+    if (isOnibusRodoviario(s)) {
+      result[i] = "Ver passagem";
+      continue;
+    }
+    result[i] = "";
+  }
+  return result;
 }
 
 function estimateFareFromSteps(steps: TransitStep[], tarifas: Tarifa[]): number {
@@ -569,33 +623,49 @@ export default function TrajetoVT() {
                 <CardTitle className="text-sm">Itinerário</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {result.steps.map((step, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex items-start gap-3 p-3 rounded-lg ${
-                      step.mode === "WALKING" ? "bg-muted/30" : "bg-primary/5 border border-primary/10"
-                    }`}
-                  >
-                    <div className="shrink-0 mt-0.5">
-                      <Badge
-                        variant={step.mode === "WALKING" ? "outline" : "default"}
-                        className={step.mode !== "WALKING" ? "bg-primary text-primary-foreground" : ""}
-                      >
-                        {step.line || getModeLabel(step.mode)}
-                      </Badge>
+                {(() => {
+                  const farePerStep = getFarePerStep(result.steps, tarifas);
+                  return result.steps.map((step, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-start gap-3 p-3 rounded-lg ${
+                        step.mode === "WALKING" ? "bg-muted/30" : "bg-primary/5 border border-primary/10"
+                      }`}
+                    >
+                      <div className="shrink-0 mt-0.5">
+                        <Badge
+                          variant={step.mode === "WALKING" ? "outline" : "default"}
+                          className={step.mode !== "WALKING" ? "bg-primary text-primary-foreground" : ""}
+                        >
+                          {step.line || getModeLabel(step.mode)}
+                        </Badge>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">{getModeLabel(step.mode)}</p>
+                          {farePerStep[idx] && (
+                            <span className={`text-xs font-bold shrink-0 px-1.5 py-0.5 rounded ${
+                              farePerStep[idx] === "Ver passagem" 
+                                ? "bg-orange-100 text-orange-700"
+                                : farePerStep[idx] === "Integrado"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-primary/10 text-primary"
+                            }`}>
+                              {farePerStep[idx]}
+                            </span>
+                          )}
+                        </div>
+                        {step.mode !== "WALKING" && (
+                          <p className="text-xs text-muted-foreground">
+                            {step.departureStop} → {step.arrivalStop}
+                            {step.numStops > 0 && ` (${step.numStops} paradas)`}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">{step.duration} · {step.distance}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{getModeLabel(step.mode)}</p>
-                      {step.mode !== "WALKING" && (
-                        <p className="text-xs text-muted-foreground">
-                          {step.departureStop} → {step.arrivalStop}
-                          {step.numStops > 0 && ` (${step.numStops} paradas)`}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">{step.duration} · {step.distance}</p>
-                    </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </CardContent>
             </Card>
 
