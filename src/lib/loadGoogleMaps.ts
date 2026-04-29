@@ -11,7 +11,8 @@ export function loadGoogleMaps(): Promise<void> {
 
   loadPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+    // Usa a nova API do Google Maps (v=beta) com places para evitar deprecação
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,places-service&v=weekly`;
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
