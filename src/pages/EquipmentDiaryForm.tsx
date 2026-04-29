@@ -393,8 +393,9 @@ export default function EquipmentDiaryForm() {
   const hasEnabledOperatorsForType = enabledOperatorIds.length > 0;
 
   const funcionariosForType = useMemo(() => {
+    if (!funcionarios) return [];
     if (!hasEnabledOperatorsForType) return funcionarios;
-    const enabledSet = new Set(enabledOperatorIds);
+    const enabledSet = new Set(enabledOperatorIds || []);
     return funcionarios.filter((f: any) => enabledSet.has(f.id));
   }, [funcionarios, enabledOperatorIds, hasEnabledOperatorsForType]);
 
@@ -519,11 +520,11 @@ export default function EquipmentDiaryForm() {
 
   // Filtered operators — matches actual DB values like "OP DE FRESADORA"
   const operadoresFresa = useMemo(() => {
-    return funcionariosForType;
+    return funcionariosForType || [];
   }, [funcionariosForType]);
 
   const operadoresSolo = useMemo(() => {
-    return funcionariosForType;
+    return funcionariosForType || [];
   }, [funcionariosForType]);
 
   const filteredFleet = useMemo(() => {
@@ -906,12 +907,15 @@ export default function EquipmentDiaryForm() {
   const useStaticFleet = !!staticFleetList || isRolo || isVeiculo || (isCaminhoes && !caminhaoTipo);
 
   const getOperatorList = () => {
-    if (isFresadora) return operadoresFresa;
-    if (isBobcat) return operadoresBobcat.length > 0 ? operadoresBobcat : funcionariosForType;
-    if (isRetro) return operadoresRetro.length > 0 ? operadoresRetro : funcionariosForType;
-    if (isUsinaKma) return funcionariosForType;
-    if (isTruck) return motoristas.length > 0 ? motoristas : funcionariosForType;
-    return funcionariosForType;
+    const list = (() => {
+      if (isFresadora) return operadoresFresa;
+      if (isBobcat) return operadoresBobcat?.length > 0 ? operadoresBobcat : funcionariosForType;
+      if (isRetro) return operadoresRetro?.length > 0 ? operadoresRetro : funcionariosForType;
+      if (isUsinaKma) return funcionariosForType;
+      if (isTruck) return motoristas?.length > 0 ? motoristas : funcionariosForType;
+      return funcionariosForType;
+    })();
+    return list || [];
   };
 
   const handleSave = async (isDraft = false) => {
@@ -1560,7 +1564,7 @@ export default function EquipmentDiaryForm() {
                 <SelectValue placeholder={loadingFuncionarios ? "Carregando..." : (isTruck ? "Selecione o motorista..." : "Selecione o operador...")} />
               </SelectTrigger>
               <SelectContent>
-                {getOperatorList().filter((f: any) => f.nome).map((f: any) => (
+                {(getOperatorList() || []).filter((f: any) => f.nome).map((f: any) => (
                   <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
@@ -1604,7 +1608,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder={loadingFuncionarios ? "Carregando..." : "Selecione o operador solo..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {operadoresSolo.filter((f: any) => f.nome).map((f: any) => (
+                  {(operadoresSolo || []).filter((f: any) => f.nome).map((f: any) => (
                     <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                   ))}
                 </SelectContent>
