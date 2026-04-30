@@ -63,12 +63,6 @@ type BitEntry = {
   status: string;
 };
 
-type DiaryDetail = {
-  times: TimeEntry[];
-  production: ProductionArea[];
-  bits: BitEntry[];
-};
-
 const MONTHS = [
   { v: "01", l: "Janeiro" },
   { v: "02", l: "Fevereiro" },
@@ -166,7 +160,9 @@ export default function RelatorioEquipamento() {
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [areasMap, setAreasMap] = useState<Record<string, { m2: number; m3: number }>>({});
   const [selectedDiaryId, setSelectedDiaryId] = useState<string | null>(null);
-  const [detailMap, setDetailMap] = useState<Record<string, DiaryDetail>>({});
+  const [timeEntriesMap, setTimeEntriesMap] = useState<Record<string, TimeEntry[]>>({});
+  const [areasDetailMap, setAreasDetailMap] = useState<Record<string, ProductionArea[]>>({});
+  const [bitsMap, setBitsMap] = useState<Record<string, BitEntry[]>>({});
 
   const fetchPeriodo = useCallback(async () => {
     if (!fleetParam) return;
@@ -187,6 +183,9 @@ export default function RelatorioEquipamento() {
       setDiarios([]);
       setAreasMap({});
       setProfilesMap({});
+      setTimeEntriesMap({});
+      setAreasDetailMap({});
+      setBitsMap({});
       setSelectedDiaryId(null);
       setLoading(false);
       return;
@@ -198,6 +197,9 @@ export default function RelatorioEquipamento() {
     if (rows.length === 0) {
       setAreasMap({});
       setProfilesMap({});
+      setTimeEntriesMap({});
+      setAreasDetailMap({});
+      setBitsMap({});
       setSelectedDiaryId(null);
       setLoading(false);
       return;
@@ -249,7 +251,10 @@ export default function RelatorioEquipamento() {
   }, [ano, fleetParam, mes]);
 
   const loadDiaryDetails = useCallback(async (diaryId: string) => {
-    if (detailMap[diaryId]) return;
+    const hasTimes = Boolean(timeEntriesMap[diaryId]);
+    const hasAreas = Boolean(areasDetailMap[diaryId]);
+    const hasBits = Boolean(bitsMap[diaryId]);
+    if (hasTimes && hasAreas && hasBits) return;
 
     const [timeRes, prodRes, bitsRes] = await Promise.all([
       supabase
@@ -271,15 +276,19 @@ export default function RelatorioEquipamento() {
     if (prodRes.error) console.error("Erro ao buscar áreas de produção:", prodRes.error);
     if (bitsRes.error) console.error("Erro ao buscar bits:", bitsRes.error);
 
-    setDetailMap((prev) => ({
+    setTimeEntriesMap((prev) => ({
       ...prev,
-      [diaryId]: {
-        times: (timeRes.data || []) as TimeEntry[],
-        production: (prodRes.data || []) as ProductionArea[],
-        bits: (bitsRes.data || []) as BitEntry[],
-      },
+      [diaryId]: (timeRes.data || []) as TimeEntry[],
     }));
-  }, [detailMap]);
+    setAreasDetailMap((prev) => ({
+      ...prev,
+      [diaryId]: (prodRes.data || []) as ProductionArea[],
+    }));
+    setBitsMap((prev) => ({
+      ...prev,
+      [diaryId]: (bitsRes.data || []) as BitEntry[],
+    }));
+  }, [areasDetailMap, bitsMap, timeEntriesMap]);
 
   useEffect(() => {
     fetchPeriodo();
@@ -292,7 +301,9 @@ export default function RelatorioEquipamento() {
   }, [loadDiaryDetails, selectedDiaryId]);
 
   const selectedDiary = useMemo(() => diarios.find((d) => d.id === selectedDiaryId) || null, [diarios, selectedDiaryId]);
-  const selectedDetail = selectedDiaryId ? detailMap[selectedDiaryId] : undefined;
+  const selectedTimeEntries = selectedDiaryId ? (timeEntriesMap[selectedDiaryId] || []) : [];
+  const selectedAreas = selectedDiaryId ? (areasDetailMap[selectedDiaryId] || []) : [];
+  const selectedBits = selectedDiaryId ? (bitsMap[selectedDiaryId] || []) : [];
 
   const mesLabel = MONTHS.find((m) => m.v === mes)?.l || mes;
 
@@ -475,7 +486,7 @@ export default function RelatorioEquipamento() {
 
             <div>
               <h4 className="font-semibold text-sm mb-2">Apontamento de Horas</h4>
-              {!selectedDetail || selectedDetail.times.length === 0 ? (
+              {selectedTimeEntries.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic">Nenhum apontamento registrado.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -491,7 +502,7 @@ export default function RelatorioEquipamento() {
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedDetail.times.map((item) => (
+                      {selectedTimeEntries.map((item) => (
                         <tr key={item.id} className="border-b border-border/50">
                           <td className="py-2 pr-3">{item.start_time || "-"}</td>
                           <td className="py-2 pr-3">{item.end_time || "-"}</td>
@@ -509,7 +520,7 @@ export default function RelatorioEquipamento() {
 
             <div>
               <h4 className="font-semibold text-sm mb-2">Produção / Fresagem</h4>
-              {!selectedDetail || selectedDetail.production.length === 0 ? (
+              {selectedAreas.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic">Nenhuma área registrada.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -525,7 +536,7 @@ export default function RelatorioEquipamento() {
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedDetail.production.map((item, idx) => (
+                      {selectedAreas.map((item, idx) => (
                         <tr key={item.id} className="border-b border-border/50">
                           <td className="py-2 pr-3">{idx + 1}</td>
                           <td className="py-2 pr-3 text-right">{toNum(item.length_m).toFixed(2)}</td>
@@ -539,8 +550,8 @@ export default function RelatorioEquipamento() {
                     <tfoot>
                       <tr className="border-t border-border font-semibold">
                         <td className="py-2 pr-3" colSpan={4}>Totais</td>
-                        <td className="py-2 pr-3 text-right">{selectedDetail.production.reduce((acc, item) => acc + toNum(item.m2), 0).toFixed(2)}</td>
-                        <td className="py-2 text-right">{selectedDetail.production.reduce((acc, item) => acc + toNum(item.m3), 0).toFixed(2)}</td>
+                        <td className="py-2 pr-3 text-right">{selectedAreas.reduce((acc, item) => acc + toNum(item.m2), 0).toFixed(2)}</td>
+                        <td className="py-2 text-right">{selectedAreas.reduce((acc, item) => acc + toNum(item.m3), 0).toFixed(2)}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -550,7 +561,7 @@ export default function RelatorioEquipamento() {
 
             <div>
               <h4 className="font-semibold text-sm mb-2">Bits Lançados</h4>
-              {!selectedDetail || selectedDetail.bits.length === 0 ? (
+              {selectedBits.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic">Nenhum bit registrado.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -564,7 +575,7 @@ export default function RelatorioEquipamento() {
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedDetail.bits.map((item) => (
+                      {selectedBits.map((item) => (
                         <tr key={item.id} className="border-b border-border/50">
                           <td className="py-2 pr-3 text-right">{item.quantity ?? 0}</td>
                           <td className="py-2 pr-3">{item.brand || "-"}</td>
