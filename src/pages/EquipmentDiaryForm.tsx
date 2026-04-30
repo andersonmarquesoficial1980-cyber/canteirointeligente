@@ -324,8 +324,12 @@ export default function EquipmentDiaryForm() {
     queryKey: ["maquinas_frota"],
     queryFn: async () => {
       if (!isOnline) {
-        const cached = await offlineDb.cachedEquipamentos.toArray();
-        return cached.filter((e: any) => ["ativo", "Operando"].includes(e.status));
+        try {
+          const cached = await offlineDb.cachedEquipamentos.toArray();
+          return (cached || []).filter((e: any) => e && ["ativo", "Operando"].includes(e.status));
+        } catch (e) {
+          return [];
+        }
       }
       const { data, error } = await supabase
         .from("maquinas_frota")
@@ -341,8 +345,12 @@ export default function EquipmentDiaryForm() {
     queryKey: ["funcionarios"],
     queryFn: async () => {
       if (!isOnline) {
-        const cached = await offlineDb.cachedFuncionarios.orderBy("nome").toArray();
-        return cached;
+        try {
+          const cached = await offlineDb.cachedFuncionarios.orderBy("nome").toArray();
+          return cached || [];
+        } catch (e) {
+          return [];
+        }
       }
       const { data, error } = await supabase
         .from("funcionarios")
@@ -369,8 +377,8 @@ export default function EquipmentDiaryForm() {
           const cached = await offlineDb.cachedOperadoresHabilitados
             .where("company_id").equals(effectiveCompanyId)
             .toArray();
-          return cached
-            .filter((r: any) => r.equipment_type === equipmentType)
+          return (cached || [])
+            .filter((r: any) => r && r.equipment_type === equipmentType)
             .map((r: any) => r.funcionario_id)
             .filter(Boolean) as string[];
         } catch (e) {
@@ -393,10 +401,10 @@ export default function EquipmentDiaryForm() {
   const hasEnabledOperatorsForType = enabledOperatorIds.length > 0;
 
   const funcionariosForType = useMemo(() => {
-    if (!funcionarios) return [];
+    if (!Array.isArray(funcionarios)) return [];
     if (!hasEnabledOperatorsForType) return funcionarios;
     const enabledSet = new Set(enabledOperatorIds || []);
-    return funcionarios.filter((f: any) => enabledSet.has(f.id));
+    return funcionarios.filter((f: any) => f && enabledSet.has(f.id));
   }, [funcionarios, enabledOperatorIds, hasEnabledOperatorsForType]);
 
   // Fetch fornecedores from DB for supplier selects
@@ -1528,7 +1536,7 @@ export default function EquipmentDiaryForm() {
                     <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : "Selecione..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(isFresadora ? filteredFleet || [] : equipamentos || []).filter((eq: any) => eq.frota).map((eq: any) => (
+                    {(isFresadora ? filteredFleet || [] : equipamentos || []).filter((eq: any) => eq && eq.frota).map((eq: any) => (
                       <SelectItem key={eq.id} value={eq.frota}>
                         {eq.frota} — {eq.nome}
                       </SelectItem>
@@ -1564,7 +1572,7 @@ export default function EquipmentDiaryForm() {
                 <SelectValue placeholder={loadingFuncionarios ? "Carregando..." : (isTruck ? "Selecione o motorista..." : "Selecione o operador...")} />
               </SelectTrigger>
               <SelectContent>
-                {(getOperatorList() || []).filter((f: any) => f.nome).map((f: any) => (
+                {(getOperatorList() || []).filter((f: any) => f && f.nome).map((f: any) => (
                   <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
@@ -1608,7 +1616,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder={loadingFuncionarios ? "Carregando..." : "Selecione o operador solo..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(operadoresSolo || []).filter((f: any) => f.nome).map((f: any) => (
+                  {(operadoresSolo || []).filter((f: any) => f && f.nome).map((f: any) => (
                     <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                   ))}
                 </SelectContent>

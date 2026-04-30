@@ -38,6 +38,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <p className="text-sm text-muted-foreground">
             {this.props.fallbackMessage || "Ocorreu um erro ao carregar esta seção."}
           </p>
+          <div className="bg-destructive/10 text-destructive p-3 rounded text-left text-xs overflow-auto max-w-full font-mono mt-2">
+            {this.state.error?.message}
+          </div>
           <Button variant="outline" size="sm" onClick={this.handleReload}>
             Recarregar página
           </Button>
