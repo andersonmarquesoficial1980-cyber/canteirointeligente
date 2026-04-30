@@ -8,6 +8,7 @@ import { saveDiaryOffline } from "@/hooks/useOfflineSync";
 import { offlineDb } from "@/lib/offlineDb";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useOgsReference } from "@/hooks/useOgsReference";
+import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -162,6 +163,13 @@ function getAttachmentIds(type: string): string[] {
   return [];
 }
 
+function formatDateBRShort(dateValue: string): string {
+  if (!dateValue) return "--/--";
+  const [year, month, day] = dateValue.split("-");
+  if (!year || !month || !day) return "--/--";
+  return `${day}/${month}`;
+}
+
 export default function EquipmentDiaryForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -205,6 +213,12 @@ export default function EquipmentDiaryForm() {
   // Form state
   const [selectedFleet, setSelectedFleet] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const {
+    isBlocked: isDateBlocked,
+    isLoading: isUnlockLoading,
+    prazoLabel,
+  } = useDiaryUnlock(date, "equipamento");
+  const shouldBlockByDeadline = !isEditMode && !isUnlockLoading && isDateBlocked;
   const [operator, setOperator] = useState("");
   const [operatorSolo, setOperatorSolo] = useState("");
   const [turno, setTurno] = useState<"diurno" | "noturno">("diurno");
@@ -1692,6 +1706,20 @@ export default function EquipmentDiaryForm() {
           )}
         </Section>
 
+        {isUnlockLoading && !isEditMode && (
+          <div className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
+            Verificando prazo de lançamento...
+          </div>
+        )}
+
+        {shouldBlockByDeadline ? (
+          <PrazoExpiradoCard
+            date={date}
+            prazoLabel={prazoLabel}
+            onBack={() => navigate(-1)}
+          />
+        ) : (
+          <>
         {/* CHECKLIST PRÉ-OPERAÇÃO */}
         {hasChecklist && (
           <Accordion type="single" collapsible className="w-full">
@@ -2204,35 +2232,36 @@ export default function EquipmentDiaryForm() {
             className="bg-secondary border-border min-h-[80px]"
           />
         </Section>
-      </div>
-
-      {/* Fixed bottom buttons */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border space-y-2">
-        <div className="max-w-lg mx-auto space-y-2">
-          <Button
-            onClick={() => handleSave(false)}
-            disabled={saving || !!horimeterError || loadingEditData}
-            className="w-full font-extrabold text-base py-6 rounded-2xl bg-header-gradient hover:opacity-90 shadow-lg glow-primary"
-          >
-            <Send className="w-5 h-5 mr-2" />
-            {saving
-              ? isEditMode
-                ? "Salvando..."
-                : "Enviando..."
-              : isEditMode
-                ? "Salvar Edição"
-                : "Enviar Diário"}
-          </Button>
-          <Button
-            onClick={() => handleSave(true)}
-            disabled={saving || loadingEditData}
-            variant="outline"
-            className="w-full text-sm py-3"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {isEditMode ? "Salvar Edição como Rascunho" : "Salvar Rascunho"}
-          </Button>
+        {/* Fixed bottom buttons */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border space-y-2">
+          <div className="max-w-lg mx-auto space-y-2">
+            <Button
+              onClick={() => handleSave(false)}
+              disabled={saving || !!horimeterError || loadingEditData}
+              className="w-full font-extrabold text-base py-6 rounded-2xl bg-header-gradient hover:opacity-90 shadow-lg glow-primary"
+            >
+              <Send className="w-5 h-5 mr-2" />
+              {saving
+                ? isEditMode
+                  ? "Salvando..."
+                  : "Enviando..."
+                : isEditMode
+                  ? "Salvar Edição"
+                  : "Enviar Diário"}
+            </Button>
+            <Button
+              onClick={() => handleSave(true)}
+              disabled={saving || loadingEditData}
+              variant="outline"
+              className="w-full text-sm py-3"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {isEditMode ? "Salvar Edição como Rascunho" : "Salvar Rascunho"}
+            </Button>
+          </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -2264,6 +2293,31 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function FieldRow({ children }: { children: React.ReactNode }) {
   return <div className="flex gap-3">{children}</div>;
+}
+
+function PrazoExpiradoCard({
+  date,
+  prazoLabel,
+  onBack,
+}: {
+  date: string;
+  prazoLabel: string;
+  onBack: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 space-y-3 shadow-card">
+      <h3 className="text-base font-display font-bold text-foreground">⏰ Prazo expirado</h3>
+      <p className="text-sm text-muted-foreground">
+        O prazo para lançar o diário do dia {formatDateBRShort(date)} foi encerrado.
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Prazo permitido: {prazoLabel}. Entre em contato com o administrador para liberar este lançamento.
+      </p>
+      <Button variant="outline" className="w-full" onClick={onBack}>
+        Voltar
+      </Button>
+    </div>
+  );
 }
 
 function ComboioAbastInfo({ fleet, date }: { fleet: string; date: string }) {

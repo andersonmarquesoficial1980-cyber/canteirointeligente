@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
-  Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X,
+  Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -1050,6 +1050,214 @@ function OperadoresHabilitadosManager() {
   );
 }
 
+function formatDateBRShort(dateValue: string): string {
+  if (!dateValue) return "--/--/----";
+  const [year, month, day] = dateValue.split("-");
+  if (!year || !month || !day) return "--/--/----";
+  return `${day}/${month}/${year}`;
+}
+
+function DesbloqueioLancamentosManager() {
+  const { toast } = useToast();
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [unlocks, setUnlocks] = useState<any[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTipo, setSelectedTipo] = useState<"equipamento" | "rdo">("equipamento");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id, role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      let cid = (profile as any)?.company_id || null;
+      if (!cid && (profile as any)?.role === "superadmin") {
+        const { data: firstCompany } = await supabase
+          .from("companies" as any)
+          .select("id")
+          .order("created_at")
+          .limit(1)
+          .maybeSingle();
+        cid = (firstCompany as any)?.id || null;
+      }
+
+      if (!cid) {
+        toast({ title: "Empresa não encontrada", description: "Não foi possível identificar a empresa ativa.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
+      setCompanyId(cid);
+
+      const [{ data: profilesData }, { data: unlockData }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("user_id, nome_completo, perfil, role, status")
+          .eq("company_id", cid)
+          .order("nome_completo"),
+        (supabase as any)
+          .from("diary_unlock_requests")
+          .select("id, user_id, data_liberada, tipo, created_at")
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      setUsers((profilesData || []) as any[]);
+      setUnlocks((unlockData || []) as any[]);
+    } catch (err: any) {
+      toast({ title: "Erro ao carregar", description: err.message || "Falha ao carregar desbloqueios.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleLiberar = async () => {
+    if (!companyId) return;
+    if (!selectedUserId || !selectedDate || !selectedTipo) {
+      toast({ title: "Campos obrigatórios", description: "Selecione usuário, data e tipo.", variant: "destructive" });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "Sessão expirada", description: "Faça login novamente.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+
+      const { error } = await (supabase as any)
+        .from("diary_unlock_requests")
+        .insert({
+          user_id: selectedUserId,
+          data_liberada: selectedDate,
+          tipo: selectedTipo,
+          company_id: companyId,
+          liberado_por: user.id,
+        });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast({ title: "Já liberado", description: "Este usuário já possui liberação para esta data e tipo." });
+          return;
+        }
+        throw error;
+      }
+
+      toast({ title: "✅ Lançamento liberado" });
+      await loadData();
+    } catch (err: any) {
+      toast({ title: "Erro ao liberar", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRevogar = async (id: string) => {
+    if (!id) return;
+    const { error } = await (supabase as any).from("diary_unlock_requests").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Erro ao revogar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "✅ Liberação revogada" });
+    await loadData();
+  };
+
+  const usersById = users.reduce<Record<string, any>>((acc, current) => {
+    acc[current.user_id] = current;
+    return acc;
+  }, {});
+
+  if (loading) return <div className="py-10 text-center text-muted-foreground">Carregando...</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Usuário</Label>
+          <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+            <SelectTrigger className="h-11 bg-secondary border-border">
+              <SelectValue placeholder="Selecione o usuário" />
+            </SelectTrigger>
+            <SelectContent>
+              {users.map((u: any) => (
+                <SelectItem key={u.user_id} value={u.user_id}>
+                  {u.nome_completo}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Data</Label>
+            <Input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="h-11 bg-secondary border-border" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Tipo</Label>
+            <Select value={selectedTipo} onValueChange={(value) => setSelectedTipo(value as "equipamento" | "rdo")}>
+              <SelectTrigger className="h-11 bg-secondary border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="equipamento">Diário de Equipamento</SelectItem>
+                <SelectItem value="rdo">RDO</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button onClick={handleLiberar} disabled={saving} className="w-full h-11 gap-2">
+          <Unlock className="w-4 h-4" />
+          {saving ? "Liberando..." : "Liberar"}
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        {unlocks.map((item: any) => {
+          const usr = usersById[item.user_id];
+          return (
+            <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-medium text-sm text-foreground">
+                  {usr?.nome_completo || "Usuário"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDateBRShort(item.data_liberada)} • {item.tipo === "equipamento" ? "Diário de Equipamento" : "RDO"}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => handleRevogar(item.id)}>
+                Revogar
+              </Button>
+            </div>
+          );
+        })}
+        {unlocks.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma liberação cadastrada.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SIDEBAR MENU ITEMS
 // ═══════════════════════════════════════════════════════════════
@@ -1070,6 +1278,7 @@ const MENU_SECTIONS = [
   { key: "usinas", label: "Usinas", icon: Factory },
   { key: "destinos", label: "Destinos (Carreteiro)", icon: MapPin },
   { key: "emails", label: "E-mails", icon: Mail },
+  { key: "desbloquear", label: "Desbloquear Lançamentos", icon: Unlock },
   { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
 ];
@@ -1110,6 +1319,7 @@ export default function AdminConfiguracoes() {
       case "usinas": return <EntityManager tableName="usinas" label="Usina" />;
       case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;
+      case "desbloquear": return <DesbloqueioLancamentosManager />;
       case "aeropav_staff": return <AeroPavStaffManager />;
       case "operadores_habilitados": return <OperadoresHabilitadosManager />;
       default: return null;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -26,22 +26,45 @@ import SectionProducaoCauq, { type ProducaoCauqData } from "@/components/rdo/Sec
 import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteiro";
 import { buildHtmlReport } from "@/lib/buildHtmlReport";
 import logoCi from "@/assets/logo-workflux.png";
+import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
 
 const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+function getTodayInSaoPauloIso(): string {
+  const br = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const [day, month, year] = br.split("/");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateBRShort(dateValue: string): string {
+  if (!dateValue) return "--/--";
+  const [year, month, day] = dateValue.split("-");
+  if (!year || !month || !day) return "--/--";
+  return `${day}/${month}`;
+}
+
 export default function RdoForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const isMobile = useIsMobile();
   const { profile } = useUserProfile();
   const isOnline = useOnlineStatus();
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayInSaoPauloIso();
+  const isEditMode = !!searchParams.get("edit");
 
   // Header
   const [header, setHeader] = useState({
     data: today, obra_nome: "", cliente: "", local: "", status_obra: "Trabalhou", turno: "",
   });
+  const {
+    isBlocked: isDateBlocked,
+    isLoading: isUnlockLoading,
+    prazoLabel,
+  } = useDiaryUnlock(header.data, "rdo");
+  const shouldBlockByDeadline = !isEditMode && !isUnlockLoading && isDateBlocked;
+
   const handleHeaderChange = (field: string, value: string) =>
     setHeader(prev => ({ ...prev, [field]: value }));
 
@@ -481,116 +504,157 @@ export default function RdoForm() {
           <RdoHeader data={header} onChange={handleHeaderChange} />
         </div>
 
-        <div className="px-4">
-          <RdoTipoSelector value={tipoRdo} onChange={setTipoRdo} />
-        </div>
-
-        {tipoRdo === "INFRAESTRUTURA" && (
-          <>
-            <SectionInfraestrutura
-              empreiteiro={empreiteiro}
-              producao={infraProducao}
-              onChangeEmpreiteiro={setEmpreiteiro}
-              onChangeProducao={setInfraProducao}
-              tipoRdo="INFRA"
-            />
-            <SectionNfConcreto entries={nfConcreto} onChange={setNfConcreto} />
-          </>
+        {isUnlockLoading && !isEditMode && (
+          <div className="mx-4 rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
+            Verificando prazo de lançamento...
+          </div>
         )}
 
-        {tipoRdo === "CAUQ" && (
+        {shouldBlockByDeadline ? (
+          <div className="px-4">
+            <PrazoExpiradoCard date={header.data} prazoLabel={prazoLabel} onBack={() => navigate(-1)} />
+          </div>
+        ) : (
           <>
-            <SectionCauq entries={nfMassa} onChange={setNfMassa} tipoRdo="CAUQ" />
-            <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} tipoRdo="CAUQ" nfEntries={nfMassa} />
-          </>
-        )}
-        {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
-        {tipoRdo === "PV" && <SectionPV data={pvData} onChange={setPvData} />}
-        {tipoRdo === "AEROPAV" && <SectionAeroPavGru data={aeroPavData} onChange={setAeroPavData} turno={header.turno} />}
-
-        {tipoRdo && (
-          <>
-            <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
-            
-            <StepEfetivo
-              entries={efetivo}
-              onChange={setEfetivo}
-              globalEntrada={globalEntrada}
-              globalSaida={globalSaida}
-              onChangeGlobalEntrada={setGlobalEntrada}
-              onChangeGlobalSaida={setGlobalSaida}
-            />
-            {tipoRdo === "AEROPAV" && (
-              <SectionEfetivoTerceirizado entries={terceirizados} onChange={setTerceirizados} />
-            )}
-            {tipoRdo === "CANTEIRO" && (
-              <SectionAtividadesCanteiro
-                teveUsinagem={teveUsinagem}
-                onToggleUsinagem={setTeveUsinagem}
-                totalUsinado={totalUsinado}
-                onChangeTotalUsinado={setTotalUsinado}
-                atividadesCanteiro={atividadesCanteiro}
-                onChangeAtividades={setAtividadesCanteiro}
-              />
-            )}
-
-            {/* Observações Gerais */}
-            <div className="px-4 space-y-2">
-              <h2 className="font-display font-extrabold text-lg flex items-center gap-2" style={{ color: "hsl(220 70% 20%)" }}>
-                <FileText className="w-5 h-5" style={{ color: "hsl(215 100% 50%)" }} />
-                Observações Gerais
-              </h2>
-              <div className="rdo-card">
-                <Textarea
-                  value={observacoesGerais}
-                  onChange={e => setObservacoesGerais(e.target.value)}
-                  placeholder="Registre aqui observações importantes sobre o dia de trabalho..."
-                  className="min-h-[120px] bg-white border-border rounded-xl text-base resize-y"
-                />
-              </div>
+            <div className="px-4">
+              <RdoTipoSelector value={tipoRdo} onChange={setTipoRdo} />
             </div>
+
+            {tipoRdo === "INFRAESTRUTURA" && (
+              <>
+                <SectionInfraestrutura
+                  empreiteiro={empreiteiro}
+                  producao={infraProducao}
+                  onChangeEmpreiteiro={setEmpreiteiro}
+                  onChangeProducao={setInfraProducao}
+                  tipoRdo="INFRA"
+                />
+                <SectionNfConcreto entries={nfConcreto} onChange={setNfConcreto} />
+              </>
+            )}
+
+            {tipoRdo === "CAUQ" && (
+              <>
+                <SectionCauq entries={nfMassa} onChange={setNfMassa} tipoRdo="CAUQ" />
+                <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} tipoRdo="CAUQ" nfEntries={nfMassa} />
+              </>
+            )}
+            {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
+            {tipoRdo === "PV" && <SectionPV data={pvData} onChange={setPvData} />}
+            {tipoRdo === "AEROPAV" && <SectionAeroPavGru data={aeroPavData} onChange={setAeroPavData} turno={header.turno} />}
+
+            {tipoRdo && (
+              <>
+                <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
+                
+                <StepEfetivo
+                  entries={efetivo}
+                  onChange={setEfetivo}
+                  globalEntrada={globalEntrada}
+                  globalSaida={globalSaida}
+                  onChangeGlobalEntrada={setGlobalEntrada}
+                  onChangeGlobalSaida={setGlobalSaida}
+                />
+                {tipoRdo === "AEROPAV" && (
+                  <SectionEfetivoTerceirizado entries={terceirizados} onChange={setTerceirizados} />
+                )}
+                {tipoRdo === "CANTEIRO" && (
+                  <SectionAtividadesCanteiro
+                    teveUsinagem={teveUsinagem}
+                    onToggleUsinagem={setTeveUsinagem}
+                    totalUsinado={totalUsinado}
+                    onChangeTotalUsinado={setTotalUsinado}
+                    atividadesCanteiro={atividadesCanteiro}
+                    onChangeAtividades={setAtividadesCanteiro}
+                  />
+                )}
+
+                {/* Observações Gerais */}
+                <div className="px-4 space-y-2">
+                  <h2 className="font-display font-extrabold text-lg flex items-center gap-2" style={{ color: "hsl(220 70% 20%)" }}>
+                    <FileText className="w-5 h-5" style={{ color: "hsl(215 100% 50%)" }} />
+                    Observações Gerais
+                  </h2>
+                  <div className="rdo-card">
+                    <Textarea
+                      value={observacoesGerais}
+                      onChange={e => setObservacoesGerais(e.target.value)}
+                      placeholder="Registre aqui observações importantes sobre o dia de trabalho..."
+                      className="min-h-[120px] bg-white border-border rounded-xl text-base resize-y"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-4 space-y-2 shadow-[0_-4px_20px_-4px_hsl(215_60%_50%/0.1)]">
-        {(tipoRdo === "CAUQ" || tipoRdo === "PV" || tipoRdo === "AEROPAV") && (
-          <Button
-            type="button"
-            onClick={handleWhatsAppResume}
-            className="w-full h-12 text-base gap-2 font-semibold bg-[#25D366] hover:bg-[#1da851] text-white rounded-xl"
-          >
-            <MessageCircle className="w-5 h-5" /> 📱 Gerar Resumo WhatsApp
-          </Button>
-        )}
-        {tipoRdo === "PV" && (
-          <Button
-            type="button"
-            onClick={handleSaveAndNewStreet}
-            disabled={saving || !header.obra_nome || !header.turno}
-            className="w-full h-12 text-base gap-2 font-semibold rounded-xl border-2 border-primary bg-white text-primary hover:bg-primary/5"
-          >
-            <RotateCw className="w-5 h-5" /> Salvar e Iniciar Nova Rua
-          </Button>
-        )}
-        <div className="flex gap-2">
-          <Button
-            onClick={handleSaveDraft}
-            disabled={savingDraft || !header.obra_nome}
-            variant="outline"
-            className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl border-2 border-primary text-primary hover:bg-primary/5"
-          >
-            <Save className="w-4 h-4" /> {savingDraft ? "Salvando..." : "Salvar Rascunho"}
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={saving || !header.obra_nome || !header.turno}
-            className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl bg-header-gradient hover:opacity-90 transition-opacity"
-          >
-            <Send className="w-4 h-4" /> {saving ? "Enviando..." : "Enviar RDO"}
-          </Button>
+      {!shouldBlockByDeadline && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-border px-4 py-4 space-y-2 shadow-[0_-4px_20px_-4px_hsl(215_60%_50%/0.1)]">
+          {(tipoRdo === "CAUQ" || tipoRdo === "PV" || tipoRdo === "AEROPAV") && (
+            <Button
+              type="button"
+              onClick={handleWhatsAppResume}
+              className="w-full h-12 text-base gap-2 font-semibold bg-[#25D366] hover:bg-[#1da851] text-white rounded-xl"
+            >
+              <MessageCircle className="w-5 h-5" /> 📱 Gerar Resumo WhatsApp
+            </Button>
+          )}
+          {tipoRdo === "PV" && (
+            <Button
+              type="button"
+              onClick={handleSaveAndNewStreet}
+              disabled={saving || !header.obra_nome || !header.turno}
+              className="w-full h-12 text-base gap-2 font-semibold rounded-xl border-2 border-primary bg-white text-primary hover:bg-primary/5"
+            >
+              <RotateCw className="w-5 h-5" /> Salvar e Iniciar Nova Rua
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button
+              onClick={handleSaveDraft}
+              disabled={savingDraft || !header.obra_nome}
+              variant="outline"
+              className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl border-2 border-primary text-primary hover:bg-primary/5"
+            >
+              <Save className="w-4 h-4" /> {savingDraft ? "Salvando..." : "Salvar Rascunho"}
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={saving || !header.obra_nome || !header.turno}
+              className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl bg-header-gradient hover:opacity-90 transition-opacity"
+            >
+              <Send className="w-4 h-4" /> {saving ? "Enviando..." : "Enviar RDO"}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
+
+function PrazoExpiradoCard({
+  date,
+  prazoLabel,
+  onBack,
+}: {
+  date: string;
+  prazoLabel: string;
+  onBack: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 space-y-3 shadow-card">
+      <h3 className="text-base font-display font-bold text-foreground">⏰ Prazo expirado</h3>
+      <p className="text-sm text-muted-foreground">
+        O prazo para lançar o diário do dia {formatDateBRShort(date)} foi encerrado.
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Prazo permitido: {prazoLabel}. Entre em contato com o administrador para liberar este lançamento.
+      </p>
+      <Button variant="outline" className="w-full" onClick={onBack}>
+        Voltar
+      </Button>
     </div>
   );
 }
