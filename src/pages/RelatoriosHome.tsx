@@ -79,7 +79,11 @@ export default function RelatoriosHome() {
     const fim = tipoPeriodo === "dia" ? dataDia : dataFim;
 
     if (tipoRel === "equipamento") {
-      navigate(`/relatorios/equipamento/${frotaOgs}?ini=${ini}&fim=${fim}`);
+      const baseDate = tipoPeriodo === "dia" ? dataDia : dataIni;
+      const [anoSel, mesSel] = (baseDate || "").split("-");
+      const mesParam = mesSel || String(new Date().getMonth() + 1).padStart(2, "0");
+      const anoParam = anoSel || String(new Date().getFullYear());
+      navigate(`/relatorio-equipamento/${encodeURIComponent(frotaOgs)}?mes=${mesParam}&ano=${anoParam}`);
     } else if (tipoRel === "rdo") {
       navigate(`/relatorios/rdo/${frotaOgs}?ini=${ini}&fim=${fim}`);
     } else if (tipoRel === "abastecimento") {
