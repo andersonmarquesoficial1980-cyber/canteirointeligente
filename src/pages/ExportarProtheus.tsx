@@ -125,6 +125,7 @@ export default function ExportarProtheus() {
         header.push(`OBS ITEM ${String(i).padStart(2,"0")}`);
       }
 
+      header.push("HORAS TRABALHADAS");
       header.push("TIPO COMBUSTÍVEL", "LITROS", "HORÍMETRO ABAST.", "FORNECEDOR COMBUST.");
 
       if (tipoEquip === "Fresadora") {
@@ -133,19 +134,30 @@ export default function ExportarProtheus() {
           header.push(`COMP ${String(i).padStart(2,"0")} (m)`);
           header.push(`LARG ${String(i).padStart(2,"0")} (m)`);
           header.push(`ESP ${String(i).padStart(2,"0")} (cm)`);
+          header.push(`M2 ${String(i).padStart(2,"0")}`);
+          header.push(`M3 ${String(i).padStart(2,"0")}`);
         }
-        header.push("APLICOU BITS", "STATUS BITS", "QTD NOVOS", "QTD MEIA VIDA", "HOR. BITS", "FORNECEDOR BITS");
+        header.push("TOTAL M2", "TOTAL M3");
+        header.push("APLICOU BITS", "STATUS BITS", "QTD BITS", "HOR. BITS", "FORNECEDOR BITS");
       } else if (tipoEquip === "Usina KMA") {
         for (let i = 1; i <= maxProd10; i++) {
           header.push(`COMP ${String(i).padStart(2,"0")} (m)`);
           header.push(`LARG ${String(i).padStart(2,"0")} (m)`);
           header.push(`ESP ${String(i).padStart(2,"0")} (cm)`);
+          header.push(`M2 ${String(i).padStart(2,"0")}`);
+          header.push(`M3 ${String(i).padStart(2,"0")}`);
         }
+        header.push("TOTAL M2", "TOTAL M3");
       } else {
-        for (let i = 1; i <= maxProd10; i++) {
-          header.push(`COMP ${String(i).padStart(2,"0")} (m)`);
-          header.push(`LARG ${String(i).padStart(2,"0")} (m)`);
-          header.push(`ESP ${String(i).padStart(2,"0")} (cm)`);
+        if (maxProd > 0) {
+          for (let i = 1; i <= maxProd10; i++) {
+            header.push(`COMP ${String(i).padStart(2,"0")} (m)`);
+            header.push(`LARG ${String(i).padStart(2,"0")} (m)`);
+            header.push(`ESP ${String(i).padStart(2,"0")} (cm)`);
+            header.push(`M2 ${String(i).padStart(2,"0")}`);
+            header.push(`M3 ${String(i).padStart(2,"0")}`);
+          }
+          header.push("TOTAL M2", "TOTAL M3");
         }
       }
 
@@ -187,27 +199,70 @@ export default function ExportarProtheus() {
         row.push(d.fuel_meter ?? "");
         row.push(""); // fornecedor combustível — não temos no schema ainda
 
+        // Calcular horas trabalhadas (atividades produtivas)
+        const PARADAS = ['Refeições', 'À Disposição', 'Manutenção'];
+        let horasTotal = 0;
+        (timeMap[d.id] ?? []).forEach((t: any) => {
+          if (t.start_time && t.end_time && !PARADAS.includes(t.activity || '')) {
+            const [sh, sm] = t.start_time.split(':').map(Number);
+            const [eh, em] = t.end_time.split(':').map(Number);
+            let diff = (eh * 60 + em) - (sh * 60 + sm);
+            if (diff < 0) diff += 24 * 60;
+            horasTotal += diff / 60;
+          }
+        });
+        row.push(horasTotal > 0 ? horasTotal.toFixed(2) : "");
+
         // Produção / bits por tipo
         if (tipoEquip === "Fresadora") {
           row.push(d.fresagem_type ?? "");
+          let totalM2 = 0; let totalM3 = 0;
           for (let i = 0; i < maxProd10; i++) {
             const p = prods[i];
-            row.push(p?.comprimento_m ?? "");
-            row.push(p?.largura_m ?? "");
-            row.push(p?.espessura_cm ?? "");
+            row.push(p?.length_m ?? "");
+            row.push(p?.width_m ?? "");
+            row.push(p?.thickness_cm ?? "");
+            row.push(p?.m2 ? Number(p.m2).toFixed(2) : "");
+            row.push(p?.m3 ? Number(p.m3).toFixed(2) : "");
+            totalM2 += Number(p?.m2 ?? 0);
+            totalM3 += Number(p?.m3 ?? 0);
           }
+          row.push(totalM2 > 0 ? totalM2.toFixed(2) : "");
+          row.push(totalM3 > 0 ? totalM3.toFixed(2) : "");
           row.push(bits ? "Sim" : "Não");
           row.push(bits?.status ?? "");
           row.push(bits?.quantity ?? "");
-          row.push(""); // meia vida — não temos campo separado
           row.push(bits?.meter_at_change ?? "");
           row.push(bits?.brand ?? "");
-        } else {
+        } else if (tipoEquip === "Usina KMA") {
+          let totalM2 = 0; let totalM3 = 0;
           for (let i = 0; i < maxProd10; i++) {
             const p = prods[i];
-            row.push(p?.comprimento_m ?? "");
-            row.push(p?.largura_m ?? "");
-            row.push(p?.espessura_cm ?? "");
+            row.push(p?.length_m ?? "");
+            row.push(p?.width_m ?? "");
+            row.push(p?.thickness_cm ?? "");
+            row.push(p?.m2 ? Number(p.m2).toFixed(2) : "");
+            row.push(p?.m3 ? Number(p.m3).toFixed(2) : "");
+            totalM2 += Number(p?.m2 ?? 0);
+            totalM3 += Number(p?.m3 ?? 0);
+          }
+          row.push(totalM2 > 0 ? totalM2.toFixed(2) : "");
+          row.push(totalM3 > 0 ? totalM3.toFixed(2) : "");
+        } else {
+          if (maxProd > 0) {
+            let totalM2 = 0; let totalM3 = 0;
+            for (let i = 0; i < maxProd10; i++) {
+              const p = prods[i];
+              row.push(p?.length_m ?? "");
+              row.push(p?.width_m ?? "");
+              row.push(p?.thickness_cm ?? "");
+              row.push(p?.m2 ? Number(p.m2).toFixed(2) : "");
+              row.push(p?.m3 ? Number(p.m3).toFixed(2) : "");
+              totalM2 += Number(p?.m2 ?? 0);
+              totalM3 += Number(p?.m3 ?? 0);
+            }
+            row.push(totalM2 > 0 ? totalM2.toFixed(2) : "");
+            row.push(totalM3 > 0 ? totalM3.toFixed(2) : "");
           }
         }
 
