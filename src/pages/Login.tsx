@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,10 @@ import { LogIn, Mail, Lock, ArrowLeft, User } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
 
 const LOGIN_DOMAIN = "@workflux.app";
+const LOGIN_ATTEMPTS_KEY = "wf_login_attempts";
+const LOGIN_BLOCKED_UNTIL_KEY = "wf_login_blocked_until";
+const MAX_LOGIN_ATTEMPTS = 5;
+const BLOCK_DURATION_MS = 30 * 60 * 1000;
 
 export default function Login() {
   const { toast } = useToast();
@@ -19,18 +23,69 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [blockedUntil, setBlockedUntil] = useState<number>(() => Number(localStorage.getItem(LOGIN_BLOCKED_UNTIL_KEY) || 0));
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const isBlocked = blockedUntil > now;
+  const blockedMinutes = useMemo(() => {
+    if (!isBlocked) return 0;
+    return Math.max(1, Math.ceil((blockedUntil - now) / 60000));
+  }, [blockedUntil, isBlocked, now]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const blockedUntilValue = Number(localStorage.getItem(LOGIN_BLOCKED_UNTIL_KEY) || 0);
+    if (blockedUntilValue > Date.now()) {
+      const minutes = Math.max(1, Math.ceil((blockedUntilValue - Date.now()) / 60000));
+      setBlockedUntil(blockedUntilValue);
+      toast({
+        title: "Login bloqueado",
+        description: `Muitas tentativas. Aguarde ${minutes} minuto${minutes === 1 ? "" : "s"}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const input = login.trim().toLowerCase();
       const authEmail = input.includes("@") ? input : `${input}${LOGIN_DOMAIN}`;
       const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password });
       if (error) throw error;
+
+      localStorage.removeItem(LOGIN_ATTEMPTS_KEY);
+      localStorage.removeItem(LOGIN_BLOCKED_UNTIL_KEY);
+      setBlockedUntil(0);
     } catch (err: any) {
-      const msg = err.message || "Erro desconhecido";
-      toast({ title: "Erro no login", description: msg, variant: "destructive" });
+      const attempts = Number(localStorage.getItem(LOGIN_ATTEMPTS_KEY) || 0);
+      const nextAttempts = attempts + 1;
+
+      if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
+        const nextBlockedUntil = Date.now() + BLOCK_DURATION_MS;
+        localStorage.setItem(LOGIN_BLOCKED_UNTIL_KEY, String(nextBlockedUntil));
+        localStorage.setItem(LOGIN_ATTEMPTS_KEY, "0");
+        setBlockedUntil(nextBlockedUntil);
+        toast({
+          title: "Login bloqueado",
+          description: "Muitas tentativas. Aguarde 30 minutos.",
+          variant: "destructive",
+        });
+      } else {
+        localStorage.setItem(LOGIN_ATTEMPTS_KEY, String(nextAttempts));
+        const tentativasRestantes = Math.max(0, MAX_LOGIN_ATTEMPTS - nextAttempts);
+        const msg = err.message || "Erro desconhecido";
+        toast({
+          title: "Erro no login",
+          description: `${msg}. Tentativas restantes: ${tentativasRestantes}.`,
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -111,6 +166,11 @@ export default function Login() {
     </>
   ) : (
     <>
+      {isBlocked && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200">
+          Muitas tentativas. Aguarde {blockedMinutes} minuto{blockedMinutes === 1 ? "" : "s"} para tentar novamente.
+        </div>
+      )}
       <div className="text-center space-y-1">
         <h1 className="text-xl font-display font-extrabold tracking-widest uppercase text-foreground">
           Acesso ao Sistema

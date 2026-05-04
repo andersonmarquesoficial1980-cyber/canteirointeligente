@@ -1,6 +1,6 @@
 // CRITICAL CORE: DO NOT ALTER MODULE ARRAY, VERTICAL LAYOUT OR USER CREATION FLOW.
 // STATIC_UI_LOCK: MANDATORY MODULES
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, Crown, LogOut } from "lucide-react";
 
@@ -8,6 +8,7 @@ import logoCi from "@/assets/logo-workflux.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { HUB_MODULES } from "@/config/navigation";
 
@@ -16,7 +17,18 @@ export default function Home() {
   const { isAdmin } = useIsAdmin();
   const { permissions, loading: loadingPerms } = usePermissions();
   const { hasModule, loading: loadingModules, isSuperAdmin } = useCompanyModules();
+  const { requestPermission, isSupported, isSubscribed } = usePushNotifications();
   const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    if (!isSupported || isSubscribed) return;
+
+    const timeout = window.setTimeout(() => {
+      requestPermission().catch(() => {});
+    }, 3000);
+
+    return () => window.clearTimeout(timeout);
+  }, [isSupported, isSubscribed, requestPermission]);
 
   const handleLogout = async () => {
     setLoggingOut(true);

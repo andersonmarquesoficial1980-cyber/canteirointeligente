@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,6 +19,7 @@ interface Company {
 
 interface Profile {
   id: string;
+  user_id: string;
   company_id: string | null;
   nome_completo: string;
   perfil: string;
@@ -33,6 +35,20 @@ interface CompanyModule {
   modulo: string;
   ativo: boolean;
 }
+
+type PerfilNovoUsuario = "Operador" | "Apontador" | "Administrador" | "Motorista";
+
+interface NovoUsuarioForm {
+  nomeCompleto: string;
+  login: string;
+  perfil: PerfilNovoUsuario;
+}
+
+const DEFAULT_NOVO_USUARIO_FORM: NovoUsuarioForm = {
+  nomeCompleto: "",
+  login: "",
+  perfil: "Operador",
+};
 
 function formatLastAccess(raw: string | null): string {
   if (!raw) return "Não disponível";
@@ -54,7 +70,10 @@ export default function SuperAdmin() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [expandedCompanyIds, setExpandedCompanyIds] = useState<Record<string, boolean>>({});
+  const [expandedNewUserForm, setExpandedNewUserForm] = useState<Record<string, boolean>>({});
   const [updatingModuleKey, setUpdatingModuleKey] = useState<string | null>(null);
+  const [creatingUserCompanyId, setCreatingUserCompanyId] = useState<string | null>(null);
+  const [newUserForms, setNewUserForms] = useState<Record<string, NovoUsuarioForm>>({});
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -76,7 +95,7 @@ export default function SuperAdmin() {
       supabase.from("companies").select("id, name, created_at").order("name"),
       supabase
         .from("profiles")
-        .select("id, company_id, nome_completo, perfil, email, role, status, updated_at")
+        .select("id, user_id, company_id, nome_completo, perfil, email, role, status, updated_at")
         .order("nome_completo"),
       (supabase as any)
         .from("company_modules")
@@ -194,6 +213,113 @@ export default function SuperAdmin() {
     });
 
     setUpdatingModuleKey(null);
+  };
+
+  const getNewUserForm = (companyId: string): NovoUsuarioForm => {
+    return newUserForms[companyId] ?? DEFAULT_NOVO_USUARIO_FORM;
+  };
+
+  const handleChangeNewUserField = (
+    companyId: string,
+    field: keyof NovoUsuarioForm,
+    value: string
+  ) => {
+    setNewUserForms((prev) => ({
+      ...prev,
+      [companyId]: {
+        ...getNewUserForm(companyId),
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleResetPassword = async (user: Profile) => {
+    const newPassword = window.prompt(`Nova senha para ${user.nome_completo} (mínimo 6 caracteres):`, "");
+    if (newPassword === null) return;
+
+    const password = newPassword.trim();
+    if (password.length < 6) {
+      toast({
+        title: "Senha inválida",
+        description: "A senha deve ter no mínimo 6 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error } = await supabase.functions.invoke("admin-reset-password", {
+      body: {
+        user_id: user.user_id,
+        new_password: password,
+      },
+    });
+
+    if (error) {
+      toast({
+        title: "Erro ao redefinir senha",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Senha redefinida",
+      description: `${user.nome_completo} deverá trocar a senha no próximo acesso.`,
+    });
+  };
+
+  const handleCreateUser = async (companyId: string) => {
+    const form = getNewUserForm(companyId);
+    const nomeCompleto = form.nomeCompleto.trim();
+    const login = form.login.trim().toLowerCase();
+
+    if (!nomeCompleto || !login) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha nome completo e login.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (login.includes("@")) {
+      toast({
+        title: "Login inválido",
+        description: "Informe apenas o login, sem @workflux.app.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingUserCompanyId(companyId);
+    const { error } = await supabase.functions.invoke("admin-create-user", {
+      body: {
+        email: `${login}@workflux.app`,
+        nome_completo: nomeCompleto,
+        perfil: form.perfil,
+        company_id: companyId,
+      },
+    });
+    setCreatingUserCompanyId(null);
+
+    if (error) {
+      toast({
+        title: "Erro ao criar usuário",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Usuário criado",
+      description: "Senha inicial: Workflux@2026",
+    });
+
+    setNewUserForms((prev) => ({ ...prev, [companyId]: DEFAULT_NOVO_USUARIO_FORM }));
+    setExpandedNewUserForm((prev) => ({ ...prev, [companyId]: false }));
+    await loadData();
   };
 
   if (!authorized && loading) {
@@ -329,11 +455,73 @@ export default function SuperAdmin() {
                                     {user.email} • {user.perfil || "Sem perfil"}
                                   </p>
                                 </div>
-                                <div className="text-xs text-slate-400">
-                                  Último acesso: {formatLastAccess(user.updated_at)}
+                                <div className="flex items-center gap-3">
+                                  <div className="text-xs text-slate-400">
+                                    Último acesso: {formatLastAccess(user.updated_at)}
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-8 border-amber-500/40 bg-amber-500/10 px-2 text-xs text-amber-100 hover:bg-amber-500/20"
+                                    onClick={() => handleResetPassword(user)}
+                                  >
+                                    🔑 Redefinir
+                                  </Button>
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded-lg border border-slate-700/60 bg-slate-900/80 p-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            setExpandedNewUserForm((prev) => ({ ...prev, [company.id]: !prev[company.id] }))
+                          }
+                          className="border-blue-300/30 bg-blue-900/20 text-blue-100 hover:bg-blue-900/40"
+                        >
+                          ➕ Novo Usuário
+                          {expandedNewUserForm[company.id] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+
+                        {expandedNewUserForm[company.id] && (
+                          <div className="mt-3 grid gap-3 md:grid-cols-4">
+                            <Input
+                              placeholder="Nome completo"
+                              value={getNewUserForm(company.id).nomeCompleto}
+                              onChange={(e) => handleChangeNewUserField(company.id, "nomeCompleto", e.target.value)}
+                              className="md:col-span-2 border-slate-600 bg-slate-800 text-slate-100"
+                            />
+                            <Input
+                              placeholder="login"
+                              value={getNewUserForm(company.id).login}
+                              onChange={(e) => handleChangeNewUserField(company.id, "login", e.target.value)}
+                              className="border-slate-600 bg-slate-800 text-slate-100"
+                            />
+                            <select
+                              value={getNewUserForm(company.id).perfil}
+                              onChange={(e) => handleChangeNewUserField(company.id, "perfil", e.target.value)}
+                              className="h-10 rounded-md border border-slate-600 bg-slate-800 px-3 text-sm text-slate-100"
+                            >
+                              <option value="Operador">Operador</option>
+                              <option value="Apontador">Apontador</option>
+                              <option value="Administrador">Administrador</option>
+                              <option value="Motorista">Motorista</option>
+                            </select>
+                            <div className="md:col-span-4 flex items-center justify-between">
+                              <p className="text-xs text-slate-400">E-mail final: {getNewUserForm(company.id).login || "login"}@workflux.app</p>
+                              <Button
+                                type="button"
+                                disabled={creatingUserCompanyId === company.id}
+                                onClick={() => handleCreateUser(company.id)}
+                                className="bg-emerald-600 text-white hover:bg-emerald-500"
+                              >
+                                {creatingUserCompanyId === company.id ? "Criando..." : "Criar Usuário"}
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>

@@ -115,6 +115,17 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
       return false;
     }
 
+    if (demanda.funcionario_solicitado_id) {
+      supabase.functions.invoke("send-push", {
+        body: {
+          user_id: demanda.funcionario_solicitado_id,
+          title: "📋 Nova demanda para você",
+          body: demanda.titulo,
+          url: "/minhas-demandas",
+        },
+      }).catch(() => {});
+    }
+
     toast({ title: "Demanda criada" });
     await load();
     return true;
