@@ -4,12 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
-  Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock,
+  Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -261,6 +262,166 @@ function EmailConfig() {
       <Button onClick={handleSave} disabled={saving} className="w-full h-12 text-base gap-2 font-semibold">
         <Save className="w-5 h-5" /> {saving ? "Salvando..." : "Salvar E-mails"}
       </Button>
+    </div>
+  );
+}
+
+function NotificationPrefsManager() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [prefsByUserId, setPrefsByUserId] = useState<Record<string, any>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setUsers([]);
+        setPrefsByUserId({});
+        return;
+      }
+
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const myCompanyId = (myProfile as any)?.company_id;
+      setCompanyId(myCompanyId || null);
+
+      if (!myCompanyId) {
+        setUsers([]);
+        setPrefsByUserId({});
+        return;
+      }
+
+      const [{ data: profilesRows }, { data: prefsRows }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("user_id, nome_completo, perfil, status")
+          .eq("company_id", myCompanyId)
+          .order("nome_completo", { ascending: true }),
+        (supabase as any)
+          .from("notification_prefs")
+          .select("*")
+          .eq("company_id", myCompanyId),
+      ]);
+
+      const activeUsers = ((profilesRows as any[]) || []).filter((u) => u?.status !== "inativo");
+      setUsers(activeUsers);
+      const map: Record<string, any> = {};
+      ((prefsRows as any[]) || []).forEach((row: any) => {
+        if (row?.user_id) map[row.user_id] = row;
+      });
+      setPrefsByUserId(map);
+    } catch (err: any) {
+      toast({ title: "Erro", description: err?.message || "Falha ao carregar preferências.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const getPrefValue = (userId: string, key: "notify_rdo" | "notify_diario_equipamento" | "notify_diario_carreta") =>
+    Boolean(prefsByUserId[userId]?.[key]);
+
+  const updatePref = async (
+    userId: string,
+    key: "notify_rdo" | "notify_diario_equipamento" | "notify_diario_carreta",
+    value: boolean,
+  ) => {
+    if (!companyId) return;
+    const cache = prefsByUserId[userId] || {};
+    const payload = {
+      user_id: userId,
+      company_id: companyId,
+      notify_rdo: key === "notify_rdo" ? value : (cache.notify_rdo ?? false),
+      notify_diario_equipamento: key === "notify_diario_equipamento" ? value : (cache.notify_diario_equipamento ?? false),
+      notify_diario_carreta: key === "notify_diario_carreta" ? value : (cache.notify_diario_carreta ?? false),
+      notify_demanda: cache.notify_demanda ?? true,
+      notify_todos_carretas: cache.notify_todos_carretas ?? false,
+      updated_at: new Date().toISOString(),
+    };
+
+    const savingId = `${userId}:${key}`;
+    setSavingKey(savingId);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("notification_prefs")
+        .upsert(payload, { onConflict: "user_id" })
+        .select("*")
+        .single();
+      if (error) throw error;
+      setPrefsByUserId((prev) => ({ ...prev, [userId]: data }));
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar", description: err?.message || "Não foi possível atualizar.", variant: "destructive" });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Carregando preferências...</p>;
+  }
+
+  if (!companyId) {
+    return <p className="text-sm text-muted-foreground">Nenhuma empresa vinculada ao seu usuário.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card rounded-xl border border-border p-4">
+        <p className="text-sm text-muted-foreground">
+          Configure por usuário quais eventos geram push notification.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        {users.map((usr: any) => (
+          <div key={usr.user_id} className="bg-card rounded-xl border border-border p-4 space-y-3">
+            <div>
+              <p className="font-medium text-sm text-foreground">{usr.nome_completo || "Usuário"}</p>
+              <p className="text-xs text-muted-foreground">{usr.perfil || "Perfil não informado"}</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <label className="flex items-center justify-between gap-2 border border-border rounded-lg p-3">
+                <span className="text-sm">Receber push de RDO</span>
+                <Switch
+                  checked={getPrefValue(usr.user_id, "notify_rdo")}
+                  disabled={savingKey === `${usr.user_id}:notify_rdo`}
+                  onCheckedChange={(checked) => updatePref(usr.user_id, "notify_rdo", checked)}
+                />
+              </label>
+
+              <label className="flex items-center justify-between gap-2 border border-border rounded-lg p-3">
+                <span className="text-sm">Push de Diário de Equipamento</span>
+                <Switch
+                  checked={getPrefValue(usr.user_id, "notify_diario_equipamento")}
+                  disabled={savingKey === `${usr.user_id}:notify_diario_equipamento`}
+                  onCheckedChange={(checked) => updatePref(usr.user_id, "notify_diario_equipamento", checked)}
+                />
+              </label>
+
+              <label className="flex items-center justify-between gap-2 border border-border rounded-lg p-3">
+                <span className="text-sm">Push de Diário de Carreta</span>
+                <Switch
+                  checked={getPrefValue(usr.user_id, "notify_diario_carreta")}
+                  disabled={savingKey === `${usr.user_id}:notify_diario_carreta`}
+                  onCheckedChange={(checked) => updatePref(usr.user_id, "notify_diario_carreta", checked)}
+                />
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1278,6 +1439,7 @@ const MENU_SECTIONS = [
   { key: "usinas", label: "Usinas", icon: Factory },
   { key: "destinos", label: "Destinos (Carreteiro)", icon: MapPin },
   { key: "emails", label: "E-mails", icon: Mail },
+  { key: "notificacoes", label: "Notificações", icon: Bell },
   { key: "desbloquear", label: "Desbloquear Lançamentos", icon: Unlock },
   { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
@@ -1319,6 +1481,7 @@ export default function AdminConfiguracoes() {
       case "usinas": return <EntityManager tableName="usinas" label="Usina" />;
       case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;
+      case "notificacoes": return <NotificationPrefsManager />;
       case "desbloquear": return <DesbloqueioLancamentosManager />;
       case "aeropav_staff": return <AeroPavStaffManager />;
       case "operadores_habilitados": return <OperadoresHabilitadosManager />;

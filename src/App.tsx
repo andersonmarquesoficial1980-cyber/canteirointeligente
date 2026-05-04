@@ -15,6 +15,7 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
+import Perfil from "./pages/Perfil";
 import Index from "./pages/Index";
 import RdoForm from "./pages/RdoForm";
 import FrotaNovo from "./pages/FrotaNovo";
@@ -146,6 +147,7 @@ function AppRoutes() {
 
         {/* Hub — no sidebar/layout */}
         <Route path="/" element={<Home />} />
+        <Route path="/perfil" element={<Perfil />} />
 
         {/* Obras module */}
         <Route path="/obras" element={<Index />} />

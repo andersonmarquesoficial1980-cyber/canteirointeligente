@@ -449,6 +449,41 @@ export default function RdoForm() {
           console.error("Email invoke error:", emailError);
         } else if (emailResult?.success) {
           emailSent = true;
+          // Send push notifications to users who opted in for RDO notifications
+          try {
+            const { data: myProfile } = await supabase
+              .from("profiles")
+              .select("company_id")
+              .eq("user_id", user?.id)
+              .maybeSingle();
+            const myCompanyId = (myProfile as any)?.company_id;
+
+            if (myCompanyId) {
+              const { data: prefs } = await (supabase as any)
+                .from("notification_prefs")
+                .select("user_id")
+                .eq("company_id", myCompanyId)
+                .eq("notify_rdo", true)
+                .neq("user_id", user?.id);
+
+              if (prefs && prefs.length > 0) {
+                const fmtDatePush = (d: string) => {
+                  const [y, m, day] = d.split("-");
+                  return `${day}/${m}/${y}`;
+                };
+                for (const pref of prefs) {
+                  supabase.functions.invoke("send-push", {
+                    body: {
+                      user_id: pref.user_id,
+                      title: "📋 Novo RDO enviado",
+                      body: `${header.obra_nome} — ${fmtDatePush(header.data)}`,
+                      url: "/relatorios",
+                    },
+                  }).catch(() => {});
+                }
+              }
+            }
+          } catch {}
         } else {
           console.warn("Email response:", emailResult);
         }

@@ -1390,6 +1390,71 @@ export default function EquipmentDiaryForm() {
         }
       }
 
+      if (!isDraft && diary) {
+        const fmtDatePush = (d: string) => {
+          const [y, m, day] = d.split("-");
+          return `${day}/${m}/${y}`;
+        };
+
+        const sendPushByPreference = async (
+          preferenceColumn: "notify_diario_carreta" | "notify_diario_equipamento",
+          title: string,
+          body: string,
+        ) => {
+          try {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            const { data: myProfile } = await supabase
+              .from("profiles")
+              .select("company_id")
+              .eq("user_id", currentUser?.id ?? "")
+              .maybeSingle();
+            const myCompanyId = (myProfile as any)?.company_id;
+
+            if (!myCompanyId) return;
+
+            const { data: prefs } = await (supabase as any)
+              .from("notification_prefs")
+              .select("user_id")
+              .eq("company_id", myCompanyId)
+              .eq(preferenceColumn, true)
+              .neq("user_id", currentUser?.id);
+
+            if (prefs && prefs.length > 0) {
+              for (const pref of prefs) {
+                supabase.functions.invoke("send-push", {
+                  body: {
+                    user_id: pref.user_id,
+                    title,
+                    body,
+                    url: "/relatorios",
+                  },
+                }).catch(() => {});
+              }
+            }
+          } catch {}
+        };
+
+        if (isCarreta) {
+          await sendPushByPreference(
+            "notify_diario_carreta",
+            "🚛 Diário de Carreta enviado",
+            `${normalizedSelectedFleet} — ${fmtDatePush(date)}`,
+          );
+        } else if (isComboio) {
+          await sendPushByPreference(
+            "notify_diario_equipamento",
+            "⛽ Diário de Comboio enviado",
+            `${normalizedSelectedFleet} — ${fmtDatePush(date)}`,
+          );
+        } else {
+          await sendPushByPreference(
+            "notify_diario_equipamento",
+            "🛠️ Diário de Equipamento enviado",
+            `${normalizedSelectedFleet} — ${fmtDatePush(date)}`,
+          );
+        }
+      }
+
       toast({
         title: isEditMode
           ? "✅ Lançamento atualizado!"

@@ -89,6 +89,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    const from = subject.includes("RDO")
+      ? "RDO Digital <onboarding@resend.dev>"
+      : subject.includes("Transporte")
+        ? "Diário de Carreta <onboarding@resend.dev>"
+        : subject.includes("Abastecimento")
+          ? "Diário de Comboio <onboarding@resend.dev>"
+          : "Workflux <onboarding@resend.dev>";
+
     // Send email via Resend
     console.log("📤 Sending email to:", emails, "Subject:", subject);
 
@@ -99,7 +107,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "RDO Digital <onboarding@resend.dev>",
+        from,
         to: emails,
         subject,
         html: html_report,

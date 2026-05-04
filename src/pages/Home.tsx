@@ -2,7 +2,7 @@
 // STATIC_UI_LOCK: MANDATORY MODULES
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Crown, LogOut } from "lucide-react";
+import { ChevronRight, Crown, LogOut, User } from "lucide-react";
 
 import logoCi from "@/assets/logo-workflux.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -63,6 +63,14 @@ export default function Home() {
       </div>
 
       {/* Logout */}
+      <button
+        type="button"
+        onClick={() => navigate("/perfil")}
+        className="absolute top-5 left-5 z-20 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-foreground bg-background hover:bg-muted text-sm font-medium transition-colors"
+      >
+        <User className="w-4 h-4" /> Perfil
+      </button>
+
       <button
         type="button"
         disabled={loggingOut}
