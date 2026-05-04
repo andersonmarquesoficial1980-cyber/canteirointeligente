@@ -52,7 +52,9 @@ export default function MeusLancamentos() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
+  const [frotas, setFrotas] = useState<string[]>([]);
   const [tipoEquipamento, setTipoEquipamento] = useState("todos");
+  const [frotaSelecionada, setFrotaSelecionada] = useState("todas");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [selecionado, setSelecionado] = useState<Lancamento | null>(null);
@@ -114,6 +116,9 @@ export default function MeusLancamentos() {
     if (tipoEquipamento !== "todos") {
       query = query.eq("equipment_type", tipoEquipamento);
     }
+    if (frotaSelecionada !== "todas") {
+      query = query.eq("equipment_fleet", frotaSelecionada);
+    }
     if (dataInicio) {
       query = query.gte("date", dataInicio);
     }
@@ -121,13 +126,18 @@ export default function MeusLancamentos() {
       query = query.lte("date", dataFim);
     }
 
-    const [{ data: rows }, { data: tiposRows }] = await Promise.all([
+    const [{ data: rows }, { data: tiposRows }, { data: frotasRows }] = await Promise.all([
       query,
       (supabase as any)
         .from("equipment_diaries")
         .select("equipment_type")
         .eq("user_id", user.id)
         .not("equipment_type", "is", null),
+      (supabase as any)
+        .from("equipment_diaries")
+        .select("equipment_fleet, equipment_type")
+        .eq("user_id", user.id)
+        .not("equipment_fleet", "is", null),
     ]);
 
     setLancamentos((rows || []) as Lancamento[]);
@@ -136,12 +146,25 @@ export default function MeusLancamentos() {
       new Set(((tiposRows || []) as any[]).map((r) => r.equipment_type).filter(Boolean)),
     ) as string[];
     setTipos(tiposUnicos.sort((a, b) => a.localeCompare(b)));
+
+    // Frotas filtradas pelo tipo selecionado
+    const frotasFiltradas = ((frotasRows || []) as any[])
+      .filter((r) => tipoEquipamento === "todos" || r.equipment_type === tipoEquipamento)
+      .map((r) => r.equipment_fleet)
+      .filter(Boolean);
+    const frotasUnicas = Array.from(new Set(frotasFiltradas)) as string[];
+    setFrotas(frotasUnicas.sort((a: string, b: string) => a.localeCompare(b)));
     setLoading(false);
   };
 
+  // Resetar frota ao mudar tipo
+  useEffect(() => {
+    setFrotaSelecionada("todas");
+  }, [tipoEquipamento]);
+
   useEffect(() => {
     carregar();
-  }, [tipoEquipamento, dataInicio, dataFim]);
+  }, [tipoEquipamento, frotaSelecionada, dataInicio, dataFim]);
 
   const resumo = useMemo(() => {
     return `${lancamentos.length} lançamento${lancamentos.length === 1 ? "" : "s"}`;
@@ -167,7 +190,7 @@ export default function MeusLancamentos() {
 
       <div className="max-w-3xl mx-auto p-4 space-y-4">
         <div className="rdo-card space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <span className="rdo-label">Tipo de Equipamento</span>
               <Select value={tipoEquipamento} onValueChange={setTipoEquipamento}>
@@ -177,9 +200,26 @@ export default function MeusLancamentos() {
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
                   {tipos.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="rdo-label">Frota</span>
+              <Select
+                value={frotaSelecionada}
+                onValueChange={setFrotaSelecionada}
+                disabled={frotas.length === 0}
+              >
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas</SelectItem>
+                  {frotas.map((f) => (
+                    <SelectItem key={f} value={f}>{f}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
