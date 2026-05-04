@@ -11,6 +11,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
+  Target,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -427,6 +428,242 @@ function NotificationPrefsManager() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function NotificationTargetsManager() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedSourceUserId, setSelectedSourceUserId] = useState("");
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [targetsByEvent, setTargetsByEvent] = useState<Record<string, Set<string>>>({
+    rdo: new Set<string>(),
+    diario_equipamento: new Set<string>(),
+    diario_carreta: new Set<string>(),
+  });
+
+  const eventSections: Array<{ key: "rdo" | "diario_equipamento" | "diario_carreta"; label: string }> = [
+    { key: "rdo", label: "RDO" },
+    { key: "diario_equipamento", label: "Diário de Equipamento" },
+    { key: "diario_carreta", label: "Diário de Carreta" },
+  ];
+
+  const loadBase = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setCompanyId(null);
+        setUsers([]);
+        return;
+      }
+
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const myCompanyId = (myProfile as any)?.company_id;
+      setCompanyId(myCompanyId || null);
+      if (!myCompanyId) {
+        setUsers([]);
+        return;
+      }
+
+      const { data: profilesRows, error: usersError } = await supabase
+        .from("profiles")
+        .select("user_id, nome_completo, perfil, status")
+        .eq("company_id", myCompanyId)
+        .order("nome_completo", { ascending: true });
+
+      if (usersError) throw usersError;
+      const activeUsers = ((profilesRows as any[]) || []).filter((u) => u?.status !== "inativo");
+      setUsers(activeUsers);
+
+      if (activeUsers.length > 0 && !selectedSourceUserId) {
+        setSelectedSourceUserId(activeUsers[0].user_id);
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err?.message || "Não foi possível carregar usuários.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTargets = async (sourceUserId: string, currentCompanyId: string) => {
+    if (!sourceUserId || !currentCompanyId) {
+      setTargetsByEvent({
+        rdo: new Set<string>(),
+        diario_equipamento: new Set<string>(),
+        diario_carreta: new Set<string>(),
+      });
+      return;
+    }
+
+    try {
+      const { data: rows, error } = await (supabase as any)
+        .from("notification_targets")
+        .select("target_user_id, event_type")
+        .eq("company_id", currentCompanyId)
+        .eq("source_user_id", sourceUserId);
+      if (error) throw error;
+
+      const grouped: Record<string, Set<string>> = {
+        rdo: new Set<string>(),
+        diario_equipamento: new Set<string>(),
+        diario_carreta: new Set<string>(),
+      };
+
+      (rows || []).forEach((row: any) => {
+        const eventType = row?.event_type;
+        const targetUserId = row?.target_user_id;
+        if (eventType && targetUserId && grouped[eventType]) {
+          grouped[eventType].add(targetUserId);
+        }
+      });
+
+      setTargetsByEvent(grouped);
+    } catch (err: any) {
+      toast({ title: "Erro", description: err?.message || "Falha ao carregar destinatários.", variant: "destructive" });
+    }
+  };
+
+  useEffect(() => {
+    loadBase();
+  }, []);
+
+  useEffect(() => {
+    if (!companyId || !selectedSourceUserId) return;
+    loadTargets(selectedSourceUserId, companyId);
+  }, [companyId, selectedSourceUserId]);
+
+  const toggleTarget = async (
+    eventType: "rdo" | "diario_equipamento" | "diario_carreta",
+    targetUserId: string,
+    checked: boolean,
+  ) => {
+    if (!companyId || !selectedSourceUserId) return;
+    const key = `${eventType}:${targetUserId}`;
+    setSavingKey(key);
+    try {
+      if (checked) {
+        const { error } = await (supabase as any)
+          .from("notification_targets")
+          .upsert(
+            {
+              company_id: companyId,
+              source_user_id: selectedSourceUserId,
+              target_user_id: targetUserId,
+              event_type: eventType,
+            },
+            { onConflict: "source_user_id,target_user_id,event_type" },
+          );
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any)
+          .from("notification_targets")
+          .delete()
+          .eq("company_id", companyId)
+          .eq("source_user_id", selectedSourceUserId)
+          .eq("target_user_id", targetUserId)
+          .eq("event_type", eventType);
+        if (error) throw error;
+      }
+
+      setTargetsByEvent((prev) => {
+        const next = { ...prev };
+        const set = new Set(next[eventType] || []);
+        if (checked) set.add(targetUserId);
+        else set.delete(targetUserId);
+        next[eventType] = set;
+        return next;
+      });
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar", description: err?.message || "Não foi possível atualizar.", variant: "destructive" });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const otherUsers = users.filter((u: any) => u.user_id !== selectedSourceUserId);
+
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Carregando destinatários...</p>;
+  }
+
+  if (!companyId) {
+    return <p className="text-sm text-muted-foreground">Nenhuma empresa vinculada ao seu usuário.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card rounded-xl border border-border p-4 space-y-1">
+        <p className="text-sm font-semibold text-foreground">🎯 Destinatários por Funcionário</p>
+        <p className="text-sm text-muted-foreground">
+          Defina quem recebe push quando cada funcionário faz um lançamento
+        </p>
+      </div>
+
+      <div className="bg-card rounded-xl border border-border p-4 space-y-2">
+        <Label className="text-xs text-muted-foreground">Selecione o funcionário</Label>
+        <Select value={selectedSourceUserId} onValueChange={setSelectedSourceUserId}>
+          <SelectTrigger className="h-11 bg-secondary border-border">
+            <SelectValue placeholder="Selecione o funcionário" />
+          </SelectTrigger>
+          <SelectContent>
+            {users.map((u: any) => (
+              <SelectItem key={u.user_id} value={u.user_id}>
+                {u.nome_completo || "Usuário"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {selectedSourceUserId && (
+        <div className="space-y-3">
+          {eventSections.map((section) => (
+            <div key={section.key} className="bg-card rounded-xl border border-border p-4 space-y-3">
+              <p className="text-sm font-semibold text-foreground">{section.label}</p>
+              {otherUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum outro usuário ativo nesta empresa.</p>
+              ) : (
+                <div className="space-y-2">
+                  {otherUsers.map((usr: any) => {
+                    const checkId = `${section.key}-${usr.user_id}`;
+                    const checked = Boolean(targetsByEvent[section.key]?.has(usr.user_id));
+                    const isSaving = savingKey === `${section.key}:${usr.user_id}`;
+                    return (
+                      <label
+                        key={usr.user_id}
+                        htmlFor={checkId}
+                        className="flex items-center justify-between gap-3 border border-border rounded-lg p-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{usr.nome_completo || "Usuário"}</p>
+                          <p className="text-xs text-muted-foreground">{usr.perfil || "Perfil não informado"}</p>
+                        </div>
+                        <input
+                          id={checkId}
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={checked}
+                          disabled={isSaving}
+                          onChange={(e) => toggleTarget(section.key, usr.user_id, e.target.checked)}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1445,6 +1682,7 @@ const MENU_SECTIONS = [
   { key: "destinos", label: "Destinos (Carreteiro)", icon: MapPin },
   { key: "emails", label: "E-mails", icon: Mail },
   { key: "notificacoes", label: "Notificações", icon: Bell },
+  { key: "destinatarios_notif", label: "Destinatários Push", icon: Target },
   { key: "desbloquear", label: "Desbloquear Lançamentos", icon: Unlock },
   { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
@@ -1497,6 +1735,7 @@ export default function AdminConfiguracoes() {
       case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;
       case "notificacoes": return <NotificationPrefsManager />;
+      case "destinatarios_notif": return <NotificationTargetsManager />;
       case "desbloquear": return <DesbloqueioLancamentosManager />;
       case "aeropav_staff": return <AeroPavStaffManager />;
       case "operadores_habilitados": return <OperadoresHabilitadosManager />;

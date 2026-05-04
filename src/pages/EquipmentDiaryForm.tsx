@@ -1403,10 +1403,11 @@ export default function EquipmentDiaryForm() {
         ) => {
           try {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (!currentUser) return;
             const { data: myProfile } = await supabase
               .from("profiles")
               .select("company_id")
-              .eq("user_id", currentUser?.id ?? "")
+              .eq("user_id", currentUser.id)
               .maybeSingle();
             const myCompanyId = (myProfile as any)?.company_id;
 
@@ -1417,19 +1418,36 @@ export default function EquipmentDiaryForm() {
               .select("user_id")
               .eq("company_id", myCompanyId)
               .eq(preferenceColumn, true)
-              .neq("user_id", currentUser?.id);
+              .neq("user_id", currentUser.id);
 
-            if (prefs && prefs.length > 0) {
-              for (const pref of prefs) {
-                supabase.functions.invoke("send-push", {
-                  body: {
-                    user_id: pref.user_id,
-                    title,
-                    body,
-                    url: "/relatorios",
-                  },
-                }).catch(() => {});
-              }
+            const eventType = preferenceColumn === "notify_diario_carreta"
+              ? "diario_carreta"
+              : "diario_equipamento";
+
+            const { data: targets } = await (supabase as any)
+              .from("notification_targets")
+              .select("target_user_id")
+              .eq("source_user_id", currentUser.id)
+              .eq("company_id", myCompanyId)
+              .eq("event_type", eventType);
+
+            const allTargetIds = new Set<string>([
+              ...((prefs || []).map((p: any) => p.user_id).filter(Boolean)),
+              ...((targets || []).map((t: any) => t.target_user_id).filter(Boolean)),
+            ]);
+            allTargetIds.delete(currentUser.id);
+
+            const pushUrl = diary?.id ? `/visualizar-lancamento/${diary.id}` : "/meus-lancamentos";
+
+            for (const userId of allTargetIds) {
+              supabase.functions.invoke("send-push", {
+                body: {
+                  user_id: userId,
+                  title,
+                  body,
+                  url: pushUrl,
+                },
+              }).catch(() => {});
             }
           } catch {}
         };
@@ -1465,6 +1483,26 @@ export default function EquipmentDiaryForm() {
           ? `Lançamento para ${normalizedSelectedFleet} atualizado com sucesso.`
           : `Diário para ${normalizedSelectedFleet} salvo com sucesso.`,
       });
+
+      if (!isDraft && !isEditMode) {
+        // Push de confirmação para o próprio operador
+        try {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (currentUser) {
+            const diaryId = diary?.id;
+            const pushUrl = diaryId ? `/visualizar-lancamento/${diaryId}` : "/meus-lancamentos";
+            supabase.functions.invoke("send-push", {
+              body: {
+                user_id: currentUser.id,
+                title: "✅ Diário enviado com sucesso",
+                body: `${normalizedSelectedFleet} — ${date}`,
+                url: pushUrl,
+              },
+            }).catch(() => {});
+          }
+        } catch {}
+      }
+
       navigate(isEditMode ? "/meus-lancamentos" : "/equipamentos");
     } catch (err: any) {
       const msg = err?.message || "Erro desconhecido";

@@ -36,6 +36,8 @@ import MinhasDemandas from "./pages/MinhasDemandas";
 import DetalhesDemanda from "./pages/DetalhesDemanda";
 import FilaManutencao from "./pages/FilaManutencao";
 import MeusLancamentos from "./pages/MeusLancamentos";
+import VisualizarLancamento from "./pages/VisualizarLancamento";
+import VisualizarRdo from "./pages/VisualizarRdo";
 import ExportarProtheus from "./pages/ExportarProtheus";
 import DocumentosHome from "./pages/DocumentosHome";
 import DocumentosIntegracao from "./pages/DocumentosIntegracao";
@@ -158,6 +160,8 @@ function AppRoutes() {
         <Route path="/equipamentos/frota" element={<AppLayout><FrotaNovo /></AppLayout>} />
         <Route path="/equipamentos/diario" element={<EquipmentDiaryForm />} />
         <Route path="/meus-lancamentos" element={<MeusLancamentos />} />
+        <Route path="/visualizar-lancamento/:id" element={<VisualizarLancamento />} />
+        <Route path="/visualizar-rdo/:id" element={<VisualizarRdo />} />
         <Route path="/equipamentos/exportar-protheus" element={<ExportarProtheus />} />
         <Route path="/documentos" element={<DocumentosHome />} />
         <Route path="/documentos/:id" element={<DocumentosIntegracao />} />

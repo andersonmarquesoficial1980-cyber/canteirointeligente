@@ -464,23 +464,36 @@ export default function RdoForm() {
                 .select("user_id")
                 .eq("company_id", myCompanyId)
                 .eq("notify_rdo", true)
-                .neq("user_id", user?.id);
+                .neq("user_id", user.id);
 
-              if (prefs && prefs.length > 0) {
-                const fmtDatePush = (d: string) => {
-                  const [y, m, day] = d.split("-");
-                  return `${day}/${m}/${y}`;
-                };
-                for (const pref of prefs) {
-                  supabase.functions.invoke("send-push", {
-                    body: {
-                      user_id: pref.user_id,
-                      title: "📋 Novo RDO enviado",
-                      body: `${header.obra_nome} — ${fmtDatePush(header.data)}`,
-                      url: "/relatorios",
-                    },
-                  }).catch(() => {});
-                }
+              const { data: targets } = await (supabase as any)
+                .from("notification_targets")
+                .select("target_user_id")
+                .eq("source_user_id", user.id)
+                .eq("company_id", myCompanyId)
+                .eq("event_type", "rdo");
+
+              const allTargetIds = new Set<string>([
+                ...((prefs || []).map((p: any) => p.user_id).filter(Boolean)),
+                ...((targets || []).map((t: any) => t.target_user_id).filter(Boolean)),
+              ]);
+              allTargetIds.delete(user.id);
+
+              const fmtDatePush = (d: string) => {
+                const [y, m, day] = d.split("-");
+                return `${day}/${m}/${y}`;
+              };
+              const pushUrl = rdoId ? `/visualizar-rdo/${rdoId}` : "/obras";
+
+              for (const userId of allTargetIds) {
+                supabase.functions.invoke("send-push", {
+                  body: {
+                    user_id: userId,
+                    title: "📋 Novo RDO enviado",
+                    body: `${header.obra_nome} — ${fmtDatePush(header.data)}`,
+                    url: pushUrl,
+                  },
+                }).catch(() => {});
               }
             }
           } catch {}
@@ -490,6 +503,23 @@ export default function RdoForm() {
       } catch (emailErr) {
         console.warn("Email send failed:", emailErr);
       }
+
+      // Push de confirmação para o próprio apontador
+      try {
+        const pushUrl = rdoId ? `/visualizar-rdo/${rdoId}` : "/obras";
+        const fmtDate = (d: string) => {
+          const [y, m, day] = d.split("-");
+          return `${day}/${m}/${y}`;
+        };
+        supabase.functions.invoke("send-push", {
+          body: {
+            user_id: user.id,
+            title: "✅ RDO enviado com sucesso",
+            body: `${header.obra_nome} — ${fmtDate(header.data)}`,
+            url: pushUrl,
+          },
+        }).catch(() => {});
+      } catch {}
 
       toast({
         title: emailSent ? "✅ RDO Salvo e E-mail Enviado!" : "✅ RDO Salvo!",
