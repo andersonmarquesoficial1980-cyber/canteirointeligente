@@ -33,12 +33,20 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
+// Equipamentos com Auxiliar
+const TEM_AUXILIAR = ["Fresadora", "Usina KMA"];
+// Equipamentos com coluna de Produção (Comp/Larg/Esp)
+const TEM_PRODUCAO = ["Fresadora", "Usina KMA"];
+
 // ── Cabeçalho fixo ──────────────────────────────────────────────────────────
 function buildHeader(tipoEquip: string): string[] {
+  const comAuxiliar = TEM_AUXILIAR.includes(tipoEquip);
+  const comProducao = TEM_PRODUCAO.includes(tipoEquip);
+
   const h: string[] = [
     "DATA",
     "OPERADOR",
-    "AUXILIAR",
+    ...(comAuxiliar ? ["AUXILIAR"] : []),
     "FROTA",
     "TIPO EQUIPAMENTO",
     "OGS",
@@ -58,7 +66,7 @@ function buildHeader(tipoEquip: string): string[] {
     h.push(`OBS ITEM ${pad(i)}`);
   }
 
-  // Bits (Fresadora)
+  // Bits e Fresagem (somente Fresadora)
   if (tipoEquip === "Fresadora") {
     h.push("TIPO FRESAGEM");
     h.push("APLICOU BITS");
@@ -69,11 +77,13 @@ function buildHeader(tipoEquip: string): string[] {
     h.push("FORNECEDOR BITS");
   }
 
-  // 25 blocos de produção fixos
-  for (let i = 1; i <= 25; i++) {
-    h.push(`COMPRIMENTO ${pad(i)} (m)`);
-    h.push(`LARGURA ${pad(i)} (m)`);
-    h.push(`ESPESSURA ${pad(i)} (cm)`);
+  // 25 blocos de produção fixos (só Fresadora e KMA)
+  if (comProducao) {
+    for (let i = 1; i <= 25; i++) {
+      h.push(`COMPRIMENTO ${pad(i)} (m)`);
+      h.push(`LARGURA ${pad(i)} (m)`);
+      h.push(`ESPESSURA ${pad(i)} (cm)`);
+    }
   }
 
   h.push("OBSERVAÇÕES GERAIS");
@@ -152,6 +162,8 @@ export default function ExportarProtheus() {
       });
 
       // 4. Montar planilha
+      const comAuxiliar = TEM_AUXILIAR.includes(tipoEquip);
+      const comProducao = TEM_PRODUCAO.includes(tipoEquip);
       const header = buildHeader(tipoEquip);
       const dataRows = diarios.map(d => {
         const times  = (timeMap[d.id] ?? []).slice(0, 10);
@@ -161,7 +173,7 @@ export default function ExportarProtheus() {
         const row: any[] = [
           fmtDate(d.date),
           d.operator_name ?? "",
-          d.operator_solo ?? "",
+          ...(comAuxiliar ? [d.operator_solo ?? ""] : []),
           d.equipment_fleet ?? "",
           d.equipment_type ?? "",
           d.ogs_number ?? "",
@@ -182,7 +194,7 @@ export default function ExportarProtheus() {
           row.push(t?.description ?? "");
         }
 
-        // Bits (Fresadora)
+        // Bits e Fresagem (somente Fresadora)
         if (tipoEquip === "Fresadora") {
           row.push(d.fresagem_type ?? "");
           row.push(bits ? "Sim" : "Não");
@@ -193,12 +205,14 @@ export default function ExportarProtheus() {
           row.push(bits?.brand ?? "");
         }
 
-        // 25 blocos fixos de produção
-        for (let i = 0; i < 25; i++) {
-          const p = prods[i];
-          row.push(p?.length_m ?? "");
-          row.push(p?.width_m ?? "");
-          row.push(p?.thickness_cm ?? "");
+        // 25 blocos fixos de produção (somente Fresadora e KMA)
+        if (comProducao) {
+          for (let i = 0; i < 25; i++) {
+            const p = prods[i];
+            row.push(p?.length_m ?? "");
+            row.push(p?.width_m ?? "");
+            row.push(p?.thickness_cm ?? "");
+          }
         }
 
         row.push(d.observations ?? "");
@@ -327,10 +341,11 @@ export default function ExportarProtheus() {
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-800 space-y-2">
           <p className="font-semibold">ℹ️ Estrutura da planilha</p>
           <ul className="list-disc list-inside space-y-1 text-blue-700 text-xs">
-            <li>12 colunas base (Data, Operador, Frota, OGS, etc.)</li>
+            <li>Colunas base: Data, Operador{TEM_AUXILIAR.includes(tipoEquip) ? ", Auxiliar" : ""}, Frota, OGS, etc.</li>
             <li>10 blocos fixos de Apontamento de Horas (Início/Término/Item/OBS)</li>
             {tipoEquip === "Fresadora" && <li>Bits: Tipo Fresagem + Aplicou/Status/Qtd/Horímetro/Fornecedor</li>}
-            <li>25 blocos fixos de Produção (Comprimento/Largura/Espessura)</li>
+            {TEM_PRODUCAO.includes(tipoEquip) && <li>25 blocos fixos de Produção (Comprimento/Largura/Espessura)</li>}
+            {!TEM_PRODUCAO.includes(tipoEquip) && tipoEquip && <li className="text-amber-600">Sem colunas de Produção para este equipamento</li>}
             <li>Observações Gerais</li>
           </ul>
         </div>
