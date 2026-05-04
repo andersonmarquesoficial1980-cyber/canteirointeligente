@@ -41,7 +41,7 @@ function useCrudTable(tableName: string) {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [tableName]);
 
   const add = async (item: any) => {
     try {
@@ -84,7 +84,7 @@ function useCrudTable(tableName: string) {
 
 // Simple entity form with nome + vinculo_rdo
 function EntityManager({ tableName, label }: { tableName: string; label: string }) {
-  const { items, add, remove } = useCrudTable(tableName);
+  const { items, loading, add, remove } = useCrudTable(tableName);
   const { toast } = useToast();
   const [nome, setNome] = useState("");
   const [vinculo, setVinculo] = useState("TODOS");
@@ -114,7 +114,13 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
       </div>
       <div className="space-y-2">
-        {items.map((item: any) => (
+        {loading ? (
+          <div className="space-y-2">
+            {[1,2,3].map(i => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)}
+          </div>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhum cadastro.</p>
+        ) : items.map((item: any) => (
           <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
             <div>
               <p className="font-medium text-sm text-foreground">{item.nome}</p>
@@ -123,7 +129,6 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
             <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum cadastro.</p>}
       </div>
     </div>
   );
@@ -1449,6 +1454,16 @@ export default function AdminConfiguracoes() {
   const navigate = useNavigate();
   const { isAdmin, loading } = useIsAdmin();
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [transitioning, setTransitioning] = useState(false);
+
+  const handleSectionChange = (key: string) => {
+    if (key === activeSection) return;
+    setTransitioning(true);
+    setTimeout(() => {
+      setActiveSection(key);
+      setTransitioning(false);
+    }, 120);
+  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!isAdmin) { navigate("/"); return null; }
@@ -1524,7 +1539,7 @@ export default function AdminConfiguracoes() {
             return (
               <button
                 key={item.key}
-                onClick={() => setActiveSection(item.key)}
+                onClick={() => handleSectionChange(item.key)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs whitespace-nowrap transition-colors shrink-0 ${
                   isActive
                     ? "bg-primary text-primary-foreground font-semibold"
@@ -1549,7 +1564,7 @@ export default function AdminConfiguracoes() {
               return (
                 <button
                   key={item.key}
-                  onClick={() => setActiveSection(item.key)}
+                  onClick={() => handleSectionChange(item.key)}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${
                     isActive
                       ? "bg-primary/10 text-primary font-semibold border-r-2 border-primary"
@@ -1575,7 +1590,16 @@ export default function AdminConfiguracoes() {
                 </h2>
               </div>
             )}
-            {renderContent()}
+            <div className={`transition-opacity duration-100 ${transitioning ? 'opacity-0' : 'opacity-100'}`}>
+              {transitioning ? (
+                <div className="space-y-3">
+                  <div className="h-12 rounded-xl bg-muted animate-pulse" />
+                  <div className="h-32 rounded-xl bg-muted animate-pulse" />
+                  <div className="h-14 rounded-xl bg-muted animate-pulse" />
+                  <div className="h-14 rounded-xl bg-muted animate-pulse" />
+                </div>
+              ) : renderContent()}
+            </div>
           </div>
         </main>
       </div>
