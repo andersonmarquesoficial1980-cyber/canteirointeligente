@@ -438,6 +438,7 @@ function NotificationTargetsManager() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [selectedSourceUserId, setSelectedSourceUserId] = useState("");
+  const [selectedEventType, setSelectedEventType] = useState<"rdo" | "diario_equipamento" | "diario_carreta">("rdo");
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [targetsByEvent, setTargetsByEvent] = useState<Record<string, Set<string>>>({
     rdo: new Set<string>(),
@@ -450,6 +451,17 @@ function NotificationTargetsManager() {
     { key: "diario_equipamento", label: "Diário de Equipamento" },
     { key: "diario_carreta", label: "Diário de Carreta" },
   ];
+
+  // Pré-seleciona o tipo de evento pelo perfil do funcionário selecionado
+  const handleSourceUserChange = (userId: string) => {
+    setSelectedSourceUserId(userId);
+    const user = users.find((u: any) => u.user_id === userId);
+    if (!user) return;
+    const perfil = user.perfil || "";
+    if (perfil === "Apontador") setSelectedEventType("rdo");
+    else if (perfil === "Motorista") setSelectedEventType("diario_carreta");
+    else setSelectedEventType("diario_equipamento");
+  };
 
   const loadBase = async () => {
     setLoading(true);
@@ -608,27 +620,48 @@ function NotificationTargetsManager() {
         </p>
       </div>
 
-      <div className="bg-card rounded-xl border border-border p-4 space-y-2">
-        <Label className="text-xs text-muted-foreground">Selecione o funcionário</Label>
-        <Select value={selectedSourceUserId} onValueChange={setSelectedSourceUserId}>
-          <SelectTrigger className="h-11 bg-secondary border-border">
-            <SelectValue placeholder="Selecione o funcionário" />
-          </SelectTrigger>
-          <SelectContent>
-            {users.map((u: any) => (
-              <SelectItem key={u.user_id} value={u.user_id}>
-                {u.nome_completo || "Usuário"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Selecione o funcionário</Label>
+          <Select value={selectedSourceUserId} onValueChange={handleSourceUserChange}>
+            <SelectTrigger className="h-11 bg-secondary border-border">
+              <SelectValue placeholder="Selecione o funcionário" />
+            </SelectTrigger>
+            <SelectContent>
+              {users.map((u: any) => (
+                <SelectItem key={u.user_id} value={u.user_id}>
+                  {u.nome_completo || "Usuário"}{u.perfil ? ` — ${u.perfil}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedSourceUserId && (
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Tipo de documento</Label>
+            <Select value={selectedEventType} onValueChange={(v) => setSelectedEventType(v as any)}>
+              <SelectTrigger className="h-11 bg-secondary border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {eventSections.map((s) => (
+                  <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {selectedSourceUserId && (
         <div className="space-y-3">
-          {eventSections.map((section) => (
+          {[eventSections.find(s => s.key === selectedEventType)!].filter(Boolean).map((section) => (
             <div key={section.key} className="bg-card rounded-xl border border-border p-4 space-y-3">
-              <p className="text-sm font-semibold text-foreground">{section.label}</p>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{section.label}</p>
+                <p className="text-xs text-muted-foreground">Marque quem deve receber push quando este funcionário enviar um {section.label}</p>
+              </div>
               {otherUsers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum outro usuário ativo nesta empresa.</p>
               ) : (
