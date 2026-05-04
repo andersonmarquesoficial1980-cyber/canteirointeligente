@@ -1166,6 +1166,49 @@ function TruckRegistryManager() {
 }
 
 // Material manager
+function MateriaisUnificadoManager() {
+  const [subTab, setSubTab] = useState<"rdo" | "transporte">("rdo");
+
+  return (
+    <div className="space-y-4">
+      {/* Cabeçalho descritivo */}
+      <div className="bg-card rounded-xl border border-border p-4 space-y-1">
+        <p className="text-sm font-semibold text-foreground">📦 Materiais</p>
+        <p className="text-xs text-muted-foreground">
+          <b>Materiais de RDO</b> aparecem nas Notas Fiscais e consumo dentro do Relatório Diário de Obra.<br />
+          <b>Materiais de Transporte</b> são usados pelos motoristas de carreta no módulo Carreteiros.
+        </p>
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setSubTab("rdo")}
+          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+            subTab === "rdo"
+              ? "bg-primary text-primary-foreground"
+              : "bg-card border border-border text-muted-foreground hover:bg-muted/50"
+          }`}
+        >
+          📋 Materiais de RDO
+        </button>
+        <button
+          onClick={() => setSubTab("transporte")}
+          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+            subTab === "transporte"
+              ? "bg-primary text-primary-foreground"
+              : "bg-card border border-border text-muted-foreground hover:bg-muted/50"
+          }`}
+        >
+          🚛 Materiais de Transporte
+        </button>
+      </div>
+
+      {subTab === "rdo" ? <MaterialManager /> : <InsumosMaterialManager />}
+    </div>
+  );
+}
+
 function MaterialManager() {
   const { items, add, remove } = useCrudTable("materiais");
   const { toast } = useToast();
@@ -1703,8 +1746,7 @@ const MENU_SECTIONS = [
   { key: "usuarios", label: "Usuários", icon: Users },
   { key: "permissoes", label: "Permissões", icon: Users },
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
-  { key: "materiais", label: "Materiais (RDO)", icon: Package },
-  { key: "insumos", label: "Insumos / Materiais", icon: Package },
+  { key: "materiais", label: "Materiais", icon: Package },
   { key: "maquinas", label: "Frota (Máquinas)", icon: Wrench },
   { key: "caminhoes", label: "Frota (Caminhões)", icon: Truck },
   { key: "funcionarios", label: "Funcionários", icon: Users },
@@ -1756,8 +1798,7 @@ export default function AdminConfiguracoes() {
       case "usuarios": return <UsersManager />;
       case "permissoes": return <PermissoesManager />;
       case "ogs": return <OgsManager />;
-      case "materiais": return <MaterialManager />;
-      case "insumos": return <InsumosMaterialManager />;
+      case "materiais": return <MateriaisUnificadoManager />;
       case "maquinas": return <MaquinasManager />;
       case "caminhoes": return <TruckRegistryManager />;
       case "funcionarios": return <FuncionariosManager />;
