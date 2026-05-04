@@ -47,6 +47,9 @@ import ManutencaoDocumentos from "./pages/ManutencaoDocumentos";
 import AbastecimentoHome from "./pages/AbastecimentoHome";
 import RelatoriosHome from "./pages/RelatoriosHome";
 import RelatorioEquipamento from "./pages/RelatorioEquipamento";
+import RelatorioRdo from "./pages/RelatorioRdo";
+import RelatorioAbastecimento from "./pages/RelatorioAbastecimento";
+import RelatorioManutencao from "./pages/RelatorioManutencao";
 import DashboardAdmin from "./pages/DashboardAdmin";
 import SuperAdmin from "./pages/SuperAdmin";
 import GestaoFrotasHome from "./pages/GestaoFrotasHome";
@@ -58,6 +61,7 @@ import Login from "./pages/Login";
 import TrocarSenha from "./pages/TrocarSenha";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
+import AdminLancamentos from "./pages/AdminLancamentos";
 
 const queryClient = new QueryClient();
 
@@ -170,6 +174,12 @@ function AppRoutes() {
         <Route path="/manutencao/documentos" element={<ManutencaoDocumentos />} />
         <Route path="/abastecimento" element={<AbastecimentoHome />} />
         <Route path="/relatorios" element={<RelatoriosHome />} />
+        <Route path="/relatorios/rdo/:ogs" element={<RelatorioRdo />} />
+        <Route path="/relatorios/abastecimento/:fleet" element={<RelatorioAbastecimento />} />
+        <Route path="/relatorios/manutencao/:fleet" element={<RelatorioManutencao />} />
+        {/* Rota correta usada pelo RelatoriosHome */}
+        <Route path="/relatorio-equipamento/:fleet" element={<RelatorioEquipamento />} />
+        {/* Alias para compatibilidade */}
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
         <Route path="/dashboard" element={<DashboardAdmin />} />
         <Route path="/super-admin" element={<SuperAdmin />} />
@@ -201,6 +211,7 @@ function AppRoutes() {
             <AdminConfiguracoes />
           </ErrorBoundary>
         } />
+        <Route path="/admin/lancamentos" element={<AdminLancamentos />} />
         <Route
           path="/admin/operadores-habilitados"
           element={

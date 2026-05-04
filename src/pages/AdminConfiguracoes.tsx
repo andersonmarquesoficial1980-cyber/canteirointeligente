@@ -11,7 +11,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target,
+  Target, ClipboardList,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -1759,6 +1759,7 @@ const MENU_SECTIONS = [
   { key: "notificacoes", label: "Notificações", icon: Bell },
   { key: "destinatarios_notif", label: "Destinatários Push", icon: Target },
   { key: "desbloquear", label: "Desbloquear Lançamentos", icon: Unlock },
+  { key: "lancamentos_admin", label: "Lançamentos", icon: ClipboardList },
   { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
 ];
@@ -1768,6 +1769,12 @@ export default function AdminConfiguracoes() {
   const { isAdmin, loading } = useIsAdmin();
   const [activeSection, setActiveSection] = useState("dashboard");
   const [transitioning, setTransitioning] = useState(false);
+
+  useEffect(() => {
+    if (activeSection === "lancamentos_admin") {
+      navigate("/admin/lancamentos");
+    }
+  }, [activeSection, navigate]);
 
   const handleSectionChange = (key: string) => {
     if (key === activeSection) return;
