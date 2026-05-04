@@ -50,6 +50,7 @@ export default function MeusLancamentos() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [frotas, setFrotas] = useState<string[]>([]);
@@ -106,12 +107,31 @@ export default function MeusLancamentos() {
       return;
     }
 
+    // Verificar perfil do usuário — admin vê todos os lançamentos da empresa
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("perfil, role, company_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const isAdminUser = (profileData as any)?.perfil === "Administrador" || (profileData as any)?.role === "superadmin";
+    const companyId = (profileData as any)?.company_id;
+    setIsAdmin(isAdminUser);
+    const isAdmin = isAdminUser;
+
     let query = (supabase as any)
       .from("equipment_diaries")
       .select("*")
-      .eq("user_id", user.id)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false });
+
+    // Operador: filtra pelos próprios lançamentos
+    // Admin: filtra por empresa
+    if (isAdmin && companyId) {
+      query = query.eq("company_id", companyId);
+    } else {
+      query = query.eq("user_id", user.id);
+    }
 
     if (tipoEquipamento !== "todos") {
       query = query.eq("equipment_type", tipoEquipamento);
@@ -128,16 +148,12 @@ export default function MeusLancamentos() {
 
     const [{ data: rows }, { data: tiposRows }, { data: frotasRows }] = await Promise.all([
       query,
-      (supabase as any)
-        .from("equipment_diaries")
-        .select("equipment_type")
-        .eq("user_id", user.id)
-        .not("equipment_type", "is", null),
-      (supabase as any)
-        .from("equipment_diaries")
-        .select("equipment_fleet, equipment_type")
-        .eq("user_id", user.id)
-        .not("equipment_fleet", "is", null),
+      isAdmin && companyId
+        ? (supabase as any).from("equipment_diaries").select("equipment_type").eq("company_id", companyId).not("equipment_type", "is", null)
+        : (supabase as any).from("equipment_diaries").select("equipment_type").eq("user_id", user.id).not("equipment_type", "is", null),
+      isAdmin && companyId
+        ? (supabase as any).from("equipment_diaries").select("equipment_fleet, equipment_type").eq("company_id", companyId).not("equipment_fleet", "is", null)
+        : (supabase as any).from("equipment_diaries").select("equipment_fleet, equipment_type").eq("user_id", user.id).not("equipment_fleet", "is", null),
     ]);
 
     setLancamentos((rows || []) as Lancamento[]);
@@ -182,7 +198,7 @@ export default function MeusLancamentos() {
         <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">
-            Meus Lançamentos
+            {isAdmin ? "Lançamentos — Todos" : "Meus Lançamentos"}
           </span>
           <span className="block text-[11px] text-primary-foreground/80">{resumo}</span>
         </div>
