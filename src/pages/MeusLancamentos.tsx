@@ -49,6 +49,7 @@ function fmtDate(value: string | null) {
 export default function MeusLancamentos() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [tipoEquipamento, setTipoEquipamento] = useState("todos");
@@ -59,6 +60,7 @@ export default function MeusLancamentos() {
 
   const abrirDetalhe = async (item: Lancamento) => {
     setSelecionado(item);
+    setEditandoId(null);
     setDetalheExtra({ areas: [], bits: [], horas: null });
     const [{ data: areas }, { data: bits }, { data: times }] = await Promise.all([
       supabase.from('equipment_production_areas').select('length_m,width_m,thickness_cm,m2,m3').eq('diary_id', item.id),
@@ -78,6 +80,16 @@ export default function MeusLancamentos() {
       }
     });
     setDetalheExtra({ areas: areas || [], bits: bits || [], horas: horasTotal > 0 ? Math.round(horasTotal * 10) / 10 : null });
+  };
+
+  const handleEditarLancamento = async (item: Lancamento) => {
+    setEditandoId(item.id);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    navigate(
+      `/equipamentos/diario?edit=${item.id}&tipo=${encodeURIComponent(
+        item.equipment_type || "",
+      )}&frota=${encodeURIComponent(item.equipment_fleet || "")}`,
+    );
   };
 
   const carregar = async () => {
@@ -250,7 +262,15 @@ export default function MeusLancamentos() {
         )}
       </div>
 
-      <Dialog open={!!selecionado} onOpenChange={(open) => !open && setSelecionado(null)}>
+      <Dialog
+        open={!!selecionado}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelecionado(null);
+            setEditandoId(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display">Detalhes do Lançamento</DialogTitle>
@@ -317,14 +337,10 @@ export default function MeusLancamentos() {
 
               <Button
                 className="w-full"
-                onClick={() =>
-                  navigate(
-                    `/equipamentos/diario?edit=${selecionado.id}&tipo=${encodeURIComponent(
-                      selecionado.equipment_type || "",
-                    )}&frota=${encodeURIComponent(selecionado.equipment_fleet || "")}`,
-                  )
-                }
+                onClick={() => handleEditarLancamento(selecionado)}
+                disabled={editandoId === selecionado.id}
               >
+                {editandoId === selecionado.id && <Loader2 className="animate-spin w-4 h-4 mr-2" />}
                 Editar Lançamento
               </Button>
             </div>

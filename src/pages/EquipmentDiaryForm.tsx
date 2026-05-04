@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Send, Save, Plus, Trash2, Droplets, Fuel } from "lucide-react";
+import { AlertCircle, Send, Save, Plus, Trash2, Droplets, Fuel, Pencil } from "lucide-react";
 import EquipmentHeader from "@/components/equipment/EquipmentHeader";
 import TimeEntriesSection, { type TimeEntry, createDefaultTimeEntry } from "@/components/equipment/TimeEntriesSection";
 import KmaCalibrationSection, {
@@ -1487,6 +1487,16 @@ export default function EquipmentDiaryForm() {
       <EquipmentHeader title={isCaminhoes && caminhaoTipo ? `Caminhão ${caminhaoTipo}` : isVeiculo ? "Veículo de Transporte" : (equipmentType || "Novo Diário")} />
 
       <div className="flex-1 p-4 space-y-5 pb-36 max-w-lg mx-auto w-full">
+        {isEditMode && (
+          <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl px-4 py-3 flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-amber-300">Modo Edição</p>
+              <p className="text-xs text-amber-200/80">Você está editando um lançamento existente. As alterações substituirão os dados originais.</p>
+            </div>
+          </div>
+        )}
+
         {/* INFORMAÇÕES GERAIS */}
         <Section title="INFORMAÇÕES GERAIS">
           {/* Rolo: Tipo de Rolo */}
@@ -1555,77 +1565,89 @@ export default function EquipmentDiaryForm() {
 
           <FieldRow>
             <Field label="Frota">
-              {isCaminhoes && !caminhaoTipo ? (
-                <Select disabled>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Escolha o tipo primeiro" />
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
-              ) : isRolo ? (
-                <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!roloType}>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder={roloType ? "Selecione a frota..." : "Escolha o tipo primeiro"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roloFleets.map((f) => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : isVeiculo ? (
-                <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!veiculoType}>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder={veiculoType ? "Selecione..." : "Escolha o tipo primeiro"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {veiculoFleets.map((f) => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : isRetro && !attachmentType ? (
-                <Select disabled>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Escolha o tipo primeiro" />
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
-              ) : isRetro && attachmentType !== "Retroescavadeira" ? (
-                <Select disabled>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Frotas não cadastradas ainda" />
-                  </SelectTrigger>
-                  <SelectContent />
-                </Select>
-              ) : staticFleetList ? (
-                <Select value={selectedFleet} onValueChange={setSelectedFleet}>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staticFleetList.map((f) => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {isEditMode ? (
+                <div className="h-11 rounded-xl bg-secondary border border-border flex items-center px-3 text-sm font-semibold text-foreground opacity-80">
+                  {selectedFleet || "-"} <span className="ml-2 text-xs text-muted-foreground">(não editável)</span>
+                </div>
               ) : (
-                <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : "Selecione..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(isFresadora ? filteredFleet || [] : equipamentos || []).filter((eq: any) => eq && eq.frota).map((eq: any) => (
-                      <SelectItem key={eq.id} value={eq.frota}>
-                        {eq.frota} — {eq.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                isCaminhoes && !caminhaoTipo ? (
+                  <Select disabled>
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder="Escolha o tipo primeiro" />
+                    </SelectTrigger>
+                    <SelectContent />
+                  </Select>
+                ) : isRolo ? (
+                  <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!roloType}>
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder={roloType ? "Selecione a frota..." : "Escolha o tipo primeiro"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roloFleets.map((f) => (
+                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : isVeiculo ? (
+                  <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!veiculoType}>
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder={veiculoType ? "Selecione..." : "Escolha o tipo primeiro"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {veiculoFleets.map((f) => (
+                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : isRetro && !attachmentType ? (
+                  <Select disabled>
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder="Escolha o tipo primeiro" />
+                    </SelectTrigger>
+                    <SelectContent />
+                  </Select>
+                ) : isRetro && attachmentType !== "Retroescavadeira" ? (
+                  <Select disabled>
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder="Frotas não cadastradas ainda" />
+                    </SelectTrigger>
+                    <SelectContent />
+                  </Select>
+                ) : staticFleetList ? (
+                  <Select value={selectedFleet} onValueChange={setSelectedFleet}>
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staticFleetList.map((f) => (
+                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : "Selecione..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(isFresadora ? filteredFleet || [] : equipamentos || []).filter((eq: any) => eq && eq.frota).map((eq: any) => (
+                        <SelectItem key={eq.id} value={eq.frota}>
+                          {eq.frota} — {eq.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
               )}
             </Field>
             <Field label="Data">
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
+              {isEditMode ? (
+                <div className="h-11 rounded-xl bg-secondary border border-border flex items-center px-3 text-sm font-semibold text-foreground opacity-80">
+                  {date || "-"} <span className="ml-2 text-xs text-muted-foreground">(não editável)</span>
+                </div>
+              ) : (
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
+              )}
             </Field>
           </FieldRow>
 
@@ -2314,15 +2336,17 @@ export default function EquipmentDiaryForm() {
                   ? "Salvar Edição"
                   : "Enviar Diário"}
             </Button>
-            <Button
-              onClick={() => handleSave(true)}
-              disabled={saving || loadingEditData}
-              variant="outline"
-              className="w-full text-sm py-3"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {isEditMode ? "Salvar Edição como Rascunho" : "Salvar Rascunho"}
-            </Button>
+            {!isEditMode && (
+              <Button
+                onClick={() => handleSave(true)}
+                disabled={saving || loadingEditData}
+                variant="outline"
+                className="w-full text-sm py-3"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Salvar Rascunho
+              </Button>
+            )}
           </div>
         </div>
           </>
