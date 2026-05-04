@@ -29,6 +29,58 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+// ── Cabeçalho fixo ──────────────────────────────────────────────────────────
+function buildHeader(tipoEquip: string): string[] {
+  const h: string[] = [
+    "DATA",
+    "OPERADOR",
+    "AUXILIAR",
+    "FROTA",
+    "TIPO EQUIPAMENTO",
+    "OGS",
+    "CLIENTE",
+    "LOCAL",
+    "STATUS",
+    "PERÍODO",
+    "HORÍMETRO INICIAL",
+    "HORÍMETRO FINAL",
+  ];
+
+  // 10 blocos de apontamento fixos
+  for (let i = 1; i <= 10; i++) {
+    h.push(`INÍCIO ${pad(i)}`);
+    h.push(`TÉRMINO ${pad(i)}`);
+    h.push(`ITEM ${pad(i)}`);
+    h.push(`OBS ITEM ${pad(i)}`);
+  }
+
+  // Bits (Fresadora)
+  if (tipoEquip === "Fresadora") {
+    h.push("TIPO FRESAGEM");
+    h.push("APLICOU BITS");
+    h.push("STATUS BITS");
+    h.push("QTD BITS NOVOS");
+    h.push("QTD BITS MEIA VIDA");
+    h.push("HORÍMETRO BITS");
+    h.push("FORNECEDOR BITS");
+  }
+
+  // 25 blocos de produção fixos
+  for (let i = 1; i <= 25; i++) {
+    h.push(`COMPRIMENTO ${pad(i)} (m)`);
+    h.push(`LARGURA ${pad(i)} (m)`);
+    h.push(`ESPESSURA ${pad(i)} (cm)`);
+  }
+
+  h.push("OBSERVAÇÕES GERAIS");
+
+  return h;
+}
+
 export default function ExportarProtheus() {
   const navigate = useNavigate();
   const [tipoEquip, setTipoEquip] = useState("");
@@ -52,7 +104,7 @@ export default function ExportarProtheus() {
       const ultimoDia = new Date(parseInt(ano), parseInt(mes), 0).getDate();
       const dataFim = `${ano}-${mes}-${String(ultimoDia).padStart(2, "0")}`;
 
-      // Buscar diários do mês
+      // 1. Diários do mês
       const { data: diarios, error: errDiarios } = await supabase
         .from("equipment_diaries")
         .select("*")
@@ -68,106 +120,43 @@ export default function ExportarProtheus() {
         return;
       }
 
-      // Buscar apontamentos de horário de todos os diários
       const diaryIds = diarios.map(d => d.id);
-      const { data: timeEntries } = await supabase
-        .from("equipment_time_entries")
-        .select("*")
-        .in("diary_id", diaryIds);
 
-      // Buscar bits
-      const { data: bitsEntries } = await supabase
-        .from("equipment_bits")
-        .select("*")
-        .in("diary_id", diaryIds);
+      // 2. Buscar dados relacionados
+      const [
+        { data: timeEntries },
+        { data: bitsEntries },
+        { data: prodAreas },
+      ] = await Promise.all([
+        supabase.from("equipment_time_entries").select("*").in("diary_id", diaryIds),
+        supabase.from("bit_entries").select("*").in("diary_id", diaryIds),
+        supabase.from("equipment_production_areas").select("*").in("diary_id", diaryIds),
+      ]);
 
-      // Buscar produção (áreas)
-      const { data: prodAreas } = await supabase
-        .from("equipment_production_areas")
-        .select("*")
-        .in("diary_id", diaryIds);
-
-      // Montar mapa por diary_id
+      // 3. Montar mapas por diary_id
       const timeMap: Record<string, any[]> = {};
       const bitsMap: Record<string, any[]> = {};
       const prodMap: Record<string, any[]> = {};
 
-      (timeEntries ?? []).forEach(t => {
+      (timeEntries ?? []).forEach((t: any) => {
         if (!timeMap[t.diary_id]) timeMap[t.diary_id] = [];
         timeMap[t.diary_id].push(t);
       });
-      (bitsEntries ?? []).forEach(b => {
+      (bitsEntries ?? []).forEach((b: any) => {
         if (!bitsMap[b.diary_id]) bitsMap[b.diary_id] = [];
         bitsMap[b.diary_id].push(b);
       });
-      (prodAreas ?? []).forEach(p => {
+      (prodAreas ?? []).forEach((p: any) => {
         if (!prodMap[p.diary_id]) prodMap[p.diary_id] = [];
         prodMap[p.diary_id].push(p);
       });
 
-      // Calcular max apontamentos e produções para definir colunas
-      const maxTime = Math.max(1, ...diarios.map(d => (timeMap[d.id] ?? []).length));
-      const maxProd = Math.max(1, ...diarios.map(d => (prodMap[d.id] ?? []).length));
-      const maxTime10 = Math.min(maxTime, 10);
-      const maxProd10 = Math.min(maxProd, 10);
-
-      // Montar cabeçalho dinâmico
-      const header: string[] = [
-        "DATA", "OPERADOR", "AUXILIAR", "FROTA", "TIPO EQUIPAMENTO",
-        "OGS", "CLIENTE", "LOCAL", "STATUS", "PERÍODO",
-        "HORÍMETRO INICIAL", "HORÍMETRO FINAL",
-      ];
-
-      for (let i = 1; i <= maxTime10; i++) {
-        header.push(`INÍCIO ${String(i).padStart(2,"0")}`);
-        header.push(`TÉRMINO ${String(i).padStart(2,"0")}`);
-        header.push(`ITEM ${String(i).padStart(2,"0")}`);
-        header.push(`OBS ITEM ${String(i).padStart(2,"0")}`);
-      }
-
-      header.push("HORAS TRABALHADAS");
-      header.push("TIPO COMBUSTÍVEL", "LITROS", "HORÍMETRO ABAST.", "FORNECEDOR COMBUST.");
-
-      if (tipoEquip === "Fresadora") {
-        header.push("TIPO FRESAGEM");
-        for (let i = 1; i <= maxProd10; i++) {
-          header.push(`COMP ${String(i).padStart(2,"0")} (m)`);
-          header.push(`LARG ${String(i).padStart(2,"0")} (m)`);
-          header.push(`ESP ${String(i).padStart(2,"0")} (cm)`);
-          header.push(`M2 ${String(i).padStart(2,"0")}`);
-          header.push(`M3 ${String(i).padStart(2,"0")}`);
-        }
-        header.push("TOTAL M2", "TOTAL M3");
-        header.push("APLICOU BITS", "STATUS BITS", "QTD BITS", "HOR. BITS", "FORNECEDOR BITS");
-      } else if (tipoEquip === "Usina KMA") {
-        for (let i = 1; i <= maxProd10; i++) {
-          header.push(`COMP ${String(i).padStart(2,"0")} (m)`);
-          header.push(`LARG ${String(i).padStart(2,"0")} (m)`);
-          header.push(`ESP ${String(i).padStart(2,"0")} (cm)`);
-          header.push(`M2 ${String(i).padStart(2,"0")}`);
-          header.push(`M3 ${String(i).padStart(2,"0")}`);
-        }
-        header.push("TOTAL M2", "TOTAL M3");
-      } else {
-        if (maxProd > 0) {
-          for (let i = 1; i <= maxProd10; i++) {
-            header.push(`COMP ${String(i).padStart(2,"0")} (m)`);
-            header.push(`LARG ${String(i).padStart(2,"0")} (m)`);
-            header.push(`ESP ${String(i).padStart(2,"0")} (cm)`);
-            header.push(`M2 ${String(i).padStart(2,"0")}`);
-            header.push(`M3 ${String(i).padStart(2,"0")}`);
-          }
-          header.push("TOTAL M2", "TOTAL M3");
-        }
-      }
-
-      header.push("OBSERVAÇÕES");
-
-      // Montar linhas
-      const rows = diarios.map(d => {
-        const times = (timeMap[d.id] ?? []).slice(0, maxTime10);
-        const prods = (prodMap[d.id] ?? []).slice(0, maxProd10);
-        const bits = (bitsMap[d.id] ?? [])[0];
+      // 4. Montar planilha
+      const header = buildHeader(tipoEquip);
+      const dataRows = diarios.map(d => {
+        const times  = (timeMap[d.id] ?? []).slice(0, 10);
+        const bits   = (bitsMap[d.id] ?? [])[0];
+        const prods  = (prodMap[d.id] ?? []).slice(0, 25);
 
         const row: any[] = [
           fmtDate(d.date),
@@ -184,8 +173,8 @@ export default function ExportarProtheus() {
           d.meter_final ?? "",
         ];
 
-        // Apontamentos
-        for (let i = 0; i < maxTime10; i++) {
+        // 10 blocos fixos de apontamento
+        for (let i = 0; i < 10; i++) {
           const t = times[i];
           row.push(t?.start_time ?? "");
           row.push(t?.end_time ?? "");
@@ -193,103 +182,51 @@ export default function ExportarProtheus() {
           row.push(t?.description ?? "");
         }
 
-        // Abastecimento
-        row.push(d.fuel_type ?? "");
-        row.push(d.fuel_liters ?? "");
-        row.push(d.fuel_meter ?? "");
-        row.push(""); // fornecedor combustível — não temos no schema ainda
-
-        // Calcular horas trabalhadas (atividades produtivas)
-        const PARADAS = ['Refeições', 'À Disposição', 'Manutenção'];
-        let horasTotal = 0;
-        (timeMap[d.id] ?? []).forEach((t: any) => {
-          if (t.start_time && t.end_time && !PARADAS.includes(t.activity || '')) {
-            const [sh, sm] = t.start_time.split(':').map(Number);
-            const [eh, em] = t.end_time.split(':').map(Number);
-            let diff = (eh * 60 + em) - (sh * 60 + sm);
-            if (diff < 0) diff += 24 * 60;
-            horasTotal += diff / 60;
-          }
-        });
-        row.push(horasTotal > 0 ? horasTotal.toFixed(2) : "");
-
-        // Produção / bits por tipo
+        // Bits (Fresadora)
         if (tipoEquip === "Fresadora") {
           row.push(d.fresagem_type ?? "");
-          let totalM2 = 0; let totalM3 = 0;
-          for (let i = 0; i < maxProd10; i++) {
-            const p = prods[i];
-            row.push(p?.length_m ?? "");
-            row.push(p?.width_m ?? "");
-            row.push(p?.thickness_cm ?? "");
-            row.push(p?.m2 ? Number(p.m2).toFixed(2) : "");
-            row.push(p?.m3 ? Number(p.m3).toFixed(2) : "");
-            totalM2 += Number(p?.m2 ?? 0);
-            totalM3 += Number(p?.m3 ?? 0);
-          }
-          row.push(totalM2 > 0 ? totalM2.toFixed(2) : "");
-          row.push(totalM3 > 0 ? totalM3.toFixed(2) : "");
           row.push(bits ? "Sim" : "Não");
           row.push(bits?.status ?? "");
           row.push(bits?.quantity ?? "");
+          row.push(""); // meia vida — campo não separado no banco
           row.push(bits?.meter_at_change ?? "");
           row.push(bits?.brand ?? "");
-        } else if (tipoEquip === "Usina KMA") {
-          let totalM2 = 0; let totalM3 = 0;
-          for (let i = 0; i < maxProd10; i++) {
-            const p = prods[i];
-            row.push(p?.length_m ?? "");
-            row.push(p?.width_m ?? "");
-            row.push(p?.thickness_cm ?? "");
-            row.push(p?.m2 ? Number(p.m2).toFixed(2) : "");
-            row.push(p?.m3 ? Number(p.m3).toFixed(2) : "");
-            totalM2 += Number(p?.m2 ?? 0);
-            totalM3 += Number(p?.m3 ?? 0);
-          }
-          row.push(totalM2 > 0 ? totalM2.toFixed(2) : "");
-          row.push(totalM3 > 0 ? totalM3.toFixed(2) : "");
-        } else {
-          if (maxProd > 0) {
-            let totalM2 = 0; let totalM3 = 0;
-            for (let i = 0; i < maxProd10; i++) {
-              const p = prods[i];
-              row.push(p?.length_m ?? "");
-              row.push(p?.width_m ?? "");
-              row.push(p?.thickness_cm ?? "");
-              row.push(p?.m2 ? Number(p.m2).toFixed(2) : "");
-              row.push(p?.m3 ? Number(p.m3).toFixed(2) : "");
-              totalM2 += Number(p?.m2 ?? 0);
-              totalM3 += Number(p?.m3 ?? 0);
-            }
-            row.push(totalM2 > 0 ? totalM2.toFixed(2) : "");
-            row.push(totalM3 > 0 ? totalM3.toFixed(2) : "");
-          }
+        }
+
+        // 25 blocos fixos de produção
+        for (let i = 0; i < 25; i++) {
+          const p = prods[i];
+          row.push(p?.length_m ?? "");
+          row.push(p?.width_m ?? "");
+          row.push(p?.thickness_cm ?? "");
         }
 
         row.push(d.observations ?? "");
+
         return row;
       });
 
-      // Gerar XLSX
+      // 5. Gerar XLSX
       const wb = XLSX.utils.book_new();
-      const wsData = [header, ...rows];
+      const wsData = [header, ...dataRows];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-      // Estilo do cabeçalho
+      // Cabeçalho em negrito + azul
       const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1");
       for (let c = range.s.c; c <= range.e.c; c++) {
-        const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c });
+        const cell = ws[cellRef];
         if (cell) {
           cell.s = {
             font: { bold: true, color: { rgb: "FFFFFF" } },
             fill: { fgColor: { rgb: "0055CC" } },
-            alignment: { horizontal: "center" },
+            alignment: { horizontal: "center", wrapText: true },
           };
         }
       }
 
-      // Largura automática
-      ws["!cols"] = header.map(() => ({ wch: 18 }));
+      // Largura das colunas
+      ws["!cols"] = header.map(() => ({ wch: 20 }));
 
       const nomeAba = tipoEquip.replace(/\s/g, "_").toUpperCase();
       XLSX.utils.book_append_sheet(wb, ws, nomeAba);
@@ -318,7 +255,6 @@ export default function ExportarProtheus() {
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
-
         <div className="bg-white rounded-2xl border border-border p-6 space-y-5">
           <div className="flex items-center gap-3 pb-2 border-b border-border">
             <FileSpreadsheet className="w-6 h-6 text-blue-600" />
@@ -366,9 +302,7 @@ export default function ExportarProtheus() {
           </div>
 
           {erro && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-              {erro}
-            </div>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{erro}</div>
           )}
 
           {total !== null && !erro && (
@@ -390,14 +324,15 @@ export default function ExportarProtheus() {
           </Button>
         </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-800 space-y-1">
-          <p className="font-semibold">ℹ️ Como usar</p>
-          <ol className="list-decimal list-inside space-y-1 text-blue-700">
-            <li>Selecione o tipo de equipamento</li>
-            <li>Escolha o mês e ano a exportar</li>
-            <li>Clique em Exportar XLSX</li>
-            <li>Importe o arquivo gerado no Protheus</li>
-          </ol>
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-800 space-y-2">
+          <p className="font-semibold">ℹ️ Estrutura da planilha</p>
+          <ul className="list-disc list-inside space-y-1 text-blue-700 text-xs">
+            <li>12 colunas base (Data, Operador, Frota, OGS, etc.)</li>
+            <li>10 blocos fixos de Apontamento de Horas (Início/Término/Item/OBS)</li>
+            {tipoEquip === "Fresadora" && <li>Bits: Tipo Fresagem + Aplicou/Status/Qtd/Horímetro/Fornecedor</li>}
+            <li>25 blocos fixos de Produção (Comprimento/Largura/Espessura)</li>
+            <li>Observações Gerais</li>
+          </ul>
         </div>
       </div>
     </div>
