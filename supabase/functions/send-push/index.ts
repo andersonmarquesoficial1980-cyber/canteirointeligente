@@ -26,6 +26,26 @@ Deno.serve(async (req) => {
       throw new Error("VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY são obrigatórias");
     }
 
+    // Verificar que o caller é um usuário autenticado válido
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const anonClient = createClient(supabaseUrl!, anonKey);
+    const { data: { user: caller }, error: callerError } = await anonClient.auth.getUser(
+      authHeader.replace("Bearer ", "")
+    );
+    if (callerError || !caller) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const body = await req.json();

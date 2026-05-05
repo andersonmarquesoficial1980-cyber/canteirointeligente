@@ -182,7 +182,11 @@ function AppRoutes() {
         {/* Alias para compatibilidade */}
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
         <Route path="/dashboard" element={<DashboardAdmin />} />
-        <Route path="/super-admin" element={<SuperAdmin />} />
+        <Route path="/super-admin" element={
+          <RequireAdminOrSuperAdmin>
+            <SuperAdmin />
+          </RequireAdminOrSuperAdmin>
+        } />
         <Route path="/gestao-frotas" element={<GestaoFrotasHome />} />
         <Route path="/gestao-frotas/veiculo/:id" element={<GestaoFrotasVeiculo />} />
         <Route path="/gestao-frotas/dashboard" element={<GestaoFrotasDashboard />} />
@@ -207,11 +211,17 @@ function AppRoutes() {
 
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
         <Route path="/admin/configuracoes" element={
-          <ErrorBoundary fallbackMessage="Erro ao carregar o Painel de Controle.">
-            <AdminConfiguracoes />
-          </ErrorBoundary>
+          <RequireAdminOrSuperAdmin>
+            <ErrorBoundary fallbackMessage="Erro ao carregar o Painel de Controle.">
+              <AdminConfiguracoes />
+            </ErrorBoundary>
+          </RequireAdminOrSuperAdmin>
         } />
-        <Route path="/admin/lancamentos" element={<AdminLancamentos />} />
+        <Route path="/admin/lancamentos" element={
+          <RequireAdminOrSuperAdmin>
+            <AdminLancamentos />
+          </RequireAdminOrSuperAdmin>
+        } />
         <Route
           path="/admin/operadores-habilitados"
           element={
