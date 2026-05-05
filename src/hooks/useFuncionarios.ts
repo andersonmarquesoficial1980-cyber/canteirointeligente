@@ -18,16 +18,18 @@ export function useFuncionarios() {
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    // Usar tabela 'funcionarios' (Painel de Controle) como fonte única
+    // Funções simples, sem graus (JR/PL/SR)
     const { data, error } = await supabase
-      .from("employees")
-      .select("id, matricula, name, role")
-      .order("name", { ascending: true });
+      .from("funcionarios" as any)
+      .select("id, matricula, nome, funcao")
+      .order("nome", { ascending: true });
     if (!error && data) {
-      const normalized = data.map(f => ({
+      const normalized = (data as any[]).map(f => ({
         id: f.id,
         matricula: f.matricula ?? "",
-        nome: f.name,
-        funcao: unifyMotorista(f.role ?? ""),
+        nome: f.nome,
+        funcao: unifyMotorista(f.funcao ?? ""),
       }));
       setFuncionarios(normalized);
     }
