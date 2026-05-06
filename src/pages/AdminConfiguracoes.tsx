@@ -165,25 +165,27 @@ function FornecedoresManager() {
   const { toast } = useToast();
   const [nome, setNome] = useState("");
   const [vinculo, setVinculo] = useState("TODOS");
-  const [tipoInsumo, setTipoInsumo] = useState("");
+  const [tipoInsumo, setTipoInsumo] = useState("_none");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editVinculo, setEditVinculo] = useState("");
-  const [editTipoInsumo, setEditTipoInsumo] = useState("");
+  const [editTipoInsumo, setEditTipoInsumo] = useState("_none");
+
+  const toInsumoValue = (v: string) => (v === "_none" || !v ? null : v);
 
   const handleAdd = async () => {
     if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); return; }
-    const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_insumo: tipoInsumo || null });
-    if (ok) { setNome(""); setVinculo("TODOS"); setTipoInsumo(""); }
+    const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_insumo: toInsumoValue(tipoInsumo) });
+    if (ok) { setNome(""); setVinculo("TODOS"); setTipoInsumo("_none"); }
   };
 
   const startEdit = (item: any) => {
     setEditingId(item.id);
     setEditVinculo(item.vinculo_rdo || "TODOS");
-    setEditTipoInsumo(item.tipo_insumo || "");
+    setEditTipoInsumo(item.tipo_insumo || "_none");
   };
 
   const saveEdit = async (id: string) => {
-    const ok = await update(id, { vinculo_rdo: editVinculo, tipo_insumo: editTipoInsumo || null });
+    const ok = await update(id, { vinculo_rdo: editVinculo, tipo_insumo: toInsumoValue(editTipoInsumo) });
     if (ok) setEditingId(null);
   };
 
@@ -210,7 +212,7 @@ function FornecedoresManager() {
             <Select value={tipoInsumo} onValueChange={setTipoInsumo}>
               <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="(opcional)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— Nenhum —</SelectItem>
+                <SelectItem value="_none">— Nenhum —</SelectItem>
                 {TIPO_INSUMO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -246,7 +248,7 @@ function FornecedoresManager() {
                     <Select value={editTipoInsumo} onValueChange={setEditTipoInsumo}>
                       <SelectTrigger className="h-9 bg-secondary border-border text-xs"><SelectValue placeholder="(opcional)" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">— Nenhum —</SelectItem>
+                        <SelectItem value="_none">— Nenhum —</SelectItem>
                         {TIPO_INSUMO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                       </SelectContent>
                     </Select>
