@@ -18,15 +18,19 @@ export function createEmptyArea(): ProductionArea {
   return { id: crypto.randomUUID(), comp: "", larg: "", esp: "" };
 }
 
-// Normaliza para cálculo: substitui vírgula por ponto
+// Normaliza para cálculo: substitui vírgula por ponto e remove não numéricos
 function toNum(val: string): number {
   if (!val) return 0;
-  return Number(val.replace(",", "."));
+  // pega apenas números, ponto e vírgula
+  const clean = val.replace(/[^\d.,]/g, '');
+  return Number(clean.replace(",", "."));
 }
 
 // Força vírgula como separador decimal (substitui ponto por vírgula)
 function forceVirgula(val: string): string {
-  return val.replace(".", ",");
+  if (!val) return "";
+  const clean = val.replace(/[^\d.,]/g, '');
+  return clean.replace(".", ",");
 }
 
 function calcM2(a: ProductionArea): number | null {
@@ -83,7 +87,6 @@ export default function ProductionAreasSection({ areas, onChange }: Props) {
           <div key={area.id} className="grid grid-cols-[1fr_1fr_1fr_70px_70px_40px] gap-1 items-center">
             <Input
               type="text"
-              inputMode="decimal"
               value={area.comp}
               onChange={(e) => update(idx, "comp", forceVirgula(e.target.value))}
               placeholder="0"
@@ -91,7 +94,6 @@ export default function ProductionAreasSection({ areas, onChange }: Props) {
             />
             <Input
               type="text"
-              inputMode="decimal"
               value={area.larg}
               onChange={(e) => update(idx, "larg", forceVirgula(e.target.value))}
               placeholder="0"
@@ -99,7 +101,6 @@ export default function ProductionAreasSection({ areas, onChange }: Props) {
             />
             <Input
               type="text"
-              inputMode="decimal"
               value={area.esp}
               onChange={(e) => update(idx, "esp", forceVirgula(e.target.value))}
               placeholder="0"
