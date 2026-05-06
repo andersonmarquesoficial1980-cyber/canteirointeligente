@@ -258,7 +258,7 @@ export default function RelatoriosHome() {
                   </button>
                 ))}
               </>
-            ))}
+            )}
           </>
         )}
 
