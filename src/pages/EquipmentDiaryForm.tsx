@@ -532,15 +532,20 @@ export default function EquipmentDiaryForm() {
     return () => { cancelled = true; };
   }, [selectedFleet, date, isComboio, isEditMode]);
 
-  // Filtro por vínculo específico (cai pra tipo_insumo se vínculo não distinguir)
+  // Helpers para checar arrays com fallback legado
+  const hasVinculo = (f: any, v: string) =>
+    f.vinculos?.includes(v) || f.vinculos?.includes("TODOS") || f.vinculo_rdo === v || f.vinculo_rdo === "TODOS";
+  const hasInsumo = (f: any, t: string) =>
+    f.tipo_insumos?.includes(t) || f.tipo_insumo === t;
+
   const fornecedoresDiesel = fornecedoresDb.filter((f: any) =>
-    f.vinculo_rdo === "COMBOIO" || f.vinculo_rdo === "TODOS" || f.tipo_insumo === "Diesel"
+    hasVinculo(f, "COMBOIO") && (hasInsumo(f, "Diesel") || !f.tipo_insumos?.length)
   );
   const fornecedoresEmulsao = fornecedoresDb.filter((f: any) =>
-    f.vinculo_rdo === "ESPARGIDOR" || f.vinculo_rdo === "TODOS" || f.tipo_insumo === "Emulsão"
+    hasVinculo(f, "ESPARGIDOR") && (hasInsumo(f, "Emulsão") || !f.tipo_insumos?.length)
   );
   const fornecedoresAgua = fornecedoresDb.filter((f: any) =>
-    f.vinculo_rdo === "PIPA" || f.vinculo_rdo === "TODOS" || f.tipo_insumo === "Água"
+    hasVinculo(f, "PIPA") && (hasInsumo(f, "Água") || !f.tipo_insumos?.length)
   );
 
   // Log data arrival for debugging
