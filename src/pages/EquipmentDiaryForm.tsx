@@ -1908,9 +1908,10 @@ export default function EquipmentDiaryForm() {
           <Field label={`${meterLabel} Inicial`}>
             <Input
               type="text"
+              inputMode="decimal"
               value={meterInitial}
-              onChange={(e) => setMeterInitial(e.target.value.replace(".", ","))}
-              placeholder="0,0"
+              onChange={(e) => setMeterInitial(e.target.value)}
+              placeholder="0.0"
               className="bg-secondary border-border"
             />
           </Field>
@@ -2327,9 +2328,10 @@ export default function EquipmentDiaryForm() {
           <Field label={`${meterLabel} Final`}>
             <Input
               type="text"
+              inputMode="decimal"
               value={meterFinal}
-              onChange={(e) => setMeterFinal(e.target.value.replace(".", ","))}
-              placeholder="0,0"
+              onChange={(e) => setMeterFinal(e.target.value)}
+              placeholder="0.0"
               className={`bg-secondary border-border ${horimeterError ? "border-destructive" : ""}`}
             />
           </Field>
