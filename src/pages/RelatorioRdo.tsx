@@ -72,45 +72,94 @@ function fmtDate(value: string | null) {
   return `${d}/${m}/${y}`;
 }
 
+function expandEfetivo(ef: EfetivoItem): { nome: string; matricula: string }[] {
+  const nomes = ef.nome ? ef.nome.split("|||").map(n => n.trim()).filter(Boolean) : [];
+  const matriculas = ef.matricula ? ef.matricula.split("|||").map(m => m.trim()) : [];
+  if (nomes.length === 0) return [];
+  return nomes.map((nome, i) => ({ nome, matricula: matriculas[i] || "-" }));
+}
+
+// Mantém compat com código legado
 function expandNomes(ef: EfetivoItem): string[] {
-  if (ef.nome) {
-    return ef.nome.split("|||").map(n => n.trim()).filter(Boolean);
-  }
-  return [];
+  return expandEfetivo(ef).map(e => e.nome);
 }
 
 // Exportar Excel (CSV com BOM UTF-8)
-function exportarExcel(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<string, EfetivoItem[]>, producaoByRdoId: Record<string, ProducaoItem[]>) {
+function exportarExcel(
+  ogs: string,
+  rdoList: RdoItem[],
+  efetivoByRdoId: Record<string, EfetivoItem[]>,
+  producaoByRdoId: Record<string, ProducaoItem[]>,
+  equipByRdoId: Record<string, EquipamentoItem[]>,
+  nfByRdoId: Record<string, NfMassaItem[]>,
+  clienteNome: string,
+) {
   const linhas: string[][] = [];
 
   rdoList.forEach(rdo => {
+    // Cabeçalho
     linhas.push([`RDO — OGS ${ogs} — ${fmtDate(rdo.data)}`]);
-    linhas.push([`Responsável: ${rdo.responsavel || "-"}`, `Tipo: ${rdo.tipo_rdo || "-"}`, `Turno: ${rdo.turno || "-"}`, `Clima: ${rdo.clima || "-"}`]);
+    linhas.push([`Cliente: ${clienteNome || "-"}`, "", `Responsável: ${rdo.responsavel || "-"}`]);
+    linhas.push([`Tipo: ${rdo.tipo_rdo || "-"}`, `Turno: ${rdo.turno || "-"}`, `Clima: ${rdo.clima || "-"}`]);
     linhas.push([]);
 
+    // Efetivo — expandindo nome e matrícula separados por |||
     const efetivo = efetivoByRdoId[rdo.id] || [];
-    const nomes: { nome: string; funcao: string; matricula: string; entrada: string; saida: string }[] = [];
+    const pessoas: { nome: string; matricula: string; funcao: string; entrada: string; saida: string }[] = [];
     efetivo.forEach(ef => {
-      const ns = expandNomes(ef);
-      if (ns.length > 0) {
-        ns.forEach(nome => nomes.push({ nome, funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" }));
+      const expanded = expandEfetivo(ef);
+      if (expanded.length > 0) {
+        expanded.forEach(p => pessoas.push({ nome: p.nome, matricula: p.matricula, funcao: ef.funcao || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" }));
       } else {
-        nomes.push({ nome: "-", funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" });
+        pessoas.push({ nome: "-", matricula: "-", funcao: ef.funcao || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" });
       }
     });
-
-    if (nomes.length > 0) {
-      linhas.push([`EFETIVO (${nomes.length})`]);
+    if (pessoas.length > 0) {
+      linhas.push([`EFETIVO (${pessoas.length})`]);
       linhas.push(["#", "Nome", "Matrícula", "Função", "Entrada", "Saída"]);
-      nomes.forEach((n, i) => linhas.push([String(i + 1), n.nome, n.matricula, n.funcao, n.entrada, n.saida]));
+      pessoas.forEach((p, i) => linhas.push([String(i + 1), p.nome, p.matricula, p.funcao, p.entrada, p.saida]));
       linhas.push([]);
     }
 
+    // Equipamentos
+    const equipamentos = equipByRdoId[rdo.id] || [];
+    if (equipamentos.length > 0) {
+      linhas.push([`EQUIPAMENTOS (${equipamentos.length})`]);
+      linhas.push(["Frota", "Equipamento", "Modelo/Placa", "Empresa"]);
+      equipamentos.forEach(e => linhas.push([e.frota || "-", e.sub_tipo || e.tipo || e.categoria || "-", e.nome || e.patrimonio || "-", e.empresa_dona || "-"]));
+      linhas.push([]);
+    }
+
+    // NF de Massa
+    const nfMassa = nfByRdoId[rdo.id] || [];
+    if (nfMassa.length > 0) {
+      const totalTon = nfMassa.reduce((s, n) => s + (n.tonelagem || 0), 0);
+      linhas.push(["NOTAS FISCAIS DE MASSA"]);
+      linhas.push(["NF", "Placa", "Usina/Fornecedor", "Tonelagem", "Material"]);
+      nfMassa.forEach(n => linhas.push([n.nf || "-", n.placa || "-", n.usina || "-", n.tonelagem != null ? String(n.tonelagem) : "-", n.tipo_material || "-"]));
+      linhas.push(["TOTAL", "", "", String(totalTon.toFixed(2)), ""]);
+      linhas.push([]);
+    }
+
+    // Produção
     const producao = producaoByRdoId[rdo.id] || [];
     if (producao.length > 0) {
-      linhas.push(["PRODUÇÃO"]);
-      linhas.push(["Serviço", "KM Ini", "KM Fim", "Sentido", "Faixa", "Comp (m)", "Larg (m)", "Esp (cm)"]);
-      producao.forEach(p => linhas.push([p.tipo_servico || "-", p.km_inicial || "-", p.km_final || "-", p.sentido || "-", p.faixa || "-", p.comprimento_m || "-", p.largura_m || "-", p.espessura_cm || "-"]));
+      const totalArea = producao.reduce((s, p) => s + (parseFloat(String(p.area_m2 || 0)) || 0), 0);
+      const totalTon = producao.reduce((s, p) => s + (parseFloat(String(p.tonelagem || 0)) || 0), 0);
+      linhas.push(["PRODUÇÃO DO DIA"]);
+      linhas.push(["Serviço", "Sentido/Faixa", "Est. Ini", "Est. Fim", "Comp (m)", "Larg (m)", "Área (m²)", "Esp (m)", "Ton"]);
+      producao.forEach(p => linhas.push([
+        p.tipo_servico || "-",
+        p.sentido_faixa || p.sentido || "-",
+        p.estaca_inicial || p.km_inicial || "-",
+        p.estaca_final || p.km_final || "-",
+        String(p.comprimento_m || "-"),
+        String(p.largura_m || "-"),
+        p.area_m2 ? parseFloat(String(p.area_m2)).toFixed(2) : "-",
+        String(p.espessura_cm || "-"),
+        p.tonelagem != null ? parseFloat(String(p.tonelagem)).toFixed(2) : "-",
+      ]));
+      linhas.push(["TOTAL", "", "", "", "", "", totalArea.toFixed(2), "", totalTon.toFixed(2)]);
       linhas.push([]);
     }
 
@@ -129,7 +178,7 @@ function exportarExcel(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<s
 }
 
 // Exportar PDF via print
-function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<string, EfetivoItem[]>, producaoByRdoId: Record<string, ProducaoItem[]>, clienteNome: string) {
+function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<string, EfetivoItem[]>, producaoByRdoId: Record<string, ProducaoItem[]>, clienteNome: string, equipByRdoId?: Record<string, EquipamentoItem[]>, nfByRdoId?: Record<string, NfMassaItem[]>) {
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>RDO OGS ${ogs}</title><style>
     body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#333;font-size:13px}
     h1{color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:8px;font-size:18px;margin-bottom:4px}
@@ -146,13 +195,17 @@ function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<str
   rdoList.forEach((rdo, idx) => {
     const efetivo = efetivoByRdoId[rdo.id] || [];
     const producao = producaoByRdoId[rdo.id] || [];
-    const nomes: { nome: string; funcao: string; matricula: string; entrada: string; saida: string }[] = [];
+    const equipamentos = equipByRdoId?.[rdo.id] || [];
+    const nfMassa = nfByRdoId?.[rdo.id] || [];
+
+    // Expandir efetivo com matrícula correta
+    const pessoas: { nome: string; matricula: string; funcao: string; entrada: string; saida: string }[] = [];
     efetivo.forEach(ef => {
-      const ns = expandNomes(ef);
-      if (ns.length > 0) {
-        ns.forEach(nome => nomes.push({ nome, funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" }));
+      const expanded = expandEfetivo(ef);
+      if (expanded.length > 0) {
+        expanded.forEach(p => pessoas.push({ nome: p.nome, matricula: p.matricula, funcao: ef.funcao || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" }));
       } else {
-        nomes.push({ nome: "-", funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" });
+        pessoas.push({ nome: "-", matricula: "-", funcao: ef.funcao || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" });
       }
     });
 
@@ -167,23 +220,48 @@ function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<str
       <tr><th>Responsável</th><td>${rdo.responsavel || "-"}</td><th>Turno</th><td>${rdo.turno || "-"}</td></tr>
     </table>`;
 
-    if (nomes.length > 0) {
-      html += `<h2>👷 Efetivo (${nomes.length})</h2>
+    // Efetivo
+    if (pessoas.length > 0) {
+      html += `<h2>👷 Efetivo (${pessoas.length})</h2>
       <p style="font-size:12px;margin:4px 0">Horário: ${entradaGlobal} às ${saidaGlobal}</p>
       <table><tr><th>#</th><th>Nome</th><th>Matrícula</th><th>Função</th><th>Entrada</th><th>Saída</th></tr>`;
-      nomes.forEach((n, i) => {
-        html += `<tr><td>${i + 1}</td><td>${n.nome}</td><td>${n.matricula}</td><td>${n.funcao}</td><td>${n.entrada}</td><td>${n.saida}</td></tr>`;
+      pessoas.forEach((p, i) => {
+        html += `<tr><td>${i + 1}</td><td>${p.nome}</td><td>${p.matricula}</td><td>${p.funcao}</td><td>${p.entrada}</td><td>${p.saida}</td></tr>`;
       });
       html += `</table>`;
     }
 
-    if (producao.length > 0) {
-      html += `<h2>🛣️ Produção</h2>
-      <table><tr><th>Serviço</th><th>KM Ini</th><th>KM Fim</th><th>Sentido</th><th>Faixa</th><th>Comp (m)</th><th>Larg (m)</th><th>Esp (cm)</th></tr>`;
-      producao.forEach(p => {
-        html += `<tr><td>${p.tipo_servico || "-"}</td><td>${p.km_inicial || "-"}</td><td>${p.km_final || "-"}</td><td>${p.sentido || "-"}</td><td>${p.faixa || "-"}</td><td>${p.comprimento_m || "-"}</td><td>${p.largura_m || "-"}</td><td>${p.espessura_cm || "-"}</td></tr>`;
+    // Equipamentos
+    if (equipamentos.length > 0) {
+      html += `<h2>🚜 Equipamentos (${equipamentos.length})</h2>
+      <table><tr><th>Frota</th><th>Equipamento</th><th>Modelo/Placa</th><th>Empresa</th></tr>`;
+      equipamentos.forEach(e => {
+        html += `<tr><td>${e.frota || "-"}</td><td>${e.sub_tipo || e.tipo || e.categoria || "-"}</td><td>${e.nome || e.patrimonio || "-"}</td><td>${e.empresa_dona || "-"}</td></tr>`;
       });
       html += `</table>`;
+    }
+
+    // NF de Massa
+    if (nfMassa.length > 0) {
+      const totalTon = nfMassa.reduce((s, n) => s + (n.tonelagem || 0), 0);
+      html += `<h2>📄 Notas Fiscais de Massa</h2>
+      <table><tr><th>NF</th><th>Placa</th><th>Usina/Fornecedor</th><th>Tonelagem</th><th>Material</th></tr>`;
+      nfMassa.forEach(n => {
+        html += `<tr><td>${n.nf || "-"}</td><td>${n.placa || "-"}</td><td>${n.usina || "-"}</td><td>${n.tonelagem != null ? n.tonelagem.toFixed(2) : "-"}</td><td>${n.tipo_material || "-"}</td></tr>`;
+      });
+      html += `<tr style="font-weight:bold;background:#f3f4f6"><td colspan="3">TOTAL</td><td>${totalTon.toFixed(2)}</td><td></td></tr></table>`;
+    }
+
+    // Produção
+    if (producao.length > 0) {
+      const totalArea = producao.reduce((s, p) => s + (parseFloat(String(p.area_m2 || 0)) || 0), 0);
+      const totalTonProd = producao.reduce((s, p) => s + (parseFloat(String(p.tonelagem || 0)) || 0), 0);
+      html += `<h2>🛣️ Produção do Dia</h2>
+      <table><tr><th>Serviço</th><th>Sentido/Faixa</th><th>Est.Ini</th><th>Est.Fim</th><th>Comp(m)</th><th>Larg(m)</th><th>Área(m²)</th><th>Esp(m)</th><th>Ton</th></tr>`;
+      producao.forEach(p => {
+        html += `<tr><td>${p.tipo_servico || "-"}</td><td>${p.sentido_faixa || p.sentido || "-"}</td><td>${p.estaca_inicial || p.km_inicial || "-"}</td><td>${p.estaca_final || p.km_final || "-"}</td><td>${p.comprimento_m || "-"}</td><td>${p.largura_m || "-"}</td><td>${p.area_m2 ? parseFloat(String(p.area_m2)).toFixed(2) : "-"}</td><td>${p.espessura_cm || "-"}</td><td>${p.tonelagem != null ? parseFloat(String(p.tonelagem)).toFixed(2) : "-"}</td></tr>`;
+      });
+      html += `<tr style="font-weight:bold;background:#f3f4f6"><td colspan="6">TOTAL</td><td>${totalArea.toFixed(2)}</td><td></td><td>${totalTonProd.toFixed(2)}</td></tr></table>`;
     }
 
     if (idx < rdoList.length - 1) html += `<div class="page-break"></div>`;
@@ -332,11 +410,11 @@ export default function RelatorioRdo() {
         {!loading && rdoList.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" size="sm" className="gap-2 text-xs"
-              onClick={() => exportarPdf(ogs, rdoList, efetivoByRdoId, producaoByRdoId, clienteNome)}>
+              onClick={() => exportarPdf(ogs, rdoList, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
               <Printer className="w-3.5 h-3.5" /> Exportar PDF
             </Button>
             <Button variant="outline" size="sm" className="gap-2 text-xs"
-              onClick={() => exportarExcel(ogs, rdoList, efetivoByRdoId, producaoByRdoId)}>
+              onClick={() => exportarExcel(ogs, rdoList, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}>
               <FileSpreadsheet className="w-3.5 h-3.5" /> Exportar Excel
             </Button>
           </div>
