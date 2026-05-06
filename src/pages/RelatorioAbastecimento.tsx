@@ -20,6 +20,12 @@ interface AbastecimentoRow {
   observacao: string | null;
 }
 
+function splitOgs(ogs: string | null): { num: string; local: string } {
+  if (!ogs) return { num: "-", local: "-" };
+  const parts = ogs.split("|").map(s => s.trim());
+  return { num: parts[0] || "-", local: parts[1] || "-" };
+}
+
 function fmtDate(value: string | null) {
   if (!value) return "-";
   const [y, m, d] = value.split("-");
@@ -32,20 +38,24 @@ function exportarExcel(fleet: string, rows: AbastecimentoRow[], ini: string, fim
   linhas.push([`Relatório de Abastecimento — ${fleet === "TODAS" ? "Todas as Frotas" : `Frota ${fleet}`}`]);
   linhas.push([`Período: ${fmtDate(ini)} a ${fmtDate(fim)}`]);
   linhas.push([]);
-  linhas.push(["Data", "Frota", "Tipo", "Litros", "Horímetro", "Odômetro", "OGS", "Fornecedor", "Observação"]);
-  rows.forEach(r => linhas.push([
-    fmtDate(r.data),
-    r.equipment_fleet || "-",
-    r.equipment_type || "-",
-    r.litros != null ? String(r.litros.toFixed(1)) : "-",
-    r.horimetro != null ? String(r.horimetro) : "-",
-    r.km_odometro != null ? String(r.km_odometro) : "-",
-    r.ogs || "-",
-    r.fornecedor || "-",
-    r.observacao || "-",
-  ]));
+  linhas.push(["Data", "Frota", "Tipo", "Litros", "Horímetro", "Odômetro", "OGS", "Local", "Fornecedor", "Observação"]);
+  rows.forEach(r => {
+    const { num, local } = splitOgs(r.ogs);
+    linhas.push([
+      fmtDate(r.data),
+      r.equipment_fleet || "-",
+      r.equipment_type || "-",
+      r.litros != null ? String(r.litros.toFixed(1)) : "-",
+      r.horimetro != null ? String(r.horimetro) : "-",
+      r.km_odometro != null ? String(r.km_odometro) : "-",
+      num,
+      local,
+      r.fornecedor || "-",
+      r.observacao || "-",
+    ]);
+  });
   const total = rows.reduce((s, r) => s + (r.litros || 0), 0);
-  linhas.push(["TOTAL", "", "", total.toFixed(1), "", "", "", "", ""]);
+  linhas.push(["TOTAL", "", "", total.toFixed(1), "", "", "", "", "", ""]);
 
   const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -71,8 +81,9 @@ function exportarPdf(fleet: string, rows: AbastecimentoRow[], ini: string, fim: 
   <h1>⛽ Relatório de Abastecimento</h1>
   <p><strong>${fleet === "TODAS" ? "Todas as Frotas" : `Frota: ${fleet}`}</strong> &nbsp;|&nbsp; Período: ${fmtDate(ini)} a ${fmtDate(fim)}</p>
   <table>
-    <tr><th>Data</th><th>Frota</th><th>Tipo</th><th>Litros</th><th>Horímetro</th><th>Odômetro</th><th>OGS</th><th>Fornecedor</th></tr>`;
+    <tr><th>Data</th><th>Frota</th><th>Tipo</th><th>Litros</th><th>Horímetro</th><th>Odômetro</th><th>OGS</th><th>Local</th><th>Fornecedor</th></tr>`;
   rows.forEach(r => {
+    const { num, local } = splitOgs(r.ogs);
     html += `<tr>
       <td>${fmtDate(r.data)}</td>
       <td>${r.equipment_fleet || "-"}</td>
@@ -80,11 +91,12 @@ function exportarPdf(fleet: string, rows: AbastecimentoRow[], ini: string, fim: 
       <td>${r.litros != null ? r.litros.toFixed(1) : "-"}</td>
       <td>${r.horimetro != null ? r.horimetro : "-"}</td>
       <td>${r.km_odometro != null ? r.km_odometro : "-"}</td>
-      <td>${r.ogs || "-"}</td>
+      <td>${num}</td>
+      <td>${local}</td>
       <td>${r.fornecedor || "-"}</td>
     </tr>`;
   });
-  html += `<tr class="total"><td colspan="3">TOTAL</td><td>${total.toFixed(1)} L</td><td colspan="4"></td></tr>`;
+  html += `<tr class="total"><td colspan="3">TOTAL</td><td>${total.toFixed(1)} L</td><td colspan="5"></td></tr>`;
   html += `</table></body></html>`;
 
   const win = window.open("", "_blank");
@@ -255,23 +267,28 @@ export default function RelatorioAbastecimento() {
                       <th className="text-right py-2.5 px-3 font-semibold">Horím.</th>
                       <th className="text-right py-2.5 px-3 font-semibold">Odôm.</th>
                       <th className="text-left py-2.5 px-3 font-semibold">OGS</th>
+                      <th className="text-left py-2.5 px-3 font-semibold">Local</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={r.id} className={`border-b border-border/50 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
-                        <td className="py-2 px-3 whitespace-nowrap">{fmtDate(r.data)}</td>
-                        <td className="py-2 px-3 font-medium">{r.equipment_fleet || "-"}</td>
-                        <td className="py-2 px-3 text-right font-semibold text-primary">{r.litros != null ? r.litros.toFixed(1) : "-"}</td>
-                        <td className="py-2 px-3 text-right">{r.horimetro != null ? r.horimetro : "-"}</td>
-                        <td className="py-2 px-3 text-right">{r.km_odometro != null ? r.km_odometro : "-"}</td>
-                        <td className="py-2 px-3">{r.ogs || "-"}</td>
-                      </tr>
-                    ))}
+                    {rows.map((r, i) => {
+                      const { num, local } = splitOgs(r.ogs);
+                      return (
+                        <tr key={r.id} className={`border-b border-border/50 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
+                          <td className="py-2 px-3 whitespace-nowrap">{fmtDate(r.data)}</td>
+                          <td className="py-2 px-3 font-medium">{r.equipment_fleet || "-"}</td>
+                          <td className="py-2 px-3 text-right font-semibold text-primary">{r.litros != null ? r.litros.toFixed(1) : "-"}</td>
+                          <td className="py-2 px-3 text-right">{r.horimetro != null ? r.horimetro : "-"}</td>
+                          <td className="py-2 px-3 text-right">{r.km_odometro != null ? r.km_odometro : "-"}</td>
+                          <td className="py-2 px-3 font-medium">{num}</td>
+                          <td className="py-2 px-3 text-muted-foreground">{local}</td>
+                        </tr>
+                      );
+                    })}
                     <tr className="bg-primary/5 font-bold border-t-2 border-primary/30">
                       <td colSpan={2} className="py-2 px-3">TOTAL</td>
                       <td className="py-2 px-3 text-right text-primary">{totalLitros.toFixed(1)}</td>
-                      <td colSpan={3} />
+                      <td colSpan={4} />
                     </tr>
                   </tbody>
                 </table>
