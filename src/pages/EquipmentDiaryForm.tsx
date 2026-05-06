@@ -576,16 +576,17 @@ export default function EquipmentDiaryForm() {
 
   const fuelMeterValue = fuelSyncedFromComboio && fueling.fuelMeter ? Number(fueling.fuelMeter) : null;
 
+  const toNVal = (v: string) => Number((v || "").replace(",", ".")) || 0;
   const horimeterError =
-    meterInitial && meterFinal && Number(meterFinal) < Number(meterInitial)
+    meterInitial && meterFinal && toNVal(meterFinal) < toNVal(meterInitial)
       ? `${meterLabel} Final não pode ser menor que o Inicial`
-      : meterFinal && fuelMeterValue && Number(meterFinal) < fuelMeterValue
+      : meterFinal && fuelMeterValue && toNVal(meterFinal) < fuelMeterValue
         ? `Erro: O ${meterLabel.toLowerCase()} final não pode ser menor que o ${meterLabel.toLowerCase()} registrado no abastecimento (${fuelMeterValue})!`
         : null;
 
   const horasTrabalhadas =
-    meterInitial && meterFinal && Number(meterFinal) >= Number(meterInitial)
-      ? (Number(meterFinal) - Number(meterInitial)).toFixed(1)
+    meterInitial && meterFinal && toNVal(meterFinal) >= toNVal(meterInitial)
+      ? (toNVal(meterFinal) - toNVal(meterInitial)).toFixed(1)
       : null;
 
   const handleTurnoChange = (value: "diurno" | "noturno") => {
@@ -980,11 +981,13 @@ export default function EquipmentDiaryForm() {
     };
 
     if (usesOdometer) {
-      diaryPayload.odometer_initial = meterInitial ? Number(meterInitial) : null;
-      diaryPayload.odometer_final = meterFinal ? Number(meterFinal) : null;
+      const toNDB = (v: string) => v ? Number(v.replace(",", ".")) || null : null;
+      diaryPayload.odometer_initial = toNDB(meterInitial);
+      diaryPayload.odometer_final = toNDB(meterFinal);
     } else {
-      diaryPayload.meter_initial = meterInitial ? Number(meterInitial) : null;
-      diaryPayload.meter_final = meterFinal ? Number(meterFinal) : null;
+      const toNDB = (v: string) => v ? Number(v.replace(",", ".")) || null : null;
+      diaryPayload.meter_initial = toNDB(meterInitial);
+      diaryPayload.meter_final = toNDB(meterFinal);
     }
 
     if (!isOnline) {
@@ -1904,11 +1907,10 @@ export default function EquipmentDiaryForm() {
           </Field>
           <Field label={`${meterLabel} Inicial`}>
             <Input
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.1"
               value={meterInitial}
-              onChange={(e) => setMeterInitial(e.target.value)}
+              onChange={(e) => setMeterInitial(e.target.value.replace(".", ","))}
               placeholder="0,0"
               className="bg-secondary border-border"
             />
@@ -2325,11 +2327,10 @@ export default function EquipmentDiaryForm() {
           )}
           <Field label={`${meterLabel} Final`}>
             <Input
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.1"
               value={meterFinal}
-              onChange={(e) => setMeterFinal(e.target.value)}
+              onChange={(e) => setMeterFinal(e.target.value.replace(".", ","))}
               placeholder="0,0"
               className={`bg-secondary border-border ${horimeterError ? "border-destructive" : ""}`}
             />

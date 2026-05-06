@@ -18,10 +18,15 @@ export function createEmptyArea(): ProductionArea {
   return { id: crypto.randomUUID(), comp: "", larg: "", esp: "" };
 }
 
-// Aceita tanto vírgula quanto ponto como separador decimal
+// Normaliza para cálculo: substitui vírgula por ponto
 function toNum(val: string): number {
   if (!val) return 0;
   return Number(val.replace(",", "."));
+}
+
+// Força vírgula como separador decimal (substitui ponto por vírgula)
+function forceVirgula(val: string): string {
+  return val.replace(".", ",");
 }
 
 function calcM2(a: ProductionArea): number | null {
@@ -77,23 +82,26 @@ export default function ProductionAreasSection({ areas, onChange }: Props) {
         return (
           <div key={area.id} className="grid grid-cols-[1fr_1fr_1fr_70px_70px_40px] gap-1 items-center">
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={area.comp}
-              onChange={(e) => update(idx, "comp", e.target.value)}
+              onChange={(e) => update(idx, "comp", forceVirgula(e.target.value))}
               placeholder="0"
               className="bg-secondary border-border h-9 text-xs"
             />
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={area.larg}
-              onChange={(e) => update(idx, "larg", e.target.value)}
+              onChange={(e) => update(idx, "larg", forceVirgula(e.target.value))}
               placeholder="0"
               className="bg-secondary border-border h-9 text-xs"
             />
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={area.esp}
-              onChange={(e) => update(idx, "esp", e.target.value)}
+              onChange={(e) => update(idx, "esp", forceVirgula(e.target.value))}
               placeholder="0"
               className="bg-secondary border-border h-9 text-xs"
             />
