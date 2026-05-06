@@ -337,6 +337,7 @@ export default function RdoForm() {
       clima: header.status_obra || null,
       responsavel: responsavelNome,
       user_id: user.id,
+      tipo_rdo: tipoRdo || null,
     };
 
     if (!isOnline) {

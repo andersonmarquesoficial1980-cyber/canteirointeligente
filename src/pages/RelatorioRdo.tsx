@@ -55,28 +55,18 @@ export default function RelatorioRdo() {
 
       let rows: any[] = [];
 
-      const byOgsNumber = await (supabase as any)
+      // obra_nome salva o número da OGS diretamente
+      const { data: rdoData, error: rdoError } = await (supabase as any)
         .from("rdo_diarios")
         .select("id,data,tipo_rdo,responsavel,turno,clima")
-        .eq("ogs_number", ogs)
+        .eq("obra_nome", ogs)
         .gte("data", ini)
         .lte("data", fim)
         .order("data", { ascending: false })
         .order("created_at", { ascending: false });
 
-      if (!byOgsNumber.error) {
-        rows = byOgsNumber.data || [];
-      } else {
-        const byObraNome = await (supabase as any)
-          .from("rdo_diarios")
-          .select("id,data,tipo_rdo,responsavel,turno,clima")
-          .eq("obra_nome", ogs)
-          .gte("data", ini)
-          .lte("data", fim)
-          .order("data", { ascending: false })
-          .order("created_at", { ascending: false });
-
-        rows = byObraNome.data || [];
+      if (!rdoError) {
+        rows = rdoData || [];
       }
 
       const lista = (rows || []) as RdoItem[];
