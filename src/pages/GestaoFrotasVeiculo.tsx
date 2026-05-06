@@ -119,6 +119,7 @@ export default function GestaoFrotasVeiculo() {
               { label: "Ano", field: "ano" },
               { label: "Setor", field: "setor" },
               { label: "Locadora", field: "locadora" },
+              { label: "Status", field: "status" },
             ].map(({ label, field }) => (
               <div key={field} className="space-y-1">
                 <span className="rdo-label">{label}</span>
@@ -131,15 +132,52 @@ export default function GestaoFrotasVeiculo() {
             ))}
           </div>
           {editando && (
-            <div className="space-y-1.5">
-              <span className="rdo-label">Categoria</span>
-              <Select value={veiculo.categoria} onValueChange={v => setVeiculo((prev: any) => ({ ...prev, categoria: v }))}>
-                <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="locado">Locado</SelectItem>
-                  <SelectItem value="proprio">Próprio</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <span className="rdo-label">Categoria</span>
+                <Select value={veiculo.categoria} onValueChange={v => setVeiculo((prev: any) => ({ ...prev, categoria: v }))}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="locado">Locado</SelectItem>
+                    <SelectItem value="proprio">Próprio</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <span className="rdo-label">🔧 Motivo de Manutenção</span>
+                <Input
+                  value={veiculo.motivo_manutencao || ""}
+                  onChange={e => setVeiculo((v: any) => ({ ...v, motivo_manutencao: e.target.value }))}
+                  placeholder="Ex: Troca de óleo, reparo elétrico..."
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <span className="rdo-label">📅 Previsão de Liberação</span>
+                <Input
+                  type="date"
+                  value={veiculo.previsao_liberacao || ""}
+                  onChange={e => setVeiculo((v: any) => ({ ...v, previsao_liberacao: e.target.value || null }))}
+                  className="h-10 rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+          {/* Exibir motivo/previsão quando não está editando */}
+          {!editando && (veiculo.motivo_manutencao || veiculo.previsao_liberacao) && (
+            <div className="space-y-2 pt-1 border-t border-border">
+              {veiculo.motivo_manutencao && (
+                <div>
+                  <span className="rdo-label">🔧 Motivo de Manutenção</span>
+                  <p className="text-sm font-medium text-amber-700">{veiculo.motivo_manutencao}</p>
+                </div>
+              )}
+              {veiculo.previsao_liberacao && (
+                <div>
+                  <span className="rdo-label">📅 Previsão de Liberação</span>
+                  <p className="text-sm font-medium text-blue-700">{veiculo.previsao_liberacao.split("-").reverse().join("/")}</p>
+                </div>
+              )}
             </div>
           )}
         </div>
