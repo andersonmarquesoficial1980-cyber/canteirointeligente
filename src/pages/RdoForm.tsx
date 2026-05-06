@@ -402,21 +402,65 @@ export default function RdoForm() {
       if (tipoRdo === "CAUQ") {
         const trechoEntries = producaoCauq.trechos
           .filter(t => t.comprimento_m || t.largura_m || t.tipo_servico)
-          .map(t => ({
-            rdo_id: rdoId,
-            tipo_servico: t.tipo_servico || null,
-            sentido: t.sentido_faixa || null,
-            faixa: t.sentido_faixa || null,
-            km_inicial: t.estaca_inicial ? parseFloat(t.estaca_inicial) : null,
-            km_final: t.estaca_final ? parseFloat(t.estaca_final) : null,
-            comprimento_m: t.comprimento_m ? parseFloat(t.comprimento_m) : null,
-            largura_m: t.largura_m ? parseFloat(t.largura_m) : null,
-            espessura_cm: t.espessura_m ? parseFloat(t.espessura_m) : null,
-          }));
+          .map(t => {
+            const comp = t.comprimento_m ? parseFloat(t.comprimento_m) : null;
+            const larg = t.largura_m ? parseFloat(t.largura_m) : null;
+            const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
+            return {
+              rdo_id: rdoId,
+              tipo_servico: t.tipo_servico || null,
+              sentido: t.sentido_faixa || null,
+              faixa: t.sentido_faixa || null,
+              sentido_faixa: t.sentido_faixa || null,
+              estaca_inicial: t.estaca_inicial || null,
+              estaca_final: t.estaca_final || null,
+              km_inicial: t.estaca_inicial ? parseFloat(t.estaca_inicial) : null,
+              km_final: t.estaca_final ? parseFloat(t.estaca_final) : null,
+              comprimento_m: comp,
+              largura_m: larg,
+              espessura_cm: t.espessura_m ? parseFloat(t.espessura_m) : null,
+              area_m2: area,
+              observacoes: t.observacoes || null,
+            };
+          });
         if (trechoEntries.length > 0) {
           const { error } = await supabase.from("rdo_producao").insert(trechoEntries);
           if (error) throw error;
         }
+      }
+
+      // Equipamentos
+      const equipEntries = equipamentos
+        .filter(e => e.frota || e.nome || e.tipo)
+        .map(e => ({
+          rdo_id: rdoId,
+          frota: e.frota || null,
+          categoria: e.categoria || null,
+          sub_tipo: e.subTipo || null,
+          tipo: e.tipo || null,
+          nome: e.nome || null,
+          patrimonio: e.patrimonio || null,
+          empresa_dona: e.empresa_dona || null,
+        }));
+      if (equipEntries.length > 0) {
+        const { error } = await (supabase as any).from("rdo_equipamentos").insert(equipEntries);
+        if (error) console.warn("Equipamentos RDO:", error.message);
+      }
+
+      // NF de Massa
+      const nfEntries = nfMassa
+        .filter(n => n.nf || n.placa || n.tonelagem)
+        .map(n => ({
+          rdo_id: rdoId,
+          nf: n.nf || null,
+          placa: n.placa || null,
+          usina: n.usina || null,
+          tonelagem: n.tonelagem ? parseFloat(n.tonelagem) : null,
+          tipo_material: n.tipo_material || n.tipo_material_outro || null,
+        }));
+      if (nfEntries.length > 0) {
+        const { error } = await (supabase as any).from("rdo_nf_massa").insert(nfEntries);
+        if (error) console.warn("NF Massa RDO:", error.message);
       }
 
       // Efetivo

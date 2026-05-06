@@ -27,15 +27,42 @@ interface EfetivoItem {
 interface ProducaoItem {
   id: string;
   rdo_id: string | null;
-  rodovia: string | null;
-  km_inicial: string | null;
-  km_final: string | null;
+  tipo_servico: string | null;
+  sentido_faixa: string | null;
   sentido: string | null;
   faixa: string | null;
-  tipo_servico: string | null;
+  estaca_inicial: string | null;
+  estaca_final: string | null;
+  km_inicial: string | null;
+  km_final: string | null;
   comprimento_m: string | null;
   largura_m: string | null;
   espessura_cm: string | null;
+  area_m2: string | null;
+  tonelagem: string | null;
+  observacoes: string | null;
+}
+
+interface EquipamentoItem {
+  id: string;
+  rdo_id: string | null;
+  frota: string | null;
+  categoria: string | null;
+  sub_tipo: string | null;
+  tipo: string | null;
+  nome: string | null;
+  patrimonio: string | null;
+  empresa_dona: string | null;
+}
+
+interface NfMassaItem {
+  id: string;
+  rdo_id: string | null;
+  nf: string | null;
+  placa: string | null;
+  usina: string | null;
+  tonelagem: number | null;
+  tipo_material: string | null;
 }
 
 function fmtDate(value: string | null) {
@@ -184,6 +211,8 @@ export default function RelatorioRdo() {
   const [rdoList, setRdoList] = useState<RdoItem[]>([]);
   const [efetivoByRdoId, setEfetivoByRdoId] = useState<Record<string, EfetivoItem[]>>({});
   const [producaoByRdoId, setProducaoByRdoId] = useState<Record<string, ProducaoItem[]>>({});
+  const [equipByRdoId, setEquipByRdoId] = useState<Record<string, EquipamentoItem[]>>({});
+  const [nfByRdoId, setNfByRdoId] = useState<Record<string, NfMassaItem[]>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [clienteNome, setClienteNome] = useState("");
 
@@ -242,9 +271,8 @@ export default function RelatorioRdo() {
       // Produção
       const { data: prodRows } = await (supabase as any)
         .from("rdo_producao")
-        .select("id,rdo_id,rodovia,km_inicial,km_final,sentido,faixa,tipo_servico,comprimento_m,largura_m,espessura_cm")
+        .select("id,rdo_id,tipo_servico,sentido_faixa,sentido,faixa,estaca_inicial,estaca_final,km_inicial,km_final,comprimento_m,largura_m,espessura_cm,area_m2,tonelagem,observacoes")
         .in("rdo_id", ids);
-
       const prodGrupo: Record<string, ProducaoItem[]> = {};
       (prodRows || []).forEach((item: any) => {
         if (!item.rdo_id) return;
@@ -252,6 +280,34 @@ export default function RelatorioRdo() {
         prodGrupo[item.rdo_id].push(item as ProducaoItem);
       });
       setProducaoByRdoId(prodGrupo);
+
+      // Equipamentos
+      const { data: equipRows } = await (supabase as any)
+        .from("rdo_equipamentos")
+        .select("id,rdo_id,frota,categoria,sub_tipo,tipo,nome,patrimonio,empresa_dona")
+        .in("rdo_id", ids)
+        .order("frota", { ascending: true });
+      const equipGrupo: Record<string, EquipamentoItem[]> = {};
+      (equipRows || []).forEach((item: any) => {
+        if (!item.rdo_id) return;
+        if (!equipGrupo[item.rdo_id]) equipGrupo[item.rdo_id] = [];
+        equipGrupo[item.rdo_id].push(item as EquipamentoItem);
+      });
+      setEquipByRdoId(equipGrupo);
+
+      // NF de Massa
+      const { data: nfRows } = await (supabase as any)
+        .from("rdo_nf_massa")
+        .select("id,rdo_id,nf,placa,usina,tonelagem,tipo_material")
+        .in("rdo_id", ids)
+        .order("nf", { ascending: true });
+      const nfGrupo: Record<string, NfMassaItem[]> = {};
+      (nfRows || []).forEach((item: any) => {
+        if (!item.rdo_id) return;
+        if (!nfGrupo[item.rdo_id]) nfGrupo[item.rdo_id] = [];
+        nfGrupo[item.rdo_id].push(item as NfMassaItem);
+      });
+      setNfByRdoId(nfGrupo);
 
       setLoading(false);
     };
@@ -299,6 +355,8 @@ export default function RelatorioRdo() {
             const isOpen = !!expanded[item.id];
             const efetivo = efetivoByRdoId[item.id] || [];
             const producao = producaoByRdoId[item.id] || [];
+            const equipamentos = equipByRdoId[item.id] || [];
+            const nfMassa = nfByRdoId[item.id] || [];
 
             // Expandir nomes (suporte a nomes separados por |||)
             const pessoas: { nome: string; funcao: string; matricula: string; entrada: string; saida: string }[] = [];
@@ -396,35 +454,27 @@ export default function RelatorioRdo() {
                       </div>
                     )}
 
-                    {/* Produção */}
-                    {producao.length > 0 && (
+                    {/* Equipamentos */}
+                    {equipamentos.length > 0 && (
                       <div>
-                        <p className="text-xs font-display font-bold text-primary uppercase mb-1">🛣️ Produção</p>
+                        <p className="text-xs font-display font-bold text-primary uppercase mb-1">🚜 Equipamentos ({equipamentos.length})</p>
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-border bg-muted/30">
-                                <th className="text-left py-1.5 px-2">Serviço</th>
-                                <th className="text-left py-1.5 px-2">KM Ini</th>
-                                <th className="text-left py-1.5 px-2">KM Fim</th>
-                                <th className="text-left py-1.5 px-2">Sentido</th>
-                                <th className="text-left py-1.5 px-2">Faixa</th>
-                                <th className="text-left py-1.5 px-2">Comp</th>
-                                <th className="text-left py-1.5 px-2">Larg</th>
-                                <th className="text-left py-1.5 px-2">Esp</th>
+                                <th className="text-left py-1.5 px-2">Frota</th>
+                                <th className="text-left py-1.5 px-2">Equipamento</th>
+                                <th className="text-left py-1.5 px-2">Modelo/Placa</th>
+                                <th className="text-left py-1.5 px-2">Empresa</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {producao.map(p => (
-                                <tr key={p.id} className="border-b border-border/60 last:border-0">
-                                  <td className="py-1.5 px-2 font-medium">{p.tipo_servico || "-"}</td>
-                                  <td className="py-1.5 px-2">{p.km_inicial || "-"}</td>
-                                  <td className="py-1.5 px-2">{p.km_final || "-"}</td>
-                                  <td className="py-1.5 px-2">{p.sentido || "-"}</td>
-                                  <td className="py-1.5 px-2">{p.faixa || "-"}</td>
-                                  <td className="py-1.5 px-2">{p.comprimento_m ? `${p.comprimento_m}m` : "-"}</td>
-                                  <td className="py-1.5 px-2">{p.largura_m ? `${p.largura_m}m` : "-"}</td>
-                                  <td className="py-1.5 px-2">{p.espessura_cm ? `${p.espessura_cm}cm` : "-"}</td>
+                              {equipamentos.map(e => (
+                                <tr key={e.id} className="border-b border-border/60 last:border-0">
+                                  <td className="py-1.5 px-2 font-medium">{e.frota || "-"}</td>
+                                  <td className="py-1.5 px-2">{e.sub_tipo || e.tipo || e.categoria || "-"}</td>
+                                  <td className="py-1.5 px-2">{e.nome || e.patrimonio || "-"}</td>
+                                  <td className="py-1.5 px-2">{e.empresa_dona || "-"}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -433,7 +483,95 @@ export default function RelatorioRdo() {
                       </div>
                     )}
 
-                    {pessoas.length === 0 && producao.length === 0 && (
+                    {/* NF de Massa */}
+                    {nfMassa.length > 0 && (() => {
+                      const totalTon = nfMassa.reduce((s, n) => s + (n.tonelagem || 0), 0);
+                      return (
+                        <div>
+                          <p className="text-xs font-display font-bold text-primary uppercase mb-1">📄 Notas Fiscais de Massa</p>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-border bg-muted/30">
+                                  <th className="text-left py-1.5 px-2">NF</th>
+                                  <th className="text-left py-1.5 px-2">Placa</th>
+                                  <th className="text-left py-1.5 px-2">Usina</th>
+                                  <th className="text-right py-1.5 px-2">Tonelagem</th>
+                                  <th className="text-left py-1.5 px-2">Material</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {nfMassa.map(n => (
+                                  <tr key={n.id} className="border-b border-border/60 last:border-0">
+                                    <td className="py-1.5 px-2 font-medium">{n.nf || "-"}</td>
+                                    <td className="py-1.5 px-2">{n.placa || "-"}</td>
+                                    <td className="py-1.5 px-2">{n.usina || "-"}</td>
+                                    <td className="py-1.5 px-2 text-right">{n.tonelagem != null ? n.tonelagem.toFixed(2) : "-"}</td>
+                                    <td className="py-1.5 px-2">{n.tipo_material || "-"}</td>
+                                  </tr>
+                                ))}
+                                <tr className="border-t-2 border-border font-bold bg-muted/30">
+                                  <td colSpan={3} className="py-1.5 px-2">TOTAL</td>
+                                  <td className="py-1.5 px-2 text-right">{totalTon.toFixed(2)}</td>
+                                  <td />
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Produção do Dia */}
+                    {producao.length > 0 && (() => {
+                      const totalArea = producao.reduce((s, p) => s + (parseFloat(String(p.area_m2 || 0)) || 0), 0);
+                      const totalTon = producao.reduce((s, p) => s + (parseFloat(String(p.tonelagem || 0)) || 0), 0);
+                      return (
+                        <div>
+                          <p className="text-xs font-display font-bold text-primary uppercase mb-1">🛣️ Produção do Dia</p>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-border bg-muted/30">
+                                  <th className="text-left py-1.5 px-2">Serviço</th>
+                                  <th className="text-left py-1.5 px-2">Sentido/Faixa</th>
+                                  <th className="text-left py-1.5 px-2">Est. Ini</th>
+                                  <th className="text-left py-1.5 px-2">Est. Fim</th>
+                                  <th className="text-right py-1.5 px-2">Comp(m)</th>
+                                  <th className="text-right py-1.5 px-2">Larg(m)</th>
+                                  <th className="text-right py-1.5 px-2">Área(m²)</th>
+                                  <th className="text-right py-1.5 px-2">Esp(m)</th>
+                                  <th className="text-right py-1.5 px-2">Ton</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {producao.map(p => (
+                                  <tr key={p.id} className="border-b border-border/60 last:border-0">
+                                    <td className="py-1.5 px-2 font-medium">{p.tipo_servico || "-"}</td>
+                                    <td className="py-1.5 px-2">{p.sentido_faixa || p.sentido || "-"}</td>
+                                    <td className="py-1.5 px-2">{p.estaca_inicial || p.km_inicial || "-"}</td>
+                                    <td className="py-1.5 px-2">{p.estaca_final || p.km_final || "-"}</td>
+                                    <td className="py-1.5 px-2 text-right">{p.comprimento_m || "-"}</td>
+                                    <td className="py-1.5 px-2 text-right">{p.largura_m || "-"}</td>
+                                    <td className="py-1.5 px-2 text-right">{p.area_m2 ? parseFloat(String(p.area_m2)).toFixed(2) : "-"}</td>
+                                    <td className="py-1.5 px-2 text-right">{p.espessura_cm || "-"}</td>
+                                    <td className="py-1.5 px-2 text-right">{p.tonelagem != null ? parseFloat(String(p.tonelagem)).toFixed(2) : "-"}</td>
+                                  </tr>
+                                ))}
+                                <tr className="border-t-2 border-border font-bold bg-muted/30">
+                                  <td colSpan={6} className="py-1.5 px-2">TOTAL</td>
+                                  <td className="py-1.5 px-2 text-right">{totalArea.toFixed(2)}</td>
+                                  <td />
+                                  <td className="py-1.5 px-2 text-right">{totalTon.toFixed(2)}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {pessoas.length === 0 && producao.length === 0 && equipamentos.length === 0 && nfMassa.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-3">Sem dados detalhados neste RDO.</p>
                     )}
                   </div>
