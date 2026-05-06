@@ -159,35 +159,81 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
   );
 }
 
-// Fornecedores manager — com tipo_insumo + edição inline de vínculo
+// Fornecedores manager — multi-vínculo (array) + tipo_insumo + edição inline
 function FornecedoresManager() {
   const { items, loading, add, remove, update } = useCrudTable("fornecedores");
   const { toast } = useToast();
+  // Novo
   const [nome, setNome] = useState("");
-  const [vinculo, setVinculo] = useState("TODOS");
+  const [vinculos, setVinculos] = useState<string[]>(["TODOS"]);
   const [tipoInsumo, setTipoInsumo] = useState("_none");
+  // Edição
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editVinculo, setEditVinculo] = useState("");
+  const [editVinculos, setEditVinculos] = useState<string[]>([]);
   const [editTipoInsumo, setEditTipoInsumo] = useState("_none");
 
   const toInsumoValue = (v: string) => (v === "_none" || !v ? null : v);
 
+  const toggleVinculo = (v: string, current: string[], set: (x: string[]) => void) => {
+    if (v === "TODOS") { set(["TODOS"]); return; }
+    const sem = current.filter(x => x !== "TODOS");
+    if (sem.includes(v)) {
+      const novo = sem.filter(x => x !== v);
+      set(novo.length === 0 ? ["TODOS"] : novo);
+    } else {
+      set([...sem, v]);
+    }
+  };
+
   const handleAdd = async () => {
     if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); return; }
-    const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_insumo: toInsumoValue(tipoInsumo) });
-    if (ok) { setNome(""); setVinculo("TODOS"); setTipoInsumo("_none"); }
+    if (vinculos.length === 0) { toast({ title: "Atenção", description: "Selecione ao menos um vínculo.", variant: "destructive" }); return; }
+    const ok = await add({
+      nome: nome.trim(),
+      vinculos,
+      vinculo_rdo: vinculos[0], // mantém coluna legada com primeiro valor
+      tipo_insumo: toInsumoValue(tipoInsumo),
+    });
+    if (ok) { setNome(""); setVinculos(["TODOS"]); setTipoInsumo("_none"); }
   };
 
   const startEdit = (item: any) => {
     setEditingId(item.id);
-    setEditVinculo(item.vinculo_rdo || "TODOS");
+    setEditVinculos(item.vinculos?.length ? item.vinculos : [item.vinculo_rdo || "TODOS"]);
     setEditTipoInsumo(item.tipo_insumo || "_none");
   };
 
   const saveEdit = async (id: string) => {
-    const ok = await update(id, { vinculo_rdo: editVinculo, tipo_insumo: toInsumoValue(editTipoInsumo) });
+    if (editVinculos.length === 0) { toast({ title: "Atenção", description: "Selecione ao menos um vínculo.", variant: "destructive" }); return; }
+    const ok = await update(id, {
+      vinculos: editVinculos,
+      vinculo_rdo: editVinculos[0],
+      tipo_insumo: toInsumoValue(editTipoInsumo),
+    });
     if (ok) setEditingId(null);
   };
+
+  const VinculoCheckboxes = ({ selected, onToggle }: { selected: string[]; onToggle: (v: string) => void }) => (
+    <div className="flex flex-wrap gap-1.5">
+      {VINCULO_OPTIONS.map(v => {
+        const active = selected.includes(v);
+        return (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onToggle(v)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+              active
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+            }`}
+          >
+            {VINCULO_LABELS[v] ?? v}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -197,26 +243,19 @@ function FornecedoresManager() {
           <Label className="text-xs text-muted-foreground">Nome do Fornecedor</Label>
           <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Novo Fornecedor" />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Onde aparece</Label>
-            <Select value={vinculo} onValueChange={setVinculo}>
-              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{VINCULO_LABELS[v] ?? v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Tipo de Insumo</Label>
-            <Select value={tipoInsumo} onValueChange={setTipoInsumo}>
-              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="(opcional)" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">— Nenhum —</SelectItem>
-                {TIPO_INSUMO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Onde aparece (selecione um ou mais)</Label>
+          <VinculoCheckboxes selected={vinculos} onToggle={v => toggleVinculo(v, vinculos, setVinculos)} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Tipo de Insumo</Label>
+          <Select value={tipoInsumo} onValueChange={setTipoInsumo}>
+            <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="(opcional)" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">— Nenhum —</SelectItem>
+              {TIPO_INSUMO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
       </div>
@@ -233,26 +272,19 @@ function FornecedoresManager() {
               /* Modo edição */
               <div className="space-y-2">
                 <p className="font-medium text-sm text-foreground">{item.nome}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Onde aparece</Label>
-                    <Select value={editVinculo} onValueChange={setEditVinculo}>
-                      <SelectTrigger className="h-9 bg-secondary border-border text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{VINCULO_LABELS[v] ?? v}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Tipo de Insumo</Label>
-                    <Select value={editTipoInsumo} onValueChange={setEditTipoInsumo}>
-                      <SelectTrigger className="h-9 bg-secondary border-border text-xs"><SelectValue placeholder="(opcional)" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none">— Nenhum —</SelectItem>
-                        {TIPO_INSUMO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Onde aparece</Label>
+                  <VinculoCheckboxes selected={editVinculos} onToggle={v => toggleVinculo(v, editVinculos, setEditVinculos)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Tipo de Insumo</Label>
+                  <Select value={editTipoInsumo} onValueChange={setEditTipoInsumo}>
+                    <SelectTrigger className="h-9 bg-secondary border-border text-xs"><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— Nenhum —</SelectItem>
+                      {TIPO_INSUMO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => saveEdit(item.id)}><Save className="w-3 h-3 mr-1" /> Salvar</Button>
@@ -261,19 +293,21 @@ function FornecedoresManager() {
               </div>
             ) : (
               /* Modo visualização */
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1.5 flex-1 min-w-0 pr-2">
                   <p className="font-medium text-sm text-foreground">{item.nome}</p>
                   <div className="flex flex-wrap gap-1">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
-                      {VINCULO_LABELS[item.vinculo_rdo] ?? item.vinculo_rdo ?? "TODOS"}
-                    </span>
+                    {(item.vinculos?.length ? item.vinculos : [item.vinculo_rdo || "TODOS"]).map((v: string) => (
+                      <span key={v} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                        {VINCULO_LABELS[v] ?? v}
+                      </span>
+                    ))}
                     {item.tipo_insumo && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">{item.tipo_insumo}</span>
                     )}
                   </div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 shrink-0">
                   <button onClick={() => startEdit(item)} className="text-primary p-1"><Pencil className="w-4 h-4" /></button>
                   <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
                 </div>

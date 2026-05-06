@@ -428,7 +428,7 @@ export default function EquipmentDiaryForm() {
       const { data, error } = await supabase
         .from("fornecedores")
         .select("id, nome, vinculo_rdo, tipo_insumo")
-        .or("vinculo_rdo.eq.TODOS,vinculo_rdo.eq.COMBOIO,vinculo_rdo.eq.PIPA,vinculo_rdo.eq.ESPARGIDOR")
+        .or("vinculo_rdo.eq.TODOS,vinculo_rdo.eq.COMBOIO,vinculo_rdo.eq.PIPA,vinculo_rdo.eq.ESPARGIDOR,vinculos.cs.{TODOS},vinculos.cs.{COMBOIO},vinculos.cs.{PIPA},vinculos.cs.{ESPARGIDOR}")
         .order("nome");
       if (error) throw error;
       return (data || []) as any[];

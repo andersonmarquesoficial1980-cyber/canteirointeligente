@@ -21,11 +21,13 @@ function useFilteredTable(tableName: string, tipoRdo: string, tipoUso?: string) 
     queryKey: [tableName, tipoRdo, tipoUso],
     queryFn: async () => {
       const aliases = VINCULO_ALIAS[tipoRdo] ?? [tipoRdo, "TODOS"];
-      const orFilter = aliases.map(a => `vinculo_rdo.eq.${a}`).join(",");
+      // Busca por array vinculos (novo) OU vinculo_rdo legado
+      const legacyOr = aliases.map(a => `vinculo_rdo.eq.${a}`).join(",");
+      const arrayOr = aliases.map(a => `vinculos.cs.{${a}}`).join(",");
       let query = supabase
         .from(tableName as any)
         .select("*")
-        .or(orFilter)
+        .or(`${legacyOr},${arrayOr}`)
         .order("nome");
 
       if (tipoUso && tableName === "materiais") {
