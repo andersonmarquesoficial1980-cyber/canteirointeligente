@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, FileText } from "lucide-react";
 import NfPhotoCapture from "./NfPhotoCapture";
-import { useUsinas, useMateriais } from "@/hooks/useFilteredData";
+import { useFornecedores, useMateriais } from "@/hooks/useFilteredData";
 
 export interface NotaFiscalMassaEntry {
   id: string;
@@ -27,10 +27,17 @@ const emptyNF = (): NotaFiscalMassaEntry => ({
 });
 
 export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
-  const { data: usinasData } = useUsinas(tipoRdo);
+  // Usinas são agora fornecedores com vínculo PAVIMENTACAO e insumo Massa Asfáltica
+  const { data: fornecedoresData } = useFornecedores(tipoRdo);
   const { data: materiaisData } = useMateriais(tipoRdo, "Nota Fiscal");
 
-  const usinas = usinasData?.map(u => u.nome) ?? [];
+  const usinas = (fornecedoresData ?? []).filter((f: any) =>
+    !f.tipo_insumos?.length ||
+    f.tipo_insumos.includes("Massa Asfáltica") ||
+    f.tipo_insumo === "Massa Asfáltica" ||
+    f.tipo_insumos.includes("Geral") ||
+    f.tipo_insumo === "Geral"
+  ).map((f: any) => f.nome);
   const materiais = materiaisData?.map(m => m.nome) ?? [];
   const materiaisWithOutro = materiais.length > 0 ? [...materiais, "Outro"] : ["Outro"];
 

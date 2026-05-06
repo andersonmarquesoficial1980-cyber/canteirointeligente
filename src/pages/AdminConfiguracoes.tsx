@@ -1930,7 +1930,7 @@ const MENU_SECTIONS = [
   { key: "tipos_servico", label: "Tipos de Serviço", icon: Hammer },
   { key: "empreiteiros", label: "Empreiteiros", icon: Hammer },
   { key: "fornecedores", label: "Fornecedores", icon: Factory },
-  { key: "usinas", label: "Usinas", icon: Factory },
+  // Usinas removidas — migradas para Fornecedores com vínculo PAVIMENTACAO
   { key: "destinos", label: "Destinos (Carreteiro)", icon: MapPin },
   { key: "emails", label: "E-mails", icon: Mail },
   { key: "notificacoes", label: "Notificações", icon: Bell },
@@ -1989,7 +1989,7 @@ export default function AdminConfiguracoes() {
       case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" />;
       case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />;
       case "fornecedores": return <FornecedoresManager />;
-      case "usinas": return <EntityManager tableName="usinas" label="Usina" />;
+      // case "usinas": removido — usinas migradas para Fornecedores
       case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;
       case "notificacoes": return <NotificationPrefsManager />;
