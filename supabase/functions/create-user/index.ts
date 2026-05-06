@@ -106,6 +106,23 @@ serve(async (req) => {
       throw new Error("A senha deve ter no mínimo 6 caracteres");
     }
 
+    // Rate limiting: máx 10 criações por admin por hora
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabaseAdmin
+      .from("edge_rate_limit")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", caller.id)
+      .eq("action", "create_user")
+      .gte("created_at", oneHourAgo);
+    if ((recentCount ?? 0) >= 10) {
+      return new Response(JSON.stringify({ error: "Limite de 10 criações por hora atingido. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    await supabaseAdmin.from("edge_rate_limit").insert({ user_id: caller.id, action: "create_user" });
+    // Limpar registros antigos (> 24h) para não acumular
+    await supabaseAdmin.from("edge_rate_limit").delete().lt("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
     let userId: string;
 
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
