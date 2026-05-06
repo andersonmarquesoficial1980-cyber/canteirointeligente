@@ -16,18 +16,23 @@ const VINCULO_ALIAS: Record<string, string[]> = {
   INFRA: ["INFRA", "TODOS"],
 };
 
+// Tabelas que têm a coluna vinculos[] (array multi-vínculo)
+const TABELAS_COM_VINCULOS_ARRAY = ["fornecedores"];
+
 function useFilteredTable(tableName: string, tipoRdo: string, tipoUso?: string) {
   return useQuery({
     queryKey: [tableName, tipoRdo, tipoUso],
     queryFn: async () => {
       const aliases = VINCULO_ALIAS[tipoRdo] ?? [tipoRdo, "TODOS"];
-      // Busca por array vinculos (novo) OU vinculo_rdo legado
       const legacyOr = aliases.map(a => `vinculo_rdo.eq.${a}`).join(",");
-      const arrayOr = aliases.map(a => `vinculos.cs.{${a}}`).join(",");
+      // Só adiciona filtro de array para tabelas que têm a coluna vinculos[]
+      const orFilter = TABELAS_COM_VINCULOS_ARRAY.includes(tableName)
+        ? `${legacyOr},${aliases.map(a => `vinculos.cs.{${a}}`).join(",")}`
+        : legacyOr;
       let query = supabase
         .from(tableName as any)
         .select("*")
-        .or(`${legacyOr},${arrayOr}`)
+        .or(orFilter)
         .order("nome");
 
       if (tipoUso && tableName === "materiais") {
