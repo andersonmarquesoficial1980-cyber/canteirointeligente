@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { fmtNum } from "@/lib/fmt";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,7 +134,7 @@ export default function AbastecimentoHome() {
             <p className="text-[10px] text-muted-foreground">Lançamentos</p>
           </div>
           <div className="rdo-card text-center col-span-2">
-            <p className="text-xl font-display font-bold text-primary">{totalLitros.toFixed(0)} L</p>
+            <p className="text-xl font-display font-bold text-primary">{fmtNum(totalLitros, 0)} L</p>
             <p className="text-[10px] text-muted-foreground">Total de Diesel</p>
           </div>
         </div>
@@ -186,7 +187,7 @@ export default function AbastecimentoHome() {
                           {a.lavado && <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">🚿 Lavado</span>}
                         </div>
                         <div className="flex gap-4 text-xs text-muted-foreground flex-wrap">
-                          <span className="font-bold text-primary">{a.litros.toFixed(1)} L</span>
+                          <span className="font-bold text-primary">{fmtNum(a.litros)} L</span>
                           {a.horimetro && <span>Hor: {a.horimetro}</span>}
                           {a.km_odometro && <span>KM: {a.km_odometro}</span>}
                           {a.comboio_fleet && <span>Comboio: {a.comboio_fleet}</span>}

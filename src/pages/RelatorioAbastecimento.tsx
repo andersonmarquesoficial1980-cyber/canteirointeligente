@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import logoCi from "@/assets/logo-workflux.png";
 import { supabase } from "@/integrations/supabase/client";
+import { fmtNum as fmtNumLib, fmtNumCsv as fmtNumCsvLib } from "@/lib/fmt";
 
 interface AbastecimentoRow {
   id: string;
@@ -18,6 +19,17 @@ interface AbastecimentoRow {
   ogs: string | null;
   fornecedor: string | null;
   observacao: string | null;
+}
+
+function fmtNumLib(value: number | null | undefined, decimals = 1): string {
+  if (value == null) return "-";
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+// Para CSV: ponto decimal → vírgula (padrão Excel Brasil)
+function fmtNumCsvLib(value: number | null | undefined, decimals = 1): string {
+  if (value == null) return "-";
+  return value.toFixed(decimals).replace(".", ",");
 }
 
 function splitOgs(ogs: string | null): { num: string; local: string } {
@@ -45,7 +57,7 @@ function exportarExcel(fleet: string, rows: AbastecimentoRow[], ini: string, fim
       fmtDate(r.data),
       r.equipment_fleet || "-",
       r.equipment_type || "-",
-      r.litros != null ? String(r.litros.toFixed(1)) : "-",
+      r.litros != null ? fmtNumCsvLib(r.litros) : "-",
       r.horimetro != null ? String(r.horimetro) : "-",
       r.km_odometro != null ? String(r.km_odometro) : "-",
       num,
@@ -55,7 +67,7 @@ function exportarExcel(fleet: string, rows: AbastecimentoRow[], ini: string, fim
     ]);
   });
   const total = rows.reduce((s, r) => s + (r.litros || 0), 0);
-  linhas.push(["TOTAL", "", "", total.toFixed(1), "", "", "", "", "", ""]);
+  linhas.push(["TOTAL", "", "", fmtNumCsvLib(total), "", "", "", "", "", ""]);
 
   const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -88,7 +100,7 @@ function exportarPdf(fleet: string, rows: AbastecimentoRow[], ini: string, fim: 
       <td>${fmtDate(r.data)}</td>
       <td>${r.equipment_fleet || "-"}</td>
       <td>${r.equipment_type || "-"}</td>
-      <td>${r.litros != null ? r.litros.toFixed(1) : "-"}</td>
+      <td>${r.litros != null ? fmtNumLib(r.litros) : "-"}</td>
       <td>${r.horimetro != null ? r.horimetro : "-"}</td>
       <td>${r.km_odometro != null ? r.km_odometro : "-"}</td>
       <td>${num}</td>
@@ -96,7 +108,7 @@ function exportarPdf(fleet: string, rows: AbastecimentoRow[], ini: string, fim: 
       <td>${r.fornecedor || "-"}</td>
     </tr>`;
   });
-  html += `<tr class="total"><td colspan="3">TOTAL</td><td>${total.toFixed(1)} L</td><td colspan="5"></td></tr>`;
+  html += `<tr class="total"><td colspan="3">TOTAL</td><td>${fmtNumLib(total)} L</td><td colspan="5"></td></tr>`;
   html += `</table></body></html>`;
 
   const win = window.open("", "_blank");
@@ -252,7 +264,7 @@ export default function RelatorioAbastecimento() {
             {/* Resumo */}
             <div className="rdo-card bg-primary/5 border-primary/20 flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{rows.length} abastecimento{rows.length !== 1 ? "s" : ""}</span>
-              <span className="text-sm font-bold text-primary">Total: {totalLitros.toFixed(1)} L</span>
+              <span className="text-sm font-bold text-primary">Total: {fmtNumLib(totalLitros)} L</span>
             </div>
 
             {/* Tabela compacta */}
@@ -277,7 +289,7 @@ export default function RelatorioAbastecimento() {
                         <tr key={r.id} className={`border-b border-border/50 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
                           <td className="py-2 px-3 whitespace-nowrap">{fmtDate(r.data)}</td>
                           <td className="py-2 px-3 font-medium">{r.equipment_fleet || "-"}</td>
-                          <td className="py-2 px-3 text-right font-semibold text-primary">{r.litros != null ? r.litros.toFixed(1) : "-"}</td>
+                          <td className="py-2 px-3 text-right font-semibold text-primary">{r.litros != null ? fmtNumLib(r.litros) : "-"}</td>
                           <td className="py-2 px-3 text-right">{r.horimetro != null ? r.horimetro : "-"}</td>
                           <td className="py-2 px-3 text-right">{r.km_odometro != null ? r.km_odometro : "-"}</td>
                           <td className="py-2 px-3 font-medium">{num}</td>
@@ -287,7 +299,7 @@ export default function RelatorioAbastecimento() {
                     })}
                     <tr className="bg-primary/5 font-bold border-t-2 border-primary/30">
                       <td colSpan={2} className="py-2 px-3">TOTAL</td>
-                      <td className="py-2 px-3 text-right text-primary">{totalLitros.toFixed(1)}</td>
+                      <td className="py-2 px-3 text-right text-primary">{fmtNumLib(totalLitros)}</td>
                       <td colSpan={4} />
                     </tr>
                   </tbody>
