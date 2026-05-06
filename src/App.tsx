@@ -65,6 +65,21 @@ import AdminLancamentos from "./pages/AdminLancamentos";
 
 const queryClient = new QueryClient();
 
+function RequireModule({ moduleId, children }: { moduleId: string; children: JSX.Element }) {
+  const { hasModule, loading, isSuperAdmin } = useCompanyModules();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+  if (!isSuperAdmin && !hasModule(moduleId)) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
+
 function RequireAdminOrSuperAdmin({ children }: { children: JSX.Element }) {
   const { isAdmin, loading: loadingAdmin } = useIsAdmin();
   const { isSuperAdmin, loading: loadingModules } = useCompanyModules();
@@ -156,27 +171,27 @@ function AppRoutes() {
         <Route path="/perfil" element={<Perfil />} />
 
         {/* Obras module */}
-        <Route path="/obras" element={<Index />} />
-        <Route path="/obras/rdo" element={<RdoForm />} />
+        <Route path="/obras" element={<RequireModule moduleId="obras"><Index /></RequireModule>} />
+        <Route path="/obras/rdo" element={<RequireModule moduleId="obras"><RdoForm /></RequireModule>} />
 
-        {/* Equipamentos module — standalone layout */}
-        <Route path="/equipamentos" element={<EquipmentHome />} />
-        <Route path="/equipamentos/frota" element={<AppLayout><FrotaNovo /></AppLayout>} />
-        <Route path="/equipamentos/diario" element={<EquipmentDiaryForm />} />
+        {/* Equipamentos module */}
+        <Route path="/equipamentos" element={<RequireModule moduleId="equipamentos"><EquipmentHome /></RequireModule>} />
+        <Route path="/equipamentos/frota" element={<RequireModule moduleId="equipamentos"><AppLayout><FrotaNovo /></AppLayout></RequireModule>} />
+        <Route path="/equipamentos/diario" element={<RequireModule moduleId="equipamentos"><EquipmentDiaryForm /></RequireModule>} />
         <Route path="/meus-lancamentos" element={<MeusLancamentos />} />
         <Route path="/visualizar-lancamento/:id" element={<VisualizarLancamento />} />
         <Route path="/visualizar-rdo/:id" element={<VisualizarRdo />} />
-        <Route path="/equipamentos/exportar-protheus" element={<ExportarProtheus />} />
-        <Route path="/documentos" element={<DocumentosHome />} />
-        <Route path="/documentos/:id" element={<DocumentosIntegracao />} />
-        <Route path="/manutencao" element={<ManutencaoHome />} />
-        <Route path="/manutencao/os/:id" element={<ManutencaoOS />} />
-        <Route path="/manutencao/documentos" element={<ManutencaoDocumentos />} />
-        <Route path="/abastecimento" element={<AbastecimentoHome />} />
-        <Route path="/relatorios" element={<RelatoriosHome />} />
-        <Route path="/relatorios/rdo/:ogs" element={<RelatorioRdo />} />
-        <Route path="/relatorios/abastecimento/:fleet" element={<RelatorioAbastecimento />} />
-        <Route path="/relatorios/manutencao/:fleet" element={<RelatorioManutencao />} />
+        <Route path="/equipamentos/exportar-protheus" element={<RequireModule moduleId="equipamentos"><ExportarProtheus /></RequireModule>} />
+        <Route path="/documentos" element={<RequireModule moduleId="documentos"><DocumentosHome /></RequireModule>} />
+        <Route path="/documentos/:id" element={<RequireModule moduleId="documentos"><DocumentosIntegracao /></RequireModule>} />
+        <Route path="/manutencao" element={<RequireModule moduleId="manutencao"><ManutencaoHome /></RequireModule>} />
+        <Route path="/manutencao/os/:id" element={<RequireModule moduleId="manutencao"><ManutencaoOS /></RequireModule>} />
+        <Route path="/manutencao/documentos" element={<RequireModule moduleId="manutencao"><ManutencaoDocumentos /></RequireModule>} />
+        <Route path="/abastecimento" element={<RequireModule moduleId="abastecimento"><AbastecimentoHome /></RequireModule>} />
+        <Route path="/relatorios" element={<RequireModule moduleId="relatorios"><RelatoriosHome /></RequireModule>} />
+        <Route path="/relatorios/rdo/:ogs" element={<RequireModule moduleId="relatorios"><RelatorioRdo /></RequireModule>} />
+        <Route path="/relatorios/abastecimento/:fleet" element={<RequireModule moduleId="relatorios"><RelatorioAbastecimento /></RequireModule>} />
+        <Route path="/relatorios/manutencao/:fleet" element={<RequireModule moduleId="relatorios"><RelatorioManutencao /></RequireModule>} />
         {/* Rota correta usada pelo RelatoriosHome */}
         <Route path="/relatorio-equipamento/:fleet" element={<RelatorioEquipamento />} />
         {/* Alias para compatibilidade */}
@@ -187,20 +202,20 @@ function AppRoutes() {
             <SuperAdmin />
           </RequireAdminOrSuperAdmin>
         } />
-        <Route path="/gestao-frotas" element={<GestaoFrotasHome />} />
-        <Route path="/gestao-frotas/veiculo/:id" element={<GestaoFrotasVeiculo />} />
-        <Route path="/gestao-frotas/dashboard" element={<GestaoFrotasDashboard />} />
-        <Route path="/gestao-pessoas" element={<GestaoPessoasDashboard />} />
+        <Route path="/gestao-frotas" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasHome /></RequireModule>} />
+        <Route path="/gestao-frotas/veiculo/:id" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasVeiculo /></RequireModule>} />
+        <Route path="/gestao-frotas/dashboard" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboard /></RequireModule>} />
+        <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
 
         {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}
-        <Route path="/carreteiros" element={<TruckerHome />} />
+        <Route path="/carreteiros" element={<RequireModule moduleId="carreteiros"><TruckerHome /></RequireModule>} />
 
         {/* Diretório — busca global */}
         <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
 
         {/* WF RH module */}
-        <Route path="/rh" element={<RhHome />} />
+        <Route path="/rh" element={<RequireModule moduleId="rh"><RhHome /></RequireModule>} />
         <Route path="/rh/trajeto-vt" element={<TrajetoVT />} />
         <Route path="/rh/registrar-ponto" element={<RegistrarPonto />} />
         <Route path="/rh/espelho-ponto" element={<EspelhoPonto />} />
@@ -232,10 +247,10 @@ function AppRoutes() {
         />
 
         {/* WF Programador */}
-        <Route path="/programador" element={<ProgramadorHome />} />
+        <Route path="/programador" element={<RequireModule moduleId="programador"><ProgramadorHome /></RequireModule>} />
 
         {/* WF Demandas */}
-        <Route path="/demandas" element={<DemandasHome />} />
+        <Route path="/demandas" element={<RequireModule moduleId="demandas"><DemandasHome /></RequireModule>} />
         <Route path="/demandas/:id" element={<DetalhesDemanda />} />
         <Route path="/minhas-demandas" element={<MinhasDemandas />} />
         <Route path="/manutencao/fila" element={<FilaManutencao />} />
