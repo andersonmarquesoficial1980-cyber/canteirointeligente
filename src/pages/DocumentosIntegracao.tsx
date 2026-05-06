@@ -57,56 +57,13 @@ export default function DocumentosIntegracao() {
   }
 
   async function analisarDocumento(doc: Documento) {
-    const OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY;
-
-    const prompts: Record<string, string> = {
-      ASO: "Analise este Atestado de Saúde Ocupacional (ASO). Extraia: nome do funcionário, data de emissão, data de validade, se está legível, se tem assinatura do médico. Responda em JSON: {\"nome\": \"\", \"emissao\": \"\", \"validade\": \"\", \"legivel\": true, \"assinado\": true, \"observacao\": \"\"}",
-      OS: "Analise esta Ordem de Serviço (OS). Extraia: nome, data, se está assinada pelo funcionário e pelo responsável, se está legível. JSON: {\"nome\": \"\", \"emissao\": \"\", \"assinado_funcionario\": true, \"assinado_responsavel\": true, \"legivel\": true, \"observacao\": \"\"}",
-      "Ficha EPI": "Analise esta Ficha de EPI. Extraia: nome, data, se está assinada, se está legível. JSON: {\"nome\": \"\", \"emissao\": \"\", \"assinado\": true, \"legivel\": true, \"observacao\": \"\"}",
-      DEFAULT: `Analise este documento de segurança do tipo ${doc.tipo_documento}. Extraia nome, data, se está legível e assinado. JSON: {\"nome\": \"\", \"emissao\": \"\", \"validade\": \"\", \"legivel\": true, \"assinado\": true, \"observacao\": \"\"}`,
-    };
-
-    const prompt = prompts[doc.tipo_documento] || prompts.DEFAULT;
-
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        max_tokens: 400,
-        messages: [{ role: "user", content: [
-          { type: "text", text: prompt },
-          { type: "image_url", image_url: { url: doc.arquivo_url, detail: "high" } },
-        ]}],
-      }),
+    // Chama a Edge Function analisar-documento (OpenAI key fica segura no servidor)
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await supabase.functions.invoke("analisar-documento", {
+      body: { documento_id: doc.id, arquivo_url: doc.arquivo_url, tipo_documento: doc.tipo_documento },
     });
-
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content ?? "{}";
-
-    let resultado: any = {};
-    try {
-      const match = content.match(/\{[\s\S]*\}/);
-      if (match) resultado = JSON.parse(match[0]);
-    } catch { resultado = { observacao: content }; }
-
-    // Determinar status
-    let status = "aprovado";
-    if (resultado.legivel === false) status = "reprovado";
-    else if (doc.tipo_documento === "OS" && (resultado.assinado_funcionario === false || resultado.assinado_responsavel === false)) status = "reprovado";
-    else if ((doc.tipo_documento === "ASO" || doc.tipo_documento === "Ficha EPI") && resultado.assinado === false) status = "reprovado";
-    else if (!resultado.nome || resultado.nome.trim() === "") status = "atencao";
-    else if (resultado.observacao && resultado.observacao.length > 10) status = "atencao";
-
-    await supabase.from("ci_documentos").update({
-      status,
-      ia_resultado: resultado,
-      ia_nome_detectado: resultado.nome || null,
-      ia_validade: resultado.validade || resultado.emissao || null,
-      ia_observacao: resultado.observacao || null,
-      updated_at: new Date().toISOString(),
-    }).eq("id", doc.id);
+    if (res.error) throw new Error(res.error.message);
+    // A Edge Function já faz o update no banco e retorna o resultado
   }
 
   async function analisarComIA() {
