@@ -39,7 +39,13 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
   const { data: servicosData } = useTiposServico(tipoRdo);
   const servicos = servicosData?.map(s => s.nome) ?? [];
 
-  const totalNF = (nfEntries ?? []).reduce((sum, e) => sum + (parseFloat(e.tonelagem) || 0), 0);
+  const toNum = (val: string) => {
+    if (!val) return 0;
+    const clean = val.replace(/[^\d.,]/g, '');
+    return Number(clean.replace(",", "."));
+  };
+
+  const totalNF = (nfEntries ?? []).reduce((sum, e) => sum + toNum(e.tonelagem), 0);
 
   const updateTrecho = (id: string, field: string, value: string) =>
     onChange({ ...data, trechos: data.trechos.map(t => t.id === id ? { ...t, [field]: value } : t) });
@@ -48,9 +54,9 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
   const removeTrecho = (id: string) => onChange({ ...data, trechos: data.trechos.filter(t => t.id !== id) });
 
   const calcArea = (t: TrechoCauqEntry) => {
-    const c = parseFloat(t.comprimento_m);
-    const l = parseFloat(t.largura_m);
-    if (!isNaN(c) && !isNaN(l) && c > 0 && l > 0) return (c * l).toFixed(2);
+    const c = toNum(t.comprimento_m);
+    const l = toNum(t.largura_m);
+    if (c > 0 && l > 0) return (c * l).toFixed(2);
     return "";
   };
 
@@ -115,11 +121,11 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <span className="rdo-label">Comp. (m)</span>
-              <Input inputMode="decimal" value={trecho.comprimento_m} onChange={e => updateTrecho(trecho.id, "comprimento_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+              <Input type="text" value={trecho.comprimento_m} onChange={e => updateTrecho(trecho.id, "comprimento_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
             <div className="space-y-1.5">
               <span className="rdo-label">Larg. (m)</span>
-              <Input inputMode="decimal" value={trecho.largura_m} onChange={e => updateTrecho(trecho.id, "largura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+              <Input type="text" value={trecho.largura_m} onChange={e => updateTrecho(trecho.id, "largura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
             <div className="space-y-1.5">
               <span className="rdo-label">Área (m²)</span>
@@ -129,7 +135,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
 
           <div className="space-y-1.5">
             <span className="rdo-label">Espessura (cm)</span>
-            <Input inputMode="decimal" value={trecho.espessura_m} onChange={e => updateTrecho(trecho.id, "espessura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 5" />
+            <Input type="text" value={trecho.espessura_m} onChange={e => updateTrecho(trecho.id, "espessura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 5" />
           </div>
 
           <div className="space-y-1.5">

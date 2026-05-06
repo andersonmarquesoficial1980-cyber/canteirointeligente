@@ -37,7 +37,13 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
   const update = (id: string, field: string, value: string) =>
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
 
-  const totalTon = entries.reduce((sum, e) => sum + (parseFloat(e.tonelagem) || 0), 0);
+  const toNum = (val: string) => {
+    if (!val) return 0;
+    const clean = val.replace(/[^\d.,]/g, '');
+    return Number(clean.replace(",", "."));
+  };
+
+  const totalTon = entries.reduce((sum, e) => sum + toNum(e.tonelagem), 0);
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
     const emptyIdx = entries.findIndex(e => !e.nf && !e.placa && !e.tonelagem && !e.usina);
@@ -105,7 +111,7 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
             </div>
             <div className="space-y-1.5">
               <span className="rdo-label">Tonelagem</span>
-              <Input type="number" inputMode="decimal" value={entry.tonelagem} onChange={e => update(entry.id, "tonelagem", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+              <Input type="text" value={entry.tonelagem} onChange={e => update(entry.id, "tonelagem", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
           </div>
           <div className="space-y-1.5">
