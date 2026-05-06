@@ -25,7 +25,18 @@ import logoCi from "@/assets/logo-workflux.png";
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
 
-const VINCULO_OPTIONS = ["CAUQ", "INFRA", "CANTEIRO", "TODOS"];
+const VINCULO_OPTIONS = ["PAVIMENTACAO", "INFRA", "CANTEIRO", "COMBOIO", "PIPA", "ESPARGIDOR", "TODOS"];
+const VINCULO_LABELS: Record<string, string> = {
+  PAVIMENTACAO: "RDO Pavimentação",
+  CAUQ: "RDO Pavimentação (legado)",
+  INFRA: "RDO Infra",
+  CANTEIRO: "RDO Canteiro",
+  COMBOIO: "Comboio",
+  PIPA: "Caminhão Pipa",
+  ESPARGIDOR: "Espargidor",
+  TODOS: "Todos",
+};
+const TIPO_INSUMO_OPTIONS = ["Diesel", "Emulsão", "Água", "Concreto", "Massa Asfáltica", "Insumos", "Outro"];
 const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
 const CATEGORIAS_EQUIP = ["PEQUENO PORTE", "FRESA/BOB", "VIBRO/ROLO", "LINHA AMARELA", "USINAGEM", "VEÍCULOS EM GERAL"];
 
@@ -80,7 +91,20 @@ function useCrudTable(tableName: string) {
     }
   };
 
-  return { items, loading, add, remove, reload: load };
+  const update = async (id: string, fields: any) => {
+    try {
+      const { error } = await supabase.from(tableName as any).update(fields).eq("id", id);
+      if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return false; }
+      toast({ title: "✅ Atualizado!" });
+      await load();
+      return true;
+    } catch (err: any) {
+      toast({ title: "Erro inesperado", description: err.message, variant: "destructive" });
+      return false;
+    }
+  };
+
+  return { items, loading, add, remove, update, reload: load };
 }
 
 // Simple entity form with nome + vinculo_rdo
@@ -128,6 +152,131 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{item.vinculo_rdo}</span>
             </div>
             <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Fornecedores manager — com tipo_insumo + edição inline de vínculo
+function FornecedoresManager() {
+  const { items, loading, add, remove, update } = useCrudTable("fornecedores");
+  const { toast } = useToast();
+  const [nome, setNome] = useState("");
+  const [vinculo, setVinculo] = useState("TODOS");
+  const [tipoInsumo, setTipoInsumo] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editVinculo, setEditVinculo] = useState("");
+  const [editTipoInsumo, setEditTipoInsumo] = useState("");
+
+  const handleAdd = async () => {
+    if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); return; }
+    const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_insumo: tipoInsumo || null });
+    if (ok) { setNome(""); setVinculo("TODOS"); setTipoInsumo(""); }
+  };
+
+  const startEdit = (item: any) => {
+    setEditingId(item.id);
+    setEditVinculo(item.vinculo_rdo || "TODOS");
+    setEditTipoInsumo(item.tipo_insumo || "");
+  };
+
+  const saveEdit = async (id: string) => {
+    const ok = await update(id, { vinculo_rdo: editVinculo, tipo_insumo: editTipoInsumo || null });
+    if (ok) setEditingId(null);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Formulário de adição */}
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Nome do Fornecedor</Label>
+          <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Novo Fornecedor" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Onde aparece</Label>
+            <Select value={vinculo} onValueChange={setVinculo}>
+              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{VINCULO_LABELS[v] ?? v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Tipo de Insumo</Label>
+            <Select value={tipoInsumo} onValueChange={setTipoInsumo}>
+              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="(opcional)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">— Nenhum —</SelectItem>
+                {TIPO_INSUMO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
+      </div>
+
+      {/* Lista */}
+      <div className="space-y-2">
+        {loading ? (
+          <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}</div>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhum fornecedor cadastrado.</p>
+        ) : items.map((item: any) => (
+          <div key={item.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
+            {editingId === item.id ? (
+              /* Modo edição */
+              <div className="space-y-2">
+                <p className="font-medium text-sm text-foreground">{item.nome}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Onde aparece</Label>
+                    <Select value={editVinculo} onValueChange={setEditVinculo}>
+                      <SelectTrigger className="h-9 bg-secondary border-border text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{VINCULO_LABELS[v] ?? v}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Tipo de Insumo</Label>
+                    <Select value={editTipoInsumo} onValueChange={setEditTipoInsumo}>
+                      <SelectTrigger className="h-9 bg-secondary border-border text-xs"><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">— Nenhum —</SelectItem>
+                        {TIPO_INSUMO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => saveEdit(item.id)}><Save className="w-3 h-3 mr-1" /> Salvar</Button>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditingId(null)}><X className="w-3 h-3" /></Button>
+                </div>
+              </div>
+            ) : (
+              /* Modo visualização */
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="font-medium text-sm text-foreground">{item.nome}</p>
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                      {VINCULO_LABELS[item.vinculo_rdo] ?? item.vinculo_rdo ?? "TODOS"}
+                    </span>
+                    {item.tipo_insumo && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">{item.tipo_insumo}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => startEdit(item)} className="text-primary p-1"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -1811,7 +1960,7 @@ export default function AdminConfiguracoes() {
       case "funcionarios": return <FuncionariosManager />;
       case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" />;
       case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />;
-      case "fornecedores": return <EntityManager tableName="fornecedores" label="Fornecedor" />;
+      case "fornecedores": return <FornecedoresManager />;
       case "usinas": return <EntityManager tableName="usinas" label="Usina" />;
       case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;

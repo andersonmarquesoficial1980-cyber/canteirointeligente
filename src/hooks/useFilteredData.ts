@@ -8,14 +8,24 @@ interface FilteredItem {
   tipo_uso?: string;
 }
 
+// CAUQ e PAVIMENTACAO são equivalentes (legado x novo)
+const VINCULO_ALIAS: Record<string, string[]> = {
+  CAUQ: ["CAUQ", "PAVIMENTACAO", "TODOS"],
+  PAVIMENTACAO: ["PAVIMENTACAO", "CAUQ", "TODOS"],
+  INFRAESTRUTURA: ["INFRA", "TODOS"],
+  INFRA: ["INFRA", "TODOS"],
+};
+
 function useFilteredTable(tableName: string, tipoRdo: string, tipoUso?: string) {
   return useQuery({
     queryKey: [tableName, tipoRdo, tipoUso],
     queryFn: async () => {
+      const aliases = VINCULO_ALIAS[tipoRdo] ?? [tipoRdo, "TODOS"];
+      const orFilter = aliases.map(a => `vinculo_rdo.eq.${a}`).join(",");
       let query = supabase
         .from(tableName as any)
         .select("*")
-        .or(`vinculo_rdo.eq.${tipoRdo},vinculo_rdo.eq.TODOS`)
+        .or(orFilter)
         .order("nome");
 
       if (tipoUso && tableName === "materiais") {

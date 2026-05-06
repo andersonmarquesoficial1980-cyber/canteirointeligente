@@ -47,7 +47,7 @@ export default function SectionNfConcreto({ entries, onChange }: Props) {
       const { data } = await supabase
         .from("fornecedores")
         .select("*")
-        .eq("vinculo_rdo", "INFRA")
+        .or("vinculo_rdo.eq.INFRA,vinculo_rdo.eq.TODOS")
         .order("nome");
       return data || [];
     },

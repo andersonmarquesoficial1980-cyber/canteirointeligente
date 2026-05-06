@@ -428,6 +428,7 @@ export default function EquipmentDiaryForm() {
       const { data, error } = await supabase
         .from("fornecedores")
         .select("id, nome, vinculo_rdo, tipo_insumo")
+        .or("vinculo_rdo.eq.TODOS,vinculo_rdo.eq.COMBOIO,vinculo_rdo.eq.PIPA,vinculo_rdo.eq.ESPARGIDOR")
         .order("nome");
       if (error) throw error;
       return (data || []) as any[];
@@ -531,9 +532,16 @@ export default function EquipmentDiaryForm() {
     return () => { cancelled = true; };
   }, [selectedFleet, date, isComboio, isEditMode]);
 
-  const fornecedoresDiesel = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Diesel");
-  const fornecedoresEmulsao = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Emulsão");
-  const fornecedoresAgua = fornecedoresDb.filter((f: any) => f.tipo_insumo === "Água");
+  // Filtro por vínculo específico (cai pra tipo_insumo se vínculo não distinguir)
+  const fornecedoresDiesel = fornecedoresDb.filter((f: any) =>
+    f.vinculo_rdo === "COMBOIO" || f.vinculo_rdo === "TODOS" || f.tipo_insumo === "Diesel"
+  );
+  const fornecedoresEmulsao = fornecedoresDb.filter((f: any) =>
+    f.vinculo_rdo === "ESPARGIDOR" || f.vinculo_rdo === "TODOS" || f.tipo_insumo === "Emulsão"
+  );
+  const fornecedoresAgua = fornecedoresDb.filter((f: any) =>
+    f.vinculo_rdo === "PIPA" || f.vinculo_rdo === "TODOS" || f.tipo_insumo === "Água"
+  );
 
   // Log data arrival for debugging
   useEffect(() => {
