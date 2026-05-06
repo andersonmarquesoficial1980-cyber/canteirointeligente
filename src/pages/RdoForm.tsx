@@ -141,6 +141,90 @@ export default function RdoForm() {
   const [savingDraft, setSavingDraft] = useState(false);
 
   // Auto-fill hours based on turno
+  // Carregar RDO existente em modo edição
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId) return;
+    const carregar = async () => {
+      const [{ data: rdo }, { data: efetivo }, { data: producao }, { data: equipamentos }, { data: nfRows }] = await Promise.all([
+        (supabase as any).from("rdo_diarios").select("*").eq("id", editId).maybeSingle(),
+        (supabase as any).from("rdo_efetivo").select("*").eq("rdo_id", editId),
+        (supabase as any).from("rdo_producao").select("*").eq("rdo_id", editId),
+        (supabase as any).from("rdo_equipamentos").select("*").eq("rdo_id", editId),
+        (supabase as any).from("rdo_nf_massa").select("*").eq("rdo_id", editId),
+      ]);
+      if (!rdo) return;
+      setHeader(prev => ({
+        ...prev,
+        data: rdo.data || prev.data,
+        obra_nome: rdo.obra_nome || "",
+        status_obra: rdo.clima || "Trabalhou",
+        turno: rdo.turno || "",
+      }));
+      if (rdo.tipo_rdo) setTipoRdo(rdo.tipo_rdo);
+      // Efetivo
+      if (efetivo?.length) {
+        setEfetivo(efetivo.map((e: any) => ({
+          id: e.id,
+          matricula: e.matricula || "",
+          nome: e.nome || "",
+          funcao: e.funcao || "",
+          entrada: e.entrada || "",
+          saida: e.saida || "",
+        })));
+        if (efetivo[0]?.entrada) setGlobalEntrada(efetivo[0].entrada);
+        if (efetivo[0]?.saida) setGlobalSaida(efetivo[0].saida);
+      }
+      // Produção CAUQ
+      if (producao?.length) {
+        setProducaoCauq({
+          trechos: producao.map((p: any) => ({
+            id: p.id,
+            tipo_servico: p.tipo_servico || "",
+            sentido: p.sentido_faixa || p.sentido || "",
+            faixa: p.faixa || "",
+            estaca_inicial: p.estaca_inicial || String(p.km_inicial || ""),
+            estaca_final: p.estaca_final || String(p.km_final || ""),
+            comprimento_m: String(p.comprimento_m || ""),
+            largura_m: String(p.largura_m || ""),
+            espessura_m: String(p.espessura_cm || ""),
+            observacoes: p.observacoes || "",
+          })),
+          tonelagem_aplicada: "",
+        });
+      }
+      // Equipamentos
+      if (equipamentos?.length) {
+        setEquipamentos(equipamentos.map((e: any) => ({
+          id: e.id,
+          categoria: e.categoria || "",
+          subTipo: e.sub_tipo || "",
+          frota: e.frota || "",
+          tipo: e.tipo || "",
+          nome: e.nome || "",
+          patrimonio: e.patrimonio || "",
+          empresa_dona: e.empresa_dona || "",
+          is_menor: false,
+          fresadora_conica: "",
+        })));
+      }
+      // NF Massa
+      if (nfRows?.length) {
+        setNfMassa(nfRows.map((n: any) => ({
+          id: n.id,
+          placa: n.placa || "",
+          usina: n.usina || "",
+          nf: n.nf || "",
+          tonelagem: String(n.tonelagem || ""),
+          tipo_material: n.tipo_material || "",
+          tipo_material_outro: "",
+        })));
+      }
+    };
+    carregar();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (header.turno === "diurno") {
       setGlobalEntrada("07:00");
@@ -368,14 +452,31 @@ export default function RdoForm() {
     try {
       // RDO payload ready
 
-      const { data: rdo, error: rdoError } = await supabase
-        .from("rdo_diarios")
-        .insert(rdoPayload)
-        .select("id")
-        .single();
+      const editId = searchParams.get("edit");
+      let rdoId: string;
 
-      if (rdoError) throw rdoError;
-      const rdoId = rdo.id;
+      if (editId) {
+        // Modo edição: atualiza registro existente e deleta filhos pra reinserir
+        const { error: updError } = await (supabase as any)
+          .from("rdo_diarios").update(rdoPayload).eq("id", editId);
+        if (updError) throw updError;
+        rdoId = editId;
+        // Limpar dados filhos antes de reinserir
+        await Promise.all([
+          (supabase as any).from("rdo_efetivo").delete().eq("rdo_id", rdoId),
+          (supabase as any).from("rdo_producao").delete().eq("rdo_id", rdoId),
+          (supabase as any).from("rdo_equipamentos").delete().eq("rdo_id", rdoId),
+          (supabase as any).from("rdo_nf_massa").delete().eq("rdo_id", rdoId),
+        ]);
+      } else {
+        const { data: rdo, error: rdoError } = await supabase
+          .from("rdo_diarios")
+          .insert(rdoPayload)
+          .select("id")
+          .single();
+        if (rdoError) throw rdoError;
+        rdoId = rdo.id;
+      }
 
       // Produção (infra)
       if (tipoRdo === "INFRAESTRUTURA") {

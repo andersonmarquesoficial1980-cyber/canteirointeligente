@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, Loader2, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,8 @@ export default function MeusLancamentos() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [aba, setAba] = useState<"equipamentos" | "rdos">("equipamentos");
   const [rdos, setRdos] = useState<any[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; tipo: "equipamento" | "rdo"; label: string } | null>(null);
+  const [deletando, setDeletando] = useState(false);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [frotas, setFrotas] = useState<string[]>([]);
@@ -85,6 +87,30 @@ export default function MeusLancamentos() {
       }
     });
     setDetalheExtra({ areas: areas || [], bits: bits || [], horas: horasTotal > 0 ? Math.round(horasTotal * 10) / 10 : null });
+  };
+
+  const handleDeletar = async () => {
+    if (!confirmDelete) return;
+    setDeletando(true);
+    try {
+      if (confirmDelete.tipo === "equipamento") {
+        await (supabase as any).from("equipment_diaries").delete().eq("id", confirmDelete.id);
+        setLancamentos(prev => prev.filter(l => l.id !== confirmDelete.id));
+      } else {
+        // Deletar RDO e dados relacionados
+        await Promise.all([
+          (supabase as any).from("rdo_efetivo").delete().eq("rdo_id", confirmDelete.id),
+          (supabase as any).from("rdo_producao").delete().eq("rdo_id", confirmDelete.id),
+          (supabase as any).from("rdo_equipamentos").delete().eq("rdo_id", confirmDelete.id),
+          (supabase as any).from("rdo_nf_massa").delete().eq("rdo_id", confirmDelete.id),
+        ]);
+        await (supabase as any).from("rdo_diarios").delete().eq("id", confirmDelete.id);
+        setRdos(prev => prev.filter(r => r.id !== confirmDelete.id));
+      }
+    } finally {
+      setDeletando(false);
+      setConfirmDelete(null);
+    }
   };
 
   const handleEditarLancamento = async (item: Lancamento) => {
@@ -309,21 +335,36 @@ export default function MeusLancamentos() {
             <div className="rdo-card py-10 text-center text-muted-foreground text-sm">Nenhum RDO encontrado.</div>
           ) : (
             <div className="space-y-3">
-              {rdos.map((rdo: any) => (
-                <button key={rdo.id}
-                  onClick={() => navigate(`/relatorios/rdo/${rdo.obra_nome}?ini=${rdo.data}&fim=${rdo.data}`)}
-                  className="w-full text-left rdo-card hover:shadow-md transition-all"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-display font-bold text-primary">OGS {rdo.obra_nome} • {rdo.data ? (() => { const [y,m,d] = rdo.data.split('-'); return `${d}/${m}/${y}`; })() : '-'}</p>
-                      <p className="text-xs text-muted-foreground">Tipo: {rdo.tipo_rdo || '-'} • Responsável: {rdo.responsavel || '-'}</p>
-                      <p className="text-xs text-muted-foreground">Turno: {rdo.turno || '-'} • Clima: {rdo.clima || '-'}</p>
+              {rdos.map((rdo: any) => {
+                const fmtRdoDate = rdo.data ? (() => { const [y,m,d] = rdo.data.split('-'); return `${d}/${m}/${y}`; })() : '-';
+                return (
+                  <div key={rdo.id} className="rdo-card hover:shadow-md transition-all">
+                    <div className="flex items-start justify-between gap-3">
+                      <button className="flex-1 text-left space-y-1"
+                        onClick={() => navigate(`/relatorios/rdo/${rdo.obra_nome}?ini=${rdo.data}&fim=${rdo.data}`)}>
+                        <p className="text-sm font-display font-bold text-primary">OGS {rdo.obra_nome} • {fmtRdoDate}</p>
+                        <p className="text-xs text-muted-foreground">Tipo: {rdo.tipo_rdo || '-'} • Responsável: {rdo.responsavel || '-'}</p>
+                        <p className="text-xs text-muted-foreground">Turno: {rdo.turno || '-'} • Clima: {rdo.clima || '-'}</p>
+                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold">RDO</span>
+                        <button
+                          onClick={() => navigate(`/obras/rdo?edit=${rdo.id}`)}
+                          className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors"
+                          title="Editar">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete({ id: rdo.id, tipo: 'rdo', label: `OGS ${rdo.obra_nome} • ${fmtRdoDate}` })}
+                          className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
+                          title="Excluir">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold shrink-0">RDO</span>
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           )
         ) : lancamentos.length === 0 ? (
@@ -333,45 +374,46 @@ export default function MeusLancamentos() {
         ) : (
           <div className="space-y-3">
             {lancamentos.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => abrirDetalhe(item)}
-                className="w-full text-left rdo-card hover:shadow-md transition-all"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-display font-bold text-primary">
-                      {item.equipment_fleet || "-"} • {item.equipment_type || "-"}
-                    </p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5" /> {fmtDate(item.date)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-semibold text-muted-foreground">Status</p>
-                    <p className="text-xs">{item.work_status || "-"}</p>
+              <div key={item.id} className="rdo-card hover:shadow-md transition-all">
+                <div className="flex items-start justify-between gap-2">
+                  <button className="flex-1 text-left" onClick={() => abrirDetalhe(item)}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <p className="text-sm font-display font-bold text-primary">
+                          {item.equipment_fleet || "-"} • {item.equipment_type || "-"}
+                        </p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" /> {fmtDate(item.date)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-semibold text-muted-foreground">Status</p>
+                        <p className="text-xs">{item.work_status || "-"}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-xs">
+                      <div><p className="text-muted-foreground">Frota</p><p className="font-semibold">{item.equipment_fleet || "-"}</p></div>
+                      <div><p className="text-muted-foreground">Tipo</p><p className="font-semibold">{item.equipment_type || "-"}</p></div>
+                      <div><p className="text-muted-foreground">Status</p><p className="font-semibold">{item.work_status || "-"}</p></div>
+                      <div><p className="text-muted-foreground">Turno</p><p className="font-semibold">{item.period || "-"}</p></div>
+                    </div>
+                  </button>
+                  <div className="flex flex-col gap-1 shrink-0 pt-1">
+                    <button
+                      onClick={() => handleEditarLancamento(item)}
+                      className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors"
+                      title="Editar">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete({ id: item.id, tipo: 'equipamento', label: `${item.equipment_fleet || '-'} • ${fmtDate(item.date)}` })}
+                      className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
+                      title="Excluir">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-xs">
-                  <div>
-                    <p className="text-muted-foreground">Frota</p>
-                    <p className="font-semibold">{item.equipment_fleet || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Tipo</p>
-                    <p className="font-semibold">{item.equipment_type || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Status</p>
-                    <p className="font-semibold">{item.work_status || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Turno</p>
-                    <p className="font-semibold">{item.period || "-"}</p>
-                  </div>
-                </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -460,6 +502,29 @@ export default function MeusLancamentos() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmáção de Exclusão */}
+      <Dialog open={!!confirmDelete} onOpenChange={(open) => { if (!open && !deletando) setConfirmDelete(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-destructive">Excluir lançamento?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja excluir <strong>{confirmDelete?.label}</strong>? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)} disabled={deletando}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" className="flex-1 gap-2" onClick={handleDeletar} disabled={deletando}>
+                {deletando && <Loader2 className="w-4 h-4 animate-spin" />}
+                Excluir
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
