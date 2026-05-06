@@ -18,18 +18,24 @@ export function createEmptyArea(): ProductionArea {
   return { id: crypto.randomUUID(), comp: "", larg: "", esp: "" };
 }
 
+// Aceita tanto vírgula quanto ponto como separador decimal
+function toNum(val: string): number {
+  if (!val) return 0;
+  return Number(val.replace(",", "."));
+}
+
 function calcM2(a: ProductionArea): number | null {
-  const c = Number(a.comp);
-  const l = Number(a.larg);
+  const c = toNum(a.comp);
+  const l = toNum(a.larg);
   if (!c || !l) return null;
   return c * l;
 }
 
 function calcM3(a: ProductionArea): number | null {
   const m2 = calcM2(a);
-  const e = Number(a.esp);
+  const e = toNum(a.esp);
   if (m2 === null || !e) return null;
-  return m2 * (e / 100); // esp in cm → m
+  return m2 * (e / 100); // esp em cm → m
 }
 
 export default function ProductionAreasSection({ areas, onChange }: Props) {

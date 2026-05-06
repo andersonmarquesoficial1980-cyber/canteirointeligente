@@ -1191,10 +1191,11 @@ export default function EquipmentDiaryForm() {
       if (isFresadora && diary) {
         const validAreas = productionAreas.filter((a) => a.comp || a.larg);
         if (validAreas.length > 0) {
+          const toN = (v: string) => Number((v || "").replace(",", ".")) || 0;
           const rows = validAreas.map((a) => {
-            const c = Number(a.comp) || 0;
-            const l = Number(a.larg) || 0;
-            const e = Number(a.esp) || 0;
+            const c = toN(a.comp);
+            const l = toN(a.larg);
+            const e = toN(a.esp);
             return {
               diary_id: diary.id,
               length_m: a.comp ? c : null,
@@ -1938,7 +1939,8 @@ export default function EquipmentDiaryForm() {
 
             {(() => {
               const totalM3 = productionAreas.reduce((s, a) => {
-                const c = Number(a.comp), l = Number(a.larg), e = Number(a.esp);
+                const toN2 = (v: string) => Number((v || "").replace(",", ".")) || 0;
+              const c = toN2(a.comp), l = toN2(a.larg), e = toN2(a.esp);
                 if (!c || !l || !e) return s;
                 return s + c * l * (e / 100);
               }, 0);
