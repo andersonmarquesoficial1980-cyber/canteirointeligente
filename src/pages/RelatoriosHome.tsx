@@ -229,21 +229,36 @@ export default function RelatoriosHome() {
                 </button>
               </div>
             ) : (
-              // Abastecimento / Manutenção — selecionar frota de todos os equipamentos
-              Object.values(frotasPorTipo).flat().sort().map(f => (
+              // Abastecimento / Manutenção — opção TODOS + lista de frotas
+              <>
+                {/* Opção: Todos os equipamentos */}
                 <button
-                  key={f}
-                  onClick={() => { setFrotaOgs(f); setStep("periodo"); }}
-                  className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
+                  onClick={() => { setFrotaOgs("TODAS"); setStep("periodo"); }}
+                  className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3 border-primary/30 bg-primary/5"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <BarChart3 className="w-5 h-5 text-primary" />
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0 text-lg">🚜</div>
+                  <div className="flex-1">
+                    <p className="font-display font-bold text-sm text-primary">Todos os Equipamentos</p>
+                    <p className="text-xs text-muted-foreground">Ver abastecimentos de toda a frota</p>
                   </div>
-                  <p className="font-display font-bold text-sm flex-1">{f}</p>
                   <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
                 </button>
-              ))
-            )}
+                {/* Equipamentos individuais */}
+                {Object.values(frotasPorTipo).flat().sort().map(f => (
+                  <button
+                    key={f}
+                    onClick={() => { setFrotaOgs(f); setStep("periodo"); }}
+                    className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <BarChart3 className="w-5 h-5 text-primary" />
+                    </div>
+                    <p className="font-display font-bold text-sm flex-1">{f}</p>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+                  </button>
+                ))}
+              </>
+            ))}
           </>
         )}
 
