@@ -36,17 +36,21 @@ interface CompanyModule {
   ativo: boolean;
 }
 
-// Todos os módulos disponíveis no sistema
+// Todos os módulos disponíveis no sistema (espelha src/config/navigation.ts)
 const ALL_MODULES = [
-  { key: "admin", label: "Painel de Controle", emoji: "⚙️" },
-  { key: "equipamentos", label: "Equipamentos", emoji: "🚜" },
-  { key: "obras", label: "Obras / RDO", emoji: "🏗️" },
-  { key: "programador", label: "Programador", emoji: "📅" },
-  { key: "relatorios", label: "Relatórios", emoji: "📊" },
-  { key: "demandas", label: "Demandas", emoji: "📨" },
-  { key: "rh", label: "RH / VT", emoji: "👥" },
-  { key: "carreteiros", label: "Carreteiros", emoji: "🚛" },
-  { key: "documentos", label: "Documentos", emoji: "📄" },
+  { key: "obras",         label: "WF Obras",             emoji: "📋" },
+  { key: "equipamentos",  label: "WF Equipamentos",      emoji: "🚜" },
+  { key: "carreteiros",   label: "WF Carreteiros",       emoji: "🚛" },
+  { key: "rh",            label: "WF RH",                emoji: "👥" },
+  { key: "programador",   label: "WF Programador",       emoji: "📅" },
+  { key: "demandas",      label: "WF Demandas",          emoji: "📨" },
+  { key: "documentos",    label: "WF Documentos",        emoji: "📄" },
+  { key: "manutencao",    label: "WF Manutenção",       emoji: "🔧" },
+  { key: "abastecimento", label: "WF Abastecimento",     emoji: "⛽" },
+  { key: "relatorios",    label: "WF Relatórios",        emoji: "📊" },
+  { key: "gestao-frotas", label: "WF Gestão de Frotas",  emoji: "🚗" },
+  { key: "gestao-pessoas",label: "WF Gestão de Pessoas", emoji: "👤" },
+  { key: "admin",         label: "Painel de Controle",   emoji: "⚙️" },
 ];
 
 type PerfilNovoUsuario = "Operador" | "Apontador" | "Administrador" | "Motorista";
