@@ -48,7 +48,8 @@ function useCrudTable(tableName: string) {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from(tableName as any).select("*").order("created_at", { ascending: false });
+    const hasNome = ["fornecedores", "tipos_servico", "empreiteiros", "usinas", "materiais"].includes(tableName);
+    const { data, error } = await supabase.from(tableName as any).select("*").order(hasNome ? "nome" : "created_at", { ascending: hasNome ? true : false });
     if (!error && data) setItems(data as any[]);
     setLoading(false);
   };

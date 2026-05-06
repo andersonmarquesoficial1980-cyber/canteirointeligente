@@ -427,7 +427,7 @@ export default function EquipmentDiaryForm() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fornecedores")
-        .select("id, nome, vinculo_rdo, tipo_insumo")
+        .select("id, nome, vinculo_rdo, vinculos, tipo_insumo, tipo_insumos")
         .or("vinculo_rdo.eq.TODOS,vinculo_rdo.eq.COMBOIO,vinculo_rdo.eq.PIPA,vinculo_rdo.eq.ESPARGIDOR,vinculos.cs.{TODOS},vinculos.cs.{COMBOIO},vinculos.cs.{PIPA},vinculos.cs.{ESPARGIDOR}")
         .order("nome");
       if (error) throw error;
@@ -2270,7 +2270,7 @@ export default function EquipmentDiaryForm() {
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {fornecedoresDb.map((f: any) => (
+                        {fornecedoresEmulsao.map((f: any) => (
                           <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
                         ))}
                       </SelectContent>
