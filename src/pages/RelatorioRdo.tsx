@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Loader2, FileDown, FileSpreadsheet, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import logoCi from "@/assets/logo-workflux.png";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,10 +17,25 @@ interface RdoItem {
 interface EfetivoItem {
   id: string;
   rdo_id: string | null;
+  nome: string | null;
   funcao: string | null;
-  quantidade: number | null;
+  matricula: string | null;
   entrada: string | null;
   saida: string | null;
+}
+
+interface ProducaoItem {
+  id: string;
+  rdo_id: string | null;
+  rodovia: string | null;
+  km_inicial: string | null;
+  km_final: string | null;
+  sentido: string | null;
+  faixa: string | null;
+  tipo_servico: string | null;
+  comprimento_m: string | null;
+  largura_m: string | null;
+  espessura_cm: string | null;
 }
 
 function fmtDate(value: string | null) {
@@ -27,6 +43,133 @@ function fmtDate(value: string | null) {
   const [y, m, d] = value.split("-");
   if (!y || !m || !d) return value;
   return `${d}/${m}/${y}`;
+}
+
+function expandNomes(ef: EfetivoItem): string[] {
+  if (ef.nome) {
+    return ef.nome.split("|||").map(n => n.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+// Exportar Excel (CSV com BOM UTF-8)
+function exportarExcel(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<string, EfetivoItem[]>, producaoByRdoId: Record<string, ProducaoItem[]>) {
+  const linhas: string[][] = [];
+
+  rdoList.forEach(rdo => {
+    linhas.push([`RDO — OGS ${ogs} — ${fmtDate(rdo.data)}`]);
+    linhas.push([`Responsável: ${rdo.responsavel || "-"}`, `Tipo: ${rdo.tipo_rdo || "-"}`, `Turno: ${rdo.turno || "-"}`, `Clima: ${rdo.clima || "-"}`]);
+    linhas.push([]);
+
+    const efetivo = efetivoByRdoId[rdo.id] || [];
+    const nomes: { nome: string; funcao: string; matricula: string; entrada: string; saida: string }[] = [];
+    efetivo.forEach(ef => {
+      const ns = expandNomes(ef);
+      if (ns.length > 0) {
+        ns.forEach(nome => nomes.push({ nome, funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" }));
+      } else {
+        nomes.push({ nome: "-", funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" });
+      }
+    });
+
+    if (nomes.length > 0) {
+      linhas.push([`EFETIVO (${nomes.length})`]);
+      linhas.push(["#", "Nome", "Matrícula", "Função", "Entrada", "Saída"]);
+      nomes.forEach((n, i) => linhas.push([String(i + 1), n.nome, n.matricula, n.funcao, n.entrada, n.saida]));
+      linhas.push([]);
+    }
+
+    const producao = producaoByRdoId[rdo.id] || [];
+    if (producao.length > 0) {
+      linhas.push(["PRODUÇÃO"]);
+      linhas.push(["Serviço", "KM Ini", "KM Fim", "Sentido", "Faixa", "Comp (m)", "Larg (m)", "Esp (cm)"]);
+      producao.forEach(p => linhas.push([p.tipo_servico || "-", p.km_inicial || "-", p.km_final || "-", p.sentido || "-", p.faixa || "-", p.comprimento_m || "-", p.largura_m || "-", p.espessura_cm || "-"]));
+      linhas.push([]);
+    }
+
+    linhas.push(["---"]);
+    linhas.push([]);
+  });
+
+  const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `RDO_OGS${ogs}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Exportar PDF via print
+function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<string, EfetivoItem[]>, producaoByRdoId: Record<string, ProducaoItem[]>, clienteNome: string) {
+  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>RDO OGS ${ogs}</title><style>
+    body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#333;font-size:13px}
+    h1{color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:8px;font-size:18px;margin-bottom:4px}
+    h2{color:#374151;margin-top:20px;font-size:14px;margin-bottom:6px}
+    table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px}
+    th,td{border:1px solid #d1d5db;padding:5px 8px;text-align:left}
+    th{background:#f3f4f6;font-weight:600}
+    .header-table td{border:none;padding:3px 8px}
+    .header-table th{border:none;padding:3px 8px;background:#f3f4f6}
+    .page-break{page-break-after:always}
+    @media print{body{padding:10px}.no-print{display:none}}
+  </style></head><body>`;
+
+  rdoList.forEach((rdo, idx) => {
+    const efetivo = efetivoByRdoId[rdo.id] || [];
+    const producao = producaoByRdoId[rdo.id] || [];
+    const nomes: { nome: string; funcao: string; matricula: string; entrada: string; saida: string }[] = [];
+    efetivo.forEach(ef => {
+      const ns = expandNomes(ef);
+      if (ns.length > 0) {
+        ns.forEach(nome => nomes.push({ nome, funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" }));
+      } else {
+        nomes.push({ nome: "-", funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" });
+      }
+    });
+
+    const entradaGlobal = efetivo[0]?.entrada || "-";
+    const saidaGlobal = efetivo[0]?.saida || "-";
+
+    html += `<h1>📋 RDO - Relatório Diário de Obra</h1>
+    <table class="header-table">
+      <tr><th>Data</th><td>${fmtDate(rdo.data)}</td><th>OGS</th><td>${ogs}</td></tr>
+      <tr><th>Cliente</th><td colspan="3">${clienteNome}</td></tr>
+      <tr><th>Status</th><td>${rdo.clima || "-"}</td><th>Tipo</th><td>${rdo.tipo_rdo || "-"}</td></tr>
+      <tr><th>Responsável</th><td>${rdo.responsavel || "-"}</td><th>Turno</th><td>${rdo.turno || "-"}</td></tr>
+    </table>`;
+
+    if (nomes.length > 0) {
+      html += `<h2>👷 Efetivo (${nomes.length})</h2>
+      <p style="font-size:12px;margin:4px 0">Horário: ${entradaGlobal} às ${saidaGlobal}</p>
+      <table><tr><th>#</th><th>Nome</th><th>Matrícula</th><th>Função</th><th>Entrada</th><th>Saída</th></tr>`;
+      nomes.forEach((n, i) => {
+        html += `<tr><td>${i + 1}</td><td>${n.nome}</td><td>${n.matricula}</td><td>${n.funcao}</td><td>${n.entrada}</td><td>${n.saida}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+
+    if (producao.length > 0) {
+      html += `<h2>🛣️ Produção</h2>
+      <table><tr><th>Serviço</th><th>KM Ini</th><th>KM Fim</th><th>Sentido</th><th>Faixa</th><th>Comp (m)</th><th>Larg (m)</th><th>Esp (cm)</th></tr>`;
+      producao.forEach(p => {
+        html += `<tr><td>${p.tipo_servico || "-"}</td><td>${p.km_inicial || "-"}</td><td>${p.km_final || "-"}</td><td>${p.sentido || "-"}</td><td>${p.faixa || "-"}</td><td>${p.comprimento_m || "-"}</td><td>${p.largura_m || "-"}</td><td>${p.espessura_cm || "-"}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+
+    if (idx < rdoList.length - 1) html += `<div class="page-break"></div>`;
+  });
+
+  html += `</body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 500);
 }
 
 export default function RelatorioRdo() {
@@ -40,23 +183,29 @@ export default function RelatorioRdo() {
   const [loading, setLoading] = useState(true);
   const [rdoList, setRdoList] = useState<RdoItem[]>([]);
   const [efetivoByRdoId, setEfetivoByRdoId] = useState<Record<string, EfetivoItem[]>>({});
+  const [producaoByRdoId, setProducaoByRdoId] = useState<Record<string, ProducaoItem[]>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [clienteNome, setClienteNome] = useState("");
 
   useEffect(() => {
     const carregar = async () => {
       if (!ogs || !ini || !fim) {
         setRdoList([]);
-        setEfetivoByRdoId({});
         setLoading(false);
         return;
       }
-
       setLoading(true);
 
-      let rows: any[] = [];
+      // Buscar nome do cliente
+      const { data: ogsRef } = await (supabase as any)
+        .from("ogs_reference")
+        .select("client_name")
+        .eq("ogs_number", ogs)
+        .maybeSingle();
+      setClienteNome(ogsRef?.client_name || "");
 
-      // obra_nome salva o número da OGS diretamente
-      const { data: rdoData, error: rdoError } = await (supabase as any)
+      // Buscar RDOs
+      const { data: rdoData } = await (supabase as any)
         .from("rdo_diarios")
         .select("id,data,tipo_rdo,responsavel,turno,clima")
         .eq("obra_nome", ogs)
@@ -65,37 +214,47 @@ export default function RelatorioRdo() {
         .order("data", { ascending: false })
         .order("created_at", { ascending: false });
 
-      if (!rdoError) {
-        rows = rdoData || [];
-      }
-
-      const lista = (rows || []) as RdoItem[];
+      const lista = (rdoData || []) as RdoItem[];
       setRdoList(lista);
 
       if (lista.length === 0) {
-        setEfetivoByRdoId({});
         setLoading(false);
         return;
       }
 
-      const ids = lista.map((r) => r.id);
+      const ids = lista.map(r => r.id);
+
+      // Efetivo com nome e matricula
       const { data: efetivoRows } = await supabase
         .from("rdo_efetivo")
-        .select("id,rdo_id,funcao,quantidade,entrada,saida")
+        .select("id,rdo_id,nome,funcao,matricula,entrada,saida")
         .in("rdo_id", ids)
         .order("funcao", { ascending: true });
 
-      const grouped: Record<string, EfetivoItem[]> = {};
-      (efetivoRows || []).forEach((item) => {
+      const efGrupo: Record<string, EfetivoItem[]> = {};
+      (efetivoRows || []).forEach((item: any) => {
         if (!item.rdo_id) return;
-        if (!grouped[item.rdo_id]) grouped[item.rdo_id] = [];
-        grouped[item.rdo_id].push(item as EfetivoItem);
+        if (!efGrupo[item.rdo_id]) efGrupo[item.rdo_id] = [];
+        efGrupo[item.rdo_id].push(item as EfetivoItem);
       });
+      setEfetivoByRdoId(efGrupo);
 
-      setEfetivoByRdoId(grouped);
+      // Produção
+      const { data: prodRows } = await (supabase as any)
+        .from("rdo_producao")
+        .select("id,rdo_id,rodovia,km_inicial,km_final,sentido,faixa,tipo_servico,comprimento_m,largura_m,espessura_cm")
+        .in("rdo_id", ids);
+
+      const prodGrupo: Record<string, ProducaoItem[]> = {};
+      (prodRows || []).forEach((item: any) => {
+        if (!item.rdo_id) return;
+        if (!prodGrupo[item.rdo_id]) prodGrupo[item.rdo_id] = [];
+        prodGrupo[item.rdo_id].push(item as ProducaoItem);
+      });
+      setProducaoByRdoId(prodGrupo);
+
       setLoading(false);
     };
-
     carregar();
   }, [ogs, ini, fim]);
 
@@ -108,11 +267,25 @@ export default function RelatorioRdo() {
         <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Relatório RDO</span>
-          <span className="block text-[11px] text-primary-foreground/80">OGS {ogs} • {ini || "-"} a {fim || "-"}</span>
+          <span className="block text-[11px] text-primary-foreground/80">OGS {ogs} • {fmtDate(ini)} a {fmtDate(fim)}</span>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-3">
+        {/* Botões de exportação */}
+        {!loading && rdoList.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" className="gap-2 text-xs"
+              onClick={() => exportarPdf(ogs, rdoList, efetivoByRdoId, producaoByRdoId, clienteNome)}>
+              <Printer className="w-3.5 h-3.5" /> Exportar PDF
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2 text-xs"
+              onClick={() => exportarExcel(ogs, rdoList, efetivoByRdoId, producaoByRdoId)}>
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Exportar Excel
+            </Button>
+          </div>
+        )}
+
         {loading ? (
           <div className="rdo-card py-10 flex justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -125,56 +298,143 @@ export default function RelatorioRdo() {
           rdoList.map((item) => {
             const isOpen = !!expanded[item.id];
             const efetivo = efetivoByRdoId[item.id] || [];
+            const producao = producaoByRdoId[item.id] || [];
+
+            // Expandir nomes (suporte a nomes separados por |||)
+            const pessoas: { nome: string; funcao: string; matricula: string; entrada: string; saida: string }[] = [];
+            efetivo.forEach(ef => {
+              const nomes = expandNomes(ef);
+              if (nomes.length > 0) {
+                nomes.forEach(nome => pessoas.push({ nome, funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" }));
+              } else {
+                // Legado: sem nome, só função
+                pessoas.push({ nome: "-", funcao: ef.funcao || "-", matricula: ef.matricula || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" });
+              }
+            });
+
+            const entradaGlobal = efetivo[0]?.entrada || "-";
+            const saidaGlobal = efetivo[0]?.saida || "-";
+
             return (
               <div key={item.id} className="rdo-card">
+                {/* Cabeçalho clicável */}
                 <button
-                  onClick={() => setExpanded((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+                  onClick={() => setExpanded(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
                   className="w-full text-left"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-display font-bold text-primary">{fmtDate(item.data)}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {clienteNome && <span className="font-medium text-foreground">{clienteNome} • </span>}
                         Tipo: {item.tipo_rdo || "-"} • Responsável: {item.responsavel || "-"}
                       </p>
                       <p className="text-xs text-muted-foreground">Turno: {item.turno || "-"} • Clima: {item.clima || "-"}</p>
                     </div>
-                    {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground mt-1" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground mt-1" />
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+                        {pessoas.length} pessoas
+                      </span>
+                      {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                    </div>
                   </div>
                 </button>
 
                 {isOpen && (
-                  <div className="mt-3 border-t border-border pt-3 space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase">Efetivo</p>
-                    {efetivo.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Sem efetivo registrado.</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="border-b border-border">
-                              <th className="text-left py-1.5 pr-2">Função</th>
-                              <th className="text-left py-1.5 pr-2">Qtd</th>
-                              <th className="text-left py-1.5 pr-2">Entrada</th>
-                              <th className="text-left py-1.5">Saída</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {efetivo.map((ef) => (
-                              <tr key={ef.id} className="border-b border-border/60 last:border-0">
-                                <td className="py-1.5 pr-2">{ef.funcao || "-"}</td>
-                                <td className="py-1.5 pr-2">{ef.quantidade ?? "-"}</td>
-                                <td className="py-1.5 pr-2">{ef.entrada || "-"}</td>
-                                <td className="py-1.5">{ef.saida || "-"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                  <div className="mt-3 border-t border-border pt-3 space-y-4">
+
+                    {/* Cabeçalho detalhado */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-muted-foreground">Cliente</p>
+                        <p className="font-semibold">{clienteNome || "-"}</p>
                       </div>
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-muted-foreground">OGS</p>
+                        <p className="font-semibold">{ogs}</p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-muted-foreground">Responsável</p>
+                        <p className="font-semibold">{item.responsavel || "-"}</p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-muted-foreground">Tipo / Turno</p>
+                        <p className="font-semibold">{item.tipo_rdo || "-"} / {item.turno || "-"}</p>
+                      </div>
+                    </div>
+
+                    {/* Efetivo */}
+                    {pessoas.length > 0 && (
+                      <div>
+                        <p className="text-xs font-display font-bold text-primary uppercase mb-1">
+                          👷 Efetivo ({pessoas.length}) — {entradaGlobal} às {saidaGlobal}
+                        </p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border bg-muted/30">
+                                <th className="text-left py-1.5 px-2">#</th>
+                                <th className="text-left py-1.5 px-2">Nome</th>
+                                <th className="text-left py-1.5 px-2">Função</th>
+                                <th className="text-left py-1.5 px-2">Entrada</th>
+                                <th className="text-left py-1.5 px-2">Saída</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pessoas.map((p, i) => (
+                                <tr key={i} className="border-b border-border/60 last:border-0">
+                                  <td className="py-1.5 px-2 text-muted-foreground">{i + 1}</td>
+                                  <td className="py-1.5 px-2 font-medium">{p.nome}</td>
+                                  <td className="py-1.5 px-2 text-muted-foreground">{p.funcao}</td>
+                                  <td className="py-1.5 px-2">{p.entrada}</td>
+                                  <td className="py-1.5 px-2">{p.saida}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Produção */}
+                    {producao.length > 0 && (
+                      <div>
+                        <p className="text-xs font-display font-bold text-primary uppercase mb-1">🛣️ Produção</p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border bg-muted/30">
+                                <th className="text-left py-1.5 px-2">Serviço</th>
+                                <th className="text-left py-1.5 px-2">KM Ini</th>
+                                <th className="text-left py-1.5 px-2">KM Fim</th>
+                                <th className="text-left py-1.5 px-2">Sentido</th>
+                                <th className="text-left py-1.5 px-2">Faixa</th>
+                                <th className="text-left py-1.5 px-2">Comp</th>
+                                <th className="text-left py-1.5 px-2">Larg</th>
+                                <th className="text-left py-1.5 px-2">Esp</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {producao.map(p => (
+                                <tr key={p.id} className="border-b border-border/60 last:border-0">
+                                  <td className="py-1.5 px-2 font-medium">{p.tipo_servico || "-"}</td>
+                                  <td className="py-1.5 px-2">{p.km_inicial || "-"}</td>
+                                  <td className="py-1.5 px-2">{p.km_final || "-"}</td>
+                                  <td className="py-1.5 px-2">{p.sentido || "-"}</td>
+                                  <td className="py-1.5 px-2">{p.faixa || "-"}</td>
+                                  <td className="py-1.5 px-2">{p.comprimento_m ? `${p.comprimento_m}m` : "-"}</td>
+                                  <td className="py-1.5 px-2">{p.largura_m ? `${p.largura_m}m` : "-"}</td>
+                                  <td className="py-1.5 px-2">{p.espessura_cm ? `${p.espessura_cm}cm` : "-"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {pessoas.length === 0 && producao.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-3">Sem dados detalhados neste RDO.</p>
                     )}
                   </div>
                 )}

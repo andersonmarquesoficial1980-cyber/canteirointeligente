@@ -425,9 +425,11 @@ export default function RdoForm() {
         .map(e => ({
           rdo_id: rdoId,
           funcao: e.funcao,
+          nome: e.nome || null,
+          matricula: e.matricula || null,
           quantidade: 1,
-          entrada: globalEntrada || null,
-          saida: globalSaida || null,
+          entrada: e.entrada || globalEntrada || null,
+          saida: e.saida || globalSaida || null,
         }));
       if (efEntries.length > 0) {
         const { error } = await supabase.from("rdo_efetivo").insert(efEntries);
