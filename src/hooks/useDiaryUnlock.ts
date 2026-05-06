@@ -10,6 +10,10 @@ interface UseDiaryUnlockResult {
   prazoLabel: string;
 }
 
+// Flag temporária — desativa bloqueio de prazo durante implantação
+// Mudar para false quando a empresa estiver rodando em produção
+const DIARY_DEADLINE_DISABLED = true;
+
 const ADMIN_PERFIS = new Set(["admin", "administrador", "superadmin"]);
 const ADMIN_ROLES = new Set(["admin", "superadmin"]);
 
@@ -41,6 +45,11 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
     () => (tipo === "equipamento" ? "hoje ou ontem" : "somente hoje"),
     [tipo],
   );
+
+  // Bloqueio desativado temporariamente durante implantação
+  if (DIARY_DEADLINE_DISABLED) {
+    return { isBlocked: false, isLoading: false, prazoLabel };
+  }
 
   useEffect(() => {
     let cancelled = false;

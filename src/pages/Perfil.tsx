@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bell } from "lucide-react";
+import { ArrowLeft, Bell, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -108,6 +108,21 @@ export default function Perfil() {
           <p className="text-xs text-muted-foreground">{profile?.nome_completo || "Usuário"}</p>
         </div>
       </div>
+
+      {/* 2FA */}
+      <button
+        onClick={() => navigate("/configurar-2fa")}
+        className="w-full bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Shield className="w-4 h-4 text-primary" />
+          <div className="text-left">
+            <p className="font-semibold text-sm">Autenticação em 2 Fatores</p>
+            <p className="text-xs text-muted-foreground">Configure o 2FA para maior segurança</p>
+          </div>
+        </div>
+        <ArrowLeft className="w-4 h-4 text-muted-foreground rotate-180" />
+      </button>
 
       <div className="bg-card border border-border rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2">

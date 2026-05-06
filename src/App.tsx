@@ -59,6 +59,8 @@ import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
 import OperadoresHabilitados from "./pages/OperadoresHabilitados";
 import Login from "./pages/Login";
 import TrocarSenha from "./pages/TrocarSenha";
+import Configurar2FA from "./pages/Configurar2FA";
+import Verificar2FA from "./pages/Verificar2FA";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
 import AdminLancamentos from "./pages/AdminLancamentos";
@@ -103,12 +105,13 @@ function AppRoutes() {
   const { session, loading, signOut } = useAuth();
   const [blocked, setBlocked] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [needs2FA, setNeeds2FA] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(false);
   const location = useLocation();
 
   // Check if user is active after session loads
   useEffect(() => {
-    if (!session?.user?.id) { setBlocked(false); setMustChangePassword(false); return; }
+    if (!session?.user?.id) { setBlocked(false); setMustChangePassword(false); setNeeds2FA(false); return; }
     setCheckingAccess(true);
     const check = async () => {
       try {
@@ -124,6 +127,15 @@ function AppRoutes() {
         } else {
           setBlocked(false);
           setMustChangePassword(Boolean((data as any)?.senha_temporaria));
+          // Verificar se usuário tem 2FA ativo mas ainda não verificou (AAL1 vs AAL2)
+          try {
+            const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+            if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
+              setNeeds2FA(true);
+            } else {
+              setNeeds2FA(false);
+            }
+          } catch { setNeeds2FA(false); }
         }
       } catch {}
       setCheckingAccess(false);
@@ -161,10 +173,16 @@ function AppRoutes() {
     return <Navigate to="/trocar-senha" replace />;
   }
 
+  if (needs2FA && location.pathname !== "/verificar-2fa") {
+    return <Navigate to="/verificar-2fa" replace />;
+  }
+
   return (
     <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
       <Routes>
         <Route path="/trocar-senha" element={<TrocarSenha />} />
+        <Route path="/verificar-2fa" element={<Verificar2FA />} />
+        <Route path="/configurar-2fa" element={<Configurar2FA />} />
 
         {/* Hub — no sidebar/layout */}
         <Route path="/" element={<Home />} />
