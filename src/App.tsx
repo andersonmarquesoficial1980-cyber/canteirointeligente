@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
+import { usePermissions } from "@/hooks/usePermissions";
 import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
 import Perfil from "./pages/Perfil";
@@ -67,18 +68,49 @@ import AdminLancamentos from "./pages/AdminLancamentos";
 
 const queryClient = new QueryClient();
 
+// Mapa module_id → chave em user_permissions
+const MODULE_PERM_MAP: Record<string, string> = {
+  obras: "modulo_obras",
+  equipamentos: "modulo_equipamentos",
+  rh: "modulo_rh",
+  carreteiros: "modulo_carreteiros",
+  programador: "modulo_programador",
+  demandas: "modulo_demandas",
+  manutencao: "modulo_manutencao",
+  abastecimento: "modulo_abastecimento",
+  documentos: "modulo_documentos",
+  relatorios: "modulo_relatorios",
+  "gestao-frotas": "modulo_relatorios", // sem chave própria, admin only
+  "gestao-pessoas": "modulo_relatorios",
+};
+
 function RequireModule({ moduleId, children }: { moduleId: string; children: JSX.Element }) {
-  const { hasModule, loading, isSuperAdmin } = useCompanyModules();
-  if (loading) {
+  const { hasModule, loading: loadingModules, isSuperAdmin } = useCompanyModules();
+  const { permissions, loading: loadingPerms } = usePermissions();
+
+  if (loadingModules || loadingPerms) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Carregando...</p>
       </div>
     );
   }
-  if (!isSuperAdmin && !hasModule(moduleId)) {
+
+  // Super-admin vê tudo
+  if (isSuperAdmin) return children;
+
+  // 1. Empresa precisa ter o módulo contratado
+  if (!hasModule(moduleId)) return <Navigate to="/" replace />;
+
+  // 2. Admin da empresa vê todos os módulos da empresa
+  if (permissions?.is_admin) return children;
+
+  // 3. Usuário comum: verificar permissão individual
+  const permKey = MODULE_PERM_MAP[moduleId];
+  if (permKey && permissions && !(permissions as any)[permKey]) {
     return <Navigate to="/" replace />;
   }
+
   return children;
 }
 
