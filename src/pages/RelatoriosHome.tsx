@@ -94,7 +94,7 @@ export default function RelatoriosHome() {
   }
 
   function voltar() {
-    if (step === "periodo") setStep("frota_ogs");
+    if (step === "periodo") setStep(tipoRel !== "equipamento" ? "subtipo" : "frota_ogs");
     else if (step === "frota_ogs") setStep("subtipo");
     else if (step === "subtipo") setStep("tipo");
   }
@@ -187,27 +187,47 @@ export default function RelatoriosHome() {
         {step === "subtipo" && tipoRel !== "equipamento" && (
           <>
             <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">
-              {tipoRel === "rdo" ? "Selecione a OGS" : "Selecione a Frota"}
+              {tipoRel === "rdo" ? "Digite o número da OGS" : "Selecione a Frota"}
             </p>
             {tipoRel === "rdo" ? (
-              ogsList.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">Nenhuma OGS cadastrada.</p>
-              ) : (
-                ogsList.map(o => (
-                  <button
-                    key={o.ogs}
-                    onClick={() => { setFrotaOgs(o.ogs); setStep("periodo"); }}
-                    className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0 text-lg">🏗️</div>
-                    <div className="flex-1">
-                      <p className="font-display font-bold text-sm">OGS {o.ogs}</p>
-                      <p className="text-xs text-muted-foreground">{o.cliente}</p>
+              <div className="space-y-3">
+                <div className="rdo-card space-y-2">
+                  <label className="text-xs text-muted-foreground font-medium">Número da OGS</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={frotaOgs}
+                    onChange={e => setFrotaOgs(e.target.value.trim())}
+                    placeholder="Ex: 2532"
+                    className="w-full h-12 px-3 rounded-xl border border-border bg-secondary text-base font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
+                    autoFocus
+                  />
+                  {/* Sugestões filtradas */}
+                  {frotaOgs.length >= 2 && (
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {ogsList
+                        .filter(o => o.ogs.includes(frotaOgs) || o.cliente.toLowerCase().includes(frotaOgs.toLowerCase()))
+                        .map(o => (
+                          <button key={o.ogs} onClick={() => { setFrotaOgs(o.ogs); setStep("periodo"); }}
+                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/10 transition-colors flex items-center justify-between">
+                            <div>
+                              <span className="text-sm font-bold">OGS {o.ogs}</span>
+                              <span className="text-xs text-muted-foreground ml-2">{o.cliente}</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+                          </button>
+                        ))}
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-                  </button>
-                ))
-              )
+                  )}
+                </div>
+                <button
+                  onClick={() => { if (frotaOgs.trim()) setStep("periodo"); }}
+                  disabled={!frotaOgs.trim()}
+                  className="w-full h-12 rounded-xl bg-primary text-white font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Continuar →
+                </button>
+              </div>
             ) : (
               // Abastecimento / Manutenção — selecionar frota de todos os equipamentos
               Object.values(frotasPorTipo).flat().sort().map(f => (

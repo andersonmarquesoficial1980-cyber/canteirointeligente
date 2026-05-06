@@ -51,6 +51,8 @@ export default function MeusLancamentos() {
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [aba, setAba] = useState<"equipamentos" | "rdos">("equipamentos");
+  const [rdos, setRdos] = useState<any[]>([]);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [frotas, setFrotas] = useState<string[]>([]);
@@ -158,6 +160,23 @@ export default function MeusLancamentos() {
 
     setLancamentos((rows || []) as Lancamento[]);
 
+    // Buscar RDOs
+    let rdoQuery = (supabase as any)
+      .from("rdo_diarios")
+      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id")
+      .order("data", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (isAdmin && companyId) {
+      // admin vê todos da empresa — rdo_diarios não tem company_id, filtra por user_ids da empresa
+      // fallback: busca todos (RLS cuida do escopo)
+    } else {
+      rdoQuery = rdoQuery.eq("user_id", user.id);
+    }
+    if (dataInicio) rdoQuery = rdoQuery.gte("data", dataInicio);
+    if (dataFim) rdoQuery = rdoQuery.lte("data", dataFim);
+    const { data: rdoRows } = await rdoQuery;
+    setRdos(rdoRows || []);
+
     const tiposUnicos = Array.from(
       new Set(((tiposRows || []) as any[]).map((r) => r.equipment_type).filter(Boolean)),
     ) as string[];
@@ -205,7 +224,24 @@ export default function MeusLancamentos() {
       </header>
 
       <div className="max-w-3xl mx-auto p-4 space-y-4">
-        <div className="rdo-card space-y-3">
+        {/* Abas */}
+        <div className="flex gap-2">
+          <button onClick={() => setAba("equipamentos")}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+              aba === "equipamentos" ? "bg-primary text-white border-primary" : "bg-white text-muted-foreground border-border"
+            }`}>
+            🚜 Equipamentos ({lancamentos.length})
+          </button>
+          <button onClick={() => setAba("rdos")}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+              aba === "rdos" ? "bg-primary text-white border-primary" : "bg-white text-muted-foreground border-border"
+            }`}>
+            🏗️ RDOs ({rdos.length})
+          </button>
+        </div>
+
+        {/* Filtros de Equipamentos */}
+        {aba === "equipamentos" && <div className="rdo-card space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <span className="rdo-label">Tipo de Equipamento</span>
@@ -261,12 +297,35 @@ export default function MeusLancamentos() {
               />
             </div>
           </div>
-        </div>
+        </div>}
 
         {loading ? (
           <div className="rdo-card py-10 flex justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
           </div>
+        ) : aba === "rdos" ? (
+          /* Lista de RDOs */
+          rdos.length === 0 ? (
+            <div className="rdo-card py-10 text-center text-muted-foreground text-sm">Nenhum RDO encontrado.</div>
+          ) : (
+            <div className="space-y-3">
+              {rdos.map((rdo: any) => (
+                <button key={rdo.id}
+                  onClick={() => navigate(`/relatorios/rdo/${rdo.obra_nome}?ini=${rdo.data}&fim=${rdo.data}`)}
+                  className="w-full text-left rdo-card hover:shadow-md transition-all"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-display font-bold text-primary">OGS {rdo.obra_nome} • {rdo.data ? (() => { const [y,m,d] = rdo.data.split('-'); return `${d}/${m}/${y}`; })() : '-'}</p>
+                      <p className="text-xs text-muted-foreground">Tipo: {rdo.tipo_rdo || '-'} • Responsável: {rdo.responsavel || '-'}</p>
+                      <p className="text-xs text-muted-foreground">Turno: {rdo.turno || '-'} • Clima: {rdo.clima || '-'}</p>
+                    </div>
+                    <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold shrink-0">RDO</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )
         ) : lancamentos.length === 0 ? (
           <div className="rdo-card py-10 text-center text-muted-foreground text-sm">
             Nenhum lançamento encontrado para os filtros selecionados.
