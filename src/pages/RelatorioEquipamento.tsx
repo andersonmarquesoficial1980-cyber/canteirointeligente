@@ -324,6 +324,11 @@ export default function RelatorioEquipamento() {
     }
   }
 
+  function fmtNum(val: any): string {
+    if (val === null || val === undefined || val === "") return "-";
+    return String(val).replace(".", ",");
+  }
+
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
 
@@ -339,11 +344,11 @@ export default function RelatorioEquipamento() {
           d.operator_solo || "-",
           d.ogs_number || "-",
           d.work_status || d.status || "-",
-          marcador.ini ?? "-",
-          marcador.fim ?? "-",
-          getHoras(d).toFixed(2),
-          (areasMap[d.id]?.m2 || 0).toFixed(2),
-          toNum(d.fuel_liters).toFixed(2),
+          fmtNum(marcador.ini),
+          fmtNum(marcador.fim),
+          fmtNum(getHoras(d).toFixed(2)),
+          fmtNum((areasMap[d.id]?.m2 || 0).toFixed(2)),
+          fmtNum(toNum(d.fuel_liters).toFixed(2)),
           lancadoPor,
         ];
       }),

@@ -33,6 +33,11 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
+function fmtNum(val: any): string {
+  if (val === null || val === undefined || val === "") return "";
+  return String(val).replace(".", ",");
+}
+
 // Equipamentos com Auxiliar
 const TEM_AUXILIAR = ["Fresadora", "Usina KMA"];
 // Equipamentos com coluna de Produção (Comp/Larg/Esp)
@@ -181,8 +186,8 @@ export default function ExportarProtheus() {
           d.location_address ?? "",
           d.work_status ?? "",
           d.period ?? "",
-          d.meter_initial ?? "",
-          d.meter_final ?? "",
+          fmtNum(d.meter_initial),
+          fmtNum(d.meter_final),
         ];
 
         // 10 blocos fixos de apontamento
@@ -199,19 +204,19 @@ export default function ExportarProtheus() {
           row.push(d.fresagem_type ?? "");
           row.push(bits ? "Sim" : "Não");
           row.push(bits?.status ?? "");
-          row.push(bits?.quantity ?? "");
-          row.push(""); // meia vida — campo não separado no banco
-          row.push(bits?.meter_at_change ?? "");
+          row.push(fmtNum(bits?.quantity));
+          row.push(""); // meia vida
+          row.push(fmtNum(bits?.meter_at_change));
           row.push(bits?.brand ?? "");
         }
 
-        // 25 blocos fixos de produção (somente Fresadora e KMA)
+        // 25 blocos fixos de produção
         if (comProducao) {
           for (let i = 0; i < 25; i++) {
             const p = prods[i];
-            row.push(p?.length_m ?? "");
-            row.push(p?.width_m ?? "");
-            row.push(p?.thickness_cm ?? "");
+            row.push(fmtNum(p?.length_m));
+            row.push(fmtNum(p?.width_m));
+            row.push(fmtNum(p?.thickness_cm));
           }
         }
 
