@@ -7,8 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 interface ManutencaoRow {
   id: string;
   numero_os: number | null;
+  equipment_fleet: string | null;
+  equipment_type: string | null;
   created_at: string | null;
   tipo: string | null;
+  titulo: string | null;
   descricao: string | null;
   status: string | null;
 }
@@ -41,13 +44,14 @@ export default function RelatorioManutencao() {
 
       setLoading(true);
 
-      const { data } = await (supabase as any)
+      let query = (supabase as any)
         .from("manutencao_os")
-        .select("id,numero_os,created_at,tipo,descricao,status")
-        .eq("equipment_fleet", fleet)
+        .select("id,numero_os,equipment_fleet,equipment_type,created_at,tipo,descricao,status,titulo")
         .gte("created_at", `${ini}T00:00:00`)
         .lte("created_at", `${fim}T23:59:59`)
         .order("created_at", { ascending: false });
+      if (fleet !== "TODAS") query = query.eq("equipment_fleet", fleet);
+      const { data } = await query;
 
       setRows((data || []) as ManutencaoRow[]);
       setLoading(false);
@@ -65,7 +69,7 @@ export default function RelatorioManutencao() {
         <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Relatório Manutenção</span>
-          <span className="block text-[11px] text-primary-foreground/80">Frota {fleet} • {ini || "-"} a {fim || "-"}</span>
+          <span className="block text-[11px] text-primary-foreground/80">{fleet === "TODAS" ? "Todos os Equipamentos" : `Frota ${fleet}`} • {ini || "-"} a {fim || "-"}</span>
         </div>
       </header>
 
@@ -81,7 +85,13 @@ export default function RelatorioManutencao() {
         ) : (
           rows.map((item) => (
             <div key={item.id} className="rdo-card">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
+                {fleet === "TODAS" && (
+                  <div className="col-span-2 md:col-span-1">
+                    <p className="text-xs text-muted-foreground">Frota</p>
+                    <p className="font-semibold">{item.equipment_fleet || "-"}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-muted-foreground">Número OS</p>
                   <p className="font-semibold">{item.numero_os ?? "-"}</p>
@@ -95,8 +105,8 @@ export default function RelatorioManutencao() {
                   <p className="font-semibold">{item.tipo || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Descrição</p>
-                  <p className="font-semibold break-words">{item.descricao || "-"}</p>
+                  <p className="text-xs text-muted-foreground">Título</p>
+                  <p className="font-semibold break-words">{item.titulo || item.descricao || "-"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Status</p>

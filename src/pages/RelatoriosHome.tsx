@@ -131,14 +131,17 @@ export default function RelatoriosHome() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-2">
-        <Button
-          variant="outline"
-          className="w-full h-11 gap-2 font-semibold"
-          onClick={() => navigate("/meus-lancamentos")}
-        >
-          <ClipboardList className="w-4 h-4" />
-          Meus Lançamentos
-        </Button>
+        {/* Meus Lançamentos: apenas em Equipamentos e RDO */}
+        {(step === "tipo" || tipoRel === "equipamento" || tipoRel === "rdo") && !tipoRel || tipoRel === "equipamento" || tipoRel === "rdo" ? (
+          <Button
+            variant="outline"
+            className="w-full h-11 gap-2 font-semibold"
+            onClick={() => navigate("/meus-lancamentos")}
+          >
+            <ClipboardList className="w-4 h-4" />
+            Meus Lançamentos
+          </Button>
+        ) : null}
 
         {/* PASSO 1: Tipo de Relatório */}
         {step === "tipo" && (
@@ -231,15 +234,19 @@ export default function RelatoriosHome() {
             ) : (
               // Abastecimento / Manutenção — opção TODOS + lista de frotas
               <>
-                {/* Opção: Todos os equipamentos */}
+                {/* Opção: Todos os equipamentos — descrição varia conforme tipo */}
                 <button
                   onClick={() => { setFrotaOgs("TODAS"); setStep("periodo"); }}
                   className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3 border-primary/30 bg-primary/5"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0 text-lg">🚜</div>
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0 text-lg">
+                    {tipoRel === "abastecimento" ? "⛽" : "🔧"}
+                  </div>
                   <div className="flex-1">
                     <p className="font-display font-bold text-sm text-primary">Todos os Equipamentos</p>
-                    <p className="text-xs text-muted-foreground">Ver abastecimentos de toda a frota</p>
+                    <p className="text-xs text-muted-foreground">
+                      {tipoRel === "abastecimento" ? "Ver abastecimentos de toda a frota" : "Ver manutenções de toda a frota"}
+                    </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
                 </button>
