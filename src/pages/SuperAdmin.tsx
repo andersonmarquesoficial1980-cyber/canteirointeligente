@@ -36,6 +36,19 @@ interface CompanyModule {
   ativo: boolean;
 }
 
+// Todos os módulos disponíveis no sistema
+const ALL_MODULES = [
+  { key: "admin", label: "Painel de Controle", emoji: "⚙️" },
+  { key: "equipamentos", label: "Equipamentos", emoji: "🚜" },
+  { key: "obras", label: "Obras / RDO", emoji: "🏗️" },
+  { key: "programador", label: "Programador", emoji: "📅" },
+  { key: "relatorios", label: "Relatórios", emoji: "📊" },
+  { key: "demandas", label: "Demandas", emoji: "📨" },
+  { key: "rh", label: "RH / VT", emoji: "👥" },
+  { key: "carreteiros", label: "Carreteiros", emoji: "🚛" },
+  { key: "documentos", label: "Documentos", emoji: "📄" },
+];
+
 type PerfilNovoUsuario = "Operador" | "Apontador" | "Administrador" | "Motorista";
 
 interface NovoUsuarioForm {
@@ -185,6 +198,32 @@ export default function SuperAdmin() {
     setExpandedCompanyIds((prev) => ({ ...prev, [companyId]: !prev[companyId] }));
   };
 
+  const handleToggleModuleByKey = async (companyId: string, moduloKey: string, currentModule: CompanyModule | null) => {
+    const key = `${companyId}:${moduloKey}`;
+    setUpdatingModuleKey(key);
+
+    let error;
+    if (!currentModule) {
+      // Criar novo registro habilitado
+      const { error: e } = await (supabase as any)
+        .from("company_modules")
+        .insert({ company_id: companyId, modulo: moduloKey, ativo: true });
+      error = e;
+    } else {
+      const { error: e } = await (supabase as any)
+        .from("company_modules")
+        .update({ ativo: !currentModule.ativo })
+        .eq("id", currentModule.id);
+      error = e;
+    }
+
+    if (!error) await loadData();
+    setUpdatingModuleKey(null);
+    if (!error) toast({ title: currentModule ? `${moduloKey} ${currentModule.ativo ? "desativado" : "ativado"}` : `${moduloKey} habilitado` });
+    else toast({ title: "Erro", description: error.message, variant: "destructive" });
+  };
+
+  // Mantém compatibilidade com código legado
   const handleToggleModule = async (module: CompanyModule) => {
     const key = `${module.company_id}:${module.modulo}`;
     setUpdatingModuleKey(key);
@@ -527,34 +566,44 @@ export default function SuperAdmin() {
                       </div>
 
                       <div>
-                        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-200">Módulos</h3>
-                        {company.modules.length === 0 ? (
-                          <p className="text-sm text-slate-400">Empresa sem módulos cadastrados.</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {company.modules.map((module) => {
-                              const moduleKey = `${module.company_id}:${module.modulo}`;
-                              const disabled = updatingModuleKey === moduleKey;
-
-                              return (
-                                <div
-                                  key={module.id}
-                                  className="flex items-center justify-between rounded-lg border border-slate-700/60 bg-slate-900/80 p-3"
-                                >
+                        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-200">
+                          Módulos &nbsp;
+                          <span className="text-blue-400 font-normal normal-case">
+                            ({company.modules.filter(m => m.ativo).length} ativos)
+                          </span>
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {ALL_MODULES.map((mod) => {
+                            const current = company.modules.find(m => m.modulo === mod.key) || null;
+                            const isAtivo = current?.ativo ?? false;
+                            const disabled = updatingModuleKey === `${company.id}:${mod.key}`;
+                            return (
+                              <button
+                                key={mod.key}
+                                disabled={disabled}
+                                onClick={() => handleToggleModuleByKey(company.id, mod.key, current)}
+                                className={`flex items-center justify-between rounded-lg border p-3 text-left transition-all ${
+                                  isAtivo
+                                    ? "border-blue-500/60 bg-blue-950/60 text-blue-100"
+                                    : "border-slate-700/40 bg-slate-900/40 text-slate-400 opacity-60 hover:opacity-80"
+                                } ${disabled ? "cursor-wait" : "cursor-pointer hover:border-blue-400/60"}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base">{mod.emoji}</span>
                                   <div>
-                                    <p className="text-sm font-medium text-slate-100">{module.modulo}</p>
-                                    <p className="text-xs text-slate-400">{module.ativo ? "Ativo" : "Inativo"}</p>
+                                    <p className="text-xs font-semibold leading-tight">{mod.label}</p>
+                                    <p className="text-[10px] mt-0.5 opacity-70">{isAtivo ? "Ativo" : "Inativo"}</p>
                                   </div>
-                                  <Switch
-                                    checked={module.ativo}
-                                    disabled={disabled}
-                                    onCheckedChange={() => handleToggleModule(module)}
-                                  />
                                 </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                                <Switch
+                                  checked={isAtivo}
+                                  disabled={disabled}
+                                  className="pointer-events-none scale-75"
+                                />
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   )}
