@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useOgsReference } from "@/hooks/useOgsReference";
@@ -60,6 +60,25 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
     });
     return allAddrs;
   }, [selectedEntries]);
+
+  // Auto-popula cliente/local quando obra_nome já está preenchido (modo edição)
+  useEffect(() => {
+    if (!obras || !data.obra_nome || data.cliente) return;
+    const entries = obras.filter(o => o.ogs_number === data.obra_nome);
+    if (entries.length > 0) {
+      onChange("cliente", entries[0].client_name || "");
+      const addrs: string[] = [];
+      entries.forEach(e => {
+        if (e.location_address) {
+          e.location_address.split(";").forEach((s: string) => {
+            const trimmed = s.trim();
+            if (trimmed && !addrs.includes(trimmed)) addrs.push(trimmed);
+          });
+        }
+      });
+      if (addrs.length === 1) onChange("local", addrs[0]);
+    }
+  }, [obras, data.obra_nome]);
 
   const handleObraChange = (value: string) => {
     onChange("obra_nome", value);

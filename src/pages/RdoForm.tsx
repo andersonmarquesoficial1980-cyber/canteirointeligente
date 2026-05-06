@@ -731,6 +731,11 @@ export default function RdoForm() {
           <>
             <div className="px-4">
               <RdoTipoSelector value={tipoRdo} onChange={setTipoRdo} />
+              {isEditMode && !tipoRdo && (
+                <div className="mt-2 px-1 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
+                  ⚠️ Selecione o tipo do RDO acima para visualizar e editar os dados carregados (efetivo, equipamentos, produção).
+                </div>
+              )}
             </div>
 
             {tipoRdo === "INFRAESTRUTURA" && (
