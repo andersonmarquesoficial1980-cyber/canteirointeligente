@@ -57,6 +57,7 @@ import GestaoFrotasHome from "./pages/GestaoFrotasHome";
 import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
 import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
 import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
+import FichaFuncionario from "./pages/FichaFuncionario";
 import OperadoresHabilitados from "./pages/OperadoresHabilitados";
 import Login from "./pages/Login";
 import TrocarSenha from "./pages/TrocarSenha";
@@ -256,6 +257,7 @@ function AppRoutes() {
         <Route path="/gestao-frotas/veiculo/:id" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasVeiculo /></RequireModule>} />
         <Route path="/gestao-frotas/dashboard" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboard /></RequireModule>} />
         <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
+        <Route path="/gestao-pessoas/:id" element={<RequireModule moduleId="gestao-pessoas"><FichaFuncionario /></RequireModule>} />
 
         {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}

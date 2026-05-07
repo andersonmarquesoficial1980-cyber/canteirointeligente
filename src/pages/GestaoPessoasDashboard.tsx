@@ -123,8 +123,8 @@ function tempoEmpresa(admissao: string): string {
 }
 
 // ─── Tabela executiva ──────────────────────────────────────────────────────────
-function TabelaExecutiva({ titulo, items, onVoltar, corTema, mostrarSalario }: {
-  titulo: string; items: Funcionario[]; onVoltar: () => void; corTema: string; mostrarSalario: boolean;
+function TabelaExecutiva({ titulo, items, onVoltar, corTema, mostrarSalario, onClickFuncionario }: {
+  titulo: string; items: Funcionario[]; onVoltar: () => void; corTema: string; mostrarSalario: boolean; onClickFuncionario?: (id: string) => void;
 }) {
   const [busca, setBusca] = useState("");
 
@@ -184,7 +184,7 @@ function TabelaExecutiva({ titulo, items, onVoltar, corTema, mostrarSalario }: {
           const func = funcaoBase(f.role);
           const isEnc = func.includes("ENCARREGADO");
           return (
-          <div key={f.id} style={{ display: "grid", gridTemplateColumns: mostrarSalario ? "36px 80px 1fr 1fr 100px 80px" : "36px 80px 1fr 1fr 1fr", padding: "9px 14px", borderBottom: "1px solid #f1f5f9", background: isEnc ? "#eff6ff" : i % 2 === 0 ? "white" : "#fafbfc", gap: 8, borderLeft: isEnc ? "3px solid #0055AA" : "3px solid transparent" }}>
+          <div key={f.id} onClick={() => onClickFuncionario?.(f.id)} style={{ display: "grid", gridTemplateColumns: mostrarSalario ? "36px 80px 1fr 1fr 100px 80px" : "36px 80px 1fr 1fr 1fr", padding: "9px 14px", borderBottom: "1px solid #f1f5f9", background: isEnc ? "#eff6ff" : i % 2 === 0 ? "white" : "#fafbfc", gap: 8, borderLeft: isEnc ? "3px solid #0055AA" : "3px solid transparent", cursor: onClickFuncionario ? "pointer" : "default" }}>
             <span style={{ fontSize: 11, color: "#94a3b8", textAlign: "center" }}>{i + 1}</span>
             <span style={{ fontSize: 12, fontFamily: "Montserrat", fontWeight: 700, color: "#0A0F2C" }}>{f.matricula || "—"}</span>
             <span style={{ fontSize: 12, color: isEnc ? "#0055AA" : "#374151", fontWeight: isEnc ? 700 : 400 }}>{f.name}</span>
@@ -295,7 +295,7 @@ export default function GestaoPessoasDashboard() {
               Ver salário e tempo de empresa
             </label>
           </div>
-          <TabelaExecutiva titulo={selecao} items={itensSel} onVoltar={voltar} corTema={corTema} mostrarSalario={mostrarSalario} />
+          <TabelaExecutiva titulo={selecao} items={itensSel} onVoltar={voltar} corTema={corTema} mostrarSalario={mostrarSalario} onClickFuncionario={(id) => navigate(`/gestao-pessoas/${id}`)} />
           </>
 
         ) : (
@@ -332,7 +332,7 @@ export default function GestaoPessoasDashboard() {
                   {filtradosBusca.length} resultado{filtradosBusca.length !== 1 ? "s" : ""}
                 </div>
                 {filtradosBusca.slice(0, 30).map((f, i) => (
-                  <div key={f.id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr 1fr", padding: "8px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 12, background: i % 2 === 0 ? "white" : "#fafbfc", gap: 8 }}>
+                  <div key={f.id} onClick={() => navigate(`/gestao-pessoas/${f.id}`)} style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr 1fr", padding: "8px 14px", borderBottom: "1px solid #f1f5f9", fontSize: 12, background: i % 2 === 0 ? "white" : "#fafbfc", gap: 8, cursor: "pointer" }}>
                     <span style={{ fontFamily: "Montserrat", fontWeight: 700, color: "#0A0F2C" }}>{f.matricula || "—"}</span>
                     <span style={{ color: "#374151" }}>{f.name}</span>
                     <span style={{ color: "#6b7280", fontSize: 11 }}>{f.role}</span>
