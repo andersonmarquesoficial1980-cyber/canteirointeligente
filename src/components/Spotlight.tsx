@@ -149,7 +149,7 @@ export function Spotlight() {
             tipo: "funcionario",
             titulo: e.name,
             subtitulo: [e.role, e.matricula].filter(Boolean).join(" · "),
-            rota: `/rh`,
+            rota: `/gestao-pessoas`,
           });
         });
       }
