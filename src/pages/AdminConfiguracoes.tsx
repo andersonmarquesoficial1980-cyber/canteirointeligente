@@ -11,7 +11,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target, ClipboardList,
+  Target, ClipboardList, Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -896,15 +896,26 @@ function UsersManager() {
   const [deactivating, setDeactivating] = useState<any | null>(null);
   const [deactivatingLoading, setDeactivatingLoading] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
+  const [buscaUsuario, setBuscaUsuario] = useState("");
 
   const load = async () => {
-    const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase.from("profiles").select("*").order("nome_completo", { ascending: true });
     if (data) setUsers(data as any[]);
   };
 
   useEffect(() => { load(); }, []);
 
-  const filteredUsers = showInactive ? users : users.filter(u => u.status !== "inativo");
+  const filteredUsers = users
+    .filter(u => showInactive ? true : u.status !== "inativo")
+    .filter(u => {
+      if (!buscaUsuario.trim()) return true;
+      const q = buscaUsuario.toLowerCase();
+      return (
+        (u.nome_completo || "").toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q) ||
+        (u.perfil || "").toLowerCase().includes(q)
+      );
+    });
 
   const handleCreate = async () => {
     if (!nome.trim() || !login.trim() || !password.trim()) {
@@ -1034,12 +1045,24 @@ function UsersManager() {
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-foreground">Usuários Cadastrados</p>
+        <p className="text-sm font-semibold text-foreground">Usuários Cadastrados <span className="text-muted-foreground font-normal">({filteredUsers.length})</span></p>
         <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
           <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} className="rounded" />
           Mostrar Desativados
         </label>
       </div>
+
+      {/* Campo de busca */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={buscaUsuario}
+          onChange={e => setBuscaUsuario(e.target.value)}
+          placeholder="Buscar por nome, e-mail ou perfil..."
+          className="h-10 pl-9 bg-secondary border-border"
+        />
+      </div>
+
       <div className="space-y-2">
         {filteredUsers.map((u: any) => {
           const isInactive = u.status === "inativo";
