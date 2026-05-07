@@ -10,6 +10,7 @@ const TIPOS_RELATORIO = [
   { id: "rdo", label: "Diários de Obra (RDO)", emoji: "🏗️", desc: "Produção, efetivo, equipamentos na obra" },
   { id: "abastecimento", label: "Abastecimento", emoji: "⛽", desc: "Consumo de diesel por equipamento" },
   { id: "manutencao", label: "Manutenção", emoji: "🔧", desc: "Ordens de serviço e peças trocadas" },
+  { id: "transportes", label: "Transportes (Carreta)", emoji: "🚛", desc: "Relatório de transporte de equipamentos" },
 ];
 
 function fmtDate(d: string) {
@@ -79,11 +80,10 @@ export default function RelatoriosHome() {
     const fim = tipoPeriodo === "dia" ? dataDia : dataFim;
 
     if (tipoRel === "equipamento") {
-      const baseDate = tipoPeriodo === "dia" ? dataDia : dataIni;
-      const [anoSel, mesSel] = (baseDate || "").split("-");
-      const mesParam = mesSel || String(new Date().getMonth() + 1).padStart(2, "0");
-      const anoParam = anoSel || String(new Date().getFullYear());
-      navigate(`/relatorio-equipamento/${encodeURIComponent(frotaOgs)}?mes=${mesParam}&ano=${anoParam}`);
+      // Passa período completo (ini+fim) em vez de apenas mês
+      navigate(`/relatorio-equipamento/${encodeURIComponent(frotaOgs)}?ini=${ini}&fim=${fim}`);
+    } else if (tipoRel === "transportes") {
+      navigate(`/relatorios/transportes?frota=${encodeURIComponent(frotaOgs)}&ini=${ini}&fim=${fim}`);
     } else if (tipoRel === "rdo") {
       navigate(`/relatorios/rdo/${frotaOgs}?ini=${ini}&fim=${fim}`);
     } else if (tipoRel === "abastecimento") {
@@ -187,7 +187,32 @@ export default function RelatoriosHome() {
           </>
         )}
 
-        {step === "subtipo" && tipoRel !== "equipamento" && (
+        {step === "subtipo" && tipoRel === "transportes" && (
+          <>
+            <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Selecione a Carreta (ou todas)</p>
+            <button
+              onClick={() => { setFrotaOgs("TODAS"); setStep("periodo"); }}
+              className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
+            >
+              <span className="text-2xl">🚛</span>
+              <div className="flex-1">
+                <p className="font-display font-bold text-sm">Todas as Carretas</p>
+                <p className="text-xs text-muted-foreground">Ver transportes de todas as carretas no período</p>
+              </div>
+            </button>
+            {(frotasPorTipo["Carreta"] || []).map((f: string) => (
+              <button key={f} onClick={() => { setFrotaOgs(f); setStep("periodo"); }}
+                className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3">
+                <span className="text-2xl">🚛</span>
+                <div className="flex-1">
+                  <p className="font-display font-bold text-sm">{f}</p>
+                </div>
+              </button>
+            ))}
+          </>
+        )}
+
+        {step === "subtipo" && tipoRel !== "equipamento" && tipoRel !== "transportes" && (
           <>
             <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">
               {tipoRel === "rdo" ? "Digite o número da OGS" : "Selecione a Frota"}

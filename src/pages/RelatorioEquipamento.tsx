@@ -149,9 +149,10 @@ export default function RelatorioEquipamento() {
   const monthNow = String(now.getMonth() + 1).padStart(2, "0");
   const yearNow = String(now.getFullYear());
 
+  // Suporte a modo período (ini+fim) E modo mês
   const urlIni = searchParams.get("ini");
-  const urlMes = searchParams.get("mes") || (urlIni ? urlIni.split("-")[1] : null);
-  const urlAno = searchParams.get("ano") || (urlIni ? urlIni.split("-")[0] : null);
+  const urlFim = searchParams.get("fim");
+  const modoPeriodo = Boolean(urlIni && urlFim);
 
   // Lê sempre da URL para garantir sincronia após navigate
   const mes = searchParams.get("mes") || monthNow;
@@ -171,7 +172,10 @@ export default function RelatorioEquipamento() {
     if (!fleetParam) return;
     setLoading(true);
 
-    const { ini, fim } = getMonthRange(ano, mes);
+    // Modo período (ini+fim da URL) ou modo mês
+    const { ini, fim } = modoPeriodo && urlIni && urlFim
+      ? { ini: urlIni, fim: urlFim }
+      : getMonthRange(ano, mes);
 
     const { data: diariosRows, error: diariosError } = await supabase
       .from("equipment_diaries")
@@ -309,6 +313,9 @@ export default function RelatorioEquipamento() {
   const selectedBits = selectedDiaryId ? (bitsMap[selectedDiaryId] || []) : [];
 
   const mesLabel = MONTHS.find((m) => m.v === mes)?.l || mes;
+  const periodoLabel = modoPeriodo && urlIni && urlFim
+    ? `${urlIni.split("-").reverse().join("/")} a ${urlFim.split("-").reverse().join("/")}`
+    : `${mesLabel}/${ano}`;
 
   const onChangeMes = setMes;
   const onChangeAno = setAno;
@@ -366,7 +373,7 @@ export default function RelatorioEquipamento() {
         </button>
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Relatório de Equipamento</span>
-          <span className="block text-[11px] text-primary-foreground/80">{fleetParam} • {mesLabel}/{ano}</span>
+          <span className="block text-[11px] text-primary-foreground/80">{fleetParam} • {periodoLabel}</span>
         </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={exportarExcel} className="bg-green-600 hover:bg-green-700 text-white border-0 gap-1">
@@ -379,7 +386,15 @@ export default function RelatorioEquipamento() {
       </header>
 
       <div className="px-4 py-3 flex gap-2 print:hidden">
-        <Select value={mes} onValueChange={onChangeMes}>
+        {modoPeriodo && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">
+              Período: {periodoLabel}
+            </span>
+            <button onClick={() => navigate(`/relatorio-equipamento/${encodeURIComponent(fleetParam)}`, { replace: true })} className="text-xs text-muted-foreground hover:text-foreground underline">ver por mês</button>
+          </div>
+        )}
+        {!modoPeriodo && <Select value={mes} onValueChange={onChangeMes}>
           <SelectTrigger className="h-9 rounded-xl w-36">
             <SelectValue />
           </SelectTrigger>
@@ -388,8 +403,8 @@ export default function RelatorioEquipamento() {
               <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>
             ))}
           </SelectContent>
-        </Select>
-        <Select value={ano} onValueChange={onChangeAno}>
+        </Select>}
+        {!modoPeriodo && <Select value={ano} onValueChange={onChangeAno}>
           <SelectTrigger className="h-9 rounded-xl w-28">
             <SelectValue />
           </SelectTrigger>
@@ -398,7 +413,7 @@ export default function RelatorioEquipamento() {
               <SelectItem key={y} value={String(y)}>{y}</SelectItem>
             ))}
           </SelectContent>
-        </Select>
+        </Select>}
         {loading && <Loader2 className="w-5 h-5 animate-spin text-primary self-center" />}
       </div>
 

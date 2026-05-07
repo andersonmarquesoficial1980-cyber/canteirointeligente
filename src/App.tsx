@@ -51,6 +51,7 @@ import RelatorioEquipamento from "./pages/RelatorioEquipamento";
 import RelatorioRdo from "./pages/RelatorioRdo";
 import RelatorioAbastecimento from "./pages/RelatorioAbastecimento";
 import RelatorioManutencao from "./pages/RelatorioManutencao";
+import RelatorioTransportes from "./pages/RelatorioTransportes";
 import DashboardAdmin from "./pages/DashboardAdmin";
 import SuperAdmin from "./pages/SuperAdmin";
 import GestaoFrotasHome from "./pages/GestaoFrotasHome";
@@ -243,6 +244,7 @@ function AppRoutes() {
         <Route path="/relatorios/rdo/:ogs" element={<RequireModule moduleId="relatorios"><RelatorioRdo /></RequireModule>} />
         <Route path="/relatorios/abastecimento/:fleet" element={<RequireModule moduleId="relatorios"><RelatorioAbastecimento /></RequireModule>} />
         <Route path="/relatorios/manutencao/:fleet" element={<RequireModule moduleId="relatorios"><RelatorioManutencao /></RequireModule>} />
+        <Route path="/relatorios/transportes" element={<RequireModule moduleId="relatorios"><RelatorioTransportes /></RequireModule>} />
         {/* Rota correta usada pelo RelatoriosHome */}
         <Route path="/relatorio-equipamento/:fleet" element={<RelatorioEquipamento />} />
         {/* Alias para compatibilidade */}
