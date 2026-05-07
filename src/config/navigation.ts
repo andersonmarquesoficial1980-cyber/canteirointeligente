@@ -9,7 +9,7 @@ export const HUB_MODULES = [
   { id: "obras", label: "WF Obras", subtitle: "Diário de Obras", icon: ClipboardList, route: "/obras", adminOnly: false },
   { id: "equipamentos", label: "WF Equipamentos", subtitle: "Gestão de Equipamentos", icon: Cog, route: "/equipamentos", adminOnly: false },
   { id: "carreteiros", label: "WF Carreteiros", subtitle: "Logística de Materiais", icon: Truck, route: "/carreteiros", adminOnly: false },
-  { id: "rh", label: "WF RH", subtitle: "Gestão de Pessoas", icon: Users, route: "/rh", adminOnly: false },
+  // rh: unificado em gestao-pessoas (ver /rh redirect no App.tsx)
   { id: "programador", label: "WF Programador", subtitle: "Equipes e Movimentações", icon: CalendarClock, route: "/programador", adminOnly: false },
   { id: "demandas", label: "WF Demandas", subtitle: "Gestão de Tarefas", icon: ListChecks, route: "/demandas", adminOnly: false },
   { id: "documentos", label: "WF Documentos", subtitle: "Documentos com IA", icon: FileCheck, route: "/documentos", adminOnly: false },
@@ -17,6 +17,6 @@ export const HUB_MODULES = [
   { id: "abastecimento", label: "WF Abastecimento", subtitle: "Comboio, Posto e Shelbox", icon: Fuel, route: "/abastecimento", adminOnly: false },
   { id: "relatorios", label: "WF Relatórios", subtitle: "Relatórios por Equipamento", icon: BarChart3, route: "/relatorios", adminOnly: false },
   { id: "gestao-frotas", label: "WF Gestão de Frotas", subtitle: "Veículos, máquinas e documentos", icon: Car, route: "/gestao-frotas", adminOnly: false },
-  { id: "gestao-pessoas", label: "WF Gestão de Pessoas", subtitle: "Dashboard de pessoas e funções", icon: UserCheck, route: "/gestao-pessoas", adminOnly: false },
+  { id: "gestao-pessoas", label: "WF Gestão de Pessoas", subtitle: "Pessoas, ponto, VT e histórico", icon: UserCheck, route: "/gestao-pessoas", adminOnly: false },
   { id: "admin", label: "Painel de Controle", subtitle: "Dashboards e Gestão", icon: ShieldCheck, route: "/admin/configuracoes", adminOnly: true },
 ] as const;

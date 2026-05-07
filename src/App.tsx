@@ -266,8 +266,8 @@ function AppRoutes() {
         {/* Diretório — busca global */}
         <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
 
-        {/* WF RH module */}
-        <Route path="/rh" element={<RequireModule moduleId="rh"><RhHome /></RequireModule>} />
+        {/* WF RH — redirecionado para Gestão de Pessoas */}
+        <Route path="/rh" element={<Navigate to="/gestao-pessoas" replace />} />
         <Route path="/rh/trajeto-vt" element={<TrajetoVT />} />
         <Route path="/rh/registrar-ponto" element={<RegistrarPonto />} />
         <Route path="/rh/espelho-ponto" element={<EspelhoPonto />} />

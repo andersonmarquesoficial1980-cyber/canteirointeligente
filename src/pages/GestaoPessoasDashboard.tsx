@@ -255,7 +255,7 @@ export default function GestaoPessoasDashboard() {
     { id: "equipe",         label: "Por Equipe",     emoji: "👷", count: Object.keys(porEquipe).length },
     { id: "responsavel",    label: "Por Responsável",emoji: "🧑‍💼", count: Object.keys(porResp).filter(k => k !== "SEM RESPONSÁVEL").length },
     { id: "aniversariantes",label: "Aniversariantes",emoji: "🎂", count: aniversariantes.length },
-    { id: "rh",             label: "WF RH",          emoji: "📋" },
+    { id: "rh",             label: "Ponto & VT",     emoji: "📋" },
   ];
 
   const corGrupo = (ab: Aba) =>
@@ -436,7 +436,7 @@ export default function GestaoPessoasDashboard() {
             {/* ── ABA WF RH ─────────────────────────────────────────── */}
             {aba === "rh" && (
               <>
-                <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 16 }}>Módulos operacionais de RH</p>
+                <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 16 }}>Ferramentas de ponto, frequência e transporte</p>
                 <div className="flex flex-col gap-3">
                   {[
                     { label: "Registrar Ponto", desc: "Ponto facial com GPS e geofencing automático", icon: Camera, rota: "/rh/registrar-ponto", cor: "bg-blue-500/20 text-blue-600" },
