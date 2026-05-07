@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronUp, Loader2, FileDown, FileSpreadsheet, Printer } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Loader2, FileDown, FileSpreadsheet, Printer, Trash2, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoCi from "@/assets/logo-workflux.png";
 import { fmtNum, fmtNumCsv, toNum as toNumLib } from "@/lib/fmt";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { toast } from "@/hooks/use-toast";
 
 interface RdoItem {
   id: string;
@@ -286,6 +288,7 @@ export default function RelatorioRdo() {
   const ini = searchParams.get("ini") || "";
   const fim = searchParams.get("fim") || "";
 
+  const { isAdmin } = useIsAdmin();
   const [loading, setLoading] = useState(true);
   const [rdoList, setRdoList] = useState<RdoItem[]>([]);
   const [efetivoByRdoId, setEfetivoByRdoId] = useState<Record<string, EfetivoItem[]>>({});
@@ -294,6 +297,8 @@ export default function RelatorioRdo() {
   const [nfByRdoId, setNfByRdoId] = useState<Record<string, NfMassaItem[]>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [clienteNome, setClienteNome] = useState("");
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [excluindo, setExcluindo] = useState<string | null>(null);
 
   useEffect(() => {
     const carregar = async () => {
@@ -393,6 +398,45 @@ export default function RelatorioRdo() {
     carregar();
   }, [ogs, ini, fim]);
 
+  // Selecionar / desselecionar
+  const toggleSel = (id: string) => setSelecionados(prev => {
+    const s = new Set(prev);
+    s.has(id) ? s.delete(id) : s.add(id);
+    return s;
+  });
+  const toggleTodos = () => {
+    if (selecionados.size === rdoList.length) setSelecionados(new Set());
+    else setSelecionados(new Set(rdoList.map(r => r.id)));
+  };
+
+  // RDOs a exportar: selecionados ou todos se nenhum selecionado
+  const rdosParaExportar = selecionados.size > 0
+    ? rdoList.filter(r => selecionados.has(r.id))
+    : rdoList;
+
+  // Excluir RDO
+  const excluirRdo = async (id: string) => {
+    if (!confirm("Excluir este RDO permanentemente? Esta ação não pode ser desfeita.")) return;
+    setExcluindo(id);
+    try {
+      // Excluir dados relacionados
+      await Promise.all([
+        supabase.from("rdo_efetivo").delete().eq("rdo_id", id),
+        supabase.from("rdo_producao" as any).delete().eq("rdo_id", id),
+        supabase.from("rdo_equipamentos" as any).delete().eq("rdo_id", id),
+        supabase.from("rdo_nf_massa" as any).delete().eq("rdo_id", id),
+      ]);
+      const { error } = await supabase.from("rdo_diarios" as any).delete().eq("id", id);
+      if (error) throw error;
+      setRdoList(prev => prev.filter(r => r.id !== id));
+      setSelecionados(prev => { const s = new Set(prev); s.delete(id); return s; });
+      toast({ title: "✅ RDO excluído com sucesso" });
+    } catch (e: any) {
+      toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" });
+    }
+    setExcluindo(null);
+  };
+
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
@@ -407,16 +451,27 @@ export default function RelatorioRdo() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-3">
-        {/* Botões de exportação */}
+        {/* Barra de ações */}
         {!loading && rdoList.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            {/* Selecionar todos */}
+            {rdoList.length > 1 && (
+              <Button variant="outline" size="sm" className="gap-2 text-xs"
+                onClick={toggleTodos}>
+                {selecionados.size === rdoList.length
+                  ? <><CheckSquare className="w-3.5 h-3.5" /> Desmarcar todos</>
+                  : <><Square className="w-3.5 h-3.5" /> Selecionar todos</>}
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="gap-2 text-xs"
-              onClick={() => exportarPdf(ogs, rdoList, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
-              <Printer className="w-3.5 h-3.5" /> Exportar PDF
+              onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
+              <Printer className="w-3.5 h-3.5" />
+              Exportar PDF {selecionados.size > 0 ? `(${selecionados.size})` : ""}
             </Button>
             <Button variant="outline" size="sm" className="gap-2 text-xs"
-              onClick={() => exportarExcel(ogs, rdoList, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}>
-              <FileSpreadsheet className="w-3.5 h-3.5" /> Exportar Excel
+              onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}>
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Exportar Excel {selecionados.size > 0 ? `(${selecionados.size})` : ""}
             </Button>
           </div>
         )}
@@ -452,30 +507,61 @@ export default function RelatorioRdo() {
             const entradaGlobal = efetivo[0]?.entrada || "-";
             const saidaGlobal = efetivo[0]?.saida || "-";
 
+            const isSel = selecionados.has(item.id);
             return (
-              <div key={item.id} className="rdo-card">
-                {/* Cabeçalho clicável */}
-                <button
-                  onClick={() => setExpanded(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
-                  className="w-full text-left"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-display font-bold text-primary">{fmtDate(item.data)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {clienteNome && <span className="font-medium text-foreground">{clienteNome} • </span>}
-                        Tipo: {item.tipo_rdo || "-"} • Responsável: {item.responsavel || "-"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Turno: {item.turno || "-"} • Clima: {item.clima || "-"}</p>
+              <div key={item.id} className={`rdo-card transition-all ${isSel ? "ring-2 ring-primary" : ""}`}>
+                {/* Cabeçalho */}
+                <div className="flex items-start gap-2">
+                  {/* Checkbox de seleção */}
+                  {rdoList.length > 1 && (
+                    <button
+                      onClick={() => toggleSel(item.id)}
+                      className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                      title={isSel ? "Desmarcar" : "Selecionar para exportar"}
+                    >
+                      {isSel
+                        ? <CheckSquare className="w-4 h-4 text-primary" />
+                        : <Square className="w-4 h-4" />}
+                    </button>
+                  )}
+
+                  {/* Dados clicáveis */}
+                  <button
+                    onClick={() => setExpanded(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
+                    className="flex-1 text-left"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-display font-bold text-primary">{fmtDate(item.data)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {clienteNome && <span className="font-medium text-foreground">{clienteNome} • </span>}
+                          Tipo: {item.tipo_rdo || "-"} • Responsável: {item.responsavel || "-"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Turno: {item.turno || "-"} • Clima: {item.clima || "-"}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+                          {pessoas.length} pessoas
+                        </span>
+                        {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
-                        {pessoas.length} pessoas
-                      </span>
-                      {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                    </div>
-                  </div>
-                </button>
+                  </button>
+
+                  {/* Botão excluir (admin only) */}
+                  {isAdmin && (
+                    <button
+                      onClick={() => excluirRdo(item.id)}
+                      disabled={excluindo === item.id}
+                      className="mt-0.5 shrink-0 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                      title="Excluir este RDO"
+                    >
+                      {excluindo === item.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
 
                 {isOpen && (
                   <div className="mt-3 border-t border-border pt-3 space-y-4">
