@@ -12,7 +12,9 @@ interface RdoItem {
   id: string;
   data: string | null;
   tipo_rdo: string | null;
-  responsavel: string | null;
+  responsavel: string | null;     // legado
+  encarregado: string | null;     // encarregado da obra
+  preenchido_por: string | null;  // apontador/usuário logado
   turno: string | null;
   clima: string | null;
 }
@@ -215,12 +217,15 @@ function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<str
     const entradaGlobal = efetivo[0]?.entrada || "-";
     const saidaGlobal = efetivo[0]?.saida || "-";
 
+    const encRdo = (rdo as any).encarregado || rdo.responsavel || "-";
+    const preenchidoRdo = (rdo as any).preenchido_por || "-";
     html += `<h1>📋 RDO - Relatório Diário de Obra</h1>
     <table class="header-table">
       <tr><th>Data</th><td>${fmtDate(rdo.data)}</td><th>OGS</th><td>${ogs}</td></tr>
       <tr><th>Cliente</th><td colspan="3">${clienteNome}</td></tr>
       <tr><th>Status</th><td>${rdo.clima || "-"}</td><th>Tipo</th><td>${rdo.tipo_rdo || "-"}</td></tr>
-      <tr><th>Responsável</th><td>${rdo.responsavel || "-"}</td><th>Turno</th><td>${rdo.turno || "-"}</td></tr>
+      <tr><th>Encarregado</th><td>${encRdo}</td><th>Turno</th><td>${rdo.turno || "-"}</td></tr>
+      <tr><th>Preenchido por</th><td colspan="3">${preenchidoRdo}</td></tr>
     </table>`;
 
     // Efetivo
@@ -320,7 +325,7 @@ export default function RelatorioRdo() {
       // Buscar RDOs
       const { data: rdoData } = await (supabase as any)
         .from("rdo_diarios")
-        .select("id,data,tipo_rdo,responsavel,turno,clima")
+        .select("id,data,tipo_rdo,responsavel,encarregado,preenchido_por,turno,clima")
         .eq("obra_nome", ogs)
         .gte("data", ini)
         .lte("data", fim)
@@ -535,7 +540,11 @@ export default function RelatorioRdo() {
                         <p className="text-sm font-display font-bold text-primary">{fmtDate(item.data)}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {clienteNome && <span className="font-medium text-foreground">{clienteNome} • </span>}
-                          Tipo: {item.tipo_rdo || "-"} • Responsável: {item.responsavel || "-"}
+                          Tipo: {item.tipo_rdo || "-"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Encarregado: <span className="font-medium text-foreground">{item.encarregado || item.responsavel || "-"}</span>
+                          {item.preenchido_por && <span className="ml-2 opacity-60">• Preenchido por: {item.preenchido_por}</span>}
                         </p>
                         <p className="text-xs text-muted-foreground">Turno: {item.turno || "-"} • Clima: {item.clima || "-"}</p>
                       </div>
@@ -577,8 +586,12 @@ export default function RelatorioRdo() {
                         <p className="font-semibold">{ogs}</p>
                       </div>
                       <div className="bg-muted/50 rounded-lg p-2">
-                        <p className="text-muted-foreground">Responsável</p>
-                        <p className="font-semibold">{item.responsavel || "-"}</p>
+                        <p className="text-muted-foreground">Encarregado da obra</p>
+                        <p className="font-semibold">{item.encarregado || item.responsavel || "-"}</p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-muted-foreground">Preenchido por</p>
+                        <p className="font-semibold">{item.preenchido_por || item.responsavel || "-"}</p>
                       </div>
                       <div className="bg-muted/50 rounded-lg p-2">
                         <p className="text-muted-foreground">Tipo / Turno</p>

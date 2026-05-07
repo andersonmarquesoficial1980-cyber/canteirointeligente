@@ -13,7 +13,9 @@ interface RdoHeaderProps {
     local: string;
     status_obra: string;
     turno: string;
-    responsavel?: string;
+    responsavel?: string;  // legado — campo "encarregado" substituiu
+    encarregado?: string;
+    preenchido_por?: string; // readonly — vem do perfil logado
   };
   onChange: (field: string, value: string) => void;
 }
@@ -180,13 +182,23 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
         <Input value={data.cliente} readOnly className="h-12 text-base bg-muted/50 border-border rounded-xl cursor-not-allowed" />
       </div>
 
-      {/* Responsável */}
-      <div className="space-y-1.5">
-        <span className="rdo-label">Responsável / Encarregado</span>
-        <ResponsavelInput
-          value={data.responsavel || ""}
-          onChange={v => onChange("responsavel", v)}
-        />
+      {/* Preenchido por (auto) + Encarregado (autocomplete) */}
+      <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-1.5">
+          <span className="rdo-label">Preenchido por</span>
+          <div className="h-12 rounded-xl border border-border bg-muted/50 flex items-center px-3 gap-2">
+            <span className="text-sm text-muted-foreground">{data.preenchido_por || "—"}</span>
+            <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">automático</span>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <span className="rdo-label">Encarregado da obra *</span>
+          <ResponsavelInput
+            value={data.encarregado || ""}
+            onChange={v => onChange("encarregado", v)}
+            placeholder="Selecione ou digite o encarregado do dia"
+          />
+        </div>
       </div>
 
       {/* Local */}

@@ -56,7 +56,10 @@ export default function RdoForm() {
 
   // Header
   const [header, setHeader] = useState({
-    data: today, obra_nome: "", cliente: "", local: "", status_obra: "Trabalhou", turno: "", responsavel: "",
+    data: today, obra_nome: "", cliente: "", local: "", status_obra: "Trabalhou", turno: "",
+    responsavel: "",    // legado
+    encarregado: "",    // encarregado da obra (autocomplete)
+    preenchido_por: "", // preenchido automaticamente com nome do usuário logado
   });
   const {
     isBlocked: isDateBlocked,
@@ -140,7 +143,13 @@ export default function RdoForm() {
   const [globalSaida, setGlobalSaida] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
 
-  // Auto-fill hours based on turno
+  // Preencher "preenchido_por" automaticamente com o nome do usuário logado
+  useEffect(() => {
+    if (profile?.nome_completo && !header.preenchido_por) {
+      setHeader(prev => ({ ...prev, preenchido_por: profile.nome_completo }));
+    }
+  }, [profile?.nome_completo]);
+
   // Carregar RDO existente em modo edição
   useEffect(() => {
     const editId = searchParams.get("edit");
@@ -161,6 +170,8 @@ export default function RdoForm() {
         status_obra: rdo.clima || "Trabalhou",
         turno: rdo.turno || "",
         responsavel: rdo.responsavel || "",
+        encarregado: (rdo as any).encarregado || rdo.responsavel || "",
+        preenchido_por: (rdo as any).preenchido_por || rdo.responsavel || "",
       }));
       if (rdo.tipo_rdo) setTipoRdo(rdo.tipo_rdo);
       // Efetivo
@@ -251,15 +262,18 @@ export default function RdoForm() {
         setSavingDraft(false);
         return;
       }
-      const responsavelNome = header.responsavel?.trim() || profile?.nome_completo || "Não identificado";
+      const preenchidoPor = header.preenchido_por || profile?.nome_completo || "Não identificado";
+      const encarregado = header.encarregado?.trim() || "";
       const { error } = await supabase.from("rdo_diarios").insert({
         data: header.data,
         obra_nome: header.obra_nome,
         turno: normalizedTurno || "diurno",
         clima: header.status_obra || null,
-        responsavel: responsavelNome,
+        responsavel: encarregado || preenchidoPor, // legado — compat
+        preenchido_por: preenchidoPor,
+        encarregado: encarregado || null,
         user_id: user.id,
-      });
+      } as any);
       if (error) throw error;
       toast({ title: "✅ Rascunho Salvo!", description: "Progresso registrado no banco de dados." });
     } catch (err: any) {
@@ -414,13 +428,16 @@ export default function RdoForm() {
       toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
       return;
     }
-    const responsavelNome = header.responsavel?.trim() || profile?.nome_completo || "Não identificado";
+    const preenchidoPor = header.preenchido_por || profile?.nome_completo || "Não identificado";
+    const encarregado = header.encarregado?.trim() || "";
     const rdoPayload = {
       data: header.data,
       obra_nome: header.obra_nome,
       turno: normalizedTurno,
       clima: header.status_obra || null,
-      responsavel: responsavelNome,
+      responsavel: encarregado || preenchidoPor, // legado — compat
+      preenchido_por: preenchidoPor,
+      encarregado: encarregado || null,
       user_id: user.id,
       tipo_rdo: tipoRdo || null,
     };
