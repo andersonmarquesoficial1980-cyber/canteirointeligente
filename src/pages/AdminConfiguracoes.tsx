@@ -11,7 +11,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target, ClipboardList, Search,
+  Target, ClipboardList, Search, Eye, EyeOff,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -897,6 +897,8 @@ function UsersManager() {
   const [deactivatingLoading, setDeactivatingLoading] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   const [buscaUsuario, setBuscaUsuario] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [showEditPwd, setShowEditPwd] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from("profiles").select("*").order("nome_completo", { ascending: true });
@@ -1026,7 +1028,12 @@ function UsersManager() {
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Senha *</Label>
-          <Input type="password" value={password} onChange={e => setPassword(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Mínimo 6 caracteres" minLength={6} />
+          <div className="relative">
+            <Input type={showPwd ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} className="h-11 bg-secondary border-border pr-10" placeholder="Mínimo 6 caracteres" minLength={6} />
+            <button type="button" onClick={() => setShowPwd(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
+              {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Perfil de Acesso</Label>
@@ -1034,6 +1041,7 @@ function UsersManager() {
             <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Administrador">Administrador</SelectItem>
+              <SelectItem value="Gerente">Gerente (admin sem excluir)</SelectItem>
               <SelectItem value="Apontador">Apontador</SelectItem>
               <SelectItem value="Operador">Operador / Motorista</SelectItem>
             </SelectContent>
@@ -1108,6 +1116,7 @@ function UsersManager() {
                 <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Administrador">Administrador</SelectItem>
+                  <SelectItem value="Gerente">Gerente (admin sem excluir)</SelectItem>
                   <SelectItem value="Apontador">Apontador</SelectItem>
                   <SelectItem value="Operador">Operador / Motorista</SelectItem>
                 </SelectContent>
@@ -1115,7 +1124,12 @@ function UsersManager() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nova Senha (deixe vazio para manter)</Label>
-              <Input type="password" value={editPassword} onChange={e => setEditPassword(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Mínimo 6 caracteres" />
+              <div className="relative">
+                <Input type={showEditPwd ? "text" : "password"} value={editPassword} onChange={e => setEditPassword(e.target.value)} className="h-11 bg-secondary border-border pr-10" placeholder="Mínimo 6 caracteres" />
+                <button type="button" onClick={() => setShowEditPwd(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
+                  {showEditPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -1960,9 +1974,143 @@ const MENU_SECTIONS = [
   { key: "destinatarios_notif", label: "Destinatários Push", icon: Target },
   { key: "desbloquear", label: "Desbloquear Lançamentos", icon: Unlock },
   { key: "lancamentos_admin", label: "Lançamentos", icon: ClipboardList },
+  { key: "lixeira", label: "Lixeira (30 dias)", icon: Trash2 },
   { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
 ];
+
+// ═══════════════════════════════════════════════════════════════
+// LIXEIRA MANAGER
+// ═══════════════════════════════════════════════════════════════
+function LixeiraManager() {
+  const [itens, setItens] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [restaurando, setRestaurando] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const carregar = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("lixeira" as any).select("*").order("created_at", { ascending: false });
+    setItens((data || []) as any[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { carregar(); }, []);
+
+  const restaurar = async (item: any) => {
+    setRestaurando(item.id);
+    try {
+      const dados = item.dados;
+      if (item.tabela === "rdo_diarios" && dados?.rdo) {
+        const { id, ...rdoSemId } = dados.rdo;
+        const { data: novoRdo, error } = await supabase.from("rdo_diarios" as any).insert(rdoSemId).select("id").single();
+        if (error) throw error;
+        const novoId = (novoRdo as any).id;
+        // Restaurar efetivo, produção, equipamentos, NFs
+        if (dados.efetivo?.length) await supabase.from("rdo_efetivo").insert(dados.efetivo.map((e: any) => { const { id, ...r } = e; return { ...r, rdo_id: novoId }; }));
+        if (dados.producao?.length) await supabase.from("rdo_producao" as any).insert(dados.producao.map((e: any) => { const { id, ...r } = e; return { ...r, rdo_id: novoId }; }));
+        if (dados.equipamentos?.length) await supabase.from("rdo_equipamentos" as any).insert(dados.equipamentos.map((e: any) => { const { id, ...r } = e; return { ...r, rdo_id: novoId }; }));
+        if (dados.nfs?.length) await supabase.from("rdo_nf_massa" as any).insert(dados.nfs.map((e: any) => { const { id, ...r } = e; return { ...r, rdo_id: novoId }; }));
+      }
+      // Remover da lixeira após restaurar
+      await supabase.from("lixeira" as any).delete().eq("id", item.id);
+      toast({ title: "✅ Registro restaurado com sucesso!" });
+      carregar();
+    } catch (e: any) {
+      toast({ title: "Erro ao restaurar", description: e.message, variant: "destructive" });
+    }
+    setRestaurando(null);
+  };
+
+  const excluirDefinitivo = async (id: string) => {
+    if (!confirm("Excluir permanentemente? Não poderá ser recuperado.")) return;
+    await supabase.from("lixeira" as any).delete().eq("id", id);
+    setItens(prev => prev.filter(i => i.id !== id));
+    toast({ title: "Excluído permanentemente" });
+  };
+
+  function fmtDateHora(d: string) {
+    if (!d) return "";
+    const dt = new Date(d);
+    return dt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function diasRestantes(expira: string) {
+    const diff = new Date(expira).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / 86400000));
+  }
+
+  const TIPO_LABEL: Record<string, string> = { rdo_diarios: "RDO" };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Lixeira <span className="text-muted-foreground font-normal">({itens.length})</span></p>
+          <p className="text-xs text-muted-foreground mt-0.5">Itens excluídos ficam aqui por 30 dias. Após isso são removidos automaticamente.</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+      ) : itens.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card p-8 text-center">
+          <Trash2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Lixeira vazia.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {itens.map(item => {
+            const dias = diasRestantes(item.expira_em);
+            const dados = item.dados;
+            return (
+              <div key={item.id} className="bg-card rounded-xl border border-border p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-destructive/10 text-destructive font-semibold border border-destructive/20">
+                        {TIPO_LABEL[item.tabela] || item.tabela}
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                        dias <= 3 ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+                      }`}>
+                        {dias}d restantes
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-foreground mt-1.5">
+                      {item.tabela === "rdo_diarios" && dados?.rdo
+                        ? `RDO — OGS ${dados.rdo.obra_nome || "-"} — ${dados.rdo.data ? new Date(dados.rdo.data).toLocaleDateString("pt-BR") : "-"}`
+                        : `Registro ${item.registro_id.slice(0, 8)}...`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Excluído por {item.excluido_por_nome || "desconhecido"} em {fmtDateHora(item.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button
+                      onClick={() => restaurar(item)}
+                      disabled={restaurando === item.id}
+                      className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50"
+                    >
+                      {restaurando === item.id ? "..." : "↩ Restaurar"}
+                    </button>
+                    <button
+                      onClick={() => excluirDefinitivo(item.id)}
+                      className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                      title="Excluir permanentemente"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminConfiguracoes() {
   const navigate = useNavigate();
@@ -2020,6 +2168,7 @@ export default function AdminConfiguracoes() {
       case "desbloquear": return <DesbloqueioLancamentosManager />;
       case "aeropav_staff": return <AeroPavStaffManager />;
       case "operadores_habilitados": return <OperadoresHabilitadosManager />;
+      case "lixeira": return <LixeiraManager />;
       default: return null;
     }
   };

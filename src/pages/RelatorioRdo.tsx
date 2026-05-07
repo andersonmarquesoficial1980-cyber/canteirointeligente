@@ -6,6 +6,7 @@ import logoCi from "@/assets/logo-workflux.png";
 import { fmtNum, fmtNumCsv, toNum as toNumLib } from "@/lib/fmt";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useCanDelete } from "@/hooks/useCanDelete";
 import { toast } from "@/hooks/use-toast";
 
 interface RdoItem {
@@ -294,6 +295,7 @@ export default function RelatorioRdo() {
   const fim = searchParams.get("fim") || "";
 
   const { isAdmin } = useIsAdmin();
+  const { canDelete } = useCanDelete();
   const [loading, setLoading] = useState(true);
   const [rdoList, setRdoList] = useState<RdoItem[]>([]);
   const [efetivoByRdoId, setEfetivoByRdoId] = useState<Record<string, EfetivoItem[]>>({});
@@ -419,11 +421,35 @@ export default function RelatorioRdo() {
     ? rdoList.filter(r => selecionados.has(r.id))
     : rdoList;
 
-  // Excluir RDO
+  // Excluir RDO (salva na lixeira por 30 dias antes de excluir)
   const excluirRdo = async (id: string) => {
-    if (!confirm("Excluir este RDO permanentemente? Esta ação não pode ser desfeita.")) return;
+    if (!canDelete) {
+      toast({ title: "Sem permissão", description: "Seu perfil (Gerente) não permite excluir registros.", variant: "destructive" });
+      return;
+    }
+    if (!confirm("Excluir este RDO? Ele ficará na lixeira por 30 dias e pode ser recuperado.")) return;
     setExcluindo(id);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from("profiles").select("company_id, nome_completo").eq("user_id", user?.id!).maybeSingle();
+
+      // Buscar dados do RDO antes de excluir
+      const rdoItem = rdoList.find(r => r.id === id);
+      const efetivo = efetivoByRdoId[id] || [];
+      const producao = producaoByRdoId[id] || [];
+      const equipamentos = equipByRdoId[id] || [];
+      const nfs = nfByRdoId[id] || [];
+
+      // Salvar na lixeira
+      await supabase.from("lixeira" as any).insert({
+        company_id: (profile as any)?.company_id,
+        tabela: "rdo_diarios",
+        registro_id: id,
+        dados: { rdo: rdoItem, efetivo, producao, equipamentos, nfs, ogs, clienteNome },
+        excluido_por: user?.id,
+        excluido_por_nome: (profile as any)?.nome_completo || user?.email,
+      });
+
       // Excluir dados relacionados
       await Promise.all([
         supabase.from("rdo_efetivo").delete().eq("rdo_id", id),
@@ -435,7 +461,7 @@ export default function RelatorioRdo() {
       if (error) throw error;
       setRdoList(prev => prev.filter(r => r.id !== id));
       setSelecionados(prev => { const s = new Set(prev); s.delete(id); return s; });
-      toast({ title: "✅ RDO excluído com sucesso" });
+      toast({ title: "✅ RDO excluído", description: "Salvo na lixeira por 30 dias. Recupere em Painel de Controle → Lixeira." });
     } catch (e: any) {
       toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" });
     }
@@ -557,8 +583,8 @@ export default function RelatorioRdo() {
                     </div>
                   </button>
 
-                  {/* Botão excluir (admin only) */}
-                  {isAdmin && (
+                  {/* Botão excluir (apenas admin com can_delete) */}
+                  {isAdmin && canDelete && (
                     <button
                       onClick={() => excluirRdo(item.id)}
                       disabled={excluindo === item.id}

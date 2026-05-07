@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, Mail, Lock, ArrowLeft, User } from "lucide-react";
+import { LogIn, Mail, Lock, ArrowLeft, User, Eye, EyeOff } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
 
 const LOGIN_DOMAIN = "@workflux.app";
@@ -23,6 +23,7 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [blockedUntil, setBlockedUntil] = useState<number>(() => Number(localStorage.getItem(LOGIN_BLOCKED_UNTIL_KEY) || 0));
   const [now, setNow] = useState(Date.now());
 
@@ -197,16 +198,26 @@ export default function Login() {
           <Label htmlFor="password" className="flex items-center gap-1.5 text-sm font-bold text-foreground">
             <Lock className="w-4 h-4 text-primary" /> Senha
           </Label>
-          <Input
-            id="password"
-            type="password"
-            placeholder="Mínimo 6 caracteres"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground rounded-xl"
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Mínimo 6 caracteres"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              className="h-12 bg-secondary border-border text-foreground placeholder:text-muted-foreground rounded-xl pr-11"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
 
         {/* Remember me */}
