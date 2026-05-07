@@ -120,16 +120,16 @@ export function Spotlight() {
         // OGS / Obras
         supabase
           .from("ogs_reference")
-          .select("id, obra_nome, cliente, local")
-          .or(`obra_nome.ilike.${ilike},cliente.ilike.${ilike},local.ilike.${ilike}`)
+          .select("id, ogs_number, client_name, location_address")
+          .or(`ogs_number.ilike.${ilike},client_name.ilike.${ilike},location_address.ilike.${ilike}`)
           .limit(5),
 
         // RDOs
         supabase
           .from("rdo_diarios")
-          .select("id, obra_nome, tipo_rdo, data_rdo")
-          .or(`obra_nome.ilike.${ilike}`)
-          .order("data_rdo", { ascending: false })
+          .select("id, obra_nome, tipo_rdo, data")
+          .ilike("obra_nome", ilike)
+          .order("data", { ascending: false })
           .limit(5),
 
         // Abastecimentos
@@ -173,9 +173,9 @@ export function Spotlight() {
           encontrados.push({
             id: e.id,
             tipo: "ogs",
-            titulo: `OGS ${e.obra_nome}`,
-            subtitulo: [e.cliente, e.local].filter(Boolean).join(" · "),
-            rota: `/relatorios/rdo/${e.obra_nome}`,
+            titulo: `OGS ${e.ogs_number}`,
+            subtitulo: [e.client_name, e.location_address].filter(Boolean).join(" · "),
+            rota: `/relatorios/rdo/${e.ogs_number}`,
           });
         });
       }
@@ -183,7 +183,7 @@ export function Spotlight() {
       // RDOs
       if (rdoResp.status === "fulfilled" && rdoResp.value.data) {
         rdoResp.value.data.forEach((e: any) => {
-          const data = e.data_rdo ? new Date(e.data_rdo).toLocaleDateString("pt-BR") : "";
+          const data = e.data ? new Date(e.data).toLocaleDateString("pt-BR") : "";
           encontrados.push({
             id: e.id,
             tipo: "rdo",
