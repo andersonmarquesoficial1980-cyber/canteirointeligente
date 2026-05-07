@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, Crown, LogOut, User } from "lucide-react";
+import { Spotlight } from "@/components/Spotlight";
 
 import logoCi from "@/assets/logo-workflux.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -44,8 +45,13 @@ export default function Home() {
       <div className="absolute top-[-120px] left-[-80px] w-[320px] h-[320px] rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-100px] right-[-60px] w-[280px] h-[280px] rounded-full bg-accent/10 blur-[100px] pointer-events-none" />
 
+      {/* Spotlight — Busca Global */}
+      <div className="w-full max-w-lg relative z-10 mb-6">
+        <Spotlight />
+      </div>
+
       {/* Brand */}
-      <div className="mb-12 text-center space-y-4 relative z-10">
+      <div className="mb-8 text-center space-y-4 relative z-10">
         <div className="relative inline-block">
           <img
             src={logoCi}
