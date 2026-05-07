@@ -69,9 +69,15 @@ serve(async (req) => {
         await supabaseAdmin.from("profiles").update(updates).eq("user_id", user_id);
       }
 
-      // Update role
+      // Update role + can_delete + can_create_users
       if (perfil) {
-        const role = perfil === "Administrador" ? "admin" : "apontador";
+        const role = (perfil === "Administrador" || perfil === "Gerente") ? "admin" : "apontador";
+        const can_delete = perfil === "Administrador";
+        const can_create_users = perfil === "Administrador";
+
+        // Atualizar can_delete e can_create_users no profile
+        await supabaseAdmin.from("profiles").update({ perfil, can_delete, can_create_users }).eq("user_id", user_id);
+
         const { data: existingRole } = await supabaseAdmin
           .from("user_roles")
           .select("id")
@@ -162,8 +168,10 @@ serve(async (req) => {
       userId = newUser.user.id;
     }
 
-    const perfilDb = perfil === "Administrador" ? "Administrador" : "Apontador";
-    const role = perfil === "Administrador" ? "admin" : "apontador";
+    const perfilDb = ["Administrador", "Gerente", "Apontador", "Operador"].includes(perfil) ? perfil : "Apontador";
+    const role = (perfil === "Administrador" || perfil === "Gerente") ? "admin" : "apontador";
+    const can_delete = perfil === "Administrador";
+    const can_create_users = perfil === "Administrador";
     const normalizedLogin =
       typeof login_original === "string" && login_original.trim().length > 0
         ? login_original.trim().toLowerCase()
@@ -182,12 +190,12 @@ serve(async (req) => {
     if (existingProfile) {
       await supabaseAdmin
         .from("profiles")
-        .update({ nome_completo, perfil: perfilDb, email, status: "ativo", senha_temporaria: true })
+        .update({ nome_completo, perfil: perfilDb, email, status: "ativo", senha_temporaria: true, can_delete, can_create_users })
         .eq("user_id", userId);
     } else {
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
-        .insert({ user_id: userId, email, nome_completo, perfil: perfilDb, status: "ativo", senha_temporaria: true });
+        .insert({ user_id: userId, email, nome_completo, perfil: perfilDb, status: "ativo", senha_temporaria: true, can_delete, can_create_users });
       if (profileError) throw new Error("Erro ao criar perfil: " + profileError.message);
     }
 
