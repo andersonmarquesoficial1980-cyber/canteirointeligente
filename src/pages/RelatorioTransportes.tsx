@@ -17,9 +17,15 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
+// description salva equipamentos como texto: "CP05" ou "PN49, CH33" ou "VAZIO"
+function parseEquipamentos(desc: string | null): [string, string, string] {
+  if (!desc || desc.toUpperCase() === "VAZIO") return ["", "", ""];
+  const parts = desc.split(",").map(s => s.trim()).filter(Boolean);
+  return [parts[0] || "", parts[1] || "", parts[2] || ""];
+}
+
 function mapEntry(row: any) {
-  let extras: any = {};
-  try { if (row.description) extras = JSON.parse(row.description); } catch {}
+  const [eq1, eq2, eq3] = parseEquipamentos(row.description);
   return {
     startTime: row.start_time || "",
     endTime: row.end_time || "",
@@ -28,17 +34,17 @@ function mapEntry(row: any) {
     origin: row.origin || "",
     destination: row.destination || "",
     transportOgs: row.ogs_destination || "",
-    transportEquip1: extras.transportEquip1 || "",
-    transportEquip1Custom: extras.transportEquip1Custom || "",
-    transportEquip2: extras.transportEquip2 || "",
-    transportEquip2Custom: extras.transportEquip2Custom || "",
-    transportEquip3: extras.transportEquip3 || "",
-    transportEquip3Custom: extras.transportEquip3Custom || "",
-    transportObs: extras.transportObs || "",
-    returnReason: extras.returnReason || "",
-    returnDetails: extras.returnDetails || "",
-    transportInternalDetails: extras.transportInternalDetails || "",
-    maintenanceDetails: extras.maintenanceDetails || "",
+    transportEquip1: eq1,
+    transportEquip1Custom: "",
+    transportEquip2: eq2,
+    transportEquip2Custom: "",
+    transportEquip3: eq3,
+    transportEquip3Custom: "",
+    transportObs: "",
+    returnReason: "",
+    returnDetails: "",
+    transportInternalDetails: "",
+    maintenanceDetails: "",
   };
 }
 
@@ -114,17 +120,17 @@ export default function RelatorioTransportes() {
        "Horário Início", "Horário Fim", "Atividade", "Observações"]
     ];
 
-    const ogsMap: Record<string, string> = {};
-    (ogsData as any[]).forEach((o: any) => { ogsMap[o.ogs_number] = o.location_address || ""; });
+    // Extrai número e endereço do campo raw (formato: "2534 | AV GENERAL..." ou "BASE / PÁTIO CENTRAL")
     const resolveAddr = (raw: string) => {
       if (!raw) return "";
-      if (raw === "BASE / PÁTIO CENTRAL") return "PÁTIO CENTRAL / OFICINA";
-      const num = raw.split(" ")[0];
-      return ogsMap[num] || raw;
+      if (raw.toUpperCase().includes("BASE")) return "PÁTIO CENTRAL / OFICINA";
+      if (raw.includes("|")) return raw.split("|").slice(1).join("|").trim(); // usa endereço já embutido
+      return raw;
     };
     const resolveNum = (raw: string) => {
       if (!raw) return "";
-      if (raw === "BASE / PÁTIO CENTRAL") return "BASE";
+      if (raw.toUpperCase().includes("BASE")) return "BASE";
+      if (raw.includes("|")) return raw.split("|")[0].trim();
       return raw.split(" ")[0];
     };
 
@@ -141,12 +147,8 @@ export default function RelatorioTransportes() {
           "", "", "", "", "", "", "", "", "", "", d.observations || ""]);
       } else {
         entries.forEach((e: any) => {
-          let extras: any = {};
-          try { if (e.description) extras = JSON.parse(e.description); } catch {}
-          const eq1 = extras.transportEquip1Custom || extras.transportEquip1 || "";
-          const eq2 = extras.transportEquip2Custom || extras.transportEquip2 || "";
-          const eq3 = extras.transportEquip3Custom || extras.transportEquip3 || "";
-          const obs = [extras.returnReason, extras.returnDetails, extras.transportObs].filter(Boolean).join(" | ");
+          const [eq1, eq2, eq3] = parseEquipamentos(e.description);
+          const obs = "";
           linhas.push([fmtDate(d.date), d.equipment_fleet, prancha, d.operator_name, d.period,
             kmIni > 0 ? String(kmIni) : "", kmFin > 0 ? String(kmFin) : "", kmPerc > 0 ? String(kmPerc) : "",
             eq1, eq2, eq3,
