@@ -56,7 +56,7 @@ export default function RdoForm() {
 
   // Header
   const [header, setHeader] = useState({
-    data: today, obra_nome: "", cliente: "", local: "", status_obra: "Trabalhou", turno: "",
+    data: today, obra_nome: "", cliente: "", local: "", status_obra: "Trabalhou", turno: "", responsavel: "",
   });
   const {
     isBlocked: isDateBlocked,
@@ -160,6 +160,7 @@ export default function RdoForm() {
         obra_nome: rdo.obra_nome || "",
         status_obra: rdo.clima || "Trabalhou",
         turno: rdo.turno || "",
+        responsavel: rdo.responsavel || "",
       }));
       if (rdo.tipo_rdo) setTipoRdo(rdo.tipo_rdo);
       // Efetivo
@@ -250,7 +251,7 @@ export default function RdoForm() {
         setSavingDraft(false);
         return;
       }
-      const responsavelNome = profile?.nome_completo || "Não identificado";
+      const responsavelNome = header.responsavel?.trim() || profile?.nome_completo || "Não identificado";
       const { error } = await supabase.from("rdo_diarios").insert({
         data: header.data,
         obra_nome: header.obra_nome,
@@ -413,7 +414,7 @@ export default function RdoForm() {
       toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
       return;
     }
-    const responsavelNome = profile?.nome_completo || "Não identificado";
+    const responsavelNome = header.responsavel?.trim() || profile?.nome_completo || "Não identificado";
     const rdoPayload = {
       data: header.data,
       obra_nome: header.obra_nome,

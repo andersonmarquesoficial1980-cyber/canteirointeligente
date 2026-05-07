@@ -2,7 +2,7 @@ import { useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useOgsReference } from "@/hooks/useOgsReference";
-import { CalendarDays, Building2, MapPin, Activity } from "lucide-react";
+import { CalendarDays, Building2, MapPin, Activity, User } from "lucide-react";
 
 interface RdoHeaderProps {
   data: {
@@ -12,6 +12,7 @@ interface RdoHeaderProps {
     local: string;
     status_obra: string;
     turno: string;
+    responsavel?: string;
   };
   onChange: (field: string, value: string) => void;
 }
@@ -176,6 +177,19 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
       <div className="space-y-1.5">
         <span className="rdo-label">Cliente</span>
         <Input value={data.cliente} readOnly className="h-12 text-base bg-muted/50 border-border rounded-xl cursor-not-allowed" />
+      </div>
+
+      {/* Responsável */}
+      <div className="space-y-1.5">
+        <span className="rdo-label flex items-center gap-1">
+          <User className="w-3.5 h-3.5" /> Responsável / Encarregado
+        </span>
+        <Input
+          value={data.responsavel || ""}
+          onChange={e => onChange("responsavel", e.target.value)}
+          placeholder="Nome do encarregado ou responsável pela obra"
+          className="h-12 text-base bg-white border-border rounded-xl"
+        />
       </div>
 
       {/* Local */}
