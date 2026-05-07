@@ -971,8 +971,8 @@ function UsersManager() {
     setSavingEdit(true);
     try {
       const body: any = { action: "update", user_id: editing.user_id };
-      if (editNome.trim() && editNome !== editing.nome_completo) body.nome_completo = editNome.trim();
-      if (editPerfil && editPerfil !== editing.perfil) body.perfil = editPerfil;
+      if (editNome.trim()) body.nome_completo = editNome.trim();
+      if (editPerfil) body.perfil = editPerfil; // sempre envia perfil
       if (editPassword.trim()) body.password = editPassword;
       const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", { body });
       if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao atualizar");
