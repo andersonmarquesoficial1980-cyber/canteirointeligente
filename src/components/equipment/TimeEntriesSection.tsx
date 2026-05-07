@@ -38,7 +38,9 @@ export interface TimeEntry {
    isParada: boolean;
    maintenanceDetails?: string;
    origin?: string;
+   originCustom?: string;
    destination?: string;
+   destinationCustom?: string;
    transportObs?: string;
    transportOgs?: string;
    transportPassengers?: string;
@@ -296,48 +298,89 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
           {entry.activity === "Transporte" && (
             <div className="space-y-2 border-t border-border pt-2">
               <div className="grid grid-cols-2 gap-2">
+                {/* ORIGEM */}
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Origem</span>
-                  <Select value={entry.origin || ""} onValueChange={(v) => updateEntry(idx, "origin", v)}>
-                    <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      <SelectItem value={BASE_PATIO_VALUE} className="text-xs font-semibold">
-                        <span className="flex items-center gap-1.5">
-                          <Warehouse className="w-3 h-3 text-primary" />
-                          {BASE_PATIO_VALUE}
-                        </span>
-                      </SelectItem>
-                      {ogsLocationOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {entry.origin === "__OUTROS__" ? (
+                    <div className="flex gap-1">
+                      <Input
+                        value={entry.originCustom || ""}
+                        onChange={e => updateEntry(idx, "originCustom", e.target.value)}
+                        placeholder="Digite a origem..."
+                        className="bg-secondary border-border h-9 text-xs flex-1"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateEntry(idx, "origin", "", { originCustom: "" })}
+                        className="text-muted-foreground hover:text-foreground px-1.5"
+                        title="Limpar"
+                      >✕</button>
+                    </div>
+                  ) : (
+                    <Select value={entry.origin || ""} onValueChange={(v) => updateEntry(idx, "origin", v, { originCustom: "" })}>
+                      <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <SelectItem value={BASE_PATIO_VALUE} className="text-xs font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            <Warehouse className="w-3 h-3 text-primary" />
+                            {BASE_PATIO_VALUE}
+                          </span>
+                        </SelectItem>
+                        {ogsLocationOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                        ))}
+                        <SelectItem value="__OUTROS__" className="text-xs font-semibold text-primary">✏️ Outros (digitar)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
+
+                {/* DESTINO */}
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Destino</span>
-                  <Select value={entry.destination || ""} onValueChange={(v) => {
-                    const extra: Partial<TimeEntry> = v !== BASE_PATIO_VALUE
-                      ? { returnReason: "", returnDetails: "" }
-                      : {};
-                    updateEntry(idx, "destination", v, extra);
-                  }}>
-                    <SelectTrigger className="bg-secondary border-border h-9 text-xs">
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      <SelectItem value={BASE_PATIO_VALUE} className="text-xs font-semibold">
-                        <span className="flex items-center gap-1.5">
-                          <Warehouse className="w-3 h-3 text-primary" />
-                          {BASE_PATIO_VALUE}
-                        </span>
-                      </SelectItem>
-                      {ogsLocationOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {entry.destination === "__OUTROS__" ? (
+                    <div className="flex gap-1">
+                      <Input
+                        value={entry.destinationCustom || ""}
+                        onChange={e => updateEntry(idx, "destinationCustom", e.target.value)}
+                        placeholder="Digite o destino..."
+                        className="bg-secondary border-border h-9 text-xs flex-1"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateEntry(idx, "destination", "", { destinationCustom: "" })}
+                        className="text-muted-foreground hover:text-foreground px-1.5"
+                        title="Limpar"
+                      >✕</button>
+                    </div>
+                  ) : (
+                    <Select value={entry.destination || ""} onValueChange={(v) => {
+                      const extra: Partial<TimeEntry> = v !== BASE_PATIO_VALUE
+                        ? { returnReason: "", returnDetails: "", destinationCustom: "" }
+                        : { destinationCustom: "" };
+                      updateEntry(idx, "destination", v, extra);
+                    }}>
+                      <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <SelectItem value={BASE_PATIO_VALUE} className="text-xs font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            <Warehouse className="w-3 h-3 text-primary" />
+                            {BASE_PATIO_VALUE}
+                          </span>
+                        </SelectItem>
+                        {ogsLocationOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                        ))}
+                        <SelectItem value="__OUTROS__" className="text-xs font-semibold text-primary">✏️ Outros (digitar)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
 

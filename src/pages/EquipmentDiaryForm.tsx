@@ -1145,8 +1145,8 @@ export default function EquipmentDiaryForm() {
             end_time: t.endTime || null,
             activity: t.activity,
             description,
-            origin: t.origin || null,
-            destination: t.destination || null,
+            origin: t.origin === "__OUTROS__" ? (t.originCustom || null) : (t.origin || null),
+            destination: t.destination === "__OUTROS__" ? (t.destinationCustom || null) : (t.destination || null),
             ogs_destination: t.transportOgs || null,
           };
         });
