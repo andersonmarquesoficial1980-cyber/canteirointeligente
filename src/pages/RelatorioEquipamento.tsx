@@ -153,8 +153,11 @@ export default function RelatorioEquipamento() {
   const urlMes = searchParams.get("mes") || (urlIni ? urlIni.split("-")[1] : null);
   const urlAno = searchParams.get("ano") || (urlIni ? urlIni.split("-")[0] : null);
 
-  const [mes, setMes] = useState(urlMes || monthNow);
-  const [ano, setAno] = useState(urlAno || yearNow);
+  // Lê sempre da URL para garantir sincronia após navigate
+  const mes = searchParams.get("mes") || monthNow;
+  const ano = searchParams.get("ano") || yearNow;
+  const setMes = (v: string) => navigate(`/relatorio-equipamento/${encodeURIComponent(fleetParam)}?mes=${v}&ano=${searchParams.get("ano") || yearNow}`, { replace: true });
+  const setAno = (v: string) => navigate(`/relatorio-equipamento/${encodeURIComponent(fleetParam)}?mes=${searchParams.get("mes") || monthNow}&ano=${v}`, { replace: true });
   const [loading, setLoading] = useState(false);
   const [diarios, setDiarios] = useState<Diario[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
@@ -307,15 +310,8 @@ export default function RelatorioEquipamento() {
 
   const mesLabel = MONTHS.find((m) => m.v === mes)?.l || mes;
 
-  function onChangeMes(novoMes: string) {
-    setMes(novoMes);
-    navigate(`/relatorio-equipamento/${encodeURIComponent(fleetParam)}?mes=${novoMes}&ano=${ano}`, { replace: true });
-  }
-
-  function onChangeAno(novoAno: string) {
-    setAno(novoAno);
-    navigate(`/relatorio-equipamento/${encodeURIComponent(fleetParam)}?mes=${mes}&ano=${novoAno}`, { replace: true });
-  }
+  const onChangeMes = setMes;
+  const onChangeAno = setAno;
 
   function abrirDetalhe(diaryId: string) {
     setSelectedDiaryId((prev) => (prev === diaryId ? null : diaryId));
