@@ -892,6 +892,7 @@ function UsersManager() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [editNome, setEditNome] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editPerfil, setEditPerfil] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
@@ -961,6 +962,7 @@ function UsersManager() {
   const openEdit = (u: any) => {
     setEditing(u);
     setEditNome(u.nome_completo);
+    setEditEmail(u.email || "");
     setEditPerfil(u.perfil);
     setEditPassword("");
   };
@@ -974,8 +976,12 @@ function UsersManager() {
     try {
       const body: any = { action: "update", user_id: editing.user_id };
       if (editNome.trim()) body.nome_completo = editNome.trim();
-      if (editPerfil) body.perfil = editPerfil; // sempre envia perfil
+      if (editPerfil) body.perfil = editPerfil;
       if (editPassword.trim()) body.password = editPassword;
+      // Envia email apenas se foi alterado
+      if (editEmail.trim() && editEmail.trim().toLowerCase() !== (editing?.email || "").toLowerCase()) {
+        body.email = editEmail.trim();
+      }
       const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", { body });
       if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao atualizar");
       toast({ title: "✅ Usuário atualizado!" });
@@ -1106,7 +1112,15 @@ function UsersManager() {
           <div className="space-y-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">E-mail</Label>
-              <Input value={editing?.email || ""} disabled className="h-11 bg-muted border-border" />
+              <Input
+                value={editEmail}
+                onChange={e => setEditEmail(e.target.value)}
+                className="h-11 bg-secondary border-border"
+                placeholder="novo@email.com"
+              />
+              {editEmail.trim().toLowerCase() !== (editing?.email || "").toLowerCase() && editEmail.trim() && (
+                <p className="text-[10px] text-yellow-600">⚠️ E-mail será alterado de <strong>{editing?.email}</strong> para <strong>{editEmail}</strong></p>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nome Completo</Label>

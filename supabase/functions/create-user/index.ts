@@ -58,8 +58,16 @@ serve(async (req) => {
 
     // === UPDATE USER ===
     if (action === "update") {
-      const { user_id, nome_completo, perfil, password } = body;
+      const { user_id, nome_completo, perfil, password, email: novoEmail } = body;
       if (!user_id) throw new Error("user_id é obrigatório");
+
+      // Atualizar e-mail no Auth (se fornecido)
+      if (novoEmail && novoEmail.trim()) {
+        const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(user_id, { email: novoEmail.trim().toLowerCase() });
+        if (emailError) throw new Error("Erro ao atualizar e-mail: " + emailError.message);
+        // Atualizar e-mail no profile também
+        await supabaseAdmin.from("profiles").update({ email: novoEmail.trim().toLowerCase() }).eq("user_id", user_id);
+      }
 
       // Update profile
       if (nome_completo || perfil) {
