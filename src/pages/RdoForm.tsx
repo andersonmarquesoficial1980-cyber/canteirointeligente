@@ -577,7 +577,7 @@ export default function RdoForm() {
           nf: n.nf || null,
           placa: n.placa || null,
           usina: n.usina || null,
-          tonelagem: n.tonelagem ? parseFloat(n.tonelagem) : null,
+          tonelagem: n.tonelagem ? parseFloat(n.tonelagem.replace(",", ".")) : null,
           tipo_material: n.tipo_material || n.tipo_material_outro || null,
         }));
       if (nfEntries.length > 0) {
