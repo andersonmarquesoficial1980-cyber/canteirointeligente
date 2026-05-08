@@ -225,12 +225,12 @@ export default function BuscaRdo() {
                       </div>
                     </button>
 
-                    {/* Lista dos RDOs do grupo */}
+                    {/* Lista dos RDOs do grupo — abre relatório completo por data */}
                     <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
                       {rdos.map(r => (
                         <button
                           key={r.id}
-                          onClick={() => navigate(`/visualizar-rdo/${r.id}`)}
+                          onClick={() => navigate(`/relatorios/rdo/${ogsNum}?ini=${r.data}&fim=${r.data}`)}
                           className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors text-left"
                         >
                           <div className="flex-1 min-w-0">

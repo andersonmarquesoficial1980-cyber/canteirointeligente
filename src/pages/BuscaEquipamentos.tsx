@@ -50,24 +50,38 @@ export default function BuscaEquipamentos() {
   const [frotasPorTipo, setFrotasPorTipo] = useState<Record<string, string[]>>({});
   const [operadores, setOperadores] = useState<string[]>([]);
 
-  // Frotas filtradas pelo tipo selecionado
-  const frotas = tipoEquip ? (frotasPorTipo[tipoEquip] || []) : Object.values(frotasPorTipo).flat().sort();
+  // Frotas filtradas pelo tipo selecionado (case-insensitive entre maquinas_frota e equipment_diaries)
+  const frotas = tipoEquip
+    ? (Object.entries(frotasPorTipo).find(([k]) => k.toLowerCase() === tipoEquip.toLowerCase())?.[1] || [])
+    : [...new Set(Object.values(frotasPorTipo).flat())].sort();
 
   useEffect(() => {
     Promise.all([
-      // Tipos e frotas do cadastro oficial (maquinas_frota)
+      // Tipos dos diários reais (para filtro consistente)
+      (supabase as any).from("equipment_diaries").select("equipment_type").not("equipment_type", "is", null),
+      // Frotas do cadastro oficial (maquinas_frota) com tipo em UPPER
       (supabase as any).from("maquinas_frota").select("tipo, frota").order("tipo").order("frota"),
       // Operadores dos diários reais
       (supabase as any).from("equipment_diaries").select("operator_name").not("operator_name", "is", null),
-    ]).then(([maq, o]) => {
+    ]).then(([td, maq, o]) => {
+      // Tipos únicos dos diários (title case, ex: "Fresadora")
+      if (td.data) {
+        const tiposUniq = [...new Set((td.data as any[]).map((r: any) => r.equipment_type).filter(Boolean))].sort();
+        setTipos(tiposUniq);
+      }
+      // Mapear frotas por tipo: chave = title case (igual equipment_type)
       if (maq.data) {
         const byTipo: Record<string, string[]> = {};
         (maq.data as any[]).forEach(r => {
-          const t = r.tipo || "Outros";
-          if (!byTipo[t]) byTipo[t] = [];
-          if (r.frota && !byTipo[t].includes(r.frota)) byTipo[t].push(r.frota);
+          // Normaliza o tipo do maquinas_frota para title case
+          const tipoRaw = (r.tipo || "Outros") as string;
+          // Tenta achar o tipo correspondente nos diarios (case-insensitive)
+          const frota = r.frota as string;
+          if (!frota) return;
+          // Adiciona sob a chave raw (UPPER) e também tenta mapear
+          if (!byTipo[tipoRaw]) byTipo[tipoRaw] = [];
+          if (!byTipo[tipoRaw].includes(frota)) byTipo[tipoRaw].push(frota);
         });
-        setTipos(Object.keys(byTipo).sort());
         setFrotasPorTipo(byTipo);
       }
       if (o.data) setOperadores([...new Set((o.data as any[]).map((r: any) => r.operator_name).filter(Boolean))].sort());
@@ -88,7 +102,7 @@ export default function BuscaEquipamentos() {
       .limit(150);
 
     if (ogs.trim()) query = query.ilike("ogs_number", `%${ogs.trim()}%`);
-    if (tipoEquip) query = query.eq("equipment_type", tipoEquip);
+    if (tipoEquip) query = query.ilike("equipment_type", tipoEquip); // ILIKE ignora case
     if (frota.trim()) query = query.ilike("equipment_fleet", `%${frota.trim()}%`);
     if (operador.trim()) query = query.ilike("operator_name", `%${operador.trim()}%`);
 
