@@ -73,6 +73,7 @@ export default function AbastecimentoHome() {
     setSalvando(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user?.id!).maybeSingle();
       await supabase.from("abastecimentos").insert({
         equipment_fleet: form.equipment_fleet,
         equipment_type: form.equipment_type || null,
@@ -88,6 +89,7 @@ export default function AbastecimentoHome() {
         lubrificado: form.lubrificado,
         autorizado_por: form.autorizado_por || null,
         created_by: user?.id,
+        company_id: (profile as any)?.company_id || null,
       });
       setModal(false);
       buscarDados();
