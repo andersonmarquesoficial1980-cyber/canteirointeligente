@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useCanDelete } from "@/hooks/useCanDelete";
 import { toast } from "@/hooks/use-toast";
+import { registrarAuditoria } from "@/lib/audit";
 
 interface RdoItem {
   id: string;
@@ -461,6 +462,7 @@ export default function RelatorioRdo() {
       if (error) throw error;
       setRdoList(prev => prev.filter(r => r.id !== id));
       setSelecionados(prev => { const s = new Set(prev); s.delete(id); return s; });
+      await registrarAuditoria({ acao: "DELETE", tabela: "rdo_diarios", registroId: id, dadosAntes: rdoItem as any });
       toast({ title: "✅ RDO excluído", description: "Salvo na lixeira por 30 dias. Recupere em Painel de Controle → Lixeira." });
     } catch (e: any) {
       toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" });

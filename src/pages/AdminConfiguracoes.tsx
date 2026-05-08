@@ -1,4 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import { AuditLogViewer } from "@/components/admin/AuditLogViewer";
+function AuditLogViewerAdmin() { return <AuditLogViewer />; }
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,7 +13,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target, ClipboardList, Search, Eye, EyeOff,
+  Target, ClipboardList, Search, Eye, EyeOff, Shield,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -1975,6 +1977,7 @@ const MENU_SECTIONS = [
   { key: "desbloquear", label: "Desbloquear Lançamentos", icon: Unlock },
   { key: "lancamentos_admin", label: "Lançamentos", icon: ClipboardList },
   { key: "lixeira", label: "Lixeira (30 dias)", icon: Trash2 },
+  { key: "auditoria", label: "Log de Auditoria", icon: Shield },
   { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
 ];
@@ -2169,6 +2172,7 @@ export default function AdminConfiguracoes() {
       case "aeropav_staff": return <AeroPavStaffManager />;
       case "operadores_habilitados": return <OperadoresHabilitadosManager />;
       case "lixeira": return <LixeiraManager />;
+      case "auditoria": return <AuditLogViewerAdmin />;
       default: return null;
     }
   };
