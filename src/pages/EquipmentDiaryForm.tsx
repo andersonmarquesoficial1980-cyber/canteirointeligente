@@ -459,12 +459,13 @@ export default function EquipmentDiaryForm() {
 
         const diaryIds = comboioDiaries.map((d: any) => d.id);
 
-        // Search refueling logs for this fleet on this date
-        const { data: refuelLogs } = await supabase
-          .from("comboio_equipment_refueling")
-          .select("liters_fueled, equipment_meter")
+        // Search refueling logs for this fleet on this date (fonte única: abastecimentos)
+        const { data: refuelLogs } = await (supabase as any)
+          .from("abastecimentos")
+          .select("litros, horimetro")
           .in("diary_id", diaryIds)
-          .eq("equipment_fleet_fueled", selectedFleet);
+          .eq("equipment_fleet", selectedFleet)
+          .then(({ data }: any) => ({ data: (data || []).map((r: any) => ({ liters_fueled: r.litros, equipment_meter: r.horimetro })) }));
 
         if (cancelled) return;
 
@@ -671,7 +672,7 @@ export default function EquipmentDiaryForm() {
           supabase.from("equipment_production_areas").select("*").eq("diary_id", editId),
           supabase.from("bit_entries").select("*").eq("diary_id", editId),
           supabase.from("truck_tank_supplies").select("*").eq("diary_id", editId),
-          supabase.from("comboio_equipment_refueling").select("*").eq("diary_id", editId),
+          Promise.resolve({ data: [] }), // comboio_equipment_refueling migrado para abastecimentos
           supabase.from("checklist_entries").select("*").eq("diary_id", editId),
           supabase.from("kma_operations").select("*").eq("diary_id", editId),
           (supabase as any).from("abastecimentos").select("*").eq("diary_id", editId),
@@ -828,49 +829,25 @@ export default function EquipmentDiaryForm() {
             : [createEmptyTankSupply()],
         );
 
-        const abastBuckets = new Map<string, any[]>();
-        ((abastRows || []) as any[]).forEach((row: any) => {
-          const key = [
-            row.equipment_fleet || "",
-            toText(row.litros),
-            toText(row.horimetro),
-            row.ogs || "",
-          ].join("|");
-          const list = abastBuckets.get(key) || [];
-          list.push(row);
-          abastBuckets.set(key, list);
-        });
-
-        const mappedComboioEntries = ((comboioRows || []) as any[]).map((row: any) => {
-          const key = [
-            row.equipment_fleet_fueled || "",
-            toText(row.liters_fueled),
-            toText(row.equipment_meter),
-            row.ogs_destination || "",
-          ].join("|");
-          const matches = abastBuckets.get(key) || [];
-          const matchedAbast = matches.length > 0 ? matches.shift() : null;
-          if (matches.length === 0) abastBuckets.delete(key);
-          else abastBuckets.set(key, matches);
-
-          let tipoEquipamento = matchedAbast?.equipment_type || "";
-          if (!tipoEquipamento && row.equipment_fleet_fueled) {
+        // Migrado: comboioRows sempre vazio, carregar abastecimentos direto da tabela unificada
+        const mappedComboioEntries = ((abastRows || []) as any[]).map((row: any) => {
+          let tipoEquipamento = row.equipment_type || "";
+          if (!tipoEquipamento && row.equipment_fleet) {
             const foundFleet = equipmentFleets.find(
-              (f: any) => f.fleet_number === row.equipment_fleet_fueled,
+              (f: any) => f.fleet_number === row.equipment_fleet,
             );
             tipoEquipamento = foundFleet?.equipment_type || "";
           }
-
           return {
             id: row.id || crypto.randomUUID(),
-            hora: matchedAbast?.hora || "",
+            hora: row.hora || "",
             tipoEquipamento,
-            fleetFueled: row.equipment_fleet_fueled || "",
-            equipmentMeter: toText(row.equipment_meter),
-            litersFueled: toText(row.liters_fueled),
-            ogsDestination: row.ogs_destination || "",
-            isLubricated: !!row.is_lubricated,
-            isWashed: !!row.is_washed,
+            fleetFueled: row.equipment_fleet || "",
+            equipmentMeter: toText(row.horimetro),
+            litersFueled: toText(row.litros),
+            ogsDestination: row.ogs || "",
+            isLubricated: !!row.lubrificado,
+            isWashed: !!row.lavado,
           };
         });
         setComboioRefuels(
@@ -1094,7 +1071,7 @@ export default function EquipmentDiaryForm() {
           supabase.from("bit_entries").delete().eq("diary_id", diary.id),
           supabase.from("checklist_entries").delete().eq("diary_id", diary.id),
           supabase.from("truck_tank_supplies").delete().eq("diary_id", diary.id),
-          supabase.from("comboio_equipment_refueling").delete().eq("diary_id", diary.id),
+          // comboio_equipment_refueling removido — fonte única: abastecimentos
           (supabase as any).from("abastecimentos").delete().eq("diary_id", diary.id),
         ]);
       }
@@ -1315,40 +1292,27 @@ export default function EquipmentDiaryForm() {
 
         // Save comboio refueling entries
         const validRefuels = comboioRefuels.filter((r) => r.fleetFueled || r.litersFueled);
-        if (validRefuels.length > 0) {
-          const rows = validRefuels.map((r) => ({
-            diary_id: diary.id,
-            equipment_fleet_fueled: r.fleetFueled || null,
-            equipment_meter: r.equipmentMeter ? Number(r.equipmentMeter) : null,
-            ogs_destination: r.ogsDestination || null,
-            liters_fueled: r.litersFueled ? Number(r.litersFueled) : null,
-            is_lubricated: r.isLubricated,
-            is_washed: r.isWashed,
-            initial_diesel_balance: comboioSaldoInicial ? Number(comboioSaldoInicial) : null,
-          }));
-          await supabase.from("comboio_equipment_refueling").insert(rows);
-
-          // Sincronizar com tabela consolidada de abastecimentos
-          if (!isDraft) {
-            const abastRows = validRefuels
-              .filter(r => r.fleetFueled && r.litersFueled)
-              .map(r => ({
-                equipment_fleet: r.fleetFueled,
-                equipment_type: r.tipoEquipamento || null,
-                data: date,
-                hora: r.hora || null,
-                litros: Number(r.litersFueled),
-                horimetro: r.equipmentMeter ? Number(r.equipmentMeter) : null,
-                fonte: "comboio",
-                comboio_fleet: normalizedSelectedFleet,
-                lubrificado: r.isLubricated,
-                lavado: r.isWashed,
-                ogs: r.ogsDestination || null,
-                diary_id: diary.id,
-              }));
-            if (abastRows.length > 0) {
-              await supabase.from("abastecimentos").insert(abastRows);
-            }
+        // Fonte única: salva apenas em abastecimentos (comboio_equipment_refueling foi removido)
+        if (validRefuels.length > 0 && !isDraft) {
+          const abastRows = validRefuels
+            .filter(r => r.fleetFueled && r.litersFueled)
+            .map(r => ({
+              equipment_fleet: r.fleetFueled,
+              equipment_type: r.tipoEquipamento || null,
+              data: date,
+              hora: r.hora || null,
+              litros: Number(r.litersFueled),
+              horimetro: r.equipmentMeter ? Number(r.equipmentMeter) : null,
+              fonte: "comboio",
+              comboio_fleet: normalizedSelectedFleet,
+              lubrificado: r.isLubricated,
+              lavado: r.isWashed,
+              ogs: r.ogsDestination || null,
+              diary_id: diary.id,
+              company_id: (profile as any)?.company_id || null,
+            }));
+          if (abastRows.length > 0) {
+            await (supabase as any).from("abastecimentos").insert(abastRows);
           }
         }
       }
