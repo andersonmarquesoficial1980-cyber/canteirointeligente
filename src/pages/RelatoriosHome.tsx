@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, ClipboardList, Search } from "lucide-react";
+import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const TIPOS_RELATORIO = [
@@ -131,45 +131,38 @@ export default function RelatoriosHome() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-2">
-        {/* Meus Lançamentos: apenas em Equipamentos e RDO */}
-        {(step === "tipo" || tipoRel === "equipamento" || tipoRel === "rdo") && !tipoRel || tipoRel === "equipamento" || tipoRel === "rdo" ? (
-          <Button
-            variant="outline"
-            className="w-full h-11 gap-2 font-semibold"
-            onClick={() => navigate("/meus-lancamentos")}
+        {/* Busca avançada contextual */}
+        {step === "subtipo" && tipoRel === "rdo" && (
+          <button
+            onClick={() => navigate("/relatorios/busca-rdo")}
+            className="w-full flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors text-left"
           >
-            <ClipboardList className="w-4 h-4" />
-            Meus Lançamentos
-          </Button>
-        ) : null}
+            <Search className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-primary">Busca Avançada de RDOs</p>
+              <p className="text-xs text-muted-foreground">Filtrar por OGS, data, encarregado ou apontador</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
+        )}
+        {step === "subtipo" && tipoRel === "equipamento" && (
+          <button
+            onClick={() => navigate("/relatorios/busca-equipamentos")}
+            className="w-full flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors text-left"
+          >
+            <Search className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-primary">Busca Avançada de Equipamentos</p>
+              <p className="text-xs text-muted-foreground">Filtrar por frota, tipo, OGS ou operador</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
+        )}
 
         {/* PASSO 1: Tipo de Relatório */}
         {step === "tipo" && (
           <>
-            {/* Busca avançada — atalhos rápidos */}
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <button
-                onClick={() => navigate("/relatorios/busca-rdo")}
-                className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 text-left hover:bg-primary/10 transition-colors"
-              >
-                <Search className="w-4 h-4 text-primary shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-primary">Buscar RDOs</p>
-                  <p className="text-[10px] text-muted-foreground">Por OGS, data, encarregado</p>
-                </div>
-              </button>
-              <button
-                onClick={() => navigate("/relatorios/busca-equipamentos")}
-                className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 text-left hover:bg-primary/10 transition-colors"
-              >
-                <Search className="w-4 h-4 text-primary shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-primary">Buscar Equipamentos</p>
-                  <p className="text-[10px] text-muted-foreground">Por frota, tipo, operador</p>
-                </div>
-              </button>
-            </div>
-            <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Ou gere um relatório por:</p>
+            <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Que tipo de relatório você precisa?</p>
             {TIPOS_RELATORIO.map(t => (
               <button
                 key={t.id}
