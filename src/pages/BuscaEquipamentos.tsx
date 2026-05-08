@@ -47,18 +47,30 @@ export default function BuscaEquipamentos() {
 
   // Opções dinâmicas
   const [tipos, setTipos] = useState<string[]>([]);
-  const [frotas, setFrotas] = useState<string[]>([]);
+  const [frotasPorTipo, setFrotasPorTipo] = useState<Record<string, string[]>>({});
   const [operadores, setOperadores] = useState<string[]>([]);
+
+  // Frotas filtradas pelo tipo selecionado
+  const frotas = tipoEquip ? (frotasPorTipo[tipoEquip] || []) : Object.values(frotasPorTipo).flat().sort();
 
   useEffect(() => {
     Promise.all([
-      (supabase as any).from("equipment_diaries").select("equipment_type").not("equipment_type", "is", null),
-      (supabase as any).from("equipment_diaries").select("equipment_fleet").not("equipment_fleet", "is", null),
+      // Tipos e frotas do cadastro oficial (maquinas_frota)
+      (supabase as any).from("maquinas_frota").select("tipo, frota").order("tipo").order("frota"),
+      // Operadores dos diários reais
       (supabase as any).from("equipment_diaries").select("operator_name").not("operator_name", "is", null),
-    ]).then(([t, f, o]) => {
-      if (t.data) setTipos([...new Set((t.data as any[]).map((r: any) => r.equipment_type))].sort());
-      if (f.data) setFrotas([...new Set((f.data as any[]).map((r: any) => r.equipment_fleet))].sort());
-      if (o.data) setOperadores([...new Set((o.data as any[]).map((r: any) => r.operator_name))].sort());
+    ]).then(([maq, o]) => {
+      if (maq.data) {
+        const byTipo: Record<string, string[]> = {};
+        (maq.data as any[]).forEach(r => {
+          const t = r.tipo || "Outros";
+          if (!byTipo[t]) byTipo[t] = [];
+          if (r.frota && !byTipo[t].includes(r.frota)) byTipo[t].push(r.frota);
+        });
+        setTipos(Object.keys(byTipo).sort());
+        setFrotasPorTipo(byTipo);
+      }
+      if (o.data) setOperadores([...new Set((o.data as any[]).map((r: any) => r.operator_name).filter(Boolean))].sort());
     });
   }, []);
 
@@ -133,26 +145,29 @@ export default function BuscaEquipamentos() {
           {/* Tipo de equipamento */}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Tipo de Equipamento</label>
-            <select value={tipoEquip} onChange={e => setTipoEquip(e.target.value)}
-              className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none">
+            <select
+              value={tipoEquip}
+              onChange={e => { setTipoEquip(e.target.value); setFrota(""); }}
+              className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
+            >
               <option value="">Todos os tipos</option>
               {tipos.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 
-          {/* Frota */}
+          {/* Frota — filtrada pelo tipo selecionado */}
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Frota</label>
-            <input
-              type="text" value={frota}
+            <label className="text-xs text-muted-foreground">
+              Frota {tipoEquip && <span className="text-primary">({tipoEquip})</span>}
+            </label>
+            <select
+              value={frota}
               onChange={e => setFrota(e.target.value)}
-              placeholder="Ex: FA20, CM01..."
-              list="lista-frotas"
-              className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
-            />
-            <datalist id="lista-frotas">
-              {frotas.map(f => <option key={f} value={f} />)}
-            </datalist>
+              className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
+            >
+              <option value="">{frotas.length > 0 ? `Todas as frotas (${frotas.length})` : "Selecione o tipo primeiro"}</option>
+              {frotas.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
           </div>
 
           {/* OGS */}
