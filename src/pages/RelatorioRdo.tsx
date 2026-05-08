@@ -266,11 +266,11 @@ function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<str
       const totalArea = producao.reduce((s, p) => s + (parseFloat(String(p.area_m2 || 0)) || 0), 0);
       const totalTonProd = producao.reduce((s, p) => s + (parseFloat(String(p.tonelagem || 0)) || 0), 0);
       html += `<h2>🛣️ Produção do Dia</h2>
-      <table><tr><th>Serviço</th><th>Sentido/Faixa</th><th>Est.Ini</th><th>Est.Fim</th><th>Comp(m)</th><th>Larg(m)</th><th>Área(m²)</th><th>Esp(m)</th><th>Ton</th></tr>`;
+      <table><tr><th>Serviço</th><th>Sentido/Faixa</th><th>Est.Ini</th><th>Est.Fim</th><th>Comp(m)</th><th>Larg(m)</th><th>Área(m²)</th><th>Esp(cm)</th><th>Volume(m³)</th><th>Densidade</th><th>Ton</th></tr>`;
       producao.forEach(p => {
-        html += `<tr><td>${p.tipo_servico || "-"}</td><td>${p.sentido_faixa || p.sentido || "-"}</td><td>${p.estaca_inicial || p.km_inicial || "-"}</td><td>${p.estaca_final || p.km_final || "-"}</td><td>${p.comprimento_m || "-"}</td><td>${p.largura_m || "-"}</td><td>${p.area_m2 ? fmtNum(toNumLib(p.area_m2), 2) : "-"}</td><td>${p.espessura_cm || "-"}</td><td>${p.tonelagem != null ? fmtNum(toNumLib(p.tonelagem), 2) : "-"}</td></tr>`;
+        html += `<tr><td>${p.tipo_servico || "-"}</td><td>${p.sentido_faixa || p.sentido || "-"}</td><td>${p.estaca_inicial || p.km_inicial || "-"}</td><td>${p.estaca_final || p.km_final || "-"}</td><td>${p.comprimento_m || "-"}</td><td>${p.largura_m || "-"}</td><td>${p.area_m2 ? fmtNum(toNumLib(p.area_m2), 2) : "-"}</td><td>${p.espessura_cm || "-"}</td><td>${(p as any).volume_m3 ? fmtNum(toNumLib((p as any).volume_m3), 2) : "-"}</td><td>${(p as any).densidade ? fmtNum(toNumLib((p as any).densidade), 2) : "-"}</td><td>${p.tonelagem != null ? fmtNum(toNumLib(p.tonelagem), 2) : "-"}</td></tr>`;
       });
-      html += `<tr style="font-weight:bold;background:#f3f4f6"><td colspan="6">TOTAL</td><td>${fmtNum(totalArea, 2)}</td><td></td><td>${fmtNum(totalTonProd, 2)}</td></tr></table>`;
+      html += `<tr style="font-weight:bold;background:#f3f4f6"><td colspan="6">TOTAL</td><td>${fmtNum(totalArea, 2)}</td><td></td><td></td><td></td><td>${fmtNum(totalTonProd, 2)}</td></tr></table>`;
     }
 
     if (idx < rdoList.length - 1) html += `<div class="page-break"></div>`;
@@ -744,7 +744,9 @@ export default function RelatorioRdo() {
                                   <th className="text-right py-1.5 px-2">Comp(m)</th>
                                   <th className="text-right py-1.5 px-2">Larg(m)</th>
                                   <th className="text-right py-1.5 px-2">Área(m²)</th>
-                                  <th className="text-right py-1.5 px-2">Esp(m)</th>
+                                  <th className="text-right py-1.5 px-2">Esp(cm)</th>
+                                  <th className="text-right py-1.5 px-2">Volume(m³)</th>
+                                  <th className="text-right py-1.5 px-2">Dens.</th>
                                   <th className="text-right py-1.5 px-2">Ton</th>
                                 </tr>
                               </thead>
@@ -759,13 +761,15 @@ export default function RelatorioRdo() {
                                     <td className="py-1.5 px-2 text-right">{p.largura_m || "-"}</td>
                                     <td className="py-1.5 px-2 text-right">{p.area_m2 ? fmtNum(toNumLib(p.area_m2), 2) : "-"}</td>
                                     <td className="py-1.5 px-2 text-right">{p.espessura_cm || "-"}</td>
+                                    <td className="py-1.5 px-2 text-right">{(p as any).volume_m3 ? fmtNum(toNumLib((p as any).volume_m3), 2) : "-"}</td>
+                                    <td className="py-1.5 px-2 text-right">{(p as any).densidade ? fmtNum(toNumLib((p as any).densidade), 2) : "-"}</td>
                                     <td className="py-1.5 px-2 text-right">{p.tonelagem != null ? fmtNum(toNumLib(p.tonelagem), 2) : "-"}</td>
                                   </tr>
                                 ))}
                                 <tr className="border-t-2 border-border font-bold bg-muted/30">
                                   <td colSpan={6} className="py-1.5 px-2">TOTAL</td>
                                   <td className="py-1.5 px-2 text-right">{fmtNum(totalArea, 2)}</td>
-                                  <td />
+                                  <td /><td /><td />
                                   <td className="py-1.5 px-2 text-right">{fmtNum(totalTon, 2)}</td>
                                 </tr>
                               </tbody>

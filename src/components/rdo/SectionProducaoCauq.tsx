@@ -15,6 +15,7 @@ export interface TrechoCauqEntry {
   comprimento_m: string;
   largura_m: string;
   espessura_m: string;
+  densidade: string;  // t/m³ digitável
   observacoes: string;
 }
 
@@ -32,7 +33,7 @@ interface Props {
 const emptyTrecho = (): TrechoCauqEntry => ({
   id: crypto.randomUUID(),
   tipo_servico: "", sentido: "", faixa: "", estaca_inicial: "", estaca_final: "",
-  comprimento_m: "", largura_m: "", espessura_m: "", observacoes: "",
+  comprimento_m: "", largura_m: "", espessura_m: "", densidade: "", observacoes: "",
 });
 
 export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries }: Props & { nfEntries?: { tonelagem: string }[] }) {
@@ -59,6 +60,24 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
     if (c > 0 && l > 0) return (c * l).toFixed(2);
     return "";
   };
+
+  // Volume (m³) = Área(m²) × Espessura(cm) / 100
+  const calcVolume = (t: TrechoCauqEntry) => {
+    const area = toNum(calcArea(t));
+    const esp = toNum(t.espessura_m);
+    if (area > 0 && esp > 0) return (area * esp / 100).toFixed(2);
+    return "";
+  };
+
+  // Tonelagem = Volume(m³) × Densidade(t/m³)
+  const calcTon = (t: TrechoCauqEntry) => {
+    const vol = toNum(calcVolume(t));
+    const den = toNum(t.densidade);
+    if (vol > 0 && den > 0) return (vol * den).toFixed(2);
+    return "";
+  };
+
+  const totalTonCalculado = data.trechos.reduce((s, t) => s + toNum(calcTon(t)), 0);
 
   return (
     <div className="space-y-4 px-4">
@@ -138,6 +157,39 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
             <Input type="text" value={trecho.espessura_m} onChange={e => updateTrecho(trecho.id, "espessura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 5" />
           </div>
 
+          {/* Volume + Densidade + Tonelagem */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <span className="rdo-label">Volume (m³)</span>
+              <Input
+                value={calcVolume(trecho) ? calcVolume(trecho).replace(".", ",") : ""}
+                readOnly
+                className="h-11 bg-muted/50 border-border rounded-xl text-muted-foreground cursor-not-allowed"
+                placeholder="Auto"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <span className="rdo-label">Densidade (t/m³)</span>
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={trecho.densidade}
+                onChange={e => updateTrecho(trecho.id, "densidade", e.target.value)}
+                className="h-11 bg-white border-border rounded-xl"
+                placeholder="Ex: 2,34"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <span className="rdo-label">Ton. Calc.</span>
+              <Input
+                value={calcTon(trecho) ? calcTon(trecho).replace(".", ",") : ""}
+                readOnly
+                className="h-11 bg-primary/10 border-primary/30 rounded-xl text-primary font-semibold cursor-not-allowed"
+                placeholder="Auto"
+              />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <span className="rdo-label">Observações do Trecho</span>
             <Textarea value={trecho.observacoes} onChange={e => updateTrecho(trecho.id, "observacoes", e.target.value)} className="min-h-[70px] bg-white border-border text-base rounded-xl" placeholder="Observações deste trecho..." />
@@ -152,11 +204,17 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
       {/* Tonelagem */}
       <div className="rdo-card space-y-3 border-l-4 border-l-blue-500">
         <h3 className="text-sm font-display font-bold text-blue-700">Tonelagem</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">
-            <span className="rdo-label">Total via NF (automático)</span>
+            <span className="rdo-label">Total via NF (auto)</span>
             <div className="h-11 bg-muted/50 border border-border rounded-xl flex items-center px-3 text-base font-bold text-primary">
-              {totalNF > 0 ? `${totalNF.toFixed(2)} t` : "—"}
+              {totalNF > 0 ? `${totalNF.toFixed(2).replace(".", ",")} t` : "—"}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <span className="rdo-label">Total calculado (trechos)</span>
+            <div className="h-11 bg-primary/10 border border-primary/30 rounded-xl flex items-center px-3 text-base font-bold text-primary">
+              {totalTonCalculado > 0 ? `${totalTonCalculado.toFixed(2).replace(".", ",")} t` : "—"}
             </div>
           </div>
           <div className="space-y-1.5">
@@ -166,7 +224,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
               value={data.tonelagem_aplicada ?? ""}
               onChange={e => onChange({ ...data, tonelagem_aplicada: e.target.value })}
               className="h-11 bg-white border-border rounded-xl"
-              placeholder="Ex: 48.5"
+              placeholder="Ex: 48,5"
             />
           </div>
         </div>

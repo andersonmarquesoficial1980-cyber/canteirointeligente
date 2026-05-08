@@ -96,7 +96,7 @@ export default function RdoForm() {
   const [producaoCauq, setProducaoCauq] = useState<ProducaoCauqData>({
     trechos: [{
       id: crypto.randomUUID(), tipo_servico: "", sentido: "", faixa: "", estaca_inicial: "", estaca_final: "",
-      comprimento_m: "", largura_m: "", espessura_m: "", observacoes: "",
+      comprimento_m: "", largura_m: "", espessura_m: "", densidade: "", observacoes: "",
     }],
     tonelagem_aplicada: "",
   });
@@ -200,6 +200,7 @@ export default function RdoForm() {
             comprimento_m: String(p.comprimento_m || ""),
             largura_m: String(p.largura_m || ""),
             espessura_m: String(p.espessura_cm || ""),
+            densidade: String(p.densidade || ""),
             observacoes: p.observacoes || "",
           })),
           tonelagem_aplicada: "",
@@ -537,8 +538,10 @@ export default function RdoForm() {
               km_final: t.estaca_final ? parseFloat(t.estaca_final) : null,
               comprimento_m: comp,
               largura_m: larg,
-              espessura_cm: t.espessura_m ? parseFloat(t.espessura_m) : null,
+              espessura_cm: t.espessura_m ? parseFloat(t.espessura_m.replace(",", ".")) : null,
               area_m2: area,
+              densidade: t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null,
+              volume_m3: area && t.espessura_m ? Math.round(area * parseFloat(t.espessura_m.replace(",", ".")) / 100 * 100) / 100 : null,
               observacoes: t.observacoes || null,
             };
           });
