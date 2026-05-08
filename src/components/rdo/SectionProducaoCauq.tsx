@@ -204,7 +204,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
       {/* Tonelagem */}
       <div className="rdo-card space-y-3 border-l-4 border-l-blue-500">
         <h3 className="text-sm font-display font-bold text-blue-700">Tonelagem</h3>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <span className="rdo-label">Total via NF (auto)</span>
             <div className="h-11 bg-muted/50 border border-border rounded-xl flex items-center px-3 text-base font-bold text-primary">
@@ -216,16 +216,6 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
             <div className="h-11 bg-primary/10 border border-primary/30 rounded-xl flex items-center px-3 text-base font-bold text-primary">
               {totalTonCalculado > 0 ? `${totalTonCalculado.toFixed(2).replace(".", ",")} t` : "—"}
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <span className="rdo-label">Tonelagem Aplicada (real)</span>
-            <Input
-              inputMode="decimal"
-              value={data.tonelagem_aplicada ?? ""}
-              onChange={e => onChange({ ...data, tonelagem_aplicada: e.target.value })}
-              className="h-11 bg-white border-border rounded-xl"
-              placeholder="Ex: 48,5"
-            />
           </div>
         </div>
       </div>
