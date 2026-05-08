@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, ClipboardList } from "lucide-react";
+import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, ClipboardList, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const TIPOS_RELATORIO = [
@@ -146,7 +146,30 @@ export default function RelatoriosHome() {
         {/* PASSO 1: Tipo de Relatório */}
         {step === "tipo" && (
           <>
-            <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Que tipo de relatório você precisa?</p>
+            {/* Busca avançada — atalhos rápidos */}
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button
+                onClick={() => navigate("/relatorios/busca-rdo")}
+                className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 text-left hover:bg-primary/10 transition-colors"
+              >
+                <Search className="w-4 h-4 text-primary shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-primary">Buscar RDOs</p>
+                  <p className="text-[10px] text-muted-foreground">Por OGS, data, encarregado</p>
+                </div>
+              </button>
+              <button
+                onClick={() => navigate("/relatorios/busca-equipamentos")}
+                className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 text-left hover:bg-primary/10 transition-colors"
+              >
+                <Search className="w-4 h-4 text-primary shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-primary">Buscar Equipamentos</p>
+                  <p className="text-[10px] text-muted-foreground">Por frota, tipo, operador</p>
+                </div>
+              </button>
+            </div>
+            <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Ou gere um relatório por:</p>
             {TIPOS_RELATORIO.map(t => (
               <button
                 key={t.id}

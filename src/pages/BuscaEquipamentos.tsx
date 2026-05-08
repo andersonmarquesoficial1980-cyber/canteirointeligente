@@ -1,0 +1,252 @@
+/**
+ * BuscaEquipamentos — Busca avançada de diários de equipamentos
+ * Filtros: OGS, Data, Tipo de Equipamento, Frota, Motorista/Operador
+ * Rota: /relatorios/busca-equipamentos
+ */
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Search, Loader2, X, ChevronRight, Wrench } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import logoCi from "@/assets/logo-workflux.png";
+
+function fmtDate(d: string | null) {
+  if (!d) return "—";
+  const [y, m, day] = d.split("-");
+  return `${day}/${m}/${y}`;
+}
+
+interface DiarioResult {
+  id: string;
+  date: string | null;
+  equipment_type: string | null;
+  equipment_fleet: string | null;
+  operator_name: string | null;
+  ogs_number: string | null;
+  client_name: string | null;
+  work_status: string | null;
+  period: string | null;
+}
+
+export default function BuscaEquipamentos() {
+  const navigate = useNavigate();
+
+  const hoje = new Date().toISOString().split("T")[0];
+  const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+
+  const [ini, setIni] = useState(mesAtras);
+  const [fim, setFim] = useState(hoje);
+  const [ogs, setOgs] = useState("");
+  const [tipoEquip, setTipoEquip] = useState("");
+  const [frota, setFrota] = useState("");
+  const [operador, setOperador] = useState("");
+
+  const [resultados, setResultados] = useState<DiarioResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [buscou, setBuscou] = useState(false);
+
+  // Opções dinâmicas
+  const [tipos, setTipos] = useState<string[]>([]);
+  const [frotas, setFrotas] = useState<string[]>([]);
+  const [operadores, setOperadores] = useState<string[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      (supabase as any).from("equipment_diaries").select("equipment_type").not("equipment_type", "is", null),
+      (supabase as any).from("equipment_diaries").select("equipment_fleet").not("equipment_fleet", "is", null),
+      (supabase as any).from("equipment_diaries").select("operator_name").not("operator_name", "is", null),
+    ]).then(([t, f, o]) => {
+      if (t.data) setTipos([...new Set((t.data as any[]).map((r: any) => r.equipment_type))].sort());
+      if (f.data) setFrotas([...new Set((f.data as any[]).map((r: any) => r.equipment_fleet))].sort());
+      if (o.data) setOperadores([...new Set((o.data as any[]).map((r: any) => r.operator_name))].sort());
+    });
+  }, []);
+
+  const buscar = async () => {
+    setLoading(true);
+    setBuscou(true);
+
+    let query = (supabase as any)
+      .from("equipment_diaries")
+      .select("id, date, equipment_type, equipment_fleet, operator_name, ogs_number, client_name, work_status, period")
+      .gte("date", ini)
+      .lte("date", fim)
+      .order("date", { ascending: false })
+      .order("equipment_fleet", { ascending: true })
+      .limit(150);
+
+    if (ogs.trim()) query = query.ilike("ogs_number", `%${ogs.trim()}%`);
+    if (tipoEquip) query = query.eq("equipment_type", tipoEquip);
+    if (frota.trim()) query = query.ilike("equipment_fleet", `%${frota.trim()}%`);
+    if (operador.trim()) query = query.ilike("operator_name", `%${operador.trim()}%`);
+
+    const { data, error } = await query;
+    if (!error) setResultados(data || []);
+    setLoading(false);
+  };
+
+  const limpar = () => {
+    setOgs(""); setTipoEquip(""); setFrota(""); setOperador("");
+    setIni(mesAtras); setFim(hoje);
+    setResultados([]); setBuscou(false);
+  };
+
+  const STATUS_COR: Record<string, string> = {
+    "Trabalhou": "bg-green-500/15 text-green-600",
+    "Parado": "bg-red-500/15 text-red-500",
+    "Manutenção": "bg-yellow-500/15 text-yellow-600",
+    "Mobilização": "bg-blue-500/15 text-blue-500",
+  };
+
+  return (
+    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
+      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
+        <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <img src={logoCi} alt="Workflux" className="h-7 object-contain" />
+        <div className="flex-1">
+          <span className="block font-display font-bold text-sm text-primary-foreground">Buscar Equipamentos</span>
+          <span className="block text-[10px] text-primary-foreground/70">Filtrar diários por OGS, frota, tipo ou operador</span>
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto p-4 space-y-3">
+        {/* Filtros */}
+        <div className="rdo-card space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filtros</p>
+
+          {/* Período */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Data inicial</label>
+              <input type="date" value={ini} onChange={e => setIni(e.target.value)}
+                className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Data final</label>
+              <input type="date" value={fim} onChange={e => setFim(e.target.value)}
+                className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none" />
+            </div>
+          </div>
+
+          {/* Tipo de equipamento */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Tipo de Equipamento</label>
+            <select value={tipoEquip} onChange={e => setTipoEquip(e.target.value)}
+              className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none">
+              <option value="">Todos os tipos</option>
+              {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          {/* Frota */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Frota</label>
+            <input
+              type="text" value={frota}
+              onChange={e => setFrota(e.target.value)}
+              placeholder="Ex: FA20, CM01..."
+              list="lista-frotas"
+              className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+            />
+            <datalist id="lista-frotas">
+              {frotas.map(f => <option key={f} value={f} />)}
+            </datalist>
+          </div>
+
+          {/* OGS */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">OGS / Obra</label>
+            <input
+              type="text" inputMode="numeric" value={ogs}
+              onChange={e => setOgs(e.target.value)}
+              placeholder="Ex: 2532"
+              className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          {/* Operador/motorista */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Motorista / Operador</label>
+            <input
+              type="text" value={operador}
+              onChange={e => setOperador(e.target.value)}
+              placeholder="Nome do operador ou motorista"
+              list="lista-operadores"
+              className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+            />
+            <datalist id="lista-operadores">
+              {operadores.map(o => <option key={o} value={o} />)}
+            </datalist>
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={buscar} disabled={loading} className="flex-1 h-10 gap-2">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              {loading ? "Buscando..." : "Buscar"}
+            </Button>
+            {buscou && (
+              <Button variant="outline" onClick={limpar} className="h-10 gap-1 px-3">
+                <X className="w-3.5 h-3.5" /> Limpar
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Resultados */}
+        {buscou && !loading && (
+          <>
+            {resultados.length === 0 ? (
+              <div className="rdo-card py-8 text-center">
+                <Wrench className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum lançamento encontrado.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-xs text-muted-foreground">{resultados.length} lançamento{resultados.length !== 1 ? "s" : ""}</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  {resultados.map(r => {
+                    const statusCor = STATUS_COR[r.work_status || ""] || "bg-muted text-muted-foreground";
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => navigate(`/visualizar-lancamento/${r.id}`)}
+                        className="w-full rdo-card flex items-center gap-3 hover:shadow-md transition-all text-left"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+                          {(r.equipment_fleet || "—").slice(0, 3)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-display font-bold text-foreground">{r.equipment_fleet || "—"}</p>
+                            <span className="text-[10px] text-muted-foreground">{r.equipment_type}</span>
+                            {r.work_status && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${statusCor}`}>{r.work_status}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {fmtDate(r.date)}
+                            {r.period && <span className="ml-1">· {r.period}</span>}
+                            {r.ogs_number && <span className="ml-1">· OGS {r.ogs_number}</span>}
+                          </p>
+                          {r.operator_name && (
+                            <p className="text-[10px] text-muted-foreground">👤 {r.operator_name}</p>
+                          )}
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
