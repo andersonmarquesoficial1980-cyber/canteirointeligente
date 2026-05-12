@@ -60,6 +60,7 @@ import GestaoFrotasHome from "./pages/GestaoFrotasHome";
 import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
 import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
 import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
+import SuprimentosHome from "./pages/SuprimentosHome";
 import FichaFuncionario from "./pages/FichaFuncionario";
 import OperadoresHabilitados from "./pages/OperadoresHabilitados";
 import Login from "./pages/Login";
@@ -312,6 +313,9 @@ function AppRoutes() {
         <Route path="/demandas/:id" element={<DetalhesDemanda />} />
         <Route path="/minhas-demandas" element={<MinhasDemandas />} />
         <Route path="/manutencao/fila" element={<FilaManutencao />} />
+
+        {/* Suprimentos */}
+        <Route path="/suprimentos" element={<RequireModule moduleId="suprimentos"><SuprimentosHome /></RequireModule>} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
