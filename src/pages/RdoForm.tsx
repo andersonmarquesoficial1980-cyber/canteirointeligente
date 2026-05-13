@@ -304,14 +304,14 @@ export default function RdoForm() {
       lines.push(`📐 *Atividades Executadas:*`);
       producaoCauq.trechos.forEach((t) => {
         if (!t.tipo_servico && !t.comprimento_m) return;
-        const c = parseFloat(t.comprimento_m) || 0;
-        const l = parseFloat(t.largura_m) || 0;
+        const c = parseFloat(String(t.comprimento_m).replace(",", ".")) || 0;
+        const l = parseFloat(String(t.largura_m).replace(",", ".")) || 0;
         const area = c * l;
         lines.push(``);
         lines.push(`▸ ${t.tipo_servico || "—"} ${t.sentido_faixa || ""}`);
         lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
         lines.push(`  ${fmtBR(c)} x ${fmtBR(l)} = ${fmtBR(area)} m²`);
-        const espM = t.espessura_m ? (parseFloat(t.espessura_m) / 100) : 0;
+        const espM = t.espessura_m ? (parseFloat(String(t.espessura_m).replace(",", ".")) / 100) : 0;
         lines.push(`  Espessura: ${espM ? fmtBR(espM) : "—"} m`);
         if (t.observacoes) {
           lines.push(`  Obs: ${t.observacoes}`);
@@ -319,11 +319,11 @@ export default function RdoForm() {
       });
 
       const totalArea = producaoCauq.trechos.reduce((s, t) => {
-        const c = parseFloat(t.comprimento_m) || 0;
-        const l = parseFloat(t.largura_m) || 0;
+        const c = parseFloat(String(t.comprimento_m).replace(",", ".")) || 0;
+        const l = parseFloat(String(t.largura_m).replace(",", ".")) || 0;
         return s + c * l;
       }, 0);
-      const totalTon = parseFloat(producaoCauq.tonelagem_aplicada || "0") || 0;
+      const totalTon = parseFloat(String(producaoCauq.tonelagem_aplicada || "0").replace(",", ".")) || 0;
 
       lines.push(``);
       lines.push(`📊 *Resumo Geral:*`);
@@ -506,11 +506,11 @@ export default function RdoForm() {
             tipo_servico: tipoServico || null,
             sentido: p.sentido || null,
             faixa: p.estaca_inicial || null,
-            km_inicial: p.estaca_inicial ? parseFloat(p.estaca_inicial) : null,
-            km_final: p.estaca_final ? parseFloat(p.estaca_final) : null,
-            comprimento_m: p.comprimento_m ? parseFloat(p.comprimento_m) : null,
-            largura_m: p.largura_m ? parseFloat(p.largura_m) : null,
-            espessura_cm: p.espessura_cm ? parseFloat(p.espessura_cm) : null,
+            km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,
+            km_final: p.estaca_final ? parseFloat(String(p.estaca_final).replace(",", ".")) : null,
+            comprimento_m: p.comprimento_m ? parseFloat(String(p.comprimento_m).replace(",", ".")) : null,
+            largura_m: p.largura_m ? parseFloat(String(p.largura_m).replace(",", ".")) : null,
+            espessura_cm: p.espessura_cm ? parseFloat(String(p.espessura_cm).replace(",", ".")) : null,
           }));
         if (entries.length > 0) {
           const { error } = await supabase.from("rdo_producao").insert(entries);
@@ -523,8 +523,8 @@ export default function RdoForm() {
         const trechoEntries = producaoCauq.trechos
           .filter(t => t.comprimento_m || t.largura_m || t.tipo_servico)
           .map(t => {
-            const comp = t.comprimento_m ? parseFloat(t.comprimento_m) : null;
-            const larg = t.largura_m ? parseFloat(t.largura_m) : null;
+            const comp = t.comprimento_m ? parseFloat(String(t.comprimento_m).replace(",", ".")) : null;
+            const larg = t.largura_m ? parseFloat(String(t.largura_m).replace(",", ".")) : null;
             const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
             return {
               rdo_id: rdoId,
@@ -534,8 +534,8 @@ export default function RdoForm() {
               sentido_faixa: t.sentido_faixa || null,
               estaca_inicial: t.estaca_inicial || null,
               estaca_final: t.estaca_final || null,
-              km_inicial: t.estaca_inicial ? parseFloat(t.estaca_inicial) : null,
-              km_final: t.estaca_final ? parseFloat(t.estaca_final) : null,
+              km_inicial: t.estaca_inicial ? parseFloat(String(t.estaca_inicial).replace(",", ".")) : null,
+              km_final: t.estaca_final ? parseFloat(String(t.estaca_final).replace(",", ".")) : null,
               comprimento_m: comp,
               largura_m: larg,
               espessura_cm: t.espessura_m ? parseFloat(t.espessura_m.replace(",", ".")) : null,

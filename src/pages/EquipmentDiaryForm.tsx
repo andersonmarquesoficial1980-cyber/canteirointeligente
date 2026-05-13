@@ -12,6 +12,7 @@ import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -588,7 +589,7 @@ export default function EquipmentDiaryForm() {
 
   const meterLabel = usesOdometer ? "Odômetro" : "Horímetro";
 
-  const fuelMeterValue = fuelSyncedFromComboio && fueling.fuelMeter ? Number(fueling.fuelMeter) : null;
+  const fuelMeterValue = fuelSyncedFromComboio && fueling.fuelMeter ? Number(String(fueling.fuelMeter).replace(",", ".")) : null;
 
   const toNVal = (v: string) => Number((v || "").replace(",", ".")) || 0;
   const horimeterError =
@@ -955,9 +956,9 @@ export default function EquipmentDiaryForm() {
       operator_name: operator || null,
       operator_solo: isFresadora ? (operatorSolo || null) : (isUsinaKma ? (operator2 || null) : null),
       period: turno,
-      fuel_liters: fueling.liters ? Number(fueling.liters) : null,
+      fuel_liters: fueling.liters ? Number(String(fueling.liters).replace(",", ".")) : null,
       fuel_type: fueling.fuelType || null,
-      fuel_meter: fueling.fuelMeter ? Number(fueling.fuelMeter) : null,
+      fuel_meter: fueling.fuelMeter ? Number(String(fueling.fuelMeter).replace(",", ".")) : null,
       work_status: workStatus || null,
       ogs_number: isCarreta ? null : (ogsNumber || null),
       client_name: isCarreta ? null : (clientName || null),
@@ -1150,10 +1151,10 @@ export default function EquipmentDiaryForm() {
           await supabase.from("kma_calibration_entries").insert({
             equipment_diary_id: diary.id,
             attempt_number: entry.tentativa,
-            nominal_weight_usina: entry.pesoNominal ? Number(entry.pesoNominal) : null,
-            real_weight_reference: entry.pesoReal ? Number(entry.pesoReal) : null,
-            truck_tara: entry.tara ? Number(entry.tara) : null,
-            adjustment_factor: entry.fator ? Number(entry.fator) : null,
+            nominal_weight_usina: entry.pesoNominal ? Number(String(entry.pesoNominal).replace(",", ".")) : null,
+            real_weight_reference: entry.pesoReal ? Number(String(entry.pesoReal).replace(",", ".")) : null,
+            truck_tara: entry.tara ? Number(String(entry.tara).replace(",", ".")) : null,
+            adjustment_factor: entry.fator ? Number(String(entry.fator).replace(",", ".")) : null,
             ticket_photo_url: ticketUrl,
           });
         }
@@ -1164,19 +1165,19 @@ export default function EquipmentDiaryForm() {
             operation_type: kmaOperation.operationType,
             cap_type: kmaOperation.capType || null,
             cap_supplier: kmaOperation.capSupplier || null,
-            cap_qty_ton: kmaOperation.capQtyTon ? Number(kmaOperation.capQtyTon) : null,
+            cap_qty_ton: kmaOperation.capQtyTon ? Number(String(kmaOperation.capQtyTon).replace(",", ".")) : null,
             cap_nf_number: kmaOperation.capNfNumber || null,
             filer_type: kmaOperation.filerType || null,
             filer_supplier: kmaOperation.filerSupplier || null,
-            filer_qty_ton: kmaOperation.filerQtyTon ? Number(kmaOperation.filerQtyTon) : null,
+            filer_qty_ton: kmaOperation.filerQtyTon ? Number(String(kmaOperation.filerQtyTon).replace(",", ".")) : null,
             silo1_material: kmaOperation.silo1Material || null,
-            silo1_qty: kmaOperation.silo1Qty ? Number(kmaOperation.silo1Qty) : null,
+            silo1_qty: kmaOperation.silo1Qty ? Number(String(kmaOperation.silo1Qty).replace(",", ".")) : null,
             silo2_material: kmaOperation.silo2Material || null,
-            silo2_qty: kmaOperation.silo2Qty ? Number(kmaOperation.silo2Qty) : null,
-            water_liters: kmaOperation.waterLiters ? Number(kmaOperation.waterLiters) : null,
+            silo2_qty: kmaOperation.silo2Qty ? Number(String(kmaOperation.silo2Qty).replace(",", ".")) : null,
+            water_liters: kmaOperation.waterLiters ? Number(String(kmaOperation.waterLiters).replace(",", ".")) : null,
             water_supplier: kmaOperation.waterSupplier || null,
             aggregates_supplier: kmaOperation.aggregatesSupplier || null,
-            total_volume_machined_ton: kmaOperation.totalVolumeMachinedTon ? Number(kmaOperation.totalVolumeMachinedTon) : null,
+            total_volume_machined_ton: kmaOperation.totalVolumeMachinedTon ? Number(String(kmaOperation.totalVolumeMachinedTon).replace(",", ".")) : null,
           });
         }
       }
@@ -2008,7 +2009,7 @@ export default function EquipmentDiaryForm() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Quantidade (ton)</span>
-                      <Input type="number" inputMode="decimal" value={kmaOperation.capQtyTon} onChange={(e) => setKmaOperation({ ...kmaOperation, capQtyTon: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                      <NumericInput value={kmaOperation.capQtyTon} onChange={(e) => setKmaOperation({ ...kmaOperation, capQtyTon: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Nº NF</span>
@@ -2041,7 +2042,7 @@ export default function EquipmentDiaryForm() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Qtd (ton)</span>
-                      <Input type="number" inputMode="decimal" value={kmaOperation.filerQtyTon} onChange={(e) => setKmaOperation({ ...kmaOperation, filerQtyTon: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                      <NumericInput value={kmaOperation.filerQtyTon} onChange={(e) => setKmaOperation({ ...kmaOperation, filerQtyTon: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
                     </div>
                   </div>
                 </div>
@@ -2070,7 +2071,7 @@ export default function EquipmentDiaryForm() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Silo 1 — Qtd (ton)</span>
-                      <Input type="number" inputMode="decimal" value={kmaOperation.silo1Qty} onChange={(e) => setKmaOperation({ ...kmaOperation, silo1Qty: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                      <NumericInput value={kmaOperation.silo1Qty} onChange={(e) => setKmaOperation({ ...kmaOperation, silo1Qty: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -2087,7 +2088,7 @@ export default function EquipmentDiaryForm() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Silo 2 — Qtd (ton)</span>
-                      <Input type="number" inputMode="decimal" value={kmaOperation.silo2Qty} onChange={(e) => setKmaOperation({ ...kmaOperation, silo2Qty: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                      <NumericInput value={kmaOperation.silo2Qty} onChange={(e) => setKmaOperation({ ...kmaOperation, silo2Qty: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
                     </div>
                   </div>
                 </div>
@@ -2098,7 +2099,7 @@ export default function EquipmentDiaryForm() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-accent uppercase">Litros</span>
-                      <Input type="number" inputMode="decimal" value={kmaOperation.waterLiters} onChange={(e) => setKmaOperation({ ...kmaOperation, waterLiters: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
+                      <NumericInput value={kmaOperation.waterLiters} onChange={(e) => setKmaOperation({ ...kmaOperation, waterLiters: e.target.value })} placeholder="0" className="bg-secondary border-border text-xs h-9" />
                     </div>
                     <div className="space-y-1">
                        <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
@@ -2118,7 +2119,7 @@ export default function EquipmentDiaryForm() {
                 <div className="border border-primary/30 rounded-lg p-3 bg-primary/5">
                   <div className="space-y-1">
                     <span className="text-[10px] font-display font-extrabold text-primary uppercase tracking-wide">📊 Volume Total Usinado (ton)</span>
-                    <Input type="number" inputMode="decimal" value={kmaOperation.totalVolumeMachinedTon} onChange={(e) => setKmaOperation({ ...kmaOperation, totalVolumeMachinedTon: e.target.value })} placeholder="0" className="bg-secondary border-border" />
+                    <NumericInput value={kmaOperation.totalVolumeMachinedTon} onChange={(e) => setKmaOperation({ ...kmaOperation, totalVolumeMachinedTon: e.target.value })} placeholder="0" className="bg-secondary border-border" />
                   </div>
                 </div>
               </div>
@@ -2133,9 +2134,7 @@ export default function EquipmentDiaryForm() {
                 <div className="flex gap-2 items-end">
                   <div className="flex-1 space-y-1">
                     <span className="text-[10px] font-semibold text-accent uppercase">Quantidade (L)</span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
+                    <NumericInput
                       value={supply.quantity}
                       onChange={(e) => {
                         const u = [...tankSupplies];
@@ -2188,9 +2187,7 @@ export default function EquipmentDiaryForm() {
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1">
                     <span className="text-[10px] font-semibold text-accent uppercase">Quantidade (L)</span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
+                    <NumericInput
                       value={supply.quantity}
                       onChange={(e) => {
                         const u = [...tankSupplies];
