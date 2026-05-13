@@ -56,6 +56,19 @@ serve(async (req) => {
       });
     }
 
+    // === UNLOCK USER ===
+    if (action === "unlock") {
+      const { user_id } = body;
+      if (!user_id) throw new Error("user_id é obrigatório");
+      const { error: unlockError } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
+        ban_duration: "none",
+      });
+      if (unlockError) throw new Error("Erro ao desbloquear: " + unlockError.message);
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // === UPDATE USER ===
     if (action === "update") {
       const { user_id, nome_completo, perfil, password, email: novoEmail } = body;
@@ -119,6 +132,14 @@ serve(async (req) => {
     if (password.length < 6) {
       throw new Error("A senha deve ter no mínimo 6 caracteres");
     }
+
+    // Buscar company_id do admin que está criando
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("company_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    const company_id = callerProfile?.company_id ?? null;
 
     // Rate limiting: máx 10 criações por admin por hora
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -198,12 +219,12 @@ serve(async (req) => {
     if (existingProfile) {
       await supabaseAdmin
         .from("profiles")
-        .update({ nome_completo, perfil: perfilDb, email, status: "ativo", senha_temporaria: true, can_delete, can_create_users })
+        .update({ nome_completo, perfil: perfilDb, email, status: "ativo", senha_temporaria: true, can_delete, can_create_users, company_id })
         .eq("user_id", userId);
     } else {
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
-        .insert({ user_id: userId, email, nome_completo, perfil: perfilDb, status: "ativo", senha_temporaria: true, can_delete, can_create_users });
+        .insert({ user_id: userId, email, nome_completo, perfil: perfilDb, status: "ativo", senha_temporaria: true, can_delete, can_create_users, company_id });
       if (profileError) throw new Error("Erro ao criar perfil: " + profileError.message);
     }
 

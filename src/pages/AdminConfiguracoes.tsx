@@ -898,6 +898,7 @@ function UsersManager() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deactivating, setDeactivating] = useState<any | null>(null);
   const [deactivatingLoading, setDeactivatingLoading] = useState(false);
+  const [unlocking, setUnlocking] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [buscaUsuario, setBuscaUsuario] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -957,6 +958,19 @@ function UsersManager() {
     } catch (err: any) {
       toast({ title: "Erro ao criar usuário", description: err.message, variant: "destructive" });
     } finally { setCreating(false); }
+  };
+
+  const handleUnlock = async (userId: string, email: string) => {
+    setUnlocking(userId);
+    try {
+      const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", {
+        body: { action: "unlock", user_id: userId },
+      });
+      if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao desbloquear");
+      toast({ title: "✅ Usuário desbloqueado!", description: `${email} pode fazer login novamente.` });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally { setUnlocking(null); }
   };
 
   const openEdit = (u: any) => {
@@ -1095,8 +1109,19 @@ function UsersManager() {
                 </div>
               </div>
               <div className="flex items-center gap-1 ml-2">
-                <button onClick={() => openEdit(u)} className="text-muted-foreground hover:text-foreground p-1.5"><Pencil className="w-4 h-4" /></button>
-                <button onClick={() => setDeactivating(u)} className={isInactive ? "text-green-600 p-1.5" : "text-destructive p-1.5"}>
+                <button onClick={() => openEdit(u)} className="text-muted-foreground hover:text-foreground p-1.5" title="Editar usuário"><Pencil className="w-4 h-4" /></button>
+                <button
+                  onClick={() => handleUnlock(u.user_id, u.email || u.nome_completo)}
+                  disabled={unlocking === u.user_id}
+                  className="text-amber-500 hover:text-amber-600 p-1.5"
+                  title="Desbloquear usuário (liberar após excesso de tentativas)"
+                >
+                  {unlocking === u.user_id
+                    ? <span className="w-4 h-4 inline-block animate-spin border-2 border-amber-500 border-t-transparent rounded-full" />
+                    : <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                  }
+                </button>
+                <button onClick={() => setDeactivating(u)} className={isInactive ? "text-green-600 p-1.5" : "text-destructive p-1.5"} title={isInactive ? "Reativar" : "Desativar"}>
                   {isInactive ? <UserCheck className="w-4 h-4" /> : <UserMinus className="w-4 h-4" />}
                 </button>
               </div>
