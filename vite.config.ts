@@ -56,6 +56,27 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ].filter(Boolean),
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor libs
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-popover'],
+          'vendor-pdf': ['jspdf', 'html2canvas'],
+          'vendor-excel': ['xlsx'],
+          // Módulos pesados separados
+          'mod-rdo': ['./src/pages/RdoForm', './src/pages/RelatorioRdo'],
+          'mod-equipment': ['./src/pages/EquipmentDiaryForm', './src/pages/RelatorioEquipamento'],
+          'mod-admin': ['./src/pages/AdminConfiguracoes', './src/pages/SuperAdmin'],
+          'mod-relatorios': ['./src/pages/RelatoriosHome', './src/pages/RelatorioAbastecimento', './src/pages/RelatorioManutencao', './src/pages/RelatorioTransportes'],
+          'mod-gestao': ['./src/pages/GestaoPessoasDashboard', './src/pages/FichaFuncionario', './src/pages/GestaoFrotasHome'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

@@ -1,6 +1,6 @@
 // CRITICAL CORE: DO NOT ALTER MODULE ARRAY, VERTICAL LAYOUT OR USER CREATION FLOW.
 // @UI-LOCK: MANDATORY MODULES AND VERTICAL LAYOUT. DO NOT REMOVE.
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,60 +16,12 @@ import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { usePermissions } from "@/hooks/usePermissions";
 import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
-import Perfil from "./pages/Perfil";
-import Index from "./pages/Index";
-import RdoForm from "./pages/RdoForm";
-import FrotaNovo from "./pages/FrotaNovo";
-import EquipmentHome from "./pages/EquipmentHome";
-import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
-import AdminConfiguracoes from "./pages/AdminConfiguracoes";
-import TruckerHome from "./pages/TruckerHome";
-import Diretorio from "./pages/Diretorio";
-import ValeTransporte from "./pages/ValeTransporte";
-import FreightCalculator from "./pages/FreightCalculator";
-import RhHome from "./pages/RhHome";
-import TrajetoVT from "./pages/TrajetoVT";
-import RegistrarPonto from "./pages/RegistrarPonto";
-import EspelhoPonto from "./pages/EspelhoPonto";
-import ProgramadorHome from "./pages/ProgramadorHome";
-import DemandasHome from "./pages/DemandasHome";
-import MinhasDemandas from "./pages/MinhasDemandas";
-import DetalhesDemanda from "./pages/DetalhesDemanda";
-import FilaManutencao from "./pages/FilaManutencao";
-import MeusLancamentos from "./pages/MeusLancamentos";
-import VisualizarLancamento from "./pages/VisualizarLancamento";
-import VisualizarRdo from "./pages/VisualizarRdo";
-import ExportarProtheus from "./pages/ExportarProtheus";
-import DocumentosHome from "./pages/DocumentosHome";
-import DocumentosIntegracao from "./pages/DocumentosIntegracao";
-import ManutencaoHome from "./pages/ManutencaoHome";
-import ManutencaoOS from "./pages/ManutencaoOS";
-import ManutencaoDocumentos from "./pages/ManutencaoDocumentos";
-import AbastecimentoHome from "./pages/AbastecimentoHome";
-import RelatoriosHome from "./pages/RelatoriosHome";
-import RelatorioEquipamento from "./pages/RelatorioEquipamento";
-import RelatorioRdo from "./pages/RelatorioRdo";
-import RelatorioAbastecimento from "./pages/RelatorioAbastecimento";
-import RelatorioManutencao from "./pages/RelatorioManutencao";
-import RelatorioTransportes from "./pages/RelatorioTransportes";
-import BuscaRdo from "./pages/BuscaRdo";
-import BuscaEquipamentos from "./pages/BuscaEquipamentos";
-import DashboardAdmin from "./pages/DashboardAdmin";
-import SuperAdmin from "./pages/SuperAdmin";
-import GestaoFrotasHome from "./pages/GestaoFrotasHome";
-import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
-import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
-import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
-import SuprimentosHome from "./pages/SuprimentosHome";
-import FichaFuncionario from "./pages/FichaFuncionario";
-import OperadoresHabilitados from "./pages/OperadoresHabilitados";
 import Login from "./pages/Login";
 import TrocarSenha from "./pages/TrocarSenha";
 import Configurar2FA from "./pages/Configurar2FA";
 import Verificar2FA from "./pages/Verificar2FA";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
-import AdminLancamentos from "./pages/AdminLancamentos";
 
 const queryClient = new QueryClient();
 
@@ -216,6 +168,7 @@ function AppRoutes() {
 
   return (
     <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
+      <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
       <Routes>
         <Route path="/trocar-senha" element={<TrocarSenha />} />
         <Route path="/verificar-2fa" element={<Verificar2FA />} />
@@ -319,6 +272,7 @@ function AppRoutes() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </ErrorBoundary>
   );
 }
