@@ -251,7 +251,7 @@ function AppRoutes() {
         <Route path="/relatorios/busca-rdo" element={<RequireModule moduleId="relatorios"><BuscaRdo /></RequireModule>} />
         <Route path="/relatorios/busca-equipamentos" element={<RequireModule moduleId="relatorios"><BuscaEquipamentos /></RequireModule>} />
         {/* Rota correta usada pelo RelatoriosHome */}
-        <Route path="/relatorio-equipamento/:fleet" element={<RelatorioEquipamento />} />
+        <Route path="/relatorio-equipamento/:fleet" element={<Navigate to="/relatorios/equipamento/:fleet" replace />} />
         {/* Alias para compatibilidade */}
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
         <Route path="/dashboard" element={<RequireAdminOrSuperAdmin><DashboardAdmin /></RequireAdminOrSuperAdmin>} />
@@ -280,8 +280,8 @@ function AppRoutes() {
         <Route path="/rh/espelho-ponto" element={<EspelhoPonto />} />
 
         {/* Vale Transporte */}
-        <Route path="/vale-transporte" element={<ValeTransporte />} />
-        <Route path="/calculadora-fretes" element={<FreightCalculator />} />
+        <Route path="/vale-transporte" element={<RequireModule moduleId="rh"><ValeTransporte /></RequireModule>} />
+        <Route path="/calculadora-fretes" element={<Navigate to="/suprimentos" replace />} />
 
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}
         <Route path="/admin/configuracoes" element={
@@ -312,7 +312,7 @@ function AppRoutes() {
         <Route path="/demandas" element={<RequireModule moduleId="demandas"><DemandasHome /></RequireModule>} />
         <Route path="/demandas/:id" element={<DetalhesDemanda />} />
         <Route path="/minhas-demandas" element={<MinhasDemandas />} />
-        <Route path="/manutencao/fila" element={<FilaManutencao />} />
+        <Route path="/manutencao/fila" element={<RequireModule moduleId="manutencao"><FilaManutencao /></RequireModule>} />
 
         {/* Suprimentos */}
         <Route path="/suprimentos" element={<RequireModule moduleId="suprimentos"><SuprimentosHome /></RequireModule>} />
