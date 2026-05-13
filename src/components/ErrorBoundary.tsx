@@ -24,6 +24,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("ErrorBoundary caught:", error, info);
+    // Se for erro de chunk (SW desatualizado), recarrega automaticamente 1x
+    const isChunkError =
+      error?.message?.includes("Failed to fetch dynamically imported module") ||
+      error?.message?.includes("Importing a module script failed") ||
+      error?.name === "ChunkLoadError";
+    if (isChunkError) {
+      const reloadedKey = "_sw_chunk_reload";
+      if (!sessionStorage.getItem(reloadedKey)) {
+        sessionStorage.setItem(reloadedKey, "1");
+        window.location.reload();
+      }
+    }
   }
 
   handleReload = () => {
