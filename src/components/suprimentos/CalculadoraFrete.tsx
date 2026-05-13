@@ -136,7 +136,7 @@ export function CalculadoraFrete() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-fremix-blue" />
+            <Truck className="w-5 h-5 text-blue-600" />
             Parâmetros do Transporte
           </CardTitle>
         </CardHeader>
@@ -186,7 +186,7 @@ export function CalculadoraFrete() {
             </div>
 
             <div className="space-y-2 pt-2 border-t">
-              <Label className="text-fremix-orange font-bold">Valor do Frete (Terceiro / Loja)</Label>
+              <Label className="text-orange-500 font-bold">Valor do Frete (Terceiro / Loja)</Label>
               <Input 
                 type="number" 
                 step="0.01" 
@@ -196,7 +196,7 @@ export function CalculadoraFrete() {
               />
             </div>
 
-            <Button type="submit" className="w-full bg-fremix-blue hover:bg-fremix-blue/90">
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
               Calcular Custo Comparativo
             </Button>
           </form>
@@ -204,7 +204,7 @@ export function CalculadoraFrete() {
       </Card>
 
       {resultado && (
-        <Card className={`border-2 ${resultado.recomendacao === "FROTA_PROPRIA" ? "border-green-500" : "border-fremix-orange"}`}>
+        <Card className={`border-2 ${resultado.recomendacao === "FROTA_PROPRIA" ? "border-green-500" : "border-orange-500"}`}>
           <CardHeader className={`${resultado.recomendacao === "FROTA_PROPRIA" ? "bg-green-50" : "bg-orange-50"} rounded-t-lg`}>
             <CardTitle className="text-center flex flex-col items-center gap-2">
               {resultado.recomendacao === "FROTA_PROPRIA" ? (
@@ -214,8 +214,8 @@ export function CalculadoraFrete() {
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="w-10 h-10 text-fremix-orange" />
-                  <span className="text-fremix-orange">Pague o Frete do Terceiro</span>
+                  <AlertTriangle className="w-10 h-10 text-orange-500" />
+                  <span className="text-orange-500">Pague o Frete do Terceiro</span>
                 </>
               )}
             </CardTitle>
@@ -248,7 +248,7 @@ export function CalculadoraFrete() {
             <Button 
               onClick={handleSave} 
               disabled={isSaving}
-              className={`w-full gap-2 ${resultado.recomendacao === "FROTA_PROPRIA" ? "bg-green-600 hover:bg-green-700" : "bg-fremix-orange hover:bg-orange-600"}`}
+              className={`w-full gap-2 ${resultado.recomendacao === "FROTA_PROPRIA" ? "bg-green-600 hover:bg-green-700" : "bg-orange-500 hover:bg-orange-600"}`}
             >
               <Save className="w-4 h-4" />
               {isSaving ? "Salvando..." : "Salvar Decisão de Transporte"}
