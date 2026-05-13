@@ -166,7 +166,10 @@ export default function RelatoriosHome() {
             {TIPOS_RELATORIO.map(t => (
               <button
                 key={t.id}
-                onClick={() => { setTipoRel(t.id); setStep("subtipo"); }}
+                onClick={() => {
+                  if (t.id === "equipamento") { navigate("/relatorios/busca-equipamentos"); return; }
+                  setTipoRel(t.id); setStep("subtipo");
+                }}
                 className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
               >
                 <span className="text-2xl">{t.emoji}</span>
