@@ -1342,7 +1342,7 @@ function TruckRegistryManager() {
       toast({ title: "Atenção", description: "Preencha Placa e Capacidade (m³).", variant: "destructive" });
       return;
     }
-    const ok = await add({ placa: placa.trim().toUpperCase(), modelo: modelo.trim() || null, cor: cor.trim() || null, fornecedor: fornecedor.trim() || null, capacidade_m3: parseFloat(capacidade) });
+    const ok = await add({ placa: placa.trim().toUpperCase(), modelo: modelo.trim() || null, cor: cor.trim() || null, fornecedor: fornecedor.trim() || null, capacidade_m3: parseFloat(String(capacidade).replace(",", ".")) });
     if (ok) { setPlaca(""); setModelo(""); setCor(""); setFornecedor(""); setCapacidade(""); }
   };
 

@@ -79,7 +79,7 @@ export default function ManutencaoOS() {
       await supabase.from("manutencao_os").update({
         status,
         servico_realizado: servicoRealizado || null,
-        horimetro_conclusao: horimetroConclusao ? parseFloat(horimetroConclusao) : null,
+        horimetro_conclusao: horimetroConclusao ? parseFloat(String(horimetroConclusao).replace(",", ".")) : null,
         observacoes: observacoes || null,
         data_conclusao: status === "concluida" ? new Date().toISOString().split("T")[0] : null,
         updated_at: new Date().toISOString(),
@@ -93,9 +93,9 @@ export default function ManutencaoOS() {
           equipment_fleet: os?.equipment_fleet,
           nome_peca: p.nome_peca,
           categoria: p.categoria || null,
-          quantidade: parseFloat(p.quantidade) || 1,
+          quantidade: parseFloat(String(p.quantidade).replace(",", ".")) || 1,
           unidade: p.unidade || "un",
-          horimetro_troca: p.horimetro_troca ? parseFloat(p.horimetro_troca) : null,
+          horimetro_troca: p.horimetro_troca ? parseFloat(String(p.horimetro_troca).replace(",", ".")) : null,
           observacao: p.observacao || null,
         })));
       }

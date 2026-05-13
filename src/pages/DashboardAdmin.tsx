@@ -44,7 +44,7 @@ function BuscaHistorica() {
         const { data: res } = await q;
         setResultados(res || []);
       } else {
-        let q = supabase.from("rdos").select("*").eq("data", data).order("created_at", { ascending: false });
+        let q = supabase.from("rdo_diarios").select("*").eq("data", data).order("created_at", { ascending: false });
         if (ogs) q = q.ilike("obra_nome", `%${ogs}%`);
         const { data: res } = await q;
         setResultados(res || []);

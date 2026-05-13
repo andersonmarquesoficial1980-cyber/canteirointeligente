@@ -216,7 +216,7 @@ function isOnibusRodoviario(step: TransitStep): boolean {
   // Distâncias longas (>80km) indicam interestadual
   // Converte corretamente: "11,0 km" -> 11.0, "283 km" -> 283
   const distStr = (step.distance || "0").replace(",", ".").replace(/[^0-9.]/g, "");
-  const distKm = parseFloat(distStr);
+  const distKm = parseFloat(String(distStr).replace(",", "."));
   if (step.distance?.includes("km") && distKm > 80) return true;
   return false;
 }

@@ -254,7 +254,7 @@ function AppRoutes() {
         <Route path="/relatorio-equipamento/:fleet" element={<RelatorioEquipamento />} />
         {/* Alias para compatibilidade */}
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
-        <Route path="/dashboard" element={<DashboardAdmin />} />
+        <Route path="/dashboard" element={<RequireAdminOrSuperAdmin><DashboardAdmin /></RequireAdminOrSuperAdmin>} />
         <Route path="/super-admin" element={
           <RequireAdminOrSuperAdmin>
             <SuperAdmin />

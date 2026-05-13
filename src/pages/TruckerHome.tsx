@@ -82,7 +82,7 @@ function DepartureForm() {
     const { error } = await supabase.from("trucker_trips").insert({
       truck_plate: placa,
       material_type: material,
-      quantity: parseFloat(quantity),
+      quantity: parseFloat(String(quantity).replace(",", ".")),
       origin_ogs_id: originOgs || null,
       destination_id: destination,
       departure_time: new Date().toISOString(),
