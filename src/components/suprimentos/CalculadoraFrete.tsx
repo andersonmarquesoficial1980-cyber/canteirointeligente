@@ -23,11 +23,16 @@ interface FormData {
 }
 
 export function CalculadoraFrete() {
-  const { user } = useAuth();
+  const { session } = useAuth();
   const { toast } = useToast();
-  const [config, setConfig] = useState<any>(null);
+  const [config, setConfig] = useState<any>({
+    veiculo_leve_km: 1.5,
+    veiculo_pesado_km: 3.5,
+    hora_motorista: 25.0,
+    hora_ajudante: 15.0
+  });
   const [resultado, setResultado] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
@@ -41,29 +46,25 @@ export function CalculadoraFrete() {
   const veiculo = watch("veiculo");
 
   useEffect(() => {
-    const fetchConfig = async () => {
-      if (!user?.company_id) return;
-      
-      const { data, error } = await supabase
-        .from("suprimentos_frete_config")
-        .select("*")
-        .eq("company_id", user.company_id)
+    const fetchProfile = async () => {
+      if (!session?.user?.id) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("id", session.user.id)
         .maybeSingle();
-
-      if (data) {
-        setConfig(data);
-      } else {
-        // Usa config padrão se não existir no banco ainda
-        setConfig({
-          veiculo_leve_km: 1.5,
-          veiculo_pesado_km: 3.5,
-          hora_motorista: 25.0,
-          hora_ajudante: 15.0
-        });
+      if (profile?.company_id) {
+        setCompanyId(profile.company_id);
+        const { data: cfgData } = await supabase
+          .from("suprimentos_frete_config")
+          .select("*")
+          .eq("company_id", profile.company_id)
+          .maybeSingle();
+        if (cfgData) setConfig(cfgData);
       }
     };
-    fetchConfig();
-  }, [user]);
+    fetchProfile();
+  }, [session]);
 
   const onSubmit = (data: FormData) => {
     if (!config) return;
@@ -92,14 +93,14 @@ export function CalculadoraFrete() {
   };
 
   const handleSave = async () => {
-    if (!resultado || !user) return;
+    if (!resultado || !session?.user) return;
     setIsSaving(true);
 
     try {
       const { error } = await supabase.from("suprimentos_frete_historico").insert({
-        company_id: user.company_id,
-        user_id: user.id,
-        user_nome: user.email, // Idealmente o nome do perfil, usando email como fallback
+        company_id: companyId,
+        user_id: session.user.id,
+        user_nome: session.user.email,
         ogs: resultado.formData.ogs,
         material_desc: resultado.formData.material,
         distancia_km: resultado.formData.distancia,
