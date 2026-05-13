@@ -50,38 +50,34 @@ export default function BuscaEquipamentos() {
   const [frotasPorTipo, setFrotasPorTipo] = useState<Record<string, string[]>>({});
   const [operadores, setOperadores] = useState<string[]>([]);
 
-  // Frotas filtradas pelo tipo selecionado (case-insensitive entre maquinas_frota e equipment_diaries)
+  // Frotas filtradas pelo tipo selecionado — tudo vem dos diários reais
   const frotas = tipoEquip
-    ? (Object.entries(frotasPorTipo).find(([k]) => k.toLowerCase() === tipoEquip.toLowerCase())?.[1] || [])
+    ? (frotasPorTipo[tipoEquip] || [])
     : [...new Set(Object.values(frotasPorTipo).flat())].sort();
 
   useEffect(() => {
     Promise.all([
-      // Tipos dos diários reais (para filtro consistente)
-      (supabase as any).from("equipment_diaries").select("equipment_type").not("equipment_type", "is", null),
-      // Frotas do cadastro oficial (maquinas_frota) com tipo em UPPER
-      (supabase as any).from("maquinas_frota").select("tipo, frota").order("tipo").order("frota"),
+      // Tudo vem de equipment_diaries — fonte única de verdade
+      (supabase as any).from("equipment_diaries").select("equipment_type, equipment_fleet").not("equipment_type", "is", null).not("equipment_fleet", "is", null),
       // Operadores dos diários reais
       (supabase as any).from("equipment_diaries").select("operator_name").not("operator_name", "is", null),
-    ]).then(([td, maq, o]) => {
-      // Tipos únicos dos diários (title case, ex: "Fresadora")
+    ]).then(([td, o]) => {
       if (td.data) {
-        const tiposUniq = [...new Set((td.data as any[]).map((r: any) => r.equipment_type).filter(Boolean))].sort();
+        const rows = td.data as any[];
+        // Tipos únicos ordenados
+        const tiposUniq = [...new Set(rows.map((r: any) => r.equipment_type).filter(Boolean))].sort();
         setTipos(tiposUniq);
-      }
-      // Mapear frotas por tipo: chave = title case (igual equipment_type)
-      if (maq.data) {
+        // Frotas por tipo — chave exata igual ao equipment_type do diário
         const byTipo: Record<string, string[]> = {};
-        (maq.data as any[]).forEach(r => {
-          // Normaliza o tipo do maquinas_frota para title case
-          const tipoRaw = (r.tipo || "Outros") as string;
-          // Tenta achar o tipo correspondente nos diarios (case-insensitive)
-          const frota = r.frota as string;
-          if (!frota) return;
-          // Adiciona sob a chave raw (UPPER) e também tenta mapear
-          if (!byTipo[tipoRaw]) byTipo[tipoRaw] = [];
-          if (!byTipo[tipoRaw].includes(frota)) byTipo[tipoRaw].push(frota);
+        rows.forEach(r => {
+          const tipo = r.equipment_type as string;
+          const fl = r.equipment_fleet as string;
+          if (!tipo || !fl) return;
+          if (!byTipo[tipo]) byTipo[tipo] = [];
+          if (!byTipo[tipo].includes(fl)) byTipo[tipo].push(fl);
         });
+        // Ordenar frotas dentro de cada tipo
+        Object.keys(byTipo).forEach(k => byTipo[k].sort());
         setFrotasPorTipo(byTipo);
       }
       if (o.data) setOperadores([...new Set((o.data as any[]).map((r: any) => r.operator_name).filter(Boolean))].sort());
