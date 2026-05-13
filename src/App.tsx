@@ -167,8 +167,8 @@ function AppRoutes() {
   }
 
   return (
-    <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
-      <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+      <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
       <Routes>
         <Route path="/trocar-senha" element={<TrocarSenha />} />
         <Route path="/verificar-2fa" element={<Verificar2FA />} />
@@ -272,8 +272,8 @@ function AppRoutes() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-      </Suspense>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </Suspense>
   );
 }
 
