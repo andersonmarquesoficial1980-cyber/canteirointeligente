@@ -25,6 +25,8 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 // ─── SEÇÃO: Busca Histórica ───────────────────────────────────────────────────
+const PAGE_SIZE = 20;
+
 function BuscaHistorica() {
   const navigate = useNavigate();
   const [tipo, setTipo] = useState<"equipamento" | "rdo">("equipamento");
@@ -32,25 +34,48 @@ function BuscaHistorica() {
   const [frota, setFrota] = useState("");
   const [ogs, setOgs] = useState("");
   const [resultados, setResultados] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [pagina, setPagina] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  async function buscar() {
+  async function buscar(pag = 0) {
     setLoading(true);
-    setResultados([]);
+    if (pag === 0) setResultados([]);
     try {
+      const from = pag * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
       if (tipo === "equipamento") {
-        let q = supabase.from("equipment_diaries").select("*").eq("date", data).order("equipment_fleet");
+        let q = supabase.from("equipment_diaries")
+          .select("*", { count: "exact" })
+          .eq("date", data)
+          .order("equipment_fleet")
+          .range(from, to);
         if (frota) q = q.ilike("equipment_fleet", `%${frota}%`);
-        const { data: res } = await q;
+        const { data: res, count } = await q;
         setResultados(res || []);
+        setTotal(count || 0);
       } else {
-        let q = supabase.from("rdo_diarios").select("*").eq("data", data).order("created_at", { ascending: false });
+        let q = supabase.from("rdo_diarios")
+          .select("*", { count: "exact" })
+          .eq("data", data)
+          .order("created_at", { ascending: false })
+          .range(from, to);
         if (ogs) q = q.ilike("obra_nome", `%${ogs}%`);
-        const { data: res } = await q;
+        const { data: res, count } = await q;
         setResultados(res || []);
+        setTotal(count || 0);
       }
+      setPagina(pag);
     } finally { setLoading(false); }
   }
+
+  function irPara(pag: number) {
+    buscar(pag);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const totalPaginas = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="rdo-card space-y-4">
@@ -83,7 +108,7 @@ function BuscaHistorica() {
         </div>
       </div>
 
-      <Button onClick={buscar} disabled={loading} className="w-full h-10 rounded-xl font-semibold gap-2">
+      <Button onClick={() => buscar(0)} disabled={loading} className="w-full h-10 rounded-xl font-semibold gap-2">
         {loading ? "Buscando..." : <><Search className="w-4 h-4" /> Buscar</>}
       </Button>
 
@@ -93,7 +118,12 @@ function BuscaHistorica() {
 
       {resultados.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground font-semibold">{resultados.length} resultado{resultados.length !== 1 ? "s" : ""} em {fmtDate(data)}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground font-semibold">
+              {total} resultado{total !== 1 ? "s" : ""} em {fmtDate(data)}
+              {totalPaginas > 1 && ` (pág. ${pagina + 1}/${totalPaginas})`}
+            </p>
+          </div>
           {tipo === "equipamento" ? (
             resultados.map((r, i) => (
               <div key={i} className="border border-border rounded-xl p-3 text-sm space-y-1">
@@ -123,6 +153,29 @@ function BuscaHistorica() {
                 {r.responsavel && <p className="text-xs">👷 {r.responsavel}</p>}
               </div>
             ))
+          )}
+          {totalPaginas > 1 && (
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline" size="sm"
+                disabled={pagina === 0 || loading}
+                onClick={() => irPara(pagina - 1)}
+                className="flex-1 rounded-xl text-xs"
+              >
+                ← Anterior
+              </Button>
+              <span className="flex items-center px-3 text-xs text-muted-foreground">
+                {pagina + 1} / {totalPaginas}
+              </span>
+              <Button
+                variant="outline" size="sm"
+                disabled={pagina >= totalPaginas - 1 || loading}
+                onClick={() => irPara(pagina + 1)}
+                className="flex-1 rounded-xl text-xs"
+              >
+                Próxima →
+              </Button>
+            </div>
           )}
         </div>
       )}
