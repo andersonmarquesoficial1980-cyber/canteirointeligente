@@ -22,6 +22,7 @@ import Configurar2FA from "./pages/Configurar2FA";
 import Verificar2FA from "./pages/Verificar2FA";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
+import Perfil from "./pages/Perfil";
 
 const queryClient = new QueryClient();
 
