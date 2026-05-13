@@ -1,6 +1,6 @@
 // CRITICAL CORE: DO NOT ALTER MODULE ARRAY, VERTICAL LAYOUT OR USER CREATION FLOW.
 // @UI-LOCK: MANDATORY MODULES AND VERTICAL LAYOUT. DO NOT REMOVE.
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,52 +24,50 @@ import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
 import Perfil from "./pages/Perfil";
 import Index from "./pages/Index";
-
-// Lazy loaded pages
-const AbastecimentoHome = React.lazy(() => import("./pages/AbastecimentoHome"));
-const AdminConfiguracoes = React.lazy(() => import("./pages/AdminConfiguracoes"));
-const AdminLancamentos = React.lazy(() => import("./pages/AdminLancamentos"));
-const BuscaEquipamentos = React.lazy(() => import("./pages/BuscaEquipamentos"));
-const BuscaRdo = React.lazy(() => import("./pages/BuscaRdo"));
-const DashboardAdmin = React.lazy(() => import("./pages/DashboardAdmin"));
-const DemandasHome = React.lazy(() => import("./pages/DemandasHome"));
-const DetalhesDemanda = React.lazy(() => import("./pages/DetalhesDemanda"));
-const Diretorio = React.lazy(() => import("./pages/Diretorio"));
-const DocumentosHome = React.lazy(() => import("./pages/DocumentosHome"));
-const DocumentosIntegracao = React.lazy(() => import("./pages/DocumentosIntegracao"));
-const EquipmentDiaryForm = React.lazy(() => import("./pages/EquipmentDiaryForm"));
-const EquipmentHome = React.lazy(() => import("./pages/EquipmentHome"));
-const EspelhoPonto = React.lazy(() => import("./pages/EspelhoPonto"));
-const ExportarProtheus = React.lazy(() => import("./pages/ExportarProtheus"));
-const FichaFuncionario = React.lazy(() => import("./pages/FichaFuncionario"));
-const FilaManutencao = React.lazy(() => import("./pages/FilaManutencao"));
-const FrotaNovo = React.lazy(() => import("./pages/FrotaNovo"));
-const GestaoFrotasDashboard = React.lazy(() => import("./pages/GestaoFrotasDashboard"));
-const GestaoFrotasHome = React.lazy(() => import("./pages/GestaoFrotasHome"));
-const GestaoFrotasVeiculo = React.lazy(() => import("./pages/GestaoFrotasVeiculo"));
-const GestaoPessoasDashboard = React.lazy(() => import("./pages/GestaoPessoasDashboard"));
-const ManutencaoDocumentos = React.lazy(() => import("./pages/ManutencaoDocumentos"));
-const ManutencaoHome = React.lazy(() => import("./pages/ManutencaoHome"));
-const ManutencaoOS = React.lazy(() => import("./pages/ManutencaoOS"));
-const MeusLancamentos = React.lazy(() => import("./pages/MeusLancamentos"));
-const MinhasDemandas = React.lazy(() => import("./pages/MinhasDemandas"));
-const OperadoresHabilitados = React.lazy(() => import("./pages/OperadoresHabilitados"));
-const ProgramadorHome = React.lazy(() => import("./pages/ProgramadorHome"));
-const RdoForm = React.lazy(() => import("./pages/RdoForm"));
-const RegistrarPonto = React.lazy(() => import("./pages/RegistrarPonto"));
-const RelatorioAbastecimento = React.lazy(() => import("./pages/RelatorioAbastecimento"));
-const RelatorioEquipamento = React.lazy(() => import("./pages/RelatorioEquipamento"));
-const RelatorioManutencao = React.lazy(() => import("./pages/RelatorioManutencao"));
-const RelatorioRdo = React.lazy(() => import("./pages/RelatorioRdo"));
-const RelatorioTransportes = React.lazy(() => import("./pages/RelatorioTransportes"));
-const RelatoriosHome = React.lazy(() => import("./pages/RelatoriosHome"));
-const SuperAdmin = React.lazy(() => import("./pages/SuperAdmin"));
-const SuprimentosHome = React.lazy(() => import("./pages/SuprimentosHome"));
-const TrajetoVT = React.lazy(() => import("./pages/TrajetoVT"));
-const TruckerHome = React.lazy(() => import("./pages/TruckerHome"));
-const ValeTransporte = React.lazy(() => import("./pages/ValeTransporte"));
-const VisualizarLancamento = React.lazy(() => import("./pages/VisualizarLancamento"));
-const VisualizarRdo = React.lazy(() => import("./pages/VisualizarRdo"));
+import AbastecimentoHome from "./pages/AbastecimentoHome";
+import AdminConfiguracoes from "./pages/AdminConfiguracoes";
+import AdminLancamentos from "./pages/AdminLancamentos";
+import BuscaEquipamentos from "./pages/BuscaEquipamentos";
+import BuscaRdo from "./pages/BuscaRdo";
+import DashboardAdmin from "./pages/DashboardAdmin";
+import DemandasHome from "./pages/DemandasHome";
+import DetalhesDemanda from "./pages/DetalhesDemanda";
+import Diretorio from "./pages/Diretorio";
+import DocumentosHome from "./pages/DocumentosHome";
+import DocumentosIntegracao from "./pages/DocumentosIntegracao";
+import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
+import EquipmentHome from "./pages/EquipmentHome";
+import EspelhoPonto from "./pages/EspelhoPonto";
+import ExportarProtheus from "./pages/ExportarProtheus";
+import FichaFuncionario from "./pages/FichaFuncionario";
+import FilaManutencao from "./pages/FilaManutencao";
+import FrotaNovo from "./pages/FrotaNovo";
+import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
+import GestaoFrotasHome from "./pages/GestaoFrotasHome";
+import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
+import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
+import ManutencaoDocumentos from "./pages/ManutencaoDocumentos";
+import ManutencaoHome from "./pages/ManutencaoHome";
+import ManutencaoOS from "./pages/ManutencaoOS";
+import MeusLancamentos from "./pages/MeusLancamentos";
+import MinhasDemandas from "./pages/MinhasDemandas";
+import OperadoresHabilitados from "./pages/OperadoresHabilitados";
+import ProgramadorHome from "./pages/ProgramadorHome";
+import RdoForm from "./pages/RdoForm";
+import RegistrarPonto from "./pages/RegistrarPonto";
+import RelatorioAbastecimento from "./pages/RelatorioAbastecimento";
+import RelatorioEquipamento from "./pages/RelatorioEquipamento";
+import RelatorioManutencao from "./pages/RelatorioManutencao";
+import RelatorioRdo from "./pages/RelatorioRdo";
+import RelatorioTransportes from "./pages/RelatorioTransportes";
+import RelatoriosHome from "./pages/RelatoriosHome";
+import SuperAdmin from "./pages/SuperAdmin";
+import SuprimentosHome from "./pages/SuprimentosHome";
+import TrajetoVT from "./pages/TrajetoVT";
+import TruckerHome from "./pages/TruckerHome";
+import ValeTransporte from "./pages/ValeTransporte";
+import VisualizarLancamento from "./pages/VisualizarLancamento";
+import VisualizarRdo from "./pages/VisualizarRdo";
 
 const queryClient = new QueryClient();
 
@@ -215,8 +213,7 @@ function AppRoutes() {
   }
 
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
-      <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
+    <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
       <Routes>
         <Route path="/trocar-senha" element={<TrocarSenha />} />
         <Route path="/verificar-2fa" element={<Verificar2FA />} />
@@ -320,8 +317,7 @@ function AppRoutes() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-      </ErrorBoundary>
-    </Suspense>
+    </ErrorBoundary>
   );
 }
 
