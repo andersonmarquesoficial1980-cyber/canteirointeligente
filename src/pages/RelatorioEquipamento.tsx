@@ -157,8 +157,8 @@ export default function RelatorioEquipamento() {
   // Lê sempre da URL para garantir sincronia após navigate
   const mes = searchParams.get("mes") || monthNow;
   const ano = searchParams.get("ano") || yearNow;
-  const setMes = (v: string) => navigate(`/relatorio-equipamento/${encodeURIComponent(fleetParam)}?mes=${v}&ano=${searchParams.get("ano") || yearNow}`, { replace: true });
-  const setAno = (v: string) => navigate(`/relatorio-equipamento/${encodeURIComponent(fleetParam)}?mes=${searchParams.get("mes") || monthNow}&ano=${v}`, { replace: true });
+  const setMes = (v: string) => navigate(`/relatorios/equipamento/${encodeURIComponent(fleetParam)}?mes=${v}&ano=${searchParams.get("ano") || yearNow}`, { replace: true });
+  const setAno = (v: string) => navigate(`/relatorios/equipamento/${encodeURIComponent(fleetParam)}?mes=${searchParams.get("mes") || monthNow}&ano=${v}`, { replace: true });
   const [loading, setLoading] = useState(false);
   const [diarios, setDiarios] = useState<Diario[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
@@ -391,7 +391,7 @@ export default function RelatorioEquipamento() {
             <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full font-medium">
               Período: {periodoLabel}
             </span>
-            <button onClick={() => navigate(`/relatorio-equipamento/${encodeURIComponent(fleetParam)}`, { replace: true })} className="text-xs text-muted-foreground hover:text-foreground underline">ver por mês</button>
+            <button onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(fleetParam)}`, { replace: true })} className="text-xs text-muted-foreground hover:text-foreground underline">ver por mês</button>
           </div>
         )}
         {!modoPeriodo && <Select value={mes} onValueChange={onChangeMes}>

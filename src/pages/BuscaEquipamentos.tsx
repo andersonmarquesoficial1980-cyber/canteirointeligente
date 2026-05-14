@@ -172,7 +172,7 @@ export default function BuscaEquipamentos() {
             </label>
             <select
               value={frota}
-              onChange={e => setFrota(e.target.value)}
+              onChange={e => { setFrota(e.target.value); }}
               className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
             >
               <option value="">{frotas.length > 0 ? `Todas as frotas (${frotas.length})` : "Selecione o tipo primeiro"}</option>
@@ -206,10 +206,25 @@ export default function BuscaEquipamentos() {
             </datalist>
           </div>
 
+          {/* Botão de relatório direto quando frota selecionada */}
+          {frota && (
+            <button
+              onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(frota)}?ini=${ini}&fim=${fim}`)}
+              className="w-full flex items-center gap-3 rounded-xl border border-green-500/40 bg-green-500/8 px-4 py-3 hover:bg-green-500/15 transition-colors text-left"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-green-600 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-green-700">Ver relatório completo — {frota}</p>
+                <p className="text-xs text-muted-foreground">Com PDF, Excel e navegação por mês</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-green-600/50" />
+            </button>
+          )}
+
           <div className="flex gap-2">
             <Button onClick={buscar} disabled={loading} className="flex-1 h-10 gap-2">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              {loading ? "Buscando..." : "Buscar"}
+              {loading ? "Buscando..." : "Buscar lançamentos"}
             </Button>
             {buscou && (
               <Button variant="outline" onClick={limpar} className="h-10 gap-1 px-3">
