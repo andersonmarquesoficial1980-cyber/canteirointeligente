@@ -393,8 +393,8 @@ export default function RelatorioEquipamento() {
       rows.push([]);
     }
 
-    // Produção / Fresagem
-    if (selectedAreas.length > 0) {
+    // Produção / Fresagem — só para Fresadora
+    if (selectedDiary.equipment_type === "Fresadora" && selectedAreas.length > 0) {
       rows.push(["PRODUÇÃO / FRESAGEM"]);
       rows.push(["#", "Comprimento (m)", "Largura (m)", "Espessura (cm)", "Área (m²)", "Volume (m³)"]);
       selectedAreas.forEach((a, i) => {
@@ -407,15 +407,17 @@ export default function RelatorioEquipamento() {
       rows.push([]);
     }
 
-    // Bits
-    rows.push(["BITS LANÇADOS"]);
-    if (selectedBits.length === 0) {
-      rows.push(["Nenhum bit registrado."]);
-    } else {
-      rows.push(["Quantidade", "Marca", "Horímetro", "Status"]);
-      selectedBits.forEach(b => rows.push([b.quantity, b.brand, b.horimeter || "-", b.status]));
+    // Bits — só para Fresadora
+    if (selectedDiary.equipment_type === "Fresadora") {
+      rows.push(["BITS LANÇADOS"]);
+      if (selectedBits.length === 0) {
+        rows.push(["Nenhum bit registrado."]);
+      } else {
+        rows.push(["Quantidade", "Marca", "Horímetro", "Status"]);
+        selectedBits.forEach(b => rows.push([b.quantity, b.brand, b.horimeter || "-", b.status]));
+      }
+      rows.push([]);
     }
-    rows.push([]);
 
     // Abastecimento
     rows.push(["ABASTECIMENTO"]);
@@ -598,6 +600,7 @@ export default function RelatorioEquipamento() {
               )}
             </div>
 
+            {selectedDiary.equipment_type === "Fresadora" && (
             <div>
               <h4 className="font-semibold text-sm mb-2">Produção / Fresagem</h4>
               {selectedAreas.length === 0 ? (
@@ -638,7 +641,9 @@ export default function RelatorioEquipamento() {
                 </div>
               )}
             </div>
+            )}
 
+            {selectedDiary.equipment_type === "Fresadora" && (
             <div>
               <h4 className="font-semibold text-sm mb-2">Bits Lançados</h4>
               {selectedBits.length === 0 ? (
@@ -668,6 +673,7 @@ export default function RelatorioEquipamento() {
                 </div>
               )}
             </div>
+            )}
 
             <div>
               <h4 className="font-semibold text-sm mb-2">Abastecimento</h4>

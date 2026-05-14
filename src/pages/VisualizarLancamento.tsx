@@ -390,8 +390,8 @@ export default function VisualizarLancamento() {
               </div>
             )}
 
-            {/* Produção / Fresagem */}
-            {areas.length > 0 && (
+            {/* Produção / Fresagem — só para Fresadora */}
+            {diary.equipment_type === "Fresadora" && areas.length > 0 && (
               <div className="rdo-card space-y-2">
                 <p className="text-sm font-semibold">Produção / Fresagem</p>
                 <div className="overflow-x-auto">
@@ -430,7 +430,8 @@ export default function VisualizarLancamento() {
               </div>
             )}
 
-            {/* Bits Lançados */}
+            {/* Bits Lançados — só para Fresadora */}
+            {diary.equipment_type === "Fresadora" && (
             <div className="rdo-card space-y-2">
               <p className="text-sm font-semibold">Bits Lançados</p>
               {bits.length === 0 ? (
@@ -445,6 +446,7 @@ export default function VisualizarLancamento() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Abastecimento */}
             <div className="rdo-card space-y-2">

@@ -489,8 +489,8 @@ export default function MeusLancamentos() {
                 </div>
               )}
 
-              {/* Produção / Fresagem */}
-              {detalheExtra.areas.length > 0 && (
+              {/* Produção / Fresagem — só para Fresadora */}
+              {selecionado.equipment_type === "Fresadora" && detalheExtra.areas.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs font-semibold">Produção / Fresagem</p>
                   <div className="overflow-x-auto">
@@ -529,7 +529,8 @@ export default function MeusLancamentos() {
                 </div>
               )}
 
-              {/* Bits */}
+              {/* Bits — só para Fresadora */}
+              {selecionado.equipment_type === "Fresadora" && (
               <div className="space-y-1">
                 <p className="text-xs font-semibold">Bits Lançados</p>
                 {detalheExtra.bits.length === 0
@@ -539,6 +540,7 @@ export default function MeusLancamentos() {
                   ))
                 }
               </div>
+              )}
 
               {/* Abastecimento */}
               <div className="space-y-1">
