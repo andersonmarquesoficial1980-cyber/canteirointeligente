@@ -63,6 +63,7 @@ import RelatorioTransportes from "./pages/RelatorioTransportes";
 import RelatoriosHome from "./pages/RelatoriosHome";
 import SuperAdmin from "./pages/SuperAdmin";
 import SuprimentosHome from "./pages/SuprimentosHome";
+import MedicoesHome from "./pages/MedicoesHome";
 import TrajetoVT from "./pages/TrajetoVT";
 import TruckerHome from "./pages/TruckerHome";
 import ValeTransporte from "./pages/ValeTransporte";
@@ -103,6 +104,8 @@ const MODULE_PERM_MAP: Record<string, string> = {
   relatorios: "modulo_relatorios",
   "gestao-frotas": "modulo_relatorios", // sem chave própria, admin only
   "gestao-pessoas": "modulo_relatorios",
+  "medicoes": "modulo_relatorios",
+  "suprimentos": "modulo_relatorios",
 };
 
 function RequireModule({ moduleId, children }: { moduleId: string; children: JSX.Element }) {
@@ -332,6 +335,7 @@ function AppRoutes() {
 
         {/* Suprimentos */}
         <Route path="/suprimentos" element={<RequireModule moduleId="suprimentos"><SuprimentosHome /></RequireModule>} />
+        <Route path="/medicoes" element={<RequireModule moduleId="medicoes"><MedicoesHome /></RequireModule>} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
