@@ -367,59 +367,61 @@ export default function RelatorioEquipamento() {
     const wb = XLSX.utils.book_new();
     const marcador = getMarcador(selectedDiary);
     const lancadoPor = (selectedDiary.user_id && profilesMap[selectedDiary.user_id]) || selectedDiary.created_by || "-";
+    const rows: any[][] = [];
 
-    // Aba 1: Dados do Diário
-    const dadosRows = [
-      ["Campo", "Valor"],
-      ["Frota", selectedDiary.equipment_fleet || "-"],
-      ["Tipo de Equipamento", selectedDiary.equipment_type || "-"],
-      ["Data", fmtDate(selectedDiary.date)],
-      ["Turno", selectedDiary.period || "-"],
-      ["Operador", selectedDiary.operator_name || "-"],
-      ["Auxiliar/Solo", selectedDiary.operator_solo || "-"],
-      ["OGS", selectedDiary.ogs_number || "-"],
-      ["Cliente", selectedDiary.client_name || "-"],
-      ["Local/Endereço", selectedDiary.location_address || "-"],
-      [marcador.label + " Inicial", fmtNum(marcador.ini)],
-      [marcador.label + " Final", fmtNum(marcador.fim)],
-      ["Horas Trabalhadas", fmtNum(getHoras(selectedDiary).toFixed(2))],
-      ["Status", selectedDiary.work_status || selectedDiary.status || "-"],
-      ["Observações", selectedDiary.observations || "-"],
-      ["Lançado por", lancadoPor],
-      ["Tipo Combustível", selectedDiary.fuel_type || "-"],
-      ["Litros Diesel", fmtNum(toNum(selectedDiary.fuel_liters).toFixed(2))],
-      ["Horímetro Abastecimento", fmtNum(selectedDiary.fuel_meter)],
-    ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dadosRows), "Diário");
+    // Cabeçalho
+    rows.push(["RELATÓRIO DE EQUIPAMENTO"]);
+    rows.push([]);
+    rows.push(["Frota:", selectedDiary.equipment_fleet || "-", "Tipo:", selectedDiary.equipment_type || "-"]);
+    rows.push(["Data:", fmtDate(selectedDiary.date), "Turno:", selectedDiary.period || "-"]);
+    rows.push(["Operador:", selectedDiary.operator_name || "-", "Auxiliar/Solo:", selectedDiary.operator_solo || "-"]);
+    rows.push(["OGS:", selectedDiary.ogs_number || "-", "Cliente:", selectedDiary.client_name || "-"]);
+    rows.push(["Local/Endereço:", selectedDiary.location_address || "-"]);
+    rows.push([marcador.label + " Inicial:", fmtNum(marcador.ini), marcador.label + " Final:", fmtNum(marcador.fim)]);
+    rows.push(["Status:", selectedDiary.work_status || selectedDiary.status || "-", "Horas Trabalhadas:", fmtNum(getHoras(selectedDiary).toFixed(2))]);
+    rows.push(["Observações:", selectedDiary.observations || "-"]);
+    rows.push(["Lançado por:", lancadoPor]);
+    rows.push([]);
 
-    // Aba 2: Apontamento de Horas
+    // Apontamento de Horas
     if (selectedTimeEntries.length > 0) {
-      const horasRows = [
-        ["Início", "Término", "Atividade", "Descrição", "Origem", "Destino"],
-        ...selectedTimeEntries.map(t => [t.start_time || "-", t.end_time || "-", t.activity || "-", t.description || "-", t.origin || "-", t.destination || "-"]),
-      ];
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(horasRows), "Apontamentos");
+      rows.push(["APONTAMENTO DE HORAS"]);
+      rows.push(["Início", "Término", "Atividade", "Descrição", "Origem", "Destino"]);
+      selectedTimeEntries.forEach(t => {
+        rows.push([t.start_time || "-", t.end_time || "-", t.activity || "-", t.description || "-", t.origin || "-", t.destination || "-"]);
+      });
+      rows.push([]);
     }
 
-    // Aba 3: Produção / Fresagem
+    // Produção / Fresagem
     if (selectedAreas.length > 0) {
-      const prodRows = [
-        ["#", "Comprimento (m)", "Largura (m)", "Espessura (cm)", "Área (m²)", "Volume (m³)"],
-        ...selectedAreas.map((a, i) => [i + 1, toNum(a.length_m), toNum(a.width_m), toNum(a.thickness_cm), toNum(a.m2), toNum(a.m3)]),
-        ["", "", "", "Totais", selectedAreas.reduce((s, a) => s + toNum(a.m2), 0), selectedAreas.reduce((s, a) => s + toNum(a.m3), 0)],
-      ];
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prodRows), "Produção");
+      rows.push(["PRODUÇÃO / FRESAGEM"]);
+      rows.push(["#", "Comprimento (m)", "Largura (m)", "Espessura (cm)", "Área (m²)", "Volume (m³)"]);
+      selectedAreas.forEach((a, i) => {
+        rows.push([i + 1, toNum(a.length_m), toNum(a.width_m), toNum(a.thickness_cm), toNum(a.m2), toNum(a.m3)]);
+      });
+      rows.push(["", "", "", "Totais",
+        selectedAreas.reduce((s, a) => s + toNum(a.m2), 0),
+        selectedAreas.reduce((s, a) => s + toNum(a.m3), 0),
+      ]);
+      rows.push([]);
     }
 
-    // Aba 4: Bits
-    if (selectedBits.length > 0) {
-      const bitsRows = [
-        ["Quantidade", "Marca", "Horímetro", "Status"],
-        ...selectedBits.map(b => [b.quantity, b.brand, b.horimeter || "-", b.status]),
-      ];
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bitsRows), "Bits");
+    // Bits
+    rows.push(["BITS LANÇADOS"]);
+    if (selectedBits.length === 0) {
+      rows.push(["Nenhum bit registrado."]);
+    } else {
+      rows.push(["Quantidade", "Marca", "Horímetro", "Status"]);
+      selectedBits.forEach(b => rows.push([b.quantity, b.brand, b.horimeter || "-", b.status]));
     }
+    rows.push([]);
 
+    // Abastecimento
+    rows.push(["ABASTECIMENTO"]);
+    rows.push(["Tipo Combustível:", selectedDiary.fuel_type || "-", "Litros:", fmtNum(toNum(selectedDiary.fuel_liters).toFixed(2)), "Horímetro:", fmtNum(selectedDiary.fuel_meter)]);
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Relatório");
     XLSX.writeFile(wb, `Relatorio_${fleetParam}_${fmtDate(selectedDiary.date)}.xlsx`);
   }
 
