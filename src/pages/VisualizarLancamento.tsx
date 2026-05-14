@@ -324,62 +324,59 @@ export default function VisualizarLancamento() {
         ) : (
           /* ── OUTROS EQUIPAMENTOS: visualização padrão ── */
           <>
-            <div className="rounded-xl border border-blue-200 bg-blue-50 text-blue-900 px-4 py-3 text-sm font-medium">
-              {`👁️ Visualização — Lançamento de ${diary?.operator_name || "Operador"}`}
-            </div>
-
-            <div className="rdo-card space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                <Info label="Data" value={fmtDate(diary.date)} />
-                <Info label="Turno" value={diary.period || "-"} />
-                <Info label="Frota" value={diary.equipment_fleet || "-"} />
-                <Info label="Tipo" value={diary.equipment_type || "-"} />
-                <Info label="Status" value={diary.work_status || diary.status || "-"} />
-                <Info label="Operador" value={diary.operator_name || "-"} />
-                <Info label="OGS" value={diary.ogs_number || "-"} />
-                <Info label="Cliente" value={diary.client_name || "-"} />
-                <Info label="Local" value={diary.location_address || "-"} />
-              </div>
-            </div>
-
-            <div className="rdo-card space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {diary.equipment_type && ["Caminhões", "Comboio", "Carreta", "Veículo"].includes(diary.equipment_type) ? (
-                  <>
-                    <Info label="Odômetro inicial" value={String(diary.odometer_initial ?? "-")} />
-                    <Info label="Odômetro final" value={String(diary.odometer_final ?? "-")} />
-                  </>
-                ) : (
-                  <>
-                    <Info label="Horímetro inicial" value={String(diary.meter_initial ?? "-")} />
-                    <Info label="Horímetro final" value={String(diary.meter_final ?? "-")} />
-                  </>
+            {/* Cabeçalho do diário */}
+            <div className="rdo-card space-y-1 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+                <p><span className="text-muted-foreground">Frota:</span> <strong>{diary.equipment_fleet || "-"}</strong></p>
+                <p><span className="text-muted-foreground">Tipo de Equipamento:</span> <strong>{diary.equipment_type || "-"}</strong></p>
+                <p><span className="text-muted-foreground">Data:</span> <strong>{fmtDate(diary.date)}</strong></p>
+                <p><span className="text-muted-foreground">Turno:</span> <strong>{diary.period || "-"}</strong></p>
+                <p><span className="text-muted-foreground">Operador:</span> <strong>{diary.operator_name || "-"}</strong></p>
+                {diary.operator_solo && <p><span className="text-muted-foreground">Auxiliar/Solo:</span> <strong>{diary.operator_solo}</strong></p>}
+                <p><span className="text-muted-foreground">OGS:</span> <strong>{diary.ogs_number || "-"}</strong></p>
+                <p><span className="text-muted-foreground">Cliente:</span> <strong>{diary.client_name || "-"}</strong></p>
+                {diary.location_address && <p><span className="text-muted-foreground">Local/Endereço:</span> <strong>{diary.location_address}</strong></p>}
+                {(diary.meter_initial != null || diary.meter_final != null) && (
+                  <p><span className="text-muted-foreground">Horímetro Inicial:</span> <strong>{diary.meter_initial ?? "-"}</strong> <span className="text-muted-foreground">→ Final:</span> <strong>{diary.meter_final ?? "-"}</strong></p>
                 )}
-                <Info label="Litros diesel" value={String(diary.fuel_liters ?? "-")} />
-                <Info label="Horas trabalhadas" value={horasTrabalhadas === null ? "-" : `${fmtNumber(horasTrabalhadas)}h`} />
+                {(diary.odometer_initial != null || diary.odometer_final != null) && (
+                  <p><span className="text-muted-foreground">Odômetro Inicial:</span> <strong>{diary.odometer_initial ?? "-"}</strong> <span className="text-muted-foreground">→ Final:</span> <strong>{diary.odometer_final ?? "-"}</strong></p>
+                )}
+                <p><span className="text-muted-foreground">Status:</span> <strong>{diary.work_status || diary.status || "-"}</strong></p>
+                <p><span className="text-muted-foreground">Observações:</span> <strong>{diary.observations || "-"}</strong></p>
               </div>
+              {diary.created_at && (
+                <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
+                  Lançado por: <strong>{diary.operator_name || "-"}</strong> em {new Date(diary.created_at).toLocaleString("pt-BR")}
+                </p>
+              )}
             </div>
 
+            {/* Apontamento de Horas */}
             {timeEntries.length > 0 && (
               <div className="rdo-card space-y-2">
-                <p className="text-sm font-display font-bold text-primary">Apontamento de Horas</p>
+                <p className="text-sm font-semibold">Apontamento de Horas</p>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs min-w-[600px]">
                     <thead>
                       <tr className="border-b border-border text-muted-foreground">
-                        <th className="text-left py-1.5 pr-2">Início</th>
-                        <th className="text-left py-1.5 pr-2">Término</th>
-                        <th className="text-left py-1.5 pr-2">Atividade</th>
-                        <th className="text-left py-1.5">Descrição</th>
+                        <th className="text-left py-1.5 pr-3">Início</th>
+                        <th className="text-left py-1.5 pr-3">Término</th>
+                        <th className="text-left py-1.5 pr-3">Atividade</th>
+                        <th className="text-left py-1.5 pr-3">Descrição</th>
+                        <th className="text-left py-1.5 pr-3">Origem</th>
+                        <th className="text-left py-1.5">Destino</th>
                       </tr>
                     </thead>
                     <tbody>
                       {timeEntries.map((t: any) => (
                         <tr key={t.id} className="border-b border-border/40">
-                          <td className="py-1.5 pr-2">{t.start_time || "-"}</td>
-                          <td className="py-1.5 pr-2">{t.end_time || "-"}</td>
-                          <td className="py-1.5 pr-2">{t.activity || "-"}</td>
-                          <td className="py-1.5 text-muted-foreground">{t.description || "-"}</td>
+                          <td className="py-1.5 pr-3">{t.start_time || "-"}</td>
+                          <td className="py-1.5 pr-3">{t.end_time || "-"}</td>
+                          <td className="py-1.5 pr-3">{t.activity || "-"}</td>
+                          <td className="py-1.5 pr-3">{t.description || "-"}</td>
+                          <td className="py-1.5 pr-3">{t.origin || "-"}</td>
+                          <td className="py-1.5">{t.destination || "-"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -388,30 +385,70 @@ export default function VisualizarLancamento() {
               </div>
             )}
 
+            {/* Produção / Fresagem */}
             {areas.length > 0 && (
               <div className="rdo-card space-y-2">
-                <p className="text-sm font-display font-bold text-primary">Áreas de produção (fresagem)</p>
-                {areas.map((a: any) => (
-                  <div key={a.id} className="rounded-lg border border-border bg-muted/20 p-2 text-xs">
-                    {`${a.length_m ?? "-"}m × ${a.width_m ?? "-"}m × ${a.thickness_cm ?? "-"}cm = ${fmtNumber(a.m2)} m² / ${fmtNumber(a.m3, 2)} m³`}
-                  </div>
-                ))}
+                <p className="text-sm font-semibold">Produção / Fresagem</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs min-w-[600px]">
+                    <thead>
+                      <tr className="border-b border-border text-muted-foreground">
+                        <th className="text-left py-1.5 pr-3">#</th>
+                        <th className="text-right py-1.5 pr-3">Comprimento (m)</th>
+                        <th className="text-right py-1.5 pr-3">Largura (m)</th>
+                        <th className="text-right py-1.5 pr-3">Espessura (cm)</th>
+                        <th className="text-right py-1.5 pr-3">Área (m²)</th>
+                        <th className="text-right py-1.5">Volume (m³)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {areas.map((a: any, idx: number) => (
+                        <tr key={a.id} className="border-b border-border/40">
+                          <td className="py-1.5 pr-3">{idx + 1}</td>
+                          <td className="py-1.5 pr-3 text-right">{fmtNumber(a.length_m, 2)}</td>
+                          <td className="py-1.5 pr-3 text-right">{fmtNumber(a.width_m, 2)}</td>
+                          <td className="py-1.5 pr-3 text-right">{fmtNumber(a.thickness_cm, 2)}</td>
+                          <td className="py-1.5 pr-3 text-right">{fmtNumber(a.m2, 2)}</td>
+                          <td className="py-1.5 text-right">{fmtNumber(a.m3, 2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-border font-semibold">
+                        <td className="py-1.5 pr-3" colSpan={4}>Totais</td>
+                        <td className="py-1.5 pr-3 text-right">{fmtNumber(areas.reduce((s: number, a: any) => s + (Number(a.m2) || 0), 0), 2)}</td>
+                        <td className="py-1.5 text-right">{fmtNumber(areas.reduce((s: number, a: any) => s + (Number(a.m3) || 0), 0), 2)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             )}
 
-            {bits.length > 0 && (
-              <div className="rdo-card space-y-2">
-                <p className="text-sm font-display font-bold text-primary">Bits lançados</p>
-                {bits.map((b: any) => (
-                  <div key={b.id} className="rounded-lg border border-border bg-muted/20 p-2 text-xs">
-                    {`${b.quantity || "-"}x ${b.brand || "-"} — ${b.status || "-"}${b.horimeter ? ` — Horímetro ${b.horimeter}` : ""}`}
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Bits Lançados */}
+            <div className="rdo-card space-y-2">
+              <p className="text-sm font-semibold">Bits Lançados</p>
+              {bits.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Nenhum bit registrado.</p>
+              ) : (
+                <div className="space-y-1">
+                  {bits.map((b: any) => (
+                    <div key={b.id} className="text-xs border-b border-border/40 py-1">
+                      {`${b.quantity || "-"}x ${b.brand || "-"} — ${b.status || "-"}${b.horimeter ? ` — Horímetro ${b.horimeter}` : ""}`}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-            <div className="rdo-card">
-              <Info label="Observações" value={diary.observations || "-"} />
+            {/* Abastecimento */}
+            <div className="rdo-card space-y-2">
+              <p className="text-sm font-semibold">Abastecimento</p>
+              <div className="grid grid-cols-3 gap-4 text-xs">
+                <p><span className="text-muted-foreground">Tipo combustível:</span> {diary.fuel_type || "-"}</p>
+                <p><span className="text-muted-foreground">Litros:</span> {fmtNumber(diary.fuel_liters, 2)}</p>
+                <p><span className="text-muted-foreground">Horímetro abastecimento:</span> {diary.fuel_meter ? String(diary.fuel_meter) : "-"}</p>
+              </div>
             </div>
 
             <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>← Voltar</Button>
