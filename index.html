@@ -27,6 +27,14 @@
 
   <body>
     <div id="root"></div>
+    <!-- Remove qualquer Service Worker antigo instalado (PWA foi desabilitado) -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (var r of registrations) { r.unregister(); }
+        });
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
