@@ -254,15 +254,20 @@ export default function VisualizarLancamento() {
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
-      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
+      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg print:hidden">
         <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Visualizar Lançamento</span>
-          <span className="block text-[11px] text-primary-foreground/80">Somente leitura</span>
+          <span className="block text-[11px] text-primary-foreground/80">{diary ? `${diary.equipment_fleet} • ${diary.date?.split('-').reverse().join('/')}` : 'Somente leitura'}</span>
         </div>
+        {diary && !isCarreta && (
+          <ExportButton size="sm" onClick={() => window.print()} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1">
+            <Printer className="w-4 h-4" /> PDF
+          </ExportButton>
+        )}
       </header>
 
       <main className="max-w-4xl mx-auto p-4 space-y-4">
