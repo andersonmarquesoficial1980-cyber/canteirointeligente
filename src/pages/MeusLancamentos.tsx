@@ -63,18 +63,17 @@ export default function MeusLancamentos() {
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [selecionado, setSelecionado] = useState<Lancamento | null>(null);
-  const [detalheExtra, setDetalheExtra] = useState<{ areas: any[]; bits: any[]; horas: number | null }>({ areas: [], bits: [], horas: null });
+  const [detalheExtra, setDetalheExtra] = useState<{ areas: any[]; bits: any[]; times: any[]; horas: number | null }>({ areas: [], bits: [], times: [], horas: null });
 
   const abrirDetalhe = async (item: Lancamento) => {
     setSelecionado(item);
     setEditandoId(null);
-    setDetalheExtra({ areas: [], bits: [], horas: null });
+    setDetalheExtra({ areas: [], bits: [], times: [], horas: null });
     const [{ data: areas }, { data: bits }, { data: times }] = await Promise.all([
-      supabase.from('equipment_production_areas').select('length_m,width_m,thickness_cm,m2,m3').eq('diary_id', item.id),
-      supabase.from('bit_entries').select('quantity,brand,status,meter_at_change').eq('diary_id', item.id),
-      supabase.from('equipment_time_entries').select('start_time,end_time,activity').eq('diary_id', item.id),
+      supabase.from('equipment_production_areas').select('*').eq('diary_id', item.id),
+      supabase.from('bit_entries').select('*').eq('diary_id', item.id),
+      supabase.from('equipment_time_entries').select('*').eq('diary_id', item.id).order('start_time'),
     ]);
-    // Atividades produtivas (horas trabalhando)
     const PARADAS = ['Refeições', 'À Disposição', 'Manutenção'];
     let horasTotal = 0;
     (times || []).forEach((t: any) => {
@@ -82,11 +81,11 @@ export default function MeusLancamentos() {
         const [sh, sm] = t.start_time.split(':').map(Number);
         const [eh, em] = t.end_time.split(':').map(Number);
         let diff = (eh * 60 + em) - (sh * 60 + sm);
-        if (diff < 0) diff += 24 * 60; // virada de turno
+        if (diff < 0) diff += 24 * 60;
         horasTotal += diff / 60;
       }
     });
-    setDetalheExtra({ areas: areas || [], bits: bits || [], horas: horasTotal > 0 ? Math.round(horasTotal * 10) / 10 : null });
+    setDetalheExtra({ areas: areas || [], bits: bits || [], times: times || [], horas: horasTotal > 0 ? Math.round(horasTotal * 10) / 10 : null });
   };
 
   const handleDeletar = async () => {
@@ -434,63 +433,122 @@ export default function MeusLancamentos() {
           </DialogHeader>
 
           {selecionado && (
-            <div className="space-y-4 text-sm">
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <Info label="Data" value={fmtDate(selecionado.date)} />
-                  <Info label="Turno" value={selecionado.period || "-"} />
-                  <Info label="Frota" value={selecionado.equipment_fleet || "-"} />
-                  <Info label="Tipo" value={selecionado.equipment_type || "-"} />
-                  <Info label="Status" value={selecionado.work_status || "-"} />
-                  <Info label="Operador" value={selecionado.operator_name || "-"} />
-                  <Info label="OGS" value={selecionado.ogs_number || "-"} />
-                  <Info label="Cliente" value={selecionado.client_name || "-"} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-4 text-sm overflow-y-auto max-h-[75vh] pr-1">
+              {/* Cabeçalho compacto igual ao RelatorioEquipamento */}
+              <div className="space-y-1 border-b border-border pb-3">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs">
+                  <p><span className="text-muted-foreground">Frota:</span> <strong>{selecionado.equipment_fleet || "-"}</strong></p>
+                  <p><span className="text-muted-foreground">Tipo:</span> <strong>{selecionado.equipment_type || "-"}</strong></p>
+                  <p><span className="text-muted-foreground">Data:</span> <strong>{fmtDate(selecionado.date)}</strong></p>
+                  <p><span className="text-muted-foreground">Turno:</span> <strong>{selecionado.period || "-"}</strong></p>
+                  <p><span className="text-muted-foreground">Operador:</span> <strong>{selecionado.operator_name || "-"}</strong></p>
+                  {selecionado.operator_solo && <p><span className="text-muted-foreground">Auxiliar/Solo:</span> <strong>{selecionado.operator_solo}</strong></p>}
+                  <p><span className="text-muted-foreground">OGS:</span> <strong>{selecionado.ogs_number || "-"}</strong></p>
+                  <p><span className="text-muted-foreground">Cliente:</span> <strong>{selecionado.client_name || "-"}</strong></p>
+                  {selecionado.location_address && <p><span className="text-muted-foreground">Local:</span> <strong>{selecionado.location_address}</strong></p>}
                   {['Caminhões','Comboio','Carreta','Veículo'].includes(selecionado.equipment_type || '') ? (
-                    <>
-                      <Info label="Odômetro Inicial" value={String(selecionado.odometer_initial ?? "-")} />
-                      <Info label="Odômetro Final" value={String(selecionado.odometer_final ?? "-")} />
-                    </>
+                    <p><span className="text-muted-foreground">Odômetro:</span> <strong>{selecionado.odometer_initial ?? "-"} → {selecionado.odometer_final ?? "-"}</strong></p>
                   ) : (
-                    <>
-                      <Info label="Horímetro Inicial" value={String(selecionado.meter_initial ?? "-")} />
-                      <Info label="Horímetro Final" value={String(selecionado.meter_final ?? "-")} />
-                    </>
+                    <p><span className="text-muted-foreground">Horímetro:</span> <strong>{selecionado.meter_initial ?? "-"} → {selecionado.meter_final ?? "-"}</strong></p>
                   )}
+                  <p><span className="text-muted-foreground">Status:</span> <strong>{selecionado.work_status || "-"}</strong></p>
+                  <p><span className="text-muted-foreground">Observações:</span> <strong>{selecionado.observations || "-"}</strong></p>
                 </div>
-
-                <Info label="Litros Diesel" value={String(selecionado.fuel_liters ?? "-")} />
-                {detalheExtra.horas !== null && (
-                  <Info label="Horas Trabalhadas" value={`${detalheExtra.horas.toFixed(1)}h`} />
-                )}
-                <Info label="Local" value={selecionado.location_address || "-"} />
-                <Info label="Observações" value={selecionado.observations || "-"} />
               </div>
 
-              {detalheExtra.areas.length > 0 && (
-                <div className="rounded-lg border border-border p-3 space-y-1">
-                  <p className="text-xs font-bold uppercase text-muted-foreground">Produção (Fresagem)</p>
-                  {detalheExtra.areas.map((a: any, i: number) => (
-                    <p key={i} className="text-xs">
-                      {a.length_m}m × {a.width_m}m × {a.thickness_cm}cm = <b>{a.m2?.toFixed(1)} m²</b> / {a.m3?.toFixed(2)} m³
-                    </p>
-                  ))}
-                  <p className="text-xs font-bold text-primary">
-                    Total: {detalheExtra.areas.reduce((s: number, a: any) => s + (a.m2 || 0), 0).toFixed(1)} m²
-                  </p>
+              {/* Apontamento de Horas */}
+              {detalheExtra.times.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold">Apontamento de Horas</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs min-w-[480px]">
+                      <thead>
+                        <tr className="border-b border-border text-muted-foreground">
+                          <th className="text-left py-1 pr-2">Início</th>
+                          <th className="text-left py-1 pr-2">Término</th>
+                          <th className="text-left py-1 pr-2">Atividade</th>
+                          <th className="text-left py-1 pr-2">Descrição</th>
+                          <th className="text-left py-1 pr-2">Origem</th>
+                          <th className="text-left py-1">Destino</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detalheExtra.times.map((t: any) => (
+                          <tr key={t.id} className="border-b border-border/30">
+                            <td className="py-1 pr-2">{t.start_time || "-"}</td>
+                            <td className="py-1 pr-2">{t.end_time || "-"}</td>
+                            <td className="py-1 pr-2">{t.activity || "-"}</td>
+                            <td className="py-1 pr-2">{t.description || "-"}</td>
+                            <td className="py-1 pr-2">{t.origin || "-"}</td>
+                            <td className="py-1">{t.destination || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
-              {detalheExtra.bits.length > 0 && (
-                <div className="rounded-lg border border-border p-3 space-y-1">
-                  <p className="text-xs font-bold uppercase text-muted-foreground">Bits Lançados</p>
-                  {detalheExtra.bits.map((b: any, i: number) => (
-                    <p key={i} className="text-xs">{b.quantity}x {b.brand} — {b.status}</p>
-                  ))}
+              {/* Produção / Fresagem */}
+              {detalheExtra.areas.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold">Produção / Fresagem</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs min-w-[480px]">
+                      <thead>
+                        <tr className="border-b border-border text-muted-foreground">
+                          <th className="text-left py-1 pr-2">#</th>
+                          <th className="text-right py-1 pr-2">Comp. (m)</th>
+                          <th className="text-right py-1 pr-2">Larg. (m)</th>
+                          <th className="text-right py-1 pr-2">Esp. (cm)</th>
+                          <th className="text-right py-1 pr-2">Área (m²)</th>
+                          <th className="text-right py-1">Vol. (m³)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detalheExtra.areas.map((a: any, i: number) => (
+                          <tr key={i} className="border-b border-border/30">
+                            <td className="py-1 pr-2">{i + 1}</td>
+                            <td className="py-1 pr-2 text-right">{Number(a.length_m).toFixed(2)}</td>
+                            <td className="py-1 pr-2 text-right">{Number(a.width_m).toFixed(2)}</td>
+                            <td className="py-1 pr-2 text-right">{Number(a.thickness_cm).toFixed(2)}</td>
+                            <td className="py-1 pr-2 text-right">{Number(a.m2).toFixed(2)}</td>
+                            <td className="py-1 text-right">{Number(a.m3).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t border-border font-semibold">
+                          <td colSpan={4} className="py-1 pr-2">Totais</td>
+                          <td className="py-1 pr-2 text-right">{detalheExtra.areas.reduce((s: number, a: any) => s + (Number(a.m2) || 0), 0).toFixed(2)}</td>
+                          <td className="py-1 text-right">{detalheExtra.areas.reduce((s: number, a: any) => s + (Number(a.m3) || 0), 0).toFixed(2)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
               )}
+
+              {/* Bits */}
+              <div className="space-y-1">
+                <p className="text-xs font-semibold">Bits Lançados</p>
+                {detalheExtra.bits.length === 0
+                  ? <p className="text-xs text-muted-foreground italic">Nenhum bit registrado.</p>
+                  : detalheExtra.bits.map((b: any, i: number) => (
+                    <p key={i} className="text-xs">{b.quantity}x {b.brand} — {b.status}{b.horimeter ? ` — Horímetro ${b.horimeter}` : ""}</p>
+                  ))
+                }
+              </div>
+
+              {/* Abastecimento */}
+              <div className="space-y-1">
+                <p className="text-xs font-semibold">Abastecimento</p>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <p><span className="text-muted-foreground">Tipo:</span> {selecionado.fuel_type || "-"}</p>
+                  <p><span className="text-muted-foreground">Litros:</span> {selecionado.fuel_liters ?? "-"}</p>
+                  <p><span className="text-muted-foreground">Horímetro:</span> {selecionado.fuel_meter ?? "-"}</p>
+                </div>
+              </div>
 
               <Button
                 className="w-full"
