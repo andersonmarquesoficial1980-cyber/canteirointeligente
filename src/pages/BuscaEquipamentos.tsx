@@ -5,7 +5,7 @@
  */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Loader2, X, ChevronRight, Wrench } from "lucide-react";
+import { ArrowLeft, Search, Loader2, X, ChevronRight, Wrench, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import logoCi from "@/assets/logo-workflux.png";
@@ -232,6 +232,21 @@ export default function BuscaEquipamentos() {
                 <div className="flex items-center justify-between px-1">
                   <p className="text-xs text-muted-foreground">{resultados.length} lançamento{resultados.length !== 1 ? "s" : ""}</p>
                 </div>
+
+                {/* Botão relatório completo quando frota específica selecionada */}
+                {frota && (
+                  <button
+                    onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(frota)}?ini=${ini}&fim=${fim}`)}
+                    className="w-full flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 hover:bg-green-500/10 transition-colors text-left"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-green-600 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-green-700">Relatório completo — {frota}</p>
+                      <p className="text-xs text-muted-foreground">Exportar PDF e Excel do período selecionado</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-green-600/40" />
+                  </button>
+                )}
 
                 <div className="space-y-1.5">
                   {resultados.map(r => {

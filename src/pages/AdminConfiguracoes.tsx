@@ -1997,7 +1997,6 @@ function DesbloqueioLancamentosManager() {
 // ═══════════════════════════════════════════════════════════════
 const MENU_SECTIONS = [
   { key: "dashboard", label: "Dashboards", icon: BarChart3 },
-  { key: "visao_equipamentos", label: "Visão Equipamentos", icon: Wrench },
   { key: "usuarios", label: "Usuários", icon: Users },
   { key: "permissoes", label: "Permissões", icon: Users },
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
@@ -2014,7 +2013,6 @@ const MENU_SECTIONS = [
   { key: "notificacoes", label: "Notificações", icon: Bell },
   { key: "destinatarios_notif", label: "Destinatários Push", icon: Target },
   { key: "desbloquear", label: "Desbloquear Lançamentos", icon: Unlock },
-  { key: "lancamentos_admin", label: "Lançamentos", icon: ClipboardList },
   { key: "lixeira", label: "Lixeira (30 dias)", icon: Trash2 },
   { key: "auditoria", label: "Log de Auditoria", icon: Shield },
   { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
