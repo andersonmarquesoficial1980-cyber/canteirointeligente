@@ -363,32 +363,64 @@ export default function RelatorioEquipamento() {
   }
 
   function exportarExcel() {
+    if (!selectedDiary) return;
     const wb = XLSX.utils.book_new();
+    const marcador = getMarcador(selectedDiary);
+    const lancadoPor = (selectedDiary.user_id && profilesMap[selectedDiary.user_id]) || selectedDiary.created_by || "-";
 
-    const rows = [
-      ["Data", "Frota", "Operador", "Auxiliar", "OGS", "Status", "Hor. Inicial", "Hor. Final", "Horas", "Área m²", "Diesel (L)", "Lançado por"],
-      ...diarios.map((d) => {
-        const marcador = getMarcador(d);
-        const lancadoPor = (d.user_id && profilesMap[d.user_id]) || d.created_by || "-";
-        return [
-          fmtDate(d.date),
-          d.equipment_fleet || "-",
-          d.operator_name || "-",
-          d.operator_solo || "-",
-          d.ogs_number || "-",
-          d.work_status || d.status || "-",
-          fmtNum(marcador.ini),
-          fmtNum(marcador.fim),
-          fmtNum(getHoras(d).toFixed(2)),
-          fmtNum((areasMap[d.id]?.m2 || 0).toFixed(2)),
-          fmtNum(toNum(d.fuel_liters).toFixed(2)),
-          lancadoPor,
-        ];
-      }),
+    // Aba 1: Dados do Diário
+    const dadosRows = [
+      ["Campo", "Valor"],
+      ["Frota", selectedDiary.equipment_fleet || "-"],
+      ["Tipo de Equipamento", selectedDiary.equipment_type || "-"],
+      ["Data", fmtDate(selectedDiary.date)],
+      ["Turno", selectedDiary.period || "-"],
+      ["Operador", selectedDiary.operator_name || "-"],
+      ["Auxiliar/Solo", selectedDiary.operator_solo || "-"],
+      ["OGS", selectedDiary.ogs_number || "-"],
+      ["Cliente", selectedDiary.client_name || "-"],
+      ["Local/Endereço", selectedDiary.location_address || "-"],
+      [marcador.label + " Inicial", fmtNum(marcador.ini)],
+      [marcador.label + " Final", fmtNum(marcador.fim)],
+      ["Horas Trabalhadas", fmtNum(getHoras(selectedDiary).toFixed(2))],
+      ["Status", selectedDiary.work_status || selectedDiary.status || "-"],
+      ["Observações", selectedDiary.observations || "-"],
+      ["Lançado por", lancadoPor],
+      ["Tipo Combustível", selectedDiary.fuel_type || "-"],
+      ["Litros Diesel", fmtNum(toNum(selectedDiary.fuel_liters).toFixed(2))],
+      ["Horímetro Abastecimento", fmtNum(selectedDiary.fuel_meter)],
     ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dadosRows), "Diário");
 
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Relatório");
-    XLSX.writeFile(wb, `Relatorio_Equipamento_${fleetParam}_${mes}-${ano}.xlsx`);
+    // Aba 2: Apontamento de Horas
+    if (selectedTimeEntries.length > 0) {
+      const horasRows = [
+        ["Início", "Término", "Atividade", "Descrição", "Origem", "Destino"],
+        ...selectedTimeEntries.map(t => [t.start_time || "-", t.end_time || "-", t.activity || "-", t.description || "-", t.origin || "-", t.destination || "-"]),
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(horasRows), "Apontamentos");
+    }
+
+    // Aba 3: Produção / Fresagem
+    if (selectedAreas.length > 0) {
+      const prodRows = [
+        ["#", "Comprimento (m)", "Largura (m)", "Espessura (cm)", "Área (m²)", "Volume (m³)"],
+        ...selectedAreas.map((a, i) => [i + 1, toNum(a.length_m), toNum(a.width_m), toNum(a.thickness_cm), toNum(a.m2), toNum(a.m3)]),
+        ["", "", "", "Totais", selectedAreas.reduce((s, a) => s + toNum(a.m2), 0), selectedAreas.reduce((s, a) => s + toNum(a.m3), 0)],
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prodRows), "Produção");
+    }
+
+    // Aba 4: Bits
+    if (selectedBits.length > 0) {
+      const bitsRows = [
+        ["Quantidade", "Marca", "Horímetro", "Status"],
+        ...selectedBits.map(b => [b.quantity, b.brand, b.horimeter || "-", b.status]),
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bitsRows), "Bits");
+    }
+
+    XLSX.writeFile(wb, `Relatorio_${fleetParam}_${fmtDate(selectedDiary.date)}.xlsx`);
   }
 
   function imprimirPDF() {
