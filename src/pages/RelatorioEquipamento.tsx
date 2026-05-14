@@ -287,9 +287,10 @@ export default function RelatorioEquipamento() {
   }, [ano, fleetParam, mes, modoPeriodo, urlIni, urlFim]);
 
   const loadDiaryDetails = useCallback(async (diaryId: string) => {
-    const hasTimes = Boolean(timeEntriesMap[diaryId]);
-    const hasAreas = Boolean(areasDetailMap[diaryId]);
-    const hasBits = Boolean(bitsMap[diaryId]);
+    // Se já foi populado pelo fetchPeriodo (array existe, mesmo vazio), não rebusca
+    const hasTimes = diaryId in timeEntriesMap;
+    const hasAreas = diaryId in areasDetailMap;
+    const hasBits = diaryId in bitsMap;
     if (hasTimes && hasAreas && hasBits) return;
 
     const [timeRes, prodRes, bitsRes] = await Promise.all([
