@@ -215,24 +215,18 @@ export default function RelatorioEquipamento() {
     const diaryIds = rows.map((d) => d.id);
     const userIds = Array.from(new Set(rows.map((d) => d.user_id).filter(Boolean))) as string[];
 
-    const [areasRes, profilesRes] = await Promise.all([
-      supabase
-        .from("equipment_production_areas")
-        .select("diary_id,m2,m3")
-        .in("diary_id", diaryIds),
+    // Busca tudo de uma vez — detalhes completos para todos os diários do período
+    const [areasRes, profilesRes, timeRes, prodDetailRes, bitsRes] = await Promise.all([
+      supabase.from("equipment_production_areas").select("diary_id,m2,m3").in("diary_id", diaryIds),
       userIds.length > 0
         ? supabase.from("profiles").select("user_id,nome_completo").in("user_id", userIds)
         : Promise.resolve({ data: [], error: null }),
+      supabase.from("equipment_time_entries").select("id,diary_id,start_time,end_time,activity,description,origin,destination").in("diary_id", diaryIds).order("start_time", { ascending: true }),
+      supabase.from("equipment_production_areas").select("id,diary_id,length_m,width_m,thickness_cm,m2,m3").in("diary_id", diaryIds),
+      supabase.from("bit_entries").select("id,diary_id,quantity,brand,horimeter,status").in("diary_id", diaryIds),
     ]);
 
-    if (areasRes.error) {
-      console.error("Erro ao buscar áreas:", areasRes.error);
-    }
-
-    if (profilesRes.error) {
-      console.error("Erro ao buscar perfis:", profilesRes.error);
-    }
-
+    // Agrupa áreas (resumo)
     const groupedAreas: Record<string, { m2: number; m3: number }> = {};
     (areasRes.data || []).forEach((a: any) => {
       if (!a?.diary_id) return;
@@ -241,13 +235,47 @@ export default function RelatorioEquipamento() {
       groupedAreas[a.diary_id].m3 += toNum(a.m3);
     });
 
+    // Perfis
     const profileByUser: Record<string, string> = {};
     (profilesRes.data || []).forEach((p: any) => {
       if (p?.user_id) profileByUser[p.user_id] = p.nome_completo || "-";
     });
 
+    // Agrupa time entries por diary_id
+    const timeByDiary: Record<string, TimeEntry[]> = {};
+    diaryIds.forEach(id => { timeByDiary[id] = []; });
+    (timeRes.data || []).forEach((t: any) => {
+      if (t?.diary_id) {
+        if (!timeByDiary[t.diary_id]) timeByDiary[t.diary_id] = [];
+        timeByDiary[t.diary_id].push(t as TimeEntry);
+      }
+    });
+
+    // Agrupa produção detalhada por diary_id
+    const areasByDiary: Record<string, ProductionArea[]> = {};
+    diaryIds.forEach(id => { areasByDiary[id] = []; });
+    (prodDetailRes.data || []).forEach((a: any) => {
+      if (a?.diary_id) {
+        if (!areasByDiary[a.diary_id]) areasByDiary[a.diary_id] = [];
+        areasByDiary[a.diary_id].push(a as ProductionArea);
+      }
+    });
+
+    // Agrupa bits por diary_id
+    const bitsByDiary: Record<string, BitEntry[]> = {};
+    diaryIds.forEach(id => { bitsByDiary[id] = []; });
+    (bitsRes.data || []).forEach((b: any) => {
+      if (b?.diary_id) {
+        if (!bitsByDiary[b.diary_id]) bitsByDiary[b.diary_id] = [];
+        bitsByDiary[b.diary_id].push(b as BitEntry);
+      }
+    });
+
     setAreasMap(groupedAreas);
     setProfilesMap(profileByUser);
+    setTimeEntriesMap(timeByDiary);
+    setAreasDetailMap(areasByDiary);
+    setBitsMap(bitsByDiary);
 
     setSelectedDiaryId((prev) => {
       if (prev && rows.some((r) => r.id === prev)) return prev;
@@ -255,7 +283,7 @@ export default function RelatorioEquipamento() {
     });
 
     setLoading(false);
-  }, [ano, fleetParam, mes]);
+  }, [ano, fleetParam, mes, modoPeriodo, urlIni, urlFim]);
 
   const loadDiaryDetails = useCallback(async (diaryId: string) => {
     const hasTimes = Boolean(timeEntriesMap[diaryId]);
