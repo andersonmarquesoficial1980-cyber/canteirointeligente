@@ -142,3 +142,50 @@
     background: hsl(215 100% 50% / 0.12);
   }
 }
+
+/* ── Estilos de Impressão / PDF ── */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm 10mm;
+  }
+
+  body {
+    font-size: 10px !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove overflow das tabelas no PDF */
+  .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  /* Tabelas se ajustam à largura da página */
+  table {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 9px !important;
+  }
+
+  th, td {
+    padding: 3px 4px !important;
+    word-break: break-word;
+  }
+
+  /* Evita quebra de tabela no meio de uma linha */
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Não imprime botões e navegação */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Cards ficam sem sombra no PDF */
+  .rdo-card {
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+}
