@@ -448,7 +448,7 @@ export default function RelatorioEquipamento() {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 pb-8 space-y-4 print:px-8 print:pt-4">
-        <section className="rdo-card">
+        <section className="rdo-card print:hidden">
           <h3 className="font-display font-bold text-sm mb-3">Relatório por Período</h3>
           {diarios.length === 0 ? (
             <p className="text-sm text-muted-foreground italic">Nenhum diário encontrado para a frota no mês selecionado.</p>
