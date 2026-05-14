@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ChevronDown, ChevronUp, Loader2, FileDown, FileSpreadsheet, Printer, Trash2, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/ui/export-button";
 import logoCi from "@/assets/logo-workflux.png";
 import { fmtNum, fmtNumCsv, toNum as toNumLib } from "@/lib/fmt";
 import { supabase } from "@/integrations/supabase/client";
@@ -496,16 +497,16 @@ export default function RelatorioRdo() {
                   : <><Square className="w-3.5 h-3.5" /> Selecionar todos</>}
               </Button>
             )}
-            <Button variant="outline" size="sm" className="gap-2 text-xs"
+            <ExportButton variant="outline" size="sm" className="gap-2 text-xs"
               onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
               <Printer className="w-3.5 h-3.5" />
               Exportar PDF {selecionados.size > 0 ? `(${selecionados.size})` : ""}
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2 text-xs"
+            </ExportButton>
+            <ExportButton variant="outline" size="sm" className="gap-2 text-xs"
               onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}>
               <FileSpreadsheet className="w-3.5 h-3.5" />
               Exportar Excel {selecionados.size > 0 ? `(${selecionados.size})` : ""}
-            </Button>
+            </ExportButton>
           </div>
         )}
 

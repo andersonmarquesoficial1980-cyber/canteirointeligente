@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Printer, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/ui/export-button";
 import logoCi from "@/assets/logo-workflux.png";
 import { buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 import { useOgsReference } from "@/hooks/useOgsReference";
@@ -276,9 +277,9 @@ export default function VisualizarLancamento() {
           <>
             {/* Botões de exportação */}
             <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={exportarPdf}>
+              <ExportButton variant="outline" size="sm" className="gap-2 text-xs" onClick={exportarPdf}>
                 <Printer className="w-3.5 h-3.5" /> Exportar PDF
-              </Button>
+              </ExportButton>
             </div>
 
             {/* Exportar por período */}
@@ -295,7 +296,7 @@ export default function VisualizarLancamento() {
                   <input type="date" value={fimPeriodo} onChange={e => setFimPeriodo(e.target.value)}
                     className="h-9 text-xs bg-background border border-border rounded-lg px-2" />
                 </div>
-                <Button variant="outline" size="sm" className="gap-2 text-xs h-9"
+                <ExportButton variant="outline" size="sm" className="gap-2 text-xs h-9"
                   disabled={exportandoPeriodo}
                   onClick={async () => {
                     setExportandoPeriodo(true);
@@ -304,7 +305,7 @@ export default function VisualizarLancamento() {
                   }}>
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   {exportandoPeriodo ? "Gerando..." : "Exportar Excel do Período"}
-                </Button>
+                </ExportButton>
               </div>
             </div>
 

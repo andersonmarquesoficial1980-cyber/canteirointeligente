@@ -10,6 +10,7 @@ import { useOgsReference } from "@/hooks/useOgsReference";
 import { buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 import logoCi from "@/assets/logo-workflux.png";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/ui/export-button";
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -239,9 +240,9 @@ export default function RelatorioTransportes() {
                 {/* Botão Excel do período completo */}
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">{diarios.length} diário{diarios.length !== 1 ? "s" : ""} encontrado{diarios.length !== 1 ? "s" : ""}</p>
-                  <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={exportarExcel}>
+                  <ExportButton variant="outline" size="sm" className="gap-2 text-xs" onClick={exportarExcel}>
                     <FileSpreadsheet className="w-3.5 h-3.5" /> Excel do Período
-                  </Button>
+                  </ExportButton>
                 </div>
 
                 {/* Lista de diários */}
@@ -261,9 +262,9 @@ export default function RelatorioTransportes() {
                             </p>
                           )}
                         </div>
-                        <Button variant="outline" size="sm" className="gap-1.5 text-xs shrink-0" onClick={() => exportarPdf(d)}>
+                        <ExportButton variant="outline" size="sm" className="gap-1.5 text-xs shrink-0" onClick={() => exportarPdf(d)}>
                           <Printer className="w-3.5 h-3.5" /> PDF
-                        </Button>
+                        </ExportButton>
                       </div>
 
                       {entries.length > 0 && (

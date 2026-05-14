@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Loader2, FileSpreadsheet, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/ui/export-button";
 import { Input } from "@/components/ui/input";
 import logoCi from "@/assets/logo-workflux.png";
 import { supabase } from "@/integrations/supabase/client";
@@ -239,14 +240,14 @@ export default function RelatorioAbastecimento() {
         {/* Exportar */}
         {!loading && rows.length > 0 && (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-2 text-xs"
+            <ExportButton variant="outline" size="sm" className="gap-2 text-xs"
               onClick={() => exportarPdf(fleet, rows, ini, fim)}>
               <Printer className="w-3.5 h-3.5" /> PDF
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2 text-xs"
+            </ExportButton>
+            <ExportButton variant="outline" size="sm" className="gap-2 text-xs"
               onClick={() => exportarExcel(fleet, rows, ini, fim)}>
               <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
-            </Button>
+            </ExportButton>
           </div>
         )}
 

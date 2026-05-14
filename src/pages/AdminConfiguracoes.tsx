@@ -899,6 +899,7 @@ function UsersManager() {
   const [deactivating, setDeactivating] = useState<any | null>(null);
   const [deactivatingLoading, setDeactivatingLoading] = useState(false);
   const [unlocking, setUnlocking] = useState<string | null>(null);
+  const [togglingExport, setTogglingExport] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [buscaUsuario, setBuscaUsuario] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -958,6 +959,18 @@ function UsersManager() {
     } catch (err: any) {
       toast({ title: "Erro ao criar usuário", description: err.message, variant: "destructive" });
     } finally { setCreating(false); }
+  };
+
+  const handleToggleExport = async (u: any) => {
+    setTogglingExport(u.user_id);
+    const newVal = !u.can_export;
+    try {
+      await supabase.from("profiles").update({ can_export: newVal }).eq("user_id", u.user_id);
+      toast({ title: newVal ? "✅ Exportação liberada" : "🔒 Exportação bloqueada", description: u.nome_completo });
+      await load();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally { setTogglingExport(null); }
   };
 
   const handleUnlock = async (userId: string, email: string) => {
@@ -1110,6 +1123,14 @@ function UsersManager() {
               </div>
               <div className="flex items-center gap-1 ml-2">
                 <button onClick={() => openEdit(u)} className="text-muted-foreground hover:text-foreground p-1.5" title="Editar usuário"><Pencil className="w-4 h-4" /></button>
+                <button
+                  onClick={() => handleToggleExport(u)}
+                  disabled={togglingExport === u.user_id}
+                  className={u.can_export ? "text-green-600 hover:text-green-700 p-1.5" : "text-muted-foreground hover:text-foreground p-1.5"}
+                  title={u.can_export ? "Exportação liberada (clique pra bloquear)" : "Liberar exportação PDF/Excel"}
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => handleUnlock(u.user_id, u.email || u.nome_completo)}
                   disabled={unlocking === u.user_id}

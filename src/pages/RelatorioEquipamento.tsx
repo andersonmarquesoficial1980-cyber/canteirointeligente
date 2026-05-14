@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/ui/export-button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, ChevronDown, ChevronUp, FileSpreadsheet, Loader2, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -404,12 +405,12 @@ export default function RelatorioEquipamento() {
           <span className="block text-[11px] text-primary-foreground/80">{fleetParam} • {periodoLabel}</span>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" onClick={exportarExcel} className="bg-green-600 hover:bg-green-700 text-white border-0 gap-1">
+          <ExportButton size="sm" onClick={exportarExcel} className="bg-green-600 hover:bg-green-700 text-white border-0 gap-1">
             <FileSpreadsheet className="w-4 h-4" /> Excel
-          </Button>
-          <Button size="sm" onClick={imprimirPDF} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1">
+          </ExportButton>
+          <ExportButton size="sm" onClick={imprimirPDF} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1">
             <Printer className="w-4 h-4" /> PDF
-          </Button>
+          </ExportButton>
         </div>
       </header>
 
