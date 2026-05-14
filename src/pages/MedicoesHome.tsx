@@ -405,6 +405,40 @@ export default function MedicoesHome() {
                         </div>
                       )}
 
+                      {/* Resumo por OGS */}
+                      {isExp && trabalhados > 0 && (() => {
+                        const ogsResumo: Record<string, { dias: number; cliente: string; horas: number }> = {};
+                        days.forEach(d => {
+                          const diary = byDate[d];
+                          if (!diary || !diary.work_status?.includes("Trabalh")) return;
+                          const ogs = diary.ogs_number || "SEM OGS";
+                          if (!ogsResumo[ogs]) ogsResumo[ogs] = { dias: 0, cliente: diary.client_name || "-", horas: 0 };
+                          ogsResumo[ogs].dias++;
+                          const mIni = diary.meter_initial ?? diary.odometer_initial;
+                          const mFim = diary.meter_final ?? diary.odometer_final;
+                          if (typeof mIni === "number" && typeof mFim === "number" && mFim > mIni) ogsResumo[ogs].horas += mFim - mIni;
+                        });
+                        return (
+                          <div className="bg-blue-50 rounded-xl px-3 py-2 space-y-1">
+                            <p className="text-xs font-semibold text-blue-700">Resumo por OGS</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                              {Object.entries(ogsResumo).sort().map(([ogs, info]) => (
+                                <div key={ogs} className="flex items-center justify-between text-xs bg-white rounded-lg px-3 py-1.5 border border-blue-100">
+                                  <div>
+                                    <span className="font-bold text-primary">OGS {ogs}</span>
+                                    <span className="text-muted-foreground ml-2">{info.cliente}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="font-semibold text-green-600">{info.dias} dias</span>
+                                    {info.horas > 0 && <span className="text-muted-foreground ml-1">· {info.horas.toFixed(1)}h</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Detalhes dos dias trabalhados */}
                       {isExp && trabalhados > 0 && (
                         <div className="overflow-x-auto">
