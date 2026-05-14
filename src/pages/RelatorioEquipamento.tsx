@@ -272,6 +272,11 @@ export default function RelatorioEquipamento() {
       }
     });
 
+    console.log("[RelatorioEquipamento] diaryIds:", diaryIds);
+    console.log("[RelatorioEquipamento] prodDetailRes.data:", prodDetailRes.data);
+    console.log("[RelatorioEquipamento] prodDetailRes.error:", prodDetailRes.error);
+    console.log("[RelatorioEquipamento] areasByDiary:", areasByDiary);
+
     setAreasMap(groupedAreas);
     setProfilesMap(profileByUser);
     setTimeEntriesMap(timeByDiary);
