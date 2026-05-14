@@ -360,6 +360,34 @@ export default function VisualizarLancamento() {
               </div>
             </div>
 
+            {timeEntries.length > 0 && (
+              <div className="rdo-card space-y-2">
+                <p className="text-sm font-display font-bold text-primary">Apontamento de Horas</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border text-muted-foreground">
+                        <th className="text-left py-1.5 pr-2">Início</th>
+                        <th className="text-left py-1.5 pr-2">Término</th>
+                        <th className="text-left py-1.5 pr-2">Atividade</th>
+                        <th className="text-left py-1.5">Descrição</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {timeEntries.map((t: any) => (
+                        <tr key={t.id} className="border-b border-border/40">
+                          <td className="py-1.5 pr-2">{t.start_time || "-"}</td>
+                          <td className="py-1.5 pr-2">{t.end_time || "-"}</td>
+                          <td className="py-1.5 pr-2">{t.activity || "-"}</td>
+                          <td className="py-1.5 text-muted-foreground">{t.description || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {areas.length > 0 && (
               <div className="rdo-card space-y-2">
                 <p className="text-sm font-display font-bold text-primary">Áreas de produção (fresagem)</p>
