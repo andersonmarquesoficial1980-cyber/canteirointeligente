@@ -206,7 +206,22 @@ export default function VisualizarLancamento() {
     load();
   }, [id]);
 
-  const horasTrabalhadas = useMemo(() => calculateWorkedHours(timeEntries), [timeEntries]);
+  const horasTrabalhadas = useMemo(() => {
+    // Primeiro tenta calcular pelas time entries
+    const fromEntries = calculateWorkedHours(timeEntries);
+    if (fromEntries !== null) return fromEntries;
+    // Fallback: horímetro final - inicial
+    if (diary?.meter_initial != null && diary?.meter_final != null) {
+      const diff = Number(diary.meter_final) - Number(diary.meter_initial);
+      if (diff > 0) return Math.round(diff * 10) / 10;
+    }
+    // Fallback: odômetro final - inicial
+    if (diary?.odometer_initial != null && diary?.odometer_final != null) {
+      const diff = Number(diary.odometer_final) - Number(diary.odometer_initial);
+      if (diff > 0) return Math.round(diff * 10) / 10;
+    }
+    return null;
+  }, [timeEntries, diary]);
   const isCarreta = diary?.equipment_type === "Carreta";
 
   // Gerar HTML do relatório de carreta

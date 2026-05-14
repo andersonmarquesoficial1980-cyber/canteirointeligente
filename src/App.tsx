@@ -71,6 +71,24 @@ import VisualizarRdo from "./pages/VisualizarRdo";
 
 const queryClient = new QueryClient();
 
+// Redirect correto que preserva o parâmetro :fleet
+function RedirectEquipamento() {
+  const { fleet } = useParams<{ fleet: string }>();
+  const [searchParams] = useSearchParams();
+  const ini = searchParams.get("ini");
+  const fim = searchParams.get("fim");
+  const mes = searchParams.get("mes");
+  const ano = searchParams.get("ano");
+  let to = `/relatorios/equipamento/${encodeURIComponent(fleet || "")}`;
+  const params = new URLSearchParams();
+  if (ini) params.set("ini", ini);
+  if (fim) params.set("fim", fim);
+  if (mes) params.set("mes", mes);
+  if (ano) params.set("ano", ano);
+  if (params.toString()) to += `?${params.toString()}`;
+  return <Navigate to={to} replace />;
+}
+
 // Mapa module_id → chave em user_permissions
 const MODULE_PERM_MAP: Record<string, string> = {
   obras: "modulo_obras",
@@ -249,7 +267,7 @@ function AppRoutes() {
         <Route path="/relatorios/busca-rdo" element={<RequireModule moduleId="relatorios"><BuscaRdo /></RequireModule>} />
         <Route path="/relatorios/busca-equipamentos" element={<RequireModule moduleId="relatorios"><BuscaEquipamentos /></RequireModule>} />
         {/* Rota correta usada pelo RelatoriosHome */}
-        <Route path="/relatorio-equipamento/:fleet" element={<Navigate to="/relatorios/equipamento/:fleet" replace />} />
+        <Route path="/relatorio-equipamento/:fleet" element={<RedirectEquipamento />} />
         {/* Alias para compatibilidade */}
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
         <Route path="/dashboard" element={<RequireAdminOrSuperAdmin><DashboardAdmin /></RequireAdminOrSuperAdmin>} />
