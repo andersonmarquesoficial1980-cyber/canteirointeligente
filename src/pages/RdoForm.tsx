@@ -274,6 +274,7 @@ export default function RdoForm() {
         preenchido_por: preenchidoPor,
         encarregado: encarregado || null,
         user_id: user.id,
+        company_id: profile?.company_id || null,
       } as any);
       if (error) throw error;
       toast({ title: "✅ Rascunho Salvo!", description: "Progresso registrado no banco de dados." });
@@ -441,6 +442,7 @@ export default function RdoForm() {
       encarregado: encarregado || null,
       user_id: user.id,
       tipo_rdo: tipoRdo || null,
+      company_id: profile?.company_id || null,
     };
 
     if (!isOnline) {
