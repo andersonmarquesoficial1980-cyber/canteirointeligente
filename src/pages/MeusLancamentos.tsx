@@ -427,7 +427,7 @@ export default function MeusLancamentos() {
           }
         }}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-3xl w-[95vw]">
           <DialogHeader>
             <DialogTitle className="font-display">Detalhes do Lançamento</DialogTitle>
           </DialogHeader>
@@ -436,7 +436,7 @@ export default function MeusLancamentos() {
             <div className="space-y-4 text-sm overflow-y-auto max-h-[75vh] pr-1">
               {/* Cabeçalho compacto igual ao RelatorioEquipamento */}
               <div className="space-y-1 border-b border-border pb-3">
-                <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                   <p><span className="text-muted-foreground">Frota:</span> <strong>{selecionado.equipment_fleet || "-"}</strong></p>
                   <p><span className="text-muted-foreground">Tipo:</span> <strong>{selecionado.equipment_type || "-"}</strong></p>
                   <p><span className="text-muted-foreground">Data:</span> <strong>{fmtDate(selecionado.date)}</strong></p>
@@ -452,8 +452,8 @@ export default function MeusLancamentos() {
                     <p><span className="text-muted-foreground">Horímetro:</span> <strong>{selecionado.meter_initial ?? "-"} → {selecionado.meter_final ?? "-"}</strong></p>
                   )}
                   <p><span className="text-muted-foreground">Status:</span> <strong>{selecionado.work_status || "-"}</strong></p>
-                  <p><span className="text-muted-foreground">Observações:</span> <strong>{selecionado.observations || "-"}</strong></p>
                 </div>
+                <p className="text-sm pt-1"><span className="text-muted-foreground">Observações:</span> <strong>{selecionado.observations || "-"}</strong></p>
               </div>
 
               {/* Apontamento de Horas */}
