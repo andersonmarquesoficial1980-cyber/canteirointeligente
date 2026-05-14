@@ -183,8 +183,81 @@ export default function MedicoesHome() {
     // Legenda
     rows.push([]);
     rows.push(["Legenda:", "T = Trabalhando", "P = Parado", "M = Manutenção", "F = Folga", "D = À Disposição", "Mob = Mobilização"]);
-
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Medição");
+
+    // Aba 2: Detalhamento por OGS
+    const ogsRows: any[][] = [];
+    ogsRows.push([`DETALHAMENTO POR OGS — ${fornecedorSel}`]);
+    ogsRows.push([`Período: ${fmtDate(ini)} a ${fmtDate(fim)}`]);
+    ogsRows.push([]);
+    ogsRows.push(["Frota", "Tipo", "Data", "Status", "OGS", "Cliente", "Local", "Operador", "Horas/KM"]);
+
+    equipamentos.forEach((eq: any) => {
+      const byDate = diariosPorFrota[eq.frota] || {};
+      days.forEach(d => {
+        const diary = byDate[d];
+        if (!diary) return;
+        const marcIni = diary.meter_initial ?? diary.odometer_initial;
+        const marcFim = diary.meter_final ?? diary.odometer_final;
+        const diff = typeof marcIni === "number" && typeof marcFim === "number" && marcFim > marcIni
+          ? (marcFim - marcIni).toFixed(1) : "-";
+        ogsRows.push([
+          eq.frota,
+          eq.tipo,
+          fmtDate(d),
+          diary.work_status || "-",
+          diary.ogs_number || "-",
+          diary.client_name || "-",
+          diary.location_address || "-",
+          diary.operator_name || "-",
+          diff,
+        ]);
+      });
+    });
+
+    // Aba 3: Resumo por OGS (custo por obra)
+    const ogsResumoRows: any[][] = [];
+    ogsResumoRows.push([`RESUMO POR OGS — ${fornecedorSel}`]);
+    ogsResumoRows.push([`Período: ${fmtDate(ini)} a ${fmtDate(fim)}`]);
+    ogsResumoRows.push([]);
+    ogsResumoRows.push(["OGS", "Cliente", "Frota", "Tipo", "Dias Trabalhados", "Horas/KM Total"]);
+
+    // Agrupar por OGS + frota
+    const ogsMap: Record<string, Record<string, { dias: number; horas: number; cliente: string }>> = {};
+    equipamentos.forEach((eq: any) => {
+      const byDate = diariosPorFrota[eq.frota] || {};
+      days.forEach(d => {
+        const diary = byDate[d];
+        if (!diary || !diary.work_status?.includes("Trabalh")) return;
+        const ogs = diary.ogs_number || "SEM OGS";
+        const cliente = diary.client_name || "-";
+        if (!ogsMap[ogs]) ogsMap[ogs] = {};
+        if (!ogsMap[ogs][eq.frota]) ogsMap[ogs][eq.frota] = { dias: 0, horas: 0, cliente };
+        ogsMap[ogs][eq.frota].dias++;
+        const marcIni = diary.meter_initial ?? diary.odometer_initial;
+        const marcFim = diary.meter_final ?? diary.odometer_final;
+        if (typeof marcIni === "number" && typeof marcFim === "number" && marcFim > marcIni) {
+          ogsMap[ogs][eq.frota].horas += marcFim - marcIni;
+        }
+      });
+    });
+
+    Object.entries(ogsMap).sort().forEach(([ogs, frotas]) => {
+      Object.entries(frotas).forEach(([frota, info]) => {
+        const eq = equipamentos.find((e: any) => e.frota === frota);
+        ogsResumoRows.push([
+          ogs,
+          info.cliente,
+          frota,
+          eq?.tipo || "-",
+          info.dias,
+          info.horas > 0 ? info.horas.toFixed(1) : "-",
+        ]);
+      });
+    });
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ogsRows), "Detalhe por OGS");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ogsResumoRows), "Resumo por OGS");
     XLSX.writeFile(wb, `Medicao_${fornecedorSel.replace(/\s+/g, "_")}_${ini.slice(0, 7)}.xlsx`);
   }
 
