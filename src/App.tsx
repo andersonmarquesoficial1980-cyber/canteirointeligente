@@ -64,6 +64,7 @@ import RelatoriosHome from "./pages/RelatoriosHome";
 import SuperAdmin from "./pages/SuperAdmin";
 import SuprimentosHome from "./pages/SuprimentosHome";
 import MedicoesHome from "./pages/MedicoesHome";
+import RelatorioCarreteiros from "./pages/RelatorioCarreteiros";
 import TrajetoVT from "./pages/TrajetoVT";
 import TruckerHome from "./pages/TruckerHome";
 import ValeTransporte from "./pages/ValeTransporte";
@@ -349,6 +350,7 @@ function AppRoutes() {
         {/* Suprimentos */}
         <Route path="/suprimentos" element={<RequireModule moduleId="suprimentos"><SuprimentosHome /></RequireModule>} />
         <Route path="/medicoes" element={<RequireModule moduleId="medicoes"><MedicoesHome /></RequireModule>} />
+        <Route path="/relatorios/carreteiros" element={<RequireModule moduleId="carreteiros"><RelatorioCarreteiros /></RequireModule>} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

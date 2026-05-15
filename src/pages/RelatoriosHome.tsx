@@ -11,6 +11,7 @@ const TIPOS_RELATORIO = [
   { id: "abastecimento", label: "Abastecimento", emoji: "⛽", desc: "Consumo de diesel por equipamento" },
   { id: "manutencao", label: "Manutenção", emoji: "🔧", desc: "Ordens de serviço e peças trocadas" },
   { id: "transportes", label: "Transportes (Carreta)", emoji: "🚛", desc: "Relatório de transporte de equipamentos" },
+  { id: "carreteiros", label: "Carreteiros (Fechamento)", emoji: "📋", desc: "Fechamento mensal de viagens por placa" },
 ];
 
 function fmtDate(d: string) {
@@ -168,6 +169,7 @@ export default function RelatoriosHome() {
                 key={t.id}
                 onClick={() => {
                   if (t.id === "equipamento") { navigate("/relatorios/busca-equipamentos"); return; }
+                  if (t.id === "carreteiros") { navigate("/relatorios/carreteiros"); return; }
                   setTipoRel(t.id); setStep("subtipo");
                 }}
                 className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
