@@ -27,7 +27,7 @@ import logoCi from "@/assets/logo-workflux.png";
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
 
-const VINCULO_OPTIONS = ["PAVIMENTACAO", "INFRA", "CANTEIRO", "COMBOIO", "PIPA", "ESPARGIDOR", "TODOS"];
+const VINCULO_OPTIONS = ["PAVIMENTACAO", "INFRA", "CANTEIRO", "COMBOIO", "PIPA", "ESPARGIDOR", "KMA", "TODOS"];
 const VINCULO_LABELS: Record<string, string> = {
   PAVIMENTACAO: "RDO Pavimentação",
   CAUQ: "RDO Pavimentação (legado)",
@@ -36,6 +36,7 @@ const VINCULO_LABELS: Record<string, string> = {
   COMBOIO: "Comboio",
   PIPA: "Caminhão Pipa",
   ESPARGIDOR: "Espargidor",
+  KMA: "Usina Móvel KMA",
   TODOS: "Todos",
 };
 const TIPO_INSUMO_OPTIONS = ["Diesel", "Emulsão", "Água", "Concreto", "Massa Asfáltica", "Insumos", "Outro"];

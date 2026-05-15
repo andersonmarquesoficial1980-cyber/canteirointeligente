@@ -544,8 +544,8 @@ export default function EquipmentDiaryForm() {
   // Só aparecem: vínculo PAVIMENTACAO/TODOS + tipo insumo Massa Asfáltica, Geral, ou sem tipo definido
   // Exclui Emulsão (produto do Espargidor, não do KMA)
   const fornecedoresKmaCap = fornecedoresDb.filter((f: any) => {
-    const temVinculo = (f.vinculos && (f.vinculos.includes("PAVIMENTACAO") || f.vinculos.includes("TODOS"))) ||
-      f.vinculo_rdo === "PAVIMENTACAO" || f.vinculo_rdo === "TODOS";
+    const temVinculo = (f.vinculos && (f.vinculos.includes("PAVIMENTACAO") || f.vinculos.includes("TODOS") || f.vinculos.includes("KMA"))) ||
+      f.vinculo_rdo === "PAVIMENTACAO" || f.vinculo_rdo === "TODOS" || f.vinculo_rdo === "KMA";
     if (!temVinculo) return false;
     const tipo = (f.tipo_insumo || "").toLowerCase();
     // Exclui emulsão (só vai pro Espargidor)
