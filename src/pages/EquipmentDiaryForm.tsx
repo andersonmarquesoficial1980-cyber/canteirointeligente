@@ -540,6 +540,12 @@ export default function EquipmentDiaryForm() {
   const hasInsumo = (f: any, t: string) =>
     f.tipo_insumos?.includes(t) || f.tipo_insumo === t;
 
+  // Fornecedores específicos para KMA (CAP e Filer) — só PAVIMENTACAO e TODOS
+  const fornecedoresKmaCap = fornecedoresDb.filter((f: any) =>
+    (f.vinculos && (f.vinculos.includes("PAVIMENTACAO") || f.vinculos.includes("TODOS"))) ||
+    f.vinculo_rdo === "PAVIMENTACAO" || f.vinculo_rdo === "TODOS"
+  );
+
   const fornecedoresDiesel = fornecedoresDb.filter((f: any) =>
     hasVinculo(f, "COMBOIO") && (hasInsumo(f, "Diesel") || !f.tipo_insumos?.length)
   );
@@ -2002,7 +2008,7 @@ export default function EquipmentDiaryForm() {
                       <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
                       <Select value={kmaOperation.capSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, capSupplier: v })}>
                         <SelectTrigger className="bg-secondary border-border h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>{fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
+                        <SelectContent>{fornecedoresKmaCap.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -2037,7 +2043,7 @@ export default function EquipmentDiaryForm() {
                       <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor</span>
                       <Select value={kmaOperation.filerSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, filerSupplier: v })}>
                         <SelectTrigger className="bg-secondary border-border h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>{fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
+                        <SelectContent>{fornecedoresKmaCap.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1">
@@ -2054,7 +2060,7 @@ export default function EquipmentDiaryForm() {
                     <span className="text-[10px] font-semibold text-accent uppercase">Fornecedor de Agregados</span>
                     <Select value={kmaOperation.aggregatesSupplier} onValueChange={(v) => setKmaOperation({ ...kmaOperation, aggregatesSupplier: v })}>
                       <SelectTrigger className="bg-secondary border-border h-9 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                      <SelectContent>{fornecedoresDb.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
+                      <SelectContent>{fornecedoresKmaCap.map((f: any) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
