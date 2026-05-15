@@ -70,13 +70,14 @@ function DepartureForm() {
 
     setSubmitting(true);
     let geoStr: string | null = null;
+    let gpsFailed = false;
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
       );
       geoStr = `${pos.coords.latitude},${pos.coords.longitude}`;
     } catch {
-      // GPS not available
+      gpsFailed = true;
     }
 
     const { error } = await supabase.from("trucker_trips").insert({
@@ -96,6 +97,7 @@ function DepartureForm() {
       toast.error("Erro ao lançar saída: " + error.message);
     } else {
       toast.success("Saída registrada com sucesso!");
+      if (gpsFailed) toast.warning("⚠️ GPS não disponível — lançamento salvo sem localização");
       queryClient.invalidateQueries({ queryKey: ["trucker_in_transit"] });
       setPlaca("");
       setMaterial("");
@@ -230,13 +232,14 @@ function ArrivalList() {
 
   const confirmArrival = async (id: string) => {
     let geoStr: string | null = null;
+    let gpsFailed = false;
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
       );
       geoStr = `${pos.coords.latitude},${pos.coords.longitude}`;
     } catch {
-      // GPS not available
+      gpsFailed = true;
     }
 
     const { error } = await supabase
@@ -252,6 +255,7 @@ function ArrivalList() {
       toast.error("Erro ao confirmar: " + error.message);
     } else {
       toast.success("Recebimento confirmado!");
+      if (gpsFailed) toast.warning("⚠️ GPS não disponível — chegada salva sem localização");
       queryClient.invalidateQueries({ queryKey: ["trucker_in_transit"] });
     }
   };
