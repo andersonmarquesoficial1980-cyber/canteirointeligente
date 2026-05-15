@@ -13,7 +13,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet,
+  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -2035,6 +2035,7 @@ const MENU_SECTIONS = [
   { key: "notificacoes", label: "Notificações", icon: Bell },
   { key: "destinatarios_notif", label: "Destinatários Push", icon: Target },
   { key: "desbloquear", label: "Desbloquear Lançamentos", icon: Unlock },
+  { key: "tarifas_vt", label: "Tarifas de VT", icon: Bus },
   { key: "lixeira", label: "Lixeira (30 dias)", icon: Trash2 },
   { key: "auditoria", label: "Log de Auditoria", icon: Shield },
   { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
@@ -2044,6 +2045,149 @@ const MENU_SECTIONS = [
 // ═══════════════════════════════════════════════════════════════
 // LIXEIRA MANAGER
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// TARIFAS VT MANAGER
+// ═══════════════════════════════════════════════════════════════
+function TarifasVTManager() {
+  const { toast } = useToast();
+  const [tarifas, setTarifas] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [novoTipo, setNovoTipo] = useState("");
+  const [novoValor, setNovoValor] = useState("");
+  const [adicionando, setAdicionando] = useState(false);
+
+  const load = async () => {
+    const { data } = await supabase.from("vt_tarifas").select("*").order("tipo_transporte");
+    if (data) setTarifas(data);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const salvarEdicao = async (id: string) => {
+    setSaving(true);
+    const valor = parseFloat(editValue.replace(",", "."));
+    if (isNaN(valor) || valor <= 0) {
+      toast({ title: "Valor inválido", variant: "destructive" });
+      setSaving(false);
+      return;
+    }
+    const { error } = await supabase.from("vt_tarifas").update({ valor_unitario: valor }).eq("id", id);
+    if (error) {
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "✅ Tarifa atualizada!" });
+      setEditingId(null);
+      load();
+    }
+    setSaving(false);
+  };
+
+  const toggleAtivo = async (id: string, ativo: boolean) => {
+    await supabase.from("vt_tarifas").update({ ativo: !ativo }).eq("id", id);
+    load();
+  };
+
+  const adicionar = async () => {
+    if (!novoTipo.trim()) return;
+    const valor = parseFloat(novoValor.replace(",", "."));
+    if (isNaN(valor) || valor <= 0) {
+      toast({ title: "Informe um valor válido", variant: "destructive" });
+      return;
+    }
+    setAdicionando(true);
+    const { error } = await supabase.from("vt_tarifas").insert({ tipo_transporte: novoTipo.trim(), valor_unitario: valor, ativo: true });
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "✅ Tarifa adicionada!" });
+      setNovoTipo(""); setNovoValor("");
+      load();
+    }
+    setAdicionando(false);
+  };
+
+  return (
+    <div className="space-y-4 p-4">
+      <div>
+        <h2 className="text-lg font-display font-bold">Tarifas de Vale-Transporte</h2>
+        <p className="text-xs text-muted-foreground">Atualize os valores quando houver reajuste das tarifas públicas.</p>
+      </div>
+
+      {/* Lista de tarifas */}
+      <div className="space-y-2">
+        {tarifas.map((t) => (
+          <div key={t.id} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium ${!t.ativo ? 'text-muted-foreground line-through' : ''}`}>{t.tipo_transporte}</p>
+            </div>
+            {editingId === t.id ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">R$</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={editValue}
+                  onChange={e => setEditValue(e.target.value)}
+                  className="w-24 h-8 px-2 text-sm rounded-lg border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+                  autoFocus
+                />
+                <button onClick={() => salvarEdicao(t.id)} disabled={saving} className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg font-medium">
+                  {saving ? "..." : "Salvar"}
+                </button>
+                <button onClick={() => setEditingId(null)} className="text-xs text-muted-foreground px-2 py-1.5">Cancelar</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-primary">R$ {t.valor_unitario.toFixed(2).replace(".", ",")}</span>
+                <button onClick={() => { setEditingId(t.id); setEditValue(String(t.valor_unitario).replace(".", ",")); }} className="text-muted-foreground hover:text-foreground p-1.5">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => toggleAtivo(t.id, t.ativo)} className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.ativo ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
+                  {t.ativo ? "Ativo" : "Inativo"}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Adicionar nova tarifa */}
+      <div className="border border-dashed border-border rounded-xl p-4 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Adicionar nova tarifa</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <input
+            type="text"
+            placeholder="Tipo (ex: Ônibus Municipal Cotia)"
+            value={novoTipo}
+            onChange={e => setNovoTipo(e.target.value)}
+            className="sm:col-span-2 h-9 px-3 text-sm rounded-lg border border-border bg-background outline-none"
+          />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">R$</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
+              value={novoValor}
+              onChange={e => setNovoValor(e.target.value)}
+              className="flex-1 h-9 px-3 text-sm rounded-lg border border-border bg-background outline-none"
+            />
+          </div>
+        </div>
+        <button
+          onClick={adicionar}
+          disabled={adicionando || !novoTipo.trim()}
+          className="flex items-center gap-2 text-sm bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium disabled:opacity-50"
+        >
+          <Plus className="w-4 h-4" /> Adicionar Tarifa
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function LixeiraManager() {
   const [itens, setItens] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2230,6 +2374,7 @@ export default function AdminConfiguracoes() {
       case "desbloquear": return <DesbloqueioLancamentosManager />;
       case "aeropav_staff": return <AeroPavStaffManager />;
       case "operadores_habilitados": return <OperadoresHabilitadosManager />;
+      case "tarifas_vt": return <TarifasVTManager />;
       case "lixeira": return <LixeiraManager />;
       case "auditoria": return <AuditLogViewerAdmin />;
       default: return null;
