@@ -19,18 +19,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <div className="absolute inset-0 rounded-full bg-white/20 blur-md -z-10 scale-110" />
               </div>
               <div className="ml-2">
-                <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Workflux</span>
-                <span className="block text-[10px] text-primary-foreground/80 font-medium leading-tight">Plataforma de Gestão</span>
+                {companyLogo ? (
+                  <img src={companyLogo} alt="Cliente" className="h-7 object-contain" />
+                ) : (
+                  <>
+                    <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Workflux</span>
+                    <span className="block text-[10px] text-primary-foreground/80 font-medium leading-tight">Plataforma de Gestão</span>
+                  </>
+                )}
               </div>
             </div>
-            
-            {/* Logo do Cliente */}
-            {companyLogo && (
-              <div className="flex items-center gap-3 pr-2">
-                <div className="h-8 w-px bg-white/20" />
-                <img src={companyLogo} alt="Cliente" className="h-8 object-contain rounded bg-white p-1" />
-              </div>
-            )}
           </header>
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>

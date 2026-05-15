@@ -51,34 +51,35 @@ export default function Home() {
       </div>
 
       {/* Brand */}
-      <div className="mb-8 text-center space-y-4 relative z-10 flex flex-col items-center">
-        <div className="flex items-center justify-center gap-6">
-          <div className="relative inline-block">
-            <img
-              src={logoCi}
-              alt="Workflux"
-              className="h-28 mx-auto object-contain drop-shadow-2xl animate-float"
-            />
-            <div className="absolute inset-0 rounded-full bg-primary/10 blur-2xl -z-10 scale-125" />
+      <div className="mb-8 text-center space-y-3 relative z-10 flex flex-col items-center">
+        {/* Logo Workflux — centralizado e flutuante */}
+        <div className="relative inline-block">
+          <img
+            src={logoCi}
+            alt="Workflux"
+            className="h-32 mx-auto object-contain drop-shadow-2xl animate-float"
+          />
+          <div className="absolute inset-0 rounded-full bg-primary/10 blur-2xl -z-10 scale-125" />
+        </div>
+
+        {/* Se tiver logo do cliente, substitui o título pelo logo do cliente */}
+        {companyLogo ? (
+          <div className="flex flex-col items-center gap-1">
+            <img src={companyLogo} alt="Cliente" className="h-10 object-contain" />
+            <p className="text-xs text-muted-foreground/60 tracking-wide">
+              Powered by Workflux
+            </p>
           </div>
-          
-          {/* Logo do Cliente em Co-branding */}
-          {companyLogo && (
-            <>
-              <div className="h-16 w-px bg-border hidden sm:block" />
-              <img src={companyLogo} alt="Cliente" className="h-20 object-contain rounded bg-white p-2 shadow-sm" />
-            </>
-          )}
-        </div>
-        
-        <div>
-          <h1 className="text-gradient text-2xl font-display font-extrabold tracking-tight">
-            Workflux
-          </h1>
-          <p className="text-sm text-muted-foreground tracking-wide">
-            Plataforma de Gestão e Integração de Campo
-          </p>
-        </div>
+        ) : (
+          <div>
+            <h1 className="text-gradient text-2xl font-display font-extrabold tracking-tight">
+              Workflux
+            </h1>
+            <p className="text-sm text-muted-foreground tracking-wide">
+              Plataforma de Gestão e Integração de Campo
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Logout */}
