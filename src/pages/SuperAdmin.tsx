@@ -50,6 +50,8 @@ const ALL_MODULES = [
   { key: "relatorios",    label: "WF Relatórios",        emoji: "📊" },
   { key: "gestao-frotas", label: "WF Gestão de Frotas",  emoji: "🚗" },
   { key: "gestao-pessoas",label: "WF Gestão de Pessoas", emoji: "👤" },
+  { key: "suprimentos",   label: "WF Suprimentos",       emoji: "📦" },
+  { key: "medicoes",      label: "WF Medições",          emoji: "🧾" },
   { key: "admin",         label: "Painel de Controle",   emoji: "⚙️" },
 ];
 
