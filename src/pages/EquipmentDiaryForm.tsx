@@ -540,11 +540,18 @@ export default function EquipmentDiaryForm() {
   const hasInsumo = (f: any, t: string) =>
     f.tipo_insumos?.includes(t) || f.tipo_insumo === t;
 
-  // Fornecedores específicos para KMA (CAP e Filer) — só PAVIMENTACAO e TODOS
-  const fornecedoresKmaCap = fornecedoresDb.filter((f: any) =>
-    (f.vinculos && (f.vinculos.includes("PAVIMENTACAO") || f.vinculos.includes("TODOS"))) ||
-    f.vinculo_rdo === "PAVIMENTACAO" || f.vinculo_rdo === "TODOS"
-  );
+  // Fornecedores específicos para KMA (CAP e Filer)
+  // Só aparecem: vínculo PAVIMENTACAO/TODOS + tipo insumo Massa Asfáltica, Geral, ou sem tipo definido
+  // Exclui Emulsão (produto do Espargidor, não do KMA)
+  const fornecedoresKmaCap = fornecedoresDb.filter((f: any) => {
+    const temVinculo = (f.vinculos && (f.vinculos.includes("PAVIMENTACAO") || f.vinculos.includes("TODOS"))) ||
+      f.vinculo_rdo === "PAVIMENTACAO" || f.vinculo_rdo === "TODOS";
+    if (!temVinculo) return false;
+    const tipo = (f.tipo_insumo || "").toLowerCase();
+    // Exclui emulsão (só vai pro Espargidor)
+    if (tipo === "emulsão" || tipo === "emulsao") return false;
+    return true;
+  });
 
   const fornecedoresDiesel = fornecedoresDb.filter((f: any) =>
     hasVinculo(f, "COMBOIO") && (hasInsumo(f, "Diesel") || !f.tipo_insumos?.length)
