@@ -165,11 +165,12 @@ function AppRoutes() {
   const [checkingAccess, setCheckingAccess] = useState(false);
   const location = useLocation();
 
-  // Check if user is active after session loads
+  // Check if user is active after session loads, and listen to MFA changes
   useEffect(() => {
     if (!session?.user?.id) { setBlocked(false); setMustChangePassword(false); setNeeds2FA(false); return; }
-    setCheckingAccess(true);
+    
     const check = async () => {
+      setCheckingAccess(true);
       try {
         const { data } = await supabase
           .from("profiles")
@@ -183,7 +184,7 @@ function AppRoutes() {
         } else {
           setBlocked(false);
           setMustChangePassword(Boolean((data as any)?.senha_temporaria));
-          // Verificar se usuário tem 2FA ativo mas ainda não verificou (AAL1 vs AAL2)
+          
           try {
             const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
             if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
@@ -196,7 +197,19 @@ function AppRoutes() {
       } catch {}
       setCheckingAccess(false);
     };
+    
     check();
+
+    // Fica escutando mudanças na sessão (como quando o 2FA é validado e o token é atualizado)
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'MFA_CHALLENGE_VERIFIED') {
+        check();
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
   }, [session?.user?.id]);
 
   if (loading || checkingAccess) {
