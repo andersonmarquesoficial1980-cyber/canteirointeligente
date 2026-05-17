@@ -13,7 +13,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus,
+  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -2018,6 +2018,7 @@ function DesbloqueioLancamentosManager() {
 // SIDEBAR MENU ITEMS
 // ═══════════════════════════════════════════════════════════════
 const MENU_SECTIONS = [
+  { key: "assinatura", label: "Meu Plano / Faturas", icon: Receipt },
   { key: "dashboard", label: "Dashboards", icon: BarChart3 },
   { key: "usuarios", label: "Usuários", icon: Users },
   { key: "permissoes", label: "Permissões", icon: Users },
@@ -2045,6 +2046,136 @@ const MENU_SECTIONS = [
 // ═══════════════════════════════════════════════════════════════
 // LIXEIRA MANAGER
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// ASSINATURA E FATURAS MANAGER
+// ═══════════════════════════════════════════════════════════════
+function AssinaturaManager() {
+  const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [company, setCompany] = useState<any>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    async function loadData() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
+      if (!profile?.company_id) { setLoading(false); return; }
+
+      const [{ data: comp }, { data: sub }] = await Promise.all([
+        supabase.from("companies").select("*").eq("id", profile.company_id).maybeSingle(),
+        supabase.from("subscriptions").select("*").eq("company_id", profile.company_id).maybeSingle()
+      ]);
+
+      setCompany(comp);
+      setSubscription(sub);
+      setLoading(false);
+    }
+    loadData();
+  }, []);
+
+  const handleAssinar = async (plano: string, valor: number) => {
+    toast({ title: "Aguarde", description: "Gerando link de pagamento..." });
+    try {
+      const { data, error } = await supabase.functions.invoke('asaas-checkout', {
+        body: { plano, valor, company_id: company?.id }
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    }
+  };
+
+  if (loading) return <div className="p-4 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+
+  const isTrial = !subscription || subscription.status === "trial";
+  const diasRestantes = company?.trial_ends_at 
+    ? Math.max(0, Math.ceil((new Date(company.trial_ends_at).getTime() - Date.now()) / (1000 * 3600 * 24)))
+    : 0;
+
+  return (
+    <div className="space-y-6 p-4 max-w-4xl mx-auto">
+      <div>
+        <h2 className="text-xl font-display font-bold">Meu Plano e Faturas</h2>
+        <p className="text-sm text-muted-foreground">Gerencie sua assinatura do Workflux.</p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h3 className="text-sm font-semibold uppercase text-muted-foreground">Status Atual</h3>
+          {isTrial ? (
+            <div className="mt-1">
+              <span className="text-2xl font-bold text-amber-600">Período de Teste</span>
+              <p className="text-sm text-muted-foreground mt-1">
+                {diasRestantes > 0 ? `Você tem ${diasRestantes} dias restantes no seu teste grátis.` : "Seu período de teste expirou."}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-1">
+              <span className="text-2xl font-bold text-green-600">Plano {subscription?.plano} (Ativo)</span>
+              <p className="text-sm text-muted-foreground mt-1">
+                Sua próxima fatura vence em {new Date(subscription?.data_vencimento).toLocaleDateString("pt-BR")}.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isTrial && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold">Escolha seu plano</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            {/* Starter */}
+            <div className="border border-border rounded-xl p-5 flex flex-col bg-card hover:border-primary/50 transition-colors">
+              <h4 className="font-bold text-lg">Starter</h4>
+              <p className="text-2xl font-extrabold text-primary mt-2">R$ 497<span className="text-sm font-normal text-muted-foreground">/mês</span></p>
+              <ul className="text-sm text-muted-foreground mt-4 space-y-2 flex-1">
+                <li>✓ Até 15 usuários</li>
+                <li>✓ 2 módulos à escolha</li>
+                <li>✓ Suporte via WhatsApp</li>
+              </ul>
+              <Button onClick={() => handleAssinar("Starter", 497)} className="mt-6 w-full" variant="outline">Assinar Starter</Button>
+            </div>
+
+            {/* Pro */}
+            <div className="border-2 border-primary rounded-xl p-5 flex flex-col bg-primary/5 shadow-md relative">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Mais Popular</div>
+              <h4 className="font-bold text-lg text-primary">Pro</h4>
+              <p className="text-2xl font-extrabold text-primary mt-2">R$ 897<span className="text-sm font-normal text-muted-foreground">/mês</span></p>
+              <ul className="text-sm text-foreground mt-4 space-y-2 flex-1 font-medium">
+                <li>✓ Até 40 usuários</li>
+                <li>✓ 5 módulos à escolha</li>
+                <li>✓ Exportação para Protheus</li>
+                <li>✓ Suporte prioritário</li>
+              </ul>
+              <Button onClick={() => handleAssinar("Pro", 897)} className="mt-6 w-full bg-primary hover:bg-primary/90 text-white">Assinar Pro</Button>
+            </div>
+
+            {/* Business */}
+            <div className="border border-border rounded-xl p-5 flex flex-col bg-card hover:border-primary/50 transition-colors">
+              <h4 className="font-bold text-lg">Business</h4>
+              <p className="text-2xl font-extrabold text-primary mt-2">R$ 1.497<span className="text-sm font-normal text-muted-foreground">/mês</span></p>
+              <ul className="text-sm text-muted-foreground mt-4 space-y-2 flex-1">
+                <li>✓ Usuários Ilimitados</li>
+                <li>✓ Todos os módulos</li>
+                <li>✓ IA para documentos</li>
+                <li>✓ Suporte Dedicado (SLA 4h)</li>
+              </ul>
+              <Button onClick={() => handleAssinar("Business", 1497)} className="mt-6 w-full" variant="outline">Assinar Business</Button>
+            </div>
+
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // TARIFAS VT MANAGER
 // ═══════════════════════════════════════════════════════════════
@@ -2344,6 +2475,7 @@ export default function AdminConfiguracoes() {
 
   const renderContent = () => {
     switch (activeSection) {
+      case "assinatura": return <AssinaturaManager />;
       case "dashboard":
         return (
           <Suspense fallback={<div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Carregando dashboard...</p></div>}>
