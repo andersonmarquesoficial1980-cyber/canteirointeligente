@@ -32,10 +32,10 @@ serve(async (req) => {
     if (authError || !user) throw new Error("Token inválido");
 
     const body = await req.json();
-    const { plano, valor, company_id } = body;
+    const { plano, valor, company_id, cpfCnpj } = body;
 
-    if (!plano || !valor || !company_id) {
-      throw new Error("Dados incompletos para assinar.");
+    if (!plano || !valor || !company_id || !cpfCnpj) {
+      throw new Error("Dados incompletos para assinar. CPF/CNPJ é obrigatório.");
     }
 
     // Busca os dados do cliente para criar a cobrança no Asaas
@@ -55,9 +55,9 @@ serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json", "access_token": asaasApiKey },
         body: JSON.stringify({
-          name: company.nome_fantasia || profile.nome_completo || "Empresa Workflux",
+          name: company.name || profile.nome_completo || "Empresa Workflux",
           email: profile.email,
-          cpfCnpj: company.cnpj || "",
+          cpfCnpj: cpfCnpj
         }),
       });
       const customerData = await customerReq.json();

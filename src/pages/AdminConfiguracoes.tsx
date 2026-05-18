@@ -2046,6 +2046,10 @@ const MENU_SECTIONS = [
 // ═══════════════════════════════════════════════════════════════
 // LIXEIRA MANAGER
 // ═══════════════════════════════════════════════════════════════
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+
 // ═══════════════════════════════════════════════════════════════
 // ASSINATURA E FATURAS MANAGER
 // ═══════════════════════════════════════════════════════════════
@@ -2054,6 +2058,12 @@ function AssinaturaManager() {
   const [subscription, setSubscription] = useState<any>(null);
   const [company, setCompany] = useState<any>(null);
   const { toast } = useToast();
+
+  // Estados do Modal de Checkout
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+  const [planoSelecionado, setPlanoSelecionado] = useState<{nome: string, valor: number} | null>(null);
+  const [cpfCnpj, setCpfCnpj] = useState("");
+  const [processandoAssinatura, setProcessandoAssinatura] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -2075,18 +2085,38 @@ function AssinaturaManager() {
     loadData();
   }, []);
 
-  const handleAssinar = async (plano: string, valor: number) => {
-    toast({ title: "Aguarde", description: "Gerando link de pagamento..." });
+  const handleAssinarClick = (plano: string, valor: number) => {
+    setPlanoSelecionado({ nome: plano, valor });
+    setCheckoutModalOpen(true);
+  };
+
+  const confirmarAssinatura = async () => {
+    if (!cpfCnpj || cpfCnpj.replace(/\D/g, "").length < 11) {
+      toast({ title: "Dados inválidos", description: "Por favor, informe um CPF ou CNPJ válido.", variant: "destructive" });
+      return;
+    }
+
+    setProcessandoAssinatura(true);
+    toast({ title: "Aguarde", description: "Gerando link de pagamento no Asaas..." });
+    
     try {
       const { data, error } = await supabase.functions.invoke('asaas-checkout', {
-        body: { plano, valor, company_id: company?.id }
+        body: { 
+          plano: planoSelecionado?.nome, 
+          valor: planoSelecionado?.valor, 
+          company_id: company?.id,
+          cpfCnpj: cpfCnpj.replace(/\D/g, "")
+        }
       });
       if (error) throw error;
       if (data?.url) {
         window.location.href = data.url;
+      } else if (data?.error) {
+        throw new Error(data.error);
       }
     } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+      toast({ title: "Erro na assinatura", description: err.message, variant: "destructive" });
+      setProcessandoAssinatura(false);
     }
   };
 
@@ -2139,7 +2169,7 @@ function AssinaturaManager() {
                 <li>✓ 2 módulos à escolha</li>
                 <li>✓ Suporte via WhatsApp</li>
               </ul>
-              <Button onClick={() => handleAssinar("Starter", 497)} className="mt-6 w-full" variant="outline">Assinar Starter</Button>
+              <Button onClick={() => handleAssinarClick("Starter", 497)} className="mt-6 w-full" variant="outline">Assinar Starter</Button>
             </div>
 
             {/* Pro */}
@@ -2153,7 +2183,7 @@ function AssinaturaManager() {
                 <li>✓ Exportação para Protheus</li>
                 <li>✓ Suporte prioritário</li>
               </ul>
-              <Button onClick={() => handleAssinar("Pro", 897)} className="mt-6 w-full bg-primary hover:bg-primary/90 text-white">Assinar Pro</Button>
+              <Button onClick={() => handleAssinarClick("Pro", 897)} className="mt-6 w-full bg-primary hover:bg-primary/90 text-white">Assinar Pro</Button>
             </div>
 
             {/* Business */}
@@ -2166,12 +2196,44 @@ function AssinaturaManager() {
                 <li>✓ IA para documentos</li>
                 <li>✓ Suporte Dedicado (SLA 4h)</li>
               </ul>
-              <Button onClick={() => handleAssinar("Business", 1497)} className="mt-6 w-full" variant="outline">Assinar Business</Button>
+              <Button onClick={() => handleAssinarClick("Business", 1497)} className="mt-6 w-full" variant="outline">Assinar Business</Button>
             </div>
 
           </div>
         </div>
       )}
+
+      {/* Modal de CPF/CNPJ para Checkout */}
+      <Dialog open={checkoutModalOpen} onOpenChange={setCheckoutModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Quase lá!</DialogTitle>
+            <DialogDescription>
+              Para gerar sua fatura de assinatura do <strong>Plano {planoSelecionado?.nome}</strong>, precisamos que confirme o seu CPF ou CNPJ.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Label htmlFor="cpfCnpj" className="mb-2 block">CPF ou CNPJ</Label>
+            <Input 
+              id="cpfCnpj"
+              placeholder="Digite apenas números..." 
+              value={cpfCnpj}
+              onChange={(e) => setCpfCnpj(e.target.value)}
+              disabled={processandoAssinatura}
+              className="text-lg"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCheckoutModalOpen(false)} disabled={processandoAssinatura}>Cancelar</Button>
+            <Button onClick={confirmarAssinatura} disabled={processandoAssinatura}>
+              {processandoAssinatura && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Continuar para Pagamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
