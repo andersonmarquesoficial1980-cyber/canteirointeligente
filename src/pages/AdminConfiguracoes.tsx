@@ -13,7 +13,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt,
+  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
