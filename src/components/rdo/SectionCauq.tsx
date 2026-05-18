@@ -118,7 +118,7 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
             </div>
             <div className="space-y-1.5">
               <span className="rdo-label">Tonelagem</span>
-              <Input type="text" value={entry.tonelagem} onChange={e => update(entry.id, "tonelagem", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+              <Input inputMode="decimal" value={entry.tonelagem} onChange={e => update(entry.id, "tonelagem", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
           </div>
           <div className="space-y-1.5">

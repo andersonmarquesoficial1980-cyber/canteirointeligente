@@ -696,7 +696,15 @@ export default function RdoForm() {
         title: emailSent ? "✅ RDO Salvo e E-mail Enviado!" : "✅ RDO Salvo!",
         description: emailSent
           ? "Relatório registrado e e-mail enviado com sucesso."
-          : "Relatório registrado. O e-mail não pôde ser enviado.",
+          : "Relatório registrado com sucesso.",
+        action: (
+          <button
+            onClick={() => navigate(`/relatorios/rdo/${encodeURIComponent(header.obra_nome)}?ini=${header.data}&fim=${header.data}`)}
+            className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg font-medium whitespace-nowrap"
+          >
+            Ver PDF / Exportar →
+          </button>
+        ),
       });
       if (showNavigate) navigate("/");
     } catch (err: any) {

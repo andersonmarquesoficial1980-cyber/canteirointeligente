@@ -123,7 +123,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
             </div>
             <div className="space-y-1.5">
               <span className="rdo-label">Faixa</span>
-              <Input value={trecho.faixa} onChange={e => updateTrecho(trecho.id, "faixa", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 1, 2, Acost." />
+              <Input inputMode="numeric" value={trecho.faixa} onChange={e => updateTrecho(trecho.id, "faixa", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 1, 2, Acost." />
             </div>
           </div>
 
