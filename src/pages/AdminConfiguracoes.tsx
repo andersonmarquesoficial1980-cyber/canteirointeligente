@@ -29,7 +29,7 @@ const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipm
 
 const VINCULO_OPTIONS = [
   "FRESADORA", "BOBCAT", "ROLO", "VIBRO", "KMA",
-  "CAMINHOES", "COMBOIO", "VEICULO", "LINHA_AMARELA", "CARRETA", "TODOS"
+  "CAMINHOES", "COMBOIO", "VEICULO", "LINHA_AMARELA", "CARRETA", "RDO", "TODOS"
 ];
 const VINCULO_LABELS: Record<string, string> = {
   FRESADORA: "Fresadora",
@@ -42,6 +42,7 @@ const VINCULO_LABELS: Record<string, string> = {
   VEICULO: "Veículo de Transporte",
   LINHA_AMARELA: "Linha Amarela",
   CARRETA: "Carreta",
+  RDO: "RDO",
   TODOS: "Todos",
   // legado — mantidos para compatibilidade com dados antigos
   PAVIMENTACAO: "RDO Pavimentação",
