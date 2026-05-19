@@ -39,10 +39,7 @@ import { buildComboioEmailReport, buildCarretaEmailReport } from "@/lib/buildEqu
 
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Inoperante"] as const;
 
-const BOBCAT_FLEETS = ["BC60", "BC66", "BC70", "BC75", "BC76", "BC77", "BC78", "BC79", "BC80"];
-const RETRO_FLEETS = ["RT26", "RT27", "RT28", "RT29", "RT30"];
-const VIBRO_FLEETS = ["VA01", "VA03", "VA04", "VA05", "VA17", "VA19", "VA20"];
-const KMA_FLEETS = ["KMA01", "KMA02", "KMA03", "KMA04", "KMA05"];
+// Frotas removidas do hardcode — agora vêm de maquinas_frota (Painel de Controle)
 
 const KMA_OPERATION_TYPES = ["Usinagem", "Limpeza", "Manutenção"] as const;
 const CAP_TYPES = ["CAP 50/70", "CAP 30/45", "AMP 55/75", "AMP 60/85"];
@@ -91,11 +88,7 @@ function createEmptyKmaOperation(): KmaOperationData {
 }
 
 const ROLO_TYPES = ["Rolo Chapa", "Rolo Pneu", "Rolo Pé de Carneiro"] as const;
-const ROLO_FLEETS: Record<string, string[]> = {
-  "Rolo Chapa": ["CH02", "CH04", "CH05", "CH06", "CH07"],
-  "Rolo Pneu": ["PN05", "PN47", "PN48", "PN49", "PN50"],
-  "Rolo Pé de Carneiro": ["PC01", "PC02", "PC03", "PC04", "PC05"],
-};
+// ROLO_FLEETS removido — frotas vêm de maquinas_frota (Painel de Controle)
 
 const ATTACHMENT_TYPES = ["Vassoura Mecânica", "Fresadora Cônica"] as const;
 const RETRO_ATTACHMENT_TYPES = ["Concha", "Rompedor"] as const;
@@ -113,24 +106,17 @@ const LINHA_AMARELA_TIPOS = [
 
 // ── Caminhão configs ──
 const CAMINHAO_TIPOS = ["Pipa", "Carroceria", "Espargidor"] as const;
-const PIPA_FLEETS = ["CP01", "CP02", "CP03", "CP04", "CP05"];
+// PIPA_FLEETS removido — frotas vêm de maquinas_frota (Painel de Controle)
 const PIPA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
 
-const ESPARGIDOR_FLEETS = ["CE01", "CE02", "CE03", "CE04", "CE05"];
+// ESPARGIDOR_FLEETS removido — frotas vêm de maquinas_frota (Painel de Controle)
 const ESPARGIDOR_FORNECEDORES = ["CBAA", "Greca", "Betunel", "Disbral"];
 const EMULSION_TYPES = ["RR-1C", "RR-2C", "RM-1C", "RM-2C", "CM-30"];
 
-const CARROCERIA_FLEETS = ["CC01", "CC02", "CC03", "CC04", "CC05"];
-
-const COMBOIO_FLEETS = ["CO01", "CO02", "CO03", "CO04", "CO05"];
-
-const CARRETA_CM_FLEETS = ["CM01", "CM02", "CM03", "CM04", "CM05"];
+// CARROCERIA_FLEETS, COMBOIO_FLEETS, CARRETA_CM_FLEETS removidos — frotas vêm de maquinas_frota (Painel de Controle)
 
 const VEICULO_TYPES = ["Micro-ônibus", "Van"] as const;
-const VEICULO_FLEETS: Record<string, string[]> = {
-  "Micro-ônibus": ["MCO01", "MCO02", "MCO03", "MCO04", "MCO05"],
-  "Van": ["VT01", "VT02", "VT03", "VT04", "VT05"],
-};
+// VEICULO_FLEETS removido — frotas vêm de maquinas_frota (Painel de Controle)
 
 // ── Truck tank supply ──
 interface TankSupplyEntry {
@@ -248,7 +234,7 @@ export default function EquipmentDiaryForm() {
 
   // Rolo-specific
   const [roloType, setRoloType] = useState("");
-  const roloFleets = useMemo(() => ROLO_FLEETS[roloType] || [], [roloType]);
+  // roloFleets via banco — calculado em filteredFleet abaixo
 
   // Carreta-specific
   const [prancha, setPrancha] = useState("");
@@ -264,7 +250,7 @@ export default function EquipmentDiaryForm() {
 
   // Veículo type
   const [veiculoType, setVeiculoType] = useState("");
-  const veiculoFleets = useMemo(() => VEICULO_FLEETS[veiculoType] || [], [veiculoType]);
+  // veiculoFleets via banco — calculado em filteredFleet abaixo
 
   // KMA-specific
   const [operator2, setOperator2] = useState("");
@@ -577,16 +563,7 @@ export default function EquipmentDiaryForm() {
     return funcionariosForType || [];
   }, [funcionariosForType]);
 
-  const filteredFleet = useMemo(() => {
-    if (isFresadora) {
-      return equipamentos.filter((eq: any) =>
-        eq.tipo?.toLowerCase().includes("fresadora") ||
-        eq.categoria?.toLowerCase().includes("fresadora") ||
-        eq.frota?.startsWith("FA")
-      );
-    }
-    return equipamentos;
-  }, [equipamentos, isFresadora]);
+  // filteredFleet removido — substitudo por filteredFleetForType (fonte única)
 
   const operadoresBobcat = useMemo(() => {
     return funcionariosForType;
@@ -916,23 +893,120 @@ export default function EquipmentDiaryForm() {
     toast,
   ]);
 
-  // Determine which static fleet list to use
-  const getStaticFleetList = () => {
-    if (isBobcat) return BOBCAT_FLEETS;
-    if (isRetro && attachmentType === "Retroescavadeira") return RETRO_FLEETS;
-    if (isRetro && attachmentType && attachmentType !== "Retroescavadeira") return []; // outros tipos sem frota ainda
-    if (isVibro) return VIBRO_FLEETS;
-    if (isUsinaKma) return KMA_FLEETS;
-    if (isPipa) return PIPA_FLEETS;
-    if (isEspargidor) return ESPARGIDOR_FLEETS;
-    if (isCarroceria) return CARROCERIA_FLEETS;
-    if (isComboio) return COMBOIO_FLEETS;
-    if (isCarreta) return CARRETA_CM_FLEETS;
-    return null;
-  };
+  // Toda frota vem de maquinas_frota (Painel de Controle) — sem hardcode
+  // Mapeamento equipmentType → categorias/tipos na tabela
+  const filteredFleetForType = useMemo(() => {
+    if (!equipamentos || equipamentos.length === 0) return [];
+    const eq = equipamentos as any[];
 
-  const staticFleetList = getStaticFleetList();
-  const useStaticFleet = !!staticFleetList || isRolo || isVeiculo || (isCaminhoes && !caminhaoTipo);
+    if (isFresadora) {
+      return eq.filter(e =>
+        e.tipo?.toLowerCase().includes("fresadora") ||
+        e.categoria?.toLowerCase().includes("fresa") ||
+        e.frota?.startsWith("FA")
+      );
+    }
+    if (isBobcat) {
+      return eq.filter(e =>
+        e.tipo?.toLowerCase().includes("bobcat") ||
+        e.tipo?.toLowerCase().includes("minitrator") ||
+        e.categoria === "FRESA/BOB" ||
+        e.frota?.startsWith("BC")
+      );
+    }
+    if (isRetro) {
+      // Filtra por tipo de anexo (Retroescavadeira, Escavadeira, etc.) ou prefixo RT
+      return eq.filter(e =>
+        e.categoria === "LINHA AMARELA" ||
+        e.tipo?.toLowerCase().includes("retroescavadeira") ||
+        e.tipo?.toLowerCase().includes("escavadeira") ||
+        e.tipo?.toLowerCase().includes("pá carregadeira") ||
+        e.tipo?.toLowerCase().includes("motoniveladora") ||
+        e.tipo?.toLowerCase().includes("trator") ||
+        e.tipo?.toLowerCase().includes("mini escavadeira") ||
+        e.tipo?.toLowerCase().includes("perfuratriz") ||
+        e.tipo?.toLowerCase().includes("guindaste")
+      ).filter(e => attachmentType ? (
+        e.tipo?.toLowerCase().includes(attachmentType.toLowerCase()) ||
+        !attachmentType
+      ) : true);
+    }
+    if (isVibro) {
+      return eq.filter(e =>
+        e.tipo?.toLowerCase().includes("vibro") ||
+        e.tipo?.toLowerCase().includes("acabadora") ||
+        e.categoria === "VIBRO/ROLO" ||
+        e.frota?.startsWith("VA")
+      );
+    }
+    if (isRolo) {
+      return eq.filter(e =>
+        e.categoria === "VIBRO/ROLO" ||
+        e.tipo?.toLowerCase().includes("rolo") ||
+        e.frota?.startsWith("CH") ||
+        e.frota?.startsWith("PN") ||
+        e.frota?.startsWith("PC")
+      ).filter(e => roloType ? (
+        e.tipo?.toLowerCase().includes(roloType.toLowerCase()) ||
+        !roloType
+      ) : true);
+    }
+    if (isUsinaKma) {
+      return eq.filter(e =>
+        e.categoria === "USINAGEM" ||
+        e.tipo?.toLowerCase().includes("kma") ||
+        e.tipo?.toLowerCase().includes("usina") ||
+        e.frota?.startsWith("KMA")
+      );
+    }
+    if (isPipa) {
+      return eq.filter(e =>
+        e.tipo?.toLowerCase().includes("pipa") ||
+        e.frota?.startsWith("CP")
+      );
+    }
+    if (isEspargidor) {
+      return eq.filter(e =>
+        e.tipo?.toLowerCase().includes("espargidor") ||
+        e.frota?.startsWith("CE")
+      );
+    }
+    if (isCarroceria) {
+      return eq.filter(e =>
+        e.tipo?.toLowerCase().includes("carroceria") ||
+        e.frota?.startsWith("CC")
+      );
+    }
+    if (isComboio) {
+      return eq.filter(e =>
+        e.tipo?.toLowerCase().includes("comboio") ||
+        e.frota?.startsWith("CO")
+      );
+    }
+    if (isCarreta) {
+      return eq.filter(e =>
+        e.tipo?.toLowerCase().includes("carreta") ||
+        e.frota?.startsWith("CM")
+      );
+    }
+    if (isVeiculo) {
+      return eq.filter(e =>
+        e.categoria === "VEÍCULOS EM GERAL" ||
+        e.tipo?.toLowerCase().includes(veiculoType?.toLowerCase() || "") ||
+        e.tipo?.toLowerCase().includes("micro") ||
+        e.tipo?.toLowerCase().includes("van") ||
+        e.tipo?.toLowerCase().includes("veículo")
+      ).filter(e => veiculoType ? (
+        e.tipo?.toLowerCase().includes(veiculoType.toLowerCase()) ||
+        !veiculoType
+      ) : true);
+    }
+    return eq;
+  }, [equipamentos, equipmentType, isFresadora, isBobcat, isRetro, isVibro, isRolo, isUsinaKma,
+      isPipa, isEspargidor, isCarroceria, isComboio, isCarreta, isVeiculo,
+      attachmentType, roloType, veiculoType]);
+
+  // staticFleetList e useStaticFleet removidos — fonte única agora é filteredFleetForType
 
   const getOperatorList = () => {
     const list = (() => {
@@ -1604,67 +1678,21 @@ export default function EquipmentDiaryForm() {
                   {selectedFleet || "-"} <span className="ml-2 text-xs text-muted-foreground">(não editável)</span>
                 </div>
               ) : (
-                isCaminhoes && !caminhaoTipo ? (
+                // Fonte única: maquinas_frota filtrado por tipo de equipamento (Painel de Controle)
+                (isCaminhoes && !caminhaoTipo) || (isRolo && !roloType) || (isVeiculo && !veiculoType) || (isRetro && !attachmentType) ? (
                   <Select disabled>
                     <SelectTrigger className="bg-secondary border-border">
                       <SelectValue placeholder="Escolha o tipo primeiro" />
                     </SelectTrigger>
                     <SelectContent />
-                  </Select>
-                ) : isRolo ? (
-                  <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!roloType}>
-                    <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder={roloType ? "Selecione a frota..." : "Escolha o tipo primeiro"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roloFleets.map((f) => (
-                        <SelectItem key={f} value={f}>{f}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : isVeiculo ? (
-                  <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={!veiculoType}>
-                    <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder={veiculoType ? "Selecione..." : "Escolha o tipo primeiro"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {veiculoFleets.map((f) => (
-                        <SelectItem key={f} value={f}>{f}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : isRetro && !attachmentType ? (
-                  <Select disabled>
-                    <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder="Escolha o tipo primeiro" />
-                    </SelectTrigger>
-                    <SelectContent />
-                  </Select>
-                ) : isRetro && attachmentType !== "Retroescavadeira" ? (
-                  <Select disabled>
-                    <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder="Frotas não cadastradas ainda" />
-                    </SelectTrigger>
-                    <SelectContent />
-                  </Select>
-                ) : staticFleetList ? (
-                  <Select value={selectedFleet} onValueChange={setSelectedFleet}>
-                    <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {staticFleetList.map((f) => (
-                        <SelectItem key={f} value={f}>{f}</SelectItem>
-                      ))}
-                    </SelectContent>
                   </Select>
                 ) : (
                   <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
                     <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : "Selecione..."} />
+                      <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : filteredFleetForType.length === 0 ? "Nenhuma frota cadastrada" : "Selecione..."} />
                     </SelectTrigger>
                     <SelectContent>
-                      {(isFresadora ? filteredFleet || [] : equipamentos || []).filter((eq: any) => eq && eq.frota).map((eq: any) => (
+                      {filteredFleetForType.filter((eq: any) => eq && eq.frota).map((eq: any) => (
                         <SelectItem key={eq.id} value={eq.frota}>
                           {eq.frota} — {eq.nome}
                         </SelectItem>
@@ -1672,7 +1700,7 @@ export default function EquipmentDiaryForm() {
                     </SelectContent>
                   </Select>
                 )
-              )}
+              ))
             </Field>
             <Field label="Data">
               {isEditMode ? (
