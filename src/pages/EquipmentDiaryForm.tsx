@@ -895,110 +895,107 @@ export default function EquipmentDiaryForm() {
 
   // Toda frota vem de maquinas_frota (Painel de Controle) — sem hardcode
   // Mapeamento equipmentType → categorias/tipos na tabela
+  // Helper: verifica se um equipamento tem vínculo com um tipo específico
+  // Usa campo vinculos (array) como fonte primária; cai no tipo/categoria como fallback para dados legados
+  const hasVinculoTipo = (e: any, vinculoKey: string, fallbackCheck: (e: any) => boolean) => {
+    const vinculos: string[] = e.vinculos || [];
+    if (vinculos.includes("TODOS")) return fallbackCheck(e); // legado: TODOS = usa fallback por tipo
+    if (vinculos.includes(vinculoKey)) return true;
+    if (vinculos.length === 0) return fallbackCheck(e); // sem vinculos = usa fallback
+    return false;
+  };
+
   const filteredFleetForType = useMemo(() => {
     if (!equipamentos || equipamentos.length === 0) return [];
     const eq = equipamentos as any[];
 
     if (isFresadora) {
-      return eq.filter(e =>
-        e.tipo?.toLowerCase().includes("fresadora") ||
-        e.categoria === "FRESAGEM" || e.categoria === "FRESA/BOB" ||
-        e.frota?.startsWith("FA")
-      );
+      return eq.filter(e => hasVinculoTipo(e, "FRESADORA", x =>
+        x.tipo?.toLowerCase().includes("fresadora") ||
+        x.categoria === "FRESAGEM" || x.categoria === "FRESA/BOB" ||
+        x.frota?.startsWith("FA")
+      ));
     }
     if (isBobcat) {
-      return eq.filter(e =>
-        e.tipo?.toLowerCase().includes("bobcat") ||
-        e.tipo?.toLowerCase().includes("minitrator") ||
-        e.categoria === "FRESAGEM" || e.categoria === "FRESA/BOB" ||
-        e.frota?.startsWith("BC")
-      );
+      return eq.filter(e => hasVinculoTipo(e, "BOBCAT", x =>
+        x.tipo?.toLowerCase().includes("bobcat") ||
+        x.tipo?.toLowerCase().includes("minitrator") ||
+        x.frota?.startsWith("BC")
+      ));
     }
     if (isRetro) {
-      // Filtra por tipo de anexo (Retroescavadeira, Escavadeira, etc.) ou prefixo RT
-      return eq.filter(e =>
-        e.categoria === "LINHA AMARELA" ||
-        e.tipo?.toLowerCase().includes("retroescavadeira") ||
-        e.tipo?.toLowerCase().includes("escavadeira") ||
-        e.tipo?.toLowerCase().includes("pá carregadeira") ||
-        e.tipo?.toLowerCase().includes("motoniveladora") ||
-        e.tipo?.toLowerCase().includes("trator") ||
-        e.tipo?.toLowerCase().includes("mini escavadeira") ||
-        e.tipo?.toLowerCase().includes("perfuratriz") ||
-        e.tipo?.toLowerCase().includes("guindaste")
-      ).filter(e => attachmentType ? (
-        e.tipo?.toLowerCase().includes(attachmentType.toLowerCase()) ||
-        !attachmentType
+      return eq.filter(e => hasVinculoTipo(e, "LINHA_AMARELA", x =>
+        x.categoria === "LINHA AMARELA" ||
+        x.tipo?.toLowerCase().includes("retroescavadeira") ||
+        x.tipo?.toLowerCase().includes("escavadeira") ||
+        x.tipo?.toLowerCase().includes("pá carregadeira") ||
+        x.tipo?.toLowerCase().includes("motoniveladora") ||
+        x.tipo?.toLowerCase().includes("trator") ||
+        x.tipo?.toLowerCase().includes("mini escavadeira") ||
+        x.tipo?.toLowerCase().includes("perfuratriz") ||
+        x.tipo?.toLowerCase().includes("guindaste")
+      )).filter(e => attachmentType ? (
+        e.tipo?.toLowerCase().includes(attachmentType.toLowerCase()) || !attachmentType
       ) : true);
     }
     if (isVibro) {
-      return eq.filter(e =>
-        e.tipo?.toLowerCase().includes("vibro") ||
-        e.tipo?.toLowerCase().includes("acabadora") ||
-        e.categoria === "PAVIMENTAÇÃO" || e.categoria === "VIBRO/ROLO" ||
-        e.frota?.startsWith("VA")
-      );
+      return eq.filter(e => hasVinculoTipo(e, "VIBRO", x =>
+        x.tipo?.toLowerCase().includes("vibro") ||
+        x.tipo?.toLowerCase().includes("acabadora") ||
+        x.categoria === "PAVIMENTAÇÃO" || x.categoria === "VIBRO/ROLO" ||
+        x.frota?.startsWith("VA")
+      ));
     }
     if (isRolo) {
-      return eq.filter(e =>
-        e.categoria === "PAVIMENTAÇÃO" || e.categoria === "VIBRO/ROLO" ||
-        e.tipo?.toLowerCase().includes("rolo") ||
-        e.frota?.startsWith("CH") ||
-        e.frota?.startsWith("PN") ||
-        e.frota?.startsWith("PC")
-      ).filter(e => roloType ? (
-        e.tipo?.toLowerCase().includes(roloType.toLowerCase()) ||
-        !roloType
+      return eq.filter(e => hasVinculoTipo(e, "ROLO", x =>
+        x.categoria === "PAVIMENTAÇÃO" || x.categoria === "VIBRO/ROLO" ||
+        x.tipo?.toLowerCase().includes("rolo") ||
+        x.frota?.startsWith("CH") || x.frota?.startsWith("PN") || x.frota?.startsWith("PC")
+      )).filter(e => roloType ? (
+        e.tipo?.toLowerCase().includes(roloType.toLowerCase()) || !roloType
       ) : true);
     }
     if (isUsinaKma) {
-      return eq.filter(e =>
-        e.categoria === "USINAGEM" ||
-        e.tipo?.toLowerCase().includes("kma") ||
-        e.tipo?.toLowerCase().includes("usina") ||
-        e.frota?.startsWith("KMA")
-      );
+      return eq.filter(e => hasVinculoTipo(e, "KMA", x =>
+        x.categoria === "USINAGEM" ||
+        x.tipo?.toLowerCase().includes("kma") ||
+        x.tipo?.toLowerCase().includes("usina") ||
+        x.frota?.startsWith("KMA")
+      ));
     }
     if (isPipa) {
-      return eq.filter(e =>
-        e.tipo?.toLowerCase().includes("pipa") ||
-        e.frota?.startsWith("CP")
-      );
+      return eq.filter(e => hasVinculoTipo(e, "CAMINHOES", x =>
+        x.tipo?.toLowerCase().includes("pipa") || x.frota?.startsWith("CP")
+      ));
     }
     if (isEspargidor) {
-      return eq.filter(e =>
-        e.tipo?.toLowerCase().includes("espargidor") ||
-        e.frota?.startsWith("CE")
-      );
+      return eq.filter(e => hasVinculoTipo(e, "CAMINHOES", x =>
+        x.tipo?.toLowerCase().includes("espargidor") || x.frota?.startsWith("CE")
+      ));
     }
     if (isCarroceria) {
-      return eq.filter(e =>
-        e.tipo?.toLowerCase().includes("carroceria") ||
-        e.frota?.startsWith("CC")
-      );
+      return eq.filter(e => hasVinculoTipo(e, "CAMINHOES", x =>
+        x.tipo?.toLowerCase().includes("carroceria") || x.frota?.startsWith("CC")
+      ));
     }
     if (isComboio) {
-      return eq.filter(e =>
-        e.tipo?.toLowerCase().includes("comboio") ||
-        e.frota?.startsWith("CO")
-      );
+      return eq.filter(e => hasVinculoTipo(e, "COMBOIO", x =>
+        x.tipo?.toLowerCase().includes("comboio") || x.frota?.startsWith("CO")
+      ));
     }
     if (isCarreta) {
-      return eq.filter(e =>
-        e.tipo?.toLowerCase().includes("carreta") ||
-        e.frota?.startsWith("CM")
-      );
+      return eq.filter(e => hasVinculoTipo(e, "CARRETA", x =>
+        x.tipo?.toLowerCase().includes("carreta") || x.frota?.startsWith("CM")
+      ));
     }
     if (isVeiculo) {
-      return eq.filter(e =>
-        e.categoria === "VEÍCULOS" || e.categoria === "VEÍCULOS EM GERAL" ||
-        e.tipo?.toLowerCase().includes(veiculoType?.toLowerCase() || "") ||
-        e.tipo?.toLowerCase().includes("micro") ||
-        e.tipo?.toLowerCase().includes("van") ||
-        e.tipo?.toLowerCase().includes("veículo")
-      ).filter(e => veiculoType ? (
-        e.tipo?.toLowerCase().includes(veiculoType.toLowerCase()) ||
-        !veiculoType
+      return eq.filter(e => hasVinculoTipo(e, "VEICULO", x =>
+        x.categoria === "VEÍCULOS" || x.categoria === "VEÍCULOS EM GERAL" ||
+        x.tipo?.toLowerCase().includes("micro") ||
+        x.tipo?.toLowerCase().includes("van") ||
+        x.tipo?.toLowerCase().includes("veículo")
+      )).filter(e => veiculoType ? (
+        e.tipo?.toLowerCase().includes(veiculoType.toLowerCase()) || !veiculoType
       ) : true);
     }
     return eq;
