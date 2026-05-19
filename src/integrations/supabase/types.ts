@@ -790,6 +790,7 @@ export type Database = {
           id: string
           nome: string
           vinculo_rdo: string
+          vinculos: string[] | null
         }
         Insert: {
           company_id?: string | null
@@ -797,6 +798,7 @@ export type Database = {
           id?: string
           nome: string
           vinculo_rdo?: string
+          vinculos?: string[] | null
         }
         Update: {
           company_id?: string | null
@@ -804,6 +806,7 @@ export type Database = {
           id?: string
           nome?: string
           vinculo_rdo?: string
+          vinculos?: string[] | null
         }
         Relationships: [
           {
@@ -1988,6 +1991,7 @@ export type Database = {
           status: string
           tipo: string | null
           vinculo_rdo: string
+          vinculos: string[] | null
         }
         Insert: {
           categoria?: string | null
@@ -2000,6 +2004,7 @@ export type Database = {
           status?: string
           tipo?: string | null
           vinculo_rdo?: string
+          vinculos?: string[] | null
         }
         Update: {
           categoria?: string | null
@@ -2012,6 +2017,7 @@ export type Database = {
           status?: string
           tipo?: string | null
           vinculo_rdo?: string
+          vinculos?: string[] | null
         }
         Relationships: [
           {
@@ -2977,6 +2983,7 @@ export type Database = {
           id: string
           nome: string
           vinculo_rdo: string
+          vinculos: string[] | null
         }
         Insert: {
           company_id?: string | null
@@ -2984,6 +2991,7 @@ export type Database = {
           id?: string
           nome: string
           vinculo_rdo?: string
+          vinculos?: string[] | null
         }
         Update: {
           company_id?: string | null
@@ -2991,6 +2999,7 @@ export type Database = {
           id?: string
           nome?: string
           vinculo_rdo?: string
+          vinculos?: string[] | null
         }
         Relationships: [
           {
@@ -3026,6 +3035,7 @@ export type Database = {
           id: string
           modelo: string | null
           placa: string
+          vinculos: string[] | null
         }
         Insert: {
           capacidade_m3?: number
@@ -3035,6 +3045,7 @@ export type Database = {
           id?: string
           modelo?: string | null
           placa: string
+          vinculos?: string[] | null
         }
         Update: {
           capacidade_m3?: number
@@ -3044,6 +3055,7 @@ export type Database = {
           id?: string
           modelo?: string | null
           placa?: string
+          vinculos?: string[] | null
         }
         Relationships: []
       }
