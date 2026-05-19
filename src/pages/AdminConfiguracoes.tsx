@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { AuditLogViewer } from "@/components/admin/AuditLogViewer";
 function AuditLogViewerAdmin() { return <AuditLogViewer />; }
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2513,8 +2513,9 @@ function LixeiraManager() {
 
 export default function AdminConfiguracoes() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAdmin, loading } = useIsAdmin();
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const activeSection = searchParams.get("section") || "dashboard";
   const [transitioning, setTransitioning] = useState(false);
 
   useEffect(() => {
@@ -2527,7 +2528,7 @@ export default function AdminConfiguracoes() {
     if (key === activeSection) return;
     setTransitioning(true);
     setTimeout(() => {
-      setActiveSection(key);
+      setSearchParams({ section: key });
       setTransitioning(false);
     }, 120);
   };
