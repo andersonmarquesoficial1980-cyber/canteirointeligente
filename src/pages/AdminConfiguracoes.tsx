@@ -27,17 +27,28 @@ import logoCi from "@/assets/logo-workflux.png";
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
 
-const VINCULO_OPTIONS = ["PAVIMENTACAO", "INFRA", "CANTEIRO", "COMBOIO", "PIPA", "ESPARGIDOR", "KMA", "TODOS"];
+const VINCULO_OPTIONS = [
+  "FRESADORA", "BOBCAT", "ROLO", "VIBRO", "KMA",
+  "CAMINHOES", "COMBOIO", "VEICULO", "LINHA_AMARELA", "CARRETA", "TODOS"
+];
 const VINCULO_LABELS: Record<string, string> = {
+  FRESADORA: "Fresadora",
+  BOBCAT: "Bobcat",
+  ROLO: "Rolo Compactador",
+  VIBRO: "Vibroacabadora",
+  KMA: "Usina Móvel KMA",
+  CAMINHOES: "Caminhões",
+  COMBOIO: "Comboio",
+  VEICULO: "Veículo de Transporte",
+  LINHA_AMARELA: "Linha Amarela",
+  CARRETA: "Carreta",
+  TODOS: "Todos",
+  // legado — mantidos para compatibilidade com dados antigos
   PAVIMENTACAO: "RDO Pavimentação",
-  CAUQ: "RDO Pavimentação (legado)",
   INFRA: "RDO Infra",
   CANTEIRO: "RDO Canteiro",
-  COMBOIO: "Comboio",
   PIPA: "Caminhão Pipa",
   ESPARGIDOR: "Espargidor",
-  KMA: "Usina Móvel KMA",
-  TODOS: "Todos",
 };
 const TIPO_INSUMO_OPTIONS = ["Diesel", "Emulsão", "Água", "Concreto", "Massa Asfáltica", "Insumos", "Outro"];
 const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
