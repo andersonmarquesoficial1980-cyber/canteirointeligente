@@ -11,7 +11,7 @@ const TIPOS = [
   { value: "INFRAESTRUTURA", label: "Infra", icon: "🏗️", desc: "Infraestrutura" },
   { value: "CANTEIRO", label: "Canteiro", icon: "🏭", desc: "Canteiro / Insumos" },
   { value: "PV", label: "PV", icon: "🕳️", desc: "Poço de Visita" },
-  { value: "AEROPAV", label: "Aeroportuário", icon: "✈️", desc: "Terraplanagem & Drenagem" },
+  { value: "AEROPAV", label: "Drenagem & Terrap.", icon: "🚧", desc: "Drenagem & Terraplanagem" },
 ];
 
 export default function RdoTipoSelector({ value, onChange }: RdoTipoSelectorProps) {

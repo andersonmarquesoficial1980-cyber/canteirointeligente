@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
-import AeroPavStaffManager from "@/components/admin/AeroPavStaffManager";
+
 import PermissoesManager from "@/components/admin/PermissoesManager";
 import logoCi from "@/assets/logo-workflux.png";
 
@@ -2334,7 +2334,6 @@ const MENU_SECTIONS = [
   { key: "tarifas_vt", label: "Tarifas de VT", icon: Bus },
   { key: "lixeira", label: "Lixeira (30 dias)", icon: Trash2 },
   { key: "auditoria", label: "Log de Auditoria", icon: Shield },
-  { key: "aeropav_staff", label: "Equipe AEROPAV", icon: Users },
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
 ];
 
@@ -2862,7 +2861,7 @@ export default function AdminConfiguracoes() {
       case "notificacoes": return <NotificationPrefsManager />;
       case "destinatarios_notif": return <NotificationTargetsManager />;
       case "desbloquear": return <DesbloqueioLancamentosManager />;
-      case "aeropav_staff": return <AeroPavStaffManager />;
+
       case "operadores_habilitados": return <OperadoresHabilitadosManager />;
       case "tarifas_vt": return <TarifasVTManager />;
       case "lixeira": return <LixeiraManager />;
