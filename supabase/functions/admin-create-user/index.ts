@@ -93,6 +93,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Rate limiting: máx 20 criações por superadmin por hora
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabaseAdmin
+      .from("edge_rate_limit")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", caller.id)
+      .eq("action", "admin_create_user")
+      .gte("created_at", oneHourAgo);
+
+    if ((recentCount ?? 0) >= 20) {
+      return new Response(JSON.stringify({ error: "Limite de criações atingido. Tente novamente em 1 hora." }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    await supabaseAdmin.from("edge_rate_limit").insert({ user_id: caller.id, action: "admin_create_user" });
+    await supabaseAdmin.from("edge_rate_limit").delete().lt("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
     const { email, nome_completo, perfil, company_id } = await req.json();
 
     if (!email || !nome_completo || !perfil || !company_id) {
