@@ -41,7 +41,7 @@ const VINCULO_LABELS: Record<string, string> = {
 };
 const TIPO_INSUMO_OPTIONS = ["Diesel", "Emulsão", "Água", "Concreto", "Massa Asfáltica", "Insumos", "Outro"];
 const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
-const CATEGORIAS_EQUIP = ["PEQUENO PORTE", "FRESA/BOB", "VIBRO/ROLO", "LINHA AMARELA", "USINAGEM", "VEÍCULOS EM GERAL"];
+const CATEGORIAS_EQUIP = ["FRESAGEM", "PAVIMENTAÇÃO", "VEÍCULOS", "LINHA AMARELA", "PEQUENO PORTE", "USINAGEM"];
 
 // Generic CRUD hook for simple tables
 function useCrudTable(tableName: string) {

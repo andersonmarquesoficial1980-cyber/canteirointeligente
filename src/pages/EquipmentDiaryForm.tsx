@@ -902,7 +902,7 @@ export default function EquipmentDiaryForm() {
     if (isFresadora) {
       return eq.filter(e =>
         e.tipo?.toLowerCase().includes("fresadora") ||
-        e.categoria?.toLowerCase().includes("fresa") ||
+        e.categoria === "FRESAGEM" || e.categoria === "FRESA/BOB" ||
         e.frota?.startsWith("FA")
       );
     }
@@ -910,7 +910,7 @@ export default function EquipmentDiaryForm() {
       return eq.filter(e =>
         e.tipo?.toLowerCase().includes("bobcat") ||
         e.tipo?.toLowerCase().includes("minitrator") ||
-        e.categoria === "FRESA/BOB" ||
+        e.categoria === "FRESAGEM" || e.categoria === "FRESA/BOB" ||
         e.frota?.startsWith("BC")
       );
     }
@@ -935,13 +935,13 @@ export default function EquipmentDiaryForm() {
       return eq.filter(e =>
         e.tipo?.toLowerCase().includes("vibro") ||
         e.tipo?.toLowerCase().includes("acabadora") ||
-        e.categoria === "VIBRO/ROLO" ||
+        e.categoria === "PAVIMENTAÇÃO" || e.categoria === "VIBRO/ROLO" ||
         e.frota?.startsWith("VA")
       );
     }
     if (isRolo) {
       return eq.filter(e =>
-        e.categoria === "VIBRO/ROLO" ||
+        e.categoria === "PAVIMENTAÇÃO" || e.categoria === "VIBRO/ROLO" ||
         e.tipo?.toLowerCase().includes("rolo") ||
         e.frota?.startsWith("CH") ||
         e.frota?.startsWith("PN") ||
@@ -991,7 +991,7 @@ export default function EquipmentDiaryForm() {
     }
     if (isVeiculo) {
       return eq.filter(e =>
-        e.categoria === "VEÍCULOS EM GERAL" ||
+        e.categoria === "VEÍCULOS" || e.categoria === "VEÍCULOS EM GERAL" ||
         e.tipo?.toLowerCase().includes(veiculoType?.toLowerCase() || "") ||
         e.tipo?.toLowerCase().includes("micro") ||
         e.tipo?.toLowerCase().includes("van") ||
