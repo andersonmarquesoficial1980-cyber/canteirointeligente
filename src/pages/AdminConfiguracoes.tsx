@@ -393,6 +393,8 @@ function MaquinasManager() {
   const [editFrota, setEditFrota] = useState("");
   const [editNome, setEditNome] = useState("");
   const [editTipo, setEditTipo] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategoria, setFilterCategoria] = useState("");
   const [editCategoria, setEditCategoria] = useState("");
   const [editEmpresa, setEditEmpresa] = useState("");
   const [editVinculos, setEditVinculos] = useState<string[]>(["TODOS"]);
@@ -486,12 +488,56 @@ function MaquinasManager() {
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Máquina</Button>
       </div>
+      {/* Busca e filtro */}
+      <div className="bg-card rounded-xl border border-border p-3 space-y-2">
+        <Input
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="h-9 bg-secondary border-border text-sm"
+          placeholder="🔍 Buscar por frota, nome ou tipo..."
+        />
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setFilterCategoria("")}
+            className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+              filterCategoria === "" ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border"
+            }`}>
+            Todas
+          </button>
+          {CATEGORIAS_EQUIP.map(c => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setFilterCategoria(prev => prev === c ? "" : c)}
+              className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+                filterCategoria === c ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border"
+              }`}>
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-2">
         {loading ? (
           <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}</div>
-        ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma máquina cadastrada.</p>
-        ) : items.map((m: any) => (
+        ) : (() => {
+          const q = searchQuery.toLowerCase();
+          const filtered = items.filter((m: any) => {
+            const matchSearch = !q ||
+              m.frota?.toLowerCase().includes(q) ||
+              m.nome?.toLowerCase().includes(q) ||
+              m.tipo?.toLowerCase().includes(q);
+            const matchCat = !filterCategoria || m.categoria === filterCategoria;
+            return matchSearch && matchCat;
+          });
+          if (filtered.length === 0) return (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              {searchQuery || filterCategoria ? "Nenhum resultado encontrado." : "Nenhuma máquina cadastrada."}
+            </p>
+          );
+          return filtered.map((m: any) => (
           <div key={m.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
             {editingId === m.id ? (
               <div className="space-y-2">
@@ -535,7 +581,8 @@ function MaquinasManager() {
               </div>
             )}
           </div>
-        ))}
+          ));
+        })()}
       </div>
     </div>
   );
