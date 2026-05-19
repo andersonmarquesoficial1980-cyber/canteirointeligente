@@ -1700,7 +1700,7 @@ export default function EquipmentDiaryForm() {
                     </SelectContent>
                   </Select>
                 )
-              ))
+              )}
             </Field>
             <Field label="Data">
               {isEditMode ? (
