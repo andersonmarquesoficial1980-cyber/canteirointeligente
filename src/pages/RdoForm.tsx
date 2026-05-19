@@ -16,7 +16,7 @@ import SectionCauq, { type NotaFiscalMassaEntry } from "@/components/rdo/Section
 import SectionCanteiro, { type NotaFiscalInsumoEntry } from "@/components/rdo/SectionCanteiro";
 import SectionNfConcreto, { type NfConcretoEntry } from "@/components/rdo/SectionNfConcreto";
 import SectionPV, { type PVData, type PVMaterialEntry } from "@/components/rdo/SectionPV";
-import SectionAeroPavGru, { type AeroPavData } from "@/components/rdo/SectionAeroPavGru";
+import { type AeroPavData } from "@/components/rdo/SectionAeroPavGru";
 import SectionEfetivoTerceirizado, { type TerceirizadoEntry } from "@/components/rdo/SectionEfetivoTerceirizado";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 
@@ -351,11 +351,7 @@ export default function RdoForm() {
 
     if (tipoRdo === "AEROPAV") {
       lines.push(``);
-      lines.push(`✈️ *Logística de Campo*`);
-      lines.push(`🍽️ Marmitas: *${aeroPavData.marmitas_quantidade || "0"}* (Turno ${header.turno === "noturno" ? "Noturno" : "Diurno"})`);
-      if (aeroPavData.observacoes_logistica) {
-        lines.push(`📝 Logística: ${aeroPavData.observacoes_logistica}`);
-      }
+      lines.push(`🚧 *Drenagem & Terraplanagem*`);
 
       // Terceirizados agrupados por empresa
       const filledTerc = terceirizados.filter(t => t.nome.trim());
@@ -790,7 +786,7 @@ export default function RdoForm() {
             )}
             {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
             {tipoRdo === "PV" && <SectionPV data={pvData} onChange={setPvData} />}
-            {tipoRdo === "AEROPAV" && <SectionAeroPavGru data={aeroPavData} onChange={setAeroPavData} turno={header.turno} />}
+            {/* SectionAeroPavGru removida — Drenagem & Terraplanagem sem seção de marmitas */}
 
             {tipoRdo && (
               <>
