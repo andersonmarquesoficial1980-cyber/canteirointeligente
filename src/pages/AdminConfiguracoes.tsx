@@ -111,17 +111,60 @@ function useCrudTable(tableName: string) {
   return { items, loading, add, remove, update, reload: load };
 }
 
-// Simple entity form with nome + vinculo_rdo
+// Simple entity form with nome + vinculos (multi)
 function EntityManager({ tableName, label }: { tableName: string; label: string }) {
-  const { items, loading, add, remove } = useCrudTable(tableName);
+  const { items, loading, add, remove, update } = useCrudTable(tableName);
   const { toast } = useToast();
   const [nome, setNome] = useState("");
-  const [vinculo, setVinculo] = useState("TODOS");
+  const [vinculos, setVinculos] = useState<string[]>(["TODOS"]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editVinculos, setEditVinculos] = useState<string[]>(["TODOS"]);
+
+  const toggleVinculo = (v: string, current: string[], set: (x: string[]) => void) => {
+    if (v === "TODOS") { set(["TODOS"]); return; }
+    const sem = current.filter(x => x !== "TODOS");
+    if (sem.includes(v)) {
+      const novo = sem.filter(x => x !== v);
+      set(novo.length === 0 ? ["TODOS"] : novo);
+    } else {
+      set([...sem, v]);
+    }
+  };
+
+  const PillGroup = ({ options, selected, onToggle }: { options: string[]; selected: string[]; onToggle: (v: string) => void }) => (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map(v => {
+        const active = selected.includes(v);
+        return (
+          <button key={v} type="button" onClick={() => onToggle(v)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+              active ? "bg-primary text-primary-foreground border-primary"
+                     : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+            }`}>
+            {VINCULO_LABELS[v] ?? v}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   const handleAdd = async () => {
     if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); return; }
-    const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo });
-    if (ok) { setNome(""); setVinculo("TODOS"); }
+    const ok = await add({ nome: nome.trim(), vinculos, vinculo_rdo: vinculos[0] });
+    if (ok) { setNome(""); setVinculos(["TODOS"]); }
+  };
+
+  const startEdit = (item: any) => {
+    setEditingId(item.id);
+    setEditNome(item.nome || "");
+    setEditVinculos(item.vinculos?.length ? item.vinculos : [item.vinculo_rdo || "TODOS"]);
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editNome.trim()) { toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); return; }
+    const ok = await update(id, { nome: editNome.trim(), vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
+    if (ok) setEditingId(null);
   };
 
   return (
@@ -132,13 +175,8 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
           <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder={`Novo ${label}`} />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Vincular ao RDO</Label>
-          <Select value={vinculo} onValueChange={setVinculo}>
-            <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Label className="text-xs text-muted-foreground">Onde aparece (um ou mais)</Label>
+          <PillGroup options={VINCULO_OPTIONS} selected={vinculos} onToggle={v => toggleVinculo(v, vinculos, setVinculos)} />
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
       </div>
@@ -150,12 +188,38 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
         ) : items.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">Nenhum cadastro.</p>
         ) : items.map((item: any) => (
-          <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm text-foreground">{item.nome}</p>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{item.vinculo_rdo}</span>
-            </div>
-            <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+          <div key={item.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
+            {editingId === item.id ? (
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Nome</Label>
+                  <Input value={editNome} onChange={e => setEditNome(e.target.value)} className="h-9 bg-secondary border-border text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Onde aparece</Label>
+                  <PillGroup options={VINCULO_OPTIONS} selected={editVinculos} onToggle={v => toggleVinculo(v, editVinculos, setEditVinculos)} />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => saveEdit(item.id)}><Save className="w-3 h-3 mr-1" /> Salvar</Button>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditingId(null)}><X className="w-3 h-3" /></Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between">
+                <div className="space-y-1.5 flex-1 min-w-0 pr-2">
+                  <p className="font-medium text-sm text-foreground">{item.nome}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(item.vinculos?.length ? item.vinculos : [item.vinculo_rdo || "TODOS"]).map((v: string) => (
+                      <span key={v} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{VINCULO_LABELS[v] ?? v}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => startEdit(item)} className="text-primary p-1"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -317,22 +381,73 @@ function FornecedoresManager() {
 
 // Machines manager
 function MaquinasManager() {
-  const { items, add, remove } = useCrudTable("maquinas_frota");
+  const { items, loading, add, remove, update } = useCrudTable("maquinas_frota");
   const { toast } = useToast();
   const [frota, setFrota] = useState("");
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
   const [categoria, setCategoria] = useState("");
   const [empresa, setEmpresa] = useState("");
-  const [vinculo, setVinculo] = useState("TODOS");
+  const [vinculos, setVinculos] = useState<string[]>(["TODOS"]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editFrota, setEditFrota] = useState("");
+  const [editNome, setEditNome] = useState("");
+  const [editTipo, setEditTipo] = useState("");
+  const [editCategoria, setEditCategoria] = useState("");
+  const [editEmpresa, setEditEmpresa] = useState("");
+  const [editVinculos, setEditVinculos] = useState<string[]>(["TODOS"]);
+
+  const toggleVinculo = (v: string, current: string[], set: (x: string[]) => void) => {
+    if (v === "TODOS") { set(["TODOS"]); return; }
+    const sem = current.filter(x => x !== "TODOS");
+    if (sem.includes(v)) {
+      const novo = sem.filter(x => x !== v);
+      set(novo.length === 0 ? ["TODOS"] : novo);
+    } else {
+      set([...sem, v]);
+    }
+  };
+
+  const PillGroup = ({ options, selected, onToggle }: { options: string[]; selected: string[]; onToggle: (v: string) => void }) => (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map(v => {
+        const active = selected.includes(v);
+        return (
+          <button key={v} type="button" onClick={() => onToggle(v)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+              active ? "bg-primary text-primary-foreground border-primary"
+                     : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+            }`}>
+            {VINCULO_LABELS[v] ?? v}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   const handleAdd = async () => {
     if (!frota.trim() || !nome.trim()) {
       toast({ title: "Atenção", description: "Preencha Frota e Nome.", variant: "destructive" });
       return;
     }
-    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria, empresa: empresa.trim(), vinculo_rdo: vinculo, status: "ativo" });
-    if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setEmpresa(""); setVinculo("TODOS"); }
+    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria, empresa: empresa.trim(), vinculos, vinculo_rdo: vinculos[0], status: "ativo" });
+    if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setEmpresa(""); setVinculos(["TODOS"]); }
+  };
+
+  const startEdit = (m: any) => {
+    setEditingId(m.id);
+    setEditFrota(m.frota || "");
+    setEditNome(m.nome || "");
+    setEditTipo(m.tipo || "");
+    setEditCategoria(m.categoria || "");
+    setEditEmpresa(m.empresa || "");
+    setEditVinculos(m.vinculos?.length ? m.vinculos : [m.vinculo_rdo || "TODOS"]);
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editFrota.trim() || !editNome.trim()) { toast({ title: "Atenção", description: "Frota e Nome são obrigatórios.", variant: "destructive" }); return; }
+    const ok = await update(id, { frota: editFrota.trim(), nome: editNome.trim(), tipo: editTipo.trim(), categoria: editCategoria, empresa: editEmpresa.trim(), vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
+    if (ok) setEditingId(null);
   };
 
   return (
@@ -358,35 +473,67 @@ function MaquinasManager() {
             <Input value={empresa} onChange={e => setEmpresa(e.target.value)} className="h-11 bg-secondary border-border" placeholder="PRÓPRIO" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Categoria</Label>
-            <Select value={categoria} onValueChange={setCategoria}>
-              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>{CATEGORIAS_EQUIP.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Vincular ao RDO</Label>
-            <Select value={vinculo} onValueChange={setVinculo}>
-              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-              <SelectContent>{VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Categoria</Label>
+          <Select value={categoria} onValueChange={setCategoria}>
+            <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectContent>{CATEGORIAS_EQUIP.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Onde aparece (um ou mais)</Label>
+          <PillGroup options={VINCULO_OPTIONS} selected={vinculos} onToggle={v => toggleVinculo(v, vinculos, setVinculos)} />
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Máquina</Button>
       </div>
       <div className="space-y-2">
-        {items.map((m: any) => (
-          <div key={m.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm text-foreground">{m.frota} — {m.tipo || m.categoria} ({m.nome})</p>
-              <div className="flex gap-2 mt-0.5">
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.categoria}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{m.vinculo_rdo || "TODOS"}</span>
+        {loading ? (
+          <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}</div>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma máquina cadastrada.</p>
+        ) : items.map((m: any) => (
+          <div key={m.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
+            {editingId === m.id ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Frota *</Label><Input value={editFrota} onChange={e => setEditFrota(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Nome/Modelo *</Label><Input value={editNome} onChange={e => setEditNome(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Tipo</Label><Input value={editTipo} onChange={e => setEditTipo(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Empresa</Label><Input value={editEmpresa} onChange={e => setEditEmpresa(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Categoria</Label>
+                  <Select value={editCategoria} onValueChange={setEditCategoria}>
+                    <SelectTrigger className="h-9 bg-secondary border-border text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{CATEGORIAS_EQUIP.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Onde aparece</Label>
+                  <PillGroup options={VINCULO_OPTIONS} selected={editVinculos} onToggle={v => toggleVinculo(v, editVinculos, setEditVinculos)} />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => saveEdit(m.id)}><Save className="w-3 h-3 mr-1" /> Salvar</Button>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditingId(null)}><X className="w-3 h-3" /></Button>
+                </div>
               </div>
-            </div>
-            <button onClick={() => remove(m.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+            ) : (
+              <div className="flex items-start justify-between">
+                <div className="space-y-1.5 flex-1 min-w-0 pr-2">
+                  <p className="font-medium text-sm text-foreground">{m.frota} — {m.tipo || m.categoria} ({m.nome})</p>
+                  <div className="flex flex-wrap gap-1">
+                    {m.categoria && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.categoria}</span>}
+                    {(m.vinculos?.length ? m.vinculos : [m.vinculo_rdo || "TODOS"]).map((v: string) => (
+                      <span key={v} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{VINCULO_LABELS[v] ?? v}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => startEdit(m)} className="text-primary p-1"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => remove(m.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -1376,21 +1523,73 @@ function OgsManager() {
 
 // Truck Registry Manager
 function TruckRegistryManager() {
-  const { items, add, remove } = useCrudTable("truck_registry");
+  const { items, loading, add, remove, update } = useCrudTable("truck_registry");
   const { toast } = useToast();
   const [placa, setPlaca] = useState("");
   const [modelo, setModelo] = useState("");
   const [cor, setCor] = useState("");
   const [fornecedor, setFornecedor] = useState("");
   const [capacidade, setCapacidade] = useState("");
+  const [vinculos, setVinculos] = useState<string[]>(["TODOS"]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPlaca, setEditPlaca] = useState("");
+  const [editModelo, setEditModelo] = useState("");
+  const [editCor, setEditCor] = useState("");
+  const [editFornecedor, setEditFornecedor] = useState("");
+  const [editCapacidade, setEditCapacidade] = useState("");
+  const [editVinculos, setEditVinculos] = useState<string[]>(["TODOS"]);
+
+  const toggleVinculo = (v: string, current: string[], set: (x: string[]) => void) => {
+    if (v === "TODOS") { set(["TODOS"]); return; }
+    const sem = current.filter(x => x !== "TODOS");
+    if (sem.includes(v)) {
+      const novo = sem.filter(x => x !== v);
+      set(novo.length === 0 ? ["TODOS"] : novo);
+    } else {
+      set([...sem, v]);
+    }
+  };
+
+  const PillGroup = ({ options, selected, onToggle }: { options: string[]; selected: string[]; onToggle: (v: string) => void }) => (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map(v => {
+        const active = selected.includes(v);
+        return (
+          <button key={v} type="button" onClick={() => onToggle(v)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+              active ? "bg-primary text-primary-foreground border-primary"
+                     : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+            }`}>
+            {VINCULO_LABELS[v] ?? v}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   const handleAdd = async () => {
     if (!placa.trim() || !capacidade.trim()) {
       toast({ title: "Atenção", description: "Preencha Placa e Capacidade (m³).", variant: "destructive" });
       return;
     }
-    const ok = await add({ placa: placa.trim().toUpperCase(), modelo: modelo.trim() || null, cor: cor.trim() || null, fornecedor: fornecedor.trim() || null, capacidade_m3: parseFloat(String(capacidade).replace(",", ".")) });
-    if (ok) { setPlaca(""); setModelo(""); setCor(""); setFornecedor(""); setCapacidade(""); }
+    const ok = await add({ placa: placa.trim().toUpperCase(), modelo: modelo.trim() || null, cor: cor.trim() || null, fornecedor: fornecedor.trim() || null, capacidade_m3: parseFloat(String(capacidade).replace(",", ".")), vinculos, vinculo_rdo: vinculos[0] });
+    if (ok) { setPlaca(""); setModelo(""); setCor(""); setFornecedor(""); setCapacidade(""); setVinculos(["TODOS"]); }
+  };
+
+  const startEdit = (t: any) => {
+    setEditingId(t.id);
+    setEditPlaca(t.placa || "");
+    setEditModelo(t.modelo || "");
+    setEditCor(t.cor || "");
+    setEditFornecedor(t.fornecedor || "");
+    setEditCapacidade(String(t.capacidade_m3 ?? ""));
+    setEditVinculos(t.vinculos?.length ? t.vinculos : [t.vinculo_rdo || "TODOS"]);
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editPlaca.trim() || !editCapacidade.trim()) { toast({ title: "Atenção", description: "Placa e Capacidade são obrigatórios.", variant: "destructive" }); return; }
+    const ok = await update(id, { placa: editPlaca.trim().toUpperCase(), modelo: editModelo.trim() || null, cor: editCor.trim() || null, fornecedor: editFornecedor.trim() || null, capacidade_m3: parseFloat(String(editCapacidade).replace(",", ".")), vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
+    if (ok) setEditingId(null);
   };
 
   return (
@@ -1420,23 +1619,57 @@ function TruckRegistryManager() {
           <Label className="text-xs text-muted-foreground">Fornecedor</Label>
           <Input value={fornecedor} onChange={e => setFornecedor(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Transportadora X" />
         </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Onde aparece (um ou mais)</Label>
+          <PillGroup options={VINCULO_OPTIONS} selected={vinculos} onToggle={v => toggleVinculo(v, vinculos, setVinculos)} />
+        </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Caminhão</Button>
       </div>
       <div className="space-y-2">
-        {items.map((t: any) => (
-          <div key={t.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm text-foreground">{t.placa} — {t.capacidade_m3} m³</p>
-              <div className="flex gap-2 mt-0.5 flex-wrap">
-                {t.modelo && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{t.modelo}</span>}
-                {t.cor && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{t.cor}</span>}
-                {t.fornecedor && <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{t.fornecedor}</span>}
+        {loading ? (
+          <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)}</div>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhum caminhão cadastrado.</p>
+        ) : items.map((t: any) => (
+          <div key={t.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
+            {editingId === t.id ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Placa *</Label><Input value={editPlaca} onChange={e => setEditPlaca(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Capacidade (m³) *</Label><Input type="number" inputMode="decimal" value={editCapacidade} onChange={e => setEditCapacidade(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Modelo</Label><Input value={editModelo} onChange={e => setEditModelo(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Cor</Label><Input value={editCor} onChange={e => setEditCor(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                </div>
+                <div className="space-y-1"><Label className="text-xs text-muted-foreground">Fornecedor</Label><Input value={editFornecedor} onChange={e => setEditFornecedor(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Onde aparece</Label>
+                  <PillGroup options={VINCULO_OPTIONS} selected={editVinculos} onToggle={v => toggleVinculo(v, editVinculos, setEditVinculos)} />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => saveEdit(t.id)}><Save className="w-3 h-3 mr-1" /> Salvar</Button>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditingId(null)}><X className="w-3 h-3" /></Button>
+                </div>
               </div>
-            </div>
-            <button onClick={() => remove(t.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+            ) : (
+              <div className="flex items-start justify-between">
+                <div className="space-y-1.5 flex-1 min-w-0 pr-2">
+                  <p className="font-medium text-sm text-foreground">{t.placa} — {t.capacidade_m3} m³</p>
+                  <div className="flex gap-2 mt-0.5 flex-wrap">
+                    {t.modelo && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{t.modelo}</span>}
+                    {t.cor && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{t.cor}</span>}
+                    {(t.vinculos?.length ? t.vinculos : [t.vinculo_rdo || "TODOS"]).map((v: string) => (
+                      <span key={v} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{VINCULO_LABELS[v] ?? v}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => startEdit(t)} className="text-primary p-1"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => remove(t.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum caminhão cadastrado.</p>}
       </div>
     </div>
   );
