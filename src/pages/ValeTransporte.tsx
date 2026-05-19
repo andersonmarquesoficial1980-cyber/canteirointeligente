@@ -334,17 +334,17 @@ export default function ValeTransporte() {
   const [conducoes, setConducoes] = useState<Conducao[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadAll = async () => {
-    setLoading(true);
+  const loadAll = async (silent = false) => {
+    if (!silent) setLoading(true);
     const [tRes, sRes, cRes] = await Promise.all([
       supabase.from("vt_tarifas").select("*").order("tipo_transporte"),
-      supabase.from("aero_pav_gru_staff").select("id,nome,funcao,turno").eq("ativo", true).order("nome"),
+      supabase.from("profiles").select("id,nome_completo,perfil").eq("status", "ativo").order("nome_completo"),
       supabase.from("vt_funcionario_conducoes").select("*"),
     ]);
     if (tRes.data) setTarifas(tRes.data as any as Tarifa[]);
-    if (sRes.data) setStaff(sRes.data as any as StaffMember[]);
+    if (sRes.data) setStaff(sRes.data.map((s: any) => ({ id: s.id, nome: s.nome_completo, funcao: s.perfil || "", turno: "" })) as StaffMember[]);
     if (cRes.data) setConducoes(cRes.data as any as Conducao[]);
-    setLoading(false);
+    if (!silent) setLoading(false);
   };
 
   useEffect(() => {
@@ -418,7 +418,7 @@ export default function ValeTransporte() {
           </TabsList>
 
           <TabsContent value="calculadora" className="mt-4">
-            <CalculadoraTab tarifas={tarifas} staff={staff} conducoes={conducoes} onRefresh={loadAll} companyId={profile?.company_id || null} />
+            <CalculadoraTab tarifas={tarifas} staff={staff} conducoes={conducoes} onRefresh={() => loadAll(true)} companyId={profile?.company_id || null} />
           </TabsContent>
 
           <TabsContent value="tarifas" className="mt-4">
