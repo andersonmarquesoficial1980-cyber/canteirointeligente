@@ -532,10 +532,13 @@ function MaquinasManager() {
             const matchCat = !filterCategoria || m.categoria === filterCategoria;
             return matchSearch && matchCat;
           });
-          if (filtered.length === 0) return (
+          if (!searchQuery && !filterCategoria) return (
             <p className="text-sm text-muted-foreground text-center py-4">
-              {searchQuery || filterCategoria ? "Nenhum resultado encontrado." : "Nenhuma máquina cadastrada."}
+              🔍 Use a busca ou selecione uma categoria para ver os cadastros.
             </p>
+          );
+          if (filtered.length === 0) return (
+            <p className="text-sm text-muted-foreground text-center py-4">Nenhum resultado encontrado.</p>
           );
           return filtered.map((m: any) => (
           <div key={m.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
