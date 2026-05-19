@@ -338,11 +338,11 @@ export default function ValeTransporte() {
     if (!silent) setLoading(true);
     const [tRes, sRes, cRes] = await Promise.all([
       supabase.from("vt_tarifas").select("*").order("tipo_transporte"),
-      supabase.from("profiles").select("id,nome_completo,perfil").eq("status", "ativo").order("nome_completo"),
+      supabase.from("funcionarios").select("id,nome,funcao").order("nome"),
       supabase.from("vt_funcionario_conducoes").select("*"),
     ]);
     if (tRes.data) setTarifas(tRes.data as any as Tarifa[]);
-    if (sRes.data) setStaff(sRes.data.map((s: any) => ({ id: s.id, nome: s.nome_completo, funcao: s.perfil || "", turno: "" })) as StaffMember[]);
+    if (sRes.data) setStaff(sRes.data.map((s: any) => ({ id: s.id, nome: s.nome, funcao: s.funcao || "", turno: "" })) as StaffMember[]);
     if (cRes.data) setConducoes(cRes.data as any as Conducao[]);
     if (!silent) setLoading(false);
   };
