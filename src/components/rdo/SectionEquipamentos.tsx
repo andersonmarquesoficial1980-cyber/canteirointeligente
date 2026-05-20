@@ -59,12 +59,16 @@ const SUB_TIPOS: Record<string, string[]> = {
   ],
 };
 
-// Map new categories to their `tipo` filter values in maquinas_frota
-const CATEGORIA_TIPO_MAP: Record<string, string[]> = {
-  FRESADORA: ["FRESADORA"],
-  BOBCAT: ["BOBCAT"],
-  VIBROACABADORA: ["VIBRO ACABADORA"],
-  "USINA MÓVEL": ["USINA MÓVEL"],
+// Map RDO categories to filters in maquinas_frota (tipo ou categoria)
+const CATEGORIA_TIPO_MAP: Record<string, { tipos?: string[]; categorias?: string[] }> = {
+  FRESADORA: { tipos: ["FRESADORA", "FRESADORA CÔNICA"], categorias: ["FRESAGEM", "FRESA/BOB"] },
+  BOBCAT: { tipos: ["BOBCAT", "MINI TRATOR", "MINITRATOR"], categorias: ["FRESAGEM", "FRESA/BOB"] },
+  VIBROACABADORA: { tipos: ["VIBRO ACABADORA", "VIBROACABADORA"], categorias: ["PAVIMENTAÇÃO", "VIBRO/ROLO"] },
+  "USINA MÓVEL": { tipos: ["KMA", "USINA MÓVEL", "USINA MOVEL"], categorias: ["USINAGEM"] },
+  "PEQUENO PORTE": { categorias: ["PEQUENO PORTE"] },
+  "LINHA AMARELA": { categorias: ["LINHA AMARELA"] },
+  "ROLO COMPACTADOR": { categorias: ["PAVIMENTAÇÃO", "VIBRO/ROLO"] },
+  "VEÍCULOS EM GERAL": { categorias: ["VEÍCULOS", "VEÍCULOS EM GERAL"] },
 };
 
 const FC_OPTIONS = ["FC001", "FC002", "FC003", "FC004", "FC005"];
@@ -129,18 +133,18 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
     if (!maquinas) return [];
     const hasSubTypes = SUB_TIPOS[categoria];
     if (hasSubTypes) {
-      // Filter by the selected sub-type (matches `tipo` column)
       if (!subTipo) return [];
       return maquinas.filter((m: any) => m.tipo?.toUpperCase() === subTipo.toUpperCase());
     }
-    // Direct categories: filter by tipo values mapped
-    const tipoFilters = CATEGORIA_TIPO_MAP[categoria];
-    if (tipoFilters) {
-      return maquinas.filter((m: any) =>
-        tipoFilters.some((t) => m.tipo?.toUpperCase() === t.toUpperCase())
-      );
+    const map = CATEGORIA_TIPO_MAP[categoria];
+    if (map) {
+      return maquinas.filter((m: any) => {
+        const tipoOk = map.tipos?.some((t) => m.tipo?.toUpperCase() === t.toUpperCase());
+        const catOk = map.categorias?.some((c) => m.categoria?.toUpperCase() === c.toUpperCase());
+        return tipoOk || catOk;
+      });
     }
-    // Fallback: filter by categoria
+    // Fallback
     return maquinas.filter((m: any) => m.categoria?.toUpperCase() === categoria.toUpperCase());
   };
 

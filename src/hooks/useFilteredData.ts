@@ -71,11 +71,12 @@ export function useMaquinasFrotaFiltered(tipoRdo: string) {
   return useQuery({
     queryKey: ["maquinas_frota_filtered", tipoRdo],
     queryFn: async () => {
+      // Busca equipamentos vinculados ao RDO (novo campo vinculos[]) ou TODOS (legado)
       const { data, error } = await supabase
         .from("maquinas_frota" as any)
         .select("*")
         .in("status", ["ativo", "Operando"])
-        .or(`vinculo_rdo.eq.${tipoRdo},vinculo_rdo.eq.TODOS`)
+        .or(`vinculo_rdo.eq.${tipoRdo},vinculo_rdo.eq.TODOS,vinculo_rdo.eq.RDO,vinculos.cs.{RDO},vinculos.cs.{TODOS}`)
         .order("frota");
       if (error) throw error;
       return data as any[];
