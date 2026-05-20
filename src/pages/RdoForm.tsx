@@ -142,6 +142,78 @@ export default function RdoForm() {
   const [globalEntrada, setGlobalEntrada] = useState("");
   const [globalSaida, setGlobalSaida] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
+  const [motivoCancelamento, setMotivoCancelamento] = useState("");
+  const [copiandoDiaAnterior, setCopiandoDiaAnterior] = useState(false);
+
+  const copiarDiaAnterior = async () => {
+    if (!header.obra_nome || !header.data) return;
+    setCopiandoDiaAnterior(true);
+    try {
+      // Busca o RDO do dia anterior da mesma OGS
+      const dataAnterior = new Date(header.data);
+      dataAnterior.setDate(dataAnterior.getDate() - 1);
+      const dataAnteriorStr = dataAnterior.toISOString().split('T')[0];
+
+      const { data: rdoAnterior } = await (supabase as any)
+        .from("rdos")
+        .select("id")
+        .eq("obra_nome", header.obra_nome)
+        .eq("data", dataAnteriorStr)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!rdoAnterior) {
+        toast({ title: "Nenhum RDO encontrado no dia anterior para esta OGS.", variant: "destructive" });
+        return;
+      }
+
+      const rdoId = rdoAnterior.id;
+      const statusDestino = header.status_obra; // "Cancelou" ou "Folga"
+      const statusEfetivo = statusDestino === "Cancelou" ? "Disposição" : "Folga";
+
+      // Busca equipamentos e efetivo do dia anterior
+      const [{ data: equipsAnt }, { data: efetivoAnt }] = await Promise.all([
+        (supabase as any).from("rdo_equipamentos").select("*").eq("rdo_id", rdoId),
+        (supabase as any).from("rdo_efetivo").select("*").eq("rdo_id", rdoId),
+      ]);
+
+      // Monta equipamentos copiados
+      if (equipsAnt?.length) {
+        setEquipamentos(equipsAnt.map((e: any) => ({
+          id: crypto.randomUUID(),
+          categoria: e.categoria || "",
+          subTipo: e.sub_tipo || "",
+          frota: e.frota || "",
+          tipo: e.tipo || "",
+          nome: e.nome || "",
+          patrimonio: e.patrimonio || "",
+          empresa_dona: e.empresa_dona || "",
+          is_menor: e.is_menor || false,
+          fresadora_conica: e.fresadora_conica || "",
+        })));
+      }
+
+      // Monta efetivo copiado com status ajustado
+      if (efetivoAnt?.length) {
+        setEfetivo(efetivoAnt.map((e: any) => ({
+          id: crypto.randomUUID(),
+          matricula: e.matricula || "",
+          nome: e.nome || "",
+          funcao: e.funcao || "",
+          entrada: e.entrada || "",
+          saida: e.saida || "",
+          status: statusEfetivo,
+        })));
+      }
+
+      toast({ title: `✅ Equipamentos e efetivo copiados do dia anterior (${dataAnteriorStr}).` });
+    } catch (err: any) {
+      toast({ title: "Erro ao copiar dia anterior", description: err.message, variant: "destructive" });
+    } finally {
+      setCopiandoDiaAnterior(false);
+    }
+  };
 
   // Preencher "preenchido_por" automaticamente com o nome do usuário logado
   useEffect(() => {
@@ -270,6 +342,7 @@ export default function RdoForm() {
         obra_nome: header.obra_nome,
         turno: normalizedTurno || "diurno",
         clima: header.status_obra || null,
+        motivo_cancelamento: motivoCancelamento || null,
         responsavel: encarregado || preenchidoPor, // legado — compat
         preenchido_por: preenchidoPor,
         encarregado: encarregado || null,
@@ -433,6 +506,7 @@ export default function RdoForm() {
       obra_nome: header.obra_nome,
       turno: normalizedTurno,
       clima: header.status_obra || null,
+      motivo_cancelamento: motivoCancelamento || null,
       responsavel: encarregado || preenchidoPor, // legado — compat
       preenchido_por: preenchidoPor,
       encarregado: encarregado || null,
@@ -756,6 +830,32 @@ export default function RdoForm() {
           </div>
         ) : (
           <>
+            {/* Cancelou: justificativa + botão copiar dia anterior */}
+            {(header.status_obra === "Cancelou" || header.status_obra === "Folga") && (
+              <div className="mx-4 rounded-xl border border-border bg-card p-4 space-y-3">
+                {header.status_obra === "Cancelou" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Motivo do Cancelamento *</label>
+                    <textarea
+                      value={motivoCancelamento}
+                      onChange={e => setMotivoCancelamento(e.target.value)}
+                      placeholder="Ex: Chuva intensa, quebra de usina, falta de material..."
+                      className="w-full min-h-[80px] rounded-xl border border-border bg-secondary px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={copiarDiaAnterior}
+                  disabled={!header.obra_nome || !header.data || copiandoDiaAnterior}
+                  className="w-full h-11 rounded-xl border border-primary text-primary text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/5 disabled:opacity-40 transition-colors"
+                >
+                  {copiandoDiaAnterior ? "Copiando..." : "📅 Copiar equipamentos e efetivo do dia anterior"}
+                </button>
+                <p className="text-[11px] text-muted-foreground text-center">Equipamentos e efetivo serão copiados do RDO anterior desta OGS</p>
+              </div>
+            )}
+
             <div className="px-4">
               <RdoTipoSelector value={tipoRdo} onChange={setTipoRdo} />
               {isEditMode && !tipoRdo && (
