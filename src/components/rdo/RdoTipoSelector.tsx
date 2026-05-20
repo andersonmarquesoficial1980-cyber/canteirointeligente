@@ -12,6 +12,7 @@ const TIPOS = [
   { value: "CANTEIRO", label: "Canteiro", icon: "🏭", desc: "Canteiro / Insumos" },
   { value: "PV", label: "PV", icon: "🕳️", desc: "Poço de Visita" },
   { value: "AEROPAV", label: "Drenagem & Terrap.", icon: "🚧", desc: "Drenagem & Terraplanagem" },
+  { value: "PATIO", label: "Pátio Central", icon: "🏠", desc: "Equipamentos na base" },
 ];
 
 export default function RdoTipoSelector({ value, onChange }: RdoTipoSelectorProps) {

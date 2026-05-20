@@ -19,6 +19,7 @@ import SectionPV, { type PVData, type PVMaterialEntry } from "@/components/rdo/S
 import { type AeroPavData } from "@/components/rdo/SectionAeroPavGru";
 import SectionEfetivoTerceirizado, { type TerceirizadoEntry } from "@/components/rdo/SectionEfetivoTerceirizado";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
+import SectionEquipamentosPatio, { type EquipamentoPatioEntry } from "@/components/rdo/SectionEquipamentosPatio";
 
 
 import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
@@ -73,6 +74,7 @@ export default function RdoForm() {
 
   // Tipo RDO
   const [tipoRdo, setTipoRdo] = useState("");
+  const isPatioRdo = tipoRdo === "PATIO";
 
   // Infraestrutura
   const [empreiteiro, setEmpreiteiro] = useState("");
@@ -131,6 +133,9 @@ export default function RdoForm() {
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
+  }]);
+  const [equipamentosPatio, setEquipamentosPatio] = useState<EquipamentoPatioEntry[]>([{
+    id: crypto.randomUUID(), frota: "", nome: "", tipo: "", status_patio: "Disposição", observacao: "",
   }]);
 
 
@@ -633,18 +638,31 @@ export default function RdoForm() {
       }
 
       // Equipamentos
-      const equipEntries = equipamentos
-        .filter(e => e.frota || e.nome || e.tipo)
-        .map(e => ({
-          rdo_id: rdoId,
-          frota: e.frota || null,
-          categoria: e.categoria || null,
-          sub_tipo: e.subTipo || null,
-          tipo: e.tipo || null,
-          nome: e.nome || null,
-          patrimonio: e.patrimonio || null,
-          empresa_dona: e.empresa_dona || null,
-        }));
+      const equipEntries = isPatioRdo
+        ? equipamentosPatio
+            .filter(e => e.frota)
+            .map(e => ({
+              rdo_id: rdoId,
+              frota: e.frota || null,
+              categoria: "PATIO",
+              sub_tipo: e.status_patio || null,
+              tipo: e.tipo || null,
+              nome: e.nome || null,
+              patrimonio: null,
+              empresa_dona: e.observacao || null,
+            }))
+        : equipamentos
+            .filter(e => e.frota || e.nome || e.tipo)
+            .map(e => ({
+              rdo_id: rdoId,
+              frota: e.frota || null,
+              categoria: e.categoria || null,
+              sub_tipo: e.subTipo || null,
+              tipo: e.tipo || null,
+              nome: e.nome || null,
+              patrimonio: e.patrimonio || null,
+              empresa_dona: e.empresa_dona || null,
+            }));
       if (equipEntries.length > 0) {
         const { error } = await (supabase as any).from("rdo_equipamentos").insert(equipEntries);
         if (error) console.warn("Equipamentos RDO:", error.message);
@@ -868,7 +886,10 @@ export default function RdoForm() {
             )}
 
             <div className="px-4">
-              <RdoTipoSelector value={tipoRdo} onChange={setTipoRdo} />
+              <RdoTipoSelector value={tipoRdo} onChange={v => {
+                setTipoRdo(v);
+                if (v === "PATIO") handleHeaderChange("obra_nome", "BASE / PÁTIO CENTRAL");
+              }} />
               {isEditMode && !tipoRdo && (
                 <div className="mt-2 px-1 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
                   ⚠️ Selecione o tipo do RDO acima para visualizar e editar os dados carregados (efetivo, equipamentos, produção).
@@ -901,7 +922,11 @@ export default function RdoForm() {
 
             {tipoRdo && (
               <>
-                <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
+                {isPatioRdo ? (
+                  <SectionEquipamentosPatio entries={equipamentosPatio} onChange={setEquipamentosPatio} />
+                ) : (
+                  <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
+                )}
                 
                 <StepEfetivo
                   entries={efetivo}
