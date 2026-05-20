@@ -167,7 +167,13 @@ function AppRoutes() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [needs2FA, setNeeds2FA] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(false);
+  // Evita desmontar o app quando o token está sendo revalidado em background
+  const [wasAuthenticated, setWasAuthenticated] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    if (session) setWasAuthenticated(true);
+  }, [session]);
 
   // Check if user is active after session loads, and listen to MFA changes
   useEffect(() => {
@@ -216,7 +222,8 @@ function AppRoutes() {
     };
   }, [session?.user?.id]);
 
-  if (loading || checkingAccess) {
+  // Só mostra loading no primeiro carregamento — não quando revalidando token em background
+  if ((loading || checkingAccess) && !wasAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Carregando...</p>
