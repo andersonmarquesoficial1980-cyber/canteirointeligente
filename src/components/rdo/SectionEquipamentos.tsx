@@ -129,23 +129,45 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
     }
   };
 
+  // Mapeamento categoria do RDO → chave do campo vinculos no banco
+  const CATEGORIA_TO_VINCULO: Record<string, string> = {
+    "FRESADORA": "FRESADORA",
+    "BOBCAT": "BOBCAT",
+    "VIBROACABADORA": "VIBRO",
+    "ROLO COMPACTADOR": "ROLO",
+    "VEÍCULOS EM GERAL": "VEICULO",
+    "USINA MÓVEL": "KMA",
+    "LINHA AMARELA": "LINHA_AMARELA",
+    "PEQUENO PORTE": "RDO",
+  };
+
   const getFilteredMaquinas = (categoria: string, subTipo: string) => {
     if (!maquinas) return [];
+
+    // Sub-tipos: filtra pelo tipo exato (ex: ROLO CHAPA, RETROESCAVADEIRA)
     const hasSubTypes = SUB_TIPOS[categoria];
     if (hasSubTypes) {
       if (!subTipo) return [];
       return maquinas.filter((m: any) => m.tipo?.toUpperCase() === subTipo.toUpperCase());
     }
-    const map = CATEGORIA_TIPO_MAP[categoria];
-    if (map) {
-      return maquinas.filter((m: any) => {
+
+    const vinculoKey = CATEGORIA_TO_VINCULO[categoria];
+
+    return maquinas.filter((m: any) => {
+      const vinculos: string[] = m.vinculos || [];
+      // Equipamento tem vinculos configurados: usa como fonte primária
+      if (vinculos.length > 0 && !vinculos.includes("TODOS")) {
+        return vinculos.includes(vinculoKey || categoria);
+      }
+      // Legado (vinculos = TODOS ou vazio): usa mapeamento por tipo/categoria
+      const map = CATEGORIA_TIPO_MAP[categoria];
+      if (map) {
         const tipoOk = map.tipos?.some((t) => m.tipo?.toUpperCase() === t.toUpperCase());
         const catOk = map.categorias?.some((c) => m.categoria?.toUpperCase() === c.toUpperCase());
         return tipoOk || catOk;
-      });
-    }
-    // Fallback
-    return maquinas.filter((m: any) => m.categoria?.toUpperCase() === categoria.toUpperCase());
+      }
+      return m.categoria?.toUpperCase() === categoria.toUpperCase();
+    });
   };
 
   const needsSubType = (categoria: string) => !!SUB_TIPOS[categoria];
