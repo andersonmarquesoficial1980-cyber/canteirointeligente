@@ -213,6 +213,10 @@ export default function EquipmentDiaryForm() {
   const [meterFinal, setMeterFinal] = useState("");
   const [workStatus, setWorkStatus] = useState("");
   const isModoSimples = workStatus === "Folga" || workStatus === "Inoperante";
+  const isPatioMode = ogsNumber === "BASE / PÁTIO CENTRAL";
+  const PATIO_STATUSES = ["Disposição", "Manutenção", "Inoperante"] as const;
+  const [motivoManutencao, setMotivoManutencao] = useState("");
+  const [previsaoLiberacao, setPrevisaoLiberacao] = useState("");
   const [ogsNumber, setOgsNumber] = useState("");
   const [clientName, setClientName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
@@ -1047,7 +1051,10 @@ export default function EquipmentDiaryForm() {
       ogs_number: isCarreta ? null : (ogsNumber === "BASE / PÁTIO CENTRAL" ? null : (ogsNumber || null)),
       client_name: isCarreta ? null : (clientName || null),
       location_address: isCarreta ? null : (locationAddress || null),
-      observations: observations || null,
+      observations: isPatioMode && workStatus === "Manutenção"
+        ? `[MANUTENÇÃO] ${motivoManutencao}${previsaoLiberacao ? ` | Previsão: ${previsaoLiberacao}` : ""}`.trim()
+        : (observations || null),
+      location_address: isPatioMode ? "BASE / PÁTIO CENTRAL" : (isCarreta ? null : (locationAddress || null)),
       company_id: profile?.company_id || null,
       user_id: session.user.id,
       created_by: session.user.id,
@@ -1866,8 +1873,56 @@ export default function EquipmentDiaryForm() {
           />
         ) : (
           <>
+        {/* MODO PÁTIO CENTRAL — formulário simplificado */}
+        {isPatioMode && (
+          <>
+            <Section title="STATUS NO PÁTIO">
+              <Field label="Status">
+                <Select value={workStatus} onValueChange={v => { setWorkStatus(v); if (v !== "Manutenção") { setMotivoManutencao(""); setPrevisaoLiberacao(""); } }}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PATIO_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+              {workStatus === "Manutenção" && (
+                <>
+                  <Field label="Motivo da Manutenção *">
+                    <textarea
+                      value={motivoManutencao}
+                      onChange={e => setMotivoManutencao(e.target.value)}
+                      placeholder="Descreva o problema e o serviço a ser realizado..."
+                      className="w-full min-h-[80px] rounded-xl border border-border bg-secondary px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </Field>
+                  <Field label="Previsão de Liberação">
+                    <Input
+                      type="date"
+                      value={previsaoLiberacao}
+                      onChange={e => setPrevisaoLiberacao(e.target.value)}
+                      className="bg-secondary border-border"
+                    />
+                  </Field>
+                </>
+              )}
+              <Field label={`${meterLabel} Inicial`}>
+                <Input type="text" inputMode="decimal" value={meterInitial} onChange={e => setMeterInitial(e.target.value)} placeholder="0.0" className="bg-secondary border-border" />
+              </Field>
+              <Field label={`${meterLabel} Final`}>
+                <Input type="text" inputMode="decimal" value={meterFinal} onChange={e => setMeterFinal(e.target.value)} placeholder="0.0" className={`bg-secondary border-border ${horimeterError ? "border-destructive" : ""}`} />
+              </Field>
+              {horimeterError && <p className="text-xs text-destructive">{horimeterError}</p>}
+              {horasTrabalhadas && (
+                <p className="text-xs text-muted-foreground">{usesOdometer ? "Km" : "Horas"}: <span className="font-semibold text-foreground">{horasTrabalhadas}{usesOdometer ? " km" : "h"}</span></p>
+              )}
+            </Section>
+          </>
+        )}
+
         {/* CHECKLIST PRÉ-OPERAÇÃO */}
-        {hasChecklist && (
+        {!isPatioMode && hasChecklist && (
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="checklist" className="border border-border rounded-lg overflow-hidden bg-secondary/30">
               <AccordionTrigger className="px-4 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
@@ -1886,8 +1941,8 @@ export default function EquipmentDiaryForm() {
           </Accordion>
         )}
 
-        {/* PERÍODO */}
-        <Section title="PERÍODO">
+        {/* PERÍODO — oculto no modo pátio */}
+        {!isPatioMode && <Section title="PERÍODO">
           <div className="flex gap-2">
             <Button
               type="button"
@@ -1906,10 +1961,10 @@ export default function EquipmentDiaryForm() {
               🌙 Noturno
             </Button>
           </div>
-        </Section>
+        </Section>}
 
-        {/* STATUS OPERACIONAL + METER INITIAL */}
-        <Section title="STATUS OPERACIONAL">
+        {/* STATUS OPERACIONAL + METER INITIAL — oculto no modo pátio (tem própria seção) */}
+        {!isPatioMode && <Section title="STATUS OPERACIONAL">
           <Field label="Status">
             <Select value={workStatus} onValueChange={setWorkStatus}>
               <SelectTrigger className="bg-secondary border-border">
@@ -1932,10 +1987,11 @@ export default function EquipmentDiaryForm() {
               className="bg-secondary border-border"
             />
           </Field>
-        </Section>
+        </Section>}
 
+        {/* CAMPOS COMPLETOS — ocultos no modo pátio */}
         {/* CAMPOS COLAPSADOS quando Folga ou Inoperante */}
-        {!isModoSimples && (<>
+        {!isPatioMode && !isModoSimples && (<>
 
         {/* APONTAMENTO DE HORAS */}
         <TimeEntriesSection
@@ -2364,7 +2420,8 @@ export default function EquipmentDiaryForm() {
         {/* FIM CAMPOS COLAPSÁVEIS */}
         </>)}
 
-        {/* OBSERVAÇÕES — sempre visível */}
+        {/* OBSERVAÇÕES — visível somente fora do modo pátio (pátio usa campo proprio de manutenção) */}
+        {!isPatioMode && (<>
         <Section title="OBSERVAÇÕES">
           <Textarea
             value={observations}
@@ -2373,6 +2430,7 @@ export default function EquipmentDiaryForm() {
             className="bg-secondary border-border min-h-[80px]"
           />
         </Section>
+        </>)}
         {/* Fixed bottom buttons */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border space-y-2">
           <div className="max-w-lg mx-auto space-y-2">
