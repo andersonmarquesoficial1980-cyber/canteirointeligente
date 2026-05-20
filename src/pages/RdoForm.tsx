@@ -147,24 +147,33 @@ export default function RdoForm() {
 
   const copiarDiaAnterior = async () => {
     if (!header.obra_nome || !header.data) return;
+    if (!header.encarregado) {
+      toast({ title: "Preencha o Encarregado antes de copiar.", description: "O sistema usa o encarregado para identificar a equipe correta.", variant: "destructive" });
+      return;
+    }
     setCopiandoDiaAnterior(true);
     try {
-      // Busca o RDO do dia anterior da mesma OGS
       const dataAnterior = new Date(header.data);
       dataAnterior.setDate(dataAnterior.getDate() - 1);
       const dataAnteriorStr = dataAnterior.toISOString().split('T')[0];
 
+      // Busca RDO do dia anterior da mesma OGS E mesmo encarregado
       const { data: rdoAnterior } = await (supabase as any)
-        .from("rdos")
+        .from("rdo_diarios")
         .select("id")
         .eq("obra_nome", header.obra_nome)
         .eq("data", dataAnteriorStr)
+        .eq("encarregado", header.encarregado)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (!rdoAnterior) {
-        toast({ title: "Nenhum RDO encontrado no dia anterior para esta OGS.", variant: "destructive" });
+        toast({ 
+          title: `Nenhum RDO encontrado para o encarregado "${header.encarregado}" no dia anterior.`,
+          description: "Verifique se o encarregado e a OGS estão corretos.",
+          variant: "destructive" 
+        });
         return;
       }
 
@@ -847,12 +856,14 @@ export default function RdoForm() {
                 <button
                   type="button"
                   onClick={copiarDiaAnterior}
-                  disabled={!header.obra_nome || !header.data || copiandoDiaAnterior}
+                  disabled={!header.obra_nome || !header.data || !header.encarregado || copiandoDiaAnterior}
                   className="w-full h-11 rounded-xl border border-primary text-primary text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/5 disabled:opacity-40 transition-colors"
                 >
                   {copiandoDiaAnterior ? "Copiando..." : "📅 Copiar equipamentos e efetivo do dia anterior"}
                 </button>
-                <p className="text-[11px] text-muted-foreground text-center">Equipamentos e efetivo serão copiados do RDO anterior desta OGS</p>
+                <p className="text-[11px] text-muted-foreground text-center">
+                  {!header.encarregado ? "⚠️ Preencha o Encarregado para identificar a equipe" : "Copia do RDO anterior desta OGS + encarregado"}
+                </p>
               </div>
             )}
 
