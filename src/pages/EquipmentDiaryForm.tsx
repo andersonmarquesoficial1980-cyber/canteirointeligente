@@ -1044,7 +1044,7 @@ export default function EquipmentDiaryForm() {
       fuel_type: fueling.fuelType || null,
       fuel_meter: fueling.fuelMeter ? Number(String(fueling.fuelMeter).replace(",", ".")) : null,
       work_status: workStatus || null,
-      ogs_number: isCarreta ? null : (ogsNumber || null),
+      ogs_number: isCarreta ? null : (ogsNumber === "BASE / PÁTIO CENTRAL" ? null : (ogsNumber || null)),
       client_name: isCarreta ? null : (clientName || null),
       location_address: isCarreta ? null : (locationAddress || null),
       observations: observations || null,
