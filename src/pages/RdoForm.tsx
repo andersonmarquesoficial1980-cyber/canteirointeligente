@@ -498,14 +498,21 @@ export default function RdoForm() {
 
   const handleSubmitInternal = async (showNavigate = true) => {
     const normalizedTurno = header.turno.trim().toLowerCase();
-    if (!header.obra_nome || !header.data || !normalizedTurno) {
-      toast({ title: "Erro", description: "Preencha OGS, Data e Turno.", variant: "destructive" });
-      return;
-    }
-
-    if (!["diurno", "noturno"].includes(normalizedTurno)) {
-      toast({ title: "Erro", description: "Turno inválido. Use Diurno ou Noturno.", variant: "destructive" });
-      return;
+    // Pátio Central: só precisa de data
+    if (isPatioRdo) {
+      if (!header.data) {
+        toast({ title: "Erro", description: "Preencha a Data.", variant: "destructive" });
+        return;
+      }
+    } else {
+      if (!header.obra_nome || !header.data || !normalizedTurno) {
+        toast({ title: "Erro", description: "Preencha OGS, Data e Turno.", variant: "destructive" });
+        return;
+      }
+      if (!["diurno", "noturno"].includes(normalizedTurno)) {
+        toast({ title: "Erro", description: "Turno inválido. Use Diurno ou Noturno.", variant: "destructive" });
+        return;
+      }
     }
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -831,7 +838,7 @@ export default function RdoForm() {
             size="sm"
             variant="outline"
             onClick={handleSaveDraft}
-            disabled={savingDraft || !header.obra_nome}
+            disabled={savingDraft || (!header.obra_nome && !isPatioRdo)}
             className="bg-white/15 border-white/30 text-white hover:bg-white/25 gap-1.5 text-xs font-bold rounded-lg"
           >
             <Save className="w-4 h-4" />
@@ -841,24 +848,56 @@ export default function RdoForm() {
       </header>
 
       <div className="flex-1 overflow-y-auto pb-28 space-y-4 pt-4">
+
+        {/* PASSO 1: Tipo de RDO — sempre primeiro */}
         <div className="px-4">
-          <RdoHeader data={header} onChange={handleHeaderChange} />
+          <RdoTipoSelector value={tipoRdo} onChange={v => {
+            setTipoRdo(v);
+            if (v === "PATIO") handleHeaderChange("obra_nome", "BASE / PÁTIO CENTRAL");
+          }} />
+          {isEditMode && !tipoRdo && (
+            <div className="mt-2 px-1 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
+              ⚠️ Selecione o tipo do RDO acima para visualizar e editar os dados carregados.
+            </div>
+          )}
         </div>
 
-        {isUnlockLoading && !isEditMode && (
+        {/* PASSO 2: Informações Gerais — oculto no Pátio Central e enquanto tipo não escolhido */}
+        {tipoRdo && !isPatioRdo && (
+          <div className="px-4">
+            <RdoHeader data={header} onChange={handleHeaderChange} />
+          </div>
+        )}
+
+        {/* Pátio: só data */}
+        {isPatioRdo && (
+          <div className="px-4">
+            <div className="rdo-card space-y-3">
+              <h2 className="rdo-section-title">📅 Data</h2>
+              <input
+                type="date"
+                value={header.data}
+                onChange={e => handleHeaderChange("data", e.target.value)}
+                className="w-full h-12 rounded-xl border border-border bg-secondary px-3 text-base focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+        )}
+
+        {tipoRdo && !isPatioRdo && isUnlockLoading && !isEditMode && (
           <div className="mx-4 rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
             Verificando prazo de lançamento...
           </div>
         )}
 
-        {shouldBlockByDeadline ? (
+        {tipoRdo && !isPatioRdo && shouldBlockByDeadline ? (
           <div className="px-4">
             <PrazoExpiradoCard date={header.data} prazoLabel={prazoLabel} onBack={() => navigate(-1)} />
           </div>
         ) : (
           <>
             {/* Cancelou: justificativa + botão copiar dia anterior */}
-            {(header.status_obra === "Cancelou" || header.status_obra === "Folga") && (
+            {!isPatioRdo && (header.status_obra === "Cancelou" || header.status_obra === "Folga") && (
               <div className="mx-4 rounded-xl border border-border bg-card p-4 space-y-3">
                 {header.status_obra === "Cancelou" && (
                   <div className="space-y-1.5">
@@ -884,18 +923,7 @@ export default function RdoForm() {
                 </p>
               </div>
             )}
-
-            <div className="px-4">
-              <RdoTipoSelector value={tipoRdo} onChange={v => {
-                setTipoRdo(v);
-                if (v === "PATIO") handleHeaderChange("obra_nome", "BASE / PÁTIO CENTRAL");
-              }} />
-              {isEditMode && !tipoRdo && (
-                <div className="mt-2 px-1 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
-                  ⚠️ Selecione o tipo do RDO acima para visualizar e editar os dados carregados (efetivo, equipamentos, produção).
-                </div>
-              )}
-            </div>
+            {/* placeholder para manter estrutura */}
 
             {tipoRdo === "INFRAESTRUTURA" && (
               <>
@@ -928,18 +956,18 @@ export default function RdoForm() {
                   <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
                 )}
                 
-                <StepEfetivo
+                {!isPatioRdo && <StepEfetivo
                   entries={efetivo}
                   onChange={setEfetivo}
                   globalEntrada={globalEntrada}
                   globalSaida={globalSaida}
                   onChangeGlobalEntrada={setGlobalEntrada}
                   onChangeGlobalSaida={setGlobalSaida}
-                />
-                {tipoRdo === "AEROPAV" && (
+                />}
+                {!isPatioRdo && tipoRdo === "AEROPAV" && (
                   <SectionEfetivoTerceirizado entries={terceirizados} onChange={setTerceirizados} />
                 )}
-                {tipoRdo === "CANTEIRO" && (
+                {!isPatioRdo && tipoRdo === "CANTEIRO" && (
                   <SectionAtividadesCanteiro
                     teveUsinagem={teveUsinagem}
                     onToggleUsinagem={setTeveUsinagem}
@@ -995,7 +1023,7 @@ export default function RdoForm() {
           <div className="flex gap-2">
             <Button
               onClick={handleSaveDraft}
-              disabled={savingDraft || !header.obra_nome}
+              disabled={savingDraft || (!header.obra_nome && !isPatioRdo)}
               variant="outline"
               className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl border-2 border-primary text-primary hover:bg-primary/5"
             >
@@ -1003,7 +1031,7 @@ export default function RdoForm() {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={saving || !header.obra_nome || !header.turno}
+              disabled={saving || (!isPatioRdo && (!header.obra_nome || !header.turno))}
               className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl bg-header-gradient hover:opacity-90 transition-opacity"
             >
               <Send className="w-4 h-4" /> {saving ? "Enviando..." : "Enviar RDO"}
