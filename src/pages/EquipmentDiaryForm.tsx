@@ -213,11 +213,11 @@ export default function EquipmentDiaryForm() {
   const [meterFinal, setMeterFinal] = useState("");
   const [workStatus, setWorkStatus] = useState("");
   const isModoSimples = workStatus === "Folga" || workStatus === "Inoperante";
+  const [ogsNumber, setOgsNumber] = useState("");
   const isPatioMode = ogsNumber === "BASE / PÁTIO CENTRAL";
   const PATIO_STATUSES = ["Disposição", "Manutenção", "Inoperante"] as const;
   const [motivoManutencao, setMotivoManutencao] = useState("");
   const [previsaoLiberacao, setPrevisaoLiberacao] = useState("");
-  const [ogsNumber, setOgsNumber] = useState("");
   const [clientName, setClientName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
   const [observations, setObservations] = useState("");
