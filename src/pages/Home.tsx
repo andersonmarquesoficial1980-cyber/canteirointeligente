@@ -102,10 +102,17 @@ export default function Home() {
 
       {/* @LOCK-UI: Single-column vertical layout — DO NOT change to grid-cols-2 */}
       <div className="flex flex-col gap-3 w-full max-w-lg relative z-10">
-        {HUB_MODULES
+        {/* Loading skeleton enquanto permissões carregam */}
+        {(loadingPerms || loadingModules) && (
+          <div className="space-y-3">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="h-20 rounded-2xl bg-header-gradient/30 animate-pulse" />
+            ))}
+          </div>
+        )}
+        {!loadingPerms && !loadingModules && HUB_MODULES
           .filter(mod => {
             if (mod.adminOnly && !isAdmin) return false;
-            if (loadingPerms || loadingModules) return false; // aguarda carregar antes de mostrar
             // Super-admin (dono do Workflux) vê tudo
             // Admin da empresa vê módulos contratados pela empresa
             if (!hasModule(mod.id)) return false;
