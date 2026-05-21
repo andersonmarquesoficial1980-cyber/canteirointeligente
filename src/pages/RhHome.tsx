@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bus, MapPin, LogOut, Camera, ClipboardList } from "lucide-react";
+import { ArrowLeft, Bus, MapPin, LogOut, Camera, ClipboardList, MessageSquare, CheckSquare, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
@@ -18,6 +18,27 @@ const RH_SECTIONS = [
     description: "Histórico mensal, horas trabalhadas e extras",
     icon: ClipboardList,
     route: "/rh/espelho-ponto",
+  },
+  {
+    id: "solicitacoes",
+    label: "Solicitações de Ponto",
+    description: "Ajuste de ponto e abono de falta",
+    icon: MessageSquare,
+    route: "/rh/solicitacoes",
+  },
+  {
+    id: "aprovacoes",
+    label: "Aprovações",
+    description: "Aprovar ou reprovar solicitações da equipe",
+    icon: CheckSquare,
+    route: "/rh/aprovacoes",
+  },
+  {
+    id: "banco-horas",
+    label: "Banco de Horas",
+    description: "Saldo de horas por funcionário no mês",
+    icon: Clock,
+    route: "/rh/banco-horas",
   },
   {
     id: "trajeto-vt",

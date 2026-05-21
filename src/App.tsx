@@ -38,6 +38,9 @@ import DocumentosIntegracao from "./pages/DocumentosIntegracao";
 import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
 import EquipmentHome from "./pages/EquipmentHome";
 import EspelhoPonto from "./pages/EspelhoPonto";
+import PontoSolicitacoes from "./pages/PontoSolicitacoes";
+import PontoAprovacoes from "./pages/PontoAprovacoes";
+import BancoHoras from "./pages/BancoHoras";
 import ExportarProtheus from "./pages/ExportarProtheus";
 import FichaFuncionario from "./pages/FichaFuncionario";
 import FilaManutencao from "./pages/FilaManutencao";
@@ -321,6 +324,9 @@ function AppRoutes() {
         <Route path="/rh/trajeto-vt" element={<TrajetoVT />} />
         <Route path="/rh/registrar-ponto" element={<RegistrarPonto />} />
         <Route path="/rh/espelho-ponto" element={<EspelhoPonto />} />
+        <Route path="/rh/solicitacoes" element={<PontoSolicitacoes />} />
+        <Route path="/rh/aprovacoes" element={<PontoAprovacoes />} />
+        <Route path="/rh/banco-horas" element={<BancoHoras />} />
 
         {/* Vale Transporte */}
         <Route path="/vale-transporte" element={<RequireModule moduleId="rh"><ValeTransporte /></RequireModule>} />
