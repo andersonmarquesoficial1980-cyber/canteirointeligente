@@ -675,7 +675,8 @@ export default function EquipmentDiaryForm() {
 
         if (diaryError) throw diaryError;
         if (!diary) throw new Error("Lançamento não encontrado.");
-        const isAdminEdit = profile?.role === "superadmin" || (profile as any)?.perfil === "Administrador";
+        const isAdminEdit = profile?.role === "superadmin" || profile?.role === "admin" ||
+          (profile as any)?.perfil === "Administrador" || (profile as any)?.perfil === "Gerente";
         if (!isAdminEdit && diary.user_id && diary.user_id !== session.user.id) {
           throw new Error("Você não tem permissão para editar este lançamento.");
         }
