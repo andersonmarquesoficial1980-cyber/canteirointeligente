@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Search, ChevronRight, Users, Wrench, ShieldCheck,
-  User, Bus, MapPin, Camera, ClipboardList, ChevronDown, ChevronUp
+  User, Bus, MapPin, Camera, ClipboardList, ChevronDown, ChevronUp,
+  MessageSquare, CheckSquare, Clock
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
@@ -443,6 +444,9 @@ export default function GestaoPessoasDashboard() {
                     { label: "Espelho de Ponto", desc: "Histórico mensal, horas trabalhadas e extras", icon: ClipboardList, rota: "/rh/espelho-ponto", cor: "bg-green-500/20 text-green-600" },
                     { label: "Trajeto e VT", desc: "Calcule rotas de transporte público e custo de VT", icon: Bus, rota: "/rh/trajeto-vt", cor: "bg-orange-500/20 text-orange-600" },
                     { label: "Gestão de VT", desc: "Tarifas, conduções e custo mensal por funcionário", icon: MapPin, rota: "/vale-transporte", cor: "bg-purple-500/20 text-purple-600" },
+                    { label: "Solicitações de Ponto", desc: "Ajuste de ponto e abono de falta", icon: MessageSquare, rota: "/rh/solicitacoes", cor: "bg-yellow-500/20 text-yellow-600" },
+                    { label: "Aprovações", desc: "Aprovar ou reprovar solicitações da equipe", icon: CheckSquare, rota: "/rh/aprovacoes", cor: "bg-teal-500/20 text-teal-600" },
+                    { label: "Banco de Horas", desc: "Saldo de horas por funcionário no mês", icon: Clock, rota: "/rh/banco-horas", cor: "bg-indigo-500/20 text-indigo-600" },
                   ].map(item => {
                     const Icon = item.icon;
                     return (
