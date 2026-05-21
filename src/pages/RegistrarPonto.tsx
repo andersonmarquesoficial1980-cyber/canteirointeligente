@@ -1,40 +1,33 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useUserProfile } from "@/hooks/useUserProfile";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, MapPin, AlertTriangle, User, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, Camera, MapPin, AlertTriangle, CheckCircle2, Loader2, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import * as faceapi from "face-api.js";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
-interface StaffMember {
+// ── Tipos ──────────────────────────────────────────────────────────────────
+interface Funcionario {
   id: string;
   nome: string;
   funcao: string;
+  matricula: string;
 }
 
 interface OgsRef {
   id: string;
   ogs_number: string | null;
   client_name: string | null;
-  location_address: string | null;
   lat: number | null;
   lng: number | null;
-  jornada_horas: number | null;
 }
 
-interface FaceReg {
-  staff_id: string;
-  descriptor: number[];
-  photo_url: string | null;
-}
+type TipoPonto = "entrada" | "saida";
 
-const GEOFENCE_RADIUS_M = 500;
+// ── Geofence ───────────────────────────────────────────────────────────────
+const RAIO_PADRAO_M = 500;
 
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371e3;
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
@@ -43,6 +36,24 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ── Turno inteligente ──────────────────────────────────────────────────────
+// Determina automaticamente se é entrada ou saída com base no último registro do dia
+async function detectarTipoPonto(staffId: string, companyId: string | null): Promise<TipoPonto> {
+  const hoje = new Date().toISOString().split("T")[0];
+  const { data } = await (supabase as any)
+    .from("ponto_registros")
+    .select("tipo, hora")
+    .eq("staff_id", staffId)
+    .eq("data", hoje)
+    .eq("company_id", companyId)
+    .order("hora", { ascending: false })
+    .limit(1);
+
+  if (!data || data.length === 0) return "entrada";
+  return data[0].tipo === "entrada" ? "saida" : "entrada";
+}
+
+// ── Componente principal ───────────────────────────────────────────────────
 export default function RegistrarPonto() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -51,110 +62,98 @@ export default function RegistrarPonto() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const [modelsLoaded, setModelsLoaded] = useState(false);
-  const [loadingModels, setLoadingModels] = useState(true);
-  const [cameraActive, setCameraActive] = useState(false);
-
-  const [geoPosition, setGeoPosition] = useState<{ lat: number; lng: number } | null>(null);
-  const [geoError, setGeoError] = useState<string | null>(null);
-
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [faceRegs, setFaceRegs] = useState<FaceReg[]>([]);
+  // Dados
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [ogsList, setOgsList] = useState<OgsRef[]>([]);
-  const [nearbyOgs, setNearbyOgs] = useState<OgsRef | null>(null);
-  const [manualOgsId, setManualOgsId] = useState<string>("");
-
-  const [recognizing, setRecognizing] = useState(false);
-  const [recognizedStaff, setRecognizedStaff] = useState<StaffMember | null>(null);
-  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
-  const [timedOut, setTimedOut] = useState(false);
-  const [manualStaffId, setManualStaffId] = useState<string>("");
-
-  const [saving, setSaving] = useState(false);
-  const [pontoTipo, setPontoTipo] = useState<"entrada" | "saida">("entrada");
-  const [lastPonto, setLastPonto] = useState<{ nome: string; tipo: string; hora: string } | null>(null);
-
-  // Load face-api models
-  useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model/";
-        await Promise.all([
-          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-        ]);
-        setModelsLoaded(true);
-      } catch (err) {
-        console.error("Face models failed:", err);
-      }
-      setLoadingModels(false);
-    };
-    loadModels();
-  }, []);
-
-  // Load data
-  useEffect(() => {
-    const loadData = async () => {
-      const [staffRes, faceRes, ogsRes] = await Promise.all([
-        supabase.from("aero_pav_gru_staff").select("id, nome, funcao").eq("ativo", true).order("nome"),
-        supabase.from("face_registrations" as any).select("staff_id, descriptor, photo_url"),
-        supabase.from("ogs_reference").select("id, ogs_number, client_name, location_address, lat, lng, jornada_horas" as any),
-      ]);
-      if (staffRes.data) setStaff(staffRes.data as StaffMember[]);
-      if (faceRes.data) setFaceRegs(faceRes.data as any as FaceReg[]);
-      if (ogsRes.data) setOgsList(ogsRes.data as any as OgsRef[]);
-    };
-    loadData();
-  }, []);
+  const [selectedFuncionario, setSelectedFuncionario] = useState<Funcionario | null>(null);
+  const [busca, setBusca] = useState("");
+  const [showBusca, setShowBusca] = useState(false);
+  const [selectedOgsId, setSelectedOgsId] = useState("");
 
   // GPS
+  const [geoPos, setGeoPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [nearbyOgs, setNearbyOgs] = useState<OgsRef | null>(null);
+  const [distanciaM, setDistanciaM] = useState<number | null>(null);
+  const [foraRaio, setForaRaio] = useState(false);
+
+  // Câmera e foto
+  const [cameraActive, setCameraActive] = useState(false);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+
+  // Ponto
+  const [tipoPonto, setTipoPonto] = useState<TipoPonto>("entrada");
+  const [turno, setTurno] = useState<"diurno" | "noturno">("diurno");
+  const [saving, setSaving] = useState(false);
+  const [ultimoPonto, setUltimoPonto] = useState<{ nome: string; tipo: string; hora: string } | null>(null);
+
+  const [loading, setLoading] = useState(true);
+
+  // ── Carrega dados ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setGeoError("GPS não disponível neste dispositivo");
-      return;
-    }
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        setGeoPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setGeoError(null);
-      },
-      (err) => setGeoError(`Erro GPS: ${err.message}`),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
-    );
-    return () => navigator.geolocation.clearWatch(watchId);
+    const load = async () => {
+      const [funcRes, ogsRes] = await Promise.all([
+        (supabase as any).from("funcionarios").select("id, nome, funcao, matricula").order("nome"),
+        (supabase as any).from("ogs_reference").select("id, ogs_number, client_name, lat, lng"),
+      ]);
+      if (funcRes.data) setFuncionarios(funcRes.data);
+      if (ogsRes.data) setOgsList(ogsRes.data);
+      setLoading(false);
+    };
+    load();
   }, []);
 
-  // Auto-detect nearby OGS
+  // ── GPS ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!geoPosition || ogsList.length === 0) return;
-    let closest: OgsRef | null = null;
-    let minDist = Infinity;
-    for (const ogs of ogsList) {
-      if (!ogs.lat || !ogs.lng) continue;
-      const d = haversineDistance(geoPosition.lat, geoPosition.lng, ogs.lat, ogs.lng);
-      if (d <= GEOFENCE_RADIUS_M && d < minDist) {
-        closest = ogs;
-        minDist = d;
-      }
-    }
-    setNearbyOgs(closest);
-  }, [geoPosition, ogsList]);
+    if (!navigator.geolocation) { setGeoError("GPS não disponível"); return; }
+    const watcher = navigator.geolocation.watchPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setGeoPos(coords);
+        setGeoError(null);
 
-  // Start camera
+        // Encontra OGS mais próxima
+        let closest: OgsRef | null = null;
+        let closestDist = Infinity;
+        for (const ogs of ogsList) {
+          if (!ogs.lat || !ogs.lng) continue;
+          const d = haversine(coords.lat, coords.lng, ogs.lat, ogs.lng);
+          if (d < closestDist) { closestDist = d; closest = ogs; }
+        }
+        if (closest && closestDist <= RAIO_PADRAO_M * 2) {
+          setNearbyOgs(closest);
+          setDistanciaM(Math.round(closestDist));
+          setForaRaio(closestDist > RAIO_PADRAO_M);
+          setSelectedOgsId(closest.id);
+        } else {
+          setNearbyOgs(null);
+          setDistanciaM(null);
+          setForaRaio(true);
+        }
+      },
+      (err) => setGeoError(err.message),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+    return () => navigator.geolocation.clearWatch(watcher);
+  }, [ogsList]);
+
+  // ── Atualiza tipo de ponto quando funcionário muda ─────────────────────
+  useEffect(() => {
+    if (!selectedFuncionario) return;
+    detectarTipoPonto(selectedFuncionario.id, profile?.company_id || null).then(setTipoPonto);
+  }, [selectedFuncionario, profile?.company_id]);
+
+  // ── Câmera ─────────────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
       setCameraActive(true);
     } catch {
-      toast({ title: "Erro", description: "Não foi possível acessar a câmera", variant: "destructive" });
+      toast({ title: "Câmera", description: "Não foi possível acessar a câmera.", variant: "destructive" });
     }
   }, [toast]);
 
@@ -164,335 +163,304 @@ export default function RegistrarPonto() {
     setCameraActive(false);
   }, []);
 
-  useEffect(() => () => stopCamera(), [stopCamera]);
+  const capturarFoto = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext("2d")!;
+    canvasRef.current.width = videoRef.current.videoWidth;
+    canvasRef.current.height = videoRef.current.videoHeight;
+    ctx.drawImage(videoRef.current, 0, 0);
+    const dataUrl = canvasRef.current.toDataURL("image/jpeg", 0.7);
+    setCapturedPhoto(dataUrl);
+    stopCamera();
+  }, [stopCamera]);
 
-  // Capture photo from video
-  const captureFrame = (): string | null => {
-    if (!videoRef.current || !canvasRef.current) return null;
-    const v = videoRef.current;
-    const c = canvasRef.current;
-    c.width = v.videoWidth;
-    c.height = v.videoHeight;
-    c.getContext("2d")?.drawImage(v, 0, 0);
-    return c.toDataURL("image/jpeg", 0.8);
-  };
-
-  // Recognize face with 5s timeout
-  const handleRecognize = async () => {
-    if (!videoRef.current || !modelsLoaded) return;
-    setRecognizing(true);
-    setTimedOut(false);
-    setRecognizedStaff(null);
+  const refazerFoto = useCallback(() => {
     setCapturedPhoto(null);
+    startCamera();
+  }, [startCamera]);
 
-    const timeout = setTimeout(() => {
-      setTimedOut(true);
-      setRecognizing(false);
-      const photo = captureFrame();
-      setCapturedPhoto(photo);
-      toast({ title: "⏱ Tempo esgotado", description: "Selecione o funcionário manualmente." });
-    }, 5000);
-
+  // ── Upload foto ────────────────────────────────────────────────────────
+  const uploadFoto = async (dataUrl: string, staffId: string): Promise<string | null> => {
     try {
-      const detection = await faceapi
-        .detectSingleFace(videoRef.current)
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-
-      if (!detection) {
-        clearTimeout(timeout);
-        setRecognizing(false);
-        setTimedOut(true);
-        setCapturedPhoto(captureFrame());
-        toast({ title: "Nenhum rosto detectado", description: "Selecione manualmente.", variant: "destructive" });
-        return;
-      }
-
-      const queryDescriptor = detection.descriptor;
-      let bestMatch: { staffId: string; distance: number } | null = null;
-
-      for (const reg of faceRegs) {
-        const refDesc = new Float32Array(reg.descriptor);
-        const distance = faceapi.euclideanDistance(queryDescriptor, refDesc);
-        if (!bestMatch || distance < bestMatch.distance) {
-          bestMatch = { staffId: reg.staff_id, distance };
-        }
-      }
-
-      clearTimeout(timeout);
-
-      if (bestMatch && bestMatch.distance < 0.6) {
-        const found = staff.find((s) => s.id === bestMatch!.staffId);
-        if (found) {
-          setRecognizedStaff(found);
-          setCapturedPhoto(captureFrame());
-          setRecognizing(false);
-          toast({ title: `✅ ${found.nome}`, description: "Rosto reconhecido!" });
-          return;
-        }
-      }
-
-      // Not recognized
-      setTimedOut(true);
-      setCapturedPhoto(captureFrame());
-      setRecognizing(false);
-      toast({ title: "Rosto não identificado", description: "Selecione manualmente." });
-    } catch (err) {
-      clearTimeout(timeout);
-      setTimedOut(true);
-      setCapturedPhoto(captureFrame());
-      setRecognizing(false);
-      console.error(err);
-    }
+      const blob = await (await fetch(dataUrl)).blob();
+      const fileName = `ponto/${staffId}/${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from("face-photos").upload(fileName, blob, { contentType: "image/jpeg" });
+      if (error) return null;
+      const { data } = supabase.storage.from("face-photos").getPublicUrl(fileName);
+      return data.publicUrl;
+    } catch { return null; }
   };
 
-  // Save ponto
-  const handleSavePonto = async () => {
-    const selectedStaff = recognizedStaff || staff.find((s) => s.id === manualStaffId);
-    if (!selectedStaff) {
-      toast({ title: "Selecione um funcionário", variant: "destructive" });
-      return;
+  // ── Registrar ponto ────────────────────────────────────────────────────
+  const registrar = async () => {
+    if (!selectedFuncionario) {
+      toast({ title: "Selecione o funcionário", variant: "destructive" }); return;
     }
-    if (!geoPosition) {
-      toast({ title: "GPS obrigatório", description: "Ative a localização para registrar o ponto.", variant: "destructive" });
-      return;
-    }
-
-    const selectedOgs = nearbyOgs || ogsList.find((o) => o.id === manualOgsId);
-    if (!selectedOgs) {
-      toast({ title: "Selecione a Obra", description: "Nenhuma obra próxima encontrada. Selecione manualmente.", variant: "destructive" });
-      return;
+    if (!capturedPhoto) {
+      toast({ title: "Foto obrigatória", description: "Tire a foto antes de registrar.", variant: "destructive" }); return;
     }
 
     setSaving(true);
     try {
-      // Upload photo if captured
-      let photoUrl: string | null = null;
-      if (capturedPhoto) {
-        const blob = await fetch(capturedPhoto).then((r) => r.blob());
-        const fileName = `ponto/${selectedStaff.id}_${Date.now()}.jpg`;
-        const { error: upErr } = await supabase.storage.from("face-photos").upload(fileName, blob, { contentType: "image/jpeg" });
-        if (!upErr) {
-          const { data: urlData } = await supabase.storage.from("face-photos").createSignedUrl(fileName, 60 * 60 * 24 * 365);
-          photoUrl = urlData?.signedUrl || null;
-        }
-      }
+      const agora = new Date();
+      const hora = `${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}:${String(agora.getSeconds()).padStart(2, "0")}`;
+      const data = agora.toISOString().split("T")[0];
 
-      const now = new Date();
-      const { error } = await supabase.from("ponto_registros" as any).insert({
-        staff_id: selectedStaff.id,
-        tipo: pontoTipo,
-        data: now.toISOString().split("T")[0],
-        hora: now.toTimeString().split(" ")[0],
-        lat: geoPosition.lat,
-        lng: geoPosition.lng,
-        ogs_id: selectedOgs.id,
-        ogs_number: selectedOgs.ogs_number,
-        photo_url: photoUrl,
-        metodo: recognizedStaff ? "facial" : "manual",
-        company_id: profile?.company_id,
-      } as any);
+      // Upload foto
+      const fotoUrl = await uploadFoto(capturedPhoto, selectedFuncionario.id);
+
+      // OGS selecionada
+      const ogsEscolhida = ogsList.find(o => o.id === selectedOgsId);
+
+      const { error } = await (supabase as any).from("ponto_registros").insert({
+        staff_id: selectedFuncionario.id,
+        tipo: tipoPonto,
+        data,
+        hora,
+        metodo: "manual",
+        photo_url: fotoUrl,
+        lat: geoPos?.lat || null,
+        lng: geoPos?.lng || null,
+        ogs_id: selectedOgsId || null,
+        ogs_number: ogsEscolhida?.ogs_number || null,
+        turno,
+        distancia_m: distanciaM,
+        fora_raio: foraRaio,
+        company_id: profile?.company_id || null,
+      });
 
       if (error) throw error;
 
-      setLastPonto({
-        nome: selectedStaff.nome,
-        tipo: pontoTipo,
-        hora: now.toLocaleTimeString("pt-BR"),
-      });
-
-      toast({ title: `✅ Ponto de ${pontoTipo} registrado!`, description: `${selectedStaff.nome} — ${now.toLocaleTimeString("pt-BR")}` });
-
-      // Reset
-      setRecognizedStaff(null);
+      setUltimoPonto({ nome: selectedFuncionario.nome, tipo: tipoPonto, hora: hora.slice(0, 5) });
       setCapturedPhoto(null);
-      setTimedOut(false);
-      setManualStaffId("");
+      setSelectedFuncionario(null);
+      setBusca("");
+
+      // Alerta se fora do raio
+      if (foraRaio) {
+        toast({
+          title: `⚠️ Ponto registrado — fora da obra`,
+          description: `${selectedFuncionario.nome} estava a ${distanciaM}m da obra mais próxima.`,
+        });
+      } else {
+        toast({ title: `✅ Ponto registrado`, description: `${selectedFuncionario.nome} — ${tipoPonto} às ${hora.slice(0, 5)}` });
+      }
     } catch (err: any) {
-      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao registrar", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
-  const currentOgs = nearbyOgs || ogsList.find((o) => o.id === manualOgsId);
+  // ── Filtro de busca ────────────────────────────────────────────────────
+  const funcionariosFiltrados = busca.trim()
+    ? funcionarios.filter(f => f.nome.toLowerCase().includes(busca.toLowerCase()) || f.matricula?.includes(busca))
+    : [];
 
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
         <button onClick={() => navigate("/rh")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">
           <h1 className="font-display font-bold text-base">Registrar Ponto</h1>
-          <p className="text-[10px] text-primary-foreground/70">Ponto Facial Workflux</p>
+          <p className="text-[10px] text-primary-foreground/70">Entrada e saída com foto</p>
+        </div>
+        <div className="text-xs text-white/80 font-mono">
+          {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        {/* GPS Status */}
-        <Card className={geoPosition ? "border-green-500/50" : "border-destructive/50"}>
-          <CardContent className="p-3 flex items-center gap-3">
-            <MapPin className={`h-5 w-5 ${geoPosition ? "text-green-500" : "text-destructive"}`} />
-            <div className="flex-1 min-w-0">
-              {geoPosition ? (
-                <p className="text-xs text-muted-foreground">
-                  📍 GPS ativo: {geoPosition.lat.toFixed(5)}, {geoPosition.lng.toFixed(5)}
-                </p>
-              ) : (
-                <p className="text-xs text-destructive font-medium">{geoError || "Aguardando GPS..."}</p>
-              )}
+      <div className="max-w-lg mx-auto px-4 py-4 space-y-4 pb-24">
+
+        {/* Último ponto registrado */}
+        {ultimoPonto && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-800">{ultimoPonto.nome}</p>
+              <p className="text-xs text-green-600">{ultimoPonto.tipo === "entrada" ? "Entrada" : "Saída"} registrada às {ultimoPonto.hora}</p>
             </div>
-            {geoPosition && <Badge variant="outline" className="text-green-600 border-green-500 text-[10px]">OK</Badge>}
-          </CardContent>
-        </Card>
+          </div>
+        )}
 
-        {/* Obra detected */}
-        <Card>
-          <CardContent className="p-3 space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground">📌 Obra / OGS</p>
-            {nearbyOgs ? (
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                <p className="text-sm font-medium">{nearbyOgs.ogs_number} — {nearbyOgs.client_name}</p>
-                <Badge className="text-[9px] ml-auto">Auto</Badge>
-              </div>
+        {/* GPS Status */}
+        <div className={`rounded-xl border p-3 flex items-center gap-3 ${
+          geoError ? "bg-red-50 border-red-200" :
+          foraRaio ? "bg-amber-50 border-amber-200" :
+          "bg-green-50 border-green-200"
+        }`}>
+          <MapPin className={`w-4 h-4 shrink-0 ${geoError ? "text-red-500" : foraRaio ? "text-amber-500" : "text-green-600"}`} />
+          <div className="flex-1 min-w-0">
+            {geoError ? (
+              <p className="text-xs text-red-700">GPS indisponível — {geoError}</p>
+            ) : !geoPos ? (
+              <p className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Obtendo localização...</p>
+            ) : nearbyOgs ? (
+              <>
+                <p className="text-xs font-semibold truncate">{nearbyOgs.client_name || nearbyOgs.ogs_number}</p>
+                <p className={`text-[11px] ${foraRaio ? "text-amber-600 font-bold" : "text-green-600"}`}>
+                  {foraRaio ? `⚠️ ${distanciaM}m da obra (fora do raio)` : `✅ ${distanciaM}m — dentro da obra`}
+                </p>
+              </>
             ) : (
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-                  <p className="text-xs text-muted-foreground">Nenhuma obra no raio de 500m. Selecione:</p>
-                </div>
-                <Select value={manualOgsId} onValueChange={setManualOgsId}>
-                  <SelectTrigger className="h-10 bg-secondary"><SelectValue placeholder="Selecionar obra..." /></SelectTrigger>
-                  <SelectContent className="max-h-[200px]">
-                    {ogsList.map((o) => (
-                      <SelectItem key={o.id} value={o.id}>{o.ogs_number} — {o.client_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <p className="text-xs text-amber-700">Nenhuma obra próxima encontrada</p>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Tipo de ponto */}
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant={pontoTipo === "entrada" ? "default" : "outline"}
-            onClick={() => setPontoTipo("entrada")}
-            className="h-12"
-          >
-            🟢 Entrada
-          </Button>
-          <Button
-            variant={pontoTipo === "saida" ? "default" : "outline"}
-            onClick={() => setPontoTipo("saida")}
-            className="h-12"
-          >
-            🔴 Saída
-          </Button>
+          </div>
         </div>
 
-        {/* Camera */}
-        <Card>
-          <CardContent className="p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-muted-foreground">📸 Reconhecimento Facial</p>
-              {loadingModels && <Badge variant="secondary" className="text-[9px]">Carregando IA...</Badge>}
-            </div>
+        {/* Seleção de funcionário */}
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <h2 className="text-sm font-bold text-foreground flex items-center gap-2"><User className="w-4 h-4 text-primary" /> Funcionário</h2>
 
-            <div className="relative bg-black rounded-lg overflow-hidden aspect-[4/3]">
-              <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
-              <canvas ref={canvasRef} className="hidden" />
-              {!cameraActive && (
-                <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                  <Camera className="h-12 w-12 text-muted-foreground/50" />
+          {selectedFuncionario ? (
+            <div className="flex items-center justify-between bg-primary/5 rounded-lg p-3 border border-primary/20">
+              <div>
+                <p className="font-semibold text-sm text-foreground">{selectedFuncionario.nome}</p>
+                <p className="text-xs text-muted-foreground">{selectedFuncionario.funcao} · Mat. {selectedFuncionario.matricula}</p>
+              </div>
+              <button onClick={() => { setSelectedFuncionario(null); setBusca(""); }} className="text-xs text-muted-foreground hover:text-destructive px-2 py-1 rounded">
+                Trocar
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <input
+                type="text"
+                value={busca}
+                onChange={e => { setBusca(e.target.value); setShowBusca(true); }}
+                onFocus={() => setShowBusca(true)}
+                placeholder="Digite o nome ou matrícula..."
+                className="w-full h-11 rounded-xl border border-border bg-secondary px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              {showBusca && funcionariosFiltrados.length > 0 && (
+                <div className="absolute z-10 top-12 left-0 right-0 bg-card border border-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {funcionariosFiltrados.map(f => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => { setSelectedFuncionario(f); setBusca(""); setShowBusca(false); }}
+                      className="w-full text-left px-3 py-2.5 hover:bg-muted/50 border-b border-border last:border-0"
+                    >
+                      <p className="text-sm font-medium">{f.nome}</p>
+                      <p className="text-xs text-muted-foreground">{f.funcao} · {f.matricula}</p>
+                    </button>
+                  ))}
                 </div>
               )}
-              {recognizing && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                  <div className="text-center text-white">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                    <p className="text-sm">Identificando...</p>
-                  </div>
-                </div>
-              )}
             </div>
+          )}
+        </div>
 
-            {!cameraActive ? (
-              <Button onClick={startCamera} className="w-full h-11 gap-2" disabled={!geoPosition}>
-                <Camera className="w-4 h-4" /> Abrir Câmera
-              </Button>
+        {/* Tipo de ponto + Turno */}
+        {selectedFuncionario && (
+          <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+            <div className="flex gap-3">
+              <div className="flex-1 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setTipoPonto("entrada")}
+                    className={`flex-1 h-10 rounded-xl text-sm font-bold border-2 transition-colors ${
+                      tipoPonto === "entrada" ? "bg-green-500 text-white border-green-500" : "border-border text-muted-foreground"
+                    }`}
+                  >🟢 Entrada</button>
+                  <button
+                    onClick={() => setTipoPonto("saida")}
+                    className={`flex-1 h-10 rounded-xl text-sm font-bold border-2 transition-colors ${
+                      tipoPonto === "saida" ? "bg-red-500 text-white border-red-500" : "border-border text-muted-foreground"
+                    }`}
+                  >🔴 Saída</button>
+                </div>
+              </div>
+              <div className="flex-1 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Turno</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setTurno("diurno")}
+                    className={`flex-1 h-10 rounded-xl text-sm font-bold border-2 transition-colors ${
+                      turno === "diurno" ? "bg-primary text-white border-primary" : "border-border text-muted-foreground"
+                    }`}
+                  >☀️ Diurno</button>
+                  <button
+                    onClick={() => setTurno("noturno")}
+                    className={`flex-1 h-10 rounded-xl text-sm font-bold border-2 transition-colors ${
+                      turno === "noturno" ? "bg-primary text-white border-primary" : "border-border text-muted-foreground"
+                    }`}
+                  >🌙 Noturno</button>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-center text-muted-foreground">
+              <Clock className="inline w-3 h-3 mr-1" />
+              Tipo detectado automaticamente pelo último registro de hoje
+            </p>
+          </div>
+        )}
+
+        {/* Câmera / Foto */}
+        {selectedFuncionario && (
+          <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2"><Camera className="w-4 h-4 text-primary" /> Foto (obrigatória)</h2>
+
+            {capturedPhoto ? (
+              <div className="space-y-2">
+                <img src={capturedPhoto} alt="Foto capturada" className="w-full rounded-xl object-cover max-h-48" />
+                <Button variant="outline" onClick={refazerFoto} className="w-full h-9 text-sm">
+                  🔄 Refazer foto
+                </Button>
+              </div>
+            ) : cameraActive ? (
+              <div className="space-y-2">
+                <video ref={videoRef} className="w-full rounded-xl bg-black" playsInline muted />
+                <canvas ref={canvasRef} className="hidden" />
+                <Button onClick={capturarFoto} className="w-full h-11 bg-primary text-white font-bold">
+                  📸 Capturar foto
+                </Button>
+              </div>
             ) : (
-              <Button
-                onClick={handleRecognize}
-                className="w-full h-11 gap-2"
-                disabled={recognizing || !modelsLoaded}
-              >
-                {recognizing ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Identificando...</>
-                ) : (
-                  <><User className="w-4 h-4" /> Identificar Funcionário</>
-                )}
+              <Button variant="outline" onClick={startCamera} className="w-full h-11 gap-2">
+                <Camera className="w-4 h-4" /> Abrir câmera
               </Button>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Recognition result */}
-        {recognizedStaff && (
-          <Card className="border-green-500/50 bg-green-500/5">
-            <CardContent className="p-3 flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-500 shrink-0" />
-              <div>
-                <p className="font-bold text-sm">{recognizedStaff.nome}</p>
-                <p className="text-xs text-muted-foreground">{recognizedStaff.funcao} • Reconhecido por IA</p>
-              </div>
-            </CardContent>
-          </Card>
+          </div>
         )}
 
-        {/* Manual fallback */}
-        {timedOut && !recognizedStaff && (
-          <Card className="border-amber-500/50 bg-amber-500/5">
-            <CardContent className="p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                <p className="text-xs font-medium text-amber-700">Plano B — Seleção Manual</p>
-              </div>
-              <Select value={manualStaffId} onValueChange={setManualStaffId}>
-                <SelectTrigger className="h-10 bg-secondary"><SelectValue placeholder="Selecionar funcionário..." /></SelectTrigger>
-                <SelectContent className="max-h-[200px]">
-                  {staff.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.nome} — {s.funcao}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+        {/* OGS manual (se fora do raio) */}
+        {selectedFuncionario && foraRaio && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+            <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+              <AlertTriangle className="w-3.5 h-3.5" /> Fora do raio — selecione a obra manualmente
+            </p>
+            <select
+              value={selectedOgsId}
+              onChange={e => setSelectedOgsId(e.target.value)}
+              className="w-full h-10 rounded-lg border border-amber-300 bg-white px-2 text-sm"
+            >
+              <option value="">Selecione a obra...</option>
+              {ogsList.map(o => (
+                <option key={o.id} value={o.id}>{o.ogs_number} — {o.client_name}</option>
+              ))}
+            </select>
+          </div>
         )}
 
-        {/* Save button */}
-        {(recognizedStaff || manualStaffId) && (
+        {/* Botão registrar */}
+        {selectedFuncionario && (
           <Button
-            onClick={handleSavePonto}
-            className="w-full h-12 text-base gap-2"
-            disabled={saving || !geoPosition || (!nearbyOgs && !manualOgsId)}
+            onClick={registrar}
+            disabled={saving || !capturedPhoto}
+            className="w-full h-14 text-base font-bold rounded-2xl bg-header-gradient hover:opacity-90 shadow-lg"
           >
-            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-            {saving ? "Salvando..." : `Registrar ${pontoTipo === "entrada" ? "Entrada" : "Saída"}`}
+            {saving ? (
+              <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Registrando...</>
+            ) : (
+              <>{tipoPonto === "entrada" ? "🟢 Registrar Entrada" : "🔴 Registrar Saída"}</>
+            )}
           </Button>
-        )}
-
-        {/* Last ponto confirmation */}
-        {lastPonto && (
-          <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="p-3 text-center">
-              <p className="text-xs text-muted-foreground">Último registro:</p>
-              <p className="font-bold text-sm">{lastPonto.nome}</p>
-              <p className="text-xs">{lastPonto.tipo === "entrada" ? "🟢 Entrada" : "🔴 Saída"} às {lastPonto.hora}</p>
-            </CardContent>
-          </Card>
         )}
       </div>
     </div>
