@@ -2176,6 +2176,8 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           data: string
+          distancia_m: number | null
+          fora_raio: boolean | null
           hora: string
           id: string
           lat: number | null
@@ -2186,11 +2188,14 @@ export type Database = {
           photo_url: string | null
           staff_id: string
           tipo: string
+          turno: string | null
         }
         Insert: {
           company_id?: string | null
           created_at?: string | null
           data?: string
+          distancia_m?: number | null
+          fora_raio?: boolean | null
           hora?: string
           id?: string
           lat?: number | null
@@ -2201,11 +2206,14 @@ export type Database = {
           photo_url?: string | null
           staff_id: string
           tipo?: string
+          turno?: string | null
         }
         Update: {
           company_id?: string | null
           created_at?: string | null
           data?: string
+          distancia_m?: number | null
+          fora_raio?: boolean | null
           hora?: string
           id?: string
           lat?: number | null
@@ -2216,6 +2224,7 @@ export type Database = {
           photo_url?: string | null
           staff_id?: string
           tipo?: string
+          turno?: string | null
         }
         Relationships: [
           {
@@ -2236,7 +2245,7 @@ export type Database = {
             foreignKeyName: "ponto_registros_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
-            referencedRelation: "aero_pav_gru_staff"
+            referencedRelation: "funcionarios"
             referencedColumns: ["id"]
           },
         ]
