@@ -105,7 +105,7 @@ export default function Home() {
         {HUB_MODULES
           .filter(mod => {
             if (mod.adminOnly && !isAdmin) return false;
-            if (loadingPerms || loadingModules) return true; // enquanto carrega, mostra tudo
+            if (loadingPerms || loadingModules) return false; // aguarda carregar antes de mostrar
             // Super-admin (dono do Workflux) vê tudo
             // Admin da empresa vê módulos contratados pela empresa
             if (!hasModule(mod.id)) return false;

@@ -66,7 +66,8 @@ export function useCompanyModules() {
    * Retorna true se o módulo está liberado para o usuário/empresa.
    */
   function hasModule(moduleId: string): boolean {
-    if (isSuperAdmin || modules === null) return true; // super-admin vê tudo
+    if (isSuperAdmin) return true; // super-admin vê tudo
+    if (modules === null) return false; // ainda carregando — não mostra nada
     return modules.includes(moduleId);
   }
 

@@ -67,14 +67,16 @@ export default function EquipmentHome() {
       {/* Header with electric gradient */}
       <header className="flex items-center justify-between px-4 py-3 bg-header-gradient shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <img src={logoCi} alt="Workflux" className="h-11 object-contain drop-shadow-lg" />
-            <div className="absolute inset-0 rounded-full bg-white/20 blur-md -z-10 scale-110" />
-          </div>
-          <div>
-            <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Workflux</span>
-            <span className="block text-[11px] text-primary-foreground/80 font-medium leading-tight">Gestão de Equipamentos</span>
-          </div>
+          <button onClick={() => navigate("/")} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <div className="relative">
+              <img src={logoCi} alt="Workflux" className="h-11 object-contain drop-shadow-lg" />
+              <div className="absolute inset-0 rounded-full bg-white/20 blur-md -z-10 scale-110" />
+            </div>
+            <div>
+              <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">Workflux</span>
+              <span className="block text-[11px] text-primary-foreground/80 font-medium leading-tight">Gestão de Equipamentos</span>
+            </div>
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={handleLogout} disabled={loggingOut} className="text-primary-foreground hover:bg-white/15">
