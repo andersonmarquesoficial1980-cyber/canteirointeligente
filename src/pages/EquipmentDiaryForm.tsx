@@ -1026,6 +1026,18 @@ export default function EquipmentDiaryForm() {
       toast({ title: "Campos obrigatórios", description: "Selecione o equipamento e data.", variant: "destructive" });
       return;
     }
+    // Carreta: exige pelo menos 1 apontamento de transporte com horário e atividade
+    if (isCarreta && !isDraft) {
+      const validEntries = timeEntries.filter(t => t.startTime && t.activity);
+      if (validEntries.length === 0) {
+        toast({
+          title: "⚠️ Apontamentos obrigatórios",
+          description: "Preencha pelo menos 1 apontamento de transporte com horário e atividade antes de enviar.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
     if (horimeterError) {
       toast({ title: `${meterLabel} inválido`, description: horimeterError, variant: "destructive" });
       return;
