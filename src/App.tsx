@@ -321,12 +321,12 @@ function AppRoutes() {
 
         {/* WF RH — redirecionado para Gestão de Pessoas */}
         <Route path="/rh" element={<Navigate to="/gestao-pessoas" replace />} />
-        <Route path="/rh/trajeto-vt" element={<TrajetoVT />} />
-        <Route path="/rh/registrar-ponto" element={<RegistrarPonto />} />
-        <Route path="/rh/espelho-ponto" element={<EspelhoPonto />} />
-        <Route path="/rh/solicitacoes" element={<PontoSolicitacoes />} />
-        <Route path="/rh/aprovacoes" element={<PontoAprovacoes />} />
-        <Route path="/rh/banco-horas" element={<BancoHoras />} />
+        <Route path="/rh/trajeto-vt" element={<RequireModule moduleId="rh"><TrajetoVT /></RequireModule>} />
+        <Route path="/rh/registrar-ponto" element={<RequireModule moduleId="rh"><RegistrarPonto /></RequireModule>} />
+        <Route path="/rh/espelho-ponto" element={<RequireModule moduleId="rh"><EspelhoPonto /></RequireModule>} />
+        <Route path="/rh/solicitacoes" element={<RequireModule moduleId="rh"><PontoSolicitacoes /></RequireModule>} />
+        <Route path="/rh/aprovacoes" element={<RequireModule moduleId="rh"><PontoAprovacoes /></RequireModule>} />
+        <Route path="/rh/banco-horas" element={<RequireModule moduleId="rh"><BancoHoras /></RequireModule>} />
 
         {/* Vale Transporte */}
         <Route path="/vale-transporte" element={<RequireModule moduleId="rh"><ValeTransporte /></RequireModule>} />
