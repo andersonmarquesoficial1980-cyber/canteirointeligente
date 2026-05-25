@@ -1039,6 +1039,27 @@ export default function EquipmentDiaryForm() {
         return;
       }
     }
+    // Fresadora: exige apontamentos de horas e pelo menos 1 área de produção preenchida
+    if (isFresadora && !isDraft && workStatus === "Trabalhando") {
+      const validEntries = timeEntries.filter(t => t.startTime && t.activity);
+      if (validEntries.length === 0) {
+        toast({
+          title: "⚠️ Apontamentos obrigatórios",
+          description: "Preencha pelo menos 1 apontamento de horas (horário de início e atividade) antes de enviar.",
+          variant: "destructive"
+        });
+        return;
+      }
+      const validAreas = productionAreas.filter(a => a.comp || a.larg);
+      if (validAreas.length === 0) {
+        toast({
+          title: "⚠️ Produção obrigatória",
+          description: "Preencha pelo menos 1 área de fresagem (comprimento e largura) antes de enviar.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
     if (horimeterError) {
       toast({ title: `${meterLabel} inválido`, description: horimeterError, variant: "destructive" });
       return;
@@ -1232,7 +1253,11 @@ export default function EquipmentDiaryForm() {
             ogs_destination: t.transportOgs || null,
           };
         });
-        await supabase.from("equipment_time_entries").insert(rows);
+        const { error: entriesErr } = await supabase.from("equipment_time_entries").insert(rows);
+        if (entriesErr) {
+          console.error("[Apontamentos] Erro ao salvar:", entriesErr);
+          throw new Error(`Erro ao salvar apontamentos de horas: ${entriesErr.message}`);
+        }
       }
 
       // Save KMA calibration
