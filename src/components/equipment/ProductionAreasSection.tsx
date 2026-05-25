@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Plus, Trash2 } from "lucide-react";
 
 export interface ProductionArea {
@@ -77,25 +77,19 @@ export default function ProductionAreasSection({ areas, onChange }: Props) {
         const m3 = calcM3(area);
         return (
           <div key={area.id} className="grid grid-cols-[1fr_1fr_1fr_70px_70px_40px] gap-1 items-center">
-            <Input
-              type="text"
-              inputMode="decimal"
+            <NumericInput
               value={area.comp}
               onChange={(e) => update(idx, "comp", e.target.value)}
               placeholder="0"
               className="bg-secondary border-border h-9 text-xs"
             />
-            <Input
-              type="text"
-              inputMode="decimal"
+            <NumericInput
               value={area.larg}
               onChange={(e) => update(idx, "larg", e.target.value)}
               placeholder="0"
               className="bg-secondary border-border h-9 text-xs"
             />
-            <Input
-              type="text"
-              inputMode="decimal"
+            <NumericInput
               value={area.esp}
               onChange={(e) => update(idx, "esp", e.target.value)}
               placeholder="0"

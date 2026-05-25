@@ -1331,7 +1331,7 @@ export default function EquipmentDiaryForm() {
           const { error: areasErr } = await supabase.from("equipment_production_areas").insert(rows);
           if (areasErr) {
             console.error("[Produção] Erro ao salvar áreas:", areasErr);
-            toast({ title: "Aviso", description: `Erro ao salvar produção: ${areasErr.message}`, variant: "destructive" });
+            throw new Error(`Erro ao salvar áreas de fresagem: ${areasErr.message}`);
           }
         }
       }
