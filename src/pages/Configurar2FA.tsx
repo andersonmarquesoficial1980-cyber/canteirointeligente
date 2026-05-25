@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Shield, ShieldCheck, ShieldOff, Loader2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,8 @@ import logoCi from "@/assets/logo-workflux.png";
 
 export default function Configurar2FA() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isObrigatorio = searchParams.get("obrigatorio") === "1";
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -93,9 +95,11 @@ export default function Configurar2FA() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+        {!isObrigatorio && (
+          <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        )}
         <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Autenticação em 2 Fatores</span>
@@ -104,6 +108,14 @@ export default function Configurar2FA() {
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-4">
+        {isObrigatorio && (
+          <div className="rdo-card border-destructive/40 bg-destructive/10 flex items-center gap-3 p-4">
+            <Shield className="w-5 h-5 text-destructive shrink-0" />
+            <p className="text-xs text-destructive font-medium">
+              <strong>2FA obrigatório para Administradores e Gerentes.</strong> Configure agora para continuar acessando o Workflux.
+            </p>
+          </div>
+        )}
         {loading ? (
           <div className="rdo-card py-10 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
         ) : step === "status" ? (

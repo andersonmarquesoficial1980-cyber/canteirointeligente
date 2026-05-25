@@ -169,6 +169,7 @@ function AppRoutes() {
   const [blocked, setBlocked] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [needs2FA, setNeeds2FA] = useState(false);
+  const [mustSetup2FA, setMustSetup2FA] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(false);
   // Evita desmontar o app quando o token está sendo revalidado em background
   const [wasAuthenticated, setWasAuthenticated] = useState(false);
@@ -201,11 +202,24 @@ function AppRoutes() {
           try {
             const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
             if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
+              // Tem 2FA configurado mas não validou ainda
               setNeeds2FA(true);
+              setMustSetup2FA(false);
+            } else if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal1") {
+              // Não tem 2FA configurado — verificar se é admin ou gerente
+              setNeeds2FA(false);
+              const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "admin" });
+              const { data: isGerente } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "gerente" });
+              if (isAdmin || isGerente) {
+                setMustSetup2FA(true);
+              } else {
+                setMustSetup2FA(false);
+              }
             } else {
               setNeeds2FA(false);
+              setMustSetup2FA(false);
             }
-          } catch { setNeeds2FA(false); }
+          } catch { setNeeds2FA(false); setMustSetup2FA(false); }
         }
       } catch {}
       setCheckingAccess(false);
@@ -254,6 +268,10 @@ function AppRoutes() {
 
   if (mustChangePassword && location.pathname !== "/trocar-senha") {
     return <Navigate to="/trocar-senha" replace />;
+  }
+
+  if (mustSetup2FA && location.pathname !== "/configurar-2fa") {
+    return <Navigate to="/configurar-2fa?obrigatorio=1" replace />;
   }
 
   if (needs2FA && location.pathname !== "/verificar-2fa") {
