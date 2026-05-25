@@ -513,6 +513,19 @@ export default function RdoForm() {
         toast({ title: "Erro", description: "Turno inválido. Use Diurno ou Noturno.", variant: "destructive" });
         return;
       }
+      // Efetivo obrigatório quando status é Trabalhou
+      if (header.status_obra === "Trabalhou") {
+        const validEfetivo = efetivo.filter(e => e.funcao);
+        if (validEfetivo.length === 0) {
+          toast({ title: "⚠️ Efetivo obrigatório", description: "Adicione pelo menos 1 funcionário no efetivo antes de enviar.", variant: "destructive" });
+          return;
+        }
+        // Equipamentos obrigatórios quando status é Trabalhou (exceto Patio)
+        if (!isPatioRdo && equipamentos.length === 0) {
+          toast({ title: "⚠️ Equipamentos obrigatórios", description: "Adicione pelo menos 1 equipamento no RDO antes de enviar.", variant: "destructive" });
+          return;
+        }
+      }
     }
 
     const { data: { user } } = await supabase.auth.getUser();

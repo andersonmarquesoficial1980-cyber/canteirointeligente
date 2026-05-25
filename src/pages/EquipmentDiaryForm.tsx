@@ -1039,8 +1039,9 @@ export default function EquipmentDiaryForm() {
         return;
       }
     }
-    // Rolo, Bobcat, Retro, Vibroacabadora: exige apontamentos de horas
-    if ((isRolo || isBobcat || isRetro || isVibro) && !isDraft && workStatus === "Trabalhando") {
+    // Todos os equipamentos com apontamento de horas: exige pelo menos 1 entry com horário e atividade
+    const hasTimeEntries = isFresadora || isRolo || isBobcat || isRetro || isVibro || isUsinaKma || isCaminhoes || isComboio || isVeiculo;
+    if (hasTimeEntries && !isDraft && workStatus === "Trabalhando") {
       const validEntries = timeEntries.filter(t => t.startTime && t.activity);
       if (validEntries.length === 0) {
         toast({
@@ -1051,17 +1052,8 @@ export default function EquipmentDiaryForm() {
         return;
       }
     }
-    // Fresadora: exige apontamentos de horas e pelo menos 1 área de produção preenchida
+    // Fresadora: exige adicionalmente pelo menos 1 área de produção preenchida
     if (isFresadora && !isDraft && workStatus === "Trabalhando") {
-      const validEntries = timeEntries.filter(t => t.startTime && t.activity);
-      if (validEntries.length === 0) {
-        toast({
-          title: "⚠️ Apontamentos obrigatórios",
-          description: "Preencha pelo menos 1 apontamento de horas (horário de início e atividade) antes de enviar.",
-          variant: "destructive"
-        });
-        return;
-      }
       const validAreas = productionAreas.filter(a => a.comp || a.larg);
       if (validAreas.length === 0) {
         toast({
