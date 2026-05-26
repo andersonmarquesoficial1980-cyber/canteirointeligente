@@ -587,12 +587,27 @@ export default function EquipmentDiaryForm() {
   const fuelMeterValue = fuelSyncedFromComboio && fueling.fuelMeter ? Number(String(fueling.fuelMeter).replace(",", ".")) : null;
 
   const toNVal = (v: string) => Number((v || "").replace(",", ".")) || 0;
+
+  // Limite máximo de horas/km por tipo de equipamento por turno
+  const maxHorasLimite: number | null =
+    isFresadora ? 12 :
+    isRolo ? 14 :
+    isBobcat || isRetro || isVibro ? 14 :
+    isUsinaKma ? 24 :
+    isCaminhoes || isComboio || isVeiculo ? 24 :
+    isCarreta ? 1500 : // odômetro km
+    null;
+
   const horimeterError =
     meterInitial && meterFinal && toNVal(meterFinal) < toNVal(meterInitial)
       ? `${meterLabel} Final não pode ser menor que o Inicial`
       : meterFinal && fuelMeterValue && toNVal(meterFinal) < fuelMeterValue
         ? `Erro: O ${meterLabel.toLowerCase()} final não pode ser menor que o ${meterLabel.toLowerCase()} registrado no abastecimento (${fuelMeterValue})!`
-        : null;
+        : maxHorasLimite !== null && meterInitial && meterFinal &&
+          toNVal(meterFinal) >= toNVal(meterInitial) &&
+          (toNVal(meterFinal) - toNVal(meterInitial)) > maxHorasLimite
+          ? `${meterLabel} incoerente: diferença de ${(toNVal(meterFinal) - toNVal(meterInitial)).toFixed(1)}h excede o máximo permitido (${maxHorasLimite}h por turno)`
+          : null;
 
   const horasTrabalhadas =
     meterInitial && meterFinal && toNVal(meterFinal) >= toNVal(meterInitial)
