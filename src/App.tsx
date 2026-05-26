@@ -206,15 +206,9 @@ function AppRoutes() {
               setNeeds2FA(true);
               setMustSetup2FA(false);
             } else if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal1") {
-              // Não tem 2FA configurado — verificar se é admin ou gerente
+              // 2FA opcional — não obriga nenhum perfil
               setNeeds2FA(false);
-              const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "admin" });
-              const { data: isGerente } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "gerente" });
-              if (isAdmin || isGerente) {
-                setMustSetup2FA(true);
-              } else {
-                setMustSetup2FA(false);
-              }
+              setMustSetup2FA(false);
             } else {
               setNeeds2FA(false);
               setMustSetup2FA(false);
