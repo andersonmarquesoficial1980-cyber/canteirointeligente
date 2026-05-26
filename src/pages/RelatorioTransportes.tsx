@@ -88,14 +88,20 @@ export default function RelatorioTransportes() {
 
     if (rows.length > 0) {
       const ids = rows.map((d: any) => d.id);
-      const { data: entries } = await supabase
-        .from("equipment_time_entries")
-        .select("*")
-        .in("diary_id", ids)
-        .order("start_time");
-
+      // Chunkar IDs para evitar limite de 1000 linhas do Supabase
+      const CHUNK = 200;
+      const allEntries: any[] = [];
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        const { data: chunkEntries } = await supabase
+          .from("equipment_time_entries")
+          .select("*")
+          .in("diary_id", chunk)
+          .order("start_time");
+        allEntries.push(...(chunkEntries || []));
+      }
       const map: Record<string, any[]> = {};
-      (entries || []).forEach((e: any) => {
+      allEntries.forEach((e: any) => {
         if (!map[e.diary_id]) map[e.diary_id] = [];
         map[e.diary_id].push(e);
       });
