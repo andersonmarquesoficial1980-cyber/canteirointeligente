@@ -675,8 +675,18 @@ export default function EquipmentDiaryForm() {
 
         if (diaryError) throw diaryError;
         if (!diary) throw new Error("Lançamento não encontrado.");
-        const isAdminEdit = profile?.role === "superadmin" || profile?.role === "admin" ||
+        // Verificar permissão via profile local + fallback no banco
+        let isAdminEdit = profile?.role === "superadmin" || profile?.role === "admin" || profile?.role === "gerente" ||
           (profile as any)?.perfil === "Administrador" || (profile as any)?.perfil === "Gerente";
+        if (!isAdminEdit && session?.user?.id) {
+          // Fallback: consultar user_roles diretamente
+          const { data: roleData } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "admin" });
+          if (roleData) isAdminEdit = true;
+          if (!isAdminEdit) {
+            const { data: roleGerente } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "gerente" });
+            if (roleGerente) isAdminEdit = true;
+          }
+        }
         if (!isAdminEdit && diary.user_id && diary.user_id !== session.user.id) {
           throw new Error("Você não tem permissão para editar este lançamento.");
         }
