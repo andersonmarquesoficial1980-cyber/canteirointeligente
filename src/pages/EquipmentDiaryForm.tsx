@@ -1180,13 +1180,17 @@ export default function EquipmentDiaryForm() {
       let error: any = null;
 
       if (isEditMode && editId) {
-        const { data: updatedDiary, error: updateError } = await (supabase as any)
+        // Admin e Gerente podem editar lançamentos de qualquer usuário — não filtrar por user_id
+        const isAdminOrGerente = profile?.role === "admin" || profile?.role === "superadmin" || profile?.role === "gerente" ||
+          (profile as any)?.perfil === "Administrador" || (profile as any)?.perfil === "Gerente";
+        let updateQuery = (supabase as any)
           .from("equipment_diaries")
           .update(diaryPayload)
-          .eq("id", editId)
-          .eq("user_id", session.user.id)
-          .select()
-          .single();
+          .eq("id", editId);
+        if (!isAdminOrGerente) {
+          updateQuery = updateQuery.eq("user_id", session.user.id);
+        }
+        const { data: updatedDiary, error: updateError } = await updateQuery.select().single();
         diary = updatedDiary;
         error = updateError;
       } else {
