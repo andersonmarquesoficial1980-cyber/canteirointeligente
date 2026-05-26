@@ -165,6 +165,7 @@ export default function EquipmentDiaryForm() {
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false); // bloqueia double-submit antes do React re-renderizar
   const [loadingEditData, setLoadingEditData] = useState(false);
   const [preserveManualClientLocation, setPreserveManualClientLocation] = useState(false);
   const loadedEditIdRef = useRef<string | null>(null);
@@ -1033,61 +1034,60 @@ export default function EquipmentDiaryForm() {
   };
 
   const handleSave = async (isDraft = false) => {
+    // Proteção contra double-submit (cliques rápidos antes do React re-renderizar)
+    if (savingRef.current) return;
+    savingRef.current = true;
+    const cancelSave = () => { savingRef.current = false; };
+
     // === VALIDAÇÕES OBRIGATÓRIAS ===
 
     // 1. Data e Frota
     if (!selectedFleet || !date) {
       toast({ title: "Campos obrigatórios", description: "Selecione o equipamento e data.", variant: "destructive" });
-      return;
+      return cancelSave();
     }
 
     // 2. Status obrigatório
     if (!workStatus && !isDraft) {
       toast({ title: "⚠️ Status obrigatório", description: "Selecione o status do equipamento (Trabalhando, Folga, etc.).", variant: "destructive" });
-      return;
+      return cancelSave();
     }
 
     // 3. OGS obrigatório (exceto Base/Pátio Central e modo simples)
     if (!isPatioMode && !ogsNumber && !isDraft) {
       toast({ title: "⚠️ OGS obrigatória", description: "Selecione a OGS (obra) antes de enviar.", variant: "destructive" });
-      return;
+      return cancelSave();
     }
 
     // 4. Horímetro/Odômetro obrigatório quando Trabalhando
-    // Para equipamentos que usam horímetro/odômetro e status é Trabalhando
     const hasHorimeter = !isModoSimples && workStatus === "Trabalhando" && !isPatioMode;
     if (hasHorimeter && !isDraft) {
       const ini = toNVal(meterInitial);
       const fim = toNVal(meterFinal);
       if (!meterInitial || ini === 0) {
         toast({ title: `⚠️ ${meterLabel} obrigatório`, description: `Informe o ${meterLabel} Inicial antes de enviar.`, variant: "destructive" });
-        return;
+        return cancelSave();
       }
       if (!meterFinal || fim === 0) {
         toast({ title: `⚠️ ${meterLabel} obrigatório`, description: `Informe o ${meterLabel} Final antes de enviar.`, variant: "destructive" });
-        return;
+        return cancelSave();
       }
     }
 
-    // 5. Coerência: horímetro/odômetro final não pode ser menor que inicial
-    // (já coberto por horimeterError, mas reforçando antes do save)
+    // 5. Coerência: horímetro final não pode ser menor que inicial
     if (horimeterError && !isDraft) {
       toast({ title: `${meterLabel} inválido`, description: horimeterError, variant: "destructive" });
-      return;
+      return cancelSave();
     }
 
-    // 6. Apontamentos obrigatórios quando horímetro final > inicial
+    // 6. Apontamentos obrigatórios quando horímetro avançou
     const hasHorProgress = meterInitial && meterFinal && toNVal(meterFinal) > toNVal(meterInitial);
     const hasTimeEntriesType = isFresadora || isRolo || isBobcat || isRetro || isVibro || isUsinaKma || isCaminhoes || isComboio || isVeiculo;
     if (hasHorProgress && hasTimeEntriesType && !isDraft && workStatus === "Trabalhando") {
       const validEntries = timeEntries.filter(t => t.startTime && t.activity);
       if (validEntries.length === 0) {
-        toast({
-          title: "⚠️ Apontamentos obrigatórios",
-          description: `Horímetro avançou ${horasTrabalhadas}h — preencha pelo menos 1 apontamento de horas antes de enviar.`,
-          variant: "destructive"
-        });
-        return;
+        toast({ title: "⚠️ Apontamentos obrigatórios", description: `Horímetro avançou ${horasTrabalhadas}h — preencha pelo menos 1 apontamento de horas antes de enviar.`, variant: "destructive" });
+        return cancelSave();
       }
     }
     // Carreta: exige pelo menos 1 apontamento de transporte
@@ -1095,7 +1095,7 @@ export default function EquipmentDiaryForm() {
       const validEntries = timeEntries.filter(t => t.startTime && t.activity);
       if (validEntries.length === 0) {
         toast({ title: "⚠️ Apontamentos obrigatórios", description: "Preencha pelo menos 1 apontamento de transporte com horário e atividade antes de enviar.", variant: "destructive" });
-        return;
+        return cancelSave();
       }
     }
     // Fresadora: área de produção obrigatória quando Trabalhando
@@ -1103,13 +1103,13 @@ export default function EquipmentDiaryForm() {
       const validAreas = productionAreas.filter(a => a.comp || a.larg);
       if (validAreas.length === 0) {
         toast({ title: "⚠️ Produção obrigatória", description: "Preencha pelo menos 1 área de fresagem (comprimento e largura) antes de enviar.", variant: "destructive" });
-        return;
+        return cancelSave();
       }
     }
     if (!session?.user?.id) {
       toast({ title: "Sessão expirada", description: "Faça login novamente.", variant: "destructive" });
       navigate("/");
-      return;
+      return cancelSave();
     }
 
     const normalizedSelectedFleet = selectedFleet.trim().toUpperCase();
@@ -1671,6 +1671,7 @@ export default function EquipmentDiaryForm() {
       }
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   };
 
