@@ -1068,8 +1068,8 @@ export default function EquipmentDiaryForm() {
       return cancelSave();
     }
 
-    // 3. OGS obrigatório (exceto Base/Pátio Central e modo simples)
-    if (!isPatioMode && !ogsNumber && !isDraft) {
+    // 3. OGS obrigatório (exceto Base/Pátio Central, Comboio e Carreta — atendem múltiplas obras)
+    if (!isPatioMode && !isComboio && !isCarreta && !ogsNumber && !isDraft) {
       toast({ title: "⚠️ OGS obrigatória", description: "Selecione a OGS (obra) antes de enviar.", variant: "destructive" });
       return cancelSave();
     }
