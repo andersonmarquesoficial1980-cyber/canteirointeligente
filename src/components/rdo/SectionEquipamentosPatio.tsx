@@ -5,8 +5,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { useMaquinasFrotaFiltered } from "@/hooks/useFilteredData";
 
+// Categorias disponíveis no Painel de Controle
+const CATEGORIAS = [
+  "FRESAGEM",
+  "PAVIMENTAÇÃO",
+  "VEÍCULOS",
+  "LINHA AMARELA",
+  "PEQUENO PORTE",
+  "USINAGEM",
+];
+
 export interface EquipamentoPatioEntry {
   id: string;
+  categoria: string; // filtro de tipo
   frota: string;
   nome: string;
   tipo: string;
@@ -22,7 +33,7 @@ interface Props {
 const STATUS_PATIO = ["Disposição", "Manutenção", "Inoperante"];
 
 function emptyEntry(): EquipamentoPatioEntry {
-  return { id: crypto.randomUUID(), frota: "", nome: "", tipo: "", status_patio: "Disposição", observacao: "" };
+  return { id: crypto.randomUUID(), categoria: "", frota: "", nome: "", tipo: "", status_patio: "Disposição", observacao: "" };
 }
 
 export default function SectionEquipamentosPatio({ entries, onChange }: Props) {
@@ -32,6 +43,12 @@ export default function SectionEquipamentosPatio({ entries, onChange }: Props) {
     onChange(entries.map(e => {
       if (e.id !== id) return e;
       const updated = { ...e, [field]: value };
+      if (field === "categoria") {
+        // Ao trocar categoria, limpar frota selecionada
+        updated.frota = "";
+        updated.nome = "";
+        updated.tipo = "";
+      }
       if (field === "frota") {
         const maq = (maquinas as any[]).find((m: any) => m.frota === value);
         if (maq) { updated.nome = maq.nome || ""; updated.tipo = maq.tipo || ""; }
@@ -63,17 +80,37 @@ export default function SectionEquipamentosPatio({ entries, onChange }: Props) {
             )}
           </div>
 
+          {/* Linha 1: Tipo de Equipamento (filtro) */}
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Tipo de Equipamento</span>
+            <Select value={entry.categoria} onValueChange={v => update(entry.id, "categoria", v)}>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue placeholder="Selecione o tipo..." />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Linha 2: Frota (filtrada pelo tipo) + Status */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Frota</span>
-              <Select value={entry.frota} onValueChange={v => update(entry.id, "frota", v)}>
+              <Select
+                value={entry.frota}
+                onValueChange={v => update(entry.id, "frota", v)}
+                disabled={!entry.categoria}
+              >
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione..." />
+                  <SelectValue placeholder={entry.categoria ? "Selecione..." : "Escolha o tipo primeiro"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(maquinas as any[]).filter((m: any) => m.frota).map((m: any) => (
-                    <SelectItem key={m.id} value={m.frota}>{m.frota} — {m.nome}</SelectItem>
-                  ))}
+                  {(maquinas as any[])
+                    .filter((m: any) => m.frota && (!entry.categoria || m.categoria === entry.categoria))
+                    .map((m: any) => (
+                      <SelectItem key={m.id} value={m.frota}>{m.frota} — {m.nome}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
