@@ -394,7 +394,7 @@ function FornecedoresManager() {
 
 // Machines manager
 function MaquinasManager() {
-  const { items, loading, add, remove, update } = useCrudTable("maquinas_frota");
+  const { items, loading, add, remove, update } = useCrudTable("equipamentos");
   const { toast } = useToast();
   const [frota, setFrota] = useState("");
   const [nome, setNome] = useState("");
@@ -447,7 +447,7 @@ function MaquinasManager() {
       toast({ title: "Atenção", description: "Preencha Frota e Nome.", variant: "destructive" });
       return;
     }
-    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria, condicao, empresa: empresa.trim(), vinculos, vinculo_rdo: vinculos[0], status: "ativo" });
+    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria_rdo: categoria, condicao, empresa_proprietaria: condicao === 'TERCEIRO' ? empresa.trim() : null, vinculos, vinculo_rdo: vinculos[0], status: "ativo" });
     if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setCondicao("PROPRIO"); setEmpresa("PRÓPRIO"); setVinculos(["TODOS"]); }
   };
 
@@ -464,7 +464,7 @@ function MaquinasManager() {
 
   const saveEdit = async (id: string) => {
     if (!editFrota.trim() || !editNome.trim()) { toast({ title: "Atenção", description: "Frota e Nome são obrigatórios.", variant: "destructive" }); return; }
-    const ok = await update(id, { frota: editFrota.trim(), nome: editNome.trim(), tipo: editTipo.trim(), categoria: editCategoria, condicao: editCondicao, empresa: editEmpresa.trim(), vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
+    const ok = await update(id, { frota: editFrota.trim(), nome: editNome.trim(), tipo: editTipo.trim(), categoria_rdo: editCategoria, condicao: editCondicao, empresa_proprietaria: editCondicao === 'TERCEIRO' ? editEmpresa.trim() : null, vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
     if (ok) setEditingId(null);
   };
 
@@ -612,9 +612,11 @@ function MaquinasManager() {
             ) : (
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5 flex-1 min-w-0 pr-2">
-                  <p className="font-medium text-sm text-foreground">{m.frota} — {m.tipo || m.categoria} ({m.nome})</p>
+                  <p className="font-medium text-sm text-foreground">{m.frota} — {m.tipo} ({m.nome})</p>
                   <div className="flex flex-wrap gap-1">
-                    {m.categoria && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.categoria}</span>}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${m.condicao === 'TERCEIRO' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{m.condicao === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}</span>
+                    {m.empresa_proprietaria && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.empresa_proprietaria}</span>}
+                    {(m.categoria_rdo || m.categoria) && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.categoria_rdo || m.categoria}</span>}
                     {(m.vinculos?.length ? m.vinculos : [m.vinculo_rdo || "TODOS"]).map((v: string) => (
                       <span key={v} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{VINCULO_LABELS[v] ?? v}</span>
                     ))}
