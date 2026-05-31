@@ -557,14 +557,9 @@ function MaquinasManager() {
               m.frota?.toLowerCase().includes(q) ||
               m.nome?.toLowerCase().includes(q) ||
               m.tipo?.toLowerCase().includes(q);
-            const matchCat = !filterCategoria || m.categoria === filterCategoria;
+            const matchCat = !filterCategoria || (m.categoria_rdo || m.categoria) === filterCategoria;
             return matchSearch && matchCat;
           });
-          if (!searchQuery && !filterCategoria) return (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              🔍 Use a busca ou selecione uma categoria para ver os cadastros.
-            </p>
-          );
           if (filtered.length === 0) return (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhum resultado encontrado.</p>
           );
