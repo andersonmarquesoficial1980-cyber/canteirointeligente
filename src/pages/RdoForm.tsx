@@ -18,6 +18,7 @@ import SectionNfConcreto, { type NfConcretoEntry } from "@/components/rdo/Sectio
 import SectionPV, { type PVData, type PVMaterialEntry } from "@/components/rdo/SectionPV";
 import { type AeroPavData } from "@/components/rdo/SectionAeroPavGru";
 import SectionEfetivoTerceirizado, { type TerceirizadoEntry } from "@/components/rdo/SectionEfetivoTerceirizado";
+import { useEmpresasTerceiras } from "@/hooks/useEmpresasTerceiras";
 import SectionEquipamentos, { type EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 import SectionEquipamentosPatio, { type EquipamentoPatioEntry } from "@/components/rdo/SectionEquipamentosPatio";
 
@@ -28,6 +29,7 @@ import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteir
 import { buildHtmlReport } from "@/lib/buildHtmlReport";
 import logoCi from "@/assets/logo-workflux.png";
 import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
+import { useEquipes } from "@/hooks/useEquipes";
 
 const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -69,8 +71,40 @@ export default function RdoForm() {
   } = useDiaryUnlock(header.data, "rdo");
   const shouldBlockByDeadline = !isEditMode && !isUnlockLoading && isDateBlocked;
 
-  const handleHeaderChange = (field: string, value: string) =>
+  const handleHeaderChange = (field: string, value: string) => {
     setHeader(prev => ({ ...prev, [field]: value }));
+
+    // Auto-fill efetivo quando encarregado muda (só em modo criação, não edição)
+    if (field === "encarregado" && value && !isEditMode && !loadingEquipes) {
+      const membros = getMembrosDoResponsavel(value);
+      if (membros.length > 0) {
+        // Agrupar por funcao (igual ao formato do StepEfetivo)
+        const porFuncao: Record<string, { nomes: string[]; matriculas: string[] }> = {};
+        membros.forEach(m => {
+          const f = m.funcao || "SEM FUNÇÃO";
+          if (!porFuncao[f]) porFuncao[f] = { nomes: [], matriculas: [] };
+          porFuncao[f].nomes.push(m.nome);
+          porFuncao[f].matriculas.push(m.matricula);
+        });
+        const novoEfetivo = Object.entries(porFuncao).map(([funcao, data]) => ({
+          id: crypto.randomUUID(),
+          funcao,
+          nome: data.nomes.join("|||"),
+          matricula: data.matriculas.join("|||"),
+          entrada: "",
+          saida: "",
+          status: "" as const,
+          horasExtras: "",
+        }));
+        setEfetivo(novoEfetivo);
+        const equipeNome = membros[0]?.equipe || "";
+        toast({
+          title: `✅ Equipe carregada${equipeNome ? ": " + equipeNome : ""}`,
+          description: `${membros.length} funcionário(s) pré-preenchido(s). Você pode ajustar.`,
+        });
+      }
+    }
+  };
 
   // Tipo RDO
   const [tipoRdo, setTipoRdo] = useState("");
@@ -128,8 +162,10 @@ export default function RdoForm() {
     marmitas_quantidade: "", marmitas_turno: "", observacoes_logistica: "",
   });
   const [terceirizados, setTerceirizados] = useState<TerceirizadoEntry[]>([{
-    id: crypto.randomUUID(), nome: "", empresa: "", empresa_outra: "",
+    id: crypto.randomUUID(), empresa_id: "", funcionario_ids: [],
   }]);
+  const { empresas: empresasTerceiras, funcionarios: funcionariosTerceiros, loading: loadingTerceiros } = useEmpresasTerceiras();
+  const { getMembrosDoResponsavel, loading: loadingEquipes } = useEquipes();
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
@@ -241,12 +277,13 @@ export default function RdoForm() {
     const editId = searchParams.get("edit");
     if (!editId) return;
     const carregar = async () => {
-      const [{ data: rdo }, { data: efetivo }, { data: producao }, { data: equipamentos }, { data: nfRows }] = await Promise.all([
+      const [{ data: rdo }, { data: efetivo }, { data: producao }, { data: equipamentos }, { data: nfRows }, { data: tercRows }] = await Promise.all([
         (supabase as any).from("rdo_diarios").select("*").eq("id", editId).maybeSingle(),
         (supabase as any).from("rdo_efetivo").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_producao").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_equipamentos").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_nf_massa").select("*").eq("rdo_id", editId),
+        (supabase as any).from("rdo_efetivo_terceiros").select("*").eq("rdo_id", editId),
       ]);
       if (!rdo) return;
       setHeader(prev => ({
@@ -272,6 +309,22 @@ export default function RdoForm() {
         })));
         if (efetivo[0]?.entrada) setGlobalEntrada(efetivo[0].entrada);
         if (efetivo[0]?.saida) setGlobalSaida(efetivo[0].saida);
+      }
+      // Efetivo Terceirizado (modo edição)
+      if (tercRows?.length) {
+        const grouped: Record<string, { empresa_id: string; funcionario_ids: string[] }> = {};
+        (tercRows as any[]).forEach((t: any) => {
+          if (!grouped[t.empresa_id]) {
+            grouped[t.empresa_id] = { empresa_id: t.empresa_id, funcionario_ids: [] };
+          }
+          grouped[t.empresa_id].funcionario_ids.push(t.funcionario_id);
+        });
+        const restoredTerc = Object.values(grouped).map(g => ({
+          id: crypto.randomUUID(),
+          empresa_id: g.empresa_id,
+          funcionario_ids: g.funcionario_ids,
+        }));
+        if (restoredTerc.length > 0) setTerceirizados(restoredTerc);
       }
       // Produção CAUQ
       if (producao?.length) {
@@ -441,18 +494,15 @@ export default function RdoForm() {
       lines.push(`🚧 *Drenagem & Terraplanagem*`);
 
       // Terceirizados agrupados por empresa
-      const filledTerc = terceirizados.filter(t => t.nome.trim());
+      const filledTerc = terceirizados.filter(t => t.empresa_id && t.funcionario_ids.length > 0);
       if (filledTerc.length > 0) {
+        const totalTerc = filledTerc.reduce((s, t) => s + t.funcionario_ids.length, 0);
         lines.push(``);
-        lines.push(`🏗️ *Efetivo Terceirizado (${filledTerc.length}):*`);
-        const grouped: Record<string, string[]> = {};
+        lines.push(`🏗️ *Efetivo Terceirizado (${totalTerc}):*`);
         filledTerc.forEach(t => {
-          const emp = t.empresa === "Outros" ? (t.empresa_outra || "Outros") : (t.empresa || "Sem empresa");
-          if (!grouped[emp]) grouped[emp] = [];
-          grouped[emp].push(t.nome);
-        });
-        Object.entries(grouped).forEach(([emp, nomes]) => {
-          lines.push(`  ▸ ${emp}: ${nomes.join(", ")}`);
+          const emp = empresasTerceiras.find(e => e.id === t.empresa_id);
+          const nomes = t.funcionario_ids.map(fid => funcionariosTerceiros.find(f => f.id === fid)?.nome || fid);
+          lines.push(`  ▸ ${emp?.nome || "Empresa"}: ${nomes.join(", ")}`);
         });
       }
     }
@@ -592,6 +642,7 @@ export default function RdoForm() {
           (supabase as any).from("rdo_producao").delete().eq("rdo_id", rdoId),
           (supabase as any).from("rdo_equipamentos").delete().eq("rdo_id", rdoId),
           (supabase as any).from("rdo_nf_massa").delete().eq("rdo_id", rdoId),
+          (supabase as any).from("rdo_efetivo_terceiros").delete().eq("rdo_id", rdoId),
         ]);
       } else {
         const { data: rdo, error: rdoError } = await supabase
@@ -719,6 +770,27 @@ export default function RdoForm() {
       if (efEntries.length > 0) {
         const { error } = await supabase.from("rdo_efetivo").insert(efEntries);
         if (error) throw error;
+      }
+
+      // Efetivo Terceirizado
+      const tercEntries = terceirizados
+        .filter(t => t.empresa_id && t.funcionario_ids.length > 0)
+        .flatMap(t => {
+          const empresa = empresasTerceiras.find(e => e.id === t.empresa_id);
+          return t.funcionario_ids.map(fid => {
+            const func = funcionariosTerceiros.find(f => f.id === fid);
+            return {
+              rdo_id: rdoId,
+              empresa_id: t.empresa_id,
+              empresa_nome: empresa?.nome || "",
+              funcionario_id: fid,
+              funcionario_nome: func?.nome || "",
+            };
+          });
+        });
+      if (tercEntries.length > 0) {
+        const { error } = await (supabase as any).from("rdo_efetivo_terceiros").insert(tercEntries);
+        if (error) console.warn("Efetivo terceirizado:", error.message);
       }
 
       // Build HTML report and send email
@@ -976,9 +1048,16 @@ export default function RdoForm() {
                   globalSaida={globalSaida}
                   onChangeGlobalEntrada={setGlobalEntrada}
                   onChangeGlobalSaida={setGlobalSaida}
+                  encarregado={header.encarregado}
                 />}
-                {!isPatioRdo && tipoRdo === "AEROPAV" && (
-                  <SectionEfetivoTerceirizado entries={terceirizados} onChange={setTerceirizados} />
+                {!isPatioRdo && (
+                  <SectionEfetivoTerceirizado
+                    entries={terceirizados}
+                    onChange={setTerceirizados}
+                    empresas={empresasTerceiras}
+                    funcionarios={funcionariosTerceiros}
+                    loadingData={loadingTerceiros}
+                  />
                 )}
                 {!isPatioRdo && tipoRdo === "CANTEIRO" && (
                   <SectionAtividadesCanteiro

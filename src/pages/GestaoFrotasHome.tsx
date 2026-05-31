@@ -238,16 +238,27 @@ export default function GestaoFrotasHome() {
               <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
             ) : listaFiltrada.map(v => (
               <button key={v.id} onClick={() => navigate(`/gestao-frotas/veiculo/${v.id}`)} className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${v.categoria === "locado" ? "bg-blue-50" : "bg-green-50"}`}>
-                  <Car className={`w-5 h-5 ${v.categoria === "locado" ? "text-blue-600" : "text-green-600"}`} />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'bg-blue-50' : 'bg-green-50'}`}>
+                  <Car className={`w-5 h-5 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'text-blue-600' : 'text-green-600'}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-display font-bold text-sm">{v.codigo_custo || v.placa}</span>
                     {v.placa && v.placa !== v.codigo_custo && <span className="text-xs text-muted-foreground">{v.placa}</span>}
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${v.categoria === "locado" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
-                      {v.categoria === "locado" ? `${v.locadora || "Locado"}` : "Próprio"}
+                    {/* Tag Condição: PRÓPRIO ou TERCEIRO */}
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                      (v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-green-100 text-green-700'
+                    }`}>
+                      {(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}
                     </span>
+                    {/* Tag Empresa */}
+                    {v.locadora && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
+                        {v.locadora}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{v.modelo}</p>
                   <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
@@ -314,7 +325,7 @@ export default function GestaoFrotasHome() {
                 <p className="text-muted-foreground">Custo Anual</p>
               </div>
               <div className="rdo-card">
-                <p className="text-lg font-display font-bold text-primary">{todos.filter(v => v.categoria === "proprio").length}</p>
+                <p className="text-lg font-display font-bold text-primary">{todos.filter(v => (v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'PROPRIO').length}</p>
                 <p className="text-muted-foreground">Próprios</p>
               </div>
             </div>

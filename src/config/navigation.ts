@@ -3,7 +3,7 @@
 // This file is the single source of truth for HUB navigation.
 // It is intentionally decoupled from any database or Edge Function logic.
 
-import { ClipboardList, Cog, Truck, Users, ShieldCheck, ListChecks, CalendarClock, FileCheck, Wrench, Fuel, BarChart3, LayoutDashboard, Car, UserCheck, Receipt } from "lucide-react";
+import { ClipboardList, Cog, Truck, Users, ShieldCheck, ListChecks, CalendarClock, FileCheck, Wrench, Fuel, BarChart3, LayoutDashboard, Car, UserCheck, Receipt, HardHat } from "lucide-react";
 
 export const HUB_MODULES = [
   { id: "obras", label: "WF Obras", subtitle: "Diário de Obras", icon: ClipboardList, route: "/obras", adminOnly: false },
@@ -20,5 +20,6 @@ export const HUB_MODULES = [
   { id: "gestao-pessoas", label: "WF Gestão de Pessoas", subtitle: "Pessoas, ponto, VT e histórico", icon: UserCheck, route: "/gestao-pessoas", adminOnly: false },
   { id: "suprimentos", label: "WF Suprimentos", subtitle: "Fretes, Peças e Estoque", icon: Truck, route: "/suprimentos", adminOnly: false },
   { id: "medicoes", label: "WF Medições", subtitle: "Equipamentos terceirizados", icon: Receipt, route: "/medicoes", adminOnly: false },
+  { id: "sst", label: "WF Segurança do Trabalho", subtitle: "Inspeções e checklists SST", icon: HardHat, route: "/sst", adminOnly: false },
   { id: "admin", label: "Painel de Controle", subtitle: "Dashboards e Gestão", icon: ShieldCheck, route: "/admin/configuracoes", adminOnly: true },
 ] as const;

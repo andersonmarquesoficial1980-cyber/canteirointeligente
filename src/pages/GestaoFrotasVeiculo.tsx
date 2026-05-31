@@ -118,7 +118,7 @@ export default function GestaoFrotasVeiculo() {
               { label: "Modelo", field: "modelo" },
               { label: "Ano", field: "ano" },
               { label: "Setor", field: "setor" },
-              { label: "Locadora", field: "locadora" },
+              { label: "Empresa", field: "locadora" },
               { label: "Status", field: "status" },
             ].map(({ label, field }) => (
               <div key={field} className="space-y-1">
@@ -134,12 +134,15 @@ export default function GestaoFrotasVeiculo() {
           {editando && (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <span className="rdo-label">Categoria</span>
-                <Select value={veiculo.categoria} onValueChange={v => setVeiculo((prev: any) => ({ ...prev, categoria: v }))}>
+                <span className="rdo-label">Condição</span>
+                <Select
+                  value={veiculo.condicao || (veiculo.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')}
+                  onValueChange={v => setVeiculo((prev: any) => ({ ...prev, condicao: v, categoria: v === 'TERCEIRO' ? 'locado' : 'proprio' }))}
+                >
                   <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="locado">Locado</SelectItem>
-                    <SelectItem value="proprio">Próprio</SelectItem>
+                    <SelectItem value="PROPRIO">Próprio (Fremix)</SelectItem>
+                    <SelectItem value="TERCEIRO">Terceiro (Locado/Alugado)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

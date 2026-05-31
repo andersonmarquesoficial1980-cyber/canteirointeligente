@@ -52,6 +52,7 @@ const ALL_MODULES = [
   { key: "gestao-pessoas",label: "WF Gestão de Pessoas", emoji: "👤" },
   { key: "suprimentos",   label: "WF Suprimentos",       emoji: "📦" },
   { key: "medicoes",      label: "WF Medições",          emoji: "🧾" },
+  { key: "sst",           label: "WF Segurança do Trabalho", emoji: "🪩" },
   { key: "admin",         label: "Painel de Controle",   emoji: "⚙️" },
 ];
 

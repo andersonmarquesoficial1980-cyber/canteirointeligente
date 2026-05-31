@@ -49,6 +49,12 @@ import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
 import GestaoFrotasHome from "./pages/GestaoFrotasHome";
 import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
 import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
+import ProgramacaoFerias from "./pages/ProgramacaoFerias";
+import WhatsAppInbox from "./pages/WhatsAppInbox";
+import SSTHome from "./pages/SSTHome";
+import SSTForm from "./pages/SSTForm";
+import CarreteirosQRScan from "./pages/CarreteirosQRScan";
+import CarreteirosQRPrint from "./pages/CarreteirosQRPrint";
 import ManutencaoDocumentos from "./pages/ManutencaoDocumentos";
 import ManutencaoHome from "./pages/ManutencaoHome";
 import ManutencaoOS from "./pages/ManutencaoOS";
@@ -113,6 +119,7 @@ const MODULE_PERM_MAP: Record<string, string> = {
   "gestao-pessoas": "modulo_relatorios",
   "medicoes": "modulo_relatorios",
   "suprimentos": "modulo_relatorios",
+  "sst": "modulo_relatorios",
 };
 
 function RequireModule({ moduleId, children }: { moduleId: string; children: JSX.Element }) {
@@ -323,10 +330,17 @@ function AppRoutes() {
         <Route path="/gestao-frotas/dashboard" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboard /></RequireModule>} />
         <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
         <Route path="/gestao-pessoas/:id" element={<RequireModule moduleId="gestao-pessoas"><FichaFuncionario /></RequireModule>} />
+        <Route path="/gestao-pessoas/ferias" element={<RequireModule moduleId="gestao-pessoas"><ProgramacaoFerias /></RequireModule>} />
+        <Route path="/gestao-pessoas/whatsapp" element={<RequireModule moduleId="gestao-pessoas"><WhatsAppInbox /></RequireModule>} />
+        <Route path="/sst" element={<RequireModule moduleId="sst"><SSTHome /></RequireModule>} />
+        <Route path="/sst/nova" element={<RequireModule moduleId="sst"><SSTForm /></RequireModule>} />
+        <Route path="/sst/:id" element={<RequireModule moduleId="sst"><SSTForm /></RequireModule>} />
 
         {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}
         <Route path="/carreteiros" element={<RequireModule moduleId="carreteiros"><TruckerHome /></RequireModule>} />
+        <Route path="/carreteiros/scan/:truckId" element={<CarreteirosQRScan />} />
+        <Route path="/carreteiros/qrcodes" element={<RequireModule moduleId="carreteiros"><CarreteirosQRPrint /></RequireModule>} />
 
         {/* Diretório — busca global */}
         <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />

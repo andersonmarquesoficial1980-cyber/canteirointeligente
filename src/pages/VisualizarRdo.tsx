@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, HardHat } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import logoCi from "@/assets/logo-workflux.png";
@@ -20,6 +20,7 @@ export default function VisualizarRdo() {
   const [error, setError] = useState<string | null>(null);
   const [rdo, setRdo] = useState<any | null>(null);
   const [efetivo, setEfetivo] = useState<any[]>([]);
+  const [efetivoTerceiros, setEfetivoTerceiros] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -36,9 +37,11 @@ export default function VisualizarRdo() {
         const [
           { data: rdoRow, error: rdoError },
           { data: efetivoRows, error: efetivoError },
+          { data: tercRows },
         ] = await Promise.all([
           supabase.from("rdo_diarios").select("*").eq("id", id).maybeSingle(),
           supabase.from("rdo_efetivo").select("id,funcao,quantidade,entrada,saida").eq("rdo_id", id),
+          (supabase as any).from("rdo_efetivo_terceiros").select("empresa_nome,funcionario_nome").eq("rdo_id", id),
         ]);
 
         if (rdoError) throw rdoError;
@@ -51,6 +54,14 @@ export default function VisualizarRdo() {
 
         setRdo(rdoRow);
         setEfetivo(efetivoRows || []);
+
+        // Agrupar terceirizados por empresa
+        const tercAgrupado: Record<string, string[]> = {};
+        (tercRows || []).forEach((t: any) => {
+          if (!tercAgrupado[t.empresa_nome]) tercAgrupado[t.empresa_nome] = [];
+          tercAgrupado[t.empresa_nome].push(t.funcionario_nome);
+        });
+        setEfetivoTerceiros(tercAgrupado);
       } catch (err: any) {
         setError(err?.message || "Erro ao carregar RDO.");
       } finally {
@@ -116,7 +127,7 @@ export default function VisualizarRdo() {
             </div>
 
             <div className="rdo-card space-y-2">
-              <p className="text-sm font-display font-bold text-primary">Efetivo</p>
+              <p className="text-sm font-display font-bold text-primary">Efetivo Fremix</p>
               {efetivoAgrupado.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum efetivo registrado.</p>
               ) : (
@@ -128,6 +139,29 @@ export default function VisualizarRdo() {
                 ))
               )}
             </div>
+
+            {Object.keys(efetivoTerceiros).length > 0 && (
+              <div className="rdo-card space-y-3">
+                <p className="text-sm font-display font-bold flex items-center gap-2 text-amber-700">
+                  <HardHat className="w-4 h-4" /> Efetivo Terceirizado
+                </p>
+                {Object.entries(efetivoTerceiros).map(([empresa, nomes]) => (
+                  <div key={empresa}>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">{empresa}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {nomes.map((nome) => (
+                        <span
+                          key={nome}
+                          className="px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-800"
+                        >
+                          {nome}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>
               ← Voltar

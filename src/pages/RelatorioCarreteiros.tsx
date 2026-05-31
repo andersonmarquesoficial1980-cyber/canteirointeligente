@@ -44,6 +44,19 @@ export default function RelatorioCarreteiros() {
   const [placa, setPlaca] = useState("");
   const [placas, setPlacas] = useState<string[]>([]);
   const [trips, setTrips] = useState<any[]>([]);
+  const [ogsMap, setOgsMap] = useState<Record<string, string>>({});
+
+  // Carregar mapa UUID -> ogs_number
+  useEffect(() => {
+    supabase.from("ogs_reference").select("id,ogs_number")
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string,string> = {};
+          (data as any[]).forEach(o => { map[o.id] = o.ogs_number; });
+          setOgsMap(map);
+        }
+      });
+  }, []);
   const [loading, setLoading] = useState(false);
   const [buscou, setBuscou] = useState(false);
 
@@ -97,7 +110,7 @@ export default function RelatorioCarreteiros() {
       if (!map[p]) map[p] = { viagens: 0, m3: 0, ogs: new Set(), dias: new Set(), materiais: {} };
       map[p].viagens++;
       map[p].m3 += Number(t.quantity) || 0;
-      if (t.origin_ogs_id) map[p].ogs.add(t.origin_ogs_id);
+      if (t.origin_ogs_id) map[p].ogs.add(ogsMap[t.origin_ogs_id] || t.origin_ogs_id);
       if (t.date) map[p].dias.add(t.date);
       const mat = t.material_type || "Outros";
       map[p].materiais[mat] = (map[p].materiais[mat] || 0) + 1;
@@ -138,7 +151,7 @@ export default function RelatorioCarreteiros() {
         t.truck_plate || "-",
         t.material_type || "-",
         Number(t.quantity) || 0,
-        t.origin_ogs_id || "-",
+        (t.origin_ogs_id ? (ogsMap[t.origin_ogs_id] || t.origin_ogs_id) : "-"),
         t.destination_id || "-",
         fmtDateTime(t.departure_time),
         fmtDateTime(t.arrival_time),
@@ -345,7 +358,7 @@ export default function RelatorioCarreteiros() {
                             <td className="py-2 pr-3 font-medium">{t.truck_plate || "-"}</td>
                             <td className="py-2 pr-3">{t.material_type || "-"}</td>
                             <td className="py-2 pr-3 text-right">{Number(t.quantity).toFixed(2)}</td>
-                            <td className="py-2 pr-3 text-muted-foreground">{t.origin_ogs_id || "-"}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{t.origin_ogs_id ? (ogsMap[t.origin_ogs_id] || t.origin_ogs_id) : "-"}</td>
                             <td className="py-2 pr-3">{t.destination_id || "-"}</td>
                             <td className="py-2 pr-3">{t.departure_time ? new Date(t.departure_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "-"}</td>
                             <td className="py-2 pr-3">{t.arrival_time ? new Date(t.arrival_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : <span className="text-amber-500 font-medium">Em trânsito</span>}</td>

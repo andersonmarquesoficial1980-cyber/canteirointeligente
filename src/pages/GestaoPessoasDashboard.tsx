@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Search, ChevronRight, Users, Wrench, ShieldCheck,
   User, Bus, MapPin, Camera, ClipboardList, ChevronDown, ChevronUp,
-  MessageSquare, CheckSquare, Clock
+  MessageSquare, CheckSquare, Clock, Calendar, Smartphone
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
@@ -200,7 +200,7 @@ function GrupoColapsavel({ titulo, itens, corTema, onClickFuncionario, mostrarSa
 }
 
 // ─── Página principal ─────────────────────────────────────────────────────────
-type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "aniversariantes" | "rh";
+type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "centro_custo" | "aniversariantes" | "rh";
 
 export default function GestaoPessoasDashboard() {
   const navigate = useNavigate();
@@ -220,6 +220,7 @@ export default function GestaoPessoasDashboard() {
   const porFuncao: Record<string, Funcionario[]> = {};
   const porEquipe: Record<string, Funcionario[]> = {};
   const porResp: Record<string, Funcionario[]> = {};
+  const porCentro: Record<string, Funcionario[]> = {};
 
   todos.forEach(f => {
     const fb = funcaoBase(f.role);
@@ -231,6 +232,9 @@ export default function GestaoPessoasDashboard() {
     const resp = f.responsavel || "SEM RESPONSÁVEL";
     if (!porResp[resp]) porResp[resp] = [];
     porResp[resp].push(f);
+    const cc = (f as any).centro_custo || "SEM CENTRO DE CUSTO";
+    if (!porCentro[cc]) porCentro[cc] = [];
+    porCentro[cc].push(f);
   });
 
   const mesAtual = new Date().getMonth() + 1;
@@ -244,7 +248,8 @@ export default function GestaoPessoasDashboard() {
         f.name.toLowerCase().includes(busca.toLowerCase()) ||
         (f.matricula || "").includes(busca) ||
         (f.equipe || "").toLowerCase().includes(busca.toLowerCase()) ||
-        (f.role || "").toLowerCase().includes(busca.toLowerCase())
+        (f.role || "").toLowerCase().includes(busca.toLowerCase()) ||
+        ((f as any).centro_custo || "").toLowerCase().includes(busca.toLowerCase())
       )
     : todos;
 
@@ -255,12 +260,13 @@ export default function GestaoPessoasDashboard() {
     { id: "funcao",         label: "Por Função",     emoji: "🔧", count: Object.keys(porFuncao).length },
     { id: "equipe",         label: "Por Equipe",     emoji: "👷", count: Object.keys(porEquipe).length },
     { id: "responsavel",    label: "Por Responsável",emoji: "🧑‍💼", count: Object.keys(porResp).filter(k => k !== "SEM RESPONSÁVEL").length },
+    { id: "centro_custo",   label: "Centro de Custo", emoji: "🏢", count: Object.keys(porCentro).filter(k => k !== "SEM CENTRO DE CUSTO").length },
     { id: "aniversariantes",label: "Aniversariantes",emoji: "🎂", count: aniversariantes.length },
     { id: "rh",             label: "Ponto & VT",     emoji: "📋" },
   ];
 
   const corGrupo = (ab: Aba) =>
-    ab === "funcao" ? "#0055AA" : ab === "equipe" ? "#006640" : ab === "responsavel" ? "#6D28D9" : "#374151";
+    ab === "funcao" ? "#0055AA" : ab === "equipe" ? "#006640" : ab === "responsavel" ? "#6D28D9" : ab === "centro_custo" ? "#B45309" : "#374151";
 
   return (
     <div className="min-h-screen bg-background">
@@ -284,6 +290,7 @@ export default function GestaoPessoasDashboard() {
             { label: "Equipes", value: Object.keys(porEquipe).length, cor: "#FFB300" },
             { label: "Funções", value: Object.keys(porFuncao).length, cor: "#22c55e" },
             { label: "Responsáveis", value: Object.keys(porResp).filter(k => k !== "SEM RESPONSÁVEL").length, cor: "#f97316" },
+            { label: "C. Custo", value: Object.keys(porCentro).filter(k => k !== "SEM CENTRO DE CUSTO").length, cor: "#B45309" },
           ].map(s => (
             <div key={s.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "10px 16px", flex: 1, textAlign: "center", minWidth: 70 }}>
               <p style={{ fontSize: 24, fontWeight: 900, color: s.cor, fontFamily: "Montserrat" }}>{s.value}</p>
@@ -365,12 +372,12 @@ export default function GestaoPessoasDashboard() {
               </>
             )}
 
-            {/* ── ABA AGRUPADA (FUNÇÃO / EQUIPE / RESPONSÁVEL) ───────── */}
-            {(aba === "funcao" || aba === "equipe" || aba === "responsavel") && (
+            {/* ── ABA AGRUPADA (FUNÇÃO / EQUIPE / RESPONSÁVEL / CENTRO DE CUSTO) ───────── */}
+            {(aba === "funcao" || aba === "equipe" || aba === "responsavel" || aba === "centro_custo") && (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <p style={{ fontSize: 12, color: "#9ca3af" }}>
-                    {aba === "funcao" ? Object.keys(porFuncao).length : aba === "equipe" ? Object.keys(porEquipe).length : Object.keys(porResp).length} grupos · {todos.length} funcionários
+                    {aba === "funcao" ? Object.keys(porFuncao).length : aba === "equipe" ? Object.keys(porEquipe).length : aba === "centro_custo" ? Object.keys(porCentro).length : Object.keys(porResp).length} grupos · {todos.length} funcionários
                   </p>
                   {isAdmin && (
                     <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, color: mostrarSalario ? "#f97316" : "#64748b" }}>
@@ -381,7 +388,7 @@ export default function GestaoPessoasDashboard() {
                 </div>
 
                 {Object.entries(
-                  aba === "funcao" ? porFuncao : aba === "equipe" ? porEquipe : porResp
+                  aba === "funcao" ? porFuncao : aba === "equipe" ? porEquipe : aba === "centro_custo" ? porCentro : porResp
                 )
                   .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
                   .map(([chave, itens]) => (
@@ -447,6 +454,8 @@ export default function GestaoPessoasDashboard() {
                     { label: "Solicitações de Ponto", desc: "Ajuste de ponto e abono de falta", icon: MessageSquare, rota: "/rh/solicitacoes", cor: "bg-yellow-500/20 text-yellow-600" },
                     { label: "Aprovações", desc: "Aprovar ou reprovar solicitações da equipe", icon: CheckSquare, rota: "/rh/aprovacoes", cor: "bg-teal-500/20 text-teal-600" },
                     { label: "Banco de Horas", desc: "Saldo de horas por funcionário no mês", icon: Clock, rota: "/rh/banco-horas", cor: "bg-indigo-500/20 text-indigo-600" },
+                    { label: "Programação de Férias", desc: "Controle de férias, coletivas e saldo por funcionário", icon: Calendar, rota: "/gestao-pessoas/ferias", cor: "bg-green-500/20 text-green-600" },
+                    { label: "WhatsApp RH", desc: "Inbox de mensagens dos funcionários via WhatsApp", icon: Smartphone, rota: "/gestao-pessoas/whatsapp", cor: "bg-green-600/20 text-green-700" },
                   ].map(item => {
                     const Icon = item.icon;
                     return (

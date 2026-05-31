@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2, LogOut } from "lucide-react";
+import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2, LogOut, QrCode } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,14 @@ function DepartureForm() {
       gpsFailed = true;
     }
 
+    // Buscar company_id do usuário logado
+    const { data: { user } } = await supabase.auth.getUser();
+    let companyId: string | null = null;
+    if (user) {
+      const { data: prof } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
+      companyId = (prof as any)?.company_id || null;
+    }
+
     const { error } = await supabase.from("trucker_trips").insert({
       truck_plate: placa,
       material_type: material,
@@ -90,6 +98,7 @@ function DepartureForm() {
       departure_geo: geoStr,
       status: "EM TRÂNSITO",
       date: new Date().toISOString().split("T")[0],
+      company_id: companyId,
     });
 
     setSubmitting(false);
@@ -111,12 +120,13 @@ function DepartureForm() {
   const expandedOgs = (ogsData || []).flatMap((o) => {
     const addresses = (o.location_address || "").split(";").map((a: string) => a.trim()).filter(Boolean);
     if (addresses.length <= 1) {
-      return [{ id: o.id, label: `${o.ogs_number} — ${o.client_name}${o.location_address ? ` — ${o.location_address}` : ""}`, value: `${o.id}` }];
+      return [{ id: o.id, label: `${o.ogs_number} — ${o.client_name}${o.location_address ? ` — ${o.location_address}` : ""}`, value: o.id }];
     }
-    return addresses.map((addr: string, idx: number) => ({
-      id: `${o.id}_${idx}`,
+    // Múltiplos endereços: usar UUID puro como value (endereço na label apenas)
+    return addresses.map((addr: string) => ({
+      id: `${o.id}_${addr}`,
       label: `${o.ogs_number} — ${addr}`,
-      value: `${o.id}_${idx}`,
+      value: o.id, // sempre o UUID puro
     }));
   });
 
@@ -315,6 +325,10 @@ export default function TruckerHome() {
           <h1 className="font-display font-bold text-base leading-tight">WF Carreteiros</h1>
           <p className="text-[10px] text-primary-foreground/70">Logística de Materiais</p>
         </div>
+        <button onClick={() => navigate("/carreteiros/qrcodes")}
+          className="p-1.5 rounded-lg hover:bg-white/10 transition" title="Gerar QR Codes">
+          <QrCode className="h-5 w-5" />
+        </button>
         <button
           onClick={async () => { try { await supabase.auth.signOut(); } catch {} localStorage.clear(); sessionStorage.clear(); window.location.replace("/"); }}
           className="p-1.5 rounded-lg hover:bg-white/10 transition"

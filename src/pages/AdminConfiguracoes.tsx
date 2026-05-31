@@ -13,13 +13,14 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2,
+  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2, HardHat,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
+import EquipesManager from "@/components/admin/EquipesManager";
 
 import PermissoesManager from "@/components/admin/PermissoesManager";
 import logoCi from "@/assets/logo-workflux.png";
@@ -1634,7 +1635,7 @@ function TruckRegistryManager() {
       toast({ title: "Atenção", description: "Preencha Placa e Capacidade (m³).", variant: "destructive" });
       return;
     }
-    const ok = await add({ placa: placa.trim().toUpperCase(), modelo: modelo.trim() || null, cor: cor.trim() || null, fornecedor: fornecedor.trim() || null, capacidade_m3: parseFloat(String(capacidade).replace(",", ".")), vinculos, vinculo_rdo: vinculos[0] });
+    const ok = await add({ placa: placa.trim().toUpperCase(), modelo: modelo.trim() || null, cor: cor.trim() || null, fornecedor: fornecedor.trim() || null, capacidade_m3: parseFloat(String(capacidade).replace(",", ".")), vinculos });
     if (ok) { setPlaca(""); setModelo(""); setCor(""); setFornecedor(""); setCapacidade(""); setVinculos(["TODOS"]); }
   };
 
@@ -1650,7 +1651,7 @@ function TruckRegistryManager() {
 
   const saveEdit = async (id: string) => {
     if (!editPlaca.trim() || !editCapacidade.trim()) { toast({ title: "Atenção", description: "Placa e Capacidade são obrigatórios.", variant: "destructive" }); return; }
-    const ok = await update(id, { placa: editPlaca.trim().toUpperCase(), modelo: editModelo.trim() || null, cor: editCor.trim() || null, fornecedor: editFornecedor.trim() || null, capacidade_m3: parseFloat(String(editCapacidade).replace(",", ".")), vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
+    const ok = await update(id, { placa: editPlaca.trim().toUpperCase(), modelo: editModelo.trim() || null, cor: editCor.trim() || null, fornecedor: editFornecedor.trim() || null, capacidade_m3: parseFloat(String(editCapacidade).replace(",", ".")), vinculos: editVinculos });
     if (ok) setEditingId(null);
   };
 
@@ -2310,6 +2311,186 @@ function DesbloqueioLancamentosManager() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// TERCEIRIZADOS MANAGER
+// ═══════════════════════════════════════════════════════════════
+import { useEmpresasTerceiras } from "@/hooks/useEmpresasTerceiras";
+
+function TerceirizadosManager() {
+  const { empresas, funcionarios, loading, addEmpresa, removeEmpresa, addFuncionario, removeFuncionario } = useEmpresasTerceiras();
+  const { toast } = useToast();
+
+  const [novaEmpresa, setNovaEmpresa] = useState("");
+  const [savingEmp, setSavingEmp] = useState(false);
+
+  const [novoFunc, setNovoFunc] = useState("");
+  const [empresaFuncId, setEmpresaFuncId] = useState("");
+  const [filterEmpresa, setFilterEmpresa] = useState("");
+  const [savingFunc, setSavingFunc] = useState(false);
+
+  const handleAddEmpresa = async () => {
+    if (!novaEmpresa.trim()) return;
+    setSavingEmp(true);
+    const ok = await addEmpresa(novaEmpresa.trim());
+    setSavingEmp(false);
+    if (ok) { setNovaEmpresa(""); toast({ title: "Empresa adicionada!" }); }
+    else toast({ title: "Erro ao adicionar empresa", variant: "destructive" });
+  };
+
+  const handleRemoveEmpresa = async (id: string, nome: string) => {
+    if (!confirm(`Remover "${nome}"? Todos os funcionários desta empresa também serão desativados.`)) return;
+    const ok = await removeEmpresa(id);
+    if (ok) toast({ title: `"${nome}" removida` });
+    else toast({ title: "Erro ao remover empresa", variant: "destructive" });
+  };
+
+  const handleAddFunc = async () => {
+    if (!novoFunc.trim() || !empresaFuncId) return;
+    setSavingFunc(true);
+    const ok = await addFuncionario(novoFunc.trim(), empresaFuncId);
+    setSavingFunc(false);
+    if (ok) { setNovoFunc(""); toast({ title: "Funcionário adicionado!" }); }
+    else toast({ title: "Erro ao adicionar funcionário", variant: "destructive" });
+  };
+
+  const handleRemoveFunc = async (id: string, nome: string) => {
+    if (!confirm(`Remover "${nome}"?`)) return;
+    const ok = await removeFuncionario(id);
+    if (ok) toast({ title: `"${nome}" removido` });
+    else toast({ title: "Erro ao remover funcionário", variant: "destructive" });
+  };
+
+  const funcsFiltrados = (filterEmpresa && filterEmpresa !== "__all__")
+    ? funcionarios.filter(f => f.empresa_id === filterEmpresa)
+    : funcionarios;
+
+  if (loading) return <div className="p-6 text-center text-muted-foreground">Carregando...</div>;
+
+  return (
+    <div className="space-y-6">
+      {/* Card Empresas */}
+      <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+        <h3 className="font-display font-bold text-base flex items-center gap-2">
+          <Factory className="w-4 h-4 text-amber-600" /> Empresas Terceirizadas
+        </h3>
+
+        {/* Adicionar empresa */}
+        <div className="flex gap-2">
+          <Input
+            value={novaEmpresa}
+            onChange={e => setNovaEmpresa(e.target.value)}
+            placeholder="Nome da empresa"
+            className="h-10 bg-secondary border-border flex-1"
+            onKeyDown={e => e.key === "Enter" && handleAddEmpresa()}
+          />
+          <Button onClick={handleAddEmpresa} disabled={savingEmp || !novaEmpresa.trim()} className="h-10 px-4">
+            {savingEmp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          </Button>
+        </div>
+
+        {/* Lista */}
+        <div className="space-y-2">
+          {empresas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma empresa cadastrada.</p>
+          ) : (
+            empresas.map(emp => (
+              <div key={emp.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2">
+                <span className="text-sm font-medium">{emp.nome}</span>
+                <button
+                  onClick={() => handleRemoveEmpresa(emp.id, emp.nome)}
+                  className="text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Card Funcionários */}
+      <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+        <h3 className="font-display font-bold text-base flex items-center gap-2">
+          <Users className="w-4 h-4 text-amber-600" /> Funcionários Terceirizados
+        </h3>
+
+        {empresas.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Cadastre pelo menos uma empresa primeiro.</p>
+        ) : (
+          <>
+            {/* Adicionar funcionário */}
+            <div className="space-y-2">
+              <Select value={empresaFuncId} onValueChange={setEmpresaFuncId}>
+                <SelectTrigger className="h-10 bg-secondary border-border">
+                  <SelectValue placeholder="Selecione a empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresas.map(emp => (
+                    <SelectItem key={emp.id} value={emp.id}>{emp.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Input
+                  value={novoFunc}
+                  onChange={e => setNovoFunc(e.target.value)}
+                  placeholder="Nome do funcionário"
+                  className="h-10 bg-secondary border-border flex-1"
+                  onKeyDown={e => e.key === "Enter" && handleAddFunc()}
+                />
+                <Button onClick={handleAddFunc} disabled={savingFunc || !novoFunc.trim() || !empresaFuncId} className="h-10 px-4">
+                  {savingFunc ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Filtro */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground font-medium">Filtrar por empresa:</p>
+              <Select value={filterEmpresa} onValueChange={setFilterEmpresa}>
+                <SelectTrigger className="h-9 bg-secondary border-border text-sm">
+                  <SelectValue placeholder="Todas as empresas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todas</SelectItem>
+                  {empresas.map(emp => (
+                    <SelectItem key={emp.id} value={emp.id}>{emp.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Lista */}
+            <div className="space-y-2">
+              {funcsFiltrados.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum funcionário cadastrado.</p>
+              ) : (
+                funcsFiltrados.map(func => {
+                  const empresa = empresas.find(e => e.id === func.empresa_id);
+                  return (
+                    <div key={func.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2">
+                      <div>
+                        <span className="text-sm font-medium">{func.nome}</span>
+                        <span className="text-xs text-muted-foreground ml-2">— {empresa?.nome || "?"}</span>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveFunc(func.id, func.nome)}
+                        className="text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SIDEBAR MENU ITEMS
 // ═══════════════════════════════════════════════════════════════
 const MENU_SECTIONS = [
@@ -2320,14 +2501,17 @@ const MENU_SECTIONS = [
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
   { key: "materiais", label: "Materiais", icon: Package },
   { key: "maquinas", label: "Frota (Máquinas)", icon: Wrench },
-  { key: "caminhoes", label: "Frota (Caminhões)", icon: Truck },
+  { key: "caminhoes", label: "Frota (Carreteiros)", icon: Truck },
   { key: "funcionarios", label: "Funcionários", icon: Users },
+  { key: "equipes", label: "Equipes", icon: Users },
   { key: "tipos_servico", label: "Tipos de Serviço", icon: Hammer },
   { key: "empreiteiros", label: "Empreiteiros", icon: Hammer },
   { key: "fornecedores", label: "Fornecedores", icon: Factory },
+  { key: "terceirizados", label: "Terceirizados", icon: HardHat },
   // Usinas removidas — migradas para Fornecedores com vínculo PAVIMENTACAO
   { key: "destinos", label: "Destinos (Carreteiro)", icon: MapPin },
   { key: "emails", label: "E-mails", icon: Mail },
+  { key: "sst", label: "SST Responsáveis", icon: HardHat },
   { key: "notificacoes", label: "Notificações", icon: Bell },
   { key: "destinatarios_notif", label: "Destinatários Push", icon: Target },
   { key: "desbloquear", label: "Desbloquear Lançamentos", icon: Unlock },
@@ -2805,6 +2989,103 @@ function LixeiraManager() {
   );
 }
 
+// ─── SST Responsáveis Manager ──────────────────────────────────────────────────────────────────
+const COMPANY_ID_ADMIN = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const CARGOS = [
+  { key: "engenheiro", label: "Engenheiro da Obra" },
+  { key: "encarregado", label: "Encarregado da Obra" },
+  { key: "tecnico_sst", label: "Técnico SST" },
+  { key: "administrativo", label: "Administrativo" },
+];
+
+function SSTResponsaveisManager() {
+  const [lista, setLista] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [novoNome, setNovoNome] = useState("");
+  const [novoCargo, setNovoCargo] = useState("engenheiro");
+  const [salvando, setSalvando] = useState(false);
+  const { toast } = useToast();
+
+  async function load() {
+    setLoading(true);
+    const { data } = await supabase.from("sst_responsaveis" as any).select("*").eq("company_id", COMPANY_ID_ADMIN).order("cargo").order("nome");
+    if (data) setLista(data as any);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function adicionar() {
+    if (!novoNome.trim()) return;
+    setSalvando(true);
+    const { error } = await supabase.from("sst_responsaveis" as any).insert({ company_id: COMPANY_ID_ADMIN, nome: novoNome.trim().toUpperCase(), cargo: novoCargo });
+    if (!error) { setNovoNome(""); toast({ title: "Adicionado!" }); await load(); }
+    else toast({ title: "Erro", description: error.message, variant: "destructive" });
+    setSalvando(false);
+  }
+
+  async function remover(id: string) {
+    await supabase.from("sst_responsaveis" as any).delete().eq("id", id);
+    await load();
+  }
+
+  async function toggleAtivo(id: string, ativo: boolean) {
+    await supabase.from("sst_responsaveis" as any).update({ ativo: !ativo }).eq("id", id);
+    await load();
+  }
+
+  const porCargo = CARGOS.map(c => ({ ...c, items: lista.filter(l => l.cargo === c.key) }));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-foreground">Responsáveis SST</h2>
+        <p className="text-sm text-muted-foreground">Cadastre os nomes que aparecem nos campos de responsáveis no formulário de Inspeção SST.</p>
+      </div>
+
+      {/* Adicionar */}
+      <div className="flex gap-3 items-end flex-wrap">
+        <div className="flex-1 min-w-[160px]">
+          <Label className="text-xs mb-1 block">Nome</Label>
+          <Input value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Ex: PLINIO OLIVEIRA" onKeyDown={e => e.key === "Enter" && adicionar()} />
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Cargo</Label>
+          <select value={novoCargo} onChange={e => setNovoCargo(e.target.value)}
+            className="h-9 border border-border rounded-md px-3 text-sm bg-background">
+            {CARGOS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </select>
+        </div>
+        <Button onClick={adicionar} disabled={salvando || !novoNome.trim()} size="sm">
+          <Plus className="w-4 h-4 mr-1" /> Adicionar
+        </Button>
+      </div>
+
+      {/* Lista por cargo */}
+      {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : porCargo.map(grupo => (
+        <div key={grupo.key} className="bg-card rounded-xl border border-border p-4">
+          <p className="text-sm font-semibold text-foreground mb-3">{grupo.label}</p>
+          {grupo.items.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum cadastrado</p>
+          ) : (
+            <div className="space-y-2">
+              {grupo.items.map((item: any) => (
+                <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/40">
+                  <span className={`flex-1 text-sm font-medium ${!item.ativo ? 'line-through text-muted-foreground' : ''}`}>{item.nome}</span>
+                  <Switch checked={item.ativo} onCheckedChange={() => toggleAtivo(item.id, item.ativo)} />
+                  <button onClick={() => remover(item.id)} className="text-destructive hover:text-destructive/80 transition">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminConfiguracoes() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -2852,12 +3133,15 @@ export default function AdminConfiguracoes() {
       case "maquinas": return <MaquinasManager />;
       case "caminhoes": return <TruckRegistryManager />;
       case "funcionarios": return <FuncionariosManager />;
+      case "equipes": return <EquipesManager />;
       case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" />;
       case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />;
       case "fornecedores": return <FornecedoresManager />;
+      case "terceirizados": return <TerceirizadosManager />;
       // case "usinas": removido — usinas migradas para Fornecedores
       case "destinos": return <DestinosManager />;
       case "emails": return <EmailConfig />;
+      case "sst": return <SSTResponsaveisManager />;
       case "notificacoes": return <NotificationPrefsManager />;
       case "destinatarios_notif": return <NotificationTargetsManager />;
       case "desbloquear": return <DesbloqueioLancamentosManager />;
