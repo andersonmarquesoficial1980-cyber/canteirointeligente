@@ -576,8 +576,23 @@ function MaquinasManager() {
                   <div className="space-y-1"><Label className="text-xs text-muted-foreground">Frota *</Label><Input value={editFrota} onChange={e => setEditFrota(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
                   <div className="space-y-1"><Label className="text-xs text-muted-foreground">Nome/Modelo *</Label><Input value={editNome} onChange={e => setEditNome(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
                   <div className="space-y-1"><Label className="text-xs text-muted-foreground">Tipo</Label><Input value={editTipo} onChange={e => setEditTipo(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
-                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Empresa</Label><Input value={editEmpresa} onChange={e => setEditEmpresa(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Condição</Label>
+                    <Select value={editCondicao} onValueChange={v => { setEditCondicao(v); if (v === "PROPRIO") setEditEmpresa("PRÓPRIO"); }}>
+                      <SelectTrigger className="h-9 bg-secondary border-border text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PROPRIO">Próprio (Fremix)</SelectItem>
+                        <SelectItem value="TERCEIRO">Terceiro (Locado/Alugado)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                {editCondicao === "TERCEIRO" && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Empresa Proprietária</Label>
+                    <Input value={editEmpresa} onChange={e => setEditEmpresa(e.target.value)} className="h-9 bg-secondary border-border text-sm" placeholder="Ex: MERGULHÃO, FORMILOC..." />
+                  </div>
+                )}
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Categoria</Label>
                   <Select value={editCategoria} onValueChange={setEditCategoria}>
