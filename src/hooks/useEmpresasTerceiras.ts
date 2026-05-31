@@ -36,7 +36,13 @@ export function useEmpresasTerceiras() {
     setLoading(true);
     const [{ data: emps }, { data: funcs }] = await Promise.all([
       (supabase as any).from("empresas_terceiras").select("id, nome, ativo").eq("ativo", true).order("nome"),
-      (supabase as any).from("funcionarios_terceiros").select("id, empresa_id, nome, ativo").eq("ativo", true).order("nome"),
+      // Busca funcionários terceirizados diretamente de employees (fonte única)
+      (supabase as any)
+        .from("employees")
+        .select("id, empresa_id, name, status")
+        .eq("origem", "TERCEIRO")
+        .eq("status", "ativo")
+        .order("name"),
     ]);
 
     const empList: EmpresaTerceira[] = emps || [];
@@ -57,8 +63,16 @@ export function useEmpresasTerceiras() {
       }
     }
 
+    // Normaliza employees para interface FuncionarioTerceiro
+    const funcList: FuncionarioTerceiro[] = (funcs || []).map((f: any) => ({
+      id: f.id,
+      empresa_id: f.empresa_id,
+      nome: f.name,
+      ativo: f.status === "ativo",
+    }));
+
     setEmpresas(empList);
-    setFuncionarios(funcs || []);
+    setFuncionarios(funcList);
     setLoading(false);
   }, []);
 
@@ -85,21 +99,31 @@ export function useEmpresasTerceiras() {
     return !error;
   };
 
-  const addFuncionario = async (nome: string, empresa_id: string): Promise<boolean> => {
+  const addFuncionario = async (nome: string, empresa_id: string, role?: string): Promise<boolean> => {
     const companyId = await getCompanyId();
     if (!companyId) return false;
+    // Terceirizados vão direto para a tabela employees (fonte única)
     const { error } = await (supabase as any)
-      .from("funcionarios_terceiros")
-      .insert({ nome: nome.trim(), empresa_id, company_id: companyId });
+      .from("employees")
+      .insert({
+        name: nome.trim(),
+        empresa_id,
+        company_id: companyId,
+        origem: "TERCEIRO",
+        status: "ativo",
+        role: role?.trim() || null,
+      });
     if (!error) await fetchAll();
     return !error;
   };
 
   const removeFuncionario = async (id: string): Promise<boolean> => {
+    // Inativa o funcionário terceirizado em employees
     const { error } = await (supabase as any)
-      .from("funcionarios_terceiros")
-      .update({ ativo: false })
-      .eq("id", id);
+      .from("employees")
+      .update({ status: "inativo" })
+      .eq("id", id)
+      .eq("origem", "TERCEIRO");
     if (!error) await fetchAll();
     return !error;
   };
