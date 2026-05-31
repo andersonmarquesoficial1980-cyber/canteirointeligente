@@ -400,7 +400,8 @@ function MaquinasManager() {
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
   const [categoria, setCategoria] = useState("");
-  const [empresa, setEmpresa] = useState("");
+  const [condicao, setCondicao] = useState("PROPRIO");
+  const [empresa, setEmpresa] = useState("PRÓPRIO");
   const [vinculos, setVinculos] = useState<string[]>(["TODOS"]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFrota, setEditFrota] = useState("");
@@ -410,6 +411,7 @@ function MaquinasManager() {
   const [filterCategoria, setFilterCategoria] = useState("");
   const [editCategoria, setEditCategoria] = useState("");
   const [editEmpresa, setEditEmpresa] = useState("");
+  const [editCondicao, setEditCondicao] = useState("PROPRIO");
   const [editVinculos, setEditVinculos] = useState<string[]>(["TODOS"]);
 
   const toggleVinculo = (v: string, current: string[], set: (x: string[]) => void) => {
@@ -445,8 +447,8 @@ function MaquinasManager() {
       toast({ title: "Atenção", description: "Preencha Frota e Nome.", variant: "destructive" });
       return;
     }
-    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria, empresa: empresa.trim(), vinculos, vinculo_rdo: vinculos[0], status: "ativo" });
-    if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setEmpresa(""); setVinculos(["TODOS"]); }
+    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria, condicao, empresa: empresa.trim(), vinculos, vinculo_rdo: vinculos[0], status: "ativo" });
+    if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setCondicao("PROPRIO"); setEmpresa("PRÓPRIO"); setVinculos(["TODOS"]); }
   };
 
   const startEdit = (m: any) => {
@@ -455,13 +457,14 @@ function MaquinasManager() {
     setEditNome(m.nome || "");
     setEditTipo(m.tipo || "");
     setEditCategoria(m.categoria || "");
+    setEditCondicao(m.condicao || (m.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO'));
     setEditEmpresa(m.empresa || "");
     setEditVinculos(m.vinculos?.length ? m.vinculos : [m.vinculo_rdo || "TODOS"]);
   };
 
   const saveEdit = async (id: string) => {
     if (!editFrota.trim() || !editNome.trim()) { toast({ title: "Atenção", description: "Frota e Nome são obrigatórios.", variant: "destructive" }); return; }
-    const ok = await update(id, { frota: editFrota.trim(), nome: editNome.trim(), tipo: editTipo.trim(), categoria: editCategoria, empresa: editEmpresa.trim(), vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
+    const ok = await update(id, { frota: editFrota.trim(), nome: editNome.trim(), tipo: editTipo.trim(), categoria: editCategoria, condicao: editCondicao, empresa: editEmpresa.trim(), vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
     if (ok) setEditingId(null);
   };
 
@@ -484,10 +487,22 @@ function MaquinasManager() {
             <Input value={tipo} onChange={e => setTipo(e.target.value)} className="h-11 bg-secondary border-border" placeholder="FRESADORA" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Empresa</Label>
-            <Input value={empresa} onChange={e => setEmpresa(e.target.value)} className="h-11 bg-secondary border-border" placeholder="PRÓPRIO" />
+            <Label className="text-xs text-muted-foreground">Condição</Label>
+            <Select value={condicao} onValueChange={v => { setCondicao(v); setEmpresa(v === "PROPRIO" ? "PRÓPRIO" : ""); }}>
+              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PROPRIO">Próprio (Fremix)</SelectItem>
+                <SelectItem value="TERCEIRO">Terceiro (Locado/Alugado)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
+        {condicao === "TERCEIRO" && (
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Empresa Proprietária</Label>
+            <Input value={empresa} onChange={e => setEmpresa(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Ex: MERGULHÃO, FORMILOC..." />
+          </div>
+        )}
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Categoria</Label>
           <Select value={categoria} onValueChange={setCategoria}>
@@ -499,7 +514,7 @@ function MaquinasManager() {
           <Label className="text-xs text-muted-foreground">Onde aparece (um ou mais)</Label>
           <PillGroup options={VINCULO_OPTIONS} selected={vinculos} onToggle={v => toggleVinculo(v, vinculos, setVinculos)} />
         </div>
-        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Máquina</Button>
+        <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Equipamento</Button>
       </div>
       {/* Busca e filtro */}
       <div className="bg-card rounded-xl border border-border p-3 space-y-2">
@@ -2500,7 +2515,7 @@ const MENU_SECTIONS = [
   { key: "permissoes", label: "Permissões", icon: Users },
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
   { key: "materiais", label: "Materiais", icon: Package },
-  { key: "maquinas", label: "Frota (Máquinas)", icon: Wrench },
+  { key: "maquinas", label: "Frota (Equipamentos)", icon: Wrench },
   { key: "caminhoes", label: "Frota (Carreteiros)", icon: Truck },
   { key: "funcionarios", label: "Funcionários", icon: Users },
   { key: "equipes", label: "Equipes", icon: Users },
