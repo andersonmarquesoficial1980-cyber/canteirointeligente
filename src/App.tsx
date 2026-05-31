@@ -48,6 +48,7 @@ import FrotaNovo from "./pages/FrotaNovo";
 import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
 import GestaoFrotasHome from "./pages/GestaoFrotasHome";
 import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
+import EquipamentoProntuario from "./pages/EquipamentoProntuario";
 import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
 import ProgramacaoFerias from "./pages/ProgramacaoFerias";
 import WhatsAppInbox from "./pages/WhatsAppInbox";
@@ -328,6 +329,7 @@ function AppRoutes() {
         <Route path="/gestao-frotas" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasHome /></RequireModule>} />
         <Route path="/gestao-frotas/veiculo/:id" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasVeiculo /></RequireModule>} />
         <Route path="/gestao-frotas/dashboard" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboard /></RequireModule>} />
+        <Route path="/equipamentos/prontuario/:id" element={<RequireModule moduleId="equipamentos"><EquipamentoProntuario /></RequireModule>} />
         <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
         <Route path="/gestao-pessoas/:id" element={<RequireModule moduleId="gestao-pessoas"><FichaFuncionario /></RequireModule>} />
         <Route path="/gestao-pessoas/ferias" element={<RequireModule moduleId="gestao-pessoas"><ProgramacaoFerias /></RequireModule>} />

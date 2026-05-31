@@ -13,7 +13,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2, HardHat,
+  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2, HardHat, FileText,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -396,6 +396,7 @@ function FornecedoresManager() {
 function MaquinasManager() {
   const { items, loading, add, remove, update } = useCrudTable("equipamentos");
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [frota, setFrota] = useState("");
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
@@ -618,6 +619,7 @@ function MaquinasManager() {
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0">
+                  <button onClick={() => navigate(`/equipamentos/prontuario/${m.id}`)} className="text-blue-600 p-1" title="Prontuário"><FileText className="w-4 h-4" /></button>
                   <button onClick={() => startEdit(m)} className="text-primary p-1"><Pencil className="w-4 h-4" /></button>
                   <button onClick={() => remove(m.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
                 </div>
