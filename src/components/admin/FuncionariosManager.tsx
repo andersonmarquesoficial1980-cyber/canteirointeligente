@@ -56,10 +56,15 @@ export default function FuncionariosManager() {
 
     const [{ data: funcs }, { data: eqs }] = await Promise.all([
       (supabase as any).from("employees").select("*").eq("company_id", cid).order("name"),
-      (supabase as any).from("ci_equipes").select("nome").eq("company_id", cid).order("nome"),
+      // Buscar equipes sem filtro de company_id para garantir que carregam
+      (supabase as any).from("ci_equipes").select("nome").order("nome"),
     ]);
     setItems(funcs || []);
-    setEquipes((eqs || []).map((e: any) => e.nome));
+    // Também inclui equipes que já existem nos funcionários (fallback)
+    const eqsNomes = (eqs || []).map((e: any) => e.nome);
+    const eqsFuncs = [...new Set((funcs || []).map((f: any) => f.equipe).filter(Boolean))] as string[];
+    const todasEquipes = [...new Set([...eqsNomes, ...eqsFuncs])].sort();
+    setEquipes(todasEquipes);
   }
 
   const filtered = useMemo(() => {
@@ -208,11 +213,15 @@ export default function FuncionariosManager() {
                   <select value={form.equipe} onChange={e => set("equipe", e.target.value)}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm">
                     <option value="">— Selecione —</option>
+                    {/* Garante que a equipe atual sempre aparece mesmo se não estiver na lista */}
+                    {form.equipe && !equipes.includes(form.equipe) && (
+                      <option value={form.equipe}>{form.equipe}</option>
+                    )}
                     {equipes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
-                    <option value="__outro">Outra (digitar)</option>
+                    <option value="__digitar">+ Digitar outra equipe</option>
                   </select>
-                  {form.equipe === "__outro" && (
-                    <Input value="" onChange={e => set("equipe", e.target.value)} placeholder="Digite a equipe" className="h-10 rounded-xl mt-1" />
+                  {form.equipe === "__digitar" && (
+                    <Input autoFocus onChange={e => set("equipe", e.target.value)} placeholder="Digite o nome da equipe" className="h-10 rounded-xl mt-1" />
                   )}
                 </div>
                 <div className="col-span-2"><F label="Responsável / Encarregado" field="responsavel" placeholder="Nome do encarregado" /></div>
