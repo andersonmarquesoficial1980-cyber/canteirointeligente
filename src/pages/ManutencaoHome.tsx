@@ -105,6 +105,9 @@ export default function ManutencaoHome() {
           <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">WF Manutenção</span>
           <span className="block text-[11px] text-primary-foreground/80">Ordens de Serviço & Documentos</span>
         </div>
+        <Button size="sm" variant="outline" onClick={() => navigate("/manutencao/ocorrencias")} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
+          <AlertTriangle className="w-4 h-4" /> Ocorrências
+        </Button>
         <Button size="sm" variant="outline" onClick={() => navigate("/manutencao/fila")} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
           <Tv className="w-4 h-4" /> Fila de Manutenção
         </Button>
