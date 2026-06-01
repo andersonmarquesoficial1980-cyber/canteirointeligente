@@ -157,6 +157,18 @@ export default function GestaoFrotasHome() {
               <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
             </button>
 
+            {/* Medições de Terceiros */}
+            <button onClick={() => navigate("/gestao-frotas/medicoes")} className="w-full rdo-card border-l-4 border-l-violet-400 hover:shadow-md transition-all flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-5 h-5 text-violet-500" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-display font-bold text-sm">Medições de Terceiros</p>
+                <p className="text-xs text-muted-foreground">Gerar medição por frota e período</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+            </button>
+
         {/* Dashboard de custos */}
             <button onClick={() => setStep("dashboard")} className="w-full rdo-card border-l-4 border-l-orange-400 hover:shadow-md transition-all flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
