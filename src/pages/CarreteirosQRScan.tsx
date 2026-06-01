@@ -103,22 +103,14 @@ export default function CarreteirosQRScan() {
       company_id: COMPANY_ID,
     };
     try {
-      const resp = await fetch("https://ucgcqexunnsrffzrfhqu.supabase.co/rest/v1/trucker_trips", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZ2NxZXh1bm5zcmZmenJmaHF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjMxNjM4MiwiZXhwIjoyMDg3ODkyMzgyfQ.sZ787U3DHsL6vuvQbcv9ksuSrLNj-FCx4Z6feAIeWvk",
-          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZ2NxZXh1bm5zcmZmenJmaHF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjMxNjM4MiwiZXhwIjoyMDg3ODkyMzgyfQ.sZ787U3DHsL6vuvQbcv9ksuSrLNj-FCx4Z6feAIeWvk",
-          "Prefer": "return=minimal",
-        },
-        body: JSON.stringify(payload),
-      });
+      const { error: insertError } = await supabase
+        .from("trucker_trips")
+        .insert(payload);
       setSubmitting(false);
-      if (resp.status === 201 || resp.status === 204 || resp.ok) {
+      if (!insertError) {
         setDone("saida");
       } else {
-        const txt = await resp.text();
-        setErro("Erro " + resp.status + ": " + txt.slice(0, 120));
+        setErro("Erro ao registrar saída: " + insertError.message.slice(0, 120));
       }
     } catch (e: any) {
       setSubmitting(false);
@@ -130,18 +122,12 @@ export default function CarreteirosQRScan() {
     if (!tripAberta) return;
     setSubmitting(true); setErro(null);
     try {
-      const resp = await fetch(`https://ucgcqexunnsrffzrfhqu.supabase.co/rest/v1/trucker_trips?id=eq.${tripAberta.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZ2NxZXh1bm5zcmZmenJmaHF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjMxNjM4MiwiZXhwIjoyMDg3ODkyMzgyfQ.sZ787U3DHsL6vuvQbcv9ksuSrLNj-FCx4Z6feAIeWvk",
-          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZ2NxZXh1bm5zcmZmenJmaHF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjMxNjM4MiwiZXhwIjoyMDg3ODkyMzgyfQ.sZ787U3DHsL6vuvQbcv9ksuSrLNj-FCx4Z6feAIeWvk",
-          "Prefer": "return=minimal",
-        },
-        body: JSON.stringify({ arrival_time: new Date().toISOString(), arrival_geo: geo, status: "CONCLUÍDO" }),
-      });
+      const { error: updateError } = await supabase
+        .from("trucker_trips")
+        .update({ arrival_time: new Date().toISOString(), arrival_geo: geo, status: "CONCLUÍDO" })
+        .eq("id", tripAberta.id);
       setSubmitting(false);
-      if (!resp.ok) { const txt = await resp.text(); setErro("Erro: " + txt.slice(0, 100)); }
+      if (updateError) { setErro("Erro: " + updateError.message.slice(0, 100)); }
       else setDone("chegada");
     } catch (e: any) {
       setSubmitting(false);
