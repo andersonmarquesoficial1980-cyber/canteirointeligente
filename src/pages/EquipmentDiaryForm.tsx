@@ -16,7 +16,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Send, Save, Plus, Trash2, Droplets, Fuel, Pencil } from "lucide-react";
+import { AlertCircle, Send, Save, Plus, Trash2, Droplets, Fuel, Pencil, TriangleAlert, X, Camera, Upload } from "lucide-react";
 import EquipmentHeader from "@/components/equipment/EquipmentHeader";
 import TimeEntriesSection, { type TimeEntry, createDefaultTimeEntry } from "@/components/equipment/TimeEntriesSection";
 import KmaCalibrationSection, {
@@ -32,6 +32,7 @@ import ComboioRefuelingSection, {
 } from "@/components/equipment/ComboioRefuelingSection";
 import ChecklistSection, { type ChecklistResult } from "@/components/equipment/ChecklistSection";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Label } from "@/components/ui/label";
 import { compressImage } from "@/lib/imageCompression";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
 import { generateComboioPdf } from "@/lib/generateComboioPdf";
@@ -246,6 +247,17 @@ export default function EquipmentDiaryForm() {
 
   // Truck tank supply (Pipa / Espargidor)
   const [tankSupplies, setTankSupplies] = useState<TankSupplyEntry[]>([createEmptyTankSupply()]);
+
+  // Modal Reportar Ocorrência
+  const [showOcorrenciaModal, setShowOcorrenciaModal] = useState(false);
+  const [ocorrTitulo, setOcorrTitulo] = useState("");
+  const [ocorrDescricao, setOcorrDescricao] = useState("");
+  const [ocorrTipo, setOcorrTipo] = useState("OCORRÊNCIA");
+  const [ocorrPrioridade, setOcorrPrioridade] = useState("NORMAL");
+  const [ocorrFoto, setOcorrFoto] = useState<File | null>(null);
+  const [salvandoOcorrencia, setSalvandoOcorrencia] = useState(false);
+  const ocorrFileRef = useRef<HTMLInputElement>(null);
+  const ocorrCameraRef = useRef<HTMLInputElement>(null);
 
   // Comboio state
   const [comboioRefuels, setComboioRefuels] = useState<ComboioRefuelEntry[]>([createEmptyComboioRefuel()]);
@@ -1694,6 +1706,63 @@ export default function EquipmentDiaryForm() {
     await generateKmaPdf({ fleet: selectedFleet, date, operator, entries: kmaEntries });
   };
 
+  async function uploadOcorrenciaFoto(file: File): Promise<string | null> {
+    const path = `equipamentos/ocorrencias/${Date.now()}.jpg`;
+    const { error } = await supabase.storage.from("sst-fotos").upload(path, file, { upsert: true });
+    if (error) return null;
+    return supabase.storage.from("sst-fotos").getPublicUrl(path).data.publicUrl;
+  }
+
+  async function salvarOcorrencia() {
+    if (!ocorrTitulo.trim()) {
+      toast({ title: "Informe o que aconteceu", variant: "destructive" });
+      return;
+    }
+    if (!selectedFleet) {
+      toast({ title: "Selecione o equipamento primeiro", variant: "destructive" });
+      return;
+    }
+    setSalvandoOcorrencia(true);
+    try {
+      // Buscar o equipamento_id a partir da frota
+      const { data: equip } = await (supabase as any)
+        .from("equipamentos")
+        .select("id, frota, nome, tipo")
+        .eq("frota", selectedFleet.trim().toUpperCase())
+        .eq("company_id", profile?.company_id || "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+        .maybeSingle();
+
+      let fotoUrl = null;
+      if (ocorrFoto) fotoUrl = await uploadOcorrenciaFoto(ocorrFoto);
+
+      const { error } = await (supabase as any).from("equipamentos_ocorrencias").insert({
+        equipamento_id: equip?.id || null,
+        company_id: profile?.company_id || null,
+        frota: selectedFleet.trim().toUpperCase(),
+        titulo: ocorrTitulo.trim(),
+        descricao: ocorrDescricao.trim() || null,
+        tipo: ocorrTipo,
+        prioridade: ocorrPrioridade,
+        status: "ABERTA",
+        origem: "diario",
+        solicitante_nome: profile?.nome_completo || profile?.email || "",
+        solicitante_perfil: (profile as any)?.perfil || profile?.role || "",
+        foto_url: fotoUrl,
+        created_by: profile?.user_id,
+      });
+
+      if (!error) {
+        toast({ title: "Ocorrência registrada!", description: "A equipe de manutenção foi notificada." });
+        setShowOcorrenciaModal(false);
+        setOcorrTitulo(""); setOcorrDescricao(""); setOcorrTipo("OCORRÊNCIA"); setOcorrPrioridade("NORMAL"); setOcorrFoto(null);
+      } else {
+        toast({ title: "Erro ao registrar ocorrência", description: error.message, variant: "destructive" });
+      }
+    } finally {
+      setSalvandoOcorrencia(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <EquipmentHeader title={isCaminhoes && caminhaoTipo ? `Caminhão ${caminhaoTipo}` : isVeiculo ? "Veículo de Transporte" : (equipmentType || "Novo Diário")} />
@@ -2531,6 +2600,107 @@ export default function EquipmentDiaryForm() {
           />
         </Section>
         </>)}
+
+        {/* Botão Reportar Ocorrência */}
+        {selectedFleet && (
+          <button
+            type="button"
+            onClick={() => setShowOcorrenciaModal(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-orange-400 text-orange-500 font-bold text-sm hover:bg-orange-50 transition-colors"
+          >
+            <TriangleAlert className="w-4 h-4" />
+            Reportar Problema no Equipamento
+          </button>
+        )}
+
+        {/* Modal Ocorrência */}
+        {showOcorrenciaModal && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setShowOcorrenciaModal(false)}>
+            <div className="w-full max-w-lg bg-background rounded-t-3xl p-5 space-y-4 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TriangleAlert className="w-5 h-5 text-orange-500" />
+                  <h3 className="font-display font-bold text-base">Reportar Problema</h3>
+                </div>
+                <button onClick={() => setShowOcorrenciaModal(false)} className="p-1 rounded-lg hover:bg-secondary">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Equipamento: <span className="font-bold text-foreground">{selectedFleet}</span></p>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">O que aconteceu? *</Label>
+                <input
+                  value={ocorrTitulo}
+                  onChange={e => setOcorrTitulo(e.target.value)}
+                  className="w-full h-11 rounded-xl border border-border bg-secondary px-3 text-sm"
+                  placeholder="Ex: Motor fazendo barulho, vaza óleo..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Descrição (opcional)</Label>
+                <textarea
+                  value={ocorrDescricao}
+                  onChange={e => setOcorrDescricao(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-secondary px-3 py-2 text-sm min-h-[70px] resize-none"
+                  placeholder="Descreva melhor o problema..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Tipo</Label>
+                  <select value={ocorrTipo} onChange={e => setOcorrTipo(e.target.value)}
+                    className="w-full h-10 rounded-xl border border-border bg-secondary px-2 text-sm">
+                    {["OCORRÊNCIA","FALHA MECÂNICA","PNEU","ELÉTRICA","VAZAMENTO","RUÍDO ANORMAL","MANUTENÇÃO PREVENTIVA","OUTRO"].map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Prioridade</Label>
+                  <select value={ocorrPrioridade} onChange={e => setOcorrPrioridade(e.target.value)}
+                    className="w-full h-10 rounded-xl border border-border bg-secondary px-2 text-sm">
+                    <option value="BAIXA">Baixa</option>
+                    <option value="NORMAL">Normal</option>
+                    <option value="ALTA">Alta</option>
+                    <option value="URGENTE">Urgente</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Foto */}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Foto (opcional)</Label>
+                <div className="flex gap-2">
+                  <button type="button"
+                    onClick={() => ocorrCameraRef.current?.click()}
+                    className="flex-1 h-10 rounded-xl border border-border bg-secondary flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted">
+                    <Camera className="w-4 h-4" /> Câmera
+                  </button>
+                  <button type="button"
+                    onClick={() => ocorrFileRef.current?.click()}
+                    className="flex-1 h-10 rounded-xl border border-border bg-secondary flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted">
+                    <Upload className="w-4 h-4" /> Galeria
+                  </button>
+                </div>
+                {ocorrFoto && <p className="text-xs text-green-600">📎 {ocorrFoto.name}</p>}
+                <input ref={ocorrCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => setOcorrFoto(e.target.files?.[0] || null)} />
+                <input ref={ocorrFileRef} type="file" accept="image/*" className="hidden" onChange={e => setOcorrFoto(e.target.files?.[0] || null)} />
+              </div>
+
+              <Button
+                onClick={salvarOcorrencia}
+                disabled={salvandoOcorrencia || !ocorrTitulo.trim()}
+                className="w-full font-bold py-5 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                {salvandoOcorrencia ? "Registrando..." : "Registrar Ocorrência"}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Fixed bottom buttons */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border space-y-2">
           <div className="max-w-lg mx-auto space-y-2">
