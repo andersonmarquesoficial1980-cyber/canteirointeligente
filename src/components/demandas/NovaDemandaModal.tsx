@@ -190,7 +190,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
           ? supabase.from("profiles").select("nome_completo, perfil, company_id").eq("user_id", user.id).maybeSingle()
           : Promise.resolve({ data: null, error: null } as any),
         (supabase as any).from("maquinas_frota").select("id, frota, tipo, status, nome").order("tipo").order("frota"),
-        (supabase as any).from("funcionarios").select("id, nome, funcao").order("nome"),
+        (supabase as any).from("employees").select("id, name, role, status").eq("status","ativo").order("name"),
         // Busca usuários do Workflux para delegar tarefas
         supabase.from("profiles").select("id, user_id, nome_completo, perfil").neq("status", "inativo").order("nome_completo"),
       ]);
@@ -206,7 +206,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
       }
 
       if (!maquinasRes.error && maquinasRes.data) setMaquinas(maquinasRes.data as Maquina[]);
-      if (!funcionariosRes.error && funcionariosRes.data) setFuncionarios(funcionariosRes.data as Funcionario[]);
+      if (!funcionariosRes.error && funcionariosRes.data) setFuncionarios((funcionariosRes.data as any[]).map((f: any) => ({ id: f.id, nome: f.name, funcao: f.role ?? "" })) as Funcionario[]);
       if (!usuariosRes.error && usuariosRes.data) setUsuariosWorkflux(usuariosRes.data as any[]);
 
       if (maquinasRes.error) {

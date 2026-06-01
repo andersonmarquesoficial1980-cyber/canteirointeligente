@@ -93,10 +93,10 @@ export default function RegistrarPonto() {
   useEffect(() => {
     const load = async () => {
       const [funcRes, ogsRes] = await Promise.all([
-        (supabase as any).from("funcionarios").select("id, nome, funcao, matricula").order("nome"),
+        (supabase as any).from("employees").select("id, name, role, matricula, status").eq("status","ativo").order("name"),
         (supabase as any).from("ogs_reference").select("id, ogs_number, client_name, lat, lng"),
       ]);
-      if (funcRes.data) setFuncionarios(funcRes.data);
+      if (funcRes.data) setFuncionarios(funcRes.data.map((f: any) => ({ id: f.id, nome: f.name, funcao: f.role ?? "", matricula: f.matricula ?? "" })));
       if (ogsRes.data) setOgsList(ogsRes.data);
       setLoading(false);
     };

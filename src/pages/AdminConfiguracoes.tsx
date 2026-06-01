@@ -2006,10 +2006,10 @@ function OperadoresHabilitadosManager() {
       setCompanyId(cid);
 
       const [{ data: funcs }, { data: lnks }] = await Promise.all([
-        supabase.from("funcionarios" as any).select("id, nome, funcao").order("nome"),
+        (supabase as any).from("employees").select("id, name, role, status").eq("status","ativo").order("name"),
         cid ? supabase.from("equipment_type_operators" as any).select("id, equipment_type, funcionario_id").eq("company_id", cid) : Promise.resolve({ data: [] }),
       ]);
-      setFuncionarios((funcs || []) as any[]);
+      setFuncionarios(((funcs || []) as any[]).map((f: any) => ({ id: f.id, nome: f.name, funcao: f.role ?? "" })));
       setLinks((lnks || []) as any[]);
       setLoading(false);
     }

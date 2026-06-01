@@ -83,14 +83,15 @@ export default function OperadoresHabilitados() {
     queryFn: async (): Promise<Funcionario[]> => {
       if (!companyId) return [];
 
-      const { data, error } = await supabase
-        .from("funcionarios" as any)
-        .select("id, nome, funcao")
+      const { data, error } = await (supabase as any)
+        .from("employees")
+        .select("id, name, role, status")
         .eq("company_id", companyId)
-        .order("nome", { ascending: true });
+        .eq("status", "ativo")
+        .order("name", { ascending: true });
 
       if (error) throw error;
-      return (data || []) as Funcionario[];
+      return ((data || []) as any[]).map((f: any) => ({ id: f.id, nome: f.name, funcao: f.role ?? "" })) as Funcionario[];
     },
     enabled: !!companyId,
   });

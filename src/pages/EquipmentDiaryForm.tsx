@@ -370,12 +370,19 @@ export default function EquipmentDiaryForm() {
           return [];
         }
       }
-      const { data, error } = await supabase
-        .from("funcionarios")
-        .select("id, nome, funcao")
-        .order("nome");
+      const { data, error } = await (supabase as any)
+        .from("employees")
+        .select("id, matricula, name, role, status")
+        .eq("status", "ativo")
+        .order("name");
       if (error) throw error;
-      return (data || []) as any[];
+      // Normaliza para o formato {id, nome, funcao} usado no form
+      return ((data || []) as any[]).map((f: any) => ({
+        id: f.id,
+        matricula: f.matricula ?? "",
+        nome: f.name,
+        funcao: f.role ?? "",
+      }));
     },
   });
 

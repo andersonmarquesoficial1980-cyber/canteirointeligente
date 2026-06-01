@@ -63,8 +63,8 @@ export default function EspelhoPonto() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    (supabase as any).from("funcionarios").select("id, nome, funcao, matricula").order("nome")
-      .then(({ data }: any) => { if (data) setFuncionarios(data); });
+    (supabase as any).from("employees").select("id, name, role, matricula, status").eq("status","ativo").order("name")
+      .then(({ data }: any) => { if (data) setFuncionarios(data.map((f: any) => ({ id: f.id, nome: f.name, funcao: f.role ?? "", matricula: f.matricula ?? "" }))); });
   }, []);
 
   useEffect(() => {
