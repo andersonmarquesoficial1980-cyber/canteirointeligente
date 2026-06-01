@@ -2692,16 +2692,14 @@ export default function EquipmentDiaryForm() {
         {/* Fixed bottom buttons */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border space-y-2">
           <div className="max-w-lg mx-auto space-y-2">
-            {selectedFleet && (
-              <button
-                type="button"
-                onClick={() => setShowOcorrenciaModal(true)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 border-dashed border-orange-400 text-orange-500 font-bold text-sm hover:bg-orange-50 transition-colors"
-              >
-                <TriangleAlert className="w-4 h-4" />
-                Reportar Problema no Equipamento
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowOcorrenciaModal(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 border-dashed border-orange-400 text-orange-500 font-bold text-sm hover:bg-orange-50 transition-colors"
+            >
+              <TriangleAlert className="w-4 h-4" />
+              Reportar Problema no Equipamento
+            </button>
             <Button
               onClick={() => handleSave(false)}
               disabled={saving || !!horimeterError || loadingEditData}
