@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Save, UserCog, UserPlus, Search } from "lucide-react";
+import { Loader2, Save, UserCog, UserPlus, Search, ChevronDown, ChevronUp, Shield, ShieldCheck } from "lucide-react";
 
 interface Usuario {
   id: string;
@@ -65,6 +65,8 @@ export default function PermissoesManager() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState<string | null>(null);
   const [salvoOk, setSalvoOk] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
+  const [expandido, setExpandido] = useState<string | null>(null);
   const [modalConvite, setModalConvite] = useState(false);
   const [funcionarios, setFuncionarios] = useState<any[]>([]);
   const [buscaFunc, setBuscaFunc] = useState("");
@@ -165,11 +167,19 @@ export default function PermissoesManager() {
     setPermsMap(prev => ({ ...prev, [userId]: updated }));
   }
 
+  const usuariosFiltrados = useMemo(() => {
+    if (!busca.trim()) return usuarios;
+    const q = busca.toLowerCase();
+    return usuarios.filter(u =>
+      u.nome.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    );
+  }, [usuarios, busca]);
+
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <UserCog className="w-5 h-5 text-primary" />
           <h2 className="font-display font-bold text-base">Permissões de Usuários</h2>
@@ -178,6 +188,26 @@ export default function PermissoesManager() {
           <UserPlus className="w-3.5 h-3.5" /> Convidar Funcionário
         </Button>
       </div>
+
+      {/* Busca */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar usuário..."
+          value={busca}
+          onChange={e => setBusca(e.target.value)}
+          className="pl-9 h-11 rounded-xl bg-secondary border-border"
+        />
+        {busca && (
+          <button onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">
+            ✕
+          </button>
+        )}
+      </div>
+
+      <p className="text-xs text-muted-foreground px-1">
+        {usuariosFiltrados.length} usuário{usuariosFiltrados.length !== 1 ? "s" : ""}{busca ? " encontrado" + (usuariosFiltrados.length !== 1 ? "s" : "") : ""} — clique para expandir e editar
+      </p>
 
       {usuarios.length === 0 && (
         <p className="text-sm text-muted-foreground italic text-center py-6">Nenhum usuário cadastrado.</p>
@@ -261,89 +291,118 @@ export default function PermissoesManager() {
         </DialogContent>
       </Dialog>
 
-      {usuarios.map(u => {
+      {usuariosFiltrados.map(u => {
         const perms = permsMap[u.id] || emptyPerms(u.id);
         const isSalvando = salvando === u.id;
         const isSalvo = salvoOk === u.id;
+        const isAberto = expandido === u.id;
+        const modulosAtivos = MODULOS.filter(m => (perms as any)[m.key]).length;
 
         return (
-          <div key={u.id} className="border border-border rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="font-display font-bold text-sm">{u.nome}</p>
-                <p className="text-xs text-muted-foreground">{u.email}</p>
+          <div key={u.id} className={`border rounded-2xl overflow-hidden transition-all ${isAberto ? "border-primary/30 shadow-sm" : "border-border"}`}>
+            {/* Cabeçalho clicável */}
+            <button
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+              onClick={() => setExpandido(isAberto ? null : u.id)}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  perms.is_admin ? "bg-primary/15" : "bg-muted"
+                }`}>
+                  {perms.is_admin
+                    ? <ShieldCheck className="w-4 h-4 text-primary" />
+                    : <Shield className="w-4 h-4 text-muted-foreground" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-display font-bold text-sm truncate">{u.nome}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {perms.is_admin ? "Administrador" : `${modulosAtivos} módulo${modulosAtivos !== 1 ? "s" : ""} ativo${modulosAtivos !== 1 ? "s" : ""}`}
+                  </p>
+                </div>
               </div>
-              <Button
-                size="sm"
-                onClick={() => salvar(u.id)}
-                disabled={isSalvando}
-                className={`gap-1.5 h-8 text-xs ${isSalvo ? "bg-green-600 hover:bg-green-600" : ""}`}
-              >
-                {isSalvando ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                {isSalvo ? "Salvo!" : "Salvar"}
-              </Button>
-            </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {isSalvo && <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Salvo!</span>}
+                {isAberto
+                  ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                  : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </div>
+            </button>
 
-            {/* Admin toggle */}
-            <label className="flex items-center gap-2 cursor-pointer bg-primary/5 rounded-xl px-3 py-2">
-              <input
-                type="checkbox"
-                checked={perms.is_admin}
-                onChange={() => toggle(u.id, "is_admin")}
-                className="w-4 h-4 accent-primary"
-              />
-              <span className="text-sm font-bold text-primary">Administrador (acesso total)</span>
-            </label>
+            {/* Painel expandido */}
+            {isAberto && (
+              <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border/50">
 
-            {!perms.is_admin && (
-              <>
-                <div className="flex gap-2">
-                  <button onClick={() => marcarTodos(u.id, true)} className="text-xs text-primary underline">Marcar todos</button>
-                  <span className="text-xs text-muted-foreground">·</span>
-                  <button onClick={() => marcarTodos(u.id, false)} className="text-xs text-muted-foreground underline">Desmarcar todos</button>
-                </div>
+                {/* Admin toggle */}
+                <label className="flex items-center gap-2 cursor-pointer bg-primary/5 rounded-xl px-3 py-2.5 mt-2">
+                  <input
+                    type="checkbox"
+                    checked={perms.is_admin}
+                    onChange={() => toggle(u.id, "is_admin")}
+                    className="w-4 h-4 accent-primary"
+                  />
+                  <span className="text-sm font-bold text-primary">Administrador (acesso total)</span>
+                </label>
 
-                <div className="grid grid-cols-2 gap-2">
-                  {MODULOS.map(m => (
-                    <div key={m.key}>
-                      <label className="flex items-center gap-2 cursor-pointer bg-secondary/50 rounded-xl px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={(perms as any)[m.key] || false}
-                          onChange={() => toggle(u.id, m.key as keyof Perms)}
-                          className="w-4 h-4 accent-primary"
-                        />
-                        <span className="text-xs font-medium">{m.label}</span>
-                      </label>
-                      {/* Sub-seleção de tipos de equipamento */}
-                      {m.key === "modulo_equipamentos" && perms.modulo_equipamentos && (
-                        <div className="mt-1 ml-2 space-y-1">
-                          <p className="text-[10px] text-muted-foreground font-semibold pl-1">Tipos permitidos (vazio = todos):</p>
-                          <div className="grid grid-cols-1 gap-0.5">
-                            {TIPOS_EQUIPAMENTO.map(t => (
-                              <label key={t} className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-lg hover:bg-muted/50">
-                                <input
-                                  type="checkbox"
-                                  checked={(perms.equipamentos_permitidos || []).includes(t)}
-                                  onChange={e => {
-                                    const atual = perms.equipamentos_permitidos || [];
-                                    const novo = e.target.checked
-                                      ? [...atual, t]
-                                      : atual.filter(x => x !== t);
-                                    setPermsMap(prev => ({ ...prev, [u.id]: { ...prev[u.id], equipamentos_permitidos: novo } }));
-                                  }}
-                                  className="w-3 h-3 accent-primary"
-                                />
-                                <span className="text-[10px]">{t}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                {!perms.is_admin && (
+                  <>
+                    <div className="flex gap-2">
+                      <button onClick={() => marcarTodos(u.id, true)} className="text-xs text-primary underline">Marcar todos</button>
+                      <span className="text-xs text-muted-foreground">·</span>
+                      <button onClick={() => marcarTodos(u.id, false)} className="text-xs text-muted-foreground underline">Desmarcar todos</button>
                     </div>
-                  ))}
-                </div>
-              </>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {MODULOS.map(m => (
+                        <div key={m.key}>
+                          <label className="flex items-center gap-2 cursor-pointer bg-secondary/50 rounded-xl px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={(perms as any)[m.key] || false}
+                              onChange={() => toggle(u.id, m.key as keyof Perms)}
+                              className="w-4 h-4 accent-primary"
+                            />
+                            <span className="text-xs font-medium">{m.label}</span>
+                          </label>
+                          {m.key === "modulo_equipamentos" && perms.modulo_equipamentos && (
+                            <div className="mt-1 ml-2 space-y-1">
+                              <p className="text-[10px] text-muted-foreground font-semibold pl-1">Tipos permitidos (vazio = todos):</p>
+                              <div className="grid grid-cols-1 gap-0.5">
+                                {TIPOS_EQUIPAMENTO.map(t => (
+                                  <label key={t} className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-lg hover:bg-muted/50">
+                                    <input
+                                      type="checkbox"
+                                      checked={(perms.equipamentos_permitidos || []).includes(t)}
+                                      onChange={e => {
+                                        const atual = perms.equipamentos_permitidos || [];
+                                        const novo = e.target.checked ? [...atual, t] : atual.filter(x => x !== t);
+                                        setPermsMap(prev => ({ ...prev, [u.id]: { ...prev[u.id], equipamentos_permitidos: novo } }));
+                                      }}
+                                      className="w-3 h-3 accent-primary"
+                                    />
+                                    <span className="text-[10px]">{t}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <Button
+                  size="sm"
+                  onClick={() => salvar(u.id)}
+                  disabled={isSalvando}
+                  className={`w-full h-10 rounded-xl font-bold gap-2 mt-1 ${
+                    isSalvo ? "bg-green-600 hover:bg-green-600" : ""
+                  }`}
+                >
+                  {isSalvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {isSalvo ? "Permissões salvas!" : "Salvar Permissões"}
+                </Button>
+              </div>
             )}
           </div>
         );
