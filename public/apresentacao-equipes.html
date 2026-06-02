@@ -6,502 +6,124 @@
 <title>Raio X das Equipes — Fremix</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  
-  body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background: #0a0f1e;
-    color: #e2e8f0;
-    min-height: 100vh;
-  }
-
-  /* ── CAPA ── */
-  .capa {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #0a0f1e 0%, #0d1b3e 50%, #0a0f1e 100%);
-    position: relative;
-    overflow: hidden;
-    padding: 40px;
-    text-align: center;
-  }
-  .capa::before {
-    content: '';
-    position: absolute;
-    width: 600px; height: 600px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(0,120,255,0.15) 0%, transparent 70%);
-    top: -100px; left: -100px;
-  }
-  .capa::after {
-    content: '';
-    position: absolute;
-    width: 400px; height: 400px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,165,0,0.1) 0%, transparent 70%);
-    bottom: -50px; right: -50px;
-  }
-  .capa-logo {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 6px;
-    text-transform: uppercase;
-    color: #0078ff;
-    margin-bottom: 24px;
-    position: relative;
-  }
-  .capa h1 {
-    font-size: clamp(32px, 6vw, 72px);
-    font-weight: 900;
-    line-height: 1.1;
-    margin-bottom: 16px;
-    position: relative;
-    background: linear-gradient(135deg, #ffffff 0%, #94b3d4 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .capa-sub {
-    font-size: 18px;
-    color: #94a3b8;
-    margin-bottom: 48px;
-    position: relative;
-  }
-  .capa-stats {
-    display: flex;
-    gap: 48px;
-    position: relative;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .capa-stat {
-    text-align: center;
-  }
-  .capa-stat-num {
-    font-size: 48px;
-    font-weight: 900;
-    color: #0078ff;
-    line-height: 1;
-  }
-  .capa-stat-label {
-    font-size: 12px;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-top: 4px;
-  }
-  .capa-divider {
-    width: 80px; height: 3px;
-    background: linear-gradient(90deg, #0078ff, #00c6ff);
-    border-radius: 2px;
-    margin: 40px auto;
-  }
-  .capa-date {
-    font-size: 13px;
-    color: #475569;
-    position: relative;
-  }
-
-  /* ── ÍNDICE ── */
-  .indice {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #0d1117;
-    padding: 60px 40px;
-  }
-  .indice h2 {
-    font-size: 32px;
-    font-weight: 800;
-    color: #fff;
-    margin-bottom: 48px;
-    text-align: center;
-  }
+  body { font-family: "Segoe UI", system-ui, sans-serif; background: #0a0f1e; color: #e2e8f0; min-height: 100vh; }
+  .capa { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #0a0f1e 0%, #0d1b3e 50%, #0a0f1e 100%); position: relative; overflow: hidden; padding: 40px; text-align: center; }
+  .capa::before { content: ""; position: absolute; width: 600px; height: 600px; border-radius: 50%; background: radial-gradient(circle, rgba(0,120,255,0.15) 0%, transparent 70%); top: -100px; left: -100px; }
+  .capa-logo { font-size: 13px; font-weight: 700; letter-spacing: 6px; text-transform: uppercase; color: #0078ff; margin-bottom: 24px; position: relative; }
+  .capa h1 { font-size: clamp(32px, 6vw, 72px); font-weight: 900; line-height: 1.1; margin-bottom: 16px; position: relative; background: linear-gradient(135deg, #ffffff 0%, #94b3d4 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .capa-sub { font-size: 18px; color: #94a3b8; margin-bottom: 48px; position: relative; }
+  .capa-stats { display: flex; gap: 48px; position: relative; flex-wrap: wrap; justify-content: center; }
+  .capa-stat-num { font-size: 48px; font-weight: 900; color: #0078ff; line-height: 1; }
+  .capa-stat-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; }
+  .capa-divider { width: 80px; height: 3px; background: linear-gradient(90deg, #0078ff, #00c6ff); border-radius: 2px; margin: 40px auto; }
+  .capa-date { font-size: 13px; color: #475569; position: relative; }
+  .indice { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0d1117; padding: 60px 40px; }
+  .indice h2 { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 48px; text-align: center; }
   .indice h2 span { color: #0078ff; }
-  .indice-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 20px;
-    width: 100%;
-    max-width: 900px;
-  }
-  .indice-card {
-    background: #161b2e;
-    border: 1px solid #1e2a45;
-    border-radius: 16px;
-    padding: 24px;
-    text-decoration: none;
-    color: inherit;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-  .indice-card:hover {
-    border-color: #0078ff;
-    background: #1a2240;
-    transform: translateY(-2px);
-  }
-  .indice-num {
-    width: 48px; height: 48px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #0078ff, #0040aa);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 900; color: #fff;
-    flex-shrink: 0;
-  }
+  .indice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; width: 100%; max-width: 900px; }
+  .indice-card { background: #161b2e; border: 1px solid #1e2a45; border-radius: 16px; padding: 24px; text-decoration: none; color: inherit; transition: all 0.2s; display: flex; align-items: center; gap: 16px; }
+  .indice-card:hover { border-color: #0078ff; background: #1a2240; transform: translateY(-2px); }
+  .indice-num { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #0078ff, #0040aa); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; color: #fff; flex-shrink: 0; }
   .indice-info h3 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 4px; }
   .indice-info p { font-size: 12px; color: #64748b; }
-
-  /* ── SLIDE DE EQUIPE ── */
-  .slide {
-    min-height: 100vh;
-    padding: 60px 40px;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    overflow: hidden;
-  }
+  .slide { min-height: 100vh; padding: 60px 40px; display: flex; flex-direction: column; position: relative; overflow: hidden; }
   .slide:nth-child(odd) { background: #0a0f1e; }
   .slide:nth-child(even) { background: #0d1117; }
-
-  .slide-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 48px;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-  .slide-equipe-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    background: linear-gradient(135deg, #0078ff20, #0040aa10);
-    border: 1px solid #0078ff40;
-    border-radius: 12px;
-    padding: 8px 16px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #60a5fa;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 12px;
-  }
-  .slide-titulo {
-    font-size: clamp(28px, 4vw, 52px);
-    font-weight: 900;
-    color: #fff;
-    line-height: 1.1;
-    margin-bottom: 8px;
-  }
-  .slide-obra {
-    font-size: 14px;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
+  .slide-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
+  .slide-equipe-badge { display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, rgba(0,120,255,0.12), rgba(0,64,170,0.06)); border: 1px solid rgba(0,120,255,0.25); border-radius: 12px; padding: 8px 16px; font-size: 12px; font-weight: 700; color: #60a5fa; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+  .slide-titulo { font-size: clamp(28px, 4vw, 52px); font-weight: 900; color: #fff; line-height: 1.1; margin-bottom: 8px; }
+  .slide-obra { font-size: 14px; color: #64748b; display: flex; align-items: center; gap: 6px; }
   .slide-obra span { color: #94a3b8; }
-
-  .slide-numeros {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-  }
-  .slide-numero {
-    text-align: right;
-  }
-  .slide-numero-val {
-    font-size: 40px;
-    font-weight: 900;
-    line-height: 1;
-  }
-  .slide-numero-label {
-    font-size: 11px;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
+  .slide-numeros { display: flex; gap: 24px; flex-wrap: wrap; }
+  .slide-numero { text-align: right; }
+  .slide-numero-val { font-size: 40px; font-weight: 900; line-height: 1; }
+  .slide-numero-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
   .blue { color: #0078ff; }
   .orange { color: #f59e0b; }
-  .green { color: #10b981; }
-
-  .slide-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-    flex: 1;
-  }
-  @media (max-width: 768px) {
-    .slide-grid { grid-template-columns: 1fr; }
-    .slide-numeros { gap: 16px; }
-  }
-
-  /* Seção */
-  .secao {
-    background: #161b2e;
-    border: 1px solid #1e2a45;
-    border-radius: 20px;
-    padding: 28px;
-    overflow: hidden;
-  }
-  .secao-titulo {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #475569;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .secao-titulo::before {
-    content: '';
-    width: 20px; height: 2px;
-    background: #0078ff;
-    border-radius: 1px;
-    flex-shrink: 0;
-  }
-
-  /* Equipamentos */
+  .slide-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  @media (max-width: 768px) { .slide-grid { grid-template-columns: 1fr; } }
+  .secao { background: #161b2e; border: 1px solid #1e2a45; border-radius: 20px; padding: 28px; overflow: hidden; }
+  .secao-titulo { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #475569; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+  .secao-titulo::before { content: ""; width: 20px; height: 2px; background: #0078ff; border-radius: 1px; flex-shrink: 0; }
   .equip-list { display: flex; flex-direction: column; gap: 8px; }
-  .equip-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    background: #0d1117;
-    border-radius: 10px;
-    border: 1px solid #1e2a45;
-  }
-  .equip-icon {
-    width: 32px; height: 32px;
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px;
-    flex-shrink: 0;
-  }
+  .equip-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #0d1117; border-radius: 10px; border: 1px solid #1e2a45; }
+  .equip-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
   .equip-info { flex: 1; min-width: 0; }
   .equip-frota { font-size: 13px; font-weight: 700; color: #fff; }
-  .equip-tipo { font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .equip-status {
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 20px;
-    flex-shrink: 0;
-  }
-  .status-op { background: #10b98120; color: #10b981; border: 1px solid #10b98130; }
-  .status-man { background: #f59e0b20; color: #f59e0b; border: 1px solid #f59e0b30; }
-
-  /* Funções */
+  .equip-tipo { font-size: 11px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .equip-status { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
+  .status-op { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+  .status-man { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
   .func-grid { display: flex; flex-direction: column; gap: 6px; }
-  .func-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background: #0d1117;
-    border-radius: 8px;
-    border: 1px solid #1e2a45;
-  }
+  .func-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #0d1117; border-radius: 8px; border: 1px solid #1e2a45; }
   .func-nome { font-size: 12px; color: #94a3b8; }
-  .func-count {
-    background: #0078ff25;
-    color: #60a5fa;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 2px 10px;
-    border-radius: 20px;
-    border: 1px solid #0078ff30;
-  }
-
-  /* Pessoas grid */
-  .pessoas-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 8px;
-  }
-  .pessoa-card {
-    background: #0d1117;
-    border: 1px solid #1e2a45;
-    border-radius: 10px;
-    padding: 10px 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .pessoa-avatar {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #0078ff30, #0040aa30);
-    border: 1px solid #0078ff30;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    color: #60a5fa;
-    flex-shrink: 0;
-  }
+  .func-count { background: rgba(0,120,255,0.15); color: #60a5fa; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; border: 1px solid rgba(0,120,255,0.2); }
+  .pessoas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .pessoa-card { background: #0d1117; border: 1px solid #1e2a45; border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+  .pessoa-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, rgba(0,120,255,0.2), rgba(0,64,170,0.2)); border: 1px solid rgba(0,120,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #60a5fa; flex-shrink: 0; }
   .pessoa-info { min-width: 0; }
   .pessoa-nome { font-size: 11px; font-weight: 600; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pessoa-cargo { font-size: 10px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  /* Destaque do encarregado */
-  .encarregado-card {
-    background: linear-gradient(135deg, #0078ff15, #0040aa10);
-    border: 1px solid #0078ff40;
-    border-radius: 14px;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-  .encarregado-avatar {
-    width: 52px; height: 52px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #0078ff, #0040aa);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-    font-weight: 900;
-    color: #fff;
-    flex-shrink: 0;
-  }
+  .encarregado-card { background: linear-gradient(135deg, rgba(0,120,255,0.08), rgba(0,64,170,0.06)); border: 1px solid rgba(0,120,255,0.25); border-radius: 14px; padding: 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .encarregado-avatar { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #0078ff, #0040aa); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; color: #fff; flex-shrink: 0; }
   .encarregado-nome { font-size: 18px; font-weight: 800; color: #fff; }
   .encarregado-cargo { font-size: 12px; color: #60a5fa; margin-top: 2px; }
-
-  /* Slide especial — situações */
-  .slide-situacoes {
-    background: #0d1117;
-  }
-  .sit-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    margin-top: 40px;
-  }
-  .sit-card {
-    background: #161b2e;
-    border: 1px solid #1e2a45;
-    border-radius: 16px;
-    padding: 24px;
-  }
-  .sit-card h3 { font-size: 14px; font-weight: 700; color: #94a3b8; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .slide-situacoes { background: #0d1117; }
+  .sit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 40px; }
+  .sit-card { background: #161b2e; border: 1px solid #1e2a45; border-radius: 16px; padding: 24px; }
+  .sit-card h3 { font-size: 14px; font-weight: 700; color: #94a3b8; margin-bottom: 16px; }
   .sit-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #1e2a45; }
   .sit-item:last-child { border-bottom: none; }
-  .sit-frota { font-size: 12px; font-weight: 700; color: #fff; width: 80px; flex-shrink: 0; }
+  .sit-frota { font-size: 12px; font-weight: 700; color: #fff; width: 100px; flex-shrink: 0; }
   .sit-tipo { font-size: 11px; color: #64748b; flex: 1; }
-
-  /* Navegação/footer */
-  .nav-footer {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: rgba(10,15,30,0.95);
-    backdrop-filter: blur(10px);
-    border-top: 1px solid #1e2a45;
-    padding: 12px 32px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    z-index: 100;
-    font-size: 12px;
-    color: #475569;
-  }
-  .nav-btns { display: flex; gap: 8px; }
-  .nav-btn {
-    background: #161b2e;
-    border: 1px solid #1e2a45;
-    color: #94a3b8;
-    padding: 6px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.2s;
-  }
-  .nav-btn:hover { background: #1e2a45; color: #fff; }
-
-  hr.slide-sep {
-    border: none;
-    border-top: 1px solid #1e2a45;
-    margin: 0;
-  }
-
-  .tag-proprio { background: #10b98115; color: #10b981; border: 1px solid #10b98125; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 600; }
-  .tag-terceiro { background: #f59e0b15; color: #f59e0b; border: 1px solid #f59e0b25; padding: 1px 7px; border-radius: 20px; font-size: 10px; font-weight: 600; }
-
-  /* Print / fullscreen */
-  @media print {
-    .nav-footer { display: none; }
-    .slide { page-break-after: always; min-height: 100vh; }
-  }
+  hr.slide-sep { border: none; border-top: 1px solid #1e2a45; margin: 0; }
+  @media print { .slide { page-break-after: always; min-height: 100vh; } }
 </style>
 </head>
 <body>
 
-<!-- ═══ CAPA ═══ -->
 <section class="slide capa" id="capa">
   <div class="capa-logo">⬡ Fremix Pavimentação</div>
   <h1>Raio X<br>das Equipes</h1>
   <p class="capa-sub">Quadro completo de pessoas e equipamentos por equipe</p>
   <div class="capa-stats">
-    <div class="capa-stat">
-      <div class="capa-stat-num">4</div>
-      <div class="capa-stat-label">Equipes Ativas</div>
-    </div>
-    <div class="capa-stat">
-      <div class="capa-stat-num">107</div>
-      <div class="capa-stat-label">Funcionários</div>
-    </div>
-    <div class="capa-stat">
-      <div class="capa-stat-num">37</div>
-      <div class="capa-stat-label">Equipamentos</div>
-    </div>
-    <div class="capa-stat">
-      <div class="capa-stat-num">54</div>
-      <div class="capa-stat-label">Total Frota</div>
-    </div>
+    <div class="capa-stat"><div class="capa-stat-num">4</div><div class="capa-stat-label">Equipes Ativas</div></div>
+    <div class="capa-stat"><div class="capa-stat-num">107</div><div class="capa-stat-label">Funcionários</div></div>
+    <div class="capa-stat"><div class="capa-stat-num">54</div><div class="capa-stat-label">Total Frota</div></div>
   </div>
   <div class="capa-divider"></div>
   <div class="capa-date">Junho de 2026</div>
 </section>
-
 <hr class="slide-sep">
 
-<!-- ═══ ÍNDICE ═══ -->
 <section class="indice" id="indice">
   <h2>Índice de <span>Equipes</span></h2>
   <div class="indice-grid">
     <a href="#cbuq01" class="indice-card">
       <div class="indice-num">01</div>
       <div class="indice-info">
-        <h3>CBUQ01 — Aelson</h3>
+        <h3>CBUQ01 — AELSON</h3>
         <p>26 funcionários · 12 equipamentos</p>
       </div>
     </a>
     <a href="#cbuq02" class="indice-card">
       <div class="indice-num">02</div>
       <div class="indice-info">
-        <h3>CBUQ02 — Josenildo</h3>
+        <h3>CBUQ02 — JOSENILDO</h3>
         <p>27 funcionários · 10 equipamentos</p>
       </div>
     </a>
     <a href="#cbuq03" class="indice-card">
       <div class="indice-num">03</div>
       <div class="indice-info">
-        <h3>CBUQ03 — Givanildo</h3>
+        <h3>CBUQ03 — GIVANILDO</h3>
         <p>29 funcionários · 8 equipamentos</p>
       </div>
     </a>
     <a href="#cbuq04" class="indice-card">
       <div class="indice-num">04</div>
       <div class="indice-info">
-        <h3>CBUQ04 — Thiago H</h3>
+        <h3>CBUQ04 — THIAGO H</h3>
         <p>25 funcionários · 7 equipamentos</p>
       </div>
     </a>
@@ -511,13 +133,11 @@
         <h3>Equipamentos Especiais</h3>
         <p>Reserva · Manutenção · Obras avulsas</p>
       </div>
-    </a>
-  </div>
+    </a></div>
 </section>
-
 <hr class="slide-sep">
 
-<!-- ═══ EQUIPE 01 — AELSON ═══ -->
+
 <section class="slide" id="cbuq01">
   <div class="slide-header">
     <div>
@@ -537,110 +157,385 @@
     </div>
   </div>
 
-  <!-- Encarregado -->
   <div class="encarregado-card">
-    <div class="encarregado-avatar">AR</div>
+    <div class="encarregado-avatar">AC</div>
     <div>
       <div class="encarregado-nome">Aelson Romeu Coutinho</div>
-      <div class="encarregado-cargo">Encarregado de Obras SR III</div>
+      <div class="encarregado-cargo">ENCARREGADO DE OBRAS SR III</div>
     </div>
   </div>
 
   <div class="slide-grid">
-    <!-- Equipamentos -->
     <div class="secao">
-      <div class="secao-titulo">Equipamentos</div>
+      <div class="secao-titulo">Equipamentos (12)</div>
       <div class="equip-list">
         <div class="equip-item">
-          <div class="equip-icon" style="background:#f59e0b20;color:#f59e0b">🟡</div>
-          <div class="equip-info"><div class="equip-frota">FA25</div><div class="equip-tipo">Fresadora</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#60a5fa20;color:#60a5fa">🟢</div>
+          <div class="equip-info">
+            <div class="equip-frota">BC77</div>
+            <div class="equip-tipo">BOBCAT S570</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
-          <div class="equip-icon" style="background:#10b98120;color:#10b981">🔵</div>
-          <div class="equip-info"><div class="equip-frota">VA01</div><div class="equip-tipo">Vibro Acabadora</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">📦</div>
+          <div class="equip-info">
+            <div class="equip-frota">CC01</div>
+            <div class="equip-tipo">MERCEDES /ACELLO 1016</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
-          <div class="equip-icon" style="background:#60a5fa20;color:#60a5fa">🔵</div>
-          <div class="equip-info"><div class="equip-frota">BC77</div><div class="equip-tipo">Bobcat S570</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">🛢️</div>
+          <div class="equip-info">
+            <div class="equip-frota">CE04</div>
+            <div class="equip-tipo">M/B ATEGO 1719/48</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
-          <div class="equip-icon" style="background:#a78bfa20;color:#a78bfa">⚙️</div>
-          <div class="equip-info"><div class="equip-frota">CH33 · PN49</div><div class="equip-tipo">Rolo Chapa + Rolo Pneu</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">🛢️</div>
+          <div class="equip-info">
+            <div class="equip-frota">CE16</div>
+            <div class="equip-tipo">02 COMPARTIMENTOS</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
-          <div class="equip-icon" style="background:#f97316 20;color:#f97316">🚛</div>
-          <div class="equip-info"><div class="equip-frota">CC01 · CE04 · CE16 · CP01</div><div class="equip-tipo">Carroceria · Espargidores · Pipa</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">💧</div>
+          <div class="equip-info">
+            <div class="equip-frota">CP01</div>
+            <div class="equip-tipo">MERCEDES / ATRON 1719</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
           <div class="equip-icon" style="background:#94a3b820;color:#94a3b8">🔧</div>
-          <div class="equip-info"><div class="equip-frota">COMP-CBUQ01 · SERRA_01 · VT12</div><div class="equip-tipo">Compressor · Serra Cliper · Van</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-info">
+            <div class="equip-frota">COMP-CBUQ01</div>
+            <div class="equip-tipo">COMPRESSOR</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#f59e0b20;color:#f59e0b">🟡</div>
+          <div class="equip-info">
+            <div class="equip-frota">FA25</div>
+            <div class="equip-tipo">WIRTGEN W100R</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#a78bfa20;color:#a78bfa">⚙️</div>
+          <div class="equip-info">
+            <div class="equip-frota">CH33</div>
+            <div class="equip-tipo">HAMM HD90</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#a78bfa20;color:#a78bfa">⚙️</div>
+          <div class="equip-info">
+            <div class="equip-frota">PN49</div>
+            <div class="equip-tipo">DYNAPAC CP2700</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#94a3b820;color:#94a3b8">🔧</div>
+          <div class="equip-info">
+            <div class="equip-frota">SERRA_01</div>
+            <div class="equip-tipo">SERRA CLIPER</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#94a3b820;color:#94a3b8">🚐</div>
+          <div class="equip-info">
+            <div class="equip-frota">VT12</div>
+            <div class="equip-tipo">VAN</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#10b98120;color:#10b981">🔵</div>
+          <div class="equip-info">
+            <div class="equip-frota">VA01</div>
+            <div class="equip-tipo">VOGELE 1800</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div></div>
+    </div>
+    <div class="secao">
+      <div class="secao-titulo">Composição por Função</div>
+      <div class="func-grid">
+        <div class="func-row">
+          <span class="func-nome">AJUDANTE GERAL</span>
+          <span class="func-count">6</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE ROLO ESPEC I</span>
+          <span class="func-count">2</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">RASTELEIRO PL III</span>
+          <span class="func-count">2</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">APONTADOR DE OBRA ESP II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">ENCARREGADO DE OBRAS SR III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MANGUEIRISTA PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MARTELETEIRO PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MESISTA JR I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MESISTA PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA DE CAMINHAO PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA DE CAMINHAO PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA ESPARGIDOR SR I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR BOBCAT PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE FRESADORA ESP I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE MAQUINAS ESP I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OP VIBROACABADORA SR III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR SOLO PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">TEC SEGURANCA DO TRABA SR III</span>
+          <span class="func-count">1</span>
+        </div></div>
+    </div>
+  </div>
+
+  <div class="secao" style="margin-top:24px">
+    <div class="secao-titulo">Todos os Funcionários (26)</div>
+    <div class="pessoas-grid">
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AR</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Andre Rodrigues Reis</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
         </div>
       </div>
-    </div>
-
-    <!-- Funções -->
-    <div class="secao">
-      <div class="secao-titulo">Composição da Equipe (26 pessoas)</div>
-      <div class="func-grid">
-        <div class="func-row"><span class="func-nome">Ajudante Geral</span><span class="func-count">6</span></div>
-        <div class="func-row"><span class="func-nome">Rasteleiro</span><span class="func-count">4</span></div>
-        <div class="func-row"><span class="func-nome">Operador de Rolo</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Caminhão</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Operador Bobcat</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Operador de Fresadora</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Operador Vibro Acabadora</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Espargidor</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Pipa</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Apontador</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Mesista</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Téc. Segurança / Outros</span><span class="func-count">4</span></div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Antonio Jose Da Silva</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Pessoas -->
-  <div class="secao" style="margin-top:24px">
-    <div class="secao-titulo">Todos os Funcionários</div>
-    <div class="pessoas-grid">
-      <div class="pessoa-card"><div class="pessoa-avatar">AE</div><div class="pessoa-info"><div class="pessoa-nome">Aelson Romeu Coutinho</div><div class="pessoa-cargo">Encarregado SR III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">WC</div><div class="pessoa-info"><div class="pessoa-nome">Willian Costa Oliveira</div><div class="pessoa-cargo">Op. Fresadora ESP I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">MM</div><div class="pessoa-info"><div class="pessoa-nome">Marcone José dos Santos</div><div class="pessoa-cargo">Operador Rolo</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DS</div><div class="pessoa-info"><div class="pessoa-nome">Diogo Santana Batista</div><div class="pessoa-cargo">Op. Vibro Acabadora</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">SO</div><div class="pessoa-info"><div class="pessoa-nome">Silvia de Oliveira</div><div class="pessoa-cargo">Téc. Segurança SR III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">LU</div><div class="pessoa-info"><div class="pessoa-nome">Lua Silva Santos</div><div class="pessoa-cargo">Apontador ESP II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">MA</div><div class="pessoa-info"><div class="pessoa-nome">Mauro Queiroz Gomes</div><div class="pessoa-cargo">Motorista Espargidor</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JT</div><div class="pessoa-info"><div class="pessoa-nome">João Tenório Costa</div><div class="pessoa-cargo">Mangueirista PL I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AR</div><div class="pessoa-info"><div class="pessoa-nome">Andre Rodrigues Reis</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AT</div><div class="pessoa-info"><div class="pessoa-nome">Antonio José da Silva</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">CA</div><div class="pessoa-info"><div class="pessoa-nome">Cleiton Almeida</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DN</div><div class="pessoa-info"><div class="pessoa-nome">Douglas Nascimento Rufo</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JO</div><div class="pessoa-info"><div class="pessoa-nome">João V. S. Oliveira</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">LH</div><div class="pessoa-info"><div class="pessoa-nome">Luiz Henrique da Silva</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JA</div><div class="pessoa-info"><div class="pessoa-nome">José André O. da Silva</div><div class="pessoa-cargo">Marteleteiro PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">RC</div><div class="pessoa-info"><div class="pessoa-nome">Ryan Cleiton Delfino</div><div class="pessoa-cargo">Mesista JR I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">TO</div><div class="pessoa-info"><div class="pessoa-nome">Thiago Oliveira Santos</div><div class="pessoa-cargo">Mesista PL I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">MZ</div><div class="pessoa-info"><div class="pessoa-nome">Magnus Henrique Zeggio</div><div class="pessoa-cargo">Operador Bobcat PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JV</div><div class="pessoa-info"><div class="pessoa-nome">Jeisson Luiz V. Varrichio</div><div class="pessoa-cargo">Motorista PL I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JA</div><div class="pessoa-info"><div class="pessoa-nome">João Almeida de Sousa</div><div class="pessoa-cargo">Motorista Caminhão PL I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">LS</div><div class="pessoa-info"><div class="pessoa-nome">Luciano da Silva Santos</div><div class="pessoa-cargo">Motorista Caminhão PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">WF</div><div class="pessoa-info"><div class="pessoa-nome">Wallas Fernando Oliveira</div><div class="pessoa-cargo">Operador de Rolo</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">VJ</div><div class="pessoa-info"><div class="pessoa-nome">Vitor Junio S. Oliveira</div><div class="pessoa-cargo">Operador Solo PL I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AM</div><div class="pessoa-info"><div class="pessoa-nome">Anderson Miranda Santos</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AA</div><div class="pessoa-info"><div class="pessoa-nome">Antonio Aluizio F. Souza</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">LP</div><div class="pessoa-info"><div class="pessoa-nome">Leandro Pereira Oliveira</div><div class="pessoa-cargo">Operador Máquinas ESP I</div></div></div>
-    </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">CS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Cleiton Almeida Da Silva</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DR</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Douglas Nascimento Rufo</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JO</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Joao Victor Da S Oliveira</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">LS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Luiz Henrique Da Silva</div>
+          <div class="pessoa-cargo">APONTADOR DE OBRA ESP II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AC</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Aelson Romeu Coutinho</div>
+          <div class="pessoa-cargo">ENCARREGADO DE OBRAS SR III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">LS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Lua Silva Santos</div>
+          <div class="pessoa-cargo">MANGUEIRISTA PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Jose Andre Oliveira Da Silva</div>
+          <div class="pessoa-cargo">MARTELETEIRO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">RP</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Ryan Cleiton Delfino Pequeno</div>
+          <div class="pessoa-cargo">MESISTA JR I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">TS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Thiago Oliveira Santos</div>
+          <div class="pessoa-cargo">MESISTA PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JC</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Joao Tenorio Costa</div>
+          <div class="pessoa-cargo">MOTORISTA DE CAMINHAO PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">LO</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Leandro Pereira De Oliveira</div>
+          <div class="pessoa-cargo">MOTORISTA DE CAMINHAO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">MZ</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Magnus Henrique De F Zeggio</div>
+          <div class="pessoa-cargo">MOTORISTA ESPARGIDOR SR I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JV</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Jeisson Luiz Vieira Varrichio</div>
+          <div class="pessoa-cargo">MOTORISTA PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Joao Almeida De Sousa</div>
+          <div class="pessoa-cargo">OPERADOR BOBCAT PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">WO</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Willian Costa Oliveira</div>
+          <div class="pessoa-cargo">OPERADOR DE FRESADORA ESP I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">LS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Luciano Da Silva Santos</div>
+          <div class="pessoa-cargo">OPERADOR DE ROLO ESPEC I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">MS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Marcone Jose Dos Santos</div>
+          <div class="pessoa-cargo">OPERADOR DE ROLO ESPEC I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">WO</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Wallas Fernando De Oliveira</div>
+          <div class="pessoa-cargo">OPERADOR DE MAQUINAS ESP I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DB</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Diogo Santana Batista</div>
+          <div class="pessoa-cargo">OP VIBROACABADORA SR III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">VO</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Vitor Junio Sousa De Oliveira</div>
+          <div class="pessoa-cargo">OPERADOR SOLO PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Anderson Miranda Dos Santos</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Antonio Aluizio F De Souza</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">MG</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Mauro Queiroz Gomes</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">SO</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Silvia De Oliveira</div>
+          <div class="pessoa-cargo">TEC SEGURANCA DO TRABA SR III</div>
+        </div>
+      </div></div>
   </div>
 </section>
-
 <hr class="slide-sep">
-
-<!-- ═══ EQUIPE 02 — JOSENILDO ═══ -->
 <section class="slide" id="cbuq02">
   <div class="slide-header">
     <div>
@@ -663,104 +558,369 @@
   <div class="encarregado-card">
     <div class="encarregado-avatar">JR</div>
     <div>
-      <div class="encarregado-nome">Josenildo da Silva Ramos</div>
-      <div class="encarregado-cargo">Encarregado de Obras SR III</div>
+      <div class="encarregado-nome">Josenildo Da Silva Ramos</div>
+      <div class="encarregado-cargo">ENCARREGADO DE OBRAS SR III</div>
     </div>
   </div>
 
   <div class="slide-grid">
     <div class="secao">
-      <div class="secao-titulo">Equipamentos</div>
+      <div class="secao-titulo">Equipamentos (10)</div>
       <div class="equip-list">
         <div class="equip-item">
-          <div class="equip-icon" style="background:#f59e0b20;color:#f59e0b">🟡</div>
-          <div class="equip-info"><div class="equip-frota">FA26</div><div class="equip-tipo">Fresadora</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#60a5fa20;color:#60a5fa">🟢</div>
+          <div class="equip-info">
+            <div class="equip-frota">BC79</div>
+            <div class="equip-tipo">BOBCAT S570</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
-          <div class="equip-icon" style="background:#10b98120;color:#10b981">🔵</div>
-          <div class="equip-info"><div class="equip-frota">VA20</div><div class="equip-tipo">Vibro Acabadora</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">📦</div>
+          <div class="equip-info">
+            <div class="equip-frota">CC02</div>
+            <div class="equip-tipo">MERCEDES /ACELLO 1016</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
-          <div class="equip-icon" style="background:#60a5fa20;color:#60a5fa">🔵</div>
-          <div class="equip-info"><div class="equip-frota">BC79</div><div class="equip-tipo">Bobcat</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">🛢️</div>
+          <div class="equip-info">
+            <div class="equip-frota">CE03</div>
+            <div class="equip-tipo">M/B ATEGO 1719/48</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
-          <div class="equip-icon" style="background:#a78bfa20;color:#a78bfa">⚙️</div>
-          <div class="equip-info"><div class="equip-frota">CH34 · PN70</div><div class="equip-tipo">Rolo Chapa + Rolo Pneu</div></div>
-          <span class="equip-status status-op">Operacional</span>
-        </div>
-        <div class="equip-item">
-          <div class="equip-icon" style="background:#f97316 20;color:#f97316">🚛</div>
-          <div class="equip-info"><div class="equip-frota">CC02 · CE03 · CP02</div><div class="equip-tipo">Carroceria · Espargidor · Pipa</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">💧</div>
+          <div class="equip-info">
+            <div class="equip-frota">CP02</div>
+            <div class="equip-tipo">MERCEDES / ATRON 1719</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
           <div class="equip-icon" style="background:#94a3b820;color:#94a3b8">🔧</div>
-          <div class="equip-info"><div class="equip-frota">COMP-CBUQ02 · VT13</div><div class="equip-tipo">Compressor · Van</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-info">
+            <div class="equip-frota">COMP-CBUQ02</div>
+            <div class="equip-tipo">COMPRESSOR</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
-      </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#f59e0b20;color:#f59e0b">🟡</div>
+          <div class="equip-info">
+            <div class="equip-frota">FA26</div>
+            <div class="equip-tipo">WIRTGEN W200F</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#a78bfa20;color:#a78bfa">⚙️</div>
+          <div class="equip-info">
+            <div class="equip-frota">CH34</div>
+            <div class="equip-tipo">HAMM HD90</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#a78bfa20;color:#a78bfa">⚙️</div>
+          <div class="equip-info">
+            <div class="equip-frota">PN70</div>
+            <div class="equip-tipo">DYNAPAC CP2700</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#94a3b820;color:#94a3b8">🚐</div>
+          <div class="equip-info">
+            <div class="equip-frota">VT13</div>
+            <div class="equip-tipo">VAN</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#10b98120;color:#10b981">🔵</div>
+          <div class="equip-info">
+            <div class="equip-frota">VA20</div>
+            <div class="equip-tipo">VOGELE 1400</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div></div>
     </div>
-
     <div class="secao">
-      <div class="secao-titulo">Composição da Equipe (27 pessoas)</div>
+      <div class="secao-titulo">Composição por Função</div>
       <div class="func-grid">
-        <div class="func-row"><span class="func-nome">Ajudante Geral</span><span class="func-count">5</span></div>
-        <div class="func-row"><span class="func-nome">Sinaleiro</span><span class="func-count">3</span></div>
-        <div class="func-row"><span class="func-nome">Rasteleiro</span><span class="func-count">4</span></div>
-        <div class="func-row"><span class="func-nome">Operador de Rolo</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Caminhão</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Operador Bobcat</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Operador de Fresadora</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Operador Vibro Acabadora</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Espargidor</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Pipa</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Apontador</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Mesista / Outros</span><span class="func-count">5</span></div>
-      </div>
+        <div class="func-row">
+          <span class="func-nome">AJUDANTE GERAL</span>
+          <span class="func-count">5</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">RASTELEIRO PL III</span>
+          <span class="func-count">3</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">SINALEIRO JR II</span>
+          <span class="func-count">3</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE ROLO ESPEC I</span>
+          <span class="func-count">2</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">APONTADOR DE OBRA ESP II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">ENCARREGADO DE OBRAS SR III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MANGUEIRISTA PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MARTELETEIRO PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MESISTA PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA DE CAMINHAO PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA DE CAMINHAO PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA ESPARGIDOR SR I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR BOBCAT SR I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE FRESADORA ESP I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OP VIBROACABADORA SR III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">RASTELEIRO PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">TEC SEGURANCA DO TRABA SR III</span>
+          <span class="func-count">1</span>
+        </div></div>
     </div>
   </div>
 
   <div class="secao" style="margin-top:24px">
-    <div class="secao-titulo">Todos os Funcionários</div>
+    <div class="secao-titulo">Todos os Funcionários (27)</div>
     <div class="pessoas-grid">
-      <div class="pessoa-card"><div class="pessoa-avatar">JR</div><div class="pessoa-info"><div class="pessoa-nome">Josenildo da Silva Ramos</div><div class="pessoa-cargo">Encarregado SR III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">EF</div><div class="pessoa-info"><div class="pessoa-nome">Eli Francisco de Sousa</div><div class="pessoa-cargo">Op. Vibro Acabadora</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">RB</div><div class="pessoa-info"><div class="pessoa-nome">Ricardo Barbieri</div><div class="pessoa-cargo">Op. Rolo ESPEC I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">BS</div><div class="pessoa-info"><div class="pessoa-nome">Bruno Santos e Silva</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DR</div><div class="pessoa-info"><div class="pessoa-nome">Dilermando Reis Fernandes</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">CT</div><div class="pessoa-info"><div class="pessoa-nome">Caio Luiz Tomaz da Silva</div><div class="pessoa-cargo">Motorista PL I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">VQ</div><div class="pessoa-info"><div class="pessoa-nome">Valdeni Dias Queiroz</div><div class="pessoa-cargo">Motorista Caminhão</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">WA</div><div class="pessoa-info"><div class="pessoa-nome">Werglei Alves de Souza</div><div class="pessoa-cargo">Op. Bobcat SR I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DF</div><div class="pessoa-info"><div class="pessoa-nome">Daniel Ferreira</div><div class="pessoa-cargo">Op. Fresadora ESP I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">LC</div><div class="pessoa-info"><div class="pessoa-nome">Luiz Carlos C. Santos</div><div class="pessoa-cargo">Mangueirista PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">LJ</div><div class="pessoa-info"><div class="pessoa-nome">Lazaro de Jesus Santos</div><div class="pessoa-cargo">Marteleteiro PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JB</div><div class="pessoa-info"><div class="pessoa-nome">Joaquim Silva Beserra</div><div class="pessoa-cargo">Mesista PL I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DS</div><div class="pessoa-info"><div class="pessoa-nome">Danilo Saturnino</div><div class="pessoa-cargo">Motorista Espargidor</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">CM</div><div class="pessoa-info"><div class="pessoa-nome">Claudio Miranda da Silva</div><div class="pessoa-cargo">Apontador ESP II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">TP</div><div class="pessoa-info"><div class="pessoa-nome">Tiago de Sousa Pereira</div><div class="pessoa-cargo">Motorista Caminhão PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">BL</div><div class="pessoa-info"><div class="pessoa-nome">Bruno Alves de Lima</div><div class="pessoa-cargo">Op. Rolo ESPEC I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">IS</div><div class="pessoa-info"><div class="pessoa-nome">Islandio da Silva Santos</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">FC</div><div class="pessoa-info"><div class="pessoa-nome">Francisco Caetano Balbino</div><div class="pessoa-cargo">Rasteleiro PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JS</div><div class="pessoa-info"><div class="pessoa-nome">Juarez Silva Santos</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">PB</div><div class="pessoa-info"><div class="pessoa-nome">Perivaldo B. de Souza</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">VP</div><div class="pessoa-info"><div class="pessoa-nome">Vitor Pablo de Sousa Lima</div><div class="pessoa-cargo">Sinaleiro JR II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">LR</div><div class="pessoa-info"><div class="pessoa-nome">Lucas Rocha de Sousa</div><div class="pessoa-cargo">Sinaleiro JR II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JM</div><div class="pessoa-info"><div class="pessoa-nome">Jhonatan Martins da Silva</div><div class="pessoa-cargo">Sinaleiro JR II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">SA</div><div class="pessoa-info"><div class="pessoa-nome">Samuel Alves Costa</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">CV</div><div class="pessoa-info"><div class="pessoa-nome">Cicero Vanique Filho</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">NE</div><div class="pessoa-info"><div class="pessoa-nome">Neandro de Souza C.</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">EN</div><div class="pessoa-info"><div class="pessoa-nome">Edimar Novais Silva</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-    </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">BS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Bruno Santos E Silva</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DF</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Dilermando Reis Fernandes</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">CS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Caio Luiz Tomaz Da Silva</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">VQ</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Valdeni Dias Queiroz</div>
+          <div class="pessoa-cargo">APONTADOR DE OBRA ESP II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JR</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Josenildo Da Silva Ramos</div>
+          <div class="pessoa-cargo">ENCARREGADO DE OBRAS SR III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">WS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Werglei Alves De Souza</div>
+          <div class="pessoa-cargo">MANGUEIRISTA PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DF</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Daniel Ferreira</div>
+          <div class="pessoa-cargo">MARTELETEIRO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">LS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Luiz Carlos Costa Dos Santos</div>
+          <div class="pessoa-cargo">MESISTA PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">LS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Lazaro De Jesus Santos</div>
+          <div class="pessoa-cargo">MOTORISTA DE CAMINHAO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JB</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Joaquim Silva Beserra</div>
+          <div class="pessoa-cargo">MOTORISTA DE CAMINHAO PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Danilo Saturnino De Souza</div>
+          <div class="pessoa-cargo">MOTORISTA ESPARGIDOR SR I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">CS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Claudio Miranda Da Silva</div>
+          <div class="pessoa-cargo">MOTORISTA PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">TP</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Tiago De Sousa Pereira</div>
+          <div class="pessoa-cargo">OPERADOR BOBCAT SR I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">BL</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Bruno Alves De Lima</div>
+          <div class="pessoa-cargo">OPERADOR DE FRESADORA ESP I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">ES</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Eli Francisco De Sousa</div>
+          <div class="pessoa-cargo">OPERADOR DE ROLO ESPEC I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">IS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Islandio Da Silva Santos</div>
+          <div class="pessoa-cargo">OPERADOR DE ROLO ESPEC I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">RB</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Ricardo Barbieri</div>
+          <div class="pessoa-cargo">OP VIBROACABADORA SR III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">FB</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Francisco Caetano Balbino</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Juarez Silva Santos</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">PS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Perivaldo Barboza B De Souza</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">VL</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Vitor Pablo De Sousa Lima</div>
+          <div class="pessoa-cargo">RASTELEIRO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">LS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Lucas Rocha De Sousa</div>
+          <div class="pessoa-cargo">SINALEIRO JR II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Jhonatan Martins Da Silva</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">SC</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Samuel Alves Costa</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">CF</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Cicero Vanique Filho</div>
+          <div class="pessoa-cargo">SINALEIRO JR II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">NC</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Neandro De Souza Cavalcante</div>
+          <div class="pessoa-cargo">SINALEIRO JR II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">ES</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Edimar Novais Silva</div>
+          <div class="pessoa-cargo">TEC SEGURANCA DO TRABA SR III</div>
+        </div>
+      </div></div>
   </div>
 </section>
-
 <hr class="slide-sep">
-
-<!-- ═══ EQUIPE 03 — GIVANILDO ═══ -->
 <section class="slide" id="cbuq03">
   <div class="slide-header">
     <div>
@@ -783,105 +943,376 @@
   <div class="encarregado-card">
     <div class="encarregado-avatar">GE</div>
     <div>
-      <div class="encarregado-nome">Givanildo Batista Estevão</div>
-      <div class="encarregado-cargo">Encarregado de Obras SR III</div>
+      <div class="encarregado-nome">Givanildo Batista Estevao</div>
+      <div class="encarregado-cargo">ENCARREGADO DE OBRAS SR III</div>
     </div>
   </div>
 
   <div class="slide-grid">
     <div class="secao">
-      <div class="secao-titulo">Equipamentos</div>
+      <div class="secao-titulo">Equipamentos (8)</div>
       <div class="equip-list">
         <div class="equip-item">
+          <div class="equip-icon" style="background:#60a5fa20;color:#60a5fa">🟢</div>
+          <div class="equip-info">
+            <div class="equip-frota">BC75</div>
+            <div class="equip-tipo">BOBCAT S510</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">📦</div>
+          <div class="equip-info">
+            <div class="equip-frota">CC19</div>
+            <div class="equip-tipo">CAMINHÃO CARROCERIA</div>
+          </div>
+          <span class="equip-status status-op">DEVOLVER</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">📦</div>
+          <div class="equip-info">
+            <div class="equip-frota">CC21</div>
+            <div class="equip-tipo">CAMINHÃO CARROCERIA</div>
+          </div>
+          <span class="equip-status status-op">DEVOLVER</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">🛢️</div>
+          <div class="equip-info">
+            <div class="equip-frota">CE01</div>
+            <div class="equip-tipo">MERCEDES / ATRON 1719</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
           <div class="equip-icon" style="background:#f59e0b20;color:#f59e0b">🟡</div>
-          <div class="equip-info"><div class="equip-frota">FA20</div><div class="equip-tipo">Fresadora</div></div>
-          <span class="equip-status status-op">Operacional</span>
-        </div>
-        <div class="equip-item">
-          <div class="equip-icon" style="background:#10b98120;color:#10b981">🔵</div>
-          <div class="equip-info"><div class="equip-frota">VA17</div><div class="equip-tipo">Vibro Acabadora</div></div>
-          <span class="equip-status status-op">Operacional</span>
-        </div>
-        <div class="equip-item">
-          <div class="equip-icon" style="background:#60a5fa20;color:#60a5fa">🔵</div>
-          <div class="equip-info"><div class="equip-frota">BC75</div><div class="equip-tipo">Bobcat S510</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-info">
+            <div class="equip-frota">FA20</div>
+            <div class="equip-tipo">WIRTGEN W200F</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
           <div class="equip-icon" style="background:#a78bfa20;color:#a78bfa">⚙️</div>
-          <div class="equip-info"><div class="equip-frota">CH02 · PN47</div><div class="equip-tipo">Rolo Chapa + Rolo Pneu</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-info">
+            <div class="equip-frota">CH02</div>
+            <div class="equip-tipo">HAMM HD90</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
-          <div class="equip-icon" style="background:#f97316 20;color:#f97316">🚛</div>
-          <div class="equip-info"><div class="equip-frota">CC19 · CC21 · CE01</div><div class="equip-tipo">Carrocerias × 2 · Espargidor</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-icon" style="background:#a78bfa20;color:#a78bfa">⚙️</div>
+          <div class="equip-info">
+            <div class="equip-frota">PN47</div>
+            <div class="equip-tipo">DYNAPAC CP2700</div>
+          </div>
+          <span class="equip-status status-man">MANUTENÇÃO</span>
         </div>
-      </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#10b98120;color:#10b981">🔵</div>
+          <div class="equip-info">
+            <div class="equip-frota">VA17</div>
+            <div class="equip-tipo">VOGELE 1400</div>
+          </div>
+          <span class="equip-status status-man">MANUTENÇÃO</span>
+        </div></div>
     </div>
-
     <div class="secao">
-      <div class="secao-titulo">Composição da Equipe (29 pessoas)</div>
+      <div class="secao-titulo">Composição por Função</div>
       <div class="func-grid">
-        <div class="func-row"><span class="func-nome">Ajudante Geral</span><span class="func-count">7</span></div>
-        <div class="func-row"><span class="func-nome">Rasteleiro</span><span class="func-count">3</span></div>
-        <div class="func-row"><span class="func-nome">Operador de Rolo</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Operador Bobcat</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Caminhão</span><span class="func-count">3</span></div>
-        <div class="func-row"><span class="func-nome">Apontador</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Op. Fresadora</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Op. Vibro Acabadora</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Espargidor</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Operador Solo</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Mesista / Sinaleiro / Outros</span><span class="func-count">6</span></div>
-      </div>
+        <div class="func-row">
+          <span class="func-nome">AJUDANTE GERAL</span>
+          <span class="func-count">7</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">RASTELEIRO PL III</span>
+          <span class="func-count">3</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR BOBCAT SR I</span>
+          <span class="func-count">2</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE ROLO ESPEC I</span>
+          <span class="func-count">2</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">APONTADOR DE OBRAS SR II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">APONTADOR DE OBRA ESP II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">ENCARREGADO DE OBRAS SR III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MANGUEIRISTA PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MARTELETEIRO PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MESISTA JR III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA DE CAMINHAO PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA DE CAMINHAO PL III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA DE CAMINHAO PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA ESPARGIDOR SR I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE FRESADORA ESP I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OP VIBROACABADORA SR III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR SOLO</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">SINALEIRO JR II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">TEC SEGURANCA DO TRABA SR III</span>
+          <span class="func-count">1</span>
+        </div></div>
     </div>
   </div>
 
   <div class="secao" style="margin-top:24px">
-    <div class="secao-titulo">Todos os Funcionários</div>
+    <div class="secao-titulo">Todos os Funcionários (29)</div>
     <div class="pessoas-grid">
-      <div class="pessoa-card"><div class="pessoa-avatar">GE</div><div class="pessoa-info"><div class="pessoa-nome">Givanildo Batista Estevão</div><div class="pessoa-cargo">Encarregado SR III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">GV</div><div class="pessoa-info"><div class="pessoa-nome">Geraldo Vicente Ferreira</div><div class="pessoa-cargo">Op. Fresadora ESP I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">GM</div><div class="pessoa-info"><div class="pessoa-nome">Guilherme Morales de Jesus</div><div class="pessoa-cargo">Operador Solo</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AB</div><div class="pessoa-info"><div class="pessoa-nome">Abner Enzo A. de Farias</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">CG</div><div class="pessoa-info"><div class="pessoa-nome">Cristian Gomes de Sousa</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DS</div><div class="pessoa-info"><div class="pessoa-nome">Darlei Souza Santos</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">EC</div><div class="pessoa-info"><div class="pessoa-nome">Eduardo Dias Cardoso</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">FL</div><div class="pessoa-info"><div class="pessoa-nome">Flavio Paes L. dos Santos</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">RD</div><div class="pessoa-info"><div class="pessoa-nome">Rafael David M. Santos</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DC</div><div class="pessoa-info"><div class="pessoa-nome">Davi Carlos Ribeiro</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">WS</div><div class="pessoa-info"><div class="pessoa-nome">William Silva Sebastiao</div><div class="pessoa-cargo">Marteleteiro PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">RE</div><div class="pessoa-info"><div class="pessoa-nome">Richard da Silva Elias</div><div class="pessoa-cargo">Mangueirista PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">ML</div><div class="pessoa-info"><div class="pessoa-nome">Marcos Aurelio B. Laurindo</div><div class="pessoa-cargo">Mesista JR III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">MM</div><div class="pessoa-info"><div class="pessoa-nome">Matheus Manoel P. Santos</div><div class="pessoa-cargo">Motorista Caminhão PL I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">SI</div><div class="pessoa-info"><div class="pessoa-nome">Severino Isidro da Silva</div><div class="pessoa-cargo">Motorista Caminhão PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JN</div><div class="pessoa-info"><div class="pessoa-nome">José Nilton Pereira</div><div class="pessoa-cargo">Motorista Caminhão PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">CA</div><div class="pessoa-info"><div class="pessoa-nome">Cleber Amaral dos Santos</div><div class="pessoa-cargo">Motorista Espargidor</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DC</div><div class="pessoa-info"><div class="pessoa-nome">Douglas Casemiro Schwed</div><div class="pessoa-cargo">Apontador ESP II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">GA</div><div class="pessoa-info"><div class="pessoa-nome">Geandson Alexandre da Silva</div><div class="pessoa-cargo">Apontador SR II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">GV</div><div class="pessoa-info"><div class="pessoa-nome">Gilberto Vidal Alves</div><div class="pessoa-cargo">Op. Bobcat SR I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">WN</div><div class="pessoa-info"><div class="pessoa-nome">Wellington Velozo J. Nascimento</div><div class="pessoa-cargo">Op. Bobcat SR I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">CO</div><div class="pessoa-info"><div class="pessoa-nome">Clodoaldo de Oliveira</div><div class="pessoa-cargo">Op. Rolo ESPEC I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JM</div><div class="pessoa-info"><div class="pessoa-nome">Josenildo Moreira Cruz</div><div class="pessoa-cargo">Op. Rolo ESPEC I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">FP</div><div class="pessoa-info"><div class="pessoa-nome">Francisco Patricio F. Vieira</div><div class="pessoa-cargo">Op. Vibro Acabadora</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AG</div><div class="pessoa-info"><div class="pessoa-nome">Adenildo Gomes da Silva</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AC</div><div class="pessoa-info"><div class="pessoa-nome">Alcimar Gonçalves da Costa</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">EM</div><div class="pessoa-info"><div class="pessoa-nome">Eduardo Lopes Moreira</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AR</div><div class="pessoa-info"><div class="pessoa-nome">Arilson José de Souza Gomes</div><div class="pessoa-cargo">Sinaleiro JR II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AD</div><div class="pessoa-info"><div class="pessoa-nome">Alan Dias da Silva</div><div class="pessoa-cargo">Téc. Segurança SR III</div></div></div>
-    </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AF</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Abner Enzo Amorim De Farias</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">CS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Cristian Gomes De Sousa</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Darlei Souza Santos</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">EC</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Eduardo Dias Cardoso</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">FS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Flavio Paes Landim Dos Santos</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">RS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Rafael David M Dos Santos</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DR</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Davi Carlos Ribeiro</div>
+          <div class="pessoa-cargo">APONTADOR DE OBRAS SR II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">WS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">William Silva Sebastiao</div>
+          <div class="pessoa-cargo">APONTADOR DE OBRA ESP II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">GE</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Givanildo Batista Estevao</div>
+          <div class="pessoa-cargo">ENCARREGADO DE OBRAS SR III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">RE</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Richard Da Silva Elias</div>
+          <div class="pessoa-cargo">MANGUEIRISTA PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">ML</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Marcos Aurelio B Laurindo</div>
+          <div class="pessoa-cargo">MARTELETEIRO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">MS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Matheus Manoel P M Dos Santos</div>
+          <div class="pessoa-cargo">MESISTA JR III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">SS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Severino Isidro Da Silva</div>
+          <div class="pessoa-cargo">MOTORISTA DE CAMINHAO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JP</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Jose Nilton Pereira</div>
+          <div class="pessoa-cargo">MOTORISTA DE CAMINHAO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">CS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Cleber Amaral Dos Santos</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Douglas Casemiro Schwed</div>
+          <div class="pessoa-cargo">MOTORISTA DE CAMINHAO PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">GS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Geandson Alexandre Da Silva</div>
+          <div class="pessoa-cargo">MOTORISTA ESPARGIDOR SR I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">GA</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Gilberto Vidal Alves</div>
+          <div class="pessoa-cargo">OPERADOR BOBCAT SR I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">WN</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Wellington Velozo J Nascimento</div>
+          <div class="pessoa-cargo">OPERADOR BOBCAT SR I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">GF</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Geraldo Vicente Ferreira</div>
+          <div class="pessoa-cargo">OPERADOR DE FRESADORA ESP I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">CO</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Clodoaldo De Oliveira</div>
+          <div class="pessoa-cargo">OPERADOR DE ROLO ESPEC I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JC</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Josenildo Moreira Cruz</div>
+          <div class="pessoa-cargo">OPERADOR DE ROLO ESPEC I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">FV</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Francisco Patricio F Vieira</div>
+          <div class="pessoa-cargo">OP VIBROACABADORA SR III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">GJ</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Guilherme Morales De Jesus</div>
+          <div class="pessoa-cargo">OPERADOR SOLO</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Adenildo Gomes Da Silva</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AC</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Alcimar Goncalves Da Costa</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">EM</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Eduardo Lopes Moreira</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AG</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Arilson Jose De Souza Gomes</div>
+          <div class="pessoa-cargo">SINALEIRO JR II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Alan Dias Da Silva</div>
+          <div class="pessoa-cargo">TEC SEGURANCA DO TRABA SR III</div>
+        </div>
+      </div></div>
   </div>
 </section>
-
 <hr class="slide-sep">
-
-<!-- ═══ EQUIPE 04 — THIAGO H ═══ -->
 <section class="slide" id="cbuq04">
   <div class="slide-header">
     <div>
       <div class="slide-equipe-badge">⬡ Equipe 04</div>
-      <h2 class="slide-titulo">CBUQ04<br>Encarregado Thiago H</h2>
+      <h2 class="slide-titulo">CBUQ04<br>Encarregado Thiago</h2>
       <div class="slide-obra">📍 <span>Obra em andamento</span></div>
     </div>
     <div class="slide-numeros">
@@ -899,96 +1330,327 @@
   <div class="encarregado-card">
     <div class="encarregado-avatar">TP</div>
     <div>
-      <div class="encarregado-nome">Thiago Henrique F. Pimentel</div>
-      <div class="encarregado-cargo">Encarregado de Obras SR III</div>
+      <div class="encarregado-nome">Thiago Henrique F Pimentel</div>
+      <div class="encarregado-cargo">ENCARREGADO DE OBRAS SR III</div>
     </div>
   </div>
 
   <div class="slide-grid">
     <div class="secao">
-      <div class="secao-titulo">Equipamentos</div>
+      <div class="secao-titulo">Equipamentos (7)</div>
       <div class="equip-list">
         <div class="equip-item">
+          <div class="equip-icon" style="background:#60a5fa20;color:#60a5fa">🟢</div>
+          <div class="equip-info">
+            <div class="equip-frota">BC78</div>
+            <div class="equip-tipo">BOBCAT S530</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">📦</div>
+          <div class="equip-info">
+            <div class="equip-frota">CC11</div>
+            <div class="equip-tipo">CAMINHÃO CARROCERIA</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">🛢️</div>
+          <div class="equip-info">
+            <div class="equip-frota">CE02</div>
+            <div class="equip-tipo">MERCEDES / ATRON 1719</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
+          <div class="equip-icon" style="background:#f9731620;color:#f97316">💧</div>
+          <div class="equip-info">
+            <div class="equip-frota">CP05</div>
+            <div class="equip-tipo">ATEGO 1315</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div>
+        <div class="equip-item">
           <div class="equip-icon" style="background:#f59e0b20;color:#f59e0b">🟡</div>
-          <div class="equip-info"><div class="equip-frota">FA12</div><div class="equip-tipo">Fresadora</div></div>
-          <span class="equip-status status-op">Operacional</span>
-        </div>
-        <div class="equip-item">
-          <div class="equip-icon" style="background:#10b98120;color:#10b981">🔵</div>
-          <div class="equip-info"><div class="equip-frota">VA19</div><div class="equip-tipo">Vibro Acabadora</div></div>
-          <span class="equip-status status-op">Operacional</span>
-        </div>
-        <div class="equip-item">
-          <div class="equip-icon" style="background:#60a5fa20;color:#60a5fa">🔵</div>
-          <div class="equip-info"><div class="equip-frota">BC78</div><div class="equip-tipo">Bobcat</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-info">
+            <div class="equip-frota">FA12</div>
+            <div class="equip-tipo">WIRTGEN W200</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
           <div class="equip-icon" style="background:#a78bfa20;color:#a78bfa">⚙️</div>
-          <div class="equip-info"><div class="equip-frota">PN05</div><div class="equip-tipo">Rolo Pneu</div></div>
-          <span class="equip-status status-op">Operacional</span>
+          <div class="equip-info">
+            <div class="equip-frota">PN05</div>
+            <div class="equip-tipo">HAMM GRW280</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
         </div>
         <div class="equip-item">
-          <div class="equip-icon" style="background:#f97316 20;color:#f97316">🚛</div>
-          <div class="equip-info"><div class="equip-frota">CC11 · CE02 · CP05</div><div class="equip-tipo">Carroceria · Espargidor · Pipa</div></div>
-          <span class="equip-status status-op">Operacional</span>
-        </div>
-      </div>
+          <div class="equip-icon" style="background:#10b98120;color:#10b981">🔵</div>
+          <div class="equip-info">
+            <div class="equip-frota">VA19</div>
+            <div class="equip-tipo">CIBER AF5000</div>
+          </div>
+          <span class="equip-status status-op">OPERACIONAL</span>
+        </div></div>
     </div>
-
     <div class="secao">
-      <div class="secao-titulo">Composição da Equipe (25 pessoas)</div>
+      <div class="secao-titulo">Composição por Função</div>
       <div class="func-grid">
-        <div class="func-row"><span class="func-nome">Ajudante Geral</span><span class="func-count">6</span></div>
-        <div class="func-row"><span class="func-nome">Rasteleiro</span><span class="func-count">3</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Caminhão</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Operador de Rolo</span><span class="func-count">2</span></div>
-        <div class="func-row"><span class="func-nome">Operador Bobcat</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Op. Fresadora</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Op. Vibro Acabadora</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Espargidor</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Motorista Pipa</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Apontador</span><span class="func-count">1</span></div>
-        <div class="func-row"><span class="func-nome">Mesista / Sinaleiro / Outros</span><span class="func-count">6</span></div>
-      </div>
+        <div class="func-row">
+          <span class="func-nome">AJUDANTE GERAL</span>
+          <span class="func-count">6</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">RASTELEIRO PL III</span>
+          <span class="func-count">3</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA DE CAMINHAO PL II</span>
+          <span class="func-count">2</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">APONTADOR DE OBRAS SR II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">ENCARREGADO DE OBRAS SR III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MANGUEIRISTA PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MARTELETEIRO PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MESISTA JR III</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA PL II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">MOTORISTA ESPARGIDOR SR I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE FRESADORA ESP I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE ROLO ESPEC I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR DE ROLO SR II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OP VIBROACABADORA SR I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">OPERADOR SOLO PL I</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">SINALEIRO JR II</span>
+          <span class="func-count">1</span>
+        </div>
+        <div class="func-row">
+          <span class="func-nome">TEC SEGURANCA DO TRABA SR III</span>
+          <span class="func-count">1</span>
+        </div></div>
     </div>
   </div>
 
   <div class="secao" style="margin-top:24px">
-    <div class="secao-titulo">Todos os Funcionários</div>
+    <div class="secao-titulo">Todos os Funcionários (25)</div>
     <div class="pessoas-grid">
-      <div class="pessoa-card"><div class="pessoa-avatar">TP</div><div class="pessoa-info"><div class="pessoa-nome">Thiago Henrique F. Pimentel</div><div class="pessoa-cargo">Encarregado SR III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">FF</div><div class="pessoa-info"><div class="pessoa-nome">Fabio Fernandes Lima</div><div class="pessoa-cargo">Op. Fresadora ESP I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">LR</div><div class="pessoa-info"><div class="pessoa-nome">Leandro Silva Ribeiro</div><div class="pessoa-cargo">Op. Vibro Acabadora SR I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">CS</div><div class="pessoa-info"><div class="pessoa-nome">Cleder Avaci de Sousa</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DM</div><div class="pessoa-info"><div class="pessoa-nome">Deivid Gustavo P. Marques</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">ER</div><div class="pessoa-info"><div class="pessoa-nome">Edson Rocha R. Junior</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">IA</div><div class="pessoa-info"><div class="pessoa-nome">Ivanilson Andrade da Silva</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">PH</div><div class="pessoa-info"><div class="pessoa-nome">Pedro Henrique M. F. Santos</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">FA</div><div class="pessoa-info"><div class="pessoa-nome">Francisco Alves Junior</div><div class="pessoa-cargo">Ajudante Geral</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">RX</div><div class="pessoa-info"><div class="pessoa-nome">Rodrigo Xavier de Lima</div><div class="pessoa-cargo">Apontador SR II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">SM</div><div class="pessoa-info"><div class="pessoa-nome">Samuel Vieira B. Martins</div><div class="pessoa-cargo">Mangueirista PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JS</div><div class="pessoa-info"><div class="pessoa-nome">Jonathas Santana dos Santos</div><div class="pessoa-cargo">Marteleteiro PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">MZ</div><div class="pessoa-info"><div class="pessoa-nome">Magnus Zeggio</div><div class="pessoa-cargo">Mesista JR III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">JR</div><div class="pessoa-info"><div class="pessoa-nome">Juciglay de A. Rodrigues</div><div class="pessoa-cargo">Motorista Caminhão PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">CN</div><div class="pessoa-info"><div class="pessoa-nome">Cristiano Neres da Rocha</div><div class="pessoa-cargo">Motorista Caminhão PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DB</div><div class="pessoa-info"><div class="pessoa-nome">Douglas A. J. Bandeira</div><div class="pessoa-cargo">Motorista Espargidor SR I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">AA</div><div class="pessoa-info"><div class="pessoa-nome">Alex Alves Costa</div><div class="pessoa-cargo">Motorista PL II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">EN</div><div class="pessoa-info"><div class="pessoa-nome">Eudes Nunes Alves Filho</div><div class="pessoa-cargo">Op. Bobcat</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">DJ</div><div class="pessoa-info"><div class="pessoa-nome">Diogo Henderson J. Bandeira</div><div class="pessoa-cargo">Op. Rolo SR II</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">MS</div><div class="pessoa-info"><div class="pessoa-nome">Matheus Saturnino dos Santos</div><div class="pessoa-cargo">Op. Rolo ESPEC I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">BN</div><div class="pessoa-info"><div class="pessoa-nome">Batista Neto da S. Bastos</div><div class="pessoa-cargo">Op. Solo PL I</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">RN</div><div class="pessoa-info"><div class="pessoa-nome">Rai do Nascimento Rodrigues</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">WV</div><div class="pessoa-info"><div class="pessoa-nome">Welio Satiro do Vale</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">EL</div><div class="pessoa-info"><div class="pessoa-nome">Elielson Lusinario da Silva</div><div class="pessoa-cargo">Rasteleiro PL III</div></div></div>
-      <div class="pessoa-card"><div class="pessoa-avatar">PD</div><div class="pessoa-info"><div class="pessoa-nome">Plinio Diassis do Nascimento</div><div class="pessoa-cargo">Sinaleiro JR II</div></div></div>
-    </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">CS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Cleder Avaci De Sousa</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DM</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Deivid Gustavo P Marques</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">EJ</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Edson Rocha Rodrigues Junior</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">IS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Ivanilson Andrade Da Silva</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">PS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Pedro Henrique M F Dos Santos</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">FJ</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Francisco Alves Junior</div>
+          <div class="pessoa-cargo">APONTADOR DE OBRAS SR II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">TP</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Thiago Henrique F Pimentel</div>
+          <div class="pessoa-cargo">ENCARREGADO DE OBRAS SR III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">LR</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Leandro Silva Ribeiro</div>
+          <div class="pessoa-cargo">MANGUEIRISTA PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">RL</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Rodrigo Xavier De Lima</div>
+          <div class="pessoa-cargo">MARTELETEIRO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">SM</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Samuel Vieira Barbosa Martins</div>
+          <div class="pessoa-cargo">MESISTA JR III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Jonathas Santana Dos Santos</div>
+          <div class="pessoa-cargo">MOTORISTA DE CAMINHAO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">MZ</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Magnus Zeggio</div>
+          <div class="pessoa-cargo">MOTORISTA PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">JR</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Juciglay De Andrade Rodrigues</div>
+          <div class="pessoa-cargo">MOTORISTA DE CAMINHAO PL II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">CR</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Cristiano Neres Da Rocha</div>
+          <div class="pessoa-cargo">MOTORISTA ESPARGIDOR SR I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DB</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Douglas A De Jesus Bandeira</div>
+          <div class="pessoa-cargo">AJUDANTE GERAL</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">FL</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Fabio Fernandes Lima</div>
+          <div class="pessoa-cargo">OPERADOR DE FRESADORA ESP I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">AC</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Alex Alves Costa</div>
+          <div class="pessoa-cargo">OPERADOR DE ROLO ESPEC I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">EF</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Eudes Nunes Alves Filho</div>
+          <div class="pessoa-cargo">OPERADOR DE ROLO SR II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">DB</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Diogo Henderson De J Bandeira</div>
+          <div class="pessoa-cargo">OP VIBROACABADORA SR I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">MS</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Matheus Saturnino Dos Santos</div>
+          <div class="pessoa-cargo">OPERADOR SOLO PL I</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">BB</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Batista Neto Da S Bastos</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">RR</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Rai Do Nascimento Rodrigues</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">WV</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Welio Satiro Do Vale</div>
+          <div class="pessoa-cargo">RASTELEIRO PL III</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">ES</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Elielson Lusinario Da Silva</div>
+          <div class="pessoa-cargo">SINALEIRO JR II</div>
+        </div>
+      </div>
+      <div class="pessoa-card">
+        <div class="pessoa-avatar">PN</div>
+        <div class="pessoa-info">
+          <div class="pessoa-nome">Plinio Diassis Do Nascimento</div>
+          <div class="pessoa-cargo">TEC SEGURANCA DO TRABA SR III</div>
+        </div>
+      </div></div>
   </div>
 </section>
-
 <hr class="slide-sep">
-
-<!-- ═══ EQUIPAMENTOS ESPECIAIS ═══ -->
 <section class="slide slide-situacoes" id="situacoes">
   <div class="slide-header">
     <div>
@@ -998,51 +1660,21 @@
     </div>
     <div class="slide-numeros">
       <div class="slide-numero">
-        <div class="slide-numero-val orange">17</div>
+        <div class="slide-numero-val orange">16</div>
         <div class="slide-numero-label">Equipamentos</div>
       </div>
     </div>
   </div>
-
-  <div class="sit-grid">
-    <div class="sit-card">
-      <h3>🔧 Manutenção (3)</h3>
-      <div class="sit-item"><span class="sit-frota">BC66</span><span class="sit-tipo">Bobcat S175</span></div>
-      <div class="sit-item"><span class="sit-frota">FA14</span><span class="sit-tipo">Fresadora</span></div>
-      <div class="sit-item"><span class="sit-frota">CH04</span><span class="sit-tipo">Rolo Chapa</span></div>
-    </div>
-    <div class="sit-card">
-      <h3>🔄 Reserva / Disposição (7)</h3>
-      <div class="sit-item"><span class="sit-frota">BC70</span><span class="sit-tipo">Bobcat S185 — GRU Airport</span></div>
-      <div class="sit-item"><span class="sit-frota">VA05</span><span class="sit-tipo">Vibro Acabadora</span></div>
-      <div class="sit-item"><span class="sit-frota">FA18</span><span class="sit-tipo">Fresadora</span></div>
-      <div class="sit-item"><span class="sit-frota">PC01</span><span class="sit-tipo">Rolo Pé de Carneiro</span></div>
-      <div class="sit-item"><span class="sit-frota">VA03 · VA04 · VA15</span><span class="sit-tipo">Vibro Acabadoras</span></div>
-    </div>
-    <div class="sit-card">
-      <h3>✈️ GRU Airport — Avulso (4)</h3>
-      <div class="sit-item"><span class="sit-frota">CC05</span><span class="sit-tipo">Caminhão Carroceria</span></div>
-      <div class="sit-item"><span class="sit-frota">CC15</span><span class="sit-tipo">Caminhão Carroceria</span></div>
-      <div class="sit-item"><span class="sit-frota">COMP-RET_PV</span><span class="sit-tipo">Compressor</span></div>
-      <div class="sit-item"><span class="sit-frota">PLACA-GRU03</span><span class="sit-tipo">Placa Vibratória</span></div>
-    </div>
-    <div class="sit-card">
-      <h3>🔁 Retrabalho / PV (2)</h3>
-      <div class="sit-item"><span class="sit-frota">CC09</span><span class="sit-tipo">Caminhão Carroceria</span></div>
-      <div class="sit-item"><span class="sit-frota">PLACA-RET_PV</span><span class="sit-tipo">Placa Vibratória</span></div>
-    </div>
-  </div>
+  <div class="sit-grid"><div class="sit-card"><h3>🔧 MANUTENÇÃO (3)</h3><div class="sit-item"><span class="sit-frota">BC66</span><span class="sit-tipo">BOBCAT — BOBCAT S175</span></div><div class="sit-item"><span class="sit-frota">FA14</span><span class="sit-tipo">FRESADORA — WIRTGEN W200</span></div><div class="sit-item"><span class="sit-frota">CH04</span><span class="sit-tipo">ROLO CHAPA — HAMM HD90</span></div></div><div class="sit-card"><h3>🔄 RESERVA (2)</h3><div class="sit-item"><span class="sit-frota">BC70</span><span class="sit-tipo">BOBCAT — BOBCAT S185</span></div><div class="sit-item"><span class="sit-frota">VA05</span><span class="sit-tipo">VIBRO ACABADORA — CIBER AF5000</span></div></div><div class="sit-card"><h3>✈️ GRU - AIRPORT (1)</h3><div class="sit-item"><span class="sit-frota">CC05</span><span class="sit-tipo">CAMINHÃO CARROCERIA — CAMINHÃO MUNK</span></div></div><div class="sit-card"><h3>✈️ GRU - AIRPORT - THIAGO SILVA (3)</h3><div class="sit-item"><span class="sit-frota">CC15</span><span class="sit-tipo">CAMINHÃO CARROCERIA — </span></div><div class="sit-item"><span class="sit-frota">COMP-RET_PV</span><span class="sit-tipo">COMPRESSOR — COMPRESSOR</span></div><div class="sit-item"><span class="sit-frota">PLACA-GRU03</span><span class="sit-tipo">PLACA VIBRATÓRIA — PLACA VIBRATÓRIA</span></div></div><div class="sit-card"><h3>🔁 RETRABALHO/PV (2)</h3><div class="sit-item"><span class="sit-frota">CC09</span><span class="sit-tipo">CAMINHÃO CARROCERIA — </span></div><div class="sit-item"><span class="sit-frota">PLACA-RET_PV</span><span class="sit-tipo">PLACA VIBRATÓRIA — PLACA VIBRATÓRIA</span></div></div><div class="sit-card"><h3>⏸️ DISPOSIÇÃO (5)</h3><div class="sit-item"><span class="sit-frota">FA18</span><span class="sit-tipo">FRESADORA — WIRTGEN W150</span></div><div class="sit-item"><span class="sit-frota">PC01</span><span class="sit-tipo">ROLO PÉ DE CARNEIRO — HAMM 3414</span></div><div class="sit-item"><span class="sit-frota">VA03</span><span class="sit-tipo">VIBRO ACABADORA — VOGELE 1300</span></div><div class="sit-item"><span class="sit-frota">VA04</span><span class="sit-tipo">VIBRO ACABADORA — VOGELE 1300</span></div><div class="sit-item"><span class="sit-frota">VA15</span><span class="sit-tipo">VIBRO ACABADORA — CIBER AF5000</span></div></div></div>
 </section>
 
 <script>
-  // Smooth scroll para links do índice
-  document.querySelectorAll('a[href^="#"]').forEach(a => {
-    a.addEventListener('click', e => {
+  document.querySelectorAll("a[href^=\"#\"]").forEach(a => {
+    a.addEventListener("click", e => {
       e.preventDefault();
-      document.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth' });
+      document.querySelector(a.getAttribute("href"))?.scrollIntoView({behavior:"smooth"});
     });
   });
 </script>
-
 </body>
 </html>
