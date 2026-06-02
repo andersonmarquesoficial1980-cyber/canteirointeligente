@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useHorimetroAudit } from "@/hooks/useHorimetroAudit";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { saveDiaryOffline } from "@/hooks/useOfflineSync";
 import { offlineDb } from "@/lib/offlineDb";
@@ -38,7 +39,7 @@ import { generateKmaPdf } from "@/lib/generateKmaPdf";
 import { generateComboioPdf } from "@/lib/generateComboioPdf";
 import { buildComboioEmailReport, buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 
-const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Inoperante"] as const;
+const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Inoperante", "No Pátio", "Em Transporte"] as const;
 
 // Frotas removidas do hardcode — agora vêm de maquinas_frota (Painel de Controle)
 
@@ -214,6 +215,9 @@ export default function EquipmentDiaryForm() {
   const [meterInitial, setMeterInitial] = useState("");
   const [meterFinal, setMeterFinal] = useState("");
   const [workStatus, setWorkStatus] = useState("");
+  const [horimetroAlerta, setHorimetroAlerta] = useState<{ diff: number; ultimoValor: number; threshold: number } | null>(null);
+  const [horimetroConfirmado, setHorimetroConfirmado] = useState(false);
+  const { verificarInconsistencia, registrarAudit } = useHorimetroAudit("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
   const isModoSimples = workStatus === "Folga" || workStatus === "Inoperante";
   const [ogsNumber, setOgsNumber] = useState("");
   const isPatioMode = ogsNumber === "BASE / PÁTIO CENTRAL";
@@ -2084,7 +2088,63 @@ export default function EquipmentDiaryForm() {
                 </>
               )}
               <Field label={`${meterLabel} Inicial`}>
-                <Input type="text" inputMode="decimal" value={meterInitial} onChange={e => setMeterInitial(e.target.value)} placeholder="0.0" className="bg-secondary border-border" />
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={meterInitial}
+                  onChange={e => setMeterInitial(e.target.value)}
+                  placeholder="0.0"
+                  className="bg-secondary border-border"
+                  onBlur={async () => {
+                    const val = parseFloat(meterInitial);
+                    if (!isNaN(val) && val > 0 && selectedFleet && !isEditMode) {
+                      const tipo = usesOdometer ? "odometro" : "horimetro";
+                      const result = await verificarInconsistencia(selectedFleet, val, tipo);
+                      if (result.inconsistente && !horimetroConfirmado) {
+                        setHorimetroAlerta({ diff: result.diff, ultimoValor: result.ultimoValor!, threshold: result.threshold });
+                      } else {
+                        setHorimetroAlerta(null);
+                      }
+                    }
+                  }}
+                />
+                {horimetroAlerta && !horimetroConfirmado && (
+                  <div className="mt-2 bg-orange-50 border border-orange-200 rounded-xl p-3 space-y-2">
+                    <p className="text-xs font-bold text-orange-700">⚠️ {meterLabel} com diferença acima do esperado</p>
+                    <p className="text-xs text-orange-600">
+                      Último registrado: <strong>{horimetroAlerta.ultimoValor}</strong> &mdash; Informado agora: <strong>{meterInitial}</strong> &mdash; Diferença: <strong>+{horimetroAlerta.diff.toFixed(1)}{usesOdometer ? " km" : "h"}</strong>
+                    </p>
+                    <p className="text-xs text-orange-600">O equipamento ficou no pátio. Essa diferença pode indicar uso sem diário registrado.</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          setHorimetroConfirmado(true);
+                          setHorimetroAlerta(null);
+                          const { data: { user } } = await supabase.auth.getUser();
+                          await registrarAudit({
+                            equipmentFleet: selectedFleet,
+                            diaryDate: date,
+                            ultimoValor: horimetroAlerta.ultimoValor,
+                            valorInformado: parseFloat(meterInitial),
+                            diff: horimetroAlerta.diff,
+                            threshold: horimetroAlerta.threshold,
+                            confirmado: true,
+                            userId: user?.id ?? "",
+                          });
+                        }}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white"
+                      >
+                        Sim, está correto
+                      </button>
+                      <button
+                        onClick={() => { setMeterInitial(""); setHorimetroAlerta(null); }}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-white border border-orange-300 text-orange-700"
+                      >
+                        Corrigir valor
+                      </button>
+                    </div>
+                  </div>
+                )}
               </Field>
               <Field label={`${meterLabel} Final`}>
                 <Input type="text" inputMode="decimal" value={meterFinal} onChange={e => setMeterFinal(e.target.value)} placeholder="0.0" className={`bg-secondary border-border ${horimeterError ? "border-destructive" : ""}`} />
