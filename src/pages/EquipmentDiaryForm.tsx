@@ -107,7 +107,7 @@ const LINHA_AMARELA_TIPOS = [
 ] as const;
 
 // ── Caminhão configs ──
-const CAMINHAO_TIPOS = ["Pipa", "Carroceria", "Espargidor"] as const;
+const CAMINHAO_TIPOS = ["Pipa", "Carroceria", "Espargidor", "Basculante"] as const;
 // PIPA_FLEETS removido — frotas vêm de maquinas_frota (Painel de Controle)
 const PIPA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
 
@@ -193,6 +193,7 @@ export default function EquipmentDiaryForm() {
   const isPipa = isCaminhoes && caminhaoTipo === "Pipa";
   const isEspargidor = isCaminhoes && caminhaoTipo === "Espargidor";
   const isCarroceria = isCaminhoes && caminhaoTipo === "Carroceria";
+  const isBasculante = isCaminhoes && caminhaoTipo === "Basculante";
 
   const isTruck = isCaminhoes || isComboio || isVeiculo || isCarreta;
   const usesOdometer = isTruck;
@@ -1018,19 +1019,40 @@ export default function EquipmentDiaryForm() {
       ));
     }
     if (isPipa) {
-      return eq.filter(e => hasVinculoTipo(e, "CAMINHOES", x =>
-        x.tipo?.toLowerCase().includes("pipa") || x.frota?.startsWith("CP")
-      ));
+      return eq.filter(e =>
+        hasVinculoTipo(e, "CAMINHAO_PIPA", x =>
+          x.tipo?.toUpperCase().includes("PIPA") || x.frota?.startsWith("CP")
+        ) || hasVinculoTipo(e, "CAMINHOES", x =>
+          x.tipo?.toUpperCase().includes("PIPA") || x.frota?.startsWith("CP")
+        )
+      );
     }
     if (isEspargidor) {
-      return eq.filter(e => hasVinculoTipo(e, "CAMINHOES", x =>
-        x.tipo?.toLowerCase().includes("espargidor") || x.frota?.startsWith("CE")
-      ));
+      return eq.filter(e =>
+        hasVinculoTipo(e, "CAMINHAO_ESPARGIDOR", x =>
+          x.tipo?.toUpperCase().includes("ESPARGIDOR") || x.frota?.startsWith("CE")
+        ) || hasVinculoTipo(e, "CAMINHOES", x =>
+          x.tipo?.toUpperCase().includes("ESPARGIDOR") || x.frota?.startsWith("CE")
+        )
+      );
     }
     if (isCarroceria) {
-      return eq.filter(e => hasVinculoTipo(e, "CAMINHOES", x =>
-        x.tipo?.toLowerCase().includes("carroceria") || x.frota?.startsWith("CC")
-      ));
+      return eq.filter(e =>
+        hasVinculoTipo(e, "CAMINHAO_CARROCERIA", x =>
+          x.tipo?.toUpperCase().includes("CARROCERIA") || x.frota?.startsWith("CC")
+        ) || hasVinculoTipo(e, "CAMINHOES", x =>
+          x.tipo?.toUpperCase().includes("CARROCERIA") || x.frota?.startsWith("CC")
+        )
+      );
+    }
+    if (isBasculante) {
+      return eq.filter(e =>
+        hasVinculoTipo(e, "CAMINHAO_BASCULANTE", x =>
+          x.tipo?.toUpperCase().includes("BASCULANTE") || x.frota?.startsWith("CB")
+        ) || hasVinculoTipo(e, "CAMINHOES", x =>
+          x.tipo?.toUpperCase().includes("BASCULANTE") || x.frota?.startsWith("CB")
+        )
+      );
     }
     if (isComboio) {
       return eq.filter(e => hasVinculoTipo(e, "COMBOIO", x =>
@@ -1816,7 +1838,9 @@ export default function EquipmentDiaryForm() {
                 </SelectTrigger>
                 <SelectContent>
                   {CAMINHAO_TIPOS.map((t) => (
-                    <SelectItem key={t} value={t}>{t === "Pipa" ? "💧 Pipa" : t === "Espargidor" ? "🛢️ Espargidor" : "📦 Carroceria"}</SelectItem>
+                    <SelectItem key={t} value={t}>
+                      {t === "Pipa" ? "💧 Pipa" : t === "Espargidor" ? "🛢️ Espargidor" : t === "Carroceria" ? "📦 Carroceria" : "🚛 Basculante"}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
