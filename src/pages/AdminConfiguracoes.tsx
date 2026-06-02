@@ -1475,13 +1475,22 @@ function OgsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deletingLoading, setDeletingLoading] = useState(false);
+  const [myCompanyId, setMyCompanyId] = useState<string | null>(null);
 
   const load = async () => {
     const { data } = await supabase.from("ogs_reference").select("*").order("ogs_number", { ascending: false });
     if (data) setItems(data);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Carregar company_id do usuário logado
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle()
+        .then(({ data }) => { if (data?.company_id) setMyCompanyId(data.company_id); });
+    });
+  }, []);
 
   const handleAdd = async () => {
     if (!numero.trim() || !cliente.trim() || !endereco.trim()) {
@@ -1498,7 +1507,7 @@ function OgsManager() {
         toast({ title: "✅ OGS atualizada!" });
         setEditingId(null);
       } else {
-        const { error } = await supabase.from("ogs_reference").insert({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim() });
+        const { error } = await supabase.from("ogs_reference").insert({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim(), company_id: myCompanyId } as any);
         if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
         toast({ title: "✅ Endereço adicionado!" });
       }
