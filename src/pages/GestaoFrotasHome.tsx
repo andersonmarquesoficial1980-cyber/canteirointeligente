@@ -82,7 +82,7 @@ export default function GestaoFrotasHome() {
 
   async function buscarTodos() {
     setLoading(true);
-    const { data } = await supabase.from("frotas_gestao").select("*").eq("status", "ativo").order("tipo_veiculo,codigo_custo");
+    const { data } = await (supabase as any).from("equipamentos").select("*").eq("status", "ativo").order("tipo,frota");
     if (data) setTodos(data);
     setLoading(false);
   }

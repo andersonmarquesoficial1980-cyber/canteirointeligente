@@ -39,8 +39,8 @@ export default function RelatoriosHome() {
   const [ogsList, setOgsList] = useState<{ ogs: string; cliente: string }[]>([]);
 
   useEffect(() => {
-    // Carregar frotas da tabela maquinas_frota (frota completa)
-    supabase.from("maquinas_frota")
+    // Carregar frotas da tabela equipamentos (fonte única)
+    ;(supabase as any).from("equipamentos")
       .select("frota,tipo")
       .order("tipo,frota")
       .then(({ data }) => {

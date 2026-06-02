@@ -30,7 +30,7 @@ export default function GestaoFrotasVeiculo() {
   async function buscarDados() {
     setLoading(true);
     const [{ data: v }, { data: h }, { data: d }] = await Promise.all([
-      supabase.from("frotas_gestao").select("*").eq("id", id).single(),
+      (supabase as any).from("equipamentos").select("*").eq("id", id).single(),
       supabase.from("frotas_historico_condutor").select("*").eq("frota_id", id).order("created_at", { ascending: false }),
       supabase.from("manutencao_documentos").select("*").eq("equipment_fleet", id).order("data_vencimento"),
     ]);
@@ -46,7 +46,7 @@ export default function GestaoFrotasVeiculo() {
 
   async function salvarEdicao() {
     setSalvando(true);
-    await supabase.from("frotas_gestao").update({ ...veiculo, updated_at: new Date().toISOString() }).eq("id", id);
+    await (supabase as any).from("equipamentos").update({ ...veiculo, updated_at: new Date().toISOString() }).eq("id", id);
     setEditando(false);
     setSalvando(false);
   }
@@ -63,7 +63,7 @@ export default function GestaoFrotasVeiculo() {
       motivo: motivoTroca || null,
       registrado_por: user?.email,
     });
-    await supabase.from("frotas_gestao").update({ condutor_atual: novoCondutor, updated_at: new Date().toISOString() }).eq("id", id);
+    await (supabase as any).from("equipamentos").update({ condutor_atual: novoCondutor, updated_at: new Date().toISOString() }).eq("id", id);
     setNovoCondutor("");
     setMotivoTroca("");
     buscarDados();

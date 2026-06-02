@@ -67,14 +67,14 @@ export default function MedicoesHome() {
 
   // Carregar fornecedores terceiros disponíveis
   useEffect(() => {
-    supabase
-      .from("maquinas_frota")
-      .select("empresa")
-      .neq("empresa", "PRÓPRIO")
-      .neq("empresa", "")
-      .then(({ data }) => {
+    ;(supabase as any)
+      .from("equipamentos")
+      .select("empresa_proprietaria")
+      .eq("condicao", "TERCEIRO")
+      .not("empresa_proprietaria", "is", null)
+      .then(({ data }: any) => {
         if (data) {
-          const uniq = [...new Set(data.map((r: any) => r.empresa).filter(Boolean))].sort();
+          const uniq = [...new Set(data.map((r: any) => r.empresa_proprietaria).filter(Boolean))].sort();
           setFornecedores(uniq);
         }
       });
@@ -85,11 +85,11 @@ export default function MedicoesHome() {
     setLoading(true);
     setBuscou(true);
 
-    // Pegar equipamentos do fornecedor
-    const { data: equips } = await supabase
-      .from("maquinas_frota")
-      .select("frota, nome, tipo, empresa")
-      .eq("empresa", fornecedorSel)
+    // Pegar equipamentos do fornecedor (tabela equipamentos — fonte única)
+    const { data: equips } = await (supabase as any)
+      .from("equipamentos")
+      .select("frota, nome, tipo, empresa_proprietaria")
+      .eq("empresa_proprietaria", fornecedorSel)
       .order("tipo")
       .order("frota");
 

@@ -20,7 +20,7 @@ const TABELA_LABEL: Record<string, string> = {
   equipment_diaries: "Diário de Equipamento",
   employees: "Funcionário",
   profiles: "Usuário",
-  maquinas_frota: "Frota",
+  equipamentos: "Equipamento",
   abastecimentos: "Abastecimento",
 };
 

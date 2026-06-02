@@ -339,7 +339,7 @@ export default function EquipmentDiaryForm() {
 
   // Fetch equipment list — usa cache offline quando sem internet
   const { data: equipamentos = [], isLoading: loadingEquipamentos } = useQuery({
-    queryKey: ["maquinas_frota"],
+    queryKey: ["equipamentos"],
     queryFn: async () => {
       if (!isOnline) {
         try {
@@ -349,8 +349,8 @@ export default function EquipmentDiaryForm() {
           return [];
         }
       }
-      const { data, error } = await supabase
-        .from("maquinas_frota")
+      const { data, error } = await (supabase as any)
+        .from("equipamentos")
         .select("*")
         .in("status", ["ativo", "Operando"])
         .order("frota");

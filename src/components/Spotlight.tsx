@@ -111,8 +111,8 @@ export function Spotlight() {
           .limit(5),
 
         // Equipamentos / Frotas
-        supabase
-          .from("maquinas_frota")
+        (supabase as any)
+          .from("equipamentos")
           .select("id, frota, nome, tipo")
           .or(`frota.ilike.${ilike},nome.ilike.${ilike},tipo.ilike.${ilike}`)
           .limit(5),

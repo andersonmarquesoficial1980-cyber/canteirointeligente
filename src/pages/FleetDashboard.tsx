@@ -50,10 +50,10 @@ export default function FleetDashboard() {
 
   // ── Data fetching ────────────────────────────────────────────
   const { data: equipamentos = [] } = useQuery({
-    queryKey: ["maquinas_frota_all"],
+    queryKey: ["equipamentos_all"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("maquinas_frota" as any)
+      const { data, error } = await (supabase as any)
+        .from("equipamentos")
         .select("*")
         .order("frota");
       if (error) throw error;

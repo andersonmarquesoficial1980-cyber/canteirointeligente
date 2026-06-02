@@ -95,10 +95,10 @@ export default function FrotaNovo() {
 
   // Fetch all equipment
   const { data: equipamentos = [], isLoading } = useQuery({
-    queryKey: ["maquinas_frota_all"],
+    queryKey: ["equipamentos_all"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("maquinas_frota" as any)
+      const { data, error } = await (supabase as any)
+        .from("equipamentos")
         .select("*")
         .order("frota");
       if (error) throw error;
@@ -197,15 +197,15 @@ export default function FrotaNovo() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("maquinas_frota" as any)
-        .insert({ nome: nome.trim(), frota: frota.trim(), tipo: tipo || null, status, empresa: empresa.trim() || null } as any);
+      const { error } = await (supabase as any)
+        .from("equipamentos")
+        .insert({ nome: nome.trim(), frota: frota.trim(), tipo: tipo || null, status, company_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890", condicao: "PROPRIO", vinculos: [] });
       if (error) throw error;
       toast({ title: "✅ Equipamento cadastrado!", description: `"${nome}" adicionado com sucesso.` });
       resetForm();
       setOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["maquinas_frota_all"] });
-      queryClient.invalidateQueries({ queryKey: ["maquinas_frota"] });
+      queryClient.invalidateQueries({ queryKey: ["equipamentos_all"] });
+      queryClient.invalidateQueries({ queryKey: ["equipamentos"] });
     } catch (err: any) {
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
     } finally {

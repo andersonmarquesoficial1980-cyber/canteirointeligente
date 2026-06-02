@@ -51,7 +51,7 @@ async function refreshPendingCount() {
 async function cacheMainData() {
   const [funcionariosRes, equipamentosRes, obrasRes, materiaisRes, operadoresRes] = await Promise.all([
     (supabase as any).from("employees").select("id, matricula, name, role, status").eq("status", "ativo").order("name"),
-    supabase.from("maquinas_frota").select("*").order("frota"),
+    (supabase as any).from("equipamentos").select("*").order("frota"),
     supabase.from("ogs_reference").select("*").order("ogs_number", { ascending: false }),
     supabase.from("materiais").select("*").order("nome"),
     (supabase as any).from("equipment_type_operators").select("*"),

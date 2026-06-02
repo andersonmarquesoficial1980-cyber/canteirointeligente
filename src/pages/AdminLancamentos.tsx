@@ -142,7 +142,7 @@ export default function AdminLancamentos() {
               .select("equipment_type")
               .not("equipment_type", "is", null),
         (supabase as any)
-          .from("maquinas_frota")
+          .from("equipamentos")
           .select("frota,tipo")
           .order("frota", { ascending: true }),
       ]);

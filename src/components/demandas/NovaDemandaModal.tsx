@@ -189,7 +189,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
         user?.id
           ? supabase.from("profiles").select("nome_completo, perfil, company_id").eq("user_id", user.id).maybeSingle()
           : Promise.resolve({ data: null, error: null } as any),
-        (supabase as any).from("maquinas_frota").select("id, frota, tipo, status, nome").order("tipo").order("frota"),
+        (supabase as any).from("equipamentos").select("id, frota, tipo, status, nome").order("tipo").order("frota"),
         (supabase as any).from("employees").select("id, name, role, status").eq("status","ativo").order("name"),
         // Busca usuários do Workflux para delegar tarefas
         supabase.from("profiles").select("id, user_id, nome_completo, perfil").neq("status", "inativo").order("nome_completo"),

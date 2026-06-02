@@ -197,8 +197,8 @@ export default function GestaoFrotasDashboard() {
   const [subtipoSel, setSubtipoSel] = useState("");
 
   useEffect(() => {
-    supabase.from("frotas_gestao").select("*").order("setor,codigo_custo")
-      .then(({ data }) => { if (data) setTodos(data); setLoading(false); });
+    ;(supabase as any).from("equipamentos").select("*").order("setor,frota")
+      .then(({ data }: any) => { if (data) setTodos(data); setLoading(false); });
   }, []);
 
   const equipes = [...new Set(todos.map(e => e.setor).filter(Boolean))].sort();
