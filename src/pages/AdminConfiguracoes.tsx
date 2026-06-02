@@ -34,7 +34,8 @@ const VINCULO_OPTIONS = [
   "CAMINHAO_PIPA", "CAMINHAO_CARROCERIA", "CAMINHAO_ESPARGIDOR", "CAMINHAO_BASCULANTE",
   "COMBOIO",
   "VEICULO_VAN", "VEICULO_MICROONIBUS",
-  "LINHA_AMARELA_RETRO", "LINHA_AMARELA_PA",
+  "LINHA_AMARELA_RETRO", "LINHA_AMARELA_ESCAVADEIRA", "LINHA_AMARELA_PA",
+  "LINHA_AMARELA_MOTO", "LINHA_AMARELA_TRATOR", "LINHA_AMARELA_MINI",
   "CARRETA", "RDO", "TODOS"
 ];
 const VINCULO_LABELS: Record<string, string> = {
@@ -53,7 +54,11 @@ const VINCULO_LABELS: Record<string, string> = {
   VEICULO_VAN: "🚐 Van",
   VEICULO_MICROONIBUS: "🚌 Microônibus",
   LINHA_AMARELA_RETRO: "🟡 Retroescavadeira",
+  LINHA_AMARELA_ESCAVADEIRA: "🟡 Escavadeira Hidráulica",
   LINHA_AMARELA_PA: "🟡 Pá Carregadeira",
+  LINHA_AMARELA_MOTO: "🟡 Motoniveladora",
+  LINHA_AMARELA_TRATOR: "🟡 Trator de Esteira",
+  LINHA_AMARELA_MINI: "🟡 Mini Escavadeira",
   CARRETA: "Carreta",
   RDO: "RDO",
   TODOS: "Todos",
@@ -2555,6 +2560,7 @@ const MENU_SECTIONS = [
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
   { key: "materiais", label: "Materiais", icon: Package },
   { key: "maquinas", label: "Frota (Equipamentos)", icon: Wrench },
+  { key: "tipos_equipamento", label: "Tipos de Equipamento", icon: Settings },
   { key: "caminhoes", label: "Frota (Carreteiros)", icon: Truck },
   { key: "funcionarios", label: "Funcionários", icon: Users },
   { key: "equipes", label: "Equipes", icon: Users },
@@ -3052,6 +3058,173 @@ const CARGOS = [
   { key: "administrativo", label: "Administrativo" },
 ];
 
+// ═══════════════════════════════════════════════════════════════
+// TIPOS DE EQUIPAMENTO MANAGER
+// ═══════════════════════════════════════════════════════════════
+const CATEGORIAS_TIPOS = [
+  { key: "CAMINHOES", label: "Caminhões" },
+  { key: "ROLO", label: "Rolos" },
+  { key: "VEICULO", label: "Veículos de Transporte" },
+  { key: "LINHA_AMARELA", label: "Linha Amarela" },
+];
+
+function TiposEquipamentoManager() {
+  const { toast } = useToast();
+  const [tipos, setTipos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [categoriaSel, setCategoriaSel] = useState("CAMINHOES");
+  const [novoLabel, setNovoLabel] = useState("");
+  const [novoSubtipo, setNovoSubtipo] = useState("");
+  const [novoIcone, setNovoIcone] = useState("");
+  const [myCompanyId, setMyCompanyId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle()
+        .then(({ data }) => {
+          if (data?.company_id) {
+            setMyCompanyId(data.company_id);
+            loadTipos(data.company_id);
+          }
+        });
+    });
+  }, []);
+
+  async function loadTipos(cid: string) {
+    setLoading(true);
+    const { data } = await (supabase as any).from("equipamento_tipos")
+      .select("*").eq("company_id", cid).order("categoria").order("label");
+    setTipos(data || []);
+    setLoading(false);
+  }
+
+  async function handleAdd() {
+    if (!novoLabel.trim() || !novoSubtipo.trim()) {
+      toast({ title: "Atenção", description: "Preencha o nome e o código do subtipo.", variant: "destructive" });
+      return;
+    }
+    if (!myCompanyId) return;
+    setSaving(true);
+    const { error } = await (supabase as any).from("equipamento_tipos").insert({
+      company_id: myCompanyId,
+      categoria: categoriaSel,
+      subtipo: novoSubtipo.trim().toUpperCase().replace(/ /g, "_"),
+      label: novoLabel.trim(),
+      icone: novoIcone.trim() || null,
+      ativo: true,
+    });
+    setSaving(false);
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "✅ Tipo adicionado!" });
+    setNovoLabel(""); setNovoSubtipo(""); setNovoIcone("");
+    loadTipos(myCompanyId);
+  }
+
+  async function handleDelete(id: string) {
+    setDeletingId(id);
+    await (supabase as any).from("equipamento_tipos").delete().eq("id", id);
+    setDeletingId(null);
+    if (myCompanyId) loadTipos(myCompanyId);
+  }
+
+  async function handleToggle(id: string, ativo: boolean) {
+    await (supabase as any).from("equipamento_tipos").update({ ativo: !ativo }).eq("id", id);
+    if (myCompanyId) loadTipos(myCompanyId);
+  }
+
+  const tiposFiltrados = tipos.filter(t => t.categoria === categoriaSel);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Settings className="w-5 h-5 text-primary" />
+        <h2 className="font-display font-bold text-base">Tipos de Equipamento</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">Gerencie os subtipos de cada categoria. Os subtipos controlam a filtragem de frotas no diário de equipamentos.</p>
+
+      {/* Seleção de categoria */}
+      <div className="flex flex-wrap gap-2">
+        {CATEGORIAS_TIPOS.map(c => (
+          <button key={c.key} onClick={() => setCategoriaSel(c.key)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+              categoriaSel === c.key ? "bg-primary text-white border-primary" : "bg-white text-muted-foreground border-border"
+            }`}>
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Lista de tipos da categoria */}
+      {loading ? (
+        <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+      ) : (
+        <div className="space-y-2">
+          {tiposFiltrados.length === 0 && (
+            <p className="text-xs text-muted-foreground italic text-center py-4">Nenhum subtipo cadastrado nessa categoria.</p>
+          )}
+          {tiposFiltrados.map(t => (
+            <div key={t.id} className={`flex items-center justify-between gap-3 border rounded-xl px-3 py-2.5 ${
+              t.ativo ? "border-border" : "border-border/40 opacity-50"
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className="text-base">{t.icone || "🔧"}</span>
+                <div>
+                  <p className="text-sm font-semibold">{t.label}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">{t.subtipo}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => handleToggle(t.id, t.ativo)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold border transition-colors ${
+                    t.ativo ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-500 border-gray-200"
+                  }`}>
+                  {t.ativo ? "Ativo" : "Inativo"}
+                </button>
+                <button onClick={() => handleDelete(t.id)} disabled={deletingId === t.id}
+                  className="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors">
+                  {deletingId === t.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Formulário para adicionar novo tipo */}
+      <div className="border border-dashed border-border rounded-2xl p-4 space-y-3">
+        <p className="text-xs font-bold text-muted-foreground">Adicionar subtipo em {CATEGORIAS_TIPOS.find(c => c.key === categoriaSel)?.label}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Nome exibido *</Label>
+            <Input value={novoLabel} onChange={e => setNovoLabel(e.target.value)} placeholder="Ex: Rolo Chapa" className="h-10 rounded-xl bg-secondary border-border" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Emoji (opcional)</Label>
+            <Input value={novoIcone} onChange={e => setNovoIcone(e.target.value)} placeholder="Ex: 🚧" className="h-10 rounded-xl bg-secondary border-border" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Código interno * (automático, sem espaços)</Label>
+          <Input
+            value={novoSubtipo}
+            onChange={e => setNovoSubtipo(e.target.value.toUpperCase().replace(/ /g, "_"))}
+            placeholder={`Ex: ${categoriaSel}_NOVO_TIPO`}
+            className="h-10 rounded-xl bg-secondary border-border font-mono text-xs"
+          />
+        </div>
+        <Button onClick={handleAdd} disabled={saving || !novoLabel.trim() || !novoSubtipo.trim()}
+          className="w-full h-10 rounded-xl gap-2">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          Adicionar Subtipo
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function SSTResponsaveisManager() {
   const [lista, setLista] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3185,6 +3358,7 @@ export default function AdminConfiguracoes() {
       case "ogs": return <OgsManager />;
       case "materiais": return <MateriaisUnificadoManager />;
       case "maquinas": return <MaquinasManager />;
+      case "tipos_equipamento": return <TiposEquipamentoManager />;
       case "caminhoes": return <TruckRegistryManager />;
       case "funcionarios": return <FuncionariosManager />;
       case "equipes": return <EquipesManager />;

@@ -102,8 +102,6 @@ const LINHA_AMARELA_TIPOS = [
   "Motoniveladora",
   "Trator de Esteira",
   "Mini Escavadeira",
-  "Perfuratriz",
-  "Guindaste sobre Esteiras",
 ] as const;
 
 // ── Caminhão configs ──
@@ -980,7 +978,11 @@ export default function EquipmentDiaryForm() {
     }
     if (isRetro) {
       const linhaVinculo = attachmentType === "Retroescavadeira" ? "LINHA_AMARELA_RETRO"
+        : attachmentType === "Escavadeira Hidráulica" ? "LINHA_AMARELA_ESCAVADEIRA"
         : attachmentType === "Pá Carregadeira" ? "LINHA_AMARELA_PA"
+        : attachmentType === "Motoniveladora" ? "LINHA_AMARELA_MOTO"
+        : attachmentType === "Trator de Esteira" ? "LINHA_AMARELA_TRATOR"
+        : attachmentType === "Mini Escavadeira" ? "LINHA_AMARELA_MINI"
         : "LINHA_AMARELA";
       const isLinhaTipo = (x: any) =>
         x.categoria === "LINHA AMARELA" ||
