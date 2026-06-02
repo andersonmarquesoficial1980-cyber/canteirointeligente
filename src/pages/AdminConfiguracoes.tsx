@@ -29,27 +29,38 @@ const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
 
 const VINCULO_OPTIONS = [
-  "FRESADORA", "BOBCAT", "ROLO", "VIBRO", "KMA",
+  "FRESADORA", "BOBCAT", "VIBRO", "KMA",
+  "ROLO_CHAPA", "ROLO_PNEU", "ROLO_PE_CARNEIRO",
   "CAMINHAO_PIPA", "CAMINHAO_CARROCERIA", "CAMINHAO_ESPARGIDOR", "CAMINHAO_BASCULANTE",
-  "COMBOIO", "VEICULO", "LINHA_AMARELA", "CARRETA", "RDO", "TODOS"
+  "COMBOIO",
+  "VEICULO_VAN", "VEICULO_MICROONIBUS",
+  "LINHA_AMARELA_RETRO", "LINHA_AMARELA_PA",
+  "CARRETA", "RDO", "TODOS"
 ];
 const VINCULO_LABELS: Record<string, string> = {
   FRESADORA: "Fresadora",
   BOBCAT: "Bobcat",
-  ROLO: "Rolo Compactador",
   VIBRO: "Vibroacabadora",
   KMA: "Usina Móvel KMA",
+  ROLO_CHAPA: "🚧 Rolo Chapa",
+  ROLO_PNEU: "🚧 Rolo Pneu",
+  ROLO_PE_CARNEIRO: "🚧 Rolo Pé de Carneiro",
   CAMINHAO_PIPA: "💧 Caminhão Pipa",
   CAMINHAO_CARROCERIA: "📦 Caminhão Carroceria",
   CAMINHAO_ESPARGIDOR: "🛢️ Caminhão Espargidor",
   CAMINHAO_BASCULANTE: "🚛 Caminhão Basculante",
   COMBOIO: "Comboio",
-  VEICULO: "Veículo de Transporte",
-  LINHA_AMARELA: "Linha Amarela",
+  VEICULO_VAN: "🚐 Van",
+  VEICULO_MICROONIBUS: "🚌 Microônibus",
+  LINHA_AMARELA_RETRO: "🟡 Retroescavadeira",
+  LINHA_AMARELA_PA: "🟡 Pá Carregadeira",
   CARRETA: "Carreta",
   RDO: "RDO",
   TODOS: "Todos",
-  // legado — mantidos para compatibilidade com dados antigos
+  // legado — mantidos para compatibilidade
+  ROLO: "Rolo (legado)",
+  VEICULO: "Veículo (legado)",
+  LINHA_AMARELA: "Linha Amarela (legado)",
   CAMINHOES: "Caminhões (legado)",
   PAVIMENTACAO: "RDO Pavimentação",
   INFRA: "RDO Infra",

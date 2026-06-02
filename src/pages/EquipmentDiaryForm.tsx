@@ -979,7 +979,10 @@ export default function EquipmentDiaryForm() {
       ));
     }
     if (isRetro) {
-      return eq.filter(e => hasVinculoTipo(e, "LINHA_AMARELA", x =>
+      const linhaVinculo = attachmentType === "Retroescavadeira" ? "LINHA_AMARELA_RETRO"
+        : attachmentType === "Pá Carregadeira" ? "LINHA_AMARELA_PA"
+        : "LINHA_AMARELA";
+      const isLinhaTipo = (x: any) =>
         x.categoria === "LINHA AMARELA" ||
         x.tipo?.toLowerCase().includes("retroescavadeira") ||
         x.tipo?.toLowerCase().includes("escavadeira") ||
@@ -988,10 +991,11 @@ export default function EquipmentDiaryForm() {
         x.tipo?.toLowerCase().includes("trator") ||
         x.tipo?.toLowerCase().includes("mini escavadeira") ||
         x.tipo?.toLowerCase().includes("perfuratriz") ||
-        x.tipo?.toLowerCase().includes("guindaste")
-      )).filter(e => attachmentType ? (
-        e.tipo?.toLowerCase().includes(attachmentType.toLowerCase()) || !attachmentType
-      ) : true);
+        x.tipo?.toLowerCase().includes("guindaste");
+      return eq.filter(e =>
+        hasVinculoTipo(e, linhaVinculo, isLinhaTipo) ||
+        (linhaVinculo !== "LINHA_AMARELA" && hasVinculoTipo(e, "LINHA_AMARELA", isLinhaTipo))
+      ).filter(e => attachmentType ? e.tipo?.toLowerCase().includes(attachmentType.toLowerCase()) : true);
     }
     if (isVibro) {
       return eq.filter(e => hasVinculoTipo(e, "VIBRO", x =>
@@ -1002,13 +1006,18 @@ export default function EquipmentDiaryForm() {
       ));
     }
     if (isRolo) {
-      return eq.filter(e => hasVinculoTipo(e, "ROLO", x =>
-        x.categoria === "PAVIMENTAÇÃO" || x.categoria === "VIBRO/ROLO" ||
-        x.tipo?.toLowerCase().includes("rolo") ||
-        x.frota?.startsWith("CH") || x.frota?.startsWith("PN") || x.frota?.startsWith("PC")
-      )).filter(e => roloType ? (
-        e.tipo?.toLowerCase().includes(roloType.toLowerCase()) || !roloType
-      ) : true);
+      const roloVinculo = roloType === "Rolo Chapa" ? "ROLO_CHAPA"
+        : roloType === "Rolo Pneu" ? "ROLO_PNEU"
+        : roloType === "Rolo Pé de Carneiro" ? "ROLO_PE_CARNEIRO"
+        : "ROLO";
+      return eq.filter(e =>
+        hasVinculoTipo(e, roloVinculo, x =>
+          x.tipo?.toUpperCase().includes("ROLO") ||
+          x.frota?.startsWith("CH") || x.frota?.startsWith("PN") || x.frota?.startsWith("PC")
+        ) || (roloVinculo !== "ROLO" && hasVinculoTipo(e, "ROLO", x =>
+          x.tipo?.toUpperCase().includes("ROLO")
+        ))
+      ).filter(e => roloType ? e.tipo?.toLowerCase().includes(roloType.toLowerCase()) : true);
     }
     if (isUsinaKma) {
       return eq.filter(e => hasVinculoTipo(e, "KMA", x =>
@@ -1065,14 +1074,18 @@ export default function EquipmentDiaryForm() {
       ));
     }
     if (isVeiculo) {
-      return eq.filter(e => hasVinculoTipo(e, "VEICULO", x =>
-        x.categoria === "VEÍCULOS" || x.categoria === "VEÍCULOS EM GERAL" ||
-        x.tipo?.toLowerCase().includes("micro") ||
-        x.tipo?.toLowerCase().includes("van") ||
-        x.tipo?.toLowerCase().includes("veículo")
-      )).filter(e => veiculoType ? (
-        e.tipo?.toLowerCase().includes(veiculoType.toLowerCase()) || !veiculoType
-      ) : true);
+      const veicVinculo = veiculoType === "Van" ? "VEICULO_VAN"
+        : veiculoType === "Micro-ônibus" ? "VEICULO_MICROONIBUS"
+        : "VEICULO";
+      return eq.filter(e =>
+        hasVinculoTipo(e, veicVinculo, x =>
+          x.tipo?.toUpperCase().includes("VAN") ||
+          x.tipo?.toUpperCase().includes("MICRO") ||
+          x.tipo?.toUpperCase().includes("VEÍCULO")
+        ) || (veicVinculo !== "VEICULO" && hasVinculoTipo(e, "VEICULO", x =>
+          x.tipo?.toUpperCase().includes("VAN") || x.tipo?.toUpperCase().includes("MICRO")
+        ))
+      ).filter(e => veiculoType ? e.tipo?.toLowerCase().includes(veiculoType.toLowerCase()) : true);
     }
     return eq;
   }, [equipamentos, equipmentType, isFresadora, isBobcat, isRetro, isVibro, isRolo, isUsinaKma,
