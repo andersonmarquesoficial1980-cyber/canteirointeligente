@@ -616,8 +616,8 @@ export default function EquipmentDiaryForm() {
     isRolo ? 14 :
     isBobcat || isRetro || isVibro ? 14 :
     isUsinaKma ? 24 :
-    isCaminhoes || isComboio || isVeiculo ? 24 :
-    isCarreta ? 1500 : // odômetro km
+    isCaminhoes || isComboio || isVeiculo ? null : // odômetro — sem limite de km por turno
+    isCarreta ? null : // odômetro — sem limite de km por turno
     null;
 
   const horimeterError =
@@ -628,7 +628,7 @@ export default function EquipmentDiaryForm() {
         : maxHorasLimite !== null && meterInitial && meterFinal &&
           toNVal(meterFinal) >= toNVal(meterInitial) &&
           (toNVal(meterFinal) - toNVal(meterInitial)) > maxHorasLimite
-          ? `${meterLabel} incoerente: diferença de ${(toNVal(meterFinal) - toNVal(meterInitial)).toFixed(1)}h excede o máximo permitido (${maxHorasLimite}h por turno)`
+          ? `${meterLabel} incoerente: diferença de ${(toNVal(meterFinal) - toNVal(meterInitial)).toFixed(1)}${usesOdometer ? " km" : "h"} excede o máximo permitido (${maxHorasLimite}${usesOdometer ? "km" : "h"} por turno)`
           : null;
 
   const horasTrabalhadas =
