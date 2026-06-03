@@ -53,6 +53,7 @@ const ALL_MODULES = [
   { key: "suprimentos",   label: "WF Suprimentos",       emoji: "📦" },
   { key: "medicoes",      label: "WF Medições",          emoji: "🧾" },
   { key: "sst",           label: "WF Segurança do Trabalho", emoji: "🪩" },
+  { key: "engenharia",    label: "WF Engenharia",        emoji: "🏗️" },
   { key: "admin",         label: "Painel de Controle",   emoji: "⚙️" },
 ];
 
