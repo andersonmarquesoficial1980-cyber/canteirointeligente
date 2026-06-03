@@ -54,9 +54,29 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
 
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
     const emptyIdx = entries.findIndex(e => !e.nf && !e.placa && !e.tonelagem && !e.usina);
+
+    // Tentar match de usina OCR com a lista disponível (case-insensitive, parcial)
+    let usinaMatch = "";
+    if (data.usina) {
+      const ocrUsina = data.usina.toLowerCase();
+      usinaMatch = usinas.find(u => u.toLowerCase().includes(ocrUsina) || ocrUsina.includes(u.toLowerCase())) || data.usina;
+    }
+
+    // Tentar match de material OCR com a lista disponível
+    let materialMatch = "";
+    if (data.tipo_material) {
+      const ocrMat = data.tipo_material.toLowerCase();
+      materialMatch = materiaisWithOutro.find(m => m.toLowerCase().includes(ocrMat) || ocrMat.includes(m.toLowerCase())) || data.tipo_material;
+    }
+
     const ocrData: Partial<NotaFiscalMassaEntry> = {
-      nf: data.nf || "", placa: (data.placa || "").toUpperCase(), tonelagem: data.tonelagem || "",
-      usina: "", tipo_material: "", tipo_material_outro: "", photo_url: photoUrl,
+      nf: data.nf || "",
+      placa: (data.placa || "").toUpperCase(),
+      tonelagem: data.tonelagem || "",
+      usina: usinaMatch,
+      tipo_material: materialMatch,
+      tipo_material_outro: "",
+      photo_url: photoUrl,
     };
     let updatedEntries: NotaFiscalMassaEntry[];
     let targetId: string;

@@ -49,8 +49,43 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
 
   const totalNF = (nfEntries ?? []).reduce((sum, e) => sum + toNum(e.tonelagem), 0);
 
-  const updateTrecho = (id: string, field: string, value: string) =>
-    onChange({ ...data, trechos: data.trechos.map(t => t.id === id ? { ...t, [field]: value } : t) });
+  // Densidade padrão por tipo de serviço
+  const DENSIDADE_PADRAO: Record<string, string> = {
+    "APLICAÇÃO DE BGS": "2,4",
+    "APLICAÇÃO DE EGL": "2,4",
+    "APLICAÇÃO DE FX C": "2,4",
+    "APLICAÇÃO DE FX II - BINDER": "2,4",
+    "APLICAÇÃO DE FX III": "2,4",
+    "APLICAÇÃO DE GAP GRADED": "2,4",
+    "APLICAÇÃO DE RACHÃO": "1,7",
+    "APLICAÇÃO DE RAP ESPUMADO": "2,17",
+    "APLICAÇÃO DE SMA": "2,4",
+    "FRESAGEM": "2,4",
+  };
+
+  const getDensidadePadrao = (tipoServico: string): string => {
+    const upper = tipoServico.toUpperCase().trim();
+    // Busca exata primeiro
+    if (DENSIDADE_PADRAO[upper]) return DENSIDADE_PADRAO[upper];
+    // Busca parcial
+    for (const [key, val] of Object.entries(DENSIDADE_PADRAO)) {
+      if (upper.includes(key) || key.includes(upper)) return val;
+    }
+    return "";
+  };
+
+  const updateTrecho = (id: string, field: string, value: string) => {
+    const trecho = data.trechos.find(t => t.id === id);
+    let extra: Partial<TrechoCauqEntry> = {};
+    // Quando muda o tipo de serviço, preencher densidade automaticamente se estiver vazio
+    if (field === "tipo_servico" && value) {
+      const densidadePadrao = getDensidadePadrao(value);
+      if (densidadePadrao && (!trecho?.densidade || trecho.densidade === "")) {
+        extra.densidade = densidadePadrao;
+      }
+    }
+    onChange({ ...data, trechos: data.trechos.map(t => t.id === id ? { ...t, [field]: value, ...extra } : t) });
+  };
 
   const addTrecho = () => onChange({ ...data, trechos: [...data.trechos, emptyTrecho()] });
   const removeTrecho = (id: string) => onChange({ ...data, trechos: data.trechos.filter(t => t.id !== id) });

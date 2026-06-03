@@ -49,18 +49,21 @@ export default function NfPhotoCapture({ tipo, onExtracted }: Props) {
       if (error) throw error;
 
       if (data?.extracted && Object.keys(data.extracted).length > 0) {
-        // OCR data extracted
-        // Only pass text/number fields, strip any select-related fields
         const clean: Record<string, string> = {};
         if (tipo === "CAUQ") {
           if (data.extracted.nf) clean.nf = data.extracted.nf;
           if (data.extracted.placa) clean.placa = data.extracted.placa;
           if (data.extracted.tonelagem) clean.tonelagem = data.extracted.tonelagem;
+          if (data.extracted.usina) clean.usina = data.extracted.usina;
+          if (data.extracted.tipo_material) clean.tipo_material = data.extracted.tipo_material;
         } else {
           if (data.extracted.nf) clean.nf = data.extracted.nf;
           if (data.extracted.quantidade) clean.quantidade = data.extracted.quantidade;
+          if (data.extracted.fornecedor) clean.fornecedor = data.extracted.fornecedor;
+          if (data.extracted.material) clean.material = data.extracted.material;
         }
-        toast({ title: "✅ Dados extraídos!", description: "Selecione Usina e Material manualmente." });
+        const camposPreenchidos = Object.keys(clean).length;
+        toast({ title: `✅ ${camposPreenchidos} campo${camposPreenchidos > 1 ? 's' : ''} extraído${camposPreenchidos > 1 ? 's' : ''}!`, description: "Verifique e ajuste se necessário." });
         onExtracted(clean, photoUrl);
       } else {
         toast({ title: "⚠️ Nenhum dado encontrado", description: "Preencha manualmente.", variant: "destructive" });
