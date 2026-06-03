@@ -50,8 +50,9 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
   const totalNF = (nfEntries ?? []).reduce((sum, e) => sum + toNum(e.tonelagem), 0);
 
   // Densidade padrão por tipo de serviço
+  // Mapa exato: chave = nome conforme banco (tipos_servico)
   const DENSIDADE_PADRAO: Record<string, string> = {
-    "APLICAÇÃO DE BGS": "2,4",
+    "APLICAÇÃO DE BGS": "2,2",
     "APLICAÇÃO DE EGL": "2,4",
     "APLICAÇÃO DE FX C": "2,4",
     "APLICAÇÃO DE FX II - BINDER": "2,4",
@@ -64,12 +65,13 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
   };
 
   const getDensidadePadrao = (tipoServico: string): string => {
-    const upper = tipoServico.toUpperCase().trim();
-    // Busca exata primeiro
-    if (DENSIDADE_PADRAO[upper]) return DENSIDADE_PADRAO[upper];
-    // Busca parcial
-    for (const [key, val] of Object.entries(DENSIDADE_PADRAO)) {
-      if (upper.includes(key) || key.includes(upper)) return val;
+    // Busca exata (normaliza espaços extras)
+    const key = tipoServico.trim();
+    if (DENSIDADE_PADRAO[key]) return DENSIDADE_PADRAO[key];
+    // Busca case-insensitive
+    const upper = key.toUpperCase();
+    for (const [k, val] of Object.entries(DENSIDADE_PADRAO)) {
+      if (k.toUpperCase() === upper) return val;
     }
     return "";
   };
