@@ -1087,7 +1087,13 @@ export default function EquipmentDiaryForm() {
         ) || (veicVinculo !== "VEICULO" && hasVinculoTipo(e, "VEICULO", x =>
           x.tipo?.toUpperCase().includes("VAN") || x.tipo?.toUpperCase().includes("MICRO")
         ))
-      ).filter(e => veiculoType ? e.tipo?.toLowerCase().includes(veiculoType.toLowerCase()) : true);
+      ).filter(e => {
+        if (!veiculoType) return true;
+        const tipo = e.tipo?.toLowerCase() ?? "";
+        if (veiculoType === "Micro-ônibus") return tipo.includes("micro");
+        if (veiculoType === "Van") return tipo === "van" || (tipo.includes("van") && !tipo.includes("micro"));
+        return tipo.includes(veiculoType.toLowerCase());
+      });
     }
     return eq;
   }, [equipamentos, equipmentType, isFresadora, isBobcat, isRetro, isVibro, isRolo, isUsinaKma,
