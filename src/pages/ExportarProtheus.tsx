@@ -59,8 +59,8 @@ function buildHeader(tipoEquip: string): string[] {
     "LOCAL",
     "STATUS",
     "PERÍODO",
-    "HORÍMETRO INICIAL",
-    "HORÍMETRO FINAL",
+    tipoEquip === "Carreta" ? "ODÔMETRO INICIAL" : "HORÍMETRO INICIAL",
+    tipoEquip === "Carreta" ? "ODÔMETRO FINAL" : "HORÍMETRO FINAL",
   ];
 
   // 10 blocos de apontamento fixos
@@ -68,7 +68,7 @@ function buildHeader(tipoEquip: string): string[] {
     h.push(`INÍCIO ${pad(i)}`);
     h.push(`TÉRMINO ${pad(i)}`);
     h.push(`ITEM ${pad(i)}`);
-    h.push(`OBS ITEM ${pad(i)}`);
+    h.push(tipoEquip === "Carreta" ? `EQUIPAMENTOS TRANSPORTADOS ${pad(i)}` : `OBS ITEM ${pad(i)}`);
   }
 
   // Bits e Fresagem (somente Fresadora)
@@ -186,8 +186,8 @@ export default function ExportarProtheus() {
           d.location_address ?? "",
           d.work_status ?? "",
           d.period ?? "",
-          fmtNum(d.meter_initial),
-          fmtNum(d.meter_final),
+          tipoEquip === "Carreta" ? fmtNum(d.odometer_initial) : fmtNum(d.meter_initial),
+          tipoEquip === "Carreta" ? fmtNum(d.odometer_final) : fmtNum(d.meter_final),
         ];
 
         // 10 blocos fixos de apontamento
@@ -196,6 +196,7 @@ export default function ExportarProtheus() {
           row.push(t?.start_time ?? "");
           row.push(t?.end_time ?? "");
           row.push(t?.activity ?? "");
+          // Para Carreta: description = equipamentos transportados; para demais: observação livre
           row.push(t?.description ?? "");
         }
 
