@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { AppLayout } from "@/components/AppLayout";
 import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -158,7 +157,7 @@ export default function EngRdoTecnico() {
   const sectionCls = "rounded-2xl bg-white border border-border p-4 space-y-4";
 
   return (
-    <AppLayout>
+    <>
       <div className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-32">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -358,6 +357,6 @@ export default function EngRdoTecnico() {
           </button>
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 }

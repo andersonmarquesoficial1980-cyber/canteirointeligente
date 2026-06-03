@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { AppLayout } from "@/components/AppLayout";
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -78,23 +77,23 @@ export default function EngValidarRdo() {
   };
 
   if (loading) return (
-    <AppLayout>
+    <>
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
-    </AppLayout>
+    </>
   );
 
   if (!rdo) return (
-    <AppLayout>
+    <>
       <div className="max-w-lg mx-auto px-4 py-6">
         <p className="text-muted-foreground">RDO não encontrado.</p>
       </div>
-    </AppLayout>
+    </>
   );
 
   return (
-    <AppLayout>
+    <>
       <div className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-32">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -216,6 +215,6 @@ export default function EngValidarRdo() {
           </button>
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 }
