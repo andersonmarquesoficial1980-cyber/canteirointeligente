@@ -74,6 +74,12 @@ export default function SectionInfraestrutura({ empreiteiro, producao, onChangeE
         const esp = parseFloat(entry.espessura_cm) || 0;
         const area = comp * larg;
         const volume = area * (esp / 100);
+
+        // Alerta de estaca vs comprimento
+        const estIni = parseFloat(entry.estaca_inicial) || 0;
+        const estFin = parseFloat(entry.estaca_final) || 0;
+        const compEsperado = estIni > 0 && estFin > 0 ? estFin - estIni : null;
+        const divergenciaEstaca = compEsperado !== null && comp > 0 && Math.abs(comp - compEsperado) > 0.01;
         return (
           <div key={entry.id} className="rdo-card space-y-3">
             <div className="flex items-center justify-between">
@@ -123,7 +129,13 @@ export default function SectionInfraestrutura({ empreiteiro, producao, onChangeE
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1.5">
                     <span className="rdo-label">Comp (m)</span>
-                    <Input type="number" inputMode="decimal" value={entry.comprimento_m} onChange={e => update(entry.id, "comprimento_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={entry.comprimento_m}
+                      onChange={e => update(entry.id, "comprimento_m", e.target.value)}
+                      className={`h-11 bg-white border-border rounded-xl ${divergenciaEstaca ? "border-amber-400 ring-1 ring-amber-400" : ""}`}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <span className="rdo-label">Larg (m)</span>
@@ -134,6 +146,18 @@ export default function SectionInfraestrutura({ empreiteiro, producao, onChangeE
                     <Input type="number" inputMode="decimal" value={entry.espessura_cm} onChange={e => update(entry.id, "espessura_cm", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
                   </div>
                 </div>
+
+                {/* Alerta divergência estaca x comprimento */}
+                {divergenciaEstaca && compEsperado !== null && (
+                  <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-300 px-3 py-2">
+                    <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
+                    <p className="text-xs text-amber-800 font-medium">
+                      Comprimento informado ({comp} m) difere do esperado pelas estacas ({compEsperado} m).
+                      Verifique se o valor está correto.
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Checkbox checked={entry.is_retrabalho} onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)} />

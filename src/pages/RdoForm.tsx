@@ -74,8 +74,9 @@ export default function RdoForm() {
   const handleHeaderChange = (field: string, value: string) => {
     setHeader(prev => ({ ...prev, [field]: value }));
 
-    // Auto-fill efetivo quando encarregado muda (só em modo criação, não edição)
-    if (field === "encarregado" && value && !isEditMode && !loadingEquipes) {
+    // Auto-fill efetivo quando encarregado muda (só em modo criação, não edição, e só para RDO de Pavimentação)
+    const tiposComAutoFill = ["CAUQ", "PV", "AEROPAV"];
+    if (field === "encarregado" && value && !isEditMode && !loadingEquipes && tiposComAutoFill.includes(tipoRdo)) {
       const membros = getMembrosDoResponsavel(value);
       if (membros.length > 0) {
         // Agrupar por funcao (igual ao formato do StepEfetivo)
