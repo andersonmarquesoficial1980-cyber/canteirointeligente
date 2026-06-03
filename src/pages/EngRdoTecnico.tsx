@@ -14,6 +14,8 @@ export default function EngRdoTecnico() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [minhasOgs, setMinhasOgs] = useState<Ogs[]>([]);
+  const [equipes, setEquipes] = useState<string[]>([]);
+  const [usinas, setUsinas] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
 
@@ -51,12 +53,46 @@ export default function EngRdoTecnico() {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await (supabase as any)
+
+      // OGSs: busca pelas vinculadas ao engenheiro; se nenhuma, busca todas da empresa
+      const { data: vinculos } = await (supabase as any)
         .from("engenheiro_ogs")
         .select("ogs_reference(id, ogs_number, client_name)")
         .eq("engenheiro_id", user.id)
         .eq("ativo", true);
-      setMinhasOgs((data || []).map((v: any) => v.ogs_reference).filter(Boolean));
+
+      const ogsVinculadas = (vinculos || []).map((v: any) => v.ogs_reference).filter(Boolean);
+
+      if (ogsVinculadas.length > 0) {
+        setMinhasOgs(ogsVinculadas);
+      } else {
+        // Fallback: buscar todas OGSs da empresa
+        const { data: profile } = await (supabase as any)
+          .from("profiles")
+          .select("company_id")
+          .eq("user_id", user.id)
+          .single();
+        const { data: todasOgs } = await (supabase as any)
+          .from("ogs_reference")
+          .select("id, ogs_number, client_name")
+          .eq("company_id", profile?.company_id)
+          .order("ogs_number");
+        setMinhasOgs(todasOgs || []);
+      }
+
+      // Equipes cadastradas
+      const { data: eqs } = await (supabase as any)
+        .from("ci_equipes")
+        .select("nome")
+        .order("nome");
+      setEquipes((eqs || []).map((e: any) => e.nome));
+
+      // Usinas cadastradas
+      const { data: us } = await (supabase as any)
+        .from("usinas")
+        .select("nome")
+        .order("nome");
+      setUsinas((us || []).map((u: any) => u.nome));
     };
     load();
   }, []);
@@ -181,7 +217,10 @@ export default function EngRdoTecnico() {
 
               <div>
                 <label className={labelCls}>Equipe</label>
-                <input value={form.equipe} onChange={e => set("equipe", e.target.value)} placeholder="Ex: Equipe Norte" className={inputCls} />
+                <select value={form.equipe} onChange={e => set("equipe", e.target.value)} className={inputCls}>
+                  <option value="">Selecione a equipe...</option>
+                  {equipes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                </select>
               </div>
               <div>
                 <label className={labelCls}>Localização / Rua</label>
@@ -203,7 +242,10 @@ export default function EngRdoTecnico() {
               </div>
               <div>
                 <label className={labelCls}>Usina Programada</label>
-                <input value={form.usina_programada} onChange={e => set("usina_programada", e.target.value)} placeholder="Nome da usina" className={inputCls} />
+                <select value={form.usina_programada} onChange={e => set("usina_programada", e.target.value)} className={inputCls}>
+                  <option value="">Selecione a usina...</option>
+                  {usinas.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
               </div>
               <div>
                 <label className={labelCls}>CAUQ Programado (ton)</label>
