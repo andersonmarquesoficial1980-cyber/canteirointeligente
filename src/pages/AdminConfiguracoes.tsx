@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { AuditLogViewer } from "@/components/admin/AuditLogViewer";
+import { EngenheirosOgsManager } from "@/components/admin/EngenheirosOgsManager";
 function AuditLogViewerAdmin() { return <AuditLogViewer />; }
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -2579,6 +2580,7 @@ const MENU_SECTIONS = [
   { key: "lixeira", label: "Lixeira (30 dias)", icon: Trash2 },
   { key: "auditoria", label: "Log de Auditoria", icon: Shield },
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
+  { key: "engenheiros_ogs", label: "Engenheiros por OGS", icon: HardHat },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -3378,6 +3380,7 @@ export default function AdminConfiguracoes() {
       case "tarifas_vt": return <TarifasVTManager />;
       case "lixeira": return <LixeiraManager />;
       case "auditoria": return <AuditLogViewerAdmin />;
+      case "engenheiros_ogs": return <EngenheirosOgsManager />;
       default: return null;
     }
   };
