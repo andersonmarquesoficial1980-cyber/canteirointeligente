@@ -21,5 +21,6 @@ export const HUB_MODULES = [
   { id: "suprimentos", label: "WF Suprimentos", subtitle: "Fretes, Peças e Estoque", icon: Truck, route: "/suprimentos", adminOnly: false },
   { id: "medicoes", label: "WF Medições", subtitle: "Equipamentos terceirizados", icon: Receipt, route: "/medicoes", adminOnly: false },
   { id: "sst", label: "WF Segurança do Trabalho", subtitle: "Inspeções e checklists SST", icon: HardHat, route: "/sst", adminOnly: false },
+  { id: "engenharia", label: "WF Engenharia", subtitle: "RDO Técnico e Validações", icon: HardHat, route: "/engenharia", adminOnly: false },
   { id: "admin", label: "Painel de Controle", subtitle: "Dashboards e Gestão", icon: ShieldCheck, route: "/admin/configuracoes", adminOnly: true },
 ] as const;

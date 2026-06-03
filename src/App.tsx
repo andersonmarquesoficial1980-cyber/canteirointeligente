@@ -87,6 +87,9 @@ import TruckerHome from "./pages/TruckerHome";
 import ValeTransporte from "./pages/ValeTransporte";
 import VisualizarLancamento from "./pages/VisualizarLancamento";
 import VisualizarRdo from "./pages/VisualizarRdo";
+import EngHome from "./pages/EngHome";
+import EngValidarRdo from "./pages/EngValidarRdo";
+import EngRdoTecnico from "./pages/EngRdoTecnico";
 
 const queryClient = new QueryClient();
 
@@ -306,6 +309,9 @@ function AppRoutes() {
         <Route path="/meus-lancamentos" element={<MeusLancamentos />} />
         <Route path="/visualizar-lancamento/:id" element={<VisualizarLancamento />} />
         <Route path="/visualizar-rdo/:id" element={<VisualizarRdo />} />
+        <Route path="/engenharia" element={<EngHome />} />
+        <Route path="/engenharia/validar/:id" element={<EngValidarRdo />} />
+        <Route path="/engenharia/rdo-tecnico" element={<EngRdoTecnico />} />
         <Route path="/equipamentos/exportar-protheus" element={<RequireModule moduleId="equipamentos"><ExportarProtheus /></RequireModule>} />
         <Route path="/documentos" element={<RequireModule moduleId="documentos"><DocumentosHome /></RequireModule>} />
         <Route path="/documentos/:id" element={<RequireModule moduleId="documentos"><DocumentosIntegracao /></RequireModule>} />
