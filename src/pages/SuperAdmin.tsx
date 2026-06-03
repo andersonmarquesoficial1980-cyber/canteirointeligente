@@ -57,7 +57,7 @@ const ALL_MODULES = [
   { key: "admin",         label: "Painel de Controle",   emoji: "⚙️" },
 ];
 
-type PerfilNovoUsuario = "Operador" | "Apontador" | "Administrador" | "Motorista";
+type PerfilNovoUsuario = "Operador" | "Apontador" | "Administrador" | "Motorista" | "Engenheiro";
 
 interface NovoUsuarioForm {
   nomeCompleto: string;
@@ -557,6 +557,7 @@ export default function SuperAdmin() {
                               <option value="Apontador">Apontador</option>
                               <option value="Administrador">Administrador</option>
                               <option value="Motorista">Motorista</option>
+                              <option value="Engenheiro">Engenheiro</option>
                             </select>
                             <div className="md:col-span-4 flex items-center justify-between">
                               <p className="text-xs text-slate-400">E-mail final: {getNewUserForm(company.id).login || "login"}@workflux.app</p>

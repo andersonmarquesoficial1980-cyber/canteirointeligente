@@ -1339,6 +1339,7 @@ function UsersManager() {
             <SelectContent>
               <SelectItem value="Administrador">Administrador</SelectItem>
               <SelectItem value="Gerente">Gerente (admin sem excluir)</SelectItem>
+              <SelectItem value="Engenheiro">Engenheiro</SelectItem>
               <SelectItem value="Apontador">Apontador</SelectItem>
               <SelectItem value="Operador">Operador / Motorista</SelectItem>
             </SelectContent>
@@ -1441,6 +1442,7 @@ function UsersManager() {
                 <SelectContent>
                   <SelectItem value="Administrador">Administrador</SelectItem>
                   <SelectItem value="Gerente">Gerente (admin sem excluir)</SelectItem>
+                  <SelectItem value="Engenheiro">Engenheiro</SelectItem>
                   <SelectItem value="Apontador">Apontador</SelectItem>
                   <SelectItem value="Operador">Operador / Motorista</SelectItem>
                 </SelectContent>
