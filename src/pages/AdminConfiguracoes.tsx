@@ -147,7 +147,7 @@ function useCrudTable(tableName: string) {
 }
 
 // Simple entity form with nome + vinculos (multi)
-function EntityManager({ tableName, label }: { tableName: string; label: string }) {
+function EntityManager({ tableName, label, vinculoOptions = VINCULO_OPTIONS }: { tableName: string; label: string; vinculoOptions?: string[] }) {
   const { items, loading, add, remove, update } = useCrudTable(tableName);
   const { toast } = useToast();
   const [nome, setNome] = useState("");
@@ -211,7 +211,7 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Onde aparece (um ou mais)</Label>
-          <PillGroup options={VINCULO_OPTIONS} selected={vinculos} onToggle={v => toggleVinculo(v, vinculos, setVinculos)} />
+          <PillGroup options={vinculoOptions} selected={vinculos} onToggle={v => toggleVinculo(v, vinculos, setVinculos)} />
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
       </div>
@@ -232,7 +232,7 @@ function EntityManager({ tableName, label }: { tableName: string; label: string 
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Onde aparece</Label>
-                  <PillGroup options={VINCULO_OPTIONS} selected={editVinculos} onToggle={v => toggleVinculo(v, editVinculos, setEditVinculos)} />
+                  <PillGroup options={vinculoOptions} selected={editVinculos} onToggle={v => toggleVinculo(v, editVinculos, setEditVinculos)} />
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => saveEdit(item.id)}><Save className="w-3 h-3 mr-1" /> Salvar</Button>
@@ -3366,7 +3366,7 @@ export default function AdminConfiguracoes() {
       case "caminhoes": return <TruckRegistryManager />;
       case "funcionarios": return <FuncionariosManager />;
       case "equipes": return <EquipesManager />;
-      case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" />;
+      case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" vinculoOptions={["CAUQ", "PAVIMENTACAO", "INFRA", "RDO", "TODOS"]} />;
       case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />;
       case "fornecedores": return <FornecedoresManager />;
       case "terceirizados": return <TerceirizadosManager />;

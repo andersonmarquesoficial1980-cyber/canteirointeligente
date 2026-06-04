@@ -3,15 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTiposServico } from "@/hooks/useFilteredData";
 
 interface Ogs { id: string; ogs_number: string; client_name: string }
-
-const TIPOS_SERVICO = ["Fresagem", "Pavimentação CBUQ", "Pavimentação CONCRETO", "Reperfilamento", "RAP Espumado", "BGS", "Outro"];
 const SOLUCOES = ["1", "02-A", "02-B", "02-C", "03-A", "03-B", "3"];
 
 export default function EngRdoTecnico() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { data: tiposServicoDB } = useTiposServico("CAUQ");
+  const tiposServico = tiposServicoDB?.map(s => s.nome) ?? [];
   const [minhasOgs, setMinhasOgs] = useState<Ogs[]>([]);
   const [equipes, setEquipes] = useState<string[]>([]);
   const [usinas, setUsinas] = useState<string[]>([]);
@@ -229,7 +230,7 @@ export default function EngRdoTecnico() {
                 <label className={labelCls}>Tipo de Serviço</label>
                 <select value={form.tipo_servico} onChange={e => set("tipo_servico", e.target.value)} className={inputCls}>
                   <option value="">Selecione...</option>
-                  {TIPOS_SERVICO.map(t => <option key={t}>{t}</option>)}
+                  {tiposServico.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
               <div>
