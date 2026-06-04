@@ -79,12 +79,10 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
   const updateTrecho = (id: string, field: string, value: string) => {
     const trecho = data.trechos.find(t => t.id === id);
     let extra: Partial<TrechoCauqEntry> = {};
-    // Quando muda o tipo de serviço, preencher densidade automaticamente se estiver vazio
-    if (field === "tipo_servico" && value) {
-      const densidadePadrao = getDensidadePadrao(value);
-      if (densidadePadrao && (!trecho?.densidade || trecho.densidade === "")) {
-        extra.densidade = densidadePadrao;
-      }
+    // Quando muda o tipo de serviço, sempre atualizar densidade com o padrão
+    if (field === "tipo_servico") {
+      const densidadePadrao = value ? getDensidadePadrao(value) : "";
+      extra.densidade = densidadePadrao;
     }
     onChange({ ...data, trechos: data.trechos.map(t => t.id === id ? { ...t, [field]: value, ...extra } : t) });
   };
