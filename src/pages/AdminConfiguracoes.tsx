@@ -1869,7 +1869,7 @@ function MaterialManager() {
             <Label className="text-xs text-muted-foreground">Vincular ao RDO</Label>
             <Select value={vinculo} onValueChange={setVinculo}>
               <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-              <SelectContent>{VINCULO_OPTIONS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent>
+              <SelectContent>{["CAUQ","PAVIMENTACAO","CANTEIRO","INFRA","TODOS"].map(v => <SelectItem key={v} value={v}>{VINCULO_LABELS[v] ?? v}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
