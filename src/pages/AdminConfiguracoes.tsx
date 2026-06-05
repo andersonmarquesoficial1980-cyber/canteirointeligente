@@ -347,7 +347,7 @@ function FornecedoresManager() {
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Onde aparece (um ou mais)</Label>
-          <PillGroup options={VINCULO_OPTIONS} selected={vinculos}
+          <PillGroup options={FORNECEDOR_VINCULO_OPTIONS} selected={vinculos}
             onToggle={v => toggleItem(v, vinculos, setVinculos, "TODOS")}
             labelMap={VINCULO_LABELS} todoKey="TODOS" />
         </div>
@@ -372,7 +372,7 @@ function FornecedoresManager() {
                 <p className="font-medium text-sm text-foreground">{item.nome}</p>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Onde aparece</Label>
-                  <PillGroup options={VINCULO_OPTIONS} selected={editVinculos}
+                  <PillGroup options={FORNECEDOR_VINCULO_OPTIONS} selected={editVinculos}
                     onToggle={v => toggleItem(v, editVinculos, setEditVinculos, "TODOS")}
                     labelMap={VINCULO_LABELS} todoKey="TODOS" />
                 </div>
@@ -1845,6 +1845,7 @@ function MateriaisUnificadoManager() {
 }
 
 const MATERIAL_VINCULO_OPTIONS = ["CAUQ", "PAVIMENTACAO", "CANTEIRO", "INFRA", "TODOS"];
+const FORNECEDOR_VINCULO_OPTIONS = ["CAUQ", "PAVIMENTACAO", "CANTEIRO", "INFRA", "TODOS"];
 
 function MaterialManager() {
   const { items, add, remove, update } = useCrudTable("materiais");
