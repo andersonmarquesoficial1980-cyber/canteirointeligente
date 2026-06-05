@@ -270,6 +270,7 @@ function FornecedoresManager() {
   const [vinculos, setVinculos] = useState<string[]>(["TODOS"]);
   const [tipoInsumos, setTipoInsumos] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editNomeForn, setEditNomeForn] = useState("");
   const [editVinculos, setEditVinculos] = useState<string[]>([]);
   const [editTipoInsumos, setEditTipoInsumos] = useState<string[]>([]);
 
@@ -299,13 +300,16 @@ function FornecedoresManager() {
 
   const startEdit = (item: any) => {
     setEditingId(item.id);
+    setEditNomeForn(item.nome || "");
     setEditVinculos(item.vinculos?.length ? item.vinculos : [item.vinculo_rdo || "TODOS"]);
     setEditTipoInsumos(item.tipo_insumos?.length ? item.tipo_insumos : (item.tipo_insumo ? [item.tipo_insumo] : []));
   };
 
   const saveEdit = async (id: string) => {
+    if (!editNomeForn.trim()) { toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); return; }
     if (editVinculos.length === 0) { toast({ title: "Atenção", description: "Selecione ao menos um vínculo.", variant: "destructive" }); return; }
     const ok = await update(id, {
+      nome: editNomeForn.trim(),
       vinculos: editVinculos,
       vinculo_rdo: editVinculos[0],
       tipo_insumos: editTipoInsumos,
@@ -369,7 +373,10 @@ function FornecedoresManager() {
           <div key={item.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
             {editingId === item.id ? (
               <div className="space-y-2">
-                <p className="font-medium text-sm text-foreground">{item.nome}</p>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Nome</Label>
+                  <Input value={editNomeForn} onChange={e => setEditNomeForn(e.target.value)} className="h-9 bg-secondary border-border text-sm" />
+                </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Onde aparece</Label>
                   <PillGroup options={FORNECEDOR_VINCULO_OPTIONS} selected={editVinculos}
