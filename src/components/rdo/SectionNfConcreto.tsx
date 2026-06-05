@@ -93,7 +93,7 @@ export default function SectionNfConcreto({ entries, onChange }: Props) {
           </div>
 
           <NfPhotoCapture
-            tipo="CANTEIRO"
+            tipo="INFRA"
             onExtracted={(data, photoUrl) => handleOcrExtracted(entry.id, data, photoUrl)}
           />
 
@@ -153,9 +153,7 @@ export default function SectionNfConcreto({ entries, onChange }: Props) {
           </div>
 
           {entry.foto_url && (
-            <div className="mt-2">
-              <img src={entry.foto_url} alt="Foto NF" className="w-full max-h-40 object-contain rounded-xl border border-border" />
-            </div>
+            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">📷 OCR</span>
           )}
         </div>
       ))}
