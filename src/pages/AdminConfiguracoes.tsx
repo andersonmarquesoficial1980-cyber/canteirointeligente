@@ -1844,17 +1844,50 @@ function MateriaisUnificadoManager() {
   );
 }
 
+const MATERIAL_VINCULO_OPTIONS = ["CAUQ", "PAVIMENTACAO", "CANTEIRO", "INFRA", "TODOS"];
+
 function MaterialManager() {
-  const { items, add, remove } = useCrudTable("materiais");
+  const { items, add, remove, update } = useCrudTable("materiais");
   const { toast } = useToast();
   const [nome, setNome] = useState("");
   const [vinculo, setVinculo] = useState("TODOS");
   const [tipoUso, setTipoUso] = useState("Nota Fiscal");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editVinculo, setEditVinculo] = useState("TODOS");
+  const [editTipoUso, setEditTipoUso] = useState("Nota Fiscal");
+
+  const PillGroup = ({ options, selected, onSelect, labels }: { options: string[]; selected: string; onSelect: (v: string) => void; labels?: Record<string, string> }) => (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map(v => (
+        <button key={v} type="button" onClick={() => onSelect(v)}
+          className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+            selected === v ? "bg-primary text-primary-foreground border-primary"
+                           : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+          }`}>
+          {labels?.[v] ?? v}
+        </button>
+      ))}
+    </div>
+  );
 
   const handleAdd = async () => {
     if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" }); return; }
     const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_uso: tipoUso });
     if (ok) { setNome(""); setVinculo("TODOS"); setTipoUso("Nota Fiscal"); }
+  };
+
+  const startEdit = (item: any) => {
+    setEditingId(item.id);
+    setEditNome(item.nome || "");
+    setEditVinculo(item.vinculo_rdo || "TODOS");
+    setEditTipoUso(item.tipo_uso || "Nota Fiscal");
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editNome.trim()) { toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); return; }
+    const ok = await update(id, { nome: editNome.trim(), vinculo_rdo: editVinculo, tipo_uso: editTipoUso });
+    if (ok) setEditingId(null);
   };
 
   return (
@@ -1864,38 +1897,56 @@ function MaterialManager() {
           <Label className="text-xs text-muted-foreground">Nome</Label>
           <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Novo Material" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Vincular ao RDO</Label>
-            <Select value={vinculo} onValueChange={setVinculo}>
-              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-              <SelectContent>{["CAUQ","PAVIMENTACAO","CANTEIRO","INFRA","TODOS"].map(v => <SelectItem key={v} value={v}>{VINCULO_LABELS[v] ?? v}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
-            <Select value={tipoUso} onValueChange={setTipoUso}>
-              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-              <SelectContent>{TIPO_USO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Onde aparece</Label>
+          <PillGroup options={MATERIAL_VINCULO_OPTIONS} selected={vinculo} onSelect={setVinculo} labels={VINCULO_LABELS} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
+          <PillGroup options={TIPO_USO_OPTIONS} selected={tipoUso} onSelect={setTipoUso} />
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
       </div>
       <div className="space-y-2">
+        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum cadastro.</p>}
         {items.map((item: any) => (
-          <div key={item.id} className="bg-card rounded-lg border border-border p-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm text-foreground">{item.nome}</p>
-              <div className="flex gap-2 mt-0.5">
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{item.vinculo_rdo}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.tipo_uso || "Nota Fiscal"}</span>
+          <div key={item.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
+            {editingId === item.id ? (
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Nome</Label>
+                  <Input value={editNome} onChange={e => setEditNome(e.target.value)} className="h-9 bg-secondary border-border text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Onde aparece</Label>
+                  <PillGroup options={MATERIAL_VINCULO_OPTIONS} selected={editVinculo} onSelect={setEditVinculo} labels={VINCULO_LABELS} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
+                  <PillGroup options={TIPO_USO_OPTIONS} selected={editTipoUso} onSelect={setEditTipoUso} />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => saveEdit(item.id)}><Save className="w-3 h-3 mr-1" /> Salvar</Button>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditingId(null)}><X className="w-3 h-3" /></Button>
+                </div>
               </div>
-            </div>
-            <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+            ) : (
+              <div className="flex items-start justify-between">
+                <div className="space-y-1.5 flex-1 min-w-0 pr-2">
+                  <p className="font-medium text-sm text-foreground">{item.nome}</p>
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{VINCULO_LABELS[item.vinculo_rdo] ?? item.vinculo_rdo}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.tipo_uso || "Nota Fiscal"}</span>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => startEdit(item)} className="text-muted-foreground p-1 hover:text-foreground"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum cadastro.</p>}
       </div>
     </div>
   );
