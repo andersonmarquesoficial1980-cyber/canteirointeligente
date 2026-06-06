@@ -14,6 +14,7 @@ export type TipoDemanda =
 export type SetorDestinatario =
   | "manutencao"
   | "programador"
+  | "transporte_logistica"
   | "rh"
   | "engenharia"
   | "admin"
@@ -64,7 +65,7 @@ export const TRANSPORTE_HORARIOS = [
 export const TIPOS_DEMANDA: Array<{ value: TipoDemanda; icon: string; label: string }> = [
   { value: "manutencao", icon: "🔧", label: "Manutenção de Equipamento" },
   { value: "transporte", icon: "🚛", label: "Transporte de Equipamento" },
-  { value: "rh", icon: "👷", label: "Solicitação RH" },
+  { value: "rh", icon: "👥", label: "Reforço / Remanejamento de Funcionário" },
   { value: "material", icon: "📦", label: "Material / Acessório" },
   { value: "tarefa", icon: "📋", label: "Tarefa" },
   { value: "troca_funcionario", icon: "👥", label: "Troca / Reforço de Funcionário" },
@@ -78,6 +79,7 @@ export const TIPOS_DEMANDA: Array<{ value: TipoDemanda; icon: string; label: str
 export const SETORES_DESTINATARIOS: Array<{ value: SetorDestinatario; label: string }> = [
   { value: "manutencao", label: "Manutenção" },
   { value: "programador", label: "Programador de Obras" },
+  { value: "transporte_logistica", label: "Transporte & Logística" },
   { value: "suprimentos", label: "Suprimentos" },
   { value: "equipe", label: "Equipe" },
   { value: "rh", label: "RH" },

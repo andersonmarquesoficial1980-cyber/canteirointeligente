@@ -8,17 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import type { NovaDemandaPayload } from "@/hooks/useDemandas";
-import { EQUIPMENT_TYPES, TRANSPORTE_HORARIOS, URGENCIAS_FASE1, type TipoDemanda, type UrgenciaDemanda } from "@/lib/demandas";
+import { TRANSPORTE_HORARIOS, URGENCIAS_FASE1, type UrgenciaDemanda } from "@/lib/demandas";
 import { useToast } from "@/hooks/use-toast";
 
-type NovoTipo = "manutencao" | "transporte" | "rh" | "material" | "tarefa";
-type SetorOrigemBase = "Obra" | "Engenharia";
+type NovoTipo = "transporte" | "rh" | "material" | "tarefa";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onCreate: (demanda: NovaDemandaPayload) => Promise<boolean>;
-  onCreateMany: (demandas: NovaDemandaPayload[]) => Promise<boolean>;
 }
 
 interface Maquina {
@@ -35,13 +33,6 @@ interface Funcionario {
   funcao: string;
 }
 
-interface ManutencaoItem {
-  tipoEquipamento: string;
-  maquinaId: string;
-  problema: string;
-  fotoUrl?: string;
-}
-
 interface MaterialItem {
   item: string;
   quantidade: string;
@@ -55,15 +46,6 @@ const RH_TIPOS = [
   { id: "reajuste", label: "Classificação/Reajuste" },
 ] as const;
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 function normalizeStatus(status?: string | null) {
   const s = (status || "").trim().toLowerCase();
   return s;
@@ -74,14 +56,6 @@ function isMaquinaAtiva(status?: string | null) {
   return s === "ativo" || s === "operando";
 }
 
-function blankManutencaoItem(): ManutencaoItem {
-  return {
-    tipoEquipamento: "",
-    maquinaId: "",
-    problema: "",
-  };
-}
-
 function blankMaterialItem(): MaterialItem {
   return {
     item: "",
@@ -90,7 +64,7 @@ function blankMaterialItem(): MaterialItem {
   };
 }
 
-export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany }: Props) {
+export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
   const { toast } = useToast();
   const [loadingBase, setLoadingBase] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -110,8 +84,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
   const [setorOrigem, setSetorOrigem] = useState("");
   const [setorOrigemTransporte, setSetorOrigemTransporte] = useState("");
   const [setorOrigemMaterial, setSetorOrigemMaterial] = useState("");
-
-  const [manutencaoItens, setManutencaoItens] = useState<ManutencaoItem[]>([blankManutencaoItem()]);
 
   const [transporteEquipamentos, setTransporteEquipamentos] = useState<string[]>([]);
   const [origem, setOrigem] = useState("");
@@ -148,13 +120,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
 
   const funcoesRh = useMemo(() => {
     return [...new Set(funcionarios.map((f) => f.funcao).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [funcionarios]);
-
-  const funcionariosEquipe = useMemo(() => {
-    return funcionarios.filter((f) => {
-      const funcao = (f.funcao || "").toLowerCase();
-      return funcao.includes("motorista") || funcao.includes("operador") || funcao.includes("ajudante");
-    });
   }, [funcionarios]);
 
   const maquinasAtivas = useMemo(() => maquinas.filter((m) => isMaquinaAtiva(m.status)), [maquinas]);
@@ -230,8 +195,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
     setSetorOrigem("");
     setSetorOrigemTransporte("");
     setSetorOrigemMaterial("");
-
-    setManutencaoItens([blankManutencaoItem()]);
     setTransporteEquipamentos([]);
     setOrigem("");
     setOrigemMaps("");
@@ -264,24 +227,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
   const getFuncionarioById = (id: string) => funcionarios.find((f) => f.id === id);
   const getMaquinaById = (id: string) => maquinas.find((m) => m.id === id);
 
-  const setManutencaoItem = (idx: number, patch: Partial<ManutencaoItem>) => {
-    setManutencaoItens((prev) => prev.map((item, i) => (i === idx ? { ...item, ...patch } : item)));
-  };
-
-  const addManutencaoItem = () => {
-    setManutencaoItens((prev) => {
-      if (prev.length >= 6) return prev;
-      return [...prev, blankManutencaoItem()];
-    });
-  };
-
-  const removeManutencaoItem = (idx: number) => {
-    setManutencaoItens((prev) => {
-      if (prev.length === 1) return prev;
-      return prev.filter((_, i) => i !== idx);
-    });
-  };
-
   const setMaterialItem = (idx: number, patch: Partial<MaterialItem>) => {
     setMaterialItens((prev) => prev.map((item, i) => (i === idx ? { ...item, ...patch } : item)));
   };
@@ -299,60 +244,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
       if (prev.includes(maquinaId)) return prev.filter((id) => id !== maquinaId);
       return [...prev, maquinaId];
     });
-  };
-
-  const submitManutencao = async () => {
-    if (!solicitanteNome.trim()) {
-      toast({ title: "Informe o solicitante" });
-      return;
-    }
-
-    if (!setorOrigem) {
-      toast({ title: "Selecione o setor de origem" });
-      return;
-    }
-
-    if (manutencaoItens.length === 0) {
-      toast({ title: "Adicione pelo menos um equipamento" });
-      return;
-    }
-
-    for (const item of manutencaoItens) {
-      if (!item.tipoEquipamento || !item.maquinaId || !item.problema.trim()) {
-        toast({ title: "Preencha tipo, frota e problema em todos os equipamentos" });
-        return;
-      }
-    }
-
-    const payloads = manutencaoItens.map((item) => {
-      const maquina = getMaquinaById(item.maquinaId);
-      const equipamentoLabel = maquina ? `${maquina.frota} - ${maquina.nome}` : item.maquinaId;
-      const titulo = `Manutenção - ${item.tipoEquipamento} ${maquina?.frota || ""}`.trim();
-
-      return {
-        titulo,
-        descricao: item.problema.trim(),
-        solicitante_nome: solicitanteNome.trim(),
-        solicitante_departamento: setorOrigem,
-        setor_origem: setorOrigem,
-        equipamento: equipamentoLabel,
-        centro_de_custo: "Demandas Internas",
-        status: "pendente",
-        tipo: "manutencao",
-        destinatario_setor: "manutencao",
-        urgencia,
-        created_by: userId,
-        company_id: companyId || undefined,
-        foto_url: item.fotoUrl || undefined,
-        equipamentos_ids: [item.maquinaId],
-        equipamentos_json: maquina ? [maquina] : [],
-      } satisfies NovaDemandaPayload;
-    });
-
-    setSaving(true);
-    const ok = await onCreateMany(payloads);
-    setSaving(false);
-    if (ok) onClose();
   };
 
   const submitTransporte = async () => {
@@ -410,7 +301,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
       centro_de_custo: "Demandas Internas",
       status: "pendente",
       tipo: "transporte",
-      destinatario_setor: "programador",
+      destinatario_setor: "transporte_logistica",
       urgencia,
       created_by: userId,
       company_id: companyId || undefined,
@@ -448,7 +339,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
     }
 
     const base: NovaDemandaPayload = {
-      titulo: "Solicitação RH",
+      titulo: "Reforço / Remanejamento de Funcionário",
       descricao: "",
       solicitante_nome: solicitanteNome.trim(),
       solicitante_departamento: setorOrigem,
@@ -456,7 +347,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
       centro_de_custo: "Demandas Internas",
       status: "pendente",
       tipo: "rh",
-      destinatario_setor: "programador",
+      destinatario_setor: "transporte_logistica",
       urgencia,
       created_by: userId,
       company_id: companyId || undefined,
@@ -597,7 +488,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
 
   const handleSubmit = async () => {
     if (saving) return;
-    if (tipoSelecionado === "manutencao") return submitManutencao();
     if (tipoSelecionado === "transporte") return submitTransporte();
     if (tipoSelecionado === "rh") return submitRh();
     if (tipoSelecionado === "material") return submitMaterial();
@@ -606,9 +496,8 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
 
   const title = tipoSelecionado
     ? {
-        manutencao: "Nova Demanda - Manutenção",
         transporte: "Nova Demanda - Transporte",
-        rh: "Nova Demanda - RH",
+        rh: "Nova Demanda - Reforço / Remanejamento",
         material: "Nova Demanda - Material",
         tarefa: "Nova Demanda - Tarefa",
       }[tipoSelecionado]
@@ -635,14 +524,11 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
             </div>
           ) : !tipoSelecionado ? (
             <div className="grid grid-cols-1 gap-3">
-              <button type="button" onClick={() => setTipoSelecionado("manutencao")} className="rounded-2xl border p-4 text-left hover:border-primary">
-                <p className="text-lg font-bold">🔧 Manutenção de Equipamento</p>
-              </button>
               <button type="button" onClick={() => setTipoSelecionado("transporte")} className="rounded-2xl border p-4 text-left hover:border-primary">
                 <p className="text-lg font-bold">🚛 Transporte de Equipamento</p>
               </button>
               <button type="button" onClick={() => setTipoSelecionado("rh")} className="rounded-2xl border p-4 text-left hover:border-primary">
-                <p className="text-lg font-bold">👷 Solicitação RH</p>
+                <p className="text-lg font-bold">👥 Reforço / Remanejamento de Funcionário</p>
               </button>
               <button type="button" onClick={() => setTipoSelecionado("material")} className="rounded-2xl border p-4 text-left hover:border-primary">
                 <p className="text-lg font-bold">📦 Material / Acessório</p>
@@ -677,125 +563,6 @@ export default function NovaDemandaModal({ open, onClose, onCreate, onCreateMany
                   ))}
                 </div>
               </div>
-
-              {tipoSelecionado === "manutencao" && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Setor origem *</Label>
-                    <Select value={setorOrigem} onValueChange={setSetorOrigem}>
-                      <SelectTrigger className="h-11"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Obra">Obra</SelectItem>
-                        <SelectItem value="Engenharia">Engenharia</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {manutencaoItens.map((item, idx) => {
-                    const opcoesFrota = maquinasAtivas.filter((m) => (m.tipo || "") === item.tipoEquipamento);
-                    return (
-                      <div key={idx} className="rounded-2xl border p-3 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="font-semibold">Equipamento {idx + 1}</p>
-                          {manutencaoItens.length > 1 && (
-                            <Button variant="ghost" size="sm" onClick={() => removeManutencaoItem(idx)}>Remover</Button>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Tipo de equipamento *</Label>
-                          <Select
-                            value={item.tipoEquipamento}
-                            onValueChange={(v) => setManutencaoItem(idx, { tipoEquipamento: v, maquinaId: "" })}
-                          >
-                            <SelectTrigger className="h-11"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                            <SelectContent>
-                              {EQUIPMENT_TYPES.map((tipo) => (
-                                <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Frota *</Label>
-                          <Select value={item.maquinaId} onValueChange={(v) => setManutencaoItem(idx, { maquinaId: v })}>
-                            <SelectTrigger className="h-11"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                            <SelectContent>
-                              {opcoesFrota.map((m) => (
-                                <SelectItem key={m.id} value={m.id}>{m.frota} - {m.nome}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Descreva o problema *</Label>
-                          <Textarea
-                            rows={3}
-                            value={item.problema}
-                            onChange={(e) => setManutencaoItem(idx, { problema: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Foto (opcional)</Label>
-                          {item.fotoUrl ? (
-                            <div className="relative">
-                              <img src={item.fotoUrl} alt="Foto da avaria" className="w-full max-h-48 object-cover rounded-xl border" />
-                              <button
-                                type="button"
-                                onClick={() => setManutencaoItem(idx, { fotoUrl: undefined })}
-                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold"
-                              >✕</button>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                              {/* Botão Câmera */}
-                              <label className="flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border-2 border-dashed border-border cursor-pointer hover:bg-muted/30 transition-colors">
-                                <span className="text-xl">📷</span>
-                                <span className="text-xs text-muted-foreground font-medium">Tirar foto</span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  capture="environment"
-                                  className="hidden"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (!file) return;
-                                    const base64 = await fileToBase64(file);
-                                    setManutencaoItem(idx, { fotoUrl: base64 });
-                                  }}
-                                />
-                              </label>
-                              {/* Botão Galeria */}
-                              <label className="flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border-2 border-dashed border-border cursor-pointer hover:bg-muted/30 transition-colors">
-                                <span className="text-xl">🖼️</span>
-                                <span className="text-xs text-muted-foreground font-medium">Galeria</span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (!file) return;
-                                    const base64 = await fileToBase64(file);
-                                    setManutencaoItem(idx, { fotoUrl: base64 });
-                                  }}
-                                />
-                              </label>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  <Button variant="outline" className="w-full h-11" onClick={addManutencaoItem} disabled={manutencaoItens.length >= 6}>
-                    + Adicionar outro equipamento
-                  </Button>
-                </div>
-              )}
 
               {tipoSelecionado === "transporte" && (
                 <div className="space-y-4">

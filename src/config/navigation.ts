@@ -11,7 +11,7 @@ export const HUB_MODULES = [
   { id: "carreteiros", label: "WF Carreteiros", subtitle: "Logística de Materiais", icon: Truck, route: "/carreteiros", adminOnly: false },
   // rh: unificado em gestao-pessoas (ver /rh redirect no App.tsx)
   { id: "programador", label: "WF Programador", subtitle: "Equipes e Movimentações", icon: CalendarClock, route: "/programador", adminOnly: false },
-  { id: "demandas", label: "WF Demandas", subtitle: "Gestão de Tarefas", icon: ListChecks, route: "/demandas", adminOnly: false },
+  { id: "demandas", label: "WF Transporte & Logística", subtitle: "Gestão de Tarefas", icon: ListChecks, route: "/demandas", adminOnly: false },
   { id: "documentos", label: "WF Documentos", subtitle: "Documentos com IA", icon: FileCheck, route: "/documentos", adminOnly: false },
   { id: "manutencao", label: "WF Manutenção", subtitle: "OS & Documentos de Frotas", icon: Wrench, route: "/manutencao", adminOnly: false },
   { id: "abastecimento", label: "WF Abastecimento", subtitle: "Comboio, Posto e Shelbox", icon: Fuel, route: "/abastecimento", adminOnly: false },

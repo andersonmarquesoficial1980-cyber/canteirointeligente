@@ -40,7 +40,7 @@ const MODULOS = [
   { key: "modulo_rh", label: "WF RH" },
   { key: "modulo_carreteiros", label: "WF Carreteiros" },
   { key: "modulo_programador", label: "WF Programador" },
-  { key: "modulo_demandas", label: "WF Demandas" },
+  { key: "modulo_demandas", label: "WF Transporte & Logística" },
   { key: "modulo_manutencao", label: "WF Manutenção" },
   { key: "modulo_abastecimento", label: "WF Abastecimento" },
   { key: "modulo_documentos", label: "WF Documentos" },

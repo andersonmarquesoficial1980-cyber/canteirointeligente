@@ -67,7 +67,7 @@ export default function DemandasHome() {
   const [novoOpen, setNovoOpen] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todas");
   const [filtroSetor, setFiltroSetor] = useState<FiltroSetor>("todos");
-  const { demandas, loading, criar, criarMuitas, reload } = useDemandas();
+  const { demandas, loading, criar, reload } = useDemandas();
 
   const abertasCount = useMemo(() => {
     return demandas.filter((d) => d.status === "pendente" || d.status === "aberta" || d.status === "em_execucao" || d.status === "aceita")
@@ -107,7 +107,7 @@ export default function DemandasHome() {
           </button>
           <img src={logoCi} alt="CI" className="w-8 h-8 rounded-full border-2 border-white/30 shadow-md" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-display font-bold text-white">Demandas</h1>
+            <h1 className="text-lg font-display font-bold text-white">Transporte & Logística</h1>
             <p className="text-xs text-white/80">{abertasCount} abertas</p>
           </div>
 
@@ -194,7 +194,7 @@ export default function DemandasHome() {
         )}
       </div>
 
-      <NovaDemandaModal open={novoOpen} onClose={() => setNovoOpen(false)} onCreate={criar} onCreateMany={criarMuitas} />
+      <NovaDemandaModal open={novoOpen} onClose={() => setNovoOpen(false)} onCreate={criar} />
     </div>
   );
 }

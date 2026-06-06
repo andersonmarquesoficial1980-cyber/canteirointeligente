@@ -43,7 +43,7 @@ const ALL_MODULES = [
   { key: "carreteiros",   label: "WF Carreteiros",       emoji: "🚛" },
   { key: "rh",            label: "WF RH",                emoji: "👥" },
   { key: "programador",   label: "WF Programador",       emoji: "📅" },
-  { key: "demandas",      label: "WF Demandas",          emoji: "📨" },
+  { key: "demandas",      label: "WF Transporte & Logística", emoji: "📨" },
   { key: "documentos",    label: "WF Documentos",        emoji: "📄" },
   { key: "manutencao",    label: "WF Manutenção",       emoji: "🔧" },
   { key: "abastecimento", label: "WF Abastecimento",     emoji: "⛽" },
