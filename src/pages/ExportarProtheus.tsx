@@ -143,9 +143,9 @@ export default function ExportarProtheus() {
         { data: bitsEntries },
         { data: prodAreas },
       ] = await Promise.all([
-        supabase.from("equipment_time_entries").select("*").in("diary_id", diaryIds),
-        supabase.from("bit_entries").select("*").in("diary_id", diaryIds),
-        supabase.from("equipment_production_areas").select("*").in("diary_id", diaryIds),
+        supabase.from("equipment_time_entries").select("*").in("diary_id", diaryIds).order("start_time", { ascending: true }).limit(10000),
+        supabase.from("bit_entries").select("*").in("diary_id", diaryIds).limit(10000),
+        supabase.from("equipment_production_areas").select("*").in("diary_id", diaryIds).limit(10000),
       ]);
 
       // 3. Montar mapas por diary_id
