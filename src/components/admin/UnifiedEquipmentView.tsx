@@ -30,8 +30,8 @@ interface ProductionArea {
 }
 
 interface ComboioRefueling {
-  equipment_fleet_fueled: string | null;
-  liters_fueled: number | null;
+  equipment_fleet: string | null;
+  litros: number | null;
   diary_id: string | null;
 }
 
@@ -91,8 +91,9 @@ export default function UnifiedEquipmentView() {
           .from("equipment_production_areas")
           .select("diary_id, m2, m3"),
         supabase
-          .from("comboio_equipment_refueling")
-          .select("equipment_fleet_fueled, liters_fueled, diary_id"),
+          .from("abastecimentos")
+          .select("equipment_fleet, litros, diary_id")
+          .eq("fonte", "comboio"),
         supabase
           .from("fleet_refueling_logs")
           .select("target_equipment_fleet, liters_refueled, diary_id"),
@@ -136,11 +137,11 @@ export default function UnifiedEquipmentView() {
     // Build diesel lookup: fleet + date -> total liters from comboio
     const comboioDieselMap = new Map<string, number>(); // "fleet|date" -> liters
     comboioRefuelings.forEach(c => {
-      if (!c.equipment_fleet_fueled || !c.diary_id) return;
+      if (!c.equipment_fleet || !c.diary_id) return;
       const date = diaryDateMap.get(c.diary_id);
       if (!date) return;
-      const key = `${c.equipment_fleet_fueled}|${date}`;
-      comboioDieselMap.set(key, (comboioDieselMap.get(key) || 0) + (c.liters_fueled || 0));
+      const key = `${c.equipment_fleet}|${date}`;
+      comboioDieselMap.set(key, (comboioDieselMap.get(key) || 0) + (c.litros || 0));
     });
 
     // Fleet refueling lookup

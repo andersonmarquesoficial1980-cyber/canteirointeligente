@@ -1319,6 +1319,33 @@ export default function EquipmentDiaryForm() {
         diary = updatedDiary;
         error = updateError;
       } else {
+        const duplicateQuery = (supabase as any)
+          .from("equipment_diaries")
+          .select("id")
+          .eq("equipment_fleet", normalizedSelectedFleet)
+          .eq("date", date)
+          .eq("period", turno)
+          .limit(1);
+
+        if (diaryPayload.company_id) {
+          duplicateQuery.eq("company_id", diaryPayload.company_id);
+        } else {
+          duplicateQuery.is("company_id", null);
+        }
+
+        const { data: existingDiaries, error: duplicateError } = await duplicateQuery;
+        if (duplicateError) throw duplicateError;
+
+        if ((existingDiaries || []).length > 0) {
+          const [year, month, day] = date.split("-");
+          const dateLabel = year && month && day ? `${day}/${month}/${year}` : date;
+          const periodLabel = turno === "diurno" ? "diurno" : "noturno";
+          const confirmDuplicate = window.confirm(
+            `Já existe um lançamento para ${normalizedSelectedFleet} em ${dateLabel} (${periodLabel}). Deseja continuar e criar um segundo lançamento?`
+          );
+          if (!confirmDuplicate) return cancelSave();
+        }
+
         const { data: insertedDiary, error: insertError } = await supabase
           .from("equipment_diaries")
           .insert(diaryPayload)

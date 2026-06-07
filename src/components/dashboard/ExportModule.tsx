@@ -75,8 +75,9 @@ export default function ExportModule({ counts, total, availability }: ExportModu
         .gte("equipment_diaries.date", from.split("T")[0])
         .lte("equipment_diaries.date", to.split("T")[0]),
       supabase
-        .from("comboio_equipment_refueling")
+        .from("abastecimentos")
         .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type)")
+        .eq("fonte", "comboio")
         .gte("equipment_diaries.date", from.split("T")[0])
         .lte("equipment_diaries.date", to.split("T")[0]),
     ]);
@@ -174,11 +175,11 @@ export default function ExportModule({ counts, total, availability }: ExportModu
           startY: y2 + 4,
           head: [["Frota Abastecida", "Litros", "Horímetro/KM", "Lubrificado", "Lavado"]],
           body: fuelEntries.map((e: any) => [
-            e.equipment_fleet_fueled || "-",
-            e.liters_fueled ?? "-",
-            e.equipment_meter ?? "-",
-            e.is_lubricated ? "Sim" : "Não",
-            e.is_washed ? "Sim" : "Não",
+            e.equipment_fleet || "-",
+            e.litros ?? "-",
+            e.horimetro ?? e.km_odometro ?? "-",
+            e.lubrificado ? "Sim" : "Não",
+            e.lavado ? "Sim" : "Não",
           ]),
           theme: "striped",
           headStyles: { fillColor: [15, 35, 75], fontSize: 8 },
@@ -234,12 +235,12 @@ export default function ExportModule({ counts, total, availability }: ExportModu
       const fuelRows = fuelEntries.map((e: any) => ({
         Data: e.equipment_diaries?.date || "",
         "Frota Comboio": e.equipment_diaries?.equipment_fleet || "",
-        "Frota Abastecida": e.equipment_fleet_fueled || "",
-        Litros: e.liters_fueled ?? "",
-        "Horímetro/KM": e.equipment_meter ?? "",
-        Lubrificado: e.is_lubricated ? "Sim" : "Não",
-        Lavado: e.is_washed ? "Sim" : "Não",
-        OGS: e.ogs_destination || "",
+        "Frota Abastecida": e.equipment_fleet || "",
+        Litros: e.litros ?? "",
+        "Horímetro/KM": e.horimetro ?? e.km_odometro ?? "",
+        Lubrificado: e.lubrificado ? "Sim" : "Não",
+        Lavado: e.lavado ? "Sim" : "Não",
+        OGS: e.ogs || "",
       }));
       const ws2 = XLSX.utils.json_to_sheet(fuelRows.length ? fuelRows : [{ Info: "Sem registros no período" }]);
       ws2["!cols"] = Array(8).fill({ wch: 18 });

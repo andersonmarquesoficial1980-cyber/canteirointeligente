@@ -203,33 +203,34 @@ export default function AdvancedReports() {
     setLoadingRefuel(true);
     try {
       const { data, error } = await supabase
-        .from("comboio_equipment_refueling")
+        .from("abastecimentos")
         .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, odometer_initial, odometer_final)")
+        .eq("fonte", "comboio")
         .gte("equipment_diaries.date", range.from)
         .lte("equipment_diaries.date", range.to);
 
       if (error) throw error;
 
-      const ogsLookup = await fetchOgsLookup((data || []).map((r: any) => r.ogs_destination));
+      const ogsLookup = await fetchOgsLookup((data || []).map((r: any) => r.ogs));
 
       const rows = (data || []).map((r: any) => {
         const d = r.equipment_diaries;
         const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
         const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
         const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
-        const ogsP = resolveOgs(r.ogs_destination, ogsLookup);
+        const ogsP = resolveOgs(r.ogs, ogsLookup);
         const services: string[] = [];
-        if (r.is_lubricated) services.push("Lubrificação");
-        if (r.is_washed) services.push("Lavagem");
+        if (r.lubrificado) services.push("Lubrificação");
+        if (r.lavado) services.push("Lavagem");
         return {
           "Data": fmtDate(d?.date),
           "Prefixo Comboio": d?.equipment_fleet || "—",
           "KM Inicial": kmIni != null ? kmIni : "—",
           "KM Final": kmFin != null ? kmFin : "—",
           "KM Percorrido": kmRodado != null ? kmRodado : "—",
-          "Equipamento Abastecido": r.equipment_fleet_fueled || "—",
-          "Litros": r.liters_fueled ?? "—",
-          "Medição (H/KM)": r.equipment_meter ?? "—",
+          "Equipamento Abastecido": r.equipment_fleet || "—",
+          "Litros": r.litros ?? "—",
+          "Medição (H/KM)": r.horimetro ?? r.km_odometro ?? "—",
           "Nº OGS": ogsP.num,
           "Endereço / Local": ogsP.addr,
           "Serviços Adicionais": services.length > 0 ? services.join(", ") : "—",
@@ -244,9 +245,9 @@ export default function AdvancedReports() {
       const byEquip: Record<string, number> = {};
       const byOgs: Record<string, number> = {};
       (data || []).forEach((r: any) => {
-        const eq = r.equipment_fleet_fueled || "—";
-        const ogsP = resolveOgs(r.ogs_destination, ogsLookup);
-        const liters = Number(r.liters_fueled) || 0;
+        const eq = r.equipment_fleet || "—";
+        const ogsP = resolveOgs(r.ogs, ogsLookup);
+        const liters = Number(r.litros) || 0;
         byEquip[eq] = (byEquip[eq] || 0) + liters;
         if (ogsP.num !== "—") byOgs[`${ogsP.num} — ${ogsP.addr}`] = (byOgs[`${ogsP.num} — ${ogsP.addr}`] || 0) + liters;
       });
@@ -292,8 +293,9 @@ export default function AdvancedReports() {
           .gte("equipment_diaries.date", range.from)
           .lte("equipment_diaries.date", range.to),
         supabase
-          .from("comboio_equipment_refueling")
+          .from("abastecimentos")
           .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, odometer_initial, odometer_final)")
+          .eq("fonte", "comboio")
           .gte("equipment_diaries.date", range.from)
           .lte("equipment_diaries.date", range.to),
       ]);
@@ -305,7 +307,7 @@ export default function AdvancedReports() {
       const refuelRows = refuelRes.data || [];
       const ogsLookup = await fetchOgsLookup([
         ...transportRows.flatMap((r: any) => [r.origin, r.destination]),
-        ...refuelRows.map((r: any) => r.ogs_destination),
+        ...refuelRows.map((r: any) => r.ogs),
       ]);
 
       const allRows: any[] = [];
@@ -345,10 +347,10 @@ export default function AdvancedReports() {
         const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
         const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
         const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
-        const ogsP = resolveOgs(r.ogs_destination, ogsLookup);
+        const ogsP = resolveOgs(r.ogs, ogsLookup);
         const services: string[] = [];
-        if (r.is_lubricated) services.push("Lubrificação");
-        if (r.is_washed) services.push("Lavagem");
+        if (r.lubrificado) services.push("Lubrificação");
+        if (r.lavado) services.push("Lavagem");
         allRows.push({
           "Tipo": "Comboio",
           "Data": fmtDate(d?.date),
@@ -356,15 +358,15 @@ export default function AdvancedReports() {
           "KM Inicial": kmIni ?? "—",
           "KM Final": kmFin ?? "—",
           "KM Percorrido": kmRodado ?? "—",
-          "Equipamento 01": r.equipment_fleet_fueled || "—",
+          "Equipamento 01": r.equipment_fleet || "—",
           "Equipamento 02": "—",
           "Equipamento 03": "—",
           "Nº OGS (Origem)": "Comboio",
           "Endereço (Origem)": "—",
           "Nº OGS (Destino)": ogsP.num,
           "Endereço (Destino)": ogsP.addr,
-          "Horário Início": `${r.liters_fueled ?? 0} L`,
-          "Horário Fim": `Med: ${r.equipment_meter ?? "—"}`,
+          "Horário Início": `${r.litros ?? 0} L`,
+          "Horário Fim": `Med: ${r.horimetro ?? r.km_odometro ?? "—"}`,
           "Observações": services.length > 0 ? services.join(", ") : "Abastecimento",
         });
       });

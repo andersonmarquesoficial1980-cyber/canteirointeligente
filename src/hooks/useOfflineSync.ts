@@ -289,43 +289,27 @@ async function syncPendingDiary(item: any) {
     }
 
     const validRefuels = ((payload.comboioRefuels || []) as any[]).filter((r) => r.fleetFueled || r.litersFueled);
-    if (validRefuels.length > 0) {
-      const rows = validRefuels.map((r) => ({
-        diary_id: diaryId,
-        equipment_fleet_fueled: r.fleetFueled || null,
-        equipment_meter: r.equipmentMeter ? Number(r.equipmentMeter) : null,
-        ogs_destination: r.ogsDestination || null,
-        liters_fueled: r.litersFueled ? Number(r.litersFueled) : null,
-        is_lubricated: !!r.isLubricated,
-        is_washed: !!r.isWashed,
-        initial_diesel_balance: payload.comboioSaldoInicial ? Number(payload.comboioSaldoInicial) : null,
-      }));
+    if (validRefuels.length > 0 && !payload.meta?.isDraft) {
+      const abastRows = validRefuels
+        .filter((r) => r.fleetFueled && r.litersFueled)
+        .map((r) => ({
+          company_id: diaryPayload.company_id || null,
+          equipment_fleet: r.fleetFueled,
+          equipment_type: r.tipoEquipamento || null,
+          data: payload.date,
+          hora: r.hora || null,
+          litros: Number(r.litersFueled),
+          horimetro: r.equipmentMeter ? Number(r.equipmentMeter) : null,
+          km_odometro: r.equipmentMeter ? Number(r.equipmentMeter) : null,
+          fonte: "comboio",
+          comboio_fleet: payload.normalizedSelectedFleet || null,
+          diary_id: diaryId,
+          created_by: diaryPayload.created_by || null,
+        }));
 
-      const { error } = await supabase.from("comboio_equipment_refueling").insert(rows);
-      if (error) throw error;
-
-      if (!payload.meta?.isDraft) {
-        const abastRows = validRefuels
-          .filter((r) => r.fleetFueled && r.litersFueled)
-          .map((r) => ({
-            equipment_fleet: r.fleetFueled,
-            equipment_type: r.tipoEquipamento || null,
-            data: payload.date,
-            hora: r.hora || null,
-            litros: Number(r.litersFueled),
-            horimetro: r.equipmentMeter ? Number(r.equipmentMeter) : null,
-            fonte: "comboio",
-            comboio_fleet: payload.normalizedSelectedFleet,
-            lubrificado: !!r.isLubricated,
-            lavado: !!r.isWashed,
-            ogs: r.ogsDestination || null,
-            diary_id: diaryId,
-          }));
-
-        if (abastRows.length > 0) {
-          const { error: abastError } = await supabase.from("abastecimentos").insert(abastRows as any);
-          if (abastError) throw abastError;
-        }
+      if (abastRows.length > 0) {
+        const { error: abastError } = await supabase.from("abastecimentos").insert(abastRows as any);
+        if (abastError) throw abastError;
       }
     }
   }
