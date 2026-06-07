@@ -34,6 +34,19 @@ type Diario = {
   created_by?: string | null;
 };
 
+// Ordena apontamentos respeitando turno noturno (virada de meia-noite)
+// Horários antes de 07:00 são tratados como "dia seguinte"
+const sortTimeEntries = (entries: TimeEntry[]): TimeEntry[] => {
+  const toMinutes = (t: string | null): number => {
+    if (!t) return 0;
+    const [h, m] = t.split(":").map(Number);
+    const mins = (h ?? 0) * 60 + (m ?? 0);
+    // Considera horas de madrugada (< 7h) como pertencentes ao dia seguinte
+    return mins < 7 * 60 ? mins + 24 * 60 : mins;
+  };
+  return [...entries].sort((a, b) => toMinutes(a.start_time) - toMinutes(b.start_time));
+};
+
 type TimeEntry = {
   id: string;
   diary_id: string | null;
@@ -251,6 +264,10 @@ export default function RelatorioEquipamento() {
         timeByDiary[t.diary_id].push(t as TimeEntry);
       }
     });
+    // Reordena cada grupo respeitando virada de meia-noite
+    Object.keys(timeByDiary).forEach(id => {
+      timeByDiary[id] = sortTimeEntries(timeByDiary[id]);
+    });
 
     // Agrupa produção detalhada por diary_id
     const areasByDiary: Record<string, ProductionArea[]> = {};
@@ -315,7 +332,7 @@ export default function RelatorioEquipamento() {
 
     setTimeEntriesMap((prev) => ({
       ...prev,
-      [diaryId]: (timeRes.data || []) as TimeEntry[],
+      [diaryId]: sortTimeEntries((timeRes.data || []) as TimeEntry[]),
     }));
     setAreasDetailMap((prev) => ({
       ...prev,

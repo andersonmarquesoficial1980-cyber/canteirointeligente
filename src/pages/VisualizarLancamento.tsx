@@ -22,6 +22,17 @@ function fmtNumber(value: number | null | undefined, decimals = 1) {
   return Number(value).toFixed(decimals);
 }
 
+// Ordena apontamentos respeitando turno noturno (virada de meia-noite)
+const sortTimeEntries = (entries: any[]): any[] => {
+  const toMinutes = (t: string | null | undefined): number => {
+    if (!t) return 0;
+    const [h, m] = t.split(":").map(Number);
+    const mins = (h ?? 0) * 60 + (m ?? 0);
+    return mins < 7 * 60 ? mins + 24 * 60 : mins;
+  };
+  return [...entries].sort((a, b) => toMinutes(a.start_time) - toMinutes(b.start_time));
+};
+
 function calculateWorkedHours(timeEntries: any[]) {
   const PARADAS = ["Refeições", "À Disposição", "Manutenção"];
   let total = 0;
@@ -195,7 +206,7 @@ export default function VisualizarLancamento() {
         if (timeError) throw timeError;
         if (!diaryRow) { setError("Lançamento não encontrado."); setDiary(null); return; }
         setDiary(diaryRow);
-        setTimeEntries(timeRows || []);
+        setTimeEntries(sortTimeEntries(timeRows || []));
         setAreas(areaRows || []);
         setBits(bitRows || []);
       } catch (err: any) {

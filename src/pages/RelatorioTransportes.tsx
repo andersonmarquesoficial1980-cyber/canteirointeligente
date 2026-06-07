@@ -25,6 +25,17 @@ function parseEquipamentos(desc: string | null): [string, string, string] {
   return [parts[0] || "", parts[1] || "", parts[2] || ""];
 }
 
+// Ordena apontamentos respeitando turno noturno (virada de meia-noite)
+const sortTimeEntries = (entries: any[]): any[] => {
+  const toMinutes = (t: string | null | undefined): number => {
+    if (!t) return 0;
+    const [h, m] = t.split(":").map(Number);
+    const mins = (h ?? 0) * 60 + (m ?? 0);
+    return mins < 7 * 60 ? mins + 24 * 60 : mins;
+  };
+  return [...entries].sort((a, b) => toMinutes(a.start_time) - toMinutes(b.start_time));
+};
+
 function mapEntry(row: any) {
   const [eq1, eq2, eq3] = parseEquipamentos(row.description);
   return {
@@ -105,6 +116,8 @@ export default function RelatorioTransportes() {
         if (!map[e.diary_id]) map[e.diary_id] = [];
         map[e.diary_id].push(e);
       });
+      // Reordena cada grupo respeitando virada de meia-noite
+      Object.keys(map).forEach(id => { map[id] = sortTimeEntries(map[id]); });
       setEntriesByDiary(map);
     } else {
       setEntriesByDiary({});
