@@ -153,19 +153,19 @@ export default function ExportarProtheus() {
       const bitsMap: Record<string, any[]> = {};
       const prodMap: Record<string, any[]> = {};
 
-      // Ordenar time_entries por horário considerando turno noturno (cruzamento de meia-noite)
-      // Para turno noturno: horários 00h-11h representam o "dia seguinte" → somamos 24h para ordenar corretamente
-      function sortTimeEntries(entries: any[], period: string): any[] {
-        const isNoturno = (period || "").toLowerCase().includes("not");
+      // Ordena apontamentos respeitando virada de meia-noite.
+      // Horários antes de 07h são tratados como "dia seguinte" independente do turno cadastrado,
+      // pois usuários frequentemente lançam turnos noturnos como "diurno" por engano.
+      function sortTimeEntries(entries: any[], _period?: string): any[] {
         return [...entries].sort((a, b) => {
           const toMinutes = (t: string) => {
             if (!t) return 0;
             const parts = t.split(":");
-            let h = parseInt(parts[0]) || 0;
+            const h = parseInt(parts[0]) || 0;
             const m = parseInt(parts[1]) || 0;
-            // Para turno noturno: madrugada (00h-11h59) = após meia-noite = +24h
-            if (isNoturno && h < 12) h += 24;
-            return h * 60 + m;
+            const mins = h * 60 + m;
+            // Madrugada (00h-06h59) = após meia-noite = +24h
+            return mins < 7 * 60 ? mins + 24 * 60 : mins;
           };
           return toMinutes(a.start_time) - toMinutes(b.start_time);
         });
