@@ -153,9 +153,36 @@ export default function ExportarProtheus() {
       const bitsMap: Record<string, any[]> = {};
       const prodMap: Record<string, any[]> = {};
 
+      // Ordenar time_entries por horário considerando turno noturno (cruzamento de meia-noite)
+      // Para turno noturno: horários 00h-11h representam o "dia seguinte" → somamos 24h para ordenar corretamente
+      function sortTimeEntries(entries: any[], period: string): any[] {
+        const isNoturno = (period || "").toLowerCase().includes("not");
+        return [...entries].sort((a, b) => {
+          const toMinutes = (t: string) => {
+            if (!t) return 0;
+            const parts = t.split(":");
+            let h = parseInt(parts[0]) || 0;
+            const m = parseInt(parts[1]) || 0;
+            // Para turno noturno: madrugada (00h-11h59) = após meia-noite = +24h
+            if (isNoturno && h < 12) h += 24;
+            return h * 60 + m;
+          };
+          return toMinutes(a.start_time) - toMinutes(b.start_time);
+        });
+      }
+
+      // Criar mapa de período por diary_id
+      const periodMap: Record<string, string> = {};
+      (diarios ?? []).forEach((d: any) => { periodMap[d.id] = d.period || ""; });
+
       (timeEntries ?? []).forEach((t: any) => {
         if (!timeMap[t.diary_id]) timeMap[t.diary_id] = [];
         timeMap[t.diary_id].push(t);
+      });
+
+      // Reordenar cada grupo de time_entries pelo turno do diário
+      Object.keys(timeMap).forEach(diaryId => {
+        timeMap[diaryId] = sortTimeEntries(timeMap[diaryId], periodMap[diaryId] || "");
       });
       (bitsEntries ?? []).forEach((b: any) => {
         if (!bitsMap[b.diary_id]) bitsMap[b.diary_id] = [];
