@@ -159,7 +159,7 @@ async function exportarExcelPeriodo(ini: string, fim: string, ogsData: any[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Transportes_Carreta_${ini}_a_${fim}.csv`;
+  a.download = `WF_Carreta_${ini}_a_${fim}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

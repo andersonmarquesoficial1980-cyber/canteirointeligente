@@ -278,7 +278,8 @@ export default function ExportarProtheus() {
       const nomeAba = tipoEquip.replace(/\s/g, "_").toUpperCase();
       XLSX.utils.book_append_sheet(wb, ws, nomeAba);
 
-      const nomeArquivo = `CI_Equipamentos_${tipoEquip.replace(/\s/g,"_")}_${mes}-${ano}.xlsx`;
+      const mesLabel = MONTHS.find(m => m.value === mes)?.label || mes;
+      const nomeArquivo = `WF_Protheus_${tipoEquip.replace(/\s/g,"_")}_${mesLabel}_${ano}.xlsx`;
       XLSX.writeFile(wb, nomeArquivo);
 
       setTotal(diarios.length);

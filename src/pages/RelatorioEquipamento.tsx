@@ -441,7 +441,14 @@ export default function RelatorioEquipamento() {
     rows.push(["Tipo Combustível:", selectedDiary.fuel_type || "-", "Litros:", fmtNum(toNum(selectedDiary.fuel_liters).toFixed(2)), "Horímetro:", fmtNum(selectedDiary.fuel_meter)]);
 
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Relatório");
-    XLSX.writeFile(wb, `Relatorio_${fleetParam}_${fmtDate(selectedDiary.date)}.xlsx`);
+    const MONTH_NAMES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const mesNome = MONTH_NAMES[parseInt(mes, 10) - 1] || mes;
+    const tipoLabel = (selectedDiary.equipment_type || "Equipamento").replace(/\s/g, "_");
+    const frotaLabel = fleetParam.replace(/\s/g, "_");
+    const nomeArq = modoPeriodo
+      ? `WF_${tipoLabel}_${frotaLabel}_${urlIni}_a_${urlFim}.xlsx`
+      : `WF_${tipoLabel}_${frotaLabel}_${mesNome}_${ano}.xlsx`;
+    XLSX.writeFile(wb, nomeArq);
   }
 
   function imprimirPDF() {

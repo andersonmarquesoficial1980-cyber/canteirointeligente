@@ -177,7 +177,7 @@ export default function RelatorioCarreteiros() {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(incompRows), "Incompletas");
     }
 
-    XLSX.writeFile(wb, `Carreteiros_${mesLabel}_${ano}.xlsx`);
+    XLSX.writeFile(wb, `WF_Carreteiros_${mesLabel}_${ano}.xlsx`);
   }
 
   const mesLabel = MONTHS.find(m => m.v === mes)?.l || mes;

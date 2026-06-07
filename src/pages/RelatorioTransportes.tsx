@@ -184,7 +184,8 @@ export default function RelatorioTransportes() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Transportes_${ini}_a_${fim}.csv`;
+    const frotaSufixo = frotaParam && frotaParam !== "TODAS" ? `_${frotaParam.replace(/\s/g,"_")}` : "";
+    a.download = `WF_Transportes${frotaSufixo}_${ini}_a_${fim}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

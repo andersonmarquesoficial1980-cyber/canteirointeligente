@@ -75,7 +75,8 @@ function exportarExcel(fleet: string, rows: AbastecimentoRow[], ini: string, fim
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Abastecimento_${fleet}_${ini}_${fim}.csv`;
+  const frotaSuf = fleet && fleet !== "TODAS" ? `_${fleet.replace(/\s/g,"_")}` : "";
+  a.download = `WF_Abastecimento${frotaSuf}_${ini}_a_${fim}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

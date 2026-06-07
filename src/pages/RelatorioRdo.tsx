@@ -182,7 +182,7 @@ function exportarExcel(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `RDO_OGS${ogs}.csv`;
+  a.download = `WF_RDO_OGS${ogs}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
