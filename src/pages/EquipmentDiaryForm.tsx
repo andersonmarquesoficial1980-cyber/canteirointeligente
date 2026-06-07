@@ -1166,17 +1166,33 @@ export default function EquipmentDiaryForm() {
     const hasTimeEntriesType = isFresadora || isRolo || isBobcat || isRetro || isVibro || isUsinaKma || isCaminhoes || isComboio || isVeiculo;
     if (hasHorProgress && hasTimeEntriesType && !isDraft && workStatus === "Trabalhando") {
       const validEntries = timeEntries.filter(t => t.startTime && t.activity);
+      const partialEntries = timeEntries.filter(t => (t.startTime || t.activity) && !(t.startTime && t.activity));
       if (validEntries.length === 0) {
         toast({ title: "⚠️ Apontamentos obrigatórios", description: `Horímetro avançou ${horasTrabalhadas}h — preencha pelo menos 1 apontamento de horas antes de enviar.`, variant: "destructive" });
         return cancelSave();
+      }
+      // Avisar se há apontamentos incompletos que serão ignorados
+      if (partialEntries.length > 0) {
+        const confirmSave = window.confirm(
+          `⚠️ Atenção: ${partialEntries.length} apontamento(s) estão incompletos (sem horário ou sem atividade) e serão DESCARTADOS.\n\nDeseja continuar mesmo assim?`
+        );
+        if (!confirmSave) return cancelSave();
       }
     }
     // Carreta: exige pelo menos 1 apontamento de transporte
     if (isCarreta && !isDraft) {
       const validEntries = timeEntries.filter(t => t.startTime && t.activity);
+      const partialEntries = timeEntries.filter(t => (t.startTime || t.activity) && !(t.startTime && t.activity));
       if (validEntries.length === 0) {
         toast({ title: "⚠️ Apontamentos obrigatórios", description: "Preencha pelo menos 1 apontamento de transporte com horário e atividade antes de enviar.", variant: "destructive" });
         return cancelSave();
+      }
+      // Avisar se há apontamentos incompletos que serão ignorados
+      if (partialEntries.length > 0) {
+        const confirmSave = window.confirm(
+          `⚠️ Atenção: ${partialEntries.length} apontamento(s) estão incompletos (sem horário ou sem atividade) e serão DESCARTADOS.\n\nDeseja continuar mesmo assim?`
+        );
+        if (!confirmSave) return cancelSave();
       }
     }
     // Fresadora: área de produção obrigatória quando Trabalhando
