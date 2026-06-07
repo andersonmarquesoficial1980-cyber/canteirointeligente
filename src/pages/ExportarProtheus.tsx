@@ -193,6 +193,17 @@ export default function ExportarProtheus() {
         prodMap[p.diary_id].push(p);
       });
 
+      // Corrige turno baseado no primeiro horário lançado (independente do que o operador escolheu)
+      // Diurno: primeiro start_time entre 04:00 e 17:59 | Noturno: 18:00-23:59 ou 00:00-03:59
+      function inferirTurno(times: any[], periodOriginal: string): string {
+        const primeiro = times[0]?.start_time;
+        if (!primeiro) return periodOriginal; // sem apontamentos, mantém o original
+        const [h, m] = primeiro.split(":").map(Number);
+        const mins = (h ?? 0) * 60 + (m ?? 0);
+        if (mins >= 4 * 60 && mins < 18 * 60) return "diurno";
+        return "noturno";
+      }
+
       // 4. Montar planilha
       const comAuxiliar = TEM_AUXILIAR.includes(tipoEquip);
       const comProducao = TEM_PRODUCAO.includes(tipoEquip);
@@ -201,6 +212,7 @@ export default function ExportarProtheus() {
         const times  = (timeMap[d.id] ?? []).slice(0, 10);
         const bits   = (bitsMap[d.id] ?? [])[0];
         const prods  = (prodMap[d.id] ?? []).slice(0, 25);
+        const turnoCorrigido = inferirTurno(timeMap[d.id] ?? [], d.period ?? "");
 
         const row: any[] = [
           fmtDate(d.date),
@@ -212,7 +224,7 @@ export default function ExportarProtheus() {
           d.client_name ?? "",
           d.location_address ?? "",
           d.work_status ?? "",
-          d.period ?? "",
+          turnoCorrigido,
           tipoEquip === "Carreta" ? fmtNum(d.odometer_initial) : fmtNum(d.meter_initial),
           tipoEquip === "Carreta" ? fmtNum(d.odometer_final) : fmtNum(d.meter_final),
         ];
