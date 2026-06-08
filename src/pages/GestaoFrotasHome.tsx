@@ -26,6 +26,12 @@ interface Veiculo {
   tipo?: string;
 }
 
+function fmtDate(d: string) {
+  if (!d) return "";
+  const [y, m, day] = d.split("-");
+  return `${day}/${m}/${y}`;
+}
+
 interface MedidorInfo {
   valor: number;
   tipo: "horímetro" | "odômetro";
