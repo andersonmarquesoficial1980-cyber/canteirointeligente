@@ -49,6 +49,8 @@ function buildHeader(tipoEquip: string): string[] {
   const comProducao = TEM_PRODUCAO.includes(tipoEquip);
 
   const h: string[] = [
+    "HORA DE CONCLUSÃO",
+    "NOME COMPLETO DE QUEM ESTÁ PREENCHENDO",
     "DATA",
     "OPERADOR",
     ...(comAuxiliar ? ["AUXILIAR"] : []),
@@ -148,6 +150,19 @@ export default function ExportarProtheus() {
         supabase.from("equipment_production_areas").select("*").in("diary_id", diaryIds).limit(10000),
       ]);
 
+      // 2b. Buscar nomes de quem preencheu (created_by → profiles.nome_completo)
+      const createdByIds = [...new Set((diarios ?? []).map((d: any) => d.created_by).filter(Boolean))];
+      const profileMap: Record<string, string> = {};
+      if (createdByIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("user_id, nome_completo")
+          .in("user_id", createdByIds);
+        (profilesData || []).forEach((p: any) => {
+          if (p.user_id) profileMap[p.user_id] = p.nome_completo || "";
+        });
+      }
+
       // 3. Montar mapas por diary_id
       const timeMap: Record<string, any[]> = {};
       const bitsMap: Record<string, any[]> = {};
@@ -214,7 +229,15 @@ export default function ExportarProtheus() {
         const prods  = (prodMap[d.id] ?? []).slice(0, 25);
         const turnoCorrigido = inferirTurno(timeMap[d.id] ?? [], d.period ?? "");
 
+        // Data/hora de preenchimento no fuso de Brasília
+        const createdAtBR = d.created_at
+          ? new Date(d.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+          : "";
+        const preenchidoPor = profileMap[d.created_by] ?? "";
+
         const row: any[] = [
+          createdAtBR,
+          preenchidoPor,
           fmtDate(d.date),
           d.operator_name ?? "",
           ...(comAuxiliar ? [d.operator_solo ?? ""] : []),
