@@ -1152,6 +1152,19 @@ function NotificationTargetsManager() {
 // Users manager
 function UsersManager() {
   const LOGIN_DOMAIN = "@workflux.app";
+
+  // Templates de permissão por perfil — aplicados automaticamente ao criar usuário
+  const PERFIL_PERMISSIONS: Record<string, Record<string, boolean>> = {
+    "Administrador":      { is_admin: true,  modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: true,  modulo_carreteiros: true,  modulo_programador: true,  modulo_demandas: true,  modulo_manutencao: true,  modulo_abastecimento: true,  modulo_documentos: true,  modulo_relatorios: true,  modulo_dashboard: true  },
+    "Gerente":            { is_admin: true,  modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: true,  modulo_carreteiros: true,  modulo_programador: false, modulo_demandas: true,  modulo_manutencao: true,  modulo_abastecimento: true,  modulo_documentos: true,  modulo_relatorios: true,  modulo_dashboard: true  },
+    "Engenheiro":         { is_admin: false, modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: true,  modulo_dashboard: false },
+    "Segurança":          { is_admin: false, modulo_obras: false, modulo_equipamentos: false, modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: true,  modulo_relatorios: false, modulo_dashboard: false },
+    "Manutenção":         { is_admin: false, modulo_obras: false, modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: true,  modulo_abastecimento: true,  modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
+    "Gestão de Pessoas":  { is_admin: false, modulo_obras: false, modulo_equipamentos: false, modulo_rh: true,  modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
+    "Gestão de Frotas":   { is_admin: false, modulo_obras: false, modulo_equipamentos: false, modulo_rh: false, modulo_carreteiros: true,  modulo_programador: false, modulo_demandas: true,  modulo_manutencao: false, modulo_abastecimento: true,  modulo_documentos: false, modulo_relatorios: true,  modulo_dashboard: false },
+    "Apontador":          { is_admin: false, modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
+    "Operador":           { is_admin: false, modulo_obras: false, modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
+  };
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [nome, setNome] = useState("");
@@ -1222,7 +1235,18 @@ function UsersManager() {
         throw new Error(errorMsg);
       }
 
-      toast({ title: "✅ Usuário cadastrado com sucesso!" });
+      // Aplica template de permissões baseado no perfil escolhido
+      if (result?.user_id) {
+        const template = PERFIL_PERMISSIONS[perfil];
+        if (template) {
+          await supabase.from("user_permissions").upsert(
+            { user_id: result.user_id, ...template, equipamentos_permitidos: [], updated_at: new Date().toISOString() },
+            { onConflict: "user_id" }
+          );
+        }
+      }
+
+      toast({ title: "✅ Usuário cadastrado com sucesso!", description: `Permissões do perfil ${perfil} aplicadas automaticamente.` });
       setNome(""); setLogin(""); setPassword(""); setPerfil("Apontador");
       await load();
     } catch (err: any) {
@@ -1345,8 +1369,12 @@ function UsersManager() {
             <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Administrador">Administrador</SelectItem>
-              <SelectItem value="Gerente">Gerente (admin sem excluir)</SelectItem>
+              <SelectItem value="Gerente">Gerente</SelectItem>
               <SelectItem value="Engenheiro">Engenheiro</SelectItem>
+              <SelectItem value="Segurança">Segurança</SelectItem>
+              <SelectItem value="Manutenção">Manutenção</SelectItem>
+              <SelectItem value="Gestão de Pessoas">Gestão de Pessoas</SelectItem>
+              <SelectItem value="Gestão de Frotas">Gestão de Frotas</SelectItem>
               <SelectItem value="Apontador">Apontador</SelectItem>
               <SelectItem value="Operador">Operador / Motorista</SelectItem>
             </SelectContent>
@@ -1448,8 +1476,12 @@ function UsersManager() {
                 <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Administrador">Administrador</SelectItem>
-                  <SelectItem value="Gerente">Gerente (admin sem excluir)</SelectItem>
+                  <SelectItem value="Gerente">Gerente</SelectItem>
                   <SelectItem value="Engenheiro">Engenheiro</SelectItem>
+                  <SelectItem value="Segurança">Segurança</SelectItem>
+                  <SelectItem value="Manutenção">Manutenção</SelectItem>
+                  <SelectItem value="Gestão de Pessoas">Gestão de Pessoas</SelectItem>
+                  <SelectItem value="Gestão de Frotas">Gestão de Frotas</SelectItem>
                   <SelectItem value="Apontador">Apontador</SelectItem>
                   <SelectItem value="Operador">Operador / Motorista</SelectItem>
                 </SelectContent>

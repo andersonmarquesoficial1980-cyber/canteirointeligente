@@ -5,7 +5,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PERFIS_VALIDOS = ["Operador", "Apontador", "Administrador", "Motorista"];
+const PERFIS_VALIDOS = [
+  "Operador", "Apontador", "Administrador", "Motorista",
+  "Gerente", "Engenheiro", "Segurança", "Manutenção",
+  "Gestão de Pessoas", "Gestão de Frotas",
+];
 
 function buildPermissions(perfil: string) {
   const base = {
@@ -24,25 +28,20 @@ function buildPermissions(perfil: string) {
     modulo_dashboard: false,
   };
 
-  if (perfil === "Operador" || perfil === "Motorista") {
-    return { ...base, modulo_equipamentos: true };
-  }
+  const templates: Record<string, Partial<typeof base>> = {
+    "Administrador":     { is_admin: true,  modulo_admin: true,  modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: true,  modulo_carreteiros: true,  modulo_demandas: true,  modulo_manutencao: true,  modulo_abastecimento: true,  modulo_documentos: true,  modulo_relatorios: true,  modulo_dashboard: true  },
+    "Gerente":           { is_admin: true,  modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: true,  modulo_carreteiros: true,  modulo_demandas: true,  modulo_manutencao: true,  modulo_abastecimento: true,  modulo_documentos: true,  modulo_relatorios: true,  modulo_dashboard: true  },
+    "Engenheiro":        { modulo_obras: true,  modulo_equipamentos: true,  modulo_relatorios: true  },
+    "Segurança":         { modulo_documentos: true  },
+    "Manutenção":        { modulo_equipamentos: true,  modulo_manutencao: true,  modulo_abastecimento: true  },
+    "Gestão de Pessoas": { modulo_rh: true  },
+    "Gestão de Frotas":  { modulo_carreteiros: true,  modulo_demandas: true,  modulo_abastecimento: true,  modulo_relatorios: true  },
+    "Apontador":         { modulo_obras: true,  modulo_equipamentos: true  },
+    "Operador":          { modulo_equipamentos: true  },
+    "Motorista":         { modulo_equipamentos: true  },
+  };
 
-  if (perfil === "Apontador") {
-    return { ...base, modulo_obras: true };
-  }
-
-  if (perfil === "Administrador") {
-    return {
-      ...base,
-      is_admin: true,
-      modulo_admin: true,
-      modulo_obras: true,
-      modulo_equipamentos: true,
-    };
-  }
-
-  return base;
+  return { ...base, ...(templates[perfil] ?? {}) };
 }
 
 Deno.serve(async (req) => {
@@ -146,7 +145,7 @@ Deno.serve(async (req) => {
         company_id,
         status: "ativo",
         senha_temporaria: true,
-        role: perfil === "Administrador" ? "admin" : null,
+        role: ["Administrador", "Gerente"].includes(perfil) ? "admin" : "user",
       });
 
     if (profileError) {
@@ -175,7 +174,7 @@ Deno.serve(async (req) => {
       .upsert(
         {
           user_id: userId,
-          role: perfil === "Administrador" ? "admin" : "apontador",
+          role: ["Administrador", "Gerente"].includes(perfil) ? "admin" : "user",
         },
         { onConflict: "user_id" }
       );
