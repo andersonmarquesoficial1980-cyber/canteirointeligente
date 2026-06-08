@@ -197,8 +197,9 @@ serve(async (req) => {
       userId = newUser.user.id;
     }
 
-    const perfilDb = ["Administrador", "Gerente", "Apontador", "Operador"].includes(perfil) ? perfil : "Apontador";
-    const role = (perfil === "Administrador" || perfil === "Gerente") ? "admin" : "apontador";
+    const PERFIS_ACEITOS = ["Administrador", "Gerente", "Engenheiro", "Segurança", "Manutenção", "Gestão de Pessoas", "Gestão de Frotas", "Apontador", "Operador", "Motorista"];
+    const perfilDb = PERFIS_ACEITOS.includes(perfil) ? perfil : "Apontador";
+    const role = ["Administrador", "Gerente"].includes(perfil) ? "admin" : "user";
     const can_delete = perfil === "Administrador";
     const can_create_users = perfil === "Administrador";
     const normalizedLogin =
