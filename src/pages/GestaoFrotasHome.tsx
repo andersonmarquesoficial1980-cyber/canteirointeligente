@@ -22,6 +22,14 @@ interface Veiculo {
   status: string;
   observacoes: string;
   valor_mensal: number;
+  condicao?: string;
+  tipo?: string;
+}
+
+interface MedidorInfo {
+  valor: number;
+  tipo: "horímetro" | "odômetro";
+  data: string;
 }
 
 // Tipos principais e seus subtipos
@@ -71,6 +79,7 @@ export default function GestaoFrotasHome() {
   const navigate = useNavigate();
   const [todos, setTodos] = useState<Veiculo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [medidoresMap, setMedidoresMap] = useState<Record<string, MedidorInfo>>({});
 
   // Cascata
   const [step, setStep] = useState<"tipo" | "subtipo" | "lista" | "dashboard">("tipo");
@@ -83,8 +92,59 @@ export default function GestaoFrotasHome() {
   async function buscarTodos() {
     setLoading(true);
     const { data } = await (supabase as any).from("equipamentos").select("*").eq("status", "ativo").order("tipo,frota");
-    if (data) setTodos(data);
+    if (data) {
+      setTodos(data);
+      // Buscar últimos horímetros/odômetros dos diários em paralelo
+      buscarMedidores(data);
+    }
     setLoading(false);
+  }
+
+  async function buscarMedidores(veiculos: Veiculo[]) {
+    if (!veiculos.length) return;
+    const frotas = veiculos.map(v => v.codigo_custo || v.placa).filter(Boolean);
+    const [{ data: diarios }, { data: abastecs }] = await Promise.all([
+      (supabase as any)
+        .from("equipment_diaries")
+        .select("equipment_fleet,equipment_type,meter_final,odometer_final,date")
+        .in("equipment_fleet", frotas)
+        .or("meter_final.not.is.null,odometer_final.not.is.null")
+        .order("date", { ascending: false }),
+      (supabase as any)
+        .from("abastecimentos")
+        .select("equipment_fleet,horimetro,km_odometro,data")
+        .in("equipment_fleet", frotas)
+        .or("horimetro.not.is.null,km_odometro.not.is.null")
+        .order("data", { ascending: false }),
+    ]);
+
+    const map: Record<string, MedidorInfo> = {};
+
+    // Processar diários — pega o mais recente por frota
+    (diarios || []).forEach((d: any) => {
+      const frota = d.equipment_fleet;
+      if (!frota) return;
+      const usaOdometro = ["Carreta", "Caminhões", "Veículo", "Comboio"].includes(d.equipment_type || "");
+      const valor = usaOdometro ? d.odometer_final : d.meter_final;
+      if (valor == null) return;
+      if (!map[frota] || d.date > map[frota].data) {
+        map[frota] = { valor: Number(valor), tipo: usaOdometro ? "odômetro" : "horímetro", data: d.date };
+      }
+    });
+
+    // Processar abastecimentos — substitui se mais recente
+    (abastecs || []).forEach((a: any) => {
+      const frota = a.equipment_fleet;
+      if (!frota) return;
+      const temKm = a.km_odometro != null;
+      const valor = temKm ? a.km_odometro : a.horimetro;
+      if (valor == null) return;
+      if (!map[frota] || a.data > map[frota].data) {
+        map[frota] = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro", data: a.data };
+      }
+    });
+
+    setMedidoresMap(map);
   }
 
   function voltar() {
@@ -278,6 +338,20 @@ export default function GestaoFrotasHome() {
                     {v.condutor_atual && <span>👤 {v.condutor_atual}</span>}
                     {v.valor_mensal > 0 && <span className="text-orange-600 font-semibold">{formatBRL(v.valor_mensal)}/mês</span>}
                   </div>
+                  {/* Horímetro / Odômetro */}
+                  {(() => {
+                    const frota = v.codigo_custo || v.placa;
+                    const med = medidoresMap[frota];
+                    if (!med) return null;
+                    return (
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                          {med.tipo === "odômetro" ? "📍" : "⏱"} {med.tipo === "odômetro" ? `${med.valor.toLocaleString("pt-BR")} km` : `${med.valor.toLocaleString("pt-BR")} h`}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">em {fmtDate(med.data)}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
               </button>

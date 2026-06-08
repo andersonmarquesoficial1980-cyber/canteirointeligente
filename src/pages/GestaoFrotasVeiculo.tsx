@@ -3,8 +3,15 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Edit2, Save, UserCheck, History, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit2, Save, UserCheck, History, FileText, Loader2, Gauge } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+
+type MedidorAtual = {
+  valor: number;
+  tipo: "horímetro" | "odômetro";
+  data: string;
+  fonte: string; // "Diário" | "Abastecimento"
+} | null;
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -24,6 +31,7 @@ export default function GestaoFrotasVeiculo() {
   const [novoCondutor, setNovoCondutor] = useState("");
   const [motivoTroca, setMotivoTroca] = useState("");
   const [trocandoCondutor, setTrocandoCondutor] = useState(false);
+  const [medidorAtual, setMedidorAtual] = useState<MedidorAtual>(null);
 
   useEffect(() => { if (id) buscarDados(); }, [id]);
 
@@ -40,6 +48,51 @@ export default function GestaoFrotasVeiculo() {
     if (v) {
       const { data: docsByPlaca } = await supabase.from("manutencao_documentos").select("*").eq("equipment_fleet", v.placa);
       setDocumentos(docsByPlaca || d || []);
+
+      // Buscar último horímetro/odômetro dos diários
+      const frota = v.frota || v.placa;
+      const usaOdometro = ["CAMINHÃO", "CARRETA", "VEÍCULO", "VAN", "MICRO-ÔNIBUS"].some(
+        t => (v.tipo || "").toUpperCase().includes(t)
+      );
+
+      const [{ data: ultimoDiario }, { data: ultimoAbastec }] = await Promise.all([
+        (supabase as any)
+          .from("equipment_diaries")
+          .select(usaOdometro ? "odometer_final,date,created_at" : "meter_final,date,created_at")
+          .eq("equipment_fleet", frota)
+          .not(usaOdometro ? "odometer_final" : "meter_final", "is", null)
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        (supabase as any)
+          .from("abastecimentos")
+          .select(usaOdometro ? "km_odometro,data,created_at" : "horimetro,data,created_at")
+          .eq("equipment_fleet", frota)
+          .not(usaOdometro ? "km_odometro" : "horimetro", "is", null)
+          .order("data", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      // Escolhe o mais recente entre diário e abastecimento
+      const valorDiario = ultimoDiario ? (usaOdometro ? ultimoDiario.odometer_final : ultimoDiario.meter_final) : null;
+      const dataDiario = ultimoDiario?.date || null;
+      const valorAbastec = ultimoAbastec ? (usaOdometro ? ultimoAbastec.km_odometro : ultimoAbastec.horimetro) : null;
+      const dataAbastec = ultimoAbastec?.data || null;
+
+      // Compara por data para pegar o mais atual
+      let melhor: MedidorAtual = null;
+      if (valorDiario != null && dataDiario) {
+        melhor = { valor: Number(valorDiario), tipo: usaOdometro ? "odômetro" : "horímetro", data: dataDiario, fonte: "Diário" };
+      }
+      if (valorAbastec != null && dataAbastec) {
+        if (!melhor || dataAbastec >= melhor.data) {
+          melhor = { valor: Number(valorAbastec), tipo: usaOdometro ? "odômetro" : "horímetro", data: dataAbastec, fonte: "Abastecimento" };
+        }
+      }
+      setMedidorAtual(melhor);
     }
     setLoading(false);
   }
@@ -107,6 +160,37 @@ export default function GestaoFrotasVeiculo() {
             })}
           </div>
         )}
+
+        {/* Horímetro / Odômetro atual */}
+        <div className={`rdo-card flex items-center gap-4 ${
+          medidorAtual ? "border-l-4 border-l-primary" : "border-l-4 border-l-muted"
+        }`}>
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <Gauge className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+              {medidorAtual?.tipo === "odômetro" ? "Odômetro Atual" : "Horímetro Atual"}
+            </p>
+            {medidorAtual ? (
+              <>
+                <p className="text-xl font-display font-extrabold text-primary leading-tight">
+                  {medidorAtual.tipo === "odômetro"
+                    ? `${medidorAtual.valor.toLocaleString("pt-BR")} km`
+                    : `${medidorAtual.valor.toLocaleString("pt-BR")} h`}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Última atualização: {fmtDate(medidorAtual.data)} • via {medidorAtual.fonte}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-muted-foreground">Sem lançamentos</p>
+                <p className="text-[11px] text-muted-foreground">Nenhum diário ou abastecimento registrado</p>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Dados do veículo */}
         <div className="rdo-card space-y-3">
