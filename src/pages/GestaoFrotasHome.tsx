@@ -160,8 +160,12 @@ export default function GestaoFrotasHome() {
       const usaOdometro = ["Carreta", "Caminhões", "Veículo", "Comboio"].includes(d.equipment_type || "");
       const valor = usaOdometro ? d.odometer_final : d.meter_final;
       if (valor == null) return;
+      const entry = { valor: Number(valor), tipo: usaOdometro ? "odômetro" : "horímetro" as const, data: d.date };
       if (!map[frotaChave] || d.date > map[frotaChave].data) {
-        map[frotaChave] = { valor: Number(valor), tipo: usaOdometro ? "odômetro" : "horímetro", data: d.date };
+        map[frotaChave] = entry;
+        // Indexa também pela frota normalizada e pela frota do diário
+        map[normFrota(frotaChave)] = entry;
+        map[frotaDiario] = entry;
       }
     });
 
@@ -173,8 +177,11 @@ export default function GestaoFrotasHome() {
       const temKm = a.km_odometro != null;
       const valor = temKm ? a.km_odometro : a.horimetro;
       if (valor == null) return;
+      const entryA = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro" as const, data: a.data };
       if (!map[frotaChave] || a.data > map[frotaChave].data) {
-        map[frotaChave] = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro", data: a.data };
+        map[frotaChave] = entryA;
+        map[normFrota(frotaChave)] = entryA;
+        map[frotaAbastec] = entryA;
       }
     });
 
@@ -415,10 +422,10 @@ export default function GestaoFrotasHome() {
                   </div>
                   {/* Horímetro / Odômetro */}
                   {(() => {
-                    const normFrota = (f: string) => f.replace(/([A-Za-z]+)0+(\d+)$/, '$1$2');
                     const frotaBase = v.frota || v.placa;
-                    const frota = normFrota(frotaBase);
-                    const med = medidoresMap[frota];
+                    // Tenta a frota original primeiro, depois normalizada
+                    const normFrota = (f: string) => f.replace(/([A-Za-z]+)0+(\d+)$/, '$1$2');
+                    const med = medidoresMap[frotaBase] || medidoresMap[normFrota(frotaBase)];
                     if (!med) return null;
                     return (
                       <div className="flex items-center gap-1 mt-1">
