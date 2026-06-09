@@ -46,12 +46,14 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
     [tipo],
   );
 
-  // Bloqueio desativado temporariamente durante implantação
-  if (DIARY_DEADLINE_DISABLED) {
-    return { isBlocked: false, isLoading: false, prazoLabel };
-  }
-
   useEffect(() => {
+    // Bloqueio desativado temporariamente durante implantação
+    if (DIARY_DEADLINE_DISABLED) {
+      setIsBlocked(false);
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function checkUnlock() {
