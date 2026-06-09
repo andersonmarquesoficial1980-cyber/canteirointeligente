@@ -9,16 +9,17 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface Veiculo {
   id: string;
-  codigo_custo: string;
+  frota: string;       // código da frota (CM001, FRS01 etc)
   placa: string;
-  modelo: string;
+  nome: string;        // nome curto
+  modelo_completo: string; // descrição completa
   ano: string;
   setor: string;
   condutor_atual: string;
   tipo_veiculo: string;
   categoria: string;
   locadora: string;
-  frota_operacional: string;
+  empresa_proprietaria: string;
   status: string;
   observacoes: string;
   valor_mensal: number;
@@ -116,7 +117,12 @@ export default function GestaoFrotasHome() {
 
   async function buscarMedidores(veiculos: Veiculo[]) {
     if (!veiculos.length) return;
-    const frotas = veiculos.map(v => v.codigo_custo || v.placa).filter(Boolean);
+    // Normaliza frota: remove zeros à esquerda após letras (CM001 → CM01, CM004 → CM04)
+    const normalizarFrota = (f: string) => f.replace(/([A-Za-z]+)0+(\d+)$/, '$1$2');
+    const frotas = veiculos.flatMap(v => {
+      const f = v.frota || v.placa;
+      return f ? [f, normalizarFrota(f)] : [];
+    }).filter(Boolean);
     const [{ data: diarios }, { data: abastecs }] = await Promise.all([
       (supabase as any)
         .from("equipment_diaries")
@@ -134,27 +140,41 @@ export default function GestaoFrotasHome() {
 
     const map: Record<string, MedidorInfo> = {};
 
+    // Normaliza frota para cruzamento (CM001 → CM01, CM004 → CM04)
+    const normFrota = (f: string) => (f || "").replace(/([A-Za-z]+)0+(\d+)$/, '$1$2');
+
+    // Monta mapa reverso: frota_normalizada → frota_original do cadastro
+    const frotaOriginalMap: Record<string, string> = {};
+    veiculos.forEach(v => {
+      const orig = v.frota || v.placa;
+      frotaOriginalMap[normFrota(orig)] = orig;
+      frotaOriginalMap[orig] = orig; // também indexa sem normalizar
+    });
+
     // Processar diários — pega o mais recente por frota
     (diarios || []).forEach((d: any) => {
-      const frota = d.equipment_fleet;
-      if (!frota) return;
+      const frotaDiario = d.equipment_fleet;
+      if (!frotaDiario) return;
+      // Encontra a frota original do cadastro (via normalização)
+      const frotaChave = frotaOriginalMap[frotaDiario] || frotaOriginalMap[normFrota(frotaDiario)] || frotaDiario;
       const usaOdometro = ["Carreta", "Caminhões", "Veículo", "Comboio"].includes(d.equipment_type || "");
       const valor = usaOdometro ? d.odometer_final : d.meter_final;
       if (valor == null) return;
-      if (!map[frota] || d.date > map[frota].data) {
-        map[frota] = { valor: Number(valor), tipo: usaOdometro ? "odômetro" : "horímetro", data: d.date };
+      if (!map[frotaChave] || d.date > map[frotaChave].data) {
+        map[frotaChave] = { valor: Number(valor), tipo: usaOdometro ? "odômetro" : "horímetro", data: d.date };
       }
     });
 
     // Processar abastecimentos — substitui se mais recente
     (abastecs || []).forEach((a: any) => {
-      const frota = a.equipment_fleet;
-      if (!frota) return;
+      const frotaAbastec = a.equipment_fleet;
+      if (!frotaAbastec) return;
+      const frotaChave = frotaOriginalMap[frotaAbastec] || frotaOriginalMap[normFrota(frotaAbastec)] || frotaAbastec;
       const temKm = a.km_odometro != null;
       const valor = temKm ? a.km_odometro : a.horimetro;
       if (valor == null) return;
-      if (!map[frota] || a.data > map[frota].data) {
-        map[frota] = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro", data: a.data };
+      if (!map[frotaChave] || a.data > map[frotaChave].data) {
+        map[frotaChave] = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro", data: a.data };
       }
     });
 
@@ -189,7 +209,7 @@ export default function GestaoFrotasHome() {
     }
     if (busca) {
       const b = busca.toLowerCase();
-      return [v.placa, v.modelo, v.codigo_custo, v.condutor_atual, v.setor, v.locadora].some(f => f?.toLowerCase().includes(b));
+      return [v.placa, v.frota, v.nome, v.modelo_completo, v.condutor_atual, v.setor, v.locadora, v.empresa_proprietaria].some(f => f?.toLowerCase().includes(b));
     }
     return true;
   });
@@ -370,8 +390,8 @@ export default function GestaoFrotasHome() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-display font-bold text-sm">{v.codigo_custo || v.placa}</span>
-                    {v.placa && v.placa !== v.codigo_custo && <span className="text-xs text-muted-foreground">{v.placa}</span>}
+                    <span className="font-display font-bold text-sm">{v.frota || v.placa}</span>
+                    {v.placa && v.placa !== v.frota && <span className="text-xs text-muted-foreground">{v.placa}</span>}
                     {/* Tag Condição: PRÓPRIO ou TERCEIRO */}
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                       (v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO'
@@ -387,7 +407,7 @@ export default function GestaoFrotasHome() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{v.modelo}</p>
+                  <p className="text-xs text-muted-foreground truncate">{v.nome || v.modelo_completo}</p>
                   <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
                     {v.setor && <span>🏢 {v.setor}</span>}
                     {v.condutor_atual && <span>👤 {v.condutor_atual}</span>}
@@ -395,7 +415,9 @@ export default function GestaoFrotasHome() {
                   </div>
                   {/* Horímetro / Odômetro */}
                   {(() => {
-                    const frota = v.codigo_custo || v.placa;
+                    const normFrota = (f: string) => f.replace(/([A-Za-z]+)0+(\d+)$/, '$1$2');
+                    const frotaBase = v.frota || v.placa;
+                    const frota = normFrota(frotaBase);
                     const med = medidoresMap[frota];
                     if (!med) return null;
                     return (
