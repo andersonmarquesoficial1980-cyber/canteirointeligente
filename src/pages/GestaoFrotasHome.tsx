@@ -302,6 +302,8 @@ export default function GestaoFrotasHome() {
               return (
                 <button key={cat.key} onClick={() => {
                   setTipoSel(cat.key);
+                  setSubtipoSel(""); // limpa subtipo anterior
+                  setBusca("");
                   if (cat.isGrupo) setStep("subtipo");
                   else setStep("lista");
                 }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
