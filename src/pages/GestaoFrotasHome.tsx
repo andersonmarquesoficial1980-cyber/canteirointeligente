@@ -117,12 +117,7 @@ export default function GestaoFrotasHome() {
 
   async function buscarMedidores(veiculos: Veiculo[]) {
     if (!veiculos.length) return;
-    // Normaliza frota: remove zeros à esquerda após letras (CM001 → CM01, CM004 → CM04)
-    const normalizarFrota = (f: string) => f.replace(/([A-Za-z]+)0+(\d+)$/, '$1$2');
-    const frotas = veiculos.flatMap(v => {
-      const f = v.frota || v.placa;
-      return f ? [f, normalizarFrota(f)] : [];
-    }).filter(Boolean);
+    const frotas = veiculos.map(v => v.frota || v.placa).filter(Boolean);
     // Limita o array de frotas a 200 itens para não estourar o limite do Supabase
     const frotasLimitadas = [...new Set(frotas)].slice(0, 200);
     const [{ data: diarios }, { data: abastecs }] = await Promise.all([
@@ -142,48 +137,27 @@ export default function GestaoFrotasHome() {
 
     const map: Record<string, MedidorInfo> = {};
 
-    // Normaliza frota para cruzamento (CM001 → CM01, CM004 → CM04)
-    const normFrota = (f: string) => (f || "").replace(/([A-Za-z]+)0+(\d+)$/, '$1$2');
-
-    // Monta mapa reverso: frota_normalizada → frota_original do cadastro
-    const frotaOriginalMap: Record<string, string> = {};
-    veiculos.forEach(v => {
-      const orig = v.frota || v.placa;
-      frotaOriginalMap[normFrota(orig)] = orig;
-      frotaOriginalMap[orig] = orig; // também indexa sem normalizar
-    });
-
     // Processar diários — pega o mais recente por frota
     (diarios || []).forEach((d: any) => {
-      const frotaDiario = d.equipment_fleet;
-      if (!frotaDiario) return;
-      // Encontra a frota original do cadastro (via normalização)
-      const frotaChave = frotaOriginalMap[frotaDiario] || frotaOriginalMap[normFrota(frotaDiario)] || frotaDiario;
+      const frota = d.equipment_fleet;
+      if (!frota) return;
       const usaOdometro = ["Carreta", "Caminhões", "Veículo", "Comboio"].includes(d.equipment_type || "");
       const valor = usaOdometro ? d.odometer_final : d.meter_final;
       if (valor == null) return;
-      const entry = { valor: Number(valor), tipo: usaOdometro ? "odômetro" : "horímetro" as const, data: d.date };
-      if (!map[frotaChave] || d.date > map[frotaChave].data) {
-        map[frotaChave] = entry;
-        // Indexa também pela frota normalizada e pela frota do diário
-        map[normFrota(frotaChave)] = entry;
-        map[frotaDiario] = entry;
+      if (!map[frota] || d.date > map[frota].data) {
+        map[frota] = { valor: Number(valor), tipo: usaOdometro ? "odômetro" : "horímetro", data: d.date };
       }
     });
 
     // Processar abastecimentos — substitui se mais recente
     (abastecs || []).forEach((a: any) => {
-      const frotaAbastec = a.equipment_fleet;
-      if (!frotaAbastec) return;
-      const frotaChave = frotaOriginalMap[frotaAbastec] || frotaOriginalMap[normFrota(frotaAbastec)] || frotaAbastec;
+      const frota = a.equipment_fleet;
+      if (!frota) return;
       const temKm = a.km_odometro != null;
       const valor = temKm ? a.km_odometro : a.horimetro;
       if (valor == null) return;
-      const entryA = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro" as const, data: a.data };
-      if (!map[frotaChave] || a.data > map[frotaChave].data) {
-        map[frotaChave] = entryA;
-        map[normFrota(frotaChave)] = entryA;
-        map[frotaAbastec] = entryA;
+      if (!map[frota] || a.data > map[frota].data) {
+        map[frota] = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro", data: a.data };
       }
     });
 
@@ -425,9 +399,7 @@ export default function GestaoFrotasHome() {
                   {/* Horímetro / Odômetro */}
                   {(() => {
                     const frotaBase = v.frota || v.placa;
-                    // Tenta a frota original primeiro, depois normalizada
-                    const normFrota = (f: string) => f.replace(/([A-Za-z]+)0+(\d+)$/, '$1$2');
-                    const med = medidoresMap[frotaBase] || medidoresMap[normFrota(frotaBase)];
+                    const med = medidoresMap[frotaBase];
                     if (!med) return null;
                     return (
                       <div className="flex items-center gap-1 mt-1">
