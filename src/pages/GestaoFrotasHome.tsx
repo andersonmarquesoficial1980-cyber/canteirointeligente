@@ -117,22 +117,20 @@ export default function GestaoFrotasHome() {
 
   async function buscarMedidores(veiculos: Veiculo[]) {
     if (!veiculos.length) return;
-    const frotas = veiculos.map(v => v.frota || v.placa).filter(Boolean);
-    // Limita o array de frotas a 200 itens para não estourar o limite do Supabase
-    const frotasLimitadas = [...new Set(frotas)].slice(0, 200);
+    // Busca sem filtro por frota para evitar limite de URL do Supabase com 140+ frotas
+    // Filtra no JS depois
+    const frotasSet = new Set(veiculos.map(v => v.frota || v.placa).filter(Boolean));
     const [{ data: diarios }, { data: abastecs }] = await Promise.all([
       (supabase as any)
         .from("equipment_diaries")
         .select("equipment_fleet,equipment_type,meter_final,odometer_final,date")
-        .in("equipment_fleet", frotasLimitadas)
         .order("date", { ascending: false })
-        .limit(2000),
+        .limit(3000),
       (supabase as any)
         .from("abastecimentos")
         .select("equipment_fleet,horimetro,km_odometro,data")
-        .in("equipment_fleet", frotasLimitadas)
         .order("data", { ascending: false })
-        .limit(2000),
+        .limit(3000),
     ]);
 
     const map: Record<string, MedidorInfo> = {};
@@ -140,7 +138,7 @@ export default function GestaoFrotasHome() {
     // Processar diários — pega o mais recente por frota
     (diarios || []).forEach((d: any) => {
       const frota = d.equipment_fleet;
-      if (!frota) return;
+      if (!frota || !frotasSet.has(frota)) return;
       const usaOdometro = ["Carreta", "Caminhões", "Veículo", "Comboio"].includes(d.equipment_type || "");
       const valor = usaOdometro ? d.odometer_final : d.meter_final;
       if (valor == null) return;
@@ -152,7 +150,7 @@ export default function GestaoFrotasHome() {
     // Processar abastecimentos — substitui se mais recente
     (abastecs || []).forEach((a: any) => {
       const frota = a.equipment_fleet;
-      if (!frota) return;
+      if (!frota || !frotasSet.has(frota)) return;
       const temKm = a.km_odometro != null;
       const valor = temKm ? a.km_odometro : a.horimetro;
       if (valor == null) return;
