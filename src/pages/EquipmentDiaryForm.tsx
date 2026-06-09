@@ -391,7 +391,9 @@ export default function EquipmentDiaryForm() {
 
   // Se o usuário for SuperAdmin (não tem company_id), vamos pegar o ID da primeira empresa (Fremix)
   // para ele ver as listas filtradas igual aos usuários normais
-  const effectiveCompanyId = profile?.company_id || (profile?.role === "superadmin" ? "a1b2c3d4-e5f6-7890-abcd-ef1234567890" : null);
+  // Fallback para Fremix — garante que a query de operadores sempre executa
+  // mesmo se o profile demorar a carregar ou falhar
+  const effectiveCompanyId = profile?.company_id || "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
   const { data: enabledOperatorIds = [] } = useQuery({
     queryKey: ["equipment_type_operators_ids", effectiveCompanyId, equipmentType, isOnline],
