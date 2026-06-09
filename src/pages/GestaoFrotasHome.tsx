@@ -123,19 +123,21 @@ export default function GestaoFrotasHome() {
       const f = v.frota || v.placa;
       return f ? [f, normalizarFrota(f)] : [];
     }).filter(Boolean);
+    // Limita o array de frotas a 200 itens para não estourar o limite do Supabase
+    const frotasLimitadas = [...new Set(frotas)].slice(0, 200);
     const [{ data: diarios }, { data: abastecs }] = await Promise.all([
       (supabase as any)
         .from("equipment_diaries")
         .select("equipment_fleet,equipment_type,meter_final,odometer_final,date")
-        .in("equipment_fleet", frotas)
-        .or("meter_final.not.is.null,odometer_final.not.is.null")
-        .order("date", { ascending: false }),
+        .in("equipment_fleet", frotasLimitadas)
+        .order("date", { ascending: false })
+        .limit(2000),
       (supabase as any)
         .from("abastecimentos")
         .select("equipment_fleet,horimetro,km_odometro,data")
-        .in("equipment_fleet", frotas)
-        .or("horimetro.not.is.null,km_odometro.not.is.null")
-        .order("data", { ascending: false }),
+        .in("equipment_fleet", frotasLimitadas)
+        .order("data", { ascending: false })
+        .limit(2000),
     ]);
 
     const map: Record<string, MedidorInfo> = {};
