@@ -151,22 +151,25 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
       return maquinas.filter((m: any) => m.tipo?.toUpperCase() === subTipo.toUpperCase());
     }
 
-    const vinculoKey = CATEGORIA_TO_VINCULO[categoria];
-
     return maquinas.filter((m: any) => {
+      // 1. Prioridade: categoria_rdo do banco (campo mais confiável)
+      if (m.categoria_rdo) {
+        return m.categoria_rdo.toUpperCase() === categoria.toUpperCase();
+      }
+      // 2. Vínculos específicos (não genéricos): usa como filtro
       const vinculos: string[] = m.vinculos || [];
-      // Equipamento tem vinculos configurados: usa como fonte primária
-      if (vinculos.length > 0 && !vinculos.includes("TODOS")) {
+      const vinculoKey = CATEGORIA_TO_VINCULO[categoria];
+      if (vinculos.length > 0 && !vinculos.includes("TODOS") && !vinculos.includes("RDO")) {
         return vinculos.includes(vinculoKey || categoria);
       }
-      // Legado (vinculos = TODOS ou vazio): usa mapeamento por tipo/categoria
+      // 3. Legado (vinculos genérico ou vazio): usa mapeamento por tipo/categoria do JSON
       const map = CATEGORIA_TIPO_MAP[categoria];
       if (map) {
         const tipoOk = map.tipos?.some((t) => m.tipo?.toUpperCase() === t.toUpperCase());
-        const catOk = map.categorias?.some((c) => m.categoria?.toUpperCase() === c.toUpperCase());
+        const catOk = map.categorias?.some((c) => (m.categoria || "").toUpperCase() === c.toUpperCase());
         return tipoOk || catOk;
       }
-      return m.categoria?.toUpperCase() === categoria.toUpperCase();
+      return (m.categoria || "").toUpperCase() === categoria.toUpperCase();
     });
   };
 
