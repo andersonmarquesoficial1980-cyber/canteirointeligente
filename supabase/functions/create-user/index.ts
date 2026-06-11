@@ -32,7 +32,18 @@ serve(async (req) => {
 
     // Also check hardcoded admin email
     const isHardcodedAdmin = caller.email?.toLowerCase() === "anderson@fremix.com.br" || caller.email?.toLowerCase() === "andersonmarquesoficial1980@gmail.com";
-    if (!roleData && !isHardcodedAdmin) throw new Error("Apenas administradores podem gerenciar usuários");
+    
+    // Also check user_permissions.is_admin
+    let hasPermAdmin = false;
+    if (!roleData && !isHardcodedAdmin) {
+      const { data: permData } = await supabaseAdmin
+        .from("user_permissions")
+        .select("is_admin")
+        .eq("user_id", caller.id)
+        .maybeSingle();
+      hasPermAdmin = permData?.is_admin === true;
+    }
+    if (!roleData && !isHardcodedAdmin && !hasPermAdmin) throw new Error("Apenas administradores podem gerenciar usuários");
 
     const body = await req.json();
     const { action } = body;

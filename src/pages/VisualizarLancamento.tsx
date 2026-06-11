@@ -198,7 +198,7 @@ export default function VisualizarLancamento() {
           { data: bitRows },
         ] = await Promise.all([
           (supabase as any).from("equipment_diaries").select("*").eq("id", id).maybeSingle(),
-          supabase.from("equipment_time_entries").select("*").eq("diary_id", id).order("start_time"),
+          supabase.from("equipment_time_entries").select("*").eq("diary_id", id),
           supabase.from("equipment_production_areas").select("*").eq("diary_id", id),
           supabase.from("bit_entries").select("*").eq("diary_id", id),
         ]);

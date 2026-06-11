@@ -75,6 +75,7 @@ export default function RdoForm() {
     setHeader(prev => ({ ...prev, [field]: value }));
 
     // Auto-fill efetivo quando encarregado muda (só em modo criação, não edição, e só para RDO de Pavimentação)
+    // Só dispara se o nome digitado corresponde EXATAMENTE a um responsavel cadastrado
     const tiposComAutoFill = ["CAUQ", "PV", "AEROPAV"];
     if (field === "encarregado" && value && !isEditMode && !loadingEquipes && tiposComAutoFill.includes(tipoRdo)) {
       const membros = getMembrosDoResponsavel(value);

@@ -59,17 +59,18 @@ export function usePermissions() {
       }
 
       // Buscar permissões específicas
-      const { data: perms } = await supabase
+      const { data: perms, error: permsError } = await supabase
         .from("user_permissions")
         .select("*")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (perms) {
         setPermissions(perms as Permissions);
       } else {
         // Sem registro = sem acesso (exceto se for admin)
         setPermissions(DEFAULT_PERMISSIONS);
+        if (permsError) console.warn("[usePermissions] erro ao buscar permissões:", permsError.message);
       }
       setLoading(false);
     }

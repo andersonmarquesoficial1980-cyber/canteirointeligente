@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Search, X } from "lucide-react";
+import { Plus, Pencil, Search, X, Trash2 } from "lucide-react";
 
 interface Funcionario {
   id?: string;
@@ -44,6 +44,8 @@ export default function FuncionariosManager() {
   const [dialog, setDialog] = useState<{ open: boolean; mode: "new" | "edit" }>({ open: false, mode: "new" });
   const [form, setForm] = useState<Funcionario>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [digitandoEquipe, setDigitandoEquipe] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -76,6 +78,7 @@ export default function FuncionariosManager() {
 
   function openNew() {
     setForm({ ...EMPTY });
+    setDigitandoEquipe(false);
     setDialog({ open: true, mode: "new" });
   }
 
@@ -149,11 +152,34 @@ export default function FuncionariosManager() {
     setSaving(false);
   }
 
-  const F = ({ label, field, type = "text", placeholder = "" }: { label: string; field: keyof Funcionario; type?: string; placeholder?: string }) => (
+  async function deletar(f: any) {
+    if (!window.confirm(`Excluir "${f.name}" permanentemente?\n\nEssa ação não pode ser desfeita.`)) return;
+    setDeleting(f.id);
+    const { error } = await (supabase as any).from("employees").delete().eq("id", f.id);
+    if (error) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Funcionário excluído" });
+      load();
+    }
+    setDeleting(null);
+  }
+
+  // Campo inline — NÃO usar como componente (<F />) para evitar perda de foco
+  // Renderizar diretamente como JSX via função chamada (não como componente React)
+  const renderField = (label: string, field: keyof Funcionario, type = "text", placeholder = "") => (
     <div className="space-y-1">
       <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Input type={type} value={form[field] as string} onChange={e => set(field, e.target.value)}
-        placeholder={placeholder} className="h-10 rounded-xl" />
+      <Input
+        type={type}
+        value={form[field] as string}
+        onChange={e => set(field, e.target.value)}
+        placeholder={placeholder}
+        className="h-10 rounded-xl"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+      />
     </div>
   );
 
@@ -180,9 +206,16 @@ export default function FuncionariosManager() {
                 {f.role}{f.matricula ? ` · Mat. ${f.matricula}` : ""}{f.equipe ? ` · ${f.equipe}` : ""}
               </p>
             </div>
-            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => openEdit(f)}>
-              <Pencil className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(f)}>
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deletar(f)} disabled={deleting === f.id}>
+                {deleting === f.id
+                  ? <span className="w-4 h-4 inline-block animate-spin border-2 border-destructive border-t-transparent rounded-full" />
+                  : <Trash2 className="w-4 h-4" />}
+              </Button>
+            </div>
           </div>
         ))}
       </div>
@@ -198,9 +231,9 @@ export default function FuncionariosManager() {
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Profissionais</p>
               <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2"><F label="Nome Completo *" field="name" placeholder="NOME COMPLETO" /></div>
-                <div className="col-span-2"><F label="Função *" field="role" placeholder="AJUDANTE GERAL" /></div>
-                <F label="Matrícula" field="matricula" placeholder="1234" />
+                <div className="col-span-2">{renderField("Nome Completo *", "name", "text", "NOME COMPLETO")}</div>
+                <div className="col-span-2">{renderField("Função *", "role", "text", "AJUDANTE GERAL")}</div>
+                {renderField("Matrícula", "matricula", "text", "1234")}
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Status</Label>
                   <select value={form.status} onChange={e => set("status", e.target.value)}
@@ -210,25 +243,51 @@ export default function FuncionariosManager() {
                 </div>
                 <div className="space-y-1 col-span-2">
                   <Label className="text-xs text-muted-foreground">Equipe</Label>
-                  <select value={form.equipe} onChange={e => set("equipe", e.target.value)}
-                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm">
-                    <option value="">— Selecione —</option>
-                    {/* Garante que a equipe atual sempre aparece mesmo se não estiver na lista */}
-                    {form.equipe && !equipes.includes(form.equipe) && (
-                      <option value={form.equipe}>{form.equipe}</option>
-                    )}
-                    {equipes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
-                    <option value="__digitar">+ Digitar outra equipe</option>
-                  </select>
-                  {form.equipe === "__digitar" && (
-                    <Input autoFocus onChange={e => set("equipe", e.target.value)} placeholder="Digite o nome da equipe" className="h-10 rounded-xl mt-1" />
+                  {!digitandoEquipe ? (
+                    <select
+                      value={form.equipe}
+                      onChange={e => {
+                        if (e.target.value === "__digitar") {
+                          setDigitandoEquipe(true);
+                          set("equipe", "");
+                        } else {
+                          set("equipe", e.target.value);
+                        }
+                      }}
+                      className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
+                    >
+                      <option value="">— Selecione —</option>
+                      {form.equipe && !equipes.includes(form.equipe) && (
+                        <option value={form.equipe}>{form.equipe}</option>
+                      )}
+                      {equipes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                      <option value="__digitar">+ Digitar outra equipe</option>
+                    </select>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        autoFocus
+                        value={form.equipe}
+                        onChange={e => set("equipe", e.target.value)}
+                        placeholder="Digite o nome da equipe"
+                        className="h-10 rounded-xl flex-1"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { setDigitandoEquipe(false); set("equipe", ""); }}
+                        className="text-xs text-muted-foreground hover:text-foreground px-2"
+                      >Cancelar</button>
+                    </div>
                   )}
                 </div>
-                <div className="col-span-2"><F label="Responsável / Encarregado" field="responsavel" placeholder="Nome do encarregado" /></div>
-                <div className="col-span-2"><F label="Centro de Custo" field="centro_custo" placeholder="OPERACIONAL DE OBRAS" /></div>
-                <F label="Data de Admissão" field="data_admissao" type="date" />
-                <F label="Data de Nascimento" field="data_nascimento" type="date" />
-                <div className="col-span-2"><F label="Salário (R$)" field="salario" type="number" placeholder="2500.00" /></div>
+                <div className="col-span-2">{renderField("Responsável / Encarregado", "responsavel", "text", "Nome do encarregado")}</div>
+                <div className="col-span-2">{renderField("Centro de Custo", "centro_custo", "text", "OPERACIONAL DE OBRAS")}</div>
+                {renderField("Data de Admissão", "data_admissao", "date")}
+                {renderField("Data de Nascimento", "data_nascimento", "date")}
+                <div className="col-span-2">{renderField("Salário (R$)", "salario", "number", "2500.00")}</div>
               </div>
             </div>
 
@@ -236,10 +295,10 @@ export default function FuncionariosManager() {
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Documentos & Contato</p>
               <div className="grid grid-cols-2 gap-3">
-                <F label="CPF" field="cpf" placeholder="000.000.000-00" />
-                <F label="RG" field="rg" placeholder="00.000.000-0" />
-                <F label="Telefone" field="telefone" placeholder="(11) 99999-9999" />
-                <div className="col-span-2"><F label="E-mail" field="email" type="email" placeholder="email@exemplo.com" /></div>
+                {renderField("CPF", "cpf", "text", "000.000.000-00")}
+                {renderField("RG", "rg", "text", "00.000.000-0")}
+                {renderField("Telefone", "telefone", "text", "(11) 99999-9999")}
+                <div className="col-span-2">{renderField("E-mail", "email", "email", "email@exemplo.com")}</div>
               </div>
             </div>
 

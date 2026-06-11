@@ -45,7 +45,8 @@ const MODULOS = [
   { key: "modulo_abastecimento", label: "WF Abastecimento" },
   { key: "modulo_documentos", label: "WF Documentos" },
   { key: "modulo_relatorios", label: "WF Relatórios" },
-  { key: "modulo_dashboard", label: "Painel Admin" },
+  { key: "modulo_dashboard", label: "WF Dashboard" },
+  { key: "is_admin", label: "Painel de Controle" },
 ];
 
 function emptyPerms(userId: string): Perms {

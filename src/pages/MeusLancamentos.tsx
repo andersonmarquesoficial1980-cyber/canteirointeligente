@@ -19,6 +19,18 @@ import {
 } from "@/components/ui/dialog";
 import logoCi from "@/assets/logo-workflux.png";
 
+// Ordena apontamentos respeitando turno noturno (virada de meia-noite)
+// Horários antes das 07:00 são tratados como continuação do dia anterior
+const sortNocturnalEntries = (entries: any[]): any[] => {
+  const toMinutes = (t: string | null | undefined): number => {
+    if (!t) return 0;
+    const [h, m] = t.split(":").map(Number);
+    const mins = (h ?? 0) * 60 + (m ?? 0);
+    return mins < 7 * 60 ? mins + 24 * 60 : mins;
+  };
+  return [...entries].sort((a, b) => toMinutes(a.start_time) - toMinutes(b.start_time));
+};
+
 interface Lancamento {
   id: string;
   created_at: string | null;
@@ -72,7 +84,7 @@ export default function MeusLancamentos() {
     const [{ data: areas }, { data: bits }, { data: times }] = await Promise.all([
       supabase.from('equipment_production_areas').select('*').eq('diary_id', item.id),
       supabase.from('bit_entries').select('*').eq('diary_id', item.id),
-      supabase.from('equipment_time_entries').select('*').eq('diary_id', item.id).order('start_time'),
+      supabase.from('equipment_time_entries').select('*').eq('diary_id', item.id),
     ]);
     const PARADAS = ['Refeições', 'À Disposição', 'Manutenção'];
     let horasTotal = 0;
@@ -85,7 +97,8 @@ export default function MeusLancamentos() {
         horasTotal += diff / 60;
       }
     });
-    setDetalheExtra({ areas: areas || [], bits: bits || [], times: times || [], horas: horasTotal > 0 ? Math.round(horasTotal * 10) / 10 : null });
+    const sortedTimes = sortNocturnalEntries(times || []);
+    setDetalheExtra({ areas: areas || [], bits: bits || [], times: sortedTimes, horas: horasTotal > 0 ? Math.round(horasTotal * 10) / 10 : null });
   };
 
   const handleDeletar = async () => {

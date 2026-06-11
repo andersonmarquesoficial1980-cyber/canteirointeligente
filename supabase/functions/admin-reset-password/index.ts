@@ -46,8 +46,20 @@ Deno.serve(async (req) => {
       .eq("user_id", caller.id)
       .maybeSingle();
 
-    if (!callerProfile || callerProfile.role !== "superadmin") {
-      return new Response(JSON.stringify({ error: "Apenas superadmin pode redefinir senha" }), {
+    // Verificar se tem permissão de admin (superadmin, admin de role, ou is_admin nas permissões)
+    const isSuperAdmin = callerProfile?.role === "superadmin";
+    const isAdminRole = callerProfile?.role === "admin";
+    let hasAdminPerm = false;
+    if (!isSuperAdmin && !isAdminRole) {
+      const { data: callerPerms } = await supabaseAdmin
+        .from("user_permissions")
+        .select("is_admin")
+        .eq("user_id", caller.id)
+        .maybeSingle();
+      hasAdminPerm = callerPerms?.is_admin === true;
+    }
+    if (!isSuperAdmin && !isAdminRole && !hasAdminPerm) {
+      return new Response(JSON.stringify({ error: "Apenas administradores podem redefinir senha" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

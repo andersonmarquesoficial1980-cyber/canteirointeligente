@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, memo } from "react";
 import { AuditLogViewer } from "@/components/admin/AuditLogViewer";
 import { EngenheirosOgsManager } from "@/components/admin/EngenheirosOgsManager";
 function AuditLogViewerAdmin() { return <AuditLogViewer />; }
@@ -14,12 +14,16 @@ import {
   ArrowLeft, Plus, Trash2, Save, Pencil,
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
-  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2, HardHat, FileText, Settings,
+  Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2, HardHat, FileText, Settings, LogIn,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useCompanyModules } from "@/hooks/useCompanyModules";
+import { startImpersonation } from "@/hooks/useImpersonation";
+import UsersManagerExternal from "@/components/admin/UsersManager";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
 import EquipesManager from "@/components/admin/EquipesManager";
 
@@ -1181,6 +1185,7 @@ function UsersManager() {
   const [deactivating, setDeactivating] = useState<any | null>(null);
   const [deactivatingLoading, setDeactivatingLoading] = useState(false);
   const [unlocking, setUnlocking] = useState<string | null>(null);
+  const [impersonating, setImpersonating] = useState<string | null>(null);
   const [togglingExport, setTogglingExport] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [buscaUsuario, setBuscaUsuario] = useState("");
@@ -1279,6 +1284,24 @@ function UsersManager() {
     } finally { setUnlocking(null); }
   };
 
+  const handleImpersonate = async (u: any) => {
+    if (!window.confirm(`Entrar como "${u.nome_completo}"?\n\nVocê verá o sistema exatamente como esse usuário. Um banner amarelo ficará visível para voltar ao admin.`)) return;
+    setImpersonating(u.user_id);
+    try {
+      const result = await startImpersonation(u.user_id, u.nome_completo, u.email || "");
+      if (!result.success) {
+        toast({ title: "Erro ao entrar como usuário", description: result.error, variant: "destructive" });
+        setImpersonating(null);
+        return;
+      }
+      // Redirecionar para home após trocar sessão
+      window.location.replace("/");
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+      setImpersonating(null);
+    }
+  };
+
   const openEdit = (u: any) => {
     setEditing(u);
     setEditNome(u.nome_completo);
@@ -1298,7 +1321,6 @@ function UsersManager() {
       if (editNome.trim()) body.nome_completo = editNome.trim();
       if (editPerfil) body.perfil = editPerfil;
       if (editPassword.trim()) body.password = editPassword;
-      // Envia email apenas se foi alterado
       if (editEmail.trim() && editEmail.trim().toLowerCase() !== (editing?.email || "").toLowerCase()) {
         body.email = editEmail.trim();
       }
@@ -1348,16 +1370,16 @@ function UsersManager() {
         <p className="text-sm font-semibold text-foreground">Criar Novo Usuário</p>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Nome Completo *</Label>
-          <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Nome do funcionário" />
+          <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Nome do funcionário" autoComplete="off" autoCorrect="off" autoCapitalize="words" spellCheck={false} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Login (usuário) *</Label>
-          <Input type="text" value={login} onChange={e => setLogin(e.target.value)} className="h-11 bg-secondary border-border" placeholder="usuario ou email@empresa.com" />
+          <Input type="text" value={login} onChange={e => setLogin(e.target.value)} className="h-11 bg-secondary border-border" placeholder="usuario ou email@empresa.com" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Senha *</Label>
           <div className="relative">
-            <Input type={showPwd ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} className="h-11 bg-secondary border-border pr-10" placeholder="Mínimo 6 caracteres" minLength={6} />
+            <Input type={showPwd ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} className="h-11 bg-secondary border-border pr-10" placeholder="Mínimo 6 caracteres" minLength={6} autoComplete="new-password" />
             <button type="button" onClick={() => setShowPwd(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" tabIndex={-1}>
               {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -1439,6 +1461,16 @@ function UsersManager() {
                     ? <span className="w-4 h-4 inline-block animate-spin border-2 border-amber-500 border-t-transparent rounded-full" />
                     : <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
                   }
+                </button>
+                <button
+                  onClick={() => handleImpersonate(u)}
+                  disabled={impersonating === u.user_id}
+                  className="text-blue-500 hover:text-blue-600 p-1.5"
+                  title="Entrar como este usuário"
+                >
+                  {impersonating === u.user_id
+                    ? <span className="w-4 h-4 inline-block animate-spin border-2 border-blue-500 border-t-transparent rounded-full" />
+                    : <LogIn className="w-4 h-4" />}
                 </button>
                 <button onClick={() => setDeactivating(u)} className={isInactive ? "text-green-600 p-1.5" : "text-destructive p-1.5"} title={isInactive ? "Reativar" : "Desativar"}>
                   {isInactive ? <UserCheck className="w-4 h-4" /> : <UserMinus className="w-4 h-4" />}
@@ -1527,6 +1559,9 @@ function UsersManager() {
     </div>
   );
 }
+
+// Memoizado para evitar perda de foco nos inputs ao re-render do pai
+const UsersManagerMemo = memo(UsersManager);
 
 // OGS Manager
 function OgsManager() {
@@ -3411,7 +3446,9 @@ function SSTResponsaveisManager() {
 export default function AdminConfiguracoes() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAdmin, loading } = useIsAdmin();
+  const { isAdmin, loading: loadingAdmin } = useIsAdmin();
+  const { permissions, loading: loadingPerms } = usePermissions();
+  const { isSuperAdmin, loading: loadingModules } = useCompanyModules();
   const activeSection = searchParams.get("section") || "dashboard";
   const [transitioning, setTransitioning] = useState(false);
 
@@ -3430,8 +3467,11 @@ export default function AdminConfiguracoes() {
     }, 120);
   };
 
+  const loading = loadingAdmin || loadingPerms || loadingModules;
+  const hasAccess = isAdmin || isSuperAdmin || permissions?.is_admin === true;
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
-  if (!isAdmin) { navigate("/"); return null; }
+  if (!hasAccess) { navigate("/"); return null; }
 
   const renderContent = () => {
     switch (activeSection) {
@@ -3448,7 +3488,7 @@ export default function AdminConfiguracoes() {
             <UnifiedEquipmentView />
           </Suspense>
         );
-      case "usuarios": return <UsersManager />;
+      case "usuarios": return <UsersManagerExternal />;
       case "permissoes": return <PermissoesManager />;
       case "ogs": return <OgsManager />;
       case "materiais": return <MateriaisUnificadoManager />;

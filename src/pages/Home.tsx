@@ -112,7 +112,11 @@ export default function Home() {
         )}
         {!loadingPerms && !loadingModules && HUB_MODULES
           .filter(mod => {
-            if (mod.adminOnly && !isAdmin) return false;
+            // adminOnly: permite acesso a quem é admin de role OU tem is_admin nas permissões individuais
+            const hasAdminAccess = isAdmin || permissions?.is_admin === true;
+            if (mod.adminOnly && !hasAdminAccess) return false;
+            // Módulo admin: se passou o check acima, libera direto (não tem coluna no permMap)
+            if (mod.id === "admin") return hasAdminAccess;
             // Super-admin (dono do Workflux) vê tudo
             // Admin da empresa vê módulos contratados pela empresa
             if (!hasModule(mod.id)) return false;
@@ -133,7 +137,8 @@ export default function Home() {
             };
             if (!permissions) return false;
             const permKey = permMap[mod.id];
-            if (!permKey) return true;
+            // Módulo sem coluna de permissão mapeada = acesso negado para não-admin
+            if (!permKey) return false;
             return permissions[permKey] === true;
           })
           .map(mod => {

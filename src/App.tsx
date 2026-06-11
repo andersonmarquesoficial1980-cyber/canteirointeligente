@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams, useSear
 import { AppLayout } from "@/components/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import OfflineIndicator from "@/components/OfflineIndicator";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -163,8 +164,9 @@ function RequireModule({ moduleId, children }: { moduleId: string; children: JSX
 function RequireAdminOrSuperAdmin({ children }: { children: JSX.Element }) {
   const { isAdmin, loading: loadingAdmin } = useIsAdmin();
   const { isSuperAdmin, loading: loadingModules } = useCompanyModules();
+  const { permissions, loading: loadingPerms } = usePermissions();
 
-  if (loadingAdmin || loadingModules) {
+  if (loadingAdmin || loadingModules || loadingPerms) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">Carregando...</p>
@@ -172,7 +174,9 @@ function RequireAdminOrSuperAdmin({ children }: { children: JSX.Element }) {
     );
   }
 
-  if (!isAdmin && !isSuperAdmin) {
+  // Permite acesso a: admin de role, superadmin, ou usuário com is_admin nas permissões individuais
+  const hasAdminAccess = isAdmin || isSuperAdmin || permissions?.is_admin === true;
+  if (!hasAdminAccess) {
     return <Navigate to="/" replace />;
   }
 
@@ -428,6 +432,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ImpersonationBanner />
           <OfflineIndicator
             isOnline={isOnline}
             pendingCount={pendingCount}
