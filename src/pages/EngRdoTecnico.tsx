@@ -102,19 +102,24 @@ export default function EngRdoTecnico() {
     load();
   }, []);
 
-  // Busca localizações usadas em RDOs anteriores da OGS selecionada
+  // Busca localizações cadastradas no location_address da OGS selecionada
   useEffect(() => {
     if (!form.ogs_id) { setLocalizacoesSugeridas([]); return; }
     const buscarLocalizacoes = async () => {
       const { data } = await (supabase as any)
-        .from("rdo_engenheiro")
-        .select("localizacao")
-        .eq("ogs_id", form.ogs_id)
-        .not("localizacao", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      const unicas = [...new Set((data || []).map((r: any) => r.localizacao).filter(Boolean))] as string[];
-      setLocalizacoesSugeridas(unicas);
+        .from("ogs_reference")
+        .select("location_address")
+        .eq("id", form.ogs_id)
+        .single();
+      if (data?.location_address) {
+        const ruas = data.location_address
+          .split(";")
+          .map((r: string) => r.trim())
+          .filter(Boolean);
+        setLocalizacoesSugeridas(ruas);
+      } else {
+        setLocalizacoesSugeridas([]);
+      }
     };
     buscarLocalizacoes();
   }, [form.ogs_id]);
