@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat } from "lucide-react";
+import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, History } from "lucide-react";
 
 interface RdoPendente {
   id: string;
@@ -86,6 +86,9 @@ export default function EngHome() {
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6 pb-24">
         {/* Header */}
         <div className="flex items-center gap-3">
+          <button onClick={() => navigate("/")} className="p-2 rounded-lg hover:bg-muted">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <HardHat className="w-5 h-5 text-primary" />
           </div>
@@ -119,6 +122,19 @@ export default function EngHome() {
             )}
           </button>
         </div>
+
+        {/* Histórico RDO Técnico */}
+        <button
+          onClick={() => navigate("/engenharia/rdo-tecnico/historico")}
+          className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white border border-border shadow-sm active:scale-95 transition-transform"
+        >
+          <History className="w-5 h-5 text-primary" />
+          <div className="text-left">
+            <span className="text-sm font-semibold text-foreground">Histórico RDO Técnico</span>
+            <p className="text-xs text-muted-foreground">Visualizar, exportar PDF e Excel</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
+        </button>
 
         {/* RDOs pendentes de validação */}
         {rdosPendentes.length > 0 && (
