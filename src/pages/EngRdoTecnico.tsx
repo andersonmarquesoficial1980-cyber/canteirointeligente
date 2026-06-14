@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
 
 interface Ogs { id: string; ogs_number: string; client_name: string }
-const SOLUCOES = ["1", "02-A", "02-B", "02-C", "03-A", "03-B", "3"];
 
 export default function EngRdoTecnico() {
   const navigate = useNavigate();
@@ -16,6 +15,8 @@ export default function EngRdoTecnico() {
   const [minhasOgs, setMinhasOgs] = useState<Ogs[]>([]);
   const [equipes, setEquipes] = useState<string[]>([]);
   const [usinas, setUsinas] = useState<string[]>([]);
+  const [localizacoesSugeridas, setLocalizacoesSugeridas] = useState<string[]>([]);
+  const [showSugestoes, setShowSugestoes] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
 
@@ -27,7 +28,7 @@ export default function EngRdoTecnico() {
     houve_producao: true,
     equipe: "",
     localizacao: "",
-    tipo_servico: "",
+    tipos_servico: [] as string[],
     solucao_empregada: "",
     usina_programada: "",
     cauq_programado: "",
@@ -38,6 +39,7 @@ export default function EngRdoTecnico() {
     cbuq_fx3_ton: "",
     gap_ton: "",
     bgs_ton: "",
+    sma_ton: "",
     geogrelha_m2: "",
     qtd_caminhoes_fresa: "",
     perc_conclusao_via: "",
@@ -64,7 +66,10 @@ export default function EngRdoTecnico() {
       const ogsVinculadas = (vinculos || []).map((v: any) => v.ogs_reference).filter(Boolean);
 
       if (ogsVinculadas.length > 0) {
-        setMinhasOgs(ogsVinculadas);
+        const sorted = [...ogsVinculadas].sort((a: Ogs, b: Ogs) =>
+          parseInt(b.ogs_number) - parseInt(a.ogs_number)
+        );
+        setMinhasOgs(sorted);
       } else {
         // Fallback: buscar todas OGSs da empresa
         const { data: profile } = await (supabase as any)
@@ -76,7 +81,7 @@ export default function EngRdoTecnico() {
           .from("ogs_reference")
           .select("id, ogs_number, client_name")
           .eq("company_id", profile?.company_id)
-          .order("ogs_number");
+          .order("ogs_number", { ascending: false });
         setMinhasOgs(todasOgs || []);
       }
 
@@ -96,6 +101,23 @@ export default function EngRdoTecnico() {
     };
     load();
   }, []);
+
+  // Busca localizações usadas em RDOs anteriores da OGS selecionada
+  useEffect(() => {
+    if (!form.ogs_id) { setLocalizacoesSugeridas([]); return; }
+    const buscarLocalizacoes = async () => {
+      const { data } = await (supabase as any)
+        .from("rdo_engenheiro")
+        .select("localizacao")
+        .eq("ogs_id", form.ogs_id)
+        .not("localizacao", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      const unicas = [...new Set((data || []).map((r: any) => r.localizacao).filter(Boolean))] as string[];
+      setLocalizacoesSugeridas(unicas);
+    };
+    buscarLocalizacoes();
+  }, [form.ogs_id]);
 
   const handleSalvar = async (status: "rascunho" | "enviado") => {
     if (!form.ogs_id) { toast({ title: "Selecione uma OGS", variant: "destructive" }); return; }
@@ -120,7 +142,7 @@ export default function EngRdoTecnico() {
       houve_producao: form.houve_producao,
       equipe: form.equipe || null,
       localizacao: form.localizacao || null,
-      tipo_servico: form.tipo_servico || null,
+      tipo_servico: form.tipos_servico.length > 0 ? form.tipos_servico.join(", ") : null,
       solucao_empregada: form.solucao_empregada || null,
       usina_programada: form.usina_programada || null,
       cauq_programado: toNum(form.cauq_programado),
@@ -131,6 +153,7 @@ export default function EngRdoTecnico() {
       cbuq_fx3_ton: toNum(form.cbuq_fx3_ton),
       gap_ton: toNum(form.gap_ton),
       bgs_ton: toNum(form.bgs_ton),
+      sma_ton: toNum((form as any).sma_ton),
       geogrelha_m2: toNum(form.geogrelha_m2),
       qtd_caminhoes_fresa: form.qtd_caminhoes_fresa === "" ? null : parseInt(form.qtd_caminhoes_fresa),
       perc_conclusao_via: toNum(form.perc_conclusao_via),
@@ -222,23 +245,57 @@ export default function EngRdoTecnico() {
                   {equipes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
                 </select>
               </div>
-              <div>
+              <div className="relative">
                 <label className={labelCls}>Localização / Rua</label>
-                <input value={form.localizacao} onChange={e => set("localizacao", e.target.value)} placeholder="Ex: Av. Paulista, 1000" className={inputCls} />
+                <input
+                  value={form.localizacao}
+                  onChange={e => { set("localizacao", e.target.value); setShowSugestoes(true); }}
+                  onFocus={() => setShowSugestoes(true)}
+                  onBlur={() => setTimeout(() => setShowSugestoes(false), 150)}
+                  placeholder="Ex: Av. Paulista, 1000"
+                  className={inputCls}
+                  autoComplete="off"
+                />
+                {showSugestoes && localizacoesSugeridas.length > 0 && (() => {
+                  const filtradas = form.localizacao
+                    ? localizacoesSugeridas.filter(s => s.toLowerCase().includes(form.localizacao.toLowerCase()))
+                    : localizacoesSugeridas;
+                  return filtradas.length > 0 ? (
+                    <ul className="absolute z-50 w-full mt-1 bg-white border border-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {filtradas.map((s, i) => (
+                        <li
+                          key={i}
+                          onMouseDown={() => { set("localizacao", s); setShowSugestoes(false); }}
+                          className="px-4 py-2.5 text-sm cursor-pointer hover:bg-primary/10 hover:text-primary"
+                        >{s}</li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
               </div>
               <div>
                 <label className={labelCls}>Tipo de Serviço</label>
-                <select value={form.tipo_servico} onChange={e => set("tipo_servico", e.target.value)} className={inputCls}>
-                  <option value="">Selecione...</option>
-                  {tiposServico.map(t => <option key={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Solução Empregada</label>
-                <select value={form.solucao_empregada} onChange={e => set("solucao_empregada", e.target.value)} className={inputCls}>
-                  <option value="">Selecione...</option>
-                  {SOLUCOES.map(s => <option key={s}>{s}</option>)}
-                </select>
+                <div className="rounded-xl border border-border bg-background p-2 space-y-1 max-h-52 overflow-y-auto">
+                  {tiposServico.map(t => (
+                    <label key={t} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={form.tipos_servico.includes(t)}
+                        onChange={e => {
+                          const prev = form.tipos_servico;
+                          set("tipos_servico", e.target.checked ? [...prev, t] : prev.filter(x => x !== t));
+                        }}
+                        className="w-4 h-4 accent-primary"
+                      />
+                      {t}
+                    </label>
+                  ))}
+                  {form.tipos_servico.length > 0 && (
+                    <p className="text-xs text-primary font-semibold px-2 pt-1 border-t border-border">
+                      {form.tipos_servico.length} selecionado{form.tipos_servico.length > 1 ? "s" : ""}: {form.tipos_servico.join(", ")}
+                    </p>
+                  )}
+                </div>
               </div>
               <div>
                 <label className={labelCls}>Usina Programada</label>
@@ -254,13 +311,13 @@ export default function EngRdoTecnico() {
               <div>
                 <label className={labelCls}>Usina atendeu?</label>
                 <div className="flex gap-3">
-                  {["sim", "nao", ""].map((opt, i) => (
-                    <button key={i} type="button"
+                  {["sim", "nao"].map((opt) => (
+                    <button key={opt} type="button"
                       onClick={() => set("usina_atendeu", opt)}
                       className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${
                         form.usina_atendeu === opt ? "bg-primary text-white border-primary" : "bg-background text-foreground border-border"
                       }`}
-                    >{opt === "sim" ? "Sim" : opt === "nao" ? "Não" : "N/A"}</button>
+                    >{opt === "sim" ? "Sim" : "Não"}</button>
                   ))}
                 </div>
               </div>
@@ -276,6 +333,7 @@ export default function EngRdoTecnico() {
                 { label: "CBUQ FX3 (ton)", field: "cbuq_fx3_ton" },
                 { label: "GAP (ton)", field: "gap_ton" },
                 { label: "BGS (ton)", field: "bgs_ton" },
+                { label: "SMA (ton)", field: "sma_ton" },
                 { label: "Geogrelha (m²)", field: "geogrelha_m2" },
                 { label: "Qtd caminhões fresa/demolição", field: "qtd_caminhoes_fresa" },
                 { label: "% conclusão da via", field: "perc_conclusao_via" },
