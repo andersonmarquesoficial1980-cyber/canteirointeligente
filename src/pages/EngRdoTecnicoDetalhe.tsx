@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, FileDown, FileSpreadsheet, Loader2 } from "lucide-react";
+import { ArrowLeft, FileDown, FileSpreadsheet, Loader2, Pencil, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useToast } from "@/hooks/use-toast";
 
 interface Rdo {
   id: string;
@@ -36,13 +38,20 @@ interface Rdo {
 export default function EngRdoTecnicoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { isAdmin } = useIsAdmin();
   const [rdo, setRdo] = useState<Rdo | null>(null);
   const [engNome, setEngNome] = useState("—");
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletando, setDeletando] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
       const { data } = await (supabase as any)
         .from("rdo_engenheiro").select("*").eq("id", id).single();
       if (data) {
@@ -55,6 +64,21 @@ export default function EngRdoTecnicoDetalhe() {
     };
     load();
   }, [id]);
+
+  const podeEditar = rdo && (isAdmin || rdo.engenheiro_id === currentUserId);
+
+  const handleDeletar = async () => {
+    if (!rdo) return;
+    setDeletando(true);
+    const { error } = await (supabase as any).from("rdo_engenheiro").delete().eq("id", rdo.id);
+    setDeletando(false);
+    if (error) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "RDO excluído com sucesso" });
+    navigate("/engenharia/rdo-tecnico/historico");
+  };
 
   const fmtData = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("pt-BR");
   const fmtNum = (v: number | null) => v == null ? "—" : v.toLocaleString("pt-BR");
@@ -183,6 +207,49 @@ export default function EngRdoTecnicoDetalhe() {
             <FileSpreadsheet className="w-4 h-4" /> Excel
           </button>
         </div>
+
+        {/* Botões Editar / Excluir — só para dono e admin */}
+        {podeEditar && (
+          <div className="flex gap-3 no-print">
+            <button
+              onClick={() => navigate(`/engenharia/rdo-tecnico/editar/${rdo!.id}`)}
+              className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-primary text-primary bg-white text-sm font-semibold hover:bg-primary/5 transition-colors"
+            >
+              <Pencil className="w-4 h-4" /> Editar
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border border-red-400 text-red-500 bg-white text-sm font-semibold hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" /> Excluir
+            </button>
+          </div>
+        )}
+
+        {/* Modal confirmação de exclusão */}
+        {confirmDelete && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4 no-print">
+            <div className="w-full max-w-sm bg-white rounded-2xl p-5 space-y-4">
+              <h3 className="text-base font-bold text-foreground">Excluir RDO?</h3>
+              <p className="text-sm text-muted-foreground">Esta ação não pode ser desfeita. O RDO da OGS {rdo?.ogs_number} de {rdo ? new Date(rdo.data + "T12:00:00").toLocaleDateString("pt-BR") : ""} será removido permanentemente.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 h-11 rounded-xl border border-border text-sm font-semibold hover:bg-muted"
+                  disabled={deletando}
+                >Cancelar</button>
+                <button
+                  onClick={handleDeletar}
+                  className="flex-1 h-11 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 flex items-center justify-center gap-2"
+                  disabled={deletando}
+                >
+                  {deletando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  {deletando ? "Excluindo..." : "Confirmar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Identificação */}
         <div className={secCls}>
