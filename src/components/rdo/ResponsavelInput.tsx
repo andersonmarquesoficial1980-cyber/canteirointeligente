@@ -42,23 +42,43 @@ export function ResponsavelInput({ value, onChange, placeholder = "Nome do encar
   const [inputFocus, setInputFocus] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Carregar encarregados/engenheiros uma vez
+  // Carregar encarregados: is_encarregado=true em employees; fallback por função
   useEffect(() => {
-    supabase
-      .from("employees")
-      .select("id, name, role, matricula")
-      .order("name")
-      .then(({ data }) => {
-        if (data) {
-          const resp = (data as any[]).filter(f => isResponsavel(f.role || ""));
-          setCandidatos(resp.map(f => ({
-            id: f.id,
-            name: f.name,
-            role: f.role,
-            matricula: f.matricula || "",
-          })));
-        }
-      });
+    const load = async () => {
+      // 1. Puxar quem está marcado como encarregado
+      const { data: marcados } = await (supabase as any)
+        .from("employees")
+        .select("id, name, role, matricula")
+        .eq("is_encarregado", true)
+        .eq("status", "ativo")
+        .order("name");
+
+      if (marcados && marcados.length > 0) {
+        setCandidatos(marcados.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          role: f.role || "",
+          matricula: f.matricula || "",
+        })));
+        return;
+      }
+
+      // Fallback: puxar de employees por função (comportamento anterior)
+      const { data } = await supabase
+        .from("employees")
+        .select("id, name, role, matricula")
+        .order("name");
+      if (data) {
+        const resp = (data as any[]).filter(f => isResponsavel(f.role || ""));
+        setCandidatos(resp.map(f => ({
+          id: f.id,
+          name: f.name,
+          role: f.role,
+          matricula: f.matricula || "",
+        })));
+      }
+    };
+    load();
   }, []);
 
   // Filtrar conforme o usuário digita

@@ -137,6 +137,37 @@ function docVenceBreve(validade: string | null) {
 }
 
 // ─── Componente principal ──────────────────────────────────────────────────────
+// ─── EquipeField ─────────────────────────────────────────────────────────────
+function EquipeField({ editando, value, displayValue, onChange }: { editando: boolean; value: string; displayValue: string; onChange: (v: string) => void }) {
+  const [opcoes, setOpcoes] = useState<string[]>([]);
+  useEffect(() => {
+    if (!editando) return;
+    (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome").then(({ data }: any) => {
+      setOpcoes((data || []).map((e: any) => e.nome));
+    });
+  }, [editando]);
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] text-muted-foreground">Equipe</p>
+        {editando ? (
+          <select
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            className="w-full text-sm bg-transparent border-b border-primary/40 outline-none py-0.5 text-foreground"
+          >
+            <option value="">Sem equipe</option>
+            {opcoes.map(op => <option key={op} value={op}>{op}</option>)}
+          </select>
+        ) : (
+          <p className="text-sm font-medium text-foreground truncate">{displayValue}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function FichaFuncionario() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -485,7 +516,6 @@ export default function FichaFuncionario() {
                 { label: "Nome Completo", field: "name" as const, icon: User },
                 { label: "Função", field: "role" as const, icon: Briefcase },
                 { label: "Matrícula", field: "matricula" as const, icon: Shield },
-                { label: "Equipe", field: "equipe" as const, icon: Briefcase },
                 { label: "Responsável", field: "responsavel" as const, icon: User },
                 { label: "Centro de Custo", field: "centro_custo" as const, icon: Briefcase },
               ].map(row => (
@@ -501,6 +531,8 @@ export default function FichaFuncionario() {
                   </div>
                 </div>
               ))}
+              {/* Campo Equipe — select puxando de ci_equipes */}
+              <EquipeField editando={editando} value={form.equipe || ""} displayValue={(func as any).equipe || "—"} onChange={v => setForm(p => ({ ...p, equipe: v }))} />
               {/* Datas */}
               {[
                 { label: "Data de Admissão", field: "data_admissao" as const, display: fmtDate(func.data_admissao) },

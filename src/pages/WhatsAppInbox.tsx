@@ -8,7 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
-const WEBHOOK_PROXY = "https://publishers-pda-specifies-lecture.trycloudflare.com";
+const SUPABASE_FUNCTIONS_URL = "https://ucgcqexunnsrffzrfhqu.supabase.co/functions/v1";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZ2NxZXh1bm5zcmZmenJmaHF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTYzODIsImV4cCI6MjA4Nzg5MjM4Mn0.p4nBtBDqpEuhJamtK9O1PiljQ-rU2StmbkWsbZRir5o";
 const INSTANCE = "fremix-rh";
 
 interface Conversation {
@@ -118,10 +119,13 @@ export default function WhatsAppInbox() {
 
     try {
       // Enviar via túnel HTTPS
-      const resp = await fetch(`${WEBHOOK_PROXY}/send`, {
+      const resp = await fetch(`${SUPABASE_FUNCTIONS_URL}/whatsapp-send`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number: selected.remote_phone, jid: selected.remote_jid, text: msg, conversation_id: selected.id }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ number: selected.remote_phone, text: msg, conversation_id: selected.id }),
       });
 
       const result = await resp.json().catch(() => ({}));

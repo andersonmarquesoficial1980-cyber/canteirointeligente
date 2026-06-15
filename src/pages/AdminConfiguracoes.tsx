@@ -26,6 +26,7 @@ import { startImpersonation } from "@/hooks/useImpersonation";
 import UsersManagerExternal from "@/components/admin/UsersManager";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
 import EquipesManager from "@/components/admin/EquipesManager";
+import EncarregadosManager from "@/components/admin/EncarregadosManager";
 
 import PermissoesManager from "@/components/admin/PermissoesManager";
 import logoCi from "@/assets/logo-workflux.png";
@@ -1616,11 +1617,13 @@ function OgsManager() {
     }
   };
 
+  const formRef = typeof window !== 'undefined' ? { current: null as HTMLDivElement | null } : { current: null as HTMLDivElement | null };
   const openEdit = (o: any) => {
     setEditingId(o.id);
     setNumero(o.ogs_number || "");
     setCliente(o.client_name || "");
     setEndereco(o.location_address || "");
+    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   };
 
   const cancelEdit = () => { setEditingId(null); setNumero(""); setCliente(""); setEndereco(""); };
@@ -1644,12 +1647,33 @@ function OgsManager() {
     <div className="space-y-4">
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <p className="text-sm text-muted-foreground">
-          {editingId ? "✏️ Editando registro — altere os campos e salve." : "Adicione endereços a uma OGS. Uma mesma OGS pode ter vários endereços."}
+          {editingId ? "✏️ Editando registro — altere os campos e salve." : "Uma OGS pode ter vários endereços — cadastre um por vez. Ao digitar uma OGS existente, o cliente é preenchido automaticamente."}
         </p>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Nº OGS</Label>
-            <Input value={numero} onChange={e => setNumero(e.target.value)} className="h-11 bg-secondary border-border" placeholder="2535" />
+            <Input
+              value={numero}
+              onChange={e => {
+                const v = e.target.value;
+                setNumero(v);
+                // Auto-preenche cliente se a OGS já existe (só no modo adicionar)
+                if (!editingId && v.trim()) {
+                  const existente = items.find((o: any) => o.ogs_number === v.trim());
+                  if (existente && !cliente) setCliente(existente.client_name || "");
+                }
+              }}
+              className="h-11 bg-secondary border-border"
+              placeholder="2535"
+              list={editingId ? undefined : "ogs-numeros-list"}
+            />
+            {!editingId && (
+              <datalist id="ogs-numeros-list">
+                {[...new Set(items.map((o: any) => o.ogs_number))].map((n: any) => (
+                  <option key={n} value={n} />
+                ))}
+              </datalist>
+            )}
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Cliente</Label>
@@ -1660,10 +1684,26 @@ function OgsManager() {
           <Label className="text-xs text-muted-foreground">Endereço / Rua</Label>
           <Input value={endereco} onChange={e => setEndereco(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Rua X, Trecho Y" />
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleAdd} className="flex-1 h-11 gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={handleAdd} className="flex-1 h-11 gap-2 min-w-[140px]">
             {editingId ? <><Save className="w-4 h-4" /> Salvar Alterações</> : <><Plus className="w-4 h-4" /> Adicionar Endereço</>}
           </Button>
+          {editingId && (
+            <Button
+              variant="outline"
+              className="h-11 gap-2 border-primary text-primary hover:bg-primary/10"
+              onClick={async () => {
+                if (!endereco.trim()) { toast({ title: "Informe o endereço da nova rua", variant: "destructive" }); return; }
+                const { error } = await supabase.from("ogs_reference").insert({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim(), company_id: myCompanyId } as any);
+                if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+                toast({ title: "✅ Nova rua adicionada!", description: `${numero} — ${endereco}` });
+                setEndereco("");
+                await load();
+              }}
+            >
+              <Plus className="w-4 h-4" /> Adicionar rua
+            </Button>
+          )}
           {editingId && <Button variant="outline" onClick={cancelEdit} className="h-11">Cancelar</Button>}
         </div>
       </div>
@@ -2693,6 +2733,7 @@ const MENU_SECTIONS = [
   { key: "caminhoes", label: "Frota (Carreteiros)", icon: Truck },
   { key: "funcionarios", label: "Funcionários", icon: Users },
   { key: "equipes", label: "Equipes", icon: Users },
+  { key: "encarregados", label: "Encarregados de Obra", icon: HardHat },
   { key: "tipos_servico", label: "Tipos de Serviço", icon: Hammer },
   { key: "empreiteiros", label: "Empreiteiros", icon: Hammer },
   { key: "fornecedores", label: "Fornecedores", icon: Factory },
@@ -3497,6 +3538,7 @@ export default function AdminConfiguracoes() {
       case "caminhoes": return <TruckRegistryManager />;
       case "funcionarios": return <FuncionariosManager />;
       case "equipes": return <EquipesManager />;
+      case "encarregados": return <EncarregadosManager />;
       case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" vinculoOptions={["CAUQ", "PAVIMENTACAO", "INFRA", "RDO", "TODOS"]} />;
       case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />;
       case "fornecedores": return <FornecedoresManager />;

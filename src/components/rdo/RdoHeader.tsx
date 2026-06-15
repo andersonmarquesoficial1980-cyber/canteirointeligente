@@ -113,17 +113,12 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <span className="rdo-label">Data</span>
-          <div className="relative">
-            <Input
-              type="date"
-              value={data.data}
-              onChange={e => onChange("data", e.target.value)}
-              className="h-12 text-base bg-white border-border opacity-0 absolute inset-0 w-full"
-            />
-            <div className="h-12 text-base bg-white border border-border rounded-xl flex items-center px-3 text-foreground pointer-events-none">
-              {formatDateBR(data.data) || "DD/MM/AAAA"}
-            </div>
-          </div>
+          <Input
+            type="date"
+            value={data.data}
+            onChange={e => onChange("data", e.target.value)}
+            className="h-12 text-base bg-white border-border rounded-xl"
+          />
         </div>
         <div className="space-y-1.5">
           <span className="rdo-label">Turno *</span>
@@ -146,18 +141,19 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
           <span className="rdo-label flex items-center gap-1">
             <Building2 className="w-3.5 h-3.5" /> OGS (Obra)
           </span>
-          <Select value={data.obra_nome} onValueChange={handleObraChange}>
-            <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
-              <SelectValue placeholder={isLoading ? "Carregando..." : "Selecione"} />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px]">
-              {uniqueOgs.map(obra => (
-                <SelectItem key={obra.ogs_number || obra.id} value={obra.ogs_number || ""} className="py-3">
-                  {obra.ogs_number}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <input
+            type="text"
+            value={data.obra_nome}
+            onChange={e => handleObraChange(e.target.value)}
+            placeholder={isLoading ? "Carregando..." : "Digite ou selecione"}
+            list="ogs-list-rdo"
+            className="w-full h-12 rounded-xl border border-border bg-white px-3 text-base outline-none focus:ring-2 focus:ring-primary/40"
+          />
+          <datalist id="ogs-list-rdo">
+            {uniqueOgs.map(obra => (
+              <option key={obra.ogs_number || obra.id} value={obra.ogs_number || ""}>{obra.ogs_number} — {obra.client_name}</option>
+            ))}
+          </datalist>
         </div>
         <div className="space-y-1.5">
           <span className="rdo-label flex items-center gap-1">

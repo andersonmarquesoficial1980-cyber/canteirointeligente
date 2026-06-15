@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Loader2, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Download, Loader2, FileSpreadsheet, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 
@@ -104,9 +104,191 @@ export default function ExportarProtheus() {
   const [mes, setMes] = useState("");
   const [ano, setAno] = useState(String(currentYear));
   const [loading, setLoading] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [erro, setErro] = useState("");
   const [total, setTotal] = useState<number | null>(null);
+  const [previewHeader, setPreviewHeader] = useState<string[] | null>(null);
+  const [previewRows, setPreviewRows] = useState<any[][] | null>(null);
 
+  // ── Função central de busca (reutilizada por preview e exportação) ──────────
+  const fetchData = async () => {
+    const dataInicio = `${ano}-${mes}-01`;
+    const ultimoDia = new Date(parseInt(ano), parseInt(mes), 0).getDate();
+    const dataFim = `${ano}-${mes}-${String(ultimoDia).padStart(2, "0")}`;
+
+    const { data: diarios, error: errDiarios } = await supabase
+      .from("equipment_diaries")
+      .select("*")
+      .eq("equipment_type", tipoEquip)
+      .gte("date", dataInicio)
+      .lte("date", dataFim)
+      .order("date", { ascending: true });
+
+    if (errDiarios) throw errDiarios;
+    if (!diarios || diarios.length === 0) {
+      throw new Error(`Nenhum lançamento encontrado para ${tipoEquip} em ${mes}/${ano}.`);
+    }
+
+    const diaryIds = diarios.map((d: any) => d.id);
+
+    const [
+      { data: timeEntries },
+      { data: bitsEntries },
+      { data: prodAreas },
+    ] = await Promise.all([
+      supabase.from("equipment_time_entries").select("*").in("diary_id", diaryIds).order("start_time", { ascending: true }).limit(10000),
+      supabase.from("bit_entries").select("*").in("diary_id", diaryIds).limit(10000),
+      supabase.from("equipment_production_areas").select("*").in("diary_id", diaryIds).limit(10000),
+    ]);
+
+    const createdByIds = [...new Set((diarios ?? []).map((d: any) => d.created_by).filter(Boolean))];
+    const profileMap: Record<string, string> = {};
+    if (createdByIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("user_id, nome_completo")
+        .in("user_id", createdByIds);
+      (profilesData || []).forEach((p: any) => {
+        if (p.user_id) profileMap[p.user_id] = p.nome_completo || "";
+      });
+    }
+
+    const timeMap: Record<string, any[]> = {};
+    const bitsMap: Record<string, any[]> = {};
+    const prodMap: Record<string, any[]> = {};
+
+    function sortTimeEntries(entries: any[], _period?: string): any[] {
+      return [...entries].sort((a, b) => {
+        const toMinutes = (t: string) => {
+          if (!t) return 0;
+          const parts = t.split(":");
+          const h = parseInt(parts[0]) || 0;
+          const m = parseInt(parts[1]) || 0;
+          const mins = h * 60 + m;
+          return mins < 7 * 60 ? mins + 24 * 60 : mins;
+        };
+        return toMinutes(a.start_time) - toMinutes(b.start_time);
+      });
+    }
+
+    const periodMap: Record<string, string> = {};
+    (diarios ?? []).forEach((d: any) => { periodMap[d.id] = d.period || ""; });
+
+    (timeEntries ?? []).forEach((t: any) => {
+      if (!timeMap[t.diary_id]) timeMap[t.diary_id] = [];
+      timeMap[t.diary_id].push(t);
+    });
+    Object.keys(timeMap).forEach(diaryId => {
+      timeMap[diaryId] = sortTimeEntries(timeMap[diaryId], periodMap[diaryId] || "");
+    });
+    (bitsEntries ?? []).forEach((b: any) => {
+      if (!bitsMap[b.diary_id]) bitsMap[b.diary_id] = [];
+      bitsMap[b.diary_id].push(b);
+    });
+    (prodAreas ?? []).forEach((p: any) => {
+      if (!prodMap[p.diary_id]) prodMap[p.diary_id] = [];
+      prodMap[p.diary_id].push(p);
+    });
+
+    function inferirTurno(times: any[], periodOriginal: string): string {
+      const primeiro = times[0]?.start_time;
+      if (!primeiro) return periodOriginal;
+      const [h, m] = primeiro.split(":").map(Number);
+      const mins = (h ?? 0) * 60 + (m ?? 0);
+      if (mins >= 4 * 60 && mins < 18 * 60) return "diurno";
+      return "noturno";
+    }
+
+    const comAuxiliar = TEM_AUXILIAR.includes(tipoEquip);
+    const comProducao = TEM_PRODUCAO.includes(tipoEquip);
+    const header = buildHeader(tipoEquip);
+
+    const dataRows = diarios.map((d: any) => {
+      const times  = (timeMap[d.id] ?? []).slice(0, 10);
+      const bits   = (bitsMap[d.id] ?? [])[0];
+      const prods  = (prodMap[d.id] ?? []).slice(0, 25);
+      const turnoCorrigido = inferirTurno(timeMap[d.id] ?? [], d.period ?? "");
+
+      const createdAtBR = d.created_at
+        ? new Date(d.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+        : "";
+      const preenchidoPor = profileMap[d.created_by] ?? "";
+
+      const row: any[] = [
+        createdAtBR,
+        preenchidoPor,
+        fmtDate(d.date),
+        d.operator_name ?? "",
+        ...(comAuxiliar ? [d.operator_solo ?? ""] : []),
+        d.equipment_fleet ?? "",
+        d.equipment_type ?? "",
+        d.ogs_number ?? "",
+        d.client_name ?? "",
+        d.location_address ?? "",
+        d.work_status ?? "",
+        turnoCorrigido,
+        tipoEquip === "Carreta" ? fmtNum(d.odometer_initial) : fmtNum(d.meter_initial),
+        tipoEquip === "Carreta" ? fmtNum(d.odometer_final) : fmtNum(d.meter_final),
+      ];
+
+      for (let i = 0; i < 10; i++) {
+        const t = times[i];
+        row.push(t?.start_time ?? "");
+        row.push(t?.end_time ?? "");
+        row.push(t?.activity ?? "");
+        row.push(t?.description ?? "");
+      }
+
+      if (tipoEquip === "Fresadora") {
+        row.push(d.fresagem_type ?? "");
+        row.push(bits ? "Sim" : "Não");
+        row.push(bits?.status ?? "");
+        row.push(fmtNum(bits?.quantity));
+        row.push("");
+        row.push(fmtNum(bits?.meter_at_change));
+        row.push(bits?.brand ?? "");
+      }
+
+      if (comProducao) {
+        for (let i = 0; i < 25; i++) {
+          const p = prods[i];
+          row.push(fmtNum(p?.length_m));
+          row.push(fmtNum(p?.width_m));
+          row.push(fmtNum(p?.thickness_cm));
+        }
+      }
+
+      row.push(d.observations ?? "");
+      return row;
+    });
+
+    return { header, rows: dataRows, total: diarios.length };
+  };
+
+  // ── Pré-visualizar ────────────────────────────────────────────────────────
+  const handlePrevisualizar = async () => {
+    if (!tipoEquip || !mes || !ano) {
+      setErro("Selecione o tipo de equipamento, mês e ano.");
+      return;
+    }
+    setErro("");
+    setLoadingPreview(true);
+    setPreviewHeader(null);
+    setPreviewRows(null);
+    setTotal(null);
+    try {
+      const { header, rows, total } = await fetchData();
+      setPreviewHeader(header);
+      setPreviewRows(rows);
+      setTotal(total);
+    } catch (e: any) {
+      setErro(e?.message ?? String(e));
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  // ── Exportar XLSX ─────────────────────────────────────────────────────────
   const handleExportar = async () => {
     if (!tipoEquip || !mes || !ano) {
       setErro("Selecione o tipo de equipamento, mês e ano.");
@@ -117,183 +299,12 @@ export default function ExportarProtheus() {
     setTotal(null);
 
     try {
-      const dataInicio = `${ano}-${mes}-01`;
-      const ultimoDia = new Date(parseInt(ano), parseInt(mes), 0).getDate();
-      const dataFim = `${ano}-${mes}-${String(ultimoDia).padStart(2, "0")}`;
+      const { header, rows: dataRows, total } = await fetchData();
 
-      // 1. Diários do mês
-      const { data: diarios, error: errDiarios } = await supabase
-        .from("equipment_diaries")
-        .select("*")
-        .eq("equipment_type", tipoEquip)
-        .gte("date", dataInicio)
-        .lte("date", dataFim)
-        .order("date", { ascending: true });
-
-      if (errDiarios) throw errDiarios;
-      if (!diarios || diarios.length === 0) {
-        setErro(`Nenhum lançamento encontrado para ${tipoEquip} em ${mes}/${ano}.`);
-        setLoading(false);
-        return;
-      }
-
-      const diaryIds = diarios.map(d => d.id);
-
-      // 2. Buscar dados relacionados
-      const [
-        { data: timeEntries },
-        { data: bitsEntries },
-        { data: prodAreas },
-      ] = await Promise.all([
-        supabase.from("equipment_time_entries").select("*").in("diary_id", diaryIds).order("start_time", { ascending: true }).limit(10000),
-        supabase.from("bit_entries").select("*").in("diary_id", diaryIds).limit(10000),
-        supabase.from("equipment_production_areas").select("*").in("diary_id", diaryIds).limit(10000),
-      ]);
-
-      // 2b. Buscar nomes de quem preencheu (created_by → profiles.nome_completo)
-      const createdByIds = [...new Set((diarios ?? []).map((d: any) => d.created_by).filter(Boolean))];
-      const profileMap: Record<string, string> = {};
-      if (createdByIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from("profiles")
-          .select("user_id, nome_completo")
-          .in("user_id", createdByIds);
-        (profilesData || []).forEach((p: any) => {
-          if (p.user_id) profileMap[p.user_id] = p.nome_completo || "";
-        });
-      }
-
-      // 3. Montar mapas por diary_id
-      const timeMap: Record<string, any[]> = {};
-      const bitsMap: Record<string, any[]> = {};
-      const prodMap: Record<string, any[]> = {};
-
-      // Ordena apontamentos respeitando virada de meia-noite.
-      // Horários antes de 07h são tratados como "dia seguinte" independente do turno cadastrado,
-      // pois usuários frequentemente lançam turnos noturnos como "diurno" por engano.
-      function sortTimeEntries(entries: any[], _period?: string): any[] {
-        return [...entries].sort((a, b) => {
-          const toMinutes = (t: string) => {
-            if (!t) return 0;
-            const parts = t.split(":");
-            const h = parseInt(parts[0]) || 0;
-            const m = parseInt(parts[1]) || 0;
-            const mins = h * 60 + m;
-            // Madrugada (00h-06h59) = após meia-noite = +24h
-            return mins < 7 * 60 ? mins + 24 * 60 : mins;
-          };
-          return toMinutes(a.start_time) - toMinutes(b.start_time);
-        });
-      }
-
-      // Criar mapa de período por diary_id
-      const periodMap: Record<string, string> = {};
-      (diarios ?? []).forEach((d: any) => { periodMap[d.id] = d.period || ""; });
-
-      (timeEntries ?? []).forEach((t: any) => {
-        if (!timeMap[t.diary_id]) timeMap[t.diary_id] = [];
-        timeMap[t.diary_id].push(t);
-      });
-
-      // Reordenar cada grupo de time_entries pelo turno do diário
-      Object.keys(timeMap).forEach(diaryId => {
-        timeMap[diaryId] = sortTimeEntries(timeMap[diaryId], periodMap[diaryId] || "");
-      });
-      (bitsEntries ?? []).forEach((b: any) => {
-        if (!bitsMap[b.diary_id]) bitsMap[b.diary_id] = [];
-        bitsMap[b.diary_id].push(b);
-      });
-      (prodAreas ?? []).forEach((p: any) => {
-        if (!prodMap[p.diary_id]) prodMap[p.diary_id] = [];
-        prodMap[p.diary_id].push(p);
-      });
-
-      // Corrige turno baseado no primeiro horário lançado (independente do que o operador escolheu)
-      // Diurno: primeiro start_time entre 04:00 e 17:59 | Noturno: 18:00-23:59 ou 00:00-03:59
-      function inferirTurno(times: any[], periodOriginal: string): string {
-        const primeiro = times[0]?.start_time;
-        if (!primeiro) return periodOriginal; // sem apontamentos, mantém o original
-        const [h, m] = primeiro.split(":").map(Number);
-        const mins = (h ?? 0) * 60 + (m ?? 0);
-        if (mins >= 4 * 60 && mins < 18 * 60) return "diurno";
-        return "noturno";
-      }
-
-      // 4. Montar planilha
-      const comAuxiliar = TEM_AUXILIAR.includes(tipoEquip);
-      const comProducao = TEM_PRODUCAO.includes(tipoEquip);
-      const header = buildHeader(tipoEquip);
-      const dataRows = diarios.map(d => {
-        const times  = (timeMap[d.id] ?? []).slice(0, 10);
-        const bits   = (bitsMap[d.id] ?? [])[0];
-        const prods  = (prodMap[d.id] ?? []).slice(0, 25);
-        const turnoCorrigido = inferirTurno(timeMap[d.id] ?? [], d.period ?? "");
-
-        // Data/hora de preenchimento no fuso de Brasília
-        const createdAtBR = d.created_at
-          ? new Date(d.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
-          : "";
-        const preenchidoPor = profileMap[d.created_by] ?? "";
-
-        const row: any[] = [
-          createdAtBR,
-          preenchidoPor,
-          fmtDate(d.date),
-          d.operator_name ?? "",
-          ...(comAuxiliar ? [d.operator_solo ?? ""] : []),
-          d.equipment_fleet ?? "",
-          d.equipment_type ?? "",
-          d.ogs_number ?? "",
-          d.client_name ?? "",
-          d.location_address ?? "",
-          d.work_status ?? "",
-          turnoCorrigido,
-          tipoEquip === "Carreta" ? fmtNum(d.odometer_initial) : fmtNum(d.meter_initial),
-          tipoEquip === "Carreta" ? fmtNum(d.odometer_final) : fmtNum(d.meter_final),
-        ];
-
-        // 10 blocos fixos de apontamento
-        for (let i = 0; i < 10; i++) {
-          const t = times[i];
-          row.push(t?.start_time ?? "");
-          row.push(t?.end_time ?? "");
-          row.push(t?.activity ?? "");
-          // Para Carreta: description = equipamentos transportados; para demais: observação livre
-          row.push(t?.description ?? "");
-        }
-
-        // Bits e Fresagem (somente Fresadora)
-        if (tipoEquip === "Fresadora") {
-          row.push(d.fresagem_type ?? "");
-          row.push(bits ? "Sim" : "Não");
-          row.push(bits?.status ?? "");
-          row.push(fmtNum(bits?.quantity));
-          row.push(""); // meia vida
-          row.push(fmtNum(bits?.meter_at_change));
-          row.push(bits?.brand ?? "");
-        }
-
-        // 25 blocos fixos de produção
-        if (comProducao) {
-          for (let i = 0; i < 25; i++) {
-            const p = prods[i];
-            row.push(fmtNum(p?.length_m));
-            row.push(fmtNum(p?.width_m));
-            row.push(fmtNum(p?.thickness_cm));
-          }
-        }
-
-        row.push(d.observations ?? "");
-
-        return row;
-      });
-
-      // 5. Gerar XLSX
       const wb = XLSX.utils.book_new();
       const wsData = [header, ...dataRows];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-      // Cabeçalho em negrito + azul
       const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1");
       for (let c = range.s.c; c <= range.e.c; c++) {
         const cellRef = XLSX.utils.encode_cell({ r: 0, c });
@@ -307,7 +318,6 @@ export default function ExportarProtheus() {
         }
       }
 
-      // Largura das colunas
       ws["!cols"] = header.map(() => ({ wch: 20 }));
 
       const nomeAba = tipoEquip.replace(/\s/g, "_").toUpperCase();
@@ -317,7 +327,7 @@ export default function ExportarProtheus() {
       const nomeArquivo = `WF_Protheus_${tipoEquip.replace(/\s/g,"_")}_${mesLabel}_${ano}.xlsx`;
       XLSX.writeFile(wb, nomeArquivo);
 
-      setTotal(diarios.length);
+      setTotal(total);
     } catch (e: any) {
       setErro("Erro ao exportar: " + (e?.message ?? String(e)));
     } finally {
@@ -349,7 +359,7 @@ export default function ExportarProtheus() {
 
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo de Equipamento</span>
-            <Select value={tipoEquip} onValueChange={setTipoEquip}>
+            <Select value={tipoEquip} onValueChange={v => { setTipoEquip(v); setPreviewHeader(null); setPreviewRows(null); setTotal(null); }}>
               <SelectTrigger className="h-12 bg-white border-border rounded-xl">
                 <SelectValue placeholder="Selecione o equipamento" />
               </SelectTrigger>
@@ -362,7 +372,7 @@ export default function ExportarProtheus() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mês</span>
-              <Select value={mes} onValueChange={setMes}>
+              <Select value={mes} onValueChange={v => { setMes(v); setPreviewHeader(null); setPreviewRows(null); setTotal(null); }}>
                 <SelectTrigger className="h-12 bg-white border-border rounded-xl">
                   <SelectValue placeholder="Mês" />
                 </SelectTrigger>
@@ -373,7 +383,7 @@ export default function ExportarProtheus() {
             </div>
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ano</span>
-              <Select value={ano} onValueChange={setAno}>
+              <Select value={ano} onValueChange={v => { setAno(v); setPreviewHeader(null); setPreviewRows(null); setTotal(null); }}>
                 <SelectTrigger className="h-12 bg-white border-border rounded-xl">
                   <SelectValue placeholder="Ano" />
                 </SelectTrigger>
@@ -394,18 +404,95 @@ export default function ExportarProtheus() {
             </div>
           )}
 
-          <Button
-            onClick={handleExportar}
-            disabled={loading || !tipoEquip || !mes || !ano}
-            className="w-full h-12 gap-2 text-base font-display font-bold rounded-xl"
-          >
-            {loading ? (
-              <><Loader2 className="w-5 h-5 animate-spin" /> Gerando planilha...</>
-            ) : (
-              <><Download className="w-5 h-5" /> Exportar XLSX</>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handlePrevisualizar}
+              disabled={loadingPreview || loading || !tipoEquip || !mes || !ano}
+              variant="outline"
+              className="flex-1 h-12 gap-2 text-base font-display font-bold rounded-xl border-blue-600 text-blue-600 hover:bg-blue-50"
+            >
+              {loadingPreview ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /> Carregando...</>
+              ) : (
+                <><Eye className="w-5 h-5" /> Pré-visualizar</>
+              )}
+            </Button>
+            <Button
+              onClick={handleExportar}
+              disabled={loading || loadingPreview || !tipoEquip || !mes || !ano}
+              className="flex-1 h-12 gap-2 text-base font-display font-bold rounded-xl"
+            >
+              {loading ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /> Gerando...</>
+              ) : (
+                <><Download className="w-5 h-5" /> Exportar XLSX</>
+              )}
+            </Button>
+          </div>
         </div>
+
+        {previewHeader && previewRows && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-white">
+            {/* Header fixo */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-white shadow-sm shrink-0">
+              <div>
+                <p className="font-display font-bold text-sm">Pré-visualização — {tipoEquip} {MONTHS.find(m => m.value === mes)?.label}/{ano}</p>
+                <p className="text-xs text-muted-foreground">{total} lançamento{total !== 1 ? "s" : ""} encontrado{total !== 1 ? "s" : ""} · {previewHeader.length} colunas</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleExportar}
+                  disabled={loading}
+                  size="sm"
+                  className="gap-1.5 rounded-lg text-xs font-bold"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  Baixar XLSX
+                </Button>
+                <Button
+                  onClick={() => { setPreviewHeader(null); setPreviewRows(null); setTotal(null); }}
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 rounded-lg text-xs font-bold"
+                >
+                  Fechar
+                </Button>
+              </div>
+            </div>
+            {/* Tabela scroll total */}
+            <div className="flex-1 overflow-auto">
+              <table className="text-xs border-collapse min-w-max">
+                <thead className="sticky top-0 z-10">
+                  <tr>
+                    {previewHeader.map((col, ci) => (
+                      <th
+                        key={ci}
+                        className="bg-[#0055CC] text-white font-bold px-2 py-1.5 whitespace-nowrap border border-blue-700 text-left min-w-[100px]"
+                      >
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.map((row, ri) => (
+                    <tr key={ri} className={ri % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                      {row.map((cell, ci) => (
+                        <td
+                          key={ci}
+                          className="px-2 py-1 border border-slate-200 whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis"
+                          title={String(cell ?? "")}
+                        >
+                          {String(cell ?? "")}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-800 space-y-2">
           <p className="font-semibold">ℹ️ Estrutura da planilha</p>
