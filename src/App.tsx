@@ -93,6 +93,7 @@ import EngValidarRdo from "./pages/EngValidarRdo";
 import EngRdoTecnico from "./pages/EngRdoTecnico";
 import EngRdoTecnicoHistorico from "./pages/EngRdoTecnicoHistorico";
 import EngRdoTecnicoDetalhe from "./pages/EngRdoTecnicoDetalhe";
+import EngRdoTecnicoEditar from "./pages/EngRdoTecnicoEditar";
 
 const queryClient = new QueryClient();
 
@@ -318,6 +319,7 @@ function AppRoutes() {
         <Route path="/engenharia" element={<EngHome />} />
         <Route path="/engenharia/validar/:id" element={<EngValidarRdo />} />
         <Route path="/engenharia/rdo-tecnico/historico" element={<EngRdoTecnicoHistorico />} />
+        <Route path="/engenharia/rdo-tecnico/editar/:id" element={<EngRdoTecnicoEditar />} />
         <Route path="/engenharia/rdo-tecnico/:id" element={<EngRdoTecnicoDetalhe />} />
         <Route path="/engenharia/rdo-tecnico" element={<EngRdoTecnico />} />
         <Route path="/equipamentos/exportar-protheus" element={<RequireModule moduleId="equipamentos"><ExportarProtheus /></RequireModule>} />
