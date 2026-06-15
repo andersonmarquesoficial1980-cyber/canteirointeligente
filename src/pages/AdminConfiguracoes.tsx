@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense, memo } from "react";
 import { AuditLogViewer } from "@/components/admin/AuditLogViewer";
 import { EngenheirosOgsManager } from "@/components/admin/EngenheirosOgsManager";
+import { EncEncarregadoOgsManager } from "@/components/admin/EncEncarregadoOgsManager";
 function AuditLogViewerAdmin() { return <AuditLogViewer />; }
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -1163,6 +1164,7 @@ function UsersManager() {
     "Administrador":      { is_admin: true,  modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: true,  modulo_carreteiros: true,  modulo_programador: true,  modulo_demandas: true,  modulo_manutencao: true,  modulo_abastecimento: true,  modulo_documentos: true,  modulo_relatorios: true,  modulo_dashboard: true  },
     "Gerente":            { is_admin: true,  modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: true,  modulo_carreteiros: true,  modulo_programador: false, modulo_demandas: true,  modulo_manutencao: true,  modulo_abastecimento: true,  modulo_documentos: true,  modulo_relatorios: true,  modulo_dashboard: true  },
     "Engenheiro":         { is_admin: false, modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: true,  modulo_dashboard: false },
+    "Encarregado":        { is_admin: false, modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: true,  modulo_dashboard: false, modulo_encarregado: true },
     "Segurança":          { is_admin: false, modulo_obras: false, modulo_equipamentos: false, modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: true,  modulo_relatorios: false, modulo_dashboard: false },
     "Manutenção":         { is_admin: false, modulo_obras: false, modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: true,  modulo_abastecimento: true,  modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
     "Gestão de Pessoas":  { is_admin: false, modulo_obras: false, modulo_equipamentos: false, modulo_rh: true,  modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
@@ -2750,6 +2752,7 @@ const MENU_SECTIONS = [
   { key: "auditoria", label: "Log de Auditoria", icon: Shield },
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
   { key: "engenheiros_ogs", label: "Engenheiros por OGS", icon: HardHat },
+  { key: "encarregados_ogs", label: "Encarregados por OGS", icon: HardHat },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -3556,6 +3559,7 @@ export default function AdminConfiguracoes() {
       case "lixeira": return <LixeiraManager />;
       case "auditoria": return <AuditLogViewerAdmin />;
       case "engenheiros_ogs": return <EngenheirosOgsManager />;
+      case "encarregados_ogs": return <EncEncarregadoOgsManager />;
       default: return null;
     }
   };

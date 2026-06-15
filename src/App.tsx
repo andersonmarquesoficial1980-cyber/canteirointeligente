@@ -89,6 +89,9 @@ import ValeTransporte from "./pages/ValeTransporte";
 import VisualizarLancamento from "./pages/VisualizarLancamento";
 import VisualizarRdo from "./pages/VisualizarRdo";
 import EngHome from "./pages/EngHome";
+import EncHome from "./pages/EncHome";
+import EncValidarRdo from "./pages/EncValidarRdo";
+import EncEquipamentos from "./pages/EncEquipamentos";
 import EngValidarRdo from "./pages/EngValidarRdo";
 import EngRdoTecnico from "./pages/EngRdoTecnico";
 import EngRdoTecnicoHistorico from "./pages/EngRdoTecnicoHistorico";
@@ -133,6 +136,7 @@ const MODULE_PERM_MAP: Record<string, string> = {
   "suprimentos": "modulo_suprimentos",
   "sst": "modulo_sst",
   "engenharia": "modulo_engenharia",
+  "encarregado": "modulo_encarregado",
 };
 
 function RequireModule({ moduleId, children }: { moduleId: string; children: JSX.Element }) {
@@ -318,6 +322,9 @@ function AppRoutes() {
         <Route path="/visualizar-lancamento/:id" element={<VisualizarLancamento />} />
         <Route path="/visualizar-rdo/:id" element={<VisualizarRdo />} />
         <Route path="/engenharia" element={<EngHome />} />
+        <Route path="/encarregado" element={<EncHome />} />
+        <Route path="/encarregado/validar/:id" element={<EncValidarRdo />} />
+        <Route path="/encarregado/equipamentos" element={<EncEquipamentos />} />
         <Route path="/engenharia/validar/:id" element={<EngValidarRdo />} />
         <Route path="/engenharia/rdo-tecnico/historico" element={<EngRdoTecnicoHistorico />} />
         <Route path="/engenharia/rdo-tecnico/editar/:id" element={<EngRdoTecnicoEditar />} />

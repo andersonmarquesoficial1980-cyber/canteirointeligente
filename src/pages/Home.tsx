@@ -134,6 +134,7 @@ export default function Home() {
               documentos: "modulo_documentos",
               relatorios: "modulo_relatorios",
               dashboard: "modulo_dashboard",
+              encarregado: "modulo_encarregado",
             };
             if (!permissions) return false;
             const permKey = permMap[mod.id];
