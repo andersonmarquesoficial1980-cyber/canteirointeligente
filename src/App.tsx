@@ -127,11 +127,12 @@ const MODULE_PERM_MAP: Record<string, string> = {
   abastecimento: "modulo_abastecimento",
   documentos: "modulo_documentos",
   relatorios: "modulo_relatorios",
-  "gestao-frotas": "modulo_relatorios", // sem chave própria, admin only
-  "gestao-pessoas": "modulo_relatorios",
-  "medicoes": "modulo_relatorios",
-  "suprimentos": "modulo_relatorios",
-  "sst": "modulo_relatorios",
+  "gestao-frotas": "modulo_gestao_frotas",
+  "gestao-pessoas": "modulo_gestao_pessoas",
+  "medicoes": "modulo_medicoes",
+  "suprimentos": "modulo_suprimentos",
+  "sst": "modulo_sst",
+  "engenharia": "modulo_engenharia",
 };
 
 function RequireModule({ moduleId, children }: { moduleId: string; children: JSX.Element }) {

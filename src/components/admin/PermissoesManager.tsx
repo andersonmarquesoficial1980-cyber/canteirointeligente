@@ -26,6 +26,12 @@ interface Perms {
   modulo_documentos: boolean;
   modulo_relatorios: boolean;
   modulo_dashboard: boolean;
+  modulo_gestao_frotas: boolean;
+  modulo_gestao_pessoas: boolean;
+  modulo_suprimentos: boolean;
+  modulo_medicoes: boolean;
+  modulo_sst: boolean;
+  modulo_engenharia: boolean;
   equipamentos_permitidos: string[];
 }
 
@@ -45,6 +51,12 @@ const MODULOS = [
   { key: "modulo_abastecimento", label: "WF Abastecimento" },
   { key: "modulo_documentos", label: "WF Documentos" },
   { key: "modulo_relatorios", label: "WF Relatórios" },
+  { key: "modulo_gestao_frotas", label: "WF Gestão de Frotas" },
+  { key: "modulo_gestao_pessoas", label: "WF Gestão de Pessoas" },
+  { key: "modulo_suprimentos", label: "WF Suprimentos" },
+  { key: "modulo_medicoes", label: "WF Medições" },
+  { key: "modulo_sst", label: "WF Segurança do Trabalho" },
+  { key: "modulo_engenharia", label: "WF Engenharia" },
   { key: "modulo_dashboard", label: "WF Dashboard" },
   { key: "is_admin", label: "Painel de Controle" },
 ];
@@ -56,6 +68,9 @@ function emptyPerms(userId: string): Perms {
     modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false,
     modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false,
     modulo_relatorios: false, modulo_dashboard: false,
+    modulo_gestao_frotas: false, modulo_gestao_pessoas: false,
+    modulo_suprimentos: false, modulo_medicoes: false,
+    modulo_sst: false, modulo_engenharia: false,
     equipamentos_permitidos: [],
   };
 }
