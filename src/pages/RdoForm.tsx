@@ -256,6 +256,7 @@ export default function RdoForm() {
           entrada: e.entrada || "",
           saida: e.saida || "",
           status: statusEfetivo,
+          employee_id: e.employee_id || null, // preservar vínculo do dia anterior
         })));
       }
 
@@ -308,6 +309,7 @@ export default function RdoForm() {
           funcao: e.funcao || "",
           entrada: e.entrada || "",
           saida: e.saida || "",
+          employee_id: e.employee_id || null,
         })));
         if (efetivo[0]?.entrada) setGlobalEntrada(efetivo[0].entrada);
         if (efetivo[0]?.saida) setGlobalSaida(efetivo[0].saida);
@@ -768,6 +770,8 @@ export default function RdoForm() {
           quantidade: 1,
           entrada: e.entrada || globalEntrada || null,
           saida: e.saida || globalSaida || null,
+          // employee_id: só grava quando há 1 funcionário (sem |||)
+          employee_id: e.employee_id && !(e.nome || "").includes("|||") ? e.employee_id : null,
         }));
       if (efEntries.length > 0) {
         const { error } = await supabase.from("rdo_efetivo").insert(efEntries);

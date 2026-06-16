@@ -15,6 +15,7 @@ export interface EfetivoEntry {
   saida: string;
   status?: "P" | "F" | "A" | "";
   horasExtras?: string;
+  employee_id?: string | null; // FK para employees.id (null quando entrada concatenada |||)
 }
 
 interface StepEfetivoProps {
@@ -47,12 +48,13 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
   const carregarEquipe = (nomeEquipe: string) => {
     const membros = getMembrosDeEquipe(nomeEquipe);
     if (membros.length === 0) return;
-    const porFuncao: Record<string, { nomes: string[]; matriculas: string[] }> = {};
+    const porFuncao: Record<string, { nomes: string[]; matriculas: string[]; ids: string[] }> = {};
     membros.forEach(m => {
       const f = m.funcao || "SEM FUNÇÃO";
-      if (!porFuncao[f]) porFuncao[f] = { nomes: [], matriculas: [] };
+      if (!porFuncao[f]) porFuncao[f] = { nomes: [], matriculas: [], ids: [] };
       porFuncao[f].nomes.push(m.nome);
       porFuncao[f].matriculas.push(m.matricula);
+      porFuncao[f].ids.push(m.id);
     });
     const novoEfetivo = Object.entries(porFuncao).map(([funcao, data]) => ({
       id: crypto.randomUUID(),
@@ -63,6 +65,8 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
       saida: "",
       status: "" as const,
       horasExtras: "",
+      // employee_id só quando há exatamente 1 membro na função
+      employee_id: data.ids.length === 1 ? data.ids[0] : null,
     }));
     onChange(novoEfetivo);
     setCarregado(true);
@@ -79,25 +83,26 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
     onChange(entries.map(e => e.id === entryId ? { ...e, funcao, nome: "", matricula: "" } : e));
   };
 
-  const handleToggleFuncionario = (entryId: string, func: { matricula: string; nome: string }, checked: boolean) => {
+  const handleToggleFuncionario = (entryId: string, func: { matricula: string; nome: string; id?: string }, checked: boolean) => {
     const entry = entries.find(e => e.id === entryId);
     if (!entry) return;
 
     if (checked) {
-      // Add: keep the current entry if empty, otherwise add new
       const currentNames = entry.nome ? entry.nome.split("|||") : [];
       const currentMatrs = entry.matricula ? entry.matricula.split("|||") : [];
       if (!currentNames.includes(func.nome)) {
         currentNames.push(func.nome);
         currentMatrs.push(func.matricula);
       }
+      // employee_id só quando há exatamente 1 funcionário na entrada
+      const isSingle = currentNames.filter(Boolean).length === 1;
       onChange(entries.map(e => e.id === entryId ? {
         ...e,
         nome: currentNames.join("|||"),
         matricula: currentMatrs.join("|||"),
+        employee_id: isSingle ? (func.id ?? null) : null,
       } : e));
     } else {
-      // Remove
       const currentNames = entry.nome ? entry.nome.split("|||") : [];
       const currentMatrs = entry.matricula ? entry.matricula.split("|||") : [];
       const idx = currentNames.indexOf(func.nome);
@@ -105,25 +110,34 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
         currentNames.splice(idx, 1);
         currentMatrs.splice(idx, 1);
       }
+      const remainingNames = currentNames.filter(Boolean);
+      // Recuperar employee_id do funcionário que sobrou (se for 1)
+      const sobraFunc = remainingNames.length === 1
+        ? funcionarios.find(f => f.nome === remainingNames[0])
+        : null;
       onChange(entries.map(e => e.id === entryId ? {
         ...e,
         nome: currentNames.join("|||"),
         matricula: currentMatrs.join("|||"),
+        employee_id: sobraFunc?.id ?? null,
       } : e));
     }
   };
 
   const selectAllInFuncao = (entryId: string, funcao: string) => {
     const funcsForRole = funcionarios.filter(f => f.funcao === funcao).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    // employee_id só quando sobra 1 funcionário
+    const isSingle = funcsForRole.length === 1;
     onChange(entries.map(e => e.id === entryId ? {
       ...e,
       nome: funcsForRole.map(f => f.nome).join("|||"),
       matricula: funcsForRole.map(f => f.matricula).join("|||"),
+      employee_id: isSingle ? (funcsForRole[0].id ?? null) : null,
     } : e));
   };
 
   const addEntry = () => onChange([...entries, {
-    id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "", status: "", horasExtras: "",
+    id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "", status: "", horasExtras: "", employee_id: null,
   }]);
   const removeEntry = (id: string) => onChange(entries.filter(e => e.id !== id));
 
@@ -299,10 +313,15 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
                               const mats = entry.matricula ? entry.matricula.split("|||") : [];
                               nomes.splice(nIdx, 1);
                               mats.splice(nIdx, 1);
+                              const remainingName = nomes.length === 1 ? nomes[0] : null;
+                              const sobraFunc = remainingName
+                                ? funcionarios.find(f => f.nome === remainingName)
+                                : null;
                               onChange(entries.map(e => e.id === entry.id ? {
                                 ...e,
                                 nome: nomes.join("|||"),
                                 matricula: mats.join("|||"),
+                                employee_id: sobraFunc?.id ?? null,
                               } : e));
                             }}
                             className="text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"

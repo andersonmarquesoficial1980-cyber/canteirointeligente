@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Funcionario {
-  id: string;
+  id: string; // employees.id — usar como employee_id nos lançamentos
   matricula: string;
   nome: string;
   funcao: string;
