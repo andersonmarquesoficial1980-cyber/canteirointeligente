@@ -373,7 +373,7 @@ export default function MeusLancamentos() {
                   <div key={rdo.id} className="rdo-card hover:shadow-md transition-all">
                     <div className="flex items-start justify-between gap-3">
                       <button className="flex-1 text-left space-y-1"
-                        onClick={() => navigate(`/relatorios/rdo/${rdo.obra_nome}?ini=${rdo.data}&fim=${rdo.data}`)}>
+                        onClick={() => navigate(`/visualizar-rdo/${rdo.id}`)}>
                         <p className="text-sm font-display font-bold text-primary">OGS {rdo.obra_nome} • {fmtRdoDate}</p>
                         <p className="text-xs text-muted-foreground">Tipo: {rdo.tipo_rdo || '-'} • Responsável: {rdo.responsavel || '-'}</p>
                         <p className="text-xs text-muted-foreground">Turno: {rdo.turno || '-'} • Clima: {rdo.clima || '-'}</p>
