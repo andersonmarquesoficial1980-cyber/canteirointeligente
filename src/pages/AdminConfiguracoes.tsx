@@ -1399,6 +1399,7 @@ function UsersManager() {
               <SelectItem value="Administrador">Administrador</SelectItem>
               <SelectItem value="Gerente">Gerente</SelectItem>
               <SelectItem value="Engenheiro">Engenheiro</SelectItem>
+              <SelectItem value="Encarregado">Encarregado de Obras</SelectItem>
               <SelectItem value="Segurança">Segurança</SelectItem>
               <SelectItem value="Manutenção">Manutenção</SelectItem>
               <SelectItem value="Gestão de Pessoas">Gestão de Pessoas</SelectItem>
@@ -1516,6 +1517,7 @@ function UsersManager() {
                   <SelectItem value="Administrador">Administrador</SelectItem>
                   <SelectItem value="Gerente">Gerente</SelectItem>
                   <SelectItem value="Engenheiro">Engenheiro</SelectItem>
+                  <SelectItem value="Encarregado">Encarregado de Obras</SelectItem>
                   <SelectItem value="Segurança">Segurança</SelectItem>
                   <SelectItem value="Manutenção">Manutenção</SelectItem>
                   <SelectItem value="Gestão de Pessoas">Gestão de Pessoas</SelectItem>
