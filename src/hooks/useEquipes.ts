@@ -18,7 +18,7 @@ export function useEquipes() {
     setLoading(true);
     const { data } = await (supabase as any)
       .from("employees")
-      .select("id, matricula, name, role, equipe, responsavel")
+      .select("id, matricula, name, role, equipe, responsavel, funcoes(nome)")
       .eq("status", "ativo")
       .order("name");
 
@@ -27,7 +27,8 @@ export function useEquipes() {
         id: e.id,
         matricula: e.matricula || "",
         nome: e.name || "",
-        funcao: e.role || "",
+        // Prioridade: função cadastrada > role legado
+        funcao: e.funcoes?.nome || e.role || "",
         equipe: e.equipe || "",
         responsavel: e.responsavel || "",
       }))
