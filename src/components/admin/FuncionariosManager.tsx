@@ -65,7 +65,7 @@ export default function FuncionariosManager() {
     setCompanyId(cid);
 
     const [{ data: funcs }, { data: eqs }] = await Promise.all([
-      (supabase as any).from("employees").select("*").eq("company_id", cid).order("name"),
+      (supabase as any).from("employees").select("*, funcoes(nome), empresas_parceiras(nome)").eq("company_id", cid).order("name"),
       // Buscar equipes sem filtro de company_id para garantir que carregam
       (supabase as any).from("ci_equipes").select("nome").order("nome"),
     ]);
@@ -227,7 +227,7 @@ export default function FuncionariosManager() {
             <div>
               <p className="text-sm font-medium">{f.name}</p>
               <p className="text-xs text-muted-foreground">
-                {f.role}{f.matricula ? ` · Mat. ${f.matricula}` : ""}{f.equipe ? ` · ${f.equipe}` : ""}{f.empresa_nome && f.empresa_nome !== "FREMIX" ? ` · ${f.empresa_nome}` : ""}
+                {f.funcoes?.nome || f.role}{f.matricula ? ` · Mat. ${f.matricula}` : ""}{f.equipe ? ` · ${f.equipe}` : ""}{f.empresa_nome && f.empresa_nome !== "FREMIX" ? ` · ${f.empresa_nome}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
