@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Wrench, CheckCircle, Loader2, Save, ExternalLink } from "lucide-react";
+import { ArrowLeft, Wrench, CheckCircle, Loader2, Save, ExternalLink, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -50,6 +50,10 @@ export default function OcorrenciaDetalhe() {
   // Atualizar status
   const [novoStatus, setNovoStatus] = useState("");
 
+  // Resposta da manutenção
+  const [resposta, setResposta] = useState("");
+  const [salvandoResposta, setSalvandoResposta] = useState(false);
+
   useEffect(() => { if (id) buscarDados(); }, [id]);
 
   async function buscarDados() {
@@ -62,6 +66,7 @@ export default function OcorrenciaDetalhe() {
     const { data: o } = await (supabase as any).from("equipamentos_ocorrencias").select("*, equipamentos(frota, nome, tipo, placa)").eq("id", id).single();
     setOcorr(o);
     setNovoStatus(o?.status || "ABERTA");
+    setResposta(o?.resposta_manutencao || "");
 
     if (o?.os_id) {
       const { data: osData } = await (supabase as any).from("manutencao_os").select("*").eq("id", o.os_id).single();
@@ -128,7 +133,31 @@ export default function OcorrenciaDetalhe() {
     setSalvandoOS(false);
   }
 
-  const isAdmin = profile?.perfil === "admin" || profile?.role === "admin" || profile?.perfil === "gestor";
+  const perfil = profile?.perfil || "";
+  const isAdmin = ["Administrador", "Gerente", "admin", "gestor"].includes(perfil) || profile?.role === "admin";
+  const isManutencao = isAdmin || perfil === "Manutenção";
+  const isOwner = ocorr?.created_by === profile?.user_id;
+
+  async function salvarResposta() {
+    if (!resposta.trim()) return;
+    setSalvandoResposta(true);
+    const { error } = await (supabase as any).from("equipamentos_ocorrencias")
+      .update({
+        resposta_manutencao: resposta.trim(),
+        respondido_em: new Date().toISOString(),
+        respondido_por: profile?.nome_completo || "Manutenção",
+        status: ocorr?.status === "ABERTA" ? "EM_ANDAMENTO" : ocorr?.status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+    if (!error) {
+      toast({ title: "Resposta enviada!" });
+      buscarDados();
+    } else {
+      toast({ title: "Erro ao salvar resposta", variant: "destructive" });
+    }
+    setSalvandoResposta(false);
+  }
 
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -218,6 +247,40 @@ export default function OcorrenciaDetalhe() {
             </div>
           </div>
         )}
+
+        {/* Resposta da Manutenção */}
+        <div className="rdo-card space-y-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-primary" />
+            <h3 className="font-display font-bold text-sm">Resposta da Manutenção</h3>
+          </div>
+          {ocorr.resposta_manutencao ? (
+            <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-3 space-y-1">
+              <p className="text-sm text-green-800">{ocorr.resposta_manutencao}</p>
+              {ocorr.respondido_por && (
+                <p className="text-[11px] text-green-600">{ocorr.respondido_por}{ocorr.respondido_em ? ` — ${fmtDateTime(ocorr.respondido_em)}` : ""}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Aguardando resposta da manutenção...</p>
+          )}
+          {/* Campo de edição — apenas Manutenção e Admin */}
+          {isManutencao && (
+            <div className="space-y-2">
+              <textarea
+                value={resposta}
+                onChange={e => setResposta(e.target.value)}
+                placeholder="Digite a resposta ou atualização para o operador..."
+                rows={3}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <Button onClick={salvarResposta} disabled={salvandoResposta || !resposta.trim()} className="w-full h-10 gap-2">
+                {salvandoResposta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {ocorr.resposta_manutencao ? "Atualizar Resposta" : "Enviar Resposta"}
+              </Button>
+            </div>
+          )}
+        </div>
 
         {/* Ações — só admin/gestor/manutenção */}
         {isAdmin && (

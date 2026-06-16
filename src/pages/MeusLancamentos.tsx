@@ -63,7 +63,8 @@ export default function MeusLancamentos() {
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [aba, setAba] = useState<"equipamentos" | "rdos">("equipamentos");
+  const [aba, setAba] = useState<"equipamentos" | "rdos" | "ocorrencias">("equipamentos");
+  const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [rdos, setRdos] = useState<any[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; tipo: "equipamento" | "rdo"; label: string } | null>(null);
   const [deletando, setDeletando] = useState(false);
@@ -215,6 +216,19 @@ export default function MeusLancamentos() {
     const { data: rdoRows } = await rdoQuery;
     setRdos(rdoRows || []);
 
+    // Buscar ocorrências do próprio usuário
+    let ocorrQuery = (supabase as any)
+      .from("equipamentos_ocorrencias")
+      .select("id, frota, titulo, tipo, prioridade, status, created_at, resposta_manutencao, respondido_em, respondido_por")
+      .order("created_at", { ascending: false });
+    if (isAdmin && companyId) {
+      ocorrQuery = ocorrQuery.eq("company_id", companyId);
+    } else {
+      ocorrQuery = ocorrQuery.eq("created_by", user.id);
+    }
+    const { data: ocorrRows } = await ocorrQuery;
+    setOcorrencias(ocorrRows || []);
+
     const tiposUnicos = Array.from(
       new Set(((tiposRows || []) as any[]).map((r) => r.equipment_type).filter(Boolean)),
     ) as string[];
@@ -275,6 +289,12 @@ export default function MeusLancamentos() {
               aba === "rdos" ? "bg-primary text-white border-primary" : "bg-white text-muted-foreground border-border"
             }`}>
             🏗️ RDOs ({rdos.length})
+          </button>
+          <button onClick={() => setAba("ocorrencias")}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+              aba === "ocorrencias" ? "bg-orange-500 text-white border-orange-500" : "bg-white text-muted-foreground border-border"
+            }`}>
+            ⚠️ Ocorr. ({ocorrencias.length})
           </button>
         </div>
 
@@ -372,6 +392,63 @@ export default function MeusLancamentos() {
                           title="Excluir">
                           <Trash2 className="w-4 h-4" />
                         </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : aba === "ocorrencias" ? (
+          /* Lista de Ocorrências */
+          ocorrencias.length === 0 ? (
+            <div className="rdo-card py-10 text-center text-muted-foreground text-sm">Nenhuma ocorrência registrada.</div>
+          ) : (
+            <div className="space-y-3">
+              {ocorrencias.map((oc: any) => {
+                const statusColor: Record<string, string> = {
+                  ABERTA: "bg-orange-100 text-orange-700",
+                  EM_ANDAMENTO: "bg-blue-100 text-blue-700",
+                  CONCLUIDA: "bg-green-100 text-green-700",
+                  CANCELADA: "bg-gray-100 text-gray-500",
+                };
+                const statusLabel: Record<string, string> = {
+                  ABERTA: "Aberta",
+                  EM_ANDAMENTO: "Em andamento",
+                  CONCLUIDA: "Concluída",
+                  CANCELADA: "Cancelada",
+                };
+                const prioColor: Record<string, string> = {
+                  BAIXA: "bg-green-100 text-green-700",
+                  NORMAL: "bg-blue-100 text-blue-700",
+                  ALTA: "bg-orange-100 text-orange-700",
+                  URGENTE: "bg-red-100 text-red-700",
+                };
+                const dt = new Date(oc.created_at);
+                const fmtDt = dt.toLocaleDateString("pt-BR") + " " + dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <div key={oc.id} className="rdo-card hover:shadow-md transition-all cursor-pointer" onClick={() => navigate(`/manutencao/ocorrencia/${oc.id}`)}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-display font-bold text-primary">{oc.frota} — {oc.titulo}</p>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusColor[oc.status] || "bg-gray-100 text-gray-500"}`}>
+                            {statusLabel[oc.status] || oc.status}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${prioColor[oc.prioridade] || ""}`}>
+                            {oc.prioridade}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{oc.tipo} • {fmtDt}</p>
+                        {oc.resposta_manutencao && (
+                          <div className="mt-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                            <p className="text-[11px] text-green-700 font-semibold mb-0.5">✅ Resposta da Manutenção{oc.respondido_por ? ` (${oc.respondido_por})` : ""}</p>
+                            <p className="text-xs text-green-800">{oc.resposta_manutencao}</p>
+                          </div>
+                        )}
+                        {!oc.resposta_manutencao && oc.status === "ABERTA" && (
+                          <p className="text-[11px] text-orange-600">Aguardando retorno da manutenção...</p>
+                        )}
                       </div>
                     </div>
                   </div>
