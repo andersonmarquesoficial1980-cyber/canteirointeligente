@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface UserProfile {
+  user_id: string;
   nome_completo: string;
   perfil: string;
   email: string;
@@ -25,6 +26,7 @@ export function useUserProfile() {
           .maybeSingle();
 
         setProfile({
+          user_id: user.id,
           nome_completo: (data as any)?.nome_completo || user.email?.split("@")[0] || "Usuário",
           perfil: (data as any)?.perfil || "Apontador",
           email: user.email || "",
