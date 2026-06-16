@@ -6,12 +6,17 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Search, X, Trash2 } from "lucide-react";
+import { useFuncoes } from "@/hooks/useFuncoes";
+import { useEmpresasParceiras } from "@/hooks/useEmpresasParceiras";
 
 interface Funcionario {
   id?: string;
   matricula: string;
   name: string;
-  role: string;
+  role: string;           // nome da função (compatibilidade)
+  funcao_id: string;      // FK para funcoes
+  empresa_key: string;    // "FREMIX" ou id da empresa parceira
+  empresa_nome: string;   // nome para exibição
   equipe: string;
   responsavel: string;
   centro_custo: string;
@@ -28,7 +33,8 @@ interface Funcionario {
 }
 
 const EMPTY: Funcionario = {
-  matricula: "", name: "", role: "", equipe: "", responsavel: "",
+  matricula: "", name: "", role: "", funcao_id: "", empresa_key: "FREMIX",
+  empresa_nome: "FREMIX", equipe: "", responsavel: "",
   centro_custo: "", data_admissao: "", data_nascimento: "", salario: "",
   cpf: "", rg: "", telefone: "", email: "", status: "ativo", obs_geral: "",
 };
@@ -37,6 +43,8 @@ const STATUS_OPTS = ["ativo", "ferias", "afastado", "demitido"];
 
 export default function FuncionariosManager() {
   const { toast } = useToast();
+  const { funcoes } = useFuncoes();
+  const { empresas: empresasParceiras } = useEmpresasParceiras();
   const [items, setItems] = useState<any[]>([]);
   const [equipes, setEquipes] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -83,11 +91,18 @@ export default function FuncionariosManager() {
   }
 
   function openEdit(f: any) {
+    // Determinar empresa_key: se tem empresa_parceira_id → usa o id, senão "FREMIX"
+    const empresaKey = f.empresa_parceira_id || "FREMIX";
+    const empresaNome = f.empresa_nome ||
+      (f.empresa_parceira_id ? (empresasParceiras.find(e => e.id === f.empresa_parceira_id)?.nome || "") : "FREMIX");
     setForm({
       id: f.id,
       matricula: f.matricula || "",
       name: f.name || "",
       role: f.role || "",
+      funcao_id: f.funcao_id || "",
+      empresa_key: empresaKey,
+      empresa_nome: empresaNome,
       equipe: f.equipe || "",
       responsavel: f.responsavel || "",
       centro_custo: f.centro_custo || "",
@@ -110,15 +125,25 @@ export default function FuncionariosManager() {
   }
 
   async function salvar() {
-    if (!form.name.trim() || !form.role.trim()) {
+    if (!form.name.trim() || !form.funcao_id) {
       toast({ title: "Nome e Função são obrigatórios", variant: "destructive" });
       return;
     }
     setSaving(true);
+
+    // Resolver empresa
+    const isFremix = form.empresa_key === "FREMIX";
+    const empresaParceira = isFremix ? null : empresasParceiras.find(e => e.id === form.empresa_key);
+    const funcaoSelecionada = funcoes.find(f => f.id === form.funcao_id);
+
     const payload: any = {
       matricula: form.matricula.trim() || null,
       name: form.name.trim().toUpperCase(),
-      role: form.role.trim().toUpperCase(),
+      role: funcaoSelecionada?.nome || form.role.trim().toUpperCase(),  // compatibilidade
+      funcao_id: form.funcao_id || null,
+      origem: isFremix ? "PROPRIO" : "TERCEIRO",
+      empresa_parceira_id: isFremix ? null : (form.empresa_key || null),
+      empresa_nome: isFremix ? "FREMIX" : (empresaParceira?.nome || null),
       equipe: form.equipe.trim() || null,
       responsavel: form.responsavel.trim() || null,
       centro_custo: form.centro_custo.trim() || null,
@@ -131,7 +156,6 @@ export default function FuncionariosManager() {
       email: form.email.trim() || null,
       status: form.status,
       obs_geral: form.obs_geral.trim() || null,
-      origem: "PROPRIO",
     };
 
     let error;
@@ -203,7 +227,7 @@ export default function FuncionariosManager() {
             <div>
               <p className="text-sm font-medium">{f.name}</p>
               <p className="text-xs text-muted-foreground">
-                {f.role}{f.matricula ? ` · Mat. ${f.matricula}` : ""}{f.equipe ? ` · ${f.equipe}` : ""}
+                {f.role}{f.matricula ? ` · Mat. ${f.matricula}` : ""}{f.equipe ? ` · ${f.equipe}` : ""}{f.empresa_nome && f.empresa_nome !== "FREMIX" ? ` · ${f.empresa_nome}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -232,8 +256,34 @@ export default function FuncionariosManager() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados Profissionais</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">{renderField("Nome Completo *", "name", "text", "NOME COMPLETO")}</div>
-                <div className="col-span-2">{renderField("Função *", "role", "text", "AJUDANTE GERAL")}</div>
-                {renderField("Matrícula", "matricula", "text", "1234")}
+
+                {/* Função — select do cadastro de funções */}
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Função *</Label>
+                  <select
+                    value={form.funcao_id}
+                    onChange={e => set("funcao_id", e.target.value)}
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">— Selecione a função —</option>
+                    {funcoes.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select>
+                </div>
+
+                {/* Empresa */}
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Empresa</Label>
+                  <select
+                    value={form.empresa_key}
+                    onChange={e => set("empresa_key", e.target.value)}
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="FREMIX">FREMIX (Própria)</option>
+                    {empresasParceiras.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                  </select>
+                </div>
+
+                {renderField("Matrícula", "matricula", "text", "Opcional para PJ e terceiros")}
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Status</Label>
                   <select value={form.status} onChange={e => set("status", e.target.value)}

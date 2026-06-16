@@ -16,7 +16,10 @@ import {
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
   Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2, HardHat, FileText, Settings, LogIn,
+  Briefcase, Building2,
 } from "lucide-react";
+import { useFuncoes } from "@/hooks/useFuncoes";
+import { useEmpresasParceiras } from "@/hooks/useEmpresasParceiras";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -2737,7 +2740,8 @@ const MENU_SECTIONS = [
   { key: "equipes", label: "Equipes", icon: Users },
   { key: "encarregados", label: "Encarregados de Obra", icon: HardHat },
   { key: "tipos_servico", label: "Tipos de Serviço", icon: Hammer },
-  { key: "empreiteiros", label: "Empreiteiros", icon: Hammer },
+  { key: "empresas_parceiras", label: "Empresas Parceiras", icon: Building2 },
+  { key: "funcoes", label: "Funções", icon: Briefcase },
   { key: "fornecedores", label: "Fornecedores", icon: Factory },
   { key: "terceirizados", label: "Terceirizados", icon: HardHat },
   // Usinas removidas — migradas para Fornecedores com vínculo PAVIMENTACAO
@@ -3487,6 +3491,205 @@ function SSTResponsaveisManager() {
   );
 }
 
+// ============================================================
+// FuncoesManager
+// ============================================================
+function FuncoesManager() {
+  const { toast } = useToast();
+  const { funcoes, addFuncao, updateFuncao, removeFuncao } = useFuncoes();
+  const [novo, setNovo] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleAdd() {
+    if (!novo.trim()) return;
+    setSaving(true);
+    const ok = await addFuncao(novo);
+    if (ok) { setNovo(""); toast({ title: "Função cadastrada!" }); }
+    else toast({ title: "Erro ao cadastrar função", variant: "destructive" });
+    setSaving(false);
+  }
+
+  async function handleUpdate(id: string) {
+    if (!editNome.trim()) return;
+    const ok = await updateFuncao(id, editNome);
+    if (ok) { setEditId(null); toast({ title: "Função atualizada!" }); }
+    else toast({ title: "Erro ao atualizar", variant: "destructive" });
+  }
+
+  async function handleRemove(id: string, nome: string) {
+    if (!window.confirm(`Inativar função "${nome}"?`)) return;
+    const ok = await removeFuncao(id);
+    if (ok) toast({ title: "Função inativada" });
+    else toast({ title: "Erro ao inativar", variant: "destructive" });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Input
+          value={novo}
+          onChange={e => setNovo(e.target.value.toUpperCase())}
+          placeholder="Nova função (ex: RASTELEIRO)"
+          className="h-10 rounded-xl flex-1"
+          onKeyDown={e => e.key === "Enter" && handleAdd()}
+        />
+        <Button onClick={handleAdd} disabled={saving || !novo.trim()} className="rounded-xl gap-1">
+          <Plus className="w-4 h-4" /> Adicionar
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {funcoes.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma função cadastrada.</p>}
+        {funcoes.map(f => (
+          <div key={f.id} className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+            {editId === f.id ? (
+              <>
+                <Input
+                  value={editNome}
+                  onChange={e => setEditNome(e.target.value.toUpperCase())}
+                  className="h-8 rounded-lg flex-1 text-sm"
+                  autoFocus
+                  onKeyDown={e => e.key === "Enter" && handleUpdate(f.id)}
+                />
+                <Button size="sm" className="rounded-lg" onClick={() => handleUpdate(f.id)}>Salvar</Button>
+                <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setEditId(null)}>Cancelar</Button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-sm font-medium">{f.nome}</span>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditId(f.id); setEditNome(f.nome); }}>
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleRemove(f.id, f.nome)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// EmpresasParceirasManager
+// ============================================================
+const TIPO_LABELS: Record<string, string> = {
+  EMPREITEIRA: "Empreiteira",
+  MAO_DE_OBRA: "Mão de Obra",
+  AMBAS: "Ambas",
+};
+
+function EmpresasParceirasManager() {
+  const { toast } = useToast();
+  const { empresas, addEmpresa, updateEmpresa, removeEmpresa } = useEmpresasParceiras();
+  const [form, setForm] = useState({ nome: "", cnpj: "", contato: "", tipo: "AMBAS" });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ nome: "", cnpj: "", contato: "", tipo: "AMBAS" });
+  const [saving, setSaving] = useState(false);
+
+  async function handleAdd() {
+    if (!form.nome.trim()) return;
+    setSaving(true);
+    const ok = await addEmpresa({ nome: form.nome.trim().toUpperCase(), cnpj: form.cnpj.trim() || null, contato: form.contato.trim() || null, tipo: form.tipo });
+    if (ok) { setForm({ nome: "", cnpj: "", contato: "", tipo: "AMBAS" }); toast({ title: "Empresa Parceira cadastrada!" }); }
+    else toast({ title: "Erro ao cadastrar", variant: "destructive" });
+    setSaving(false);
+  }
+
+  async function handleUpdate(id: string) {
+    if (!editForm.nome.trim()) return;
+    const ok = await updateEmpresa(id, { nome: editForm.nome.trim().toUpperCase(), cnpj: editForm.cnpj.trim() || null, contato: editForm.contato.trim() || null, tipo: editForm.tipo });
+    if (ok) { setEditId(null); toast({ title: "Empresa atualizada!" }); }
+    else toast({ title: "Erro ao atualizar", variant: "destructive" });
+  }
+
+  async function handleRemove(id: string, nome: string) {
+    if (!window.confirm(`Inativar empresa "${nome}"?`)) return;
+    const ok = await removeEmpresa(id);
+    if (ok) toast({ title: "Empresa inativada" });
+    else toast({ title: "Erro ao inativar", variant: "destructive" });
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Formulário novo */}
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nova Empresa Parceira</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 space-y-1">
+            <Label className="text-xs text-muted-foreground">Nome *</Label>
+            <Input value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value.toUpperCase() }))} placeholder="CONSTRUTORA X" className="h-10 rounded-xl" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">CNPJ</Label>
+            <Input value={form.cnpj} onChange={e => setForm(p => ({ ...p, cnpj: e.target.value }))} placeholder="00.000.000/0001-00" className="h-10 rounded-xl" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Contato</Label>
+            <Input value={form.contato} onChange={e => setForm(p => ({ ...p, contato: e.target.value }))} placeholder="(11) 99999-9999" className="h-10 rounded-xl" />
+          </div>
+          <div className="col-span-2 space-y-1">
+            <Label className="text-xs text-muted-foreground">Tipo</Label>
+            <select value={form.tipo} onChange={e => setForm(p => ({ ...p, tipo: e.target.value }))} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm">
+              {Object.entries(TIPO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+        <Button onClick={handleAdd} disabled={saving || !form.nome.trim()} className="w-full rounded-xl gap-1">
+          <Plus className="w-4 h-4" /> Adicionar
+        </Button>
+      </div>
+
+      {/* Lista */}
+      <div className="space-y-2">
+        {empresas.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma empresa parceira cadastrada.</p>}
+        {empresas.map(e => (
+          <div key={e.id} className="bg-card border border-border rounded-xl px-3 py-2.5">
+            {editId === e.id ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="col-span-2">
+                    <Input value={editForm.nome} onChange={ev => setEditForm(p => ({ ...p, nome: ev.target.value.toUpperCase() }))} className="h-8 rounded-lg text-sm" autoFocus />
+                  </div>
+                  <Input value={editForm.cnpj} onChange={ev => setEditForm(p => ({ ...p, cnpj: ev.target.value }))} placeholder="CNPJ" className="h-8 rounded-lg text-sm" />
+                  <Input value={editForm.contato} onChange={ev => setEditForm(p => ({ ...p, contato: ev.target.value }))} placeholder="Contato" className="h-8 rounded-lg text-sm" />
+                  <div className="col-span-2">
+                    <select value={editForm.tipo} onChange={ev => setEditForm(p => ({ ...p, tipo: ev.target.value }))} className="w-full h-8 rounded-lg border border-border bg-background px-2 text-sm">
+                      {Object.entries(TIPO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="rounded-lg" onClick={() => handleUpdate(e.id)}>Salvar</Button>
+                  <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setEditId(null)}>Cancelar</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">{e.nome}</p>
+                  <p className="text-xs text-muted-foreground">{TIPO_LABELS[e.tipo] || e.tipo}{e.cnpj ? ` · ${e.cnpj}` : ""}{e.contato ? ` · ${e.contato}` : ""}</p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditId(e.id); setEditForm({ nome: e.nome, cnpj: e.cnpj || "", contato: e.contato || "", tipo: e.tipo }); }}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleRemove(e.id, e.nome)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminConfiguracoes() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -3543,7 +3746,9 @@ export default function AdminConfiguracoes() {
       case "equipes": return <EquipesManager />;
       case "encarregados": return <EncarregadosManager />;
       case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" vinculoOptions={["CAUQ", "PAVIMENTACAO", "INFRA", "RDO", "TODOS"]} />;
-      case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />;
+      case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />; // legado
+      case "empresas_parceiras": return <EmpresasParceirasManager />;
+      case "funcoes": return <FuncoesManager />;
       case "fornecedores": return <FornecedoresManager />;
       case "terceirizados": return <TerceirizadosManager />;
       // case "usinas": removido — usinas migradas para Fornecedores
