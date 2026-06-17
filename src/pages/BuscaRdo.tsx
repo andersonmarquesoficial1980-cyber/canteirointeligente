@@ -5,7 +5,7 @@
  */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, FileText, ChevronRight, Loader2, X } from "lucide-react";
+import { ArrowLeft, Search, FileText, ChevronRight, Loader2, X, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import logoCi from "@/assets/logo-workflux.png";
@@ -26,6 +26,9 @@ interface RdoResult {
   responsavel: string | null;
   turno: string | null;
   clima: string | null;
+  status_validacao: string | null;
+  validado_encarregado: boolean;
+  nao_aprovado_encarregado: boolean;
 }
 
 export default function BuscaRdo() {
@@ -71,7 +74,7 @@ export default function BuscaRdo() {
 
     let query = (supabase as any)
       .from("rdo_diarios")
-      .select("id, obra_nome, data, tipo_rdo, encarregado, preenchido_por, responsavel, turno, clima")
+      .select("id, obra_nome, data, tipo_rdo, encarregado, preenchido_por, responsavel, turno, clima, status_validacao, validado_encarregado, nao_aprovado_encarregado")
       .gte("data", ini)
       .lte("data", fim)
       .order("data", { ascending: false })
@@ -243,6 +246,37 @@ export default function BuscaRdo() {
                               {r.encarregado && <span>👷 {r.encarregado}</span>}
                               {r.preenchido_por && <span className="ml-2 opacity-60">✍️ {r.preenchido_por}</span>}
                             </p>
+                            {/* Badges de validação */}
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              {/* Encarregado */}
+                              {r.validado_encarregado ? (
+                                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
+                                  <CheckCircle2 className="w-2.5 h-2.5" /> Enc.
+                                </span>
+                              ) : r.nao_aprovado_encarregado ? (
+                                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">
+                                  <XCircle className="w-2.5 h-2.5" /> Enc.
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-full">
+                                  <Clock className="w-2.5 h-2.5" /> Enc.
+                                </span>
+                              )}
+                              {/* Engenheiro */}
+                              {r.status_validacao === "validado" ? (
+                                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
+                                  <CheckCircle2 className="w-2.5 h-2.5" /> Eng.
+                                </span>
+                              ) : r.status_validacao === "rejeitado" ? (
+                                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">
+                                  <XCircle className="w-2.5 h-2.5" /> Eng.
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-full">
+                                  <Clock className="w-2.5 h-2.5" /> Eng.
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                         </button>

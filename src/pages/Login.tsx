@@ -4,14 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, Mail, Lock, ArrowLeft, User, Eye, EyeOff } from "lucide-react";
+import { LogIn, Mail, Lock, ArrowLeft, User, Eye, EyeOff, Building2, ChevronDown } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
 
-const LOGIN_DOMAIN = "@workflux.app";
+// Domínio padrão — usado enquanto empresas carregam ou se só há uma empresa
+const LOGIN_DOMAIN_DEFAULT = "@workflux.app";
+
+interface CompanyOption {
+  id: string;
+  name: string;
+  login_domain: string;
+}
+// Legado localStorage — mantido só para limpar entradas antigas
 const LOGIN_ATTEMPTS_KEY = "wf_login_attempts";
 const LOGIN_BLOCKED_UNTIL_KEY = "wf_login_blocked_until";
-const MAX_LOGIN_ATTEMPTS = 5;
-const BLOCK_DURATION_MS = 30 * 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 10;
+const BLOCK_DURATION_MINUTES = 5;
 
 export default function Login() {
   const { toast } = useToast();
@@ -24,69 +32,117 @@ export default function Login() {
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [blockedUntil, setBlockedUntil] = useState<number>(() => Number(localStorage.getItem(LOGIN_BLOCKED_UNTIL_KEY) || 0));
+  // Controle de bloqueio agora é server-side (tabela login_blocks)
+  const [blockedUntil, setBlockedUntil] = useState<Date | null>(null);
   const [now, setNow] = useState(Date.now());
+
+  // Multi-empresa
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
+
+  // Domínio ativo baseado na empresa selecionada
+  // Se só tem 1 empresa (caso Fremix), usa ela direto mesmo sem seleção explícita
+  const activeDomain = useMemo(() => {
+    const c = companies.find(c => c.id === selectedCompanyId) || (companies.length === 1 ? companies[0] : null);
+    return c?.login_domain ? `@${c.login_domain}` : LOGIN_DOMAIN_DEFAULT;
+  }, [companies, selectedCompanyId]);
+
+  const selectedCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    // Limpar localStorage legado
+    localStorage.removeItem(LOGIN_ATTEMPTS_KEY);
+    localStorage.removeItem(LOGIN_BLOCKED_UNTIL_KEY);
     return () => window.clearInterval(interval);
   }, []);
 
-  const isBlocked = blockedUntil > now;
+  // Carregar empresas ativas
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from("companies")
+        .select("id, name, login_domain")
+        .eq("status", "ativo")
+        .order("name");
+      const list: CompanyOption[] = (data || []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        login_domain: c.login_domain || "workflux.app",
+      }));
+      setCompanies(list);
+      // Se só houver uma empresa, seleciona automaticamente
+      if (list.length === 1) setSelectedCompanyId(list[0].id);
+      setLoadingCompanies(false);
+    };
+    load();
+  }, []);
+
+  const isBlocked = blockedUntil !== null && blockedUntil.getTime() > now;
   const blockedMinutes = useMemo(() => {
-    if (!isBlocked) return 0;
-    return Math.max(1, Math.ceil((blockedUntil - now) / 60000));
+    if (!isBlocked || !blockedUntil) return 0;
+    return Math.max(1, Math.ceil((blockedUntil.getTime() - now) / 60000));
   }, [blockedUntil, isBlocked, now]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const blockedUntilValue = Number(localStorage.getItem(LOGIN_BLOCKED_UNTIL_KEY) || 0);
-    if (blockedUntilValue > Date.now()) {
-      const minutes = Math.max(1, Math.ceil((blockedUntilValue - Date.now()) / 60000));
-      setBlockedUntil(blockedUntilValue);
-      toast({
-        title: "Login bloqueado",
-        description: `Muitas tentativas. Aguarde ${minutes} minuto${minutes === 1 ? "" : "s"}.`,
-        variant: "destructive",
-      });
-      return;
-    }
+    if (isBlocked) return;
 
     setLoading(true);
     try {
       const input = login.trim().toLowerCase();
-      const authEmail = input.includes("@") ? input : `${input}${LOGIN_DOMAIN}`;
-      const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password });
-      if (error) throw error;
+      const authEmail = input.includes("@") ? input : `${input}${activeDomain}`;
 
-      localStorage.removeItem(LOGIN_ATTEMPTS_KEY);
-      localStorage.removeItem(LOGIN_BLOCKED_UNTIL_KEY);
-      setBlockedUntil(0);
-    } catch (err: any) {
-      const attempts = Number(localStorage.getItem(LOGIN_ATTEMPTS_KEY) || 0);
-      const nextAttempts = attempts + 1;
+      // Verificar bloqueio server-side antes de tentar
+      const { data: blockRow } = await (supabase as any)
+        .from("login_blocks")
+        .select("attempts, blocked_until")
+        .eq("email", authEmail)
+        .maybeSingle();
 
-      if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
-        const nextBlockedUntil = Date.now() + BLOCK_DURATION_MS;
-        localStorage.setItem(LOGIN_BLOCKED_UNTIL_KEY, String(nextBlockedUntil));
-        localStorage.setItem(LOGIN_ATTEMPTS_KEY, "0");
-        setBlockedUntil(nextBlockedUntil);
-        toast({
-          title: "Login bloqueado",
-          description: "Muitas tentativas. Aguarde 30 minutos.",
-          variant: "destructive",
-        });
-      } else {
-        localStorage.setItem(LOGIN_ATTEMPTS_KEY, String(nextAttempts));
-        const tentativasRestantes = Math.max(0, MAX_LOGIN_ATTEMPTS - nextAttempts);
-        const msg = err.message || "Erro desconhecido";
-        toast({
-          title: "Erro no login",
-          description: `${msg}. Tentativas restantes: ${tentativasRestantes}.`,
-          variant: "destructive",
-        });
+      if (blockRow?.blocked_until && new Date(blockRow.blocked_until) > new Date()) {
+        const mins = Math.max(1, Math.ceil((new Date(blockRow.blocked_until).getTime() - Date.now()) / 60000));
+        setBlockedUntil(new Date(blockRow.blocked_until));
+        toast({ title: "Login bloqueado", description: `Muitas tentativas. Aguarde ${mins} minuto${mins === 1 ? "" : "s"}.`, variant: "destructive" });
+        setLoading(false);
+        return;
       }
+
+      const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password });
+
+      if (error) {
+        // Registrar tentativa falha no banco
+        const currentAttempts = (blockRow?.attempts || 0) + 1;
+        const shouldBlock = currentAttempts >= MAX_LOGIN_ATTEMPTS;
+        const blockedUntilDate = shouldBlock
+          ? new Date(Date.now() + BLOCK_DURATION_MINUTES * 60 * 1000).toISOString()
+          : null;
+
+        await (supabase as any).from("login_blocks").upsert(
+          { email: authEmail, attempts: currentAttempts, blocked_until: blockedUntilDate, last_attempt_at: new Date().toISOString() },
+          { onConflict: "email" }
+        );
+
+        if (shouldBlock) {
+          setBlockedUntil(new Date(Date.now() + BLOCK_DURATION_MINUTES * 60 * 1000));
+          toast({ title: "Login bloqueado", description: `Muitas tentativas. Aguarde ${BLOCK_DURATION_MINUTES} minutos.`, variant: "destructive" });
+        } else {
+          const restantes = Math.max(0, MAX_LOGIN_ATTEMPTS - currentAttempts);
+          toast({ title: "Erro no login", description: `Senha incorreta. ${restantes} tentativa${restantes !== 1 ? "s" : ""} restante${restantes !== 1 ? "s" : ""}.`, variant: "destructive" });
+        }
+        throw error;
+      }
+
+      // Login OK — zerar tentativas
+      await (supabase as any).from("login_blocks").upsert(
+        { email: authEmail, attempts: 0, blocked_until: null, last_attempt_at: new Date().toISOString() },
+        { onConflict: "email" }
+      );
+      setBlockedUntil(null);
+    } catch {
+      // erros já tratados acima
     } finally {
       setLoading(false);
     }
@@ -180,6 +236,45 @@ export default function Login() {
       </div>
 
       <form onSubmit={handleAuth} className="space-y-5">
+
+        {/* Seletor de Empresa — exibe quando há mais de uma empresa */}
+        {!loadingCompanies && companies.length > 1 && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+              <Building2 className="w-4 h-4 text-primary" /> Empresa
+            </Label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowCompanyDropdown(v => !v)}
+                className="w-full h-12 bg-secondary border border-border rounded-xl px-3 flex items-center justify-between text-sm font-medium text-foreground"
+              >
+                <span className={selectedCompany ? "text-foreground" : "text-muted-foreground"}>
+                  {selectedCompany ? selectedCompany.name : "Selecione sua empresa..."}
+                </span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </button>
+              {showCompanyDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-white rounded-xl border border-border shadow-lg overflow-hidden">
+                  {companies.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { setSelectedCompanyId(c.id); setShowCompanyDropdown(false); }}
+                      className={`w-full px-4 py-3 text-left text-sm font-medium hover:bg-muted/50 border-b border-border last:border-0 ${
+                        selectedCompanyId === c.id ? "text-primary font-bold bg-primary/5" : "text-foreground"
+                      }`}
+                    >
+                      {c.name}
+                      <span className="block text-[10px] text-muted-foreground font-normal">@{c.login_domain}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="login" className="flex items-center gap-1.5 text-sm font-bold text-foreground">
             <User className="w-4 h-4 text-primary" /> Login

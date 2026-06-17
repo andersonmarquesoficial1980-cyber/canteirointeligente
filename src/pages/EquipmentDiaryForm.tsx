@@ -387,6 +387,7 @@ export default function EquipmentDiaryForm() {
         funcao: f.role ?? "",
       }));
     },
+    staleTime: 0,
   });
 
   // Se o usuário for SuperAdmin (não tem company_id), vamos pegar o ID da primeira empresa (Fremix)
@@ -432,9 +433,13 @@ export default function EquipmentDiaryForm() {
 
   const funcionariosForType = useMemo(() => {
     if (!Array.isArray(funcionarios)) return [];
+    // Se ainda não carregou os IDs habilitados, mostra todos para não bloquear
     if (!hasEnabledOperatorsForType) return funcionarios;
     const enabledSet = new Set(enabledOperatorIds || []);
-    return funcionarios.filter((f: any) => f && enabledSet.has(f.id));
+    const filtered = funcionarios.filter((f: any) => f && enabledSet.has(f.id));
+    // Fallback: se o filtro resultar em lista vazia mas há funcionários, exibe todos
+    // (evita dropdown vazio por race condition entre as queries)
+    return filtered.length > 0 ? filtered : funcionarios;
   }, [funcionarios, enabledOperatorIds, hasEnabledOperatorsForType]);
 
   // Fetch fornecedores from DB for supplier selects

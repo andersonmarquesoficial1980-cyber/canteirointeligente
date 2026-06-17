@@ -91,8 +91,11 @@ import VisualizarRdo from "./pages/VisualizarRdo";
 import EngHome from "./pages/EngHome";
 import EncHome from "./pages/EncHome";
 import EncValidarRdo from "./pages/EncValidarRdo";
+import DesbloqueioLogin from "./pages/DesbloqueioLogin";
 import EncEquipamentos from "./pages/EncEquipamentos";
 import EngValidarRdo from "./pages/EngValidarRdo";
+import EngValidacoes from "./pages/EngValidacoes";
+import EncValidacoes from "./pages/EncValidacoes";
 import EngRdoTecnico from "./pages/EngRdoTecnico";
 import EngRdoTecnicoHistorico from "./pages/EngRdoTecnicoHistorico";
 import EngRdoTecnicoDetalhe from "./pages/EngRdoTecnicoDetalhe";
@@ -303,6 +306,7 @@ function AppRoutes() {
     <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
       <Routes>
         <Route path="/trocar-senha" element={<TrocarSenha />} />
+        <Route path="/desbloqueio" element={<DesbloqueioLogin />} />
         <Route path="/verificar-2fa" element={<Verificar2FA />} />
         <Route path="/configurar-2fa" element={<Configurar2FA />} />
 
@@ -323,8 +327,10 @@ function AppRoutes() {
         <Route path="/visualizar-rdo/:id" element={<VisualizarRdo />} />
         <Route path="/engenharia" element={<EngHome />} />
         <Route path="/encarregado" element={<EncHome />} />
+        <Route path="/encarregado/validacoes" element={<EncValidacoes />} />
         <Route path="/encarregado/validar/:id" element={<EncValidarRdo />} />
         <Route path="/encarregado/equipamentos" element={<EncEquipamentos />} />
+        <Route path="/engenharia/validacoes" element={<EngValidacoes />} />
         <Route path="/engenharia/validar/:id" element={<EngValidarRdo />} />
         <Route path="/engenharia/rdo-tecnico/historico" element={<EngRdoTecnicoHistorico />} />
         <Route path="/engenharia/rdo-tecnico/editar/:id" element={<EngRdoTecnicoEditar />} />
@@ -380,7 +386,7 @@ function AppRoutes() {
 
         {/* WF RH — redirecionado para Gestão de Pessoas */}
         <Route path="/rh" element={<Navigate to="/gestao-pessoas" replace />} />
-        <Route path="/rh/trajeto-vt" element={<RequireModule moduleId="rh"><TrajetoVT /></RequireModule>} />
+        <Route path="/rh/trajeto-vt" element={<RequireModule moduleId="gestao-pessoas"><TrajetoVT /></RequireModule>} />
         <Route path="/rh/registrar-ponto" element={<RequireModule moduleId="rh"><RegistrarPonto /></RequireModule>} />
         <Route path="/rh/espelho-ponto" element={<RequireModule moduleId="rh"><EspelhoPonto /></RequireModule>} />
         <Route path="/rh/solicitacoes" element={<RequireModule moduleId="rh"><PontoSolicitacoes /></RequireModule>} />
@@ -388,7 +394,7 @@ function AppRoutes() {
         <Route path="/rh/banco-horas" element={<RequireModule moduleId="rh"><BancoHoras /></RequireModule>} />
 
         {/* Vale Transporte */}
-        <Route path="/vale-transporte" element={<RequireModule moduleId="rh"><ValeTransporte /></RequireModule>} />
+        <Route path="/vale-transporte" element={<RequireModule moduleId="gestao-pessoas"><ValeTransporte /></RequireModule>} />
         <Route path="/calculadora-fretes" element={<Navigate to="/suprimentos" replace />} />
 
         {/* Admin — Painel de Controle centralizado (standalone, sem AppLayout) (NUNCA REMOVER) */}

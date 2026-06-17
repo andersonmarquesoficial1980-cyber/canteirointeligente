@@ -55,8 +55,20 @@ export function useMateriais(tipoRdo: string, tipoUso?: string) {
   return useFilteredTable("materiais", tipoRdo, tipoUso);
 }
 
-export function useEmpreiteiros(tipoRdo: string) {
-  return useFilteredTable("empreiteiros", tipoRdo);
+export function useEmpreiteiros(_tipoRdo: string) {
+  return useQuery({
+    queryKey: ["empresas_parceiras", "EMPREITEIRA"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("empresas_parceiras" as any)
+        .select("id, nome")
+        .eq("tipo", "EMPREITEIRA")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return (data || []) as unknown as FilteredItem[];
+    },
+  });
 }
 
 export function useFornecedores(tipoRdo: string) {

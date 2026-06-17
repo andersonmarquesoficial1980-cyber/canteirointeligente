@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, HardHat } from "lucide-react";
+import { ArrowLeft, Loader2, HardHat, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import logoCi from "@/assets/logo-workflux.png";
@@ -162,6 +162,91 @@ export default function VisualizarRdo() {
                 ))}
               </div>
             )}
+
+            {/* Bloco de validações */}
+            <div className="rdo-card space-y-3">
+              <p className="text-sm font-display font-bold text-primary">Validações</p>
+              {/* Encarregado */}
+              <div className={`flex items-start gap-3 rounded-xl p-3 border text-sm ${
+                rdo.validado_encarregado
+                  ? "bg-green-50 border-green-200"
+                  : rdo.nao_aprovado_encarregado
+                  ? "bg-red-50 border-red-200"
+                  : "bg-muted/30 border-border"
+              }`}>
+                <div className="mt-0.5">
+                  {rdo.validado_encarregado ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  ) : rdo.nao_aprovado_encarregado ? (
+                    <XCircle className="w-4 h-4 text-red-600" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-foreground">Encarregado</p>
+                  <p className={`text-xs mt-0.5 ${
+                    rdo.validado_encarregado ? "text-green-700" :
+                    rdo.nao_aprovado_encarregado ? "text-red-700" :
+                    "text-muted-foreground"
+                  }`}>
+                    {rdo.validado_encarregado
+                      ? "Aprovado"
+                      : rdo.nao_aprovado_encarregado
+                      ? "Não aprovado"
+                      : "Aguardando validação"}
+                  </p>
+                  {rdo.nao_aprovado_encarregado && rdo.motivo_rejeicao_enc && (
+                    <p className="text-xs text-red-600 mt-1">Motivo: {rdo.motivo_rejeicao_enc}</p>
+                  )}
+                  {rdo.validado_encarregado_em && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(rdo.validado_encarregado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {/* Engenheiro */}
+              <div className={`flex items-start gap-3 rounded-xl p-3 border text-sm ${
+                rdo.status_validacao === "validado"
+                  ? "bg-green-50 border-green-200"
+                  : rdo.status_validacao === "rejeitado"
+                  ? "bg-red-50 border-red-200"
+                  : "bg-muted/30 border-border"
+              }`}>
+                <div className="mt-0.5">
+                  {rdo.status_validacao === "validado" ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  ) : rdo.status_validacao === "rejeitado" ? (
+                    <XCircle className="w-4 h-4 text-red-600" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-foreground">Engenheiro</p>
+                  <p className={`text-xs mt-0.5 ${
+                    rdo.status_validacao === "validado" ? "text-green-700" :
+                    rdo.status_validacao === "rejeitado" ? "text-red-700" :
+                    "text-muted-foreground"
+                  }`}>
+                    {rdo.status_validacao === "validado"
+                      ? "Validado"
+                      : rdo.status_validacao === "rejeitado"
+                      ? "Rejeitado"
+                      : "Aguardando validação"}
+                  </p>
+                  {rdo.status_validacao === "rejeitado" && rdo.motivo_rejeicao_eng && (
+                    <p className="text-xs text-red-600 mt-1">Motivo: {rdo.motivo_rejeicao_eng}</p>
+                  )}
+                  {rdo.validado_em && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(rdo.validado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
 
             <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>
               ← Voltar

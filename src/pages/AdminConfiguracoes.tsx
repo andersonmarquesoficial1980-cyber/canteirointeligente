@@ -95,7 +95,7 @@ function useCrudTable(tableName: string) {
 
   const load = async () => {
     setLoading(true);
-    const hasNome = ["fornecedores", "tipos_servico", "empreiteiros", "usinas", "materiais"].includes(tableName);
+    const hasNome = ["fornecedores", "tipos_servico", "usinas", "materiais"].includes(tableName);
     const { data, error } = await supabase.from(tableName as any).select("*").order(hasNome ? "nome" : "created_at", { ascending: hasNome ? true : false });
     if (!error && data) setItems(data as any[]);
     setLoading(false);
@@ -1280,10 +1280,11 @@ function UsersManager() {
   const handleUnlock = async (userId: string, email: string) => {
     setUnlocking(userId);
     try {
-      const { data: result, error: invokeError } = await supabase.functions.invoke("create-user", {
-        body: { action: "unlock", user_id: userId },
-      });
-      if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao desbloquear");
+      // Zerar bloqueio server-side na tabela login_blocks
+      await (supabase as any).from("login_blocks").upsert(
+        { email, attempts: 0, blocked_until: null, unblocked_by: (await supabase.auth.getUser()).data.user?.id, unblocked_at: new Date().toISOString() },
+        { onConflict: "email" }
+      );
       toast({ title: "✅ Usuário desbloqueado!", description: `${email} pode fazer login novamente.` });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -1462,12 +1463,28 @@ function UsersManager() {
                   onClick={() => handleUnlock(u.user_id, u.email || u.nome_completo)}
                   disabled={unlocking === u.user_id}
                   className="text-amber-500 hover:text-amber-600 p-1.5"
-                  title="Desbloquear usuário (liberar após excesso de tentativas)"
+                  title="Desbloquear no servidor (ban do Supabase)"
                 >
                   {unlocking === u.user_id
                     ? <span className="w-4 h-4 inline-block animate-spin border-2 border-amber-500 border-t-transparent rounded-full" />
                     : <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
                   }
+                </button>
+                <button
+                  onClick={() => {
+                    const nome = encodeURIComponent(u.nome_completo || u.email || '');
+                    const link = `${window.location.origin}/desbloqueio?u=${nome}`;
+                    navigator.clipboard.writeText(link).then(() => {
+                      // feedback visual temporário
+                      const btn = document.getElementById(`unlock-link-${u.user_id}`);
+                      if (btn) { btn.style.color = '#16a34a'; setTimeout(() => { if(btn) btn.style.color = ''; }, 2000); }
+                    });
+                  }}
+                  id={`unlock-link-${u.user_id}`}
+                  className="text-green-600 hover:text-green-700 p-1.5 transition-colors"
+                  title="Copiar link de desbloqueio — mande pro usuário pelo WhatsApp"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                 </button>
                 <button
                   onClick={() => handleImpersonate(u)}
@@ -3748,7 +3765,7 @@ export default function AdminConfiguracoes() {
       case "equipes": return <EquipesManager />;
       case "encarregados": return <EncarregadosManager />;
       case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" vinculoOptions={["CAUQ", "PAVIMENTACAO", "INFRA", "RDO", "TODOS"]} />;
-      case "empreiteiros": return <EntityManager tableName="empreiteiros" label="Empreiteiro" />; // legado
+      case "empreiteiros": return <EntityManager tableName="empresas_parceiras" label="Empreiteiro" />; // migrado para empresas_parceiras
       case "empresas_parceiras": return <EmpresasParceirasManager />;
       case "funcoes": return <FuncoesManager />;
       case "fornecedores": return <FornecedoresManager />;

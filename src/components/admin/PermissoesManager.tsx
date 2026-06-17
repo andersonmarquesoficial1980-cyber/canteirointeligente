@@ -32,6 +32,7 @@ interface Perms {
   modulo_medicoes: boolean;
   modulo_sst: boolean;
   modulo_engenharia: boolean;
+  modulo_encarregado: boolean;
   equipamentos_permitidos: string[];
 }
 
@@ -57,6 +58,7 @@ const MODULOS = [
   { key: "modulo_medicoes", label: "WF Medições" },
   { key: "modulo_sst", label: "WF Segurança do Trabalho" },
   { key: "modulo_engenharia", label: "WF Engenharia" },
+  { key: "modulo_encarregado", label: "WF Encarregado" },
   { key: "modulo_dashboard", label: "WF Dashboard" },
   { key: "is_admin", label: "Painel de Controle" },
 ];
@@ -70,7 +72,7 @@ function emptyPerms(userId: string): Perms {
     modulo_relatorios: false, modulo_dashboard: false,
     modulo_gestao_frotas: false, modulo_gestao_pessoas: false,
     modulo_suprimentos: false, modulo_medicoes: false,
-    modulo_sst: false, modulo_engenharia: false,
+    modulo_sst: false, modulo_engenharia: false, modulo_encarregado: false,
     equipamentos_permitidos: [],
   };
 }

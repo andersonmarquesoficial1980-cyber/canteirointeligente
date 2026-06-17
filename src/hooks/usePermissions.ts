@@ -14,6 +14,7 @@ export interface Permissions {
   modulo_documentos: boolean;
   modulo_relatorios: boolean;
   modulo_dashboard: boolean;
+  modulo_encarregado: boolean;
 }
 
 const DEFAULT_PERMISSIONS: Permissions = {
@@ -29,6 +30,7 @@ const DEFAULT_PERMISSIONS: Permissions = {
   modulo_documentos: false,
   modulo_relatorios: false,
   modulo_dashboard: false,
+  modulo_encarregado: false,
 };
 
 // Admin tem acesso a tudo

@@ -35,7 +35,7 @@ export function useEmpresasTerceiras() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [{ data: emps }, { data: funcs }] = await Promise.all([
-      (supabase as any).from("empresas_terceiras").select("id, nome, ativo").eq("ativo", true).order("nome"),
+      (supabase as any).from("empresas_parceiras").select("id, nome, ativo").eq("ativo", true).order("nome"),
       // Busca funcionários terceirizados diretamente de employees (fonte única)
       (supabase as any)
         .from("employees")
@@ -51,9 +51,9 @@ export function useEmpresasTerceiras() {
     if (empList.length === 0) {
       const companyId = await getCompanyId();
       if (companyId) {
-        const seedRows = EMPRESAS_DEFAULT.map((nome) => ({ nome, company_id: companyId }));
+        const seedRows = EMPRESAS_DEFAULT.map((nome) => ({ nome, company_id: companyId, tipo: "MAO_DE_OBRA" }));
         const { data: inserted } = await (supabase as any)
-          .from("empresas_terceiras")
+          .from("empresas_parceiras")
           .insert(seedRows)
           .select("id, nome, ativo");
         setEmpresas(inserted || []);
@@ -84,15 +84,15 @@ export function useEmpresasTerceiras() {
     const companyId = await getCompanyId();
     if (!companyId) return false;
     const { error } = await (supabase as any)
-      .from("empresas_terceiras")
-      .insert({ nome: nome.trim(), company_id: companyId });
+      .from("empresas_parceiras")
+      .insert({ nome: nome.trim(), company_id: companyId, tipo: "MAO_DE_OBRA" });
     if (!error) await fetchAll();
     return !error;
   };
 
   const removeEmpresa = async (id: string): Promise<boolean> => {
     const { error } = await (supabase as any)
-      .from("empresas_terceiras")
+      .from("empresas_parceiras")
       .update({ ativo: false })
       .eq("id", id);
     if (!error) await fetchAll();
