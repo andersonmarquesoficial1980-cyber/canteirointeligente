@@ -2,9 +2,10 @@
  * BuscaEquipamentos — Busca avançada de diários de equipamentos
  * Filtros: OGS, Data, Tipo de Equipamento, Frota, Motorista/Operador
  * Rota: /relatorios/busca-equipamentos
+ * Filtros persistidos na URL para sobreviver ao navigate(-1)
  */
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Search, Loader2, X, ChevronRight, Wrench, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,44 +31,50 @@ interface DiarioResult {
 
 export default function BuscaEquipamentos() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const hoje = new Date().toISOString().split("T")[0];
   const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
 
-  const [ini, setIni] = useState(mesAtras);
-  const [fim, setFim] = useState(hoje);
-  const [ogs, setOgs] = useState("");
-  const [tipoEquip, setTipoEquip] = useState("");
-  const [frota, setFrota] = useState("");
-  const [operador, setOperador] = useState("");
+  // Filtros lidos da URL — persistem ao voltar
+  const ini = searchParams.get("ini") || mesAtras;
+  const fim = searchParams.get("fim") || hoje;
+  const ogs = searchParams.get("ogs") || "";
+  const tipoEquip = searchParams.get("tipo") || "";
+  const frota = searchParams.get("frota") || "";
+  const operador = searchParams.get("operador") || "";
+  const buscou = searchParams.get("buscou") === "1";
+
+  const setFiltro = (key: string, value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set(key, value); else next.delete(key);
+      return next;
+    }, { replace: true });
+  };
 
   const [resultados, setResultados] = useState<DiarioResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [buscou, setBuscou] = useState(false);
 
   // Opções dinâmicas
   const [tipos, setTipos] = useState<string[]>([]);
   const [frotasPorTipo, setFrotasPorTipo] = useState<Record<string, string[]>>({});
   const [operadores, setOperadores] = useState<string[]>([]);
 
-  // Frotas filtradas pelo tipo selecionado — tudo vem dos diários reais
+  // Frotas filtradas pelo tipo selecionado
   const frotas = tipoEquip
     ? (frotasPorTipo[tipoEquip] || [])
     : [...new Set(Object.values(frotasPorTipo).flat())].sort();
 
   useEffect(() => {
     Promise.all([
-      // Tudo vem de equipment_diaries — fonte única de verdade
       (supabase as any).from("equipment_diaries").select("equipment_type, equipment_fleet").not("equipment_type", "is", null).not("equipment_fleet", "is", null),
-      // Operadores dos diários reais
       (supabase as any).from("equipment_diaries").select("operator_name").not("operator_name", "is", null),
     ]).then(([td, o]) => {
       if (td.data) {
         const rows = td.data as any[];
-        // Tipos únicos ordenados
         const tiposUniq = [...new Set(rows.map((r: any) => r.equipment_type).filter(Boolean))].sort();
         setTipos(tiposUniq);
-        // Frotas por tipo — chave exata igual ao equipment_type do diário
         const byTipo: Record<string, string[]> = {};
         rows.forEach(r => {
           const tipo = r.equipment_type as string;
@@ -76,7 +83,6 @@ export default function BuscaEquipamentos() {
           if (!byTipo[tipo]) byTipo[tipo] = [];
           if (!byTipo[tipo].includes(fl)) byTipo[tipo].push(fl);
         });
-        // Ordenar frotas dentro de cada tipo
         Object.keys(byTipo).forEach(k => byTipo[k].sort());
         setFrotasPorTipo(byTipo);
       }
@@ -84,9 +90,8 @@ export default function BuscaEquipamentos() {
     });
   }, []);
 
-  const buscar = async () => {
+  const buscar = useCallback(async () => {
     setLoading(true);
-    setBuscou(true);
 
     let query = (supabase as any)
       .from("equipment_diaries")
@@ -98,19 +103,33 @@ export default function BuscaEquipamentos() {
       .limit(150);
 
     if (ogs.trim()) query = query.ilike("ogs_number", `%${ogs.trim()}%`);
-    if (tipoEquip) query = query.ilike("equipment_type", tipoEquip); // ILIKE ignora case
+    if (tipoEquip) query = query.ilike("equipment_type", tipoEquip);
     if (frota.trim()) query = query.ilike("equipment_fleet", `%${frota.trim()}%`);
     if (operador.trim()) query = query.ilike("operator_name", `%${operador.trim()}%`);
 
     const { data, error } = await query;
     if (!error) setResultados(data || []);
     setLoading(false);
+  }, [ini, fim, ogs, tipoEquip, frota, operador]);
+
+  // Rebusca automaticamente ao voltar se já havia buscado antes
+  useEffect(() => {
+    if (buscou) buscar();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleBuscar = () => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set("buscou", "1");
+      return next;
+    }, { replace: true });
+    buscar();
   };
 
   const limpar = () => {
-    setOgs(""); setTipoEquip(""); setFrota(""); setOperador("");
-    setIni(mesAtras); setFim(hoje);
-    setResultados([]); setBuscou(false);
+    setSearchParams({}, { replace: true });
+    setResultados([]);
   };
 
   const STATUS_COR: Record<string, string> = {
@@ -142,12 +161,12 @@ export default function BuscaEquipamentos() {
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Data inicial</label>
-              <input type="date" value={ini} onChange={e => setIni(e.target.value)}
+              <input type="date" value={ini} onChange={e => setFiltro("ini", e.target.value)}
                 className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none" />
             </div>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Data final</label>
-              <input type="date" value={fim} onChange={e => setFim(e.target.value)}
+              <input type="date" value={fim} onChange={e => setFiltro("fim", e.target.value)}
                 className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none" />
             </div>
           </div>
@@ -157,7 +176,14 @@ export default function BuscaEquipamentos() {
             <label className="text-xs text-muted-foreground">Tipo de Equipamento</label>
             <select
               value={tipoEquip}
-              onChange={e => { setTipoEquip(e.target.value); setFrota(""); }}
+              onChange={e => {
+                setSearchParams(prev => {
+                  const next = new URLSearchParams(prev);
+                  if (e.target.value) next.set("tipo", e.target.value); else next.delete("tipo");
+                  next.delete("frota");
+                  return next;
+                }, { replace: true });
+              }}
               className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
             >
               <option value="">Todos os tipos</option>
@@ -165,14 +191,14 @@ export default function BuscaEquipamentos() {
             </select>
           </div>
 
-          {/* Frota — filtrada pelo tipo selecionado */}
+          {/* Frota */}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
               Frota {tipoEquip && <span className="text-primary">({tipoEquip})</span>}
             </label>
             <select
               value={frota}
-              onChange={e => { setFrota(e.target.value); }}
+              onChange={e => setFiltro("frota", e.target.value)}
               className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
             >
               <option value="">{frotas.length > 0 ? `Todas as frotas (${frotas.length})` : "Selecione o tipo primeiro"}</option>
@@ -185,18 +211,18 @@ export default function BuscaEquipamentos() {
             <label className="text-xs text-muted-foreground">OGS / Obra</label>
             <input
               type="text" inputMode="numeric" value={ogs}
-              onChange={e => setOgs(e.target.value)}
+              onChange={e => setFiltro("ogs", e.target.value)}
               placeholder="Ex: 2532"
               className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
-          {/* Operador/motorista */}
+          {/* Operador */}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Motorista / Operador</label>
             <input
               type="text" value={operador}
-              onChange={e => setOperador(e.target.value)}
+              onChange={e => setFiltro("operador", e.target.value)}
               placeholder="Nome do operador ou motorista"
               list="lista-operadores"
               className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
@@ -206,7 +232,7 @@ export default function BuscaEquipamentos() {
             </datalist>
           </div>
 
-          {/* Botão de relatório direto quando frota selecionada */}
+          {/* Botão relatório direto quando frota selecionada */}
           {frota && (
             <button
               onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(frota)}?ini=${ini}&fim=${fim}`)}
@@ -222,7 +248,7 @@ export default function BuscaEquipamentos() {
           )}
 
           <div className="flex gap-2">
-            <Button onClick={buscar} disabled={loading} className="flex-1 h-10 gap-2">
+            <Button onClick={handleBuscar} disabled={loading} className="flex-1 h-10 gap-2">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               {loading ? "Buscando..." : "Buscar lançamentos"}
             </Button>
@@ -248,7 +274,6 @@ export default function BuscaEquipamentos() {
                   <p className="text-xs text-muted-foreground">{resultados.length} lançamento{resultados.length !== 1 ? "s" : ""}</p>
                 </div>
 
-                {/* Botão relatório completo quando frota específica selecionada */}
                 {frota && (
                   <button
                     onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(frota)}?ini=${ini}&fim=${fim}`)}
