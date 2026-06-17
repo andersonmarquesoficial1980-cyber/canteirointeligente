@@ -2326,7 +2326,12 @@ export default function EquipmentDiaryForm() {
         {/* FRESADORA: Produção + Bits */}
         {isFresadora && (
           <>
-            <ProductionAreasSection areas={productionAreas} onChange={setProductionAreas} />
+            <ProductionAreasSection
+              areas={productionAreas}
+              onChange={setProductionAreas}
+              frota={selectedFleet || undefined}
+              date={date || undefined}
+            />
             <BitManagementSection bits={bits} onChange={setBits} meterInitial={meterInitial} />
 
             {(() => {
