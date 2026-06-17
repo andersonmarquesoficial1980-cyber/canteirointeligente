@@ -650,16 +650,18 @@ export default function EquipmentDiaryForm() {
     }
   };
 
-  // Fetch trailer_fleets for Carreta prancha
+  // Pranchas vêm de equipamentos (tipo CARRETA CM) — fonte única
   const { data: trailerFleets = [] } = useQuery({
-    queryKey: ["trailer_fleets"],
+    queryKey: ["trailer_fleets_from_equipamentos"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trailer_fleets")
-        .select("*")
-        .order("fleet_number");
+      const { data, error } = await (supabase as any)
+        .from("equipamentos")
+        .select("id, frota, nome")
+        .eq("tipo", "CARRETA CM")
+        .eq("ativo", true)
+        .order("frota");
       if (error) throw error;
-      return data as any[];
+      return (data || []).map((e: any) => ({ id: e.id, fleet_number: e.frota, nome: e.nome }));
     },
     enabled: isCarreta,
   });
