@@ -167,6 +167,7 @@ export default function EquipmentDiaryForm() {
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false); // bloqueia double-submit antes do React re-renderizar
   const [loadingEditData, setLoadingEditData] = useState(false);
+  const [isEditingDraft, setIsEditingDraft] = useState(false); // true quando edita rascunho salvo
   const [preserveManualClientLocation, setPreserveManualClientLocation] = useState(false);
   const loadedEditIdRef = useRef<string | null>(null);
 
@@ -736,6 +737,7 @@ export default function EquipmentDiaryForm() {
         setOperator(diary.operator_name || "");
         setTurno(diary.period === "noturno" ? "noturno" : "diurno");
         setWorkStatus(diary.work_status || "");
+        setIsEditingDraft(diary.status === "rascunho"); // controla visibilidade do botão Enviar
         setOgsNumber(diary.ogs_number || "");
         setClientName(diary.client_name || "");
         setLocationAddress(diary.location_address || "");
@@ -1747,15 +1749,14 @@ export default function EquipmentDiaryForm() {
         }
       }
 
+      // Se era rascunho e agora foi enviado, atualiza estado
+      if (isEditingDraft && !isDraft) setIsEditingDraft(false);
+
       toast({
-        title: isEditMode
-          ? "✅ Lançamento atualizado!"
-          : isDraft
-            ? "📝 Rascunho salvo!"
-            : "✅ Diário enviado!",
-        description: isEditMode
-          ? `Lançamento para ${normalizedSelectedFleet} atualizado com sucesso.`
-          : `Diário para ${normalizedSelectedFleet} salvo com sucesso.`,
+        title: isDraft
+          ? "📝 Rascunho salvo!"
+          : "✅ Diário enviado!",
+        description: `Diário para ${normalizedSelectedFleet} ${isDraft ? "salvo como rascunho" : "enviado com sucesso"}.`,
       });
 
       if (!isDraft && !isEditMode) {
@@ -2854,14 +2855,13 @@ export default function EquipmentDiaryForm() {
             >
               <Send className="w-5 h-5 mr-2" />
               {saving
-                ? isEditMode
-                  ? "Salvando..."
-                  : "Enviando..."
-                : isEditMode
+                ? "Enviando..."
+                : isEditMode && !isEditingDraft
                   ? "Salvar Edição"
                   : "Enviar Diário"}
             </Button>
-            {!isEditMode && (
+            {/* Salvar Rascunho: disponível em novo lançamento OU ao editar rascunho */}
+            {(!isEditMode || isEditingDraft) && (
               <Button
                 onClick={() => handleSave(true)}
                 disabled={saving || loadingEditData}
