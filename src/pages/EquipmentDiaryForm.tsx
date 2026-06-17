@@ -664,18 +664,7 @@ export default function EquipmentDiaryForm() {
     enabled: isCarreta,
   });
 
-  // Fetch equipment_fleets globally for all modules
-  const { data: equipmentFleets = [] } = useQuery({
-    queryKey: ["equipment_fleets"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("equipment_fleets")
-        .select("*")
-        .order("fleet_number");
-      if (error) throw error;
-      return (data || []) as any[];
-    },
-  });
+  // equipment_fleets removido — tabela descontinuada, fonte é equipamentos
 
   useEffect(() => {
     if (!editId) return;
@@ -883,12 +872,7 @@ export default function EquipmentDiaryForm() {
         // Migrado: comboioRows sempre vazio, carregar abastecimentos direto da tabela unificada
         const mappedComboioEntries = ((abastRows || []) as any[]).map((row: any) => {
           let tipoEquipamento = row.equipment_type || "";
-          if (!tipoEquipamento && row.equipment_fleet) {
-            const foundFleet = equipmentFleets.find(
-              (f: any) => f.fleet_number === row.equipment_fleet,
-            );
-            tipoEquipamento = foundFleet?.equipment_type || "";
-          }
+// fallback equipment_fleets removido — registros sem equipment_type mantêm string vazia
           return {
             id: row.id || crypto.randomUUID(),
             hora: row.hora || "",
@@ -948,7 +932,6 @@ export default function EquipmentDiaryForm() {
     isFresadora,
     isUsinaKma,
     fleetFromQuery,
-    equipmentFleets,
     navigate,
     toast,
   ]);

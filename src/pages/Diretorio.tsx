@@ -17,8 +17,10 @@ interface StaffMember {
 
 interface EquipmentFleet {
   id: string;
-  fleet_number: string | null;
-  equipment_type: string | null;
+  frota: string | null;
+  tipo: string | null;
+  nome: string | null;
+  status: string | null;
 }
 
 function cleanPhone(phone: string | null): string {
@@ -80,7 +82,7 @@ export default function Diretorio() {
       setLoading(true);
       const [staffRes, equipRes] = await Promise.all([
         supabase.from("aero_pav_gru_staff").select("*").eq("ativo", true).order("nome"),
-        supabase.from("equipment_fleets").select("*").order("fleet_number"),
+        supabase.from("equipamentos").select("id, frota, tipo, nome, status").eq("ativo", true).order("frota"),
       ]);
       if (staffRes.data) setStaff(staffRes.data as StaffMember[]);
       if (equipRes.data) setEquipment(equipRes.data as EquipmentFleet[]);
@@ -102,8 +104,9 @@ export default function Diretorio() {
   const filteredEquip = q
     ? equipment.filter(
         (e) =>
-          (e.fleet_number || "").toLowerCase().includes(q) ||
-          (e.equipment_type || "").toLowerCase().includes(q)
+          (e.frota || "").toLowerCase().includes(q) ||
+          (e.tipo || "").toLowerCase().includes(q) ||
+          (e.nome || "").toLowerCase().includes(q)
       )
     : equipment;
 
@@ -184,9 +187,9 @@ export default function Diretorio() {
                     <CardContent className="p-4 flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1 space-y-1">
                         <p className="font-semibold text-sm text-foreground">
-                          Frota: {e.fleet_number || "—"}
+                          Frota: {e.frota || "—"}
                         </p>
-                        <p className="text-xs text-muted-foreground">{e.equipment_type || "—"}</p>
+                        <p className="text-xs text-muted-foreground">{e.nome || e.tipo || "—"}</p>
                       </div>
                       <Badge variant="outline" className="shrink-0">
                         <Truck className="h-3 w-3 mr-1" /> Ativo
