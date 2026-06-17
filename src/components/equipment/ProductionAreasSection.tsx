@@ -117,7 +117,14 @@ export default function ProductionAreasSection({ areas, onChange, frota, date }:
         })
       );
 
-      const comProducao = rdoComProducao.filter(r => r.producao.length > 0);
+      // Filtra apenas linhas de fresagem
+      const rdoComFresagem = rdoComProducao.map(r => ({
+        ...r,
+        producao: r.producao.filter((p: RdoProducaoRow) =>
+          !p.tipo_servico || p.tipo_servico.toUpperCase().includes("FRES")
+        ),
+      }));
+      const comProducao = rdoComFresagem.filter(r => r.producao.length > 0);
 
       if (comProducao.length === 0) {
         alert(`RDO encontrado para ${frota} em ${date}, mas sem produção lançada.`);
