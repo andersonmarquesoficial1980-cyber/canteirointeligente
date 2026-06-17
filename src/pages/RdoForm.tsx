@@ -48,7 +48,7 @@ function formatDateBRShort(dateValue: string): string {
 
 export default function RdoForm() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const isMobile = useIsMobile();
@@ -185,6 +185,7 @@ export default function RdoForm() {
   const [globalEntrada, setGlobalEntrada] = useState("");
   const [globalSaida, setGlobalSaida] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(null); // ID do rascunho salvo — evita duplicatas
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
   const [copiandoDiaAnterior, setCopiandoDiaAnterior] = useState(false);
 
@@ -408,27 +409,44 @@ export default function RdoForm() {
       }
       const preenchidoPor = header.preenchido_por || profile?.nome_completo || "Não identificado";
       const encarregado = header.encarregado?.trim() || "";
-      const { error } = await supabase.from("rdo_diarios").insert({
+      const draftPayload = {
         data: header.data,
         obra_nome: header.obra_nome,
         turno: normalizedTurno || "diurno",
         clima: header.status_obra || null,
         motivo_cancelamento: motivoCancelamento || null,
-        responsavel: encarregado || preenchidoPor, // legado — compat
+        responsavel: encarregado || preenchidoPor,
         preenchido_por: preenchidoPor,
         encarregado: encarregado || null,
         user_id: user.id,
         company_id: profile?.company_id || null,
-      } as any);
-      if (error) throw error;
-      toast({ title: "✅ Rascunho Salvo!", description: "Progresso registrado no banco de dados." });
+        status: "rascunho",
+      };
+
+      // ID existente: vem de rascunho já salvo nesta sessão OU de ?edit= na URL
+      const existingId = draftId || searchParams.get("edit");
+
+      if (existingId) {
+        // UPDATE — não cria duplicata
+        const { error } = await (supabase as any).from("rdo_diarios").update(draftPayload).eq("id", existingId);
+        if (error) throw error;
+      } else {
+        // INSERT — primeiro rascunho desta sessão
+        const { data: inserted, error } = await (supabase as any).from("rdo_diarios").insert(draftPayload).select("id").single();
+        if (error) throw error;
+        setDraftId(inserted.id);
+        // Atualiza URL para que o botão Enviar use o mesmo registro
+        setSearchParams(prev => { const n = new URLSearchParams(prev); n.set("edit", inserted.id); return n; }, { replace: true });
+      }
+
+      toast({ title: "📝 Rascunho salvo!", description: "Continue de onde parou quando quiser." });
     } catch (err: any) {
       console.error(err);
       toast({ title: "Erro ao salvar rascunho", description: err.message, variant: "destructive" });
     } finally {
       setSavingDraft(false);
     }
-  }, [header, profile, toast]);
+  }, [header, profile, motivoCancelamento, draftId, searchParams, setSearchParams, toast]);
 
   const formatDateBR = (d: string) => {
     if (!d) return "";
