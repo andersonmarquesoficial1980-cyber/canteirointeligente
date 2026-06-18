@@ -8,7 +8,7 @@ const corsHeaders = {
 const PERFIS_VALIDOS = [
   "Operador", "Apontador", "Administrador", "Motorista",
   "Gerente", "Engenheiro", "Segurança", "Manutenção",
-  "Gestão de Pessoas", "Gestão de Frotas",
+  "Gestão de Pessoas", "Gestão de Frotas", "Usuário",
 ];
 
 function buildPermissions(perfil: string) {

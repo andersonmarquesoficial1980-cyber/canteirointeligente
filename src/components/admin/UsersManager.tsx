@@ -23,6 +23,7 @@ const PERFIL_PERMISSIONS: Record<string, Record<string, boolean>> = {
   "Gestão de Frotas":   { is_admin: false, modulo_obras: false, modulo_equipamentos: false, modulo_rh: false, modulo_carreteiros: true,  modulo_programador: false, modulo_demandas: true,  modulo_manutencao: false, modulo_abastecimento: true,  modulo_documentos: false, modulo_relatorios: true,  modulo_dashboard: false },
   "Apontador":          { is_admin: false, modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
   "Operador":           { is_admin: false, modulo_obras: false, modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
+  "Usuário":            { is_admin: false, modulo_obras: false, modulo_equipamentos: false, modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
 };
 
 export default function UsersManager() {
@@ -286,6 +287,7 @@ export default function UsersManager() {
               <SelectItem value="Gestão de Frotas">Gestão de Frotas</SelectItem>
               <SelectItem value="Apontador">Apontador</SelectItem>
               <SelectItem value="Operador">Operador / Motorista</SelectItem>
+              <SelectItem value="Usuário">Usuário</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -397,6 +399,7 @@ export default function UsersManager() {
                   <SelectItem value="Gestão de Frotas">Gestão de Frotas</SelectItem>
                   <SelectItem value="Apontador">Apontador</SelectItem>
                   <SelectItem value="Operador">Operador / Motorista</SelectItem>
+                  <SelectItem value="Usuário">Usuário</SelectItem>
                 </SelectContent>
               </Select>
             </div>
