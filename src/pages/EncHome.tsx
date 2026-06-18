@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, Wrench } from "lucide-react";
+import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, Wrench, TriangleAlert } from "lucide-react";
+import ReportarProblemaModal from "@/components/manutencao/ReportarProblemaModal";
 
 interface RdoPendente {
   id: string;
@@ -22,11 +23,16 @@ export default function EncHome() {
   const [rdosPendentes, setRdosPendentes] = useState<RdoPendente[]>([]);
   const [minhasOgs, setMinhasOgs] = useState<MinhaOgs[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showReportarModal, setShowReportarModal] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      const { data: prof } = await (supabase as any).from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+      setProfile(prof);
 
       // Buscar OGSs vinculadas ao encarregado
       const { data: vinculos } = await (supabase as any)
@@ -104,6 +110,16 @@ export default function EncHome() {
           </button>
         </div>
 
+        {/* Reportar Problema */}
+        <button
+          type="button"
+          onClick={() => setShowReportarModal(true)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 border-dashed border-orange-400 text-orange-500 font-bold text-sm hover:bg-orange-50 transition-colors"
+        >
+          <TriangleAlert className="w-4 h-4" />
+          Reportar Problema no Equipamento
+        </button>
+
         {/* RDOs pendentes de validação */}
         {rdosPendentes.length > 0 && (
           <div>
@@ -160,6 +176,12 @@ export default function EncHome() {
           )}
         </div>
       </div>
+      {showReportarModal && (
+        <ReportarProblemaModal
+          profile={profile}
+          onClose={() => setShowReportarModal(false)}
+        />
+      )}
     </>
   );
 }
