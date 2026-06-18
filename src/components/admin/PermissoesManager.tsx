@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -78,6 +79,7 @@ function emptyPerms(userId: string): Perms {
 }
 
 export default function PermissoesManager() {
+  const { toast } = useToast();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [permsMap, setPermsMap] = useState<Record<string, Perms>>({});
   const [loading, setLoading] = useState(true);
@@ -164,11 +166,27 @@ export default function PermissoesManager() {
 
   async function salvar(userId: string) {
     setSalvando(userId);
-    const perms = permsMap[userId] || emptyPerms(userId);
-    await supabase.from("user_permissions").upsert({ ...perms, user_id: userId, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-    setSalvando(null);
-    setSalvoOk(userId);
-    setTimeout(() => setSalvoOk(null), 2000);
+    try {
+      const perms = permsMap[userId] || emptyPerms(userId);
+      // Separar equipamentos_permitidos (array) do resto para evitar conflito de tipo
+      const { equipamentos_permitidos, ...permsBase } = perms as any;
+      const payload = {
+        ...permsBase,
+        user_id: userId,
+        equipamentos_permitidos: equipamentos_permitidos ?? [],
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase
+        .from("user_permissions")
+        .upsert(payload, { onConflict: "user_id" });
+      if (error) throw error;
+      setSalvoOk(userId);
+      setTimeout(() => setSalvoOk(null), 2000);
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar permissões", description: err.message, variant: "destructive" });
+    } finally {
+      setSalvando(null);
+    }
   }
 
   function toggle(userId: string, field: keyof Perms) {
