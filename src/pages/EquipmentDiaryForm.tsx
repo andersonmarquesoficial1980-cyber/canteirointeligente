@@ -17,7 +17,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Send, Save, Plus, Trash2, Droplets, Fuel, Pencil, TriangleAlert, X, Camera, Upload } from "lucide-react";
+import { AlertCircle, Send, Save, Plus, Trash2, Droplets, Fuel, Pencil, TriangleAlert, X, Camera, Upload, ImagePlus, CheckCircle2 } from "lucide-react";
 import EquipmentHeader from "@/components/equipment/EquipmentHeader";
 import TimeEntriesSection, { type TimeEntry, createDefaultTimeEntry } from "@/components/equipment/TimeEntriesSection";
 import KmaCalibrationSection, {
@@ -227,6 +227,18 @@ export default function EquipmentDiaryForm() {
   const [clientName, setClientName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
   const [observations, setObservations] = useState("");
+
+  // Relatório fotográfico
+  type FotoPerfil = { frente?: File|null; lado_direito?: File|null; traseira?: File|null; lado_esquerdo?: File|null };
+  type FotoPerfilUrls = { frente?: string; lado_direito?: string; traseira?: string; lado_esquerdo?: string };
+  const [fotosPerfil, setFotosPerfil] = useState<FotoPerfil>({});
+  const [fotosPerfilUrls, setFotosPerfilUrls] = useState<FotoPerfilUrls>({});
+  const fotoRefs = {
+    frente:       useRef<HTMLInputElement>(null),
+    lado_direito: useRef<HTMLInputElement>(null),
+    traseira:     useRef<HTMLInputElement>(null),
+    lado_esquerdo:useRef<HTMLInputElement>(null),
+  };
 
   // Sub-sections
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([createDefaultTimeEntry("diurno")]);
@@ -742,6 +754,7 @@ export default function EquipmentDiaryForm() {
         setClientName(diary.client_name || "");
         setLocationAddress(diary.location_address || "");
         setObservations(diary.observations || "");
+        if ((diary as any).fotos_perfil) setFotosPerfilUrls((diary as any).fotos_perfil as FotoPerfilUrls);
         setFueling({
           fuelType: diary.fuel_type || "",
           liters: toText(diary.fuel_liters),
@@ -1228,6 +1241,7 @@ export default function EquipmentDiaryForm() {
       fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
       attachment_type: isCarreta ? (prancha || null) : (attachmentType || null),
       status: isDraft ? "rascunho" : "enviado",
+      fotos_perfil: Object.keys(fotosPerfilUrls).length > 0 ? fotosPerfilUrls : null,
     };
 
     if (usesOdometer) {
@@ -1351,6 +1365,22 @@ export default function EquipmentDiaryForm() {
 
       if (error) throw error;
       if (!diary?.id) throw new Error("Não foi possível salvar o diário.");
+
+      // Upload fotos de perfil (só as que foram selecionadas como File)
+      const slots = ["frente", "lado_direito", "traseira", "lado_esquerdo"] as const;
+      const novasUrls: FotoPerfilUrls = { ...fotosPerfilUrls };
+      const uploadFotos = slots
+        .filter(s => fotosPerfil[s] instanceof File)
+        .map(async (s) => {
+          const url = await uploadFotoPerfil(fotosPerfil[s] as File, s, diary.id);
+          if (url) novasUrls[s] = url;
+        });
+      if (uploadFotos.length > 0) {
+        await Promise.all(uploadFotos);
+        await (supabase as any).from("equipment_diaries").update({ fotos_perfil: novasUrls }).eq("id", diary.id);
+        setFotosPerfilUrls(novasUrls);
+        setFotosPerfil({});
+      }
 
       if (isEditMode) {
         await Promise.all([
@@ -1795,6 +1825,49 @@ export default function EquipmentDiaryForm() {
   const handleGeneratePdf = async () => {
     await generateKmaPdf({ fleet: selectedFleet, date, operator, entries: kmaEntries });
   };
+
+  // Comprime imagem para ~800KB max antes do upload
+  async function comprimirImagem(file: File, maxKB = 800): Promise<File> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        // Reduz dimensões se muito grande
+        const MAX_DIM = 1920;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM; }
+          else { width = Math.round(width * MAX_DIM / height); height = MAX_DIM; }
+        }
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        let quality = 0.82;
+        const tryCompress = () => {
+          canvas.toBlob((blob) => {
+            if (!blob) { resolve(file); return; }
+            if (blob.size <= maxKB * 1024 || quality <= 0.4) {
+              resolve(new File([blob], file.name, { type: "image/jpeg" }));
+            } else {
+              quality -= 0.08;
+              tryCompress();
+            }
+          }, "image/jpeg", quality);
+        };
+        tryCompress();
+      };
+      img.src = url;
+    });
+  }
+
+  async function uploadFotoPerfil(file: File, slot: string, diaryId: string): Promise<string | null> {
+    const compressed = await comprimirImagem(file);
+    const path = `equipamentos/perfil/${diaryId}/${slot}.jpg`;
+    const { error } = await supabase.storage.from("sst-fotos").upload(path, compressed, { upsert: true });
+    if (error) return null;
+    return supabase.storage.from("sst-fotos").getPublicUrl(path).data.publicUrl;
+  }
 
   async function uploadOcorrenciaFoto(file: File): Promise<string | null> {
     const path = `equipamentos/ocorrencias/${Date.now()}.jpg`;
@@ -2741,6 +2814,62 @@ export default function EquipmentDiaryForm() {
 
         {/* FIM CAMPOS COLAPSÁVEIS */}
         </>)}
+
+        {/* RELATÓRIO FOTOGRÁFICO DE PERFIL */}
+        {!isPatioMode && (
+        <Section title="RELATÓRIO FOTOGRÁFICO">
+          <p className="text-xs text-muted-foreground mb-3">Registre o estado do equipamento antes de iniciar. Até 4 fotos.</p>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { key: "frente",        label: "Frente" },
+              { key: "lado_direito",  label: "Lado Direito" },
+              { key: "traseira",      label: "Traseira" },
+              { key: "lado_esquerdo", label: "Lado Esquerdo" },
+            ] as { key: keyof FotoPerfil; label: string }[]).map(({ key, label }) => {
+              const file = fotosPerfil[key];
+              const url  = fotosPerfilUrls[key as keyof FotoPerfilUrls];
+              const preview = file ? URL.createObjectURL(file) : url;
+              return (
+                <div key={key} className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                  <button
+                    type="button"
+                    onClick={() => fotoRefs[key].current?.click()}
+                    className={`w-full h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors overflow-hidden relative ${
+                      preview ? "border-green-400 bg-green-50" : "border-border bg-secondary hover:bg-muted"
+                    }`}
+                  >
+                    {preview ? (
+                      <>
+                        <img src={preview} alt={label} className="absolute inset-0 w-full h-full object-cover rounded-xl opacity-80" />
+                        <div className="relative z-10 bg-green-500/80 rounded-full p-0.5">
+                          <CheckCircle2 className="w-4 h-4 text-white" />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <ImagePlus className="w-5 h-5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Adicionar</span>
+                      </>
+                    )}
+                  </button>
+                  <input
+                    ref={fotoRefs[key]}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f) setFotosPerfil(prev => ({ ...prev, [key]: f }));
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+        )}
 
         {/* OBSERVAÇÕES — visível somente fora do modo pátio (pátio usa campo proprio de manutenção) */}
         {!isPatioMode && (<>
