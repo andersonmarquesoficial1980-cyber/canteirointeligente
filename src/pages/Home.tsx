@@ -135,6 +135,12 @@ export default function Home() {
               relatorios: "modulo_relatorios",
               dashboard: "modulo_dashboard",
               encarregado: "modulo_encarregado",
+              sst: "modulo_sst",
+              engenharia: "modulo_engenharia",
+              "gestao-frotas": "modulo_gestao_frotas",
+              "gestao-pessoas": "modulo_gestao_pessoas",
+              suprimentos: "modulo_suprimentos",
+              medicoes: "modulo_medicoes",
             };
             if (!permissions) return false;
             const permKey = permMap[mod.id];
