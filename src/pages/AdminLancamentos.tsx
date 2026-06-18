@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, Loader2, ZoomIn } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,53 @@ function fmtDate(value: string | null) {
   const [y, m, d] = value.split("-");
   if (!y || !m || !d) return value;
   return `${d}/${m}/${y}`;
+}
+
+type FotoPerfilUrls = { frente?: string; lado_direito?: string; traseira?: string; lado_esquerdo?: string };
+
+function FotosPerfilAdmin({ fotos }: { fotos: FotoPerfilUrls }) {
+  const [ampliada, setAmpliada] = useState<string | null>(null);
+  const slots: { key: keyof FotoPerfilUrls; label: string }[] = [
+    { key: "frente",        label: "Frente" },
+    { key: "lado_direito",  label: "Lado Direito" },
+    { key: "traseira",      label: "Traseira" },
+    { key: "lado_esquerdo", label: "Lado Esquerdo" },
+  ];
+  const com = slots.filter(s => fotos[s.key]);
+  if (com.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2">
+      <p className="text-xs font-bold uppercase text-muted-foreground">📷 Relatório Fotográfico</p>
+      <div className="grid grid-cols-2 gap-2">
+        {com.map(({ key, label }) => (
+          <div key={key} className="space-y-1">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <div className="relative rounded-lg overflow-hidden border border-border">
+              <img src={fotos[key]} alt={label} className="w-full h-24 object-cover" />
+              <div className="absolute inset-0 flex items-end justify-end p-1 gap-1">
+                <button
+                  onClick={() => setAmpliada(fotos[key]!)}
+                  className="bg-black/60 rounded p-1 text-white hover:bg-black/80"
+                >
+                  <ZoomIn className="w-3 h-3" />
+                </button>
+                <a
+                  href={fotos[key]} download target="_blank" rel="noopener noreferrer"
+                  className="bg-black/60 rounded p-1 text-white hover:bg-black/80 text-xs font-bold leading-none flex items-center px-1.5"
+                >↓</a>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {ampliada && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setAmpliada(null)}>
+          <img src={ampliada} alt="Ampliada" className="max-w-full max-h-full rounded-xl object-contain" />
+          <button className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2" onClick={() => setAmpliada(null)}>✕</button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AdminLancamentos() {
@@ -444,6 +491,11 @@ export default function AdminLancamentos() {
                 <Info label="Local" value={selecionado.location_address || "-"} />
                 <Info label="Observações" value={selecionado.observations || "-"} />
               </div>
+
+              {/* Relatório Fotográfico */}
+              {(selecionado as any).fotos_perfil && Object.values((selecionado as any).fotos_perfil).some(Boolean) && (
+                <FotosPerfilAdmin fotos={(selecionado as any).fotos_perfil} />
+              )}
 
               {detalheExtra.areas.length > 0 && (
                 <div className="rounded-lg border border-border p-3 space-y-1">

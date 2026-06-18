@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, Printer, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Loader2, Printer, FileSpreadsheet, ZoomIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
@@ -162,6 +162,74 @@ async function exportarExcelPeriodo(ini: string, fim: string, ogsData: any[]) {
   a.download = `WF_Carreta_${ini}_a_${fim}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── Relatório Fotográfico ───────────────────────────────────────────────────
+type FotoPerfilUrls = { frente?: string; lado_direito?: string; traseira?: string; lado_esquerdo?: string };
+
+function FotosPerfilSection({ fotos }: { fotos: FotoPerfilUrls }) {
+  const [ampliada, setAmpliada] = useState<string | null>(null);
+  const slots: { key: keyof FotoPerfilUrls; label: string }[] = [
+    { key: "frente",        label: "Frente" },
+    { key: "lado_direito",  label: "Lado Direito" },
+    { key: "traseira",      label: "Traseira" },
+    { key: "lado_esquerdo", label: "Lado Esquerdo" },
+  ];
+  const com = slots.filter(s => fotos[s.key]);
+  if (com.length === 0) return null;
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-sm font-semibold">📷 Relatório Fotográfico</p>
+      <div className="grid grid-cols-2 gap-2">
+        {com.map(({ key, label }) => (
+          <div key={key} className="space-y-1">
+            <p className="text-xs text-muted-foreground font-medium">{label}</p>
+            <div className="relative rounded-xl overflow-hidden border border-border">
+              <img
+                src={fotos[key]}
+                alt={label}
+                className="w-full h-28 object-cover"
+              />
+              <div className="absolute inset-0 flex items-end justify-end p-1.5 gap-1.5">
+                <button
+                  onClick={() => setAmpliada(fotos[key]!)}
+                  className="bg-black/60 rounded-lg p-1 text-white hover:bg-black/80"
+                  title="Ampliar"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <a
+                  href={fotos[key]}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-black/60 rounded-lg p-1 text-white hover:bg-black/80 text-xs font-bold leading-none flex items-center px-2"
+                  title="Download"
+                >
+                  ↓
+                </a>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Lightbox */}
+      {ampliada && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setAmpliada(null)}
+        >
+          <img src={ampliada} alt="Ampliada" className="max-w-full max-h-full rounded-xl object-contain" />
+          <button
+            className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80"
+            onClick={() => setAmpliada(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Página principal ─────────────────────────────────────────────────────────
@@ -361,6 +429,12 @@ export default function VisualizarLancamento() {
                 <p><span className="text-muted-foreground">Status:</span> <strong>{diary.work_status || diary.status || "-"}</strong></p>
                 <p><span className="text-muted-foreground">Observações:</span> <strong>{diary.observations || "-"}</strong></p>
               </div>
+
+              {/* Relatório Fotográfico */}
+              {(diary as any).fotos_perfil && Object.values((diary as any).fotos_perfil).some(Boolean) && (
+                <FotosPerfilSection fotos={(diary as any).fotos_perfil} />
+              )}
+
               {diary.created_at && (
                 <p className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
                   Lançado por: <strong>{diary.operator_name || "-"}</strong> em {new Date(diary.created_at).toLocaleString("pt-BR")}
