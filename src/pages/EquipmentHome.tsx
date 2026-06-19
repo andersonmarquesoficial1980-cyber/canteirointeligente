@@ -24,7 +24,6 @@ const EQUIPMENT_TYPES = [
   { id: "Vibroacabadora", label: "Vibroacabadora", img: imgVibro },
   { id: "Usina KMA", label: "Usina Móvel KMA", img: imgKma },
   { id: "Caminhões", label: "Caminhões", img: imgCaminhao },
-  { id: "Comboio", label: "Comboio", img: imgComboio },
   { id: "Veículo", label: "Veículo de Transporte", img: imgVeiculo },
   { id: "Retro", label: "Linha Amarela", img: imgRetro },
   { id: "Carreta", label: "Carreta", img: imgCarreta },
