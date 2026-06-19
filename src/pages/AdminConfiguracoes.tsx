@@ -2815,11 +2815,13 @@ function AbastecimentoConfigManager() {
 
   return (
     <div className="space-y-6 p-4">
+      <div className="rdo-card space-y-3">
+        <p className="text-xs text-muted-foreground">
+          👤 <strong>Motoristas</strong> e <strong>Lubrificadores</strong> são carregados automaticamente do cadastro de funcionários.
+          Para ajustar quem aparece, edite a função do funcionário em <strong>Painel → Funcionários</strong>.
+        </p>
+      </div>
       <div className="rdo-card space-y-6">
-        <ListaConfig campo="motoristas" label="Motoristas do Comboio" placeholder="Ex: JOÃO DA SILVA" />
-        <hr className="border-border" />
-        <ListaConfig campo="lubrificadores" label="Lubrificadores" placeholder="Ex: PEDRO SANTOS" />
-        <hr className="border-border" />
         <ListaConfig campo="fornecedores_diesel" label="Fornecedores de Diesel" placeholder="Ex: POSTO FREMIX" />
       </div>
     </div>

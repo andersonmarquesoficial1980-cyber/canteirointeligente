@@ -130,6 +130,7 @@ export default function AbastecimentoHome() {
   // ── Dados de suporte ──
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [ogsData, setOgsData] = useState<any[]>([]);
+  const [funcionarios, setFuncionarios] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [abastConfig, setAbastConfig] = useState<{ motoristas: string[]; lubrificadores: string[]; fornecedores_diesel: string[] }>({ motoristas: [], lubrificadores: [], fornecedores_diesel: [] });
 
@@ -165,24 +166,33 @@ export default function AbastecimentoHome() {
     const cid = (profile as any)?.company_id || null;
     setCompanyId(cid);
 
-    const [abast, equips, ogsRes, cfgRes] = await Promise.all([
+    const [abast, equips, ogsRes, cfgRes, funcsRes] = await Promise.all([
       supabase.from("abastecimentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }).limit(200),
       (supabase as any).from("equipamentos").select("id, frota, nome, tipo").in("status", ["ativo", "Operando"]).order("frota"),
       (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address"),
       (supabase as any).from("abastecimento_config").select("*").eq("company_id", cid).maybeSingle(),
+      (supabase as any).from("employees").select("id, name, role").eq("status", "ativo").order("name"),
     ]);
 
     if (abast.data) setAbastecimentos(abast.data as AbastecimentoRow[]);
     if (equips.data) setEquipamentos(equips.data);
     if (ogsRes.data) setOgsData(ogsRes.data);
     if (cfgRes.data) setAbastConfig(cfgRes.data);
+    if (funcsRes.data) setFuncionarios(funcsRes.data);
     setLoading(false);
   }
 
   const ogsOptions = useMemo(() => buildOgsOptions(ogsData), [ogsData]);
   const fornecedoresList = abastConfig.fornecedores_diesel.length > 0 ? abastConfig.fornecedores_diesel : ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
-  const listMotoristas = abastConfig.motoristas;
-  const listLubrificadores = abastConfig.lubrificadores;
+  // Motoristas: filtra por função
+  const listMotoristas = funcionarios
+    .filter((f: any) => f.role?.toLowerCase().includes("motorista"))
+    .map((f: any) => f.name);
+  // Lubrificadores: filtra por função, fallback todos
+  const lubrificadoresFiltrados = funcionarios.filter((f: any) => f.role?.toLowerCase().includes("lubrificador"));
+  const listLubrificadores = lubrificadoresFiltrados.length > 0
+    ? lubrificadoresFiltrados.map((f: any) => f.name)
+    : funcionarios.map((f: any) => f.name);
 
   // Frotas de comboio — filtrar pelo tipo
   const frotasComboio = equipamentos.filter((e: any) =>
