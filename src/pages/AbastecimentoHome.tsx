@@ -393,17 +393,15 @@ export default function AbastecimentoHome() {
           <div className="space-y-2">
             {Object.entries(porEquipamento).map(([equipment, items]) => (
               <Collapsible key={equipment} defaultOpen={false}>
-                <CollapsibleTrigger asChild>
-                  <button className="w-full rdo-card p-4 flex items-center justify-between hover:bg-blue-50/50 transition-colors">
-                    <div className="flex items-center gap-3 flex-1 text-left">
-                      <Truck className="w-5 h-5 text-primary" />
-                      <div>
-                        <p className="font-display font-bold text-base">{equipment}</p>
-                        <p className="text-xs text-muted-foreground">{items.length} lançamentos</p>
-                      </div>
+                <CollapsibleTrigger className="w-full rdo-card p-4 flex items-center justify-between hover:bg-blue-50/50 transition-colors text-left">
+                  <div className="flex items-center gap-3 flex-1">
+                    <Truck className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="font-display font-bold text-base">{equipment}</p>
+                      <p className="text-xs text-muted-foreground">{items.length} lançamentos</p>
                     </div>
-                    <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform" />
-                  </button>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-2 pt-2">
                   {items.map(a => {
@@ -574,7 +572,7 @@ export default function AbastecimentoHome() {
                       <div key={entry.id} className="bg-card border border-border rounded-2xl p-3 space-y-2">
                         <div className="grid grid-cols-2 gap-2">
                           <Select value={entry.tipoEquipamento} onValueChange={v => updateEntrada(idx, "tipoEquipamento", v)}>
-                            <SelectTrigger size="sm" className="h-9 rounded-lg text-xs"><SelectValue placeholder="Tipo *" /></SelectTrigger>
+                            <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue placeholder="Tipo *" /></SelectTrigger>
                             <SelectContent>
                               {EQUIPMENT_TYPE_OPTIONS.map(opt => (
                                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
@@ -582,7 +580,7 @@ export default function AbastecimentoHome() {
                             </SelectContent>
                           </Select>
                           <Select value={entry.frota} onValueChange={v => updateEntrada(idx, "frota", v)}>
-                            <SelectTrigger size="sm" className="h-9 rounded-lg text-xs"><SelectValue placeholder="Frota *" /></SelectTrigger>
+                            <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue placeholder="Frota *" /></SelectTrigger>
                             <SelectContent>
                               {equipsDoTipo.map((e: any) => (
                                 <SelectItem key={e.id} value={e.frota}>{e.frota}</SelectItem>
@@ -597,7 +595,7 @@ export default function AbastecimentoHome() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Select value={entry.ogs} onValueChange={v => updateEntrada(idx, "ogs", v)}>
-                            <SelectTrigger size="sm" className="h-9 rounded-lg text-xs"><SelectValue placeholder="OGS" /></SelectTrigger>
+                            <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue placeholder="OGS" /></SelectTrigger>
                             <SelectContent>
                               {ogsOptions.map(opt => (
                                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
@@ -677,7 +675,7 @@ export default function AbastecimentoHome() {
                   </SelectContent>
                 </Select>
                 <div className="flex items-center gap-2">
-                  <Checkbox checked={simpLubrificado} onCheckedChange={setSimpLubrificado} />
+                  <Checkbox checked={simpLubrificado} onCheckedChange={v => setSimpLubrificado(v === true)} />
                   <label className="text-sm">Lubrificado</label>
                 </div>
                 {fonte === "shelbox" && (
