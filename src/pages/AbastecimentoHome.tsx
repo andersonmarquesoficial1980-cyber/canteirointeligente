@@ -172,18 +172,28 @@ export default function AbastecimentoHome() {
       (supabase as any).from("equipamentos").select("id, frota, nome, tipo").in("status", ["ativo", "Operando"]).order("frota"),
       (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address"),
       (supabase as any).from("abastecimento_config").select("*").eq("company_id", cid).maybeSingle(),
-      // Motoristas do Comboio = habilitados para tipo "Comboio"
-      (supabase as any).from("equipment_type_operators").select("employee_id, employees(name)").eq("equipment_type", "Comboio").eq("company_id", cid),
-      // Lubrificadores = habilitados para tipo "Lubrificador"
-      (supabase as any).from("equipment_type_operators").select("employee_id, employees(name)").eq("equipment_type", "Lubrificador").eq("company_id", cid),
+      // Habilitados para Comboio e Lubrificador (join manual via funcionario_id)
+      (supabase as any).from("equipment_type_operators").select("funcionario_id").eq("equipment_type", "Comboio").eq("company_id", cid),
+      (supabase as any).from("equipment_type_operators").select("funcionario_id").eq("equipment_type", "Lubrificador").eq("company_id", cid),
     ]);
 
     if (abast.data) setAbastecimentos(abast.data as AbastecimentoRow[]);
     if (equips.data) setEquipamentos(equips.data);
     if (ogsRes.data) setOgsData(ogsRes.data);
     if (cfgRes.data) setAbastConfig(cfgRes.data);
-    if (opComboio.data) setMotoristas(opComboio.data.map((r: any) => r.employees?.name).filter(Boolean));
-    if (opLubri.data) setLubrificadores(opLubri.data.map((r: any) => r.employees?.name).filter(Boolean));
+
+    // Buscar nomes dos funcionários habilitados
+    const idsComboio = (opComboio.data || []).map((r: any) => r.funcionario_id).filter(Boolean);
+    const idsLubri = (opLubri.data || []).map((r: any) => r.funcionario_id).filter(Boolean);
+
+    if (idsComboio.length > 0) {
+      const { data: nomes } = await (supabase as any).from("employees").select("name").in("id", idsComboio).order("name");
+      if (nomes) setMotoristas(nomes.map((r: any) => r.name).filter(Boolean));
+    }
+    if (idsLubri.length > 0) {
+      const { data: nomes } = await (supabase as any).from("employees").select("name").in("id", idsLubri).order("name");
+      if (nomes) setLubrificadores(nomes.map((r: any) => r.name).filter(Boolean));
+    }
     setLoading(false);
   }
 
