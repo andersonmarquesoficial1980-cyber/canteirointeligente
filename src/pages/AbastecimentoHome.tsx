@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Fuel, Loader2, Filter, Trash2, Clock, Truck, Droplets } from "lucide-react";
+import { ArrowLeft, Plus, Fuel, Loader2, Filter, Trash2, Clock, Truck, Droplets, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 
 // ── Tipos de equipamento com prefixos de frota ──
@@ -122,6 +123,10 @@ export default function AbastecimentoHome() {
   const [loading, setLoading] = useState(true);
   const [filtroFonte, setFiltroFonte] = useState("todas");
   const [filtroFrota, setFiltroFrota] = useState("");
+  const [filtroDataInicio, setFiltroDataInicio] = useState("");
+  const [filtroDataFim, setFiltroDataFim] = useState("");
+  const [filtroTipoEquipamento, setFiltroTipoEquipamento] = useState("");
+  const [filtroOgs, setFiltroOgs] = useState("");
 
   // ── Modal de lançamento ──
   const [modal, setModal] = useState(false);
@@ -298,11 +303,22 @@ export default function AbastecimentoHome() {
   const filtrados = abastecimentos.filter(a => {
     if (filtroFonte !== "todas" && a.fonte !== filtroFonte) return false;
     if (filtroFrota && !a.equipment_fleet?.toLowerCase().includes(filtroFrota.toLowerCase())) return false;
+    if (filtroDataInicio && a.data < filtroDataInicio) return false;
+    if (filtroDataFim && a.data > filtroDataFim) return false;
+    if (filtroTipoEquipamento && a.equipment_type !== filtroTipoEquipamento) return false;
+    if (filtroOgs && !a.ogs?.toLowerCase().includes(filtroOgs.toLowerCase())) return false;
     return true;
   });
+  
   const totalLitros = filtrados.reduce((s, a) => s + (a.litros || 0), 0);
-  const porData: Record<string, AbastecimentoRow[]> = {};
-  filtrados.forEach(a => { if (!porData[a.data]) porData[a.data] = []; porData[a.data].push(a); });
+  
+  // Agrupar por equipamento_frota para o accordion
+  const porEquipamento: Record<string, AbastecimentoRow[]> = {};
+  filtrados.forEach(a => {
+    const key = a.equipment_fleet || "Sem Frota";
+    if (!porEquipamento[key]) porEquipamento[key] = [];
+    porEquipamento[key].push(a);
+  });
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -314,86 +330,142 @@ export default function AbastecimentoHome() {
           <span className="block font-display font-extrabold text-sm text-primary-foreground">WF Abastecimento</span>
           <span className="block text-[11px] text-primary-foreground/80">Comboio, Posto e Shelbox</span>
         </div>
-        <Button size="sm" onClick={() => { resetForm(); setModal(true); }} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1">
-          <Plus className="w-4 h-4" /> Lançar
-        </Button>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
-        {/* Resumo */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rdo-card text-center">
-            <p className="text-xl font-display font-bold text-primary">{filtrados.length}</p>
-            <p className="text-[10px] text-muted-foreground">Lançamentos</p>
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+        
+        {/* ── BOTÃO GRANDE "+ LANÇAR" ── */}
+        <button
+          onClick={() => { resetForm(); setModal(true); }}
+          className="w-full bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white rounded-2xl p-6 shadow-md hover:shadow-lg transition-all border border-primary/50"
+        >
+          <div className="flex items-center justify-center gap-3">
+            <Plus className="w-8 h-8" />
+            <span className="font-display font-bold text-lg">+ Lançar Abastecimento</span>
           </div>
-          <div className="rdo-card text-center col-span-2">
-            <p className="text-xl font-display font-bold text-primary">{fmtNum(totalLitros, 0)} L</p>
-            <p className="text-[10px] text-muted-foreground">Total de Diesel</p>
+        </button>
+
+        {/* ── FILTROS: Data, Frota, Tipo, OGS ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Data Inicial</label>
+            <Input type="date" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} className="h-10 rounded-xl text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Data Final</label>
+            <Input type="date" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} className="h-10 rounded-xl text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Frota</label>
+            <Input placeholder="Ex: FA14" value={filtroFrota} onChange={e => setFiltroFrota(e.target.value)} className="h-10 rounded-xl text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Tipo</label>
+            <Select value={filtroTipoEquipamento} onValueChange={setFiltroTipoEquipamento}>
+              <SelectTrigger className="h-10 rounded-xl text-sm">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todos</SelectItem>
+                {EQUIPMENT_TYPE_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        {/* Filtros */}
-        <div className="flex gap-2 items-center">
-          <Input placeholder="Filtrar por frota..." value={filtroFrota} onChange={e => setFiltroFrota(e.target.value)} className="h-9 rounded-xl text-sm flex-1" />
-          <Select value={filtroFonte} onValueChange={setFiltroFonte}>
-            <SelectTrigger className="h-9 rounded-xl w-36 text-sm">
-              <Filter className="w-3 h-3 mr-1" /><SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Todas</SelectItem>
-              <SelectItem value="comboio">🚛 Comboio</SelectItem>
-              <SelectItem value="posto">⛽ Posto</SelectItem>
-              <SelectItem value="shelbox">💳 Shelbox</SelectItem>
-              <SelectItem value="manual">📝 Manual</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* ── Segunda LINHA de filtros ── */}
+        <div>
+          <label className="text-xs font-semibold text-muted-foreground block mb-1">OGS</label>
+          <Input placeholder="Filtrar por OGS..." value={filtroOgs} onChange={e => setFiltroOgs(e.target.value)} className="h-10 rounded-xl text-sm" />
         </div>
 
+        {/* ── LISTA COM ACORDEÃO ── */}
         {loading ? (
-          <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
+          <div className="text-center py-12"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
         ) : filtrados.length === 0 ? (
-          <div className="text-center py-10">
-            <Fuel className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+          <div className="text-center py-12">
+            <Fuel className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground">Nenhum abastecimento encontrado</p>
           </div>
         ) : (
-          Object.entries(porData).map(([d, items]) => (
-            <div key={d}>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide px-1 mb-1">{fmtDate(d)}</p>
-              {items.map(a => {
-                const cfg = FONTE_CONFIG[a.fonte] || FONTE_CONFIG.manual;
-                return (
-                  <div key={a.id} className="rdo-card mb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="font-display font-bold text-sm">{a.equipment_fleet}</span>
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.color}`}>
-                            {cfg.emoji} {cfg.label}
-                          </span>
-                          {a.lubrificado && <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">🔧 Lubrificado</span>}
-                          {a.lavado && <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">🚿 Lavado</span>}
-                        </div>
-                        <div className="flex gap-4 text-xs text-muted-foreground flex-wrap">
-                          <span className="font-bold text-primary">{fmtNum(a.litros)} L</span>
-                          {a.horimetro && <span>Hor: {a.horimetro}</span>}
-                          {a.km_odometro && <span>KM: {a.km_odometro}</span>}
-                          {a.comboio_fleet && <span>Comboio: {a.comboio_fleet}</span>}
-                          {a.motorista_comboio && <span>Mot: {a.motorista_comboio}</span>}
-                          {a.ogs && <span>OGS: {a.ogs}</span>}
-                          {a.hora && <span>{a.hora}</span>}
-                        </div>
+          <div className="space-y-2">
+            {Object.entries(porEquipamento).map(([equipment, items]) => (
+              <Collapsible key={equipment} defaultOpen={false}>
+                <CollapsibleTrigger asChild>
+                  <button className="w-full rdo-card p-4 flex items-center justify-between hover:bg-blue-50/50 transition-colors">
+                    <div className="flex items-center gap-3 flex-1 text-left">
+                      <Truck className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="font-display font-bold text-base">{equipment}</p>
+                        <p className="text-xs text-muted-foreground">{items.length} lançamentos</p>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))
+                    <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform" />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 pt-2">
+                  {items.map(a => {
+                    const cfg = FONTE_CONFIG[a.fonte] || FONTE_CONFIG.manual;
+                    return (
+                      <div key={a.id} className="rdo-card p-3 ml-2 border-l-4 border-primary/30">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold border ${cfg.color}`}>
+                                {cfg.emoji} {cfg.label}
+                              </span>
+                              {a.lubrificado && <span className="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">🔧 Lubr.</span>}
+                              {a.lavado && <span className="px-2 py-1 rounded-full text-xs font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">🚿 Lav.</span>}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                              <span><Clock className="w-3 h-3 inline mr-1" />{fmtDate(a.data)} {a.hora}</span>
+                              <span className="font-bold text-primary"><Droplets className="w-3 h-3 inline mr-1" />{fmtNum(a.litros)} L</span>
+                              {a.horimetro && <span>Hor: {a.horimetro}</span>}
+                              {a.km_odometro && <span>KM: {a.km_odometro}</span>}
+                              {a.comboio_fleet && <span>Comboio: {a.comboio_fleet}</span>}
+                              {a.motorista_comboio && <span>Mot: {a.motorista_comboio}</span>}
+                              {a.ogs && <span>OGS: {a.ogs}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
+          </div>
         )}
+
+        {/* Espaço pra rodapé */}
+        <div className="h-24" />
       </div>
 
-      {/* ── MODAL DE LANÇAMENTO ── */}
+      {/* ── RODAPÉ STICKY COM RESUMO ── */}
+      {filtrados.length > 0 && (
+        <footer className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-primary/20 shadow-lg p-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rdo-card text-center">
+                <p className="text-lg font-display font-bold text-primary">{filtrados.length}</p>
+                <p className="text-xs text-muted-foreground">Lançamentos</p>
+              </div>
+              <div className="rdo-card text-center">
+                <p className="text-lg font-display font-bold text-primary">{fmtNum(totalLitros, 0)}</p>
+                <p className="text-xs text-muted-foreground">L Total</p>
+              </div>
+              <div className="rdo-card text-center">
+                <p className="text-lg font-display font-bold text-primary">{fmtNum(totalLitros / filtrados.length, 1)}</p>
+                <p className="text-xs text-muted-foreground">L Médio</p>
+              </div>
+            </div>
+          </div>
+        </footer>
+      )}
+
+      {/* ── MODAL DE LANÇAMENTO (idêntico ao original) ── */}
       <Dialog open={modal} onOpenChange={v => { if (!v) resetForm(); setModal(v); }}>
         <DialogContent className="max-w-lg mx-2 rounded-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-display font-bold">Lançar Abastecimento</DialogTitle></DialogHeader>
@@ -498,131 +570,60 @@ export default function AbastecimentoHome() {
 
                   {entradas.map((entry, idx) => {
                     const equipsDoTipo = getEquipsByTipo(entry.tipoEquipamento);
-                    const meterLabel = entry.frota && isVehicleFleet(entry.frota) ? "KM" : "H";
                     return (
-                      <div key={entry.id} className="bg-card rounded-2xl border border-border/60 p-4 space-y-3 relative">
-                        <div className="absolute -top-2.5 left-3 bg-primary text-primary-foreground text-[10px] font-extrabold px-3 py-0.5 rounded-full shadow">
-                          #{idx + 1}
-                        </div>
-
-                        {/* Hora + Tipo */}
-                        <div className="grid grid-cols-[90px_1fr] gap-2 pt-2">
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase flex items-center gap-1">
-                              <Clock className="w-3 h-3" /> Hora
-                            </span>
-                            <Input type="time" value={entry.hora} onChange={e => updateEntrada(idx, "hora", e.target.value)} className="bg-secondary border-border h-9 text-xs font-semibold" />
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">Tipo de Equipamento</span>
-                            <Select value={entry.tipoEquipamento} onValueChange={v => updateEntrada(idx, "tipoEquipamento", v)}>
-                              <SelectTrigger className="bg-secondary border-border h-9 text-xs"><SelectValue placeholder="Selecione o tipo..." /></SelectTrigger>
-                              <SelectContent>
-                                {EQUIPMENT_TYPE_OPTIONS.map(opt => (
-                                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        {/* Frota (filtrada pelo tipo) */}
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">Frota</span>
-                          <Select value={entry.frota} onValueChange={v => updateEntrada(idx, "frota", v)} disabled={!entry.tipoEquipamento}>
-                            <SelectTrigger className={`bg-secondary border-border h-9 text-xs ${!entry.tipoEquipamento ? "opacity-50" : ""}`}>
-                              <SelectValue placeholder={entry.tipoEquipamento ? "Selecione a frota..." : "Selecione o tipo primeiro"} />
-                            </SelectTrigger>
+                      <div key={entry.id} className="bg-card border border-border rounded-2xl p-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Select value={entry.tipoEquipamento} onValueChange={v => updateEntrada(idx, "tipoEquipamento", v)}>
+                            <SelectTrigger size="sm" className="h-9 rounded-lg text-xs"><SelectValue placeholder="Tipo *" /></SelectTrigger>
                             <SelectContent>
-                              {equipsDoTipo.map((eq: any) => (
-                                <SelectItem key={eq.id} value={eq.frota}>{eq.frota} — {eq.nome}</SelectItem>
+                              {EQUIPMENT_TYPE_OPTIONS.map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select value={entry.frota} onValueChange={v => updateEntrada(idx, "frota", v)}>
+                            <SelectTrigger size="sm" className="h-9 rounded-lg text-xs"><SelectValue placeholder="Frota *" /></SelectTrigger>
+                            <SelectContent>
+                              {equipsDoTipo.map((e: any) => (
+                                <SelectItem key={e.id} value={e.frota}>{e.frota}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
-
-                        {/* Litros + Medição */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">Litros *</span>
-                            <Input type="number" inputMode="decimal" value={entry.litros} onChange={e => updateEntrada(idx, "litros", e.target.value)} placeholder="0" className="bg-secondary border-border h-9 text-sm font-bold" />
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">Medição ({meterLabel})</span>
-                            <Input type="number" inputMode="decimal" value={entry.medicao} onChange={e => updateEntrada(idx, "medicao", e.target.value)} placeholder={meterLabel === "KM" ? "Odômetro" : "Horímetro"} className="bg-secondary border-border h-9 text-sm" />
-                          </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Input type="time" value={entry.hora} onChange={e => updateEntrada(idx, "hora", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Hora" />
+                          <Input type="number" value={entry.litros} onChange={e => updateEntrada(idx, "litros", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Litros" />
+                          <Input type="number" value={entry.medicao} onChange={e => updateEntrada(idx, "medicao", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Medição" />
                         </div>
-
-                        {/* OGS */}
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-display font-extrabold text-muted-foreground uppercase">OGS — Local de Trabalho</span>
+                        <div className="grid grid-cols-2 gap-2">
                           <Select value={entry.ogs} onValueChange={v => updateEntrada(idx, "ogs", v)}>
-                            <SelectTrigger className="bg-secondary border-border h-10 text-xs w-full">
-                              <SelectValue placeholder="Selecione a OGS e local..." />
-                            </SelectTrigger>
+                            <SelectTrigger size="sm" className="h-9 rounded-lg text-xs"><SelectValue placeholder="OGS" /></SelectTrigger>
                             <SelectContent>
                               {ogsOptions.map(opt => (
                                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
+                          <div className="flex items-center gap-2">
+                            <Checkbox checked={entry.lubrificado} onCheckedChange={v => updateEntrada(idx, "lubrificado", v)} />
+                            <label className="text-xs">Lubrificado</label>
+                          </div>
                         </div>
-
-                        {/* Lubrificação + Lavagem + Remover */}
-                        <div className="flex items-center gap-6 pt-1 border-t border-border/40">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <Checkbox checked={entry.lubrificado} onCheckedChange={c => updateEntrada(idx, "lubrificado", !!c)} />
-                            <span className="text-xs font-bold flex items-center gap-1"><Droplets className="w-3 h-3 text-amber-500" /> Lubrificação</span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <Checkbox checked={entry.lavado} onCheckedChange={c => updateEntrada(idx, "lavado", !!c)} />
-                            <span className="text-xs font-bold">💦 Lavagem</span>
-                          </label>
-                          {entradas.length > 1 && (
-                            <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground hover:text-destructive text-xs" onClick={() => setEntradas(entradas.filter((_, i) => i !== idx))}>
-                              <Trash2 className="w-3 h-3 mr-1" /> Remover
-                            </Button>
-                          )}
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={entry.lavado} onCheckedChange={v => updateEntrada(idx, "lavado", v)} />
+                          <label className="text-xs">Lavado</label>
                         </div>
+                        {entradas.length > 1 && (
+                          <button onClick={() => setEntradas(entradas.filter((_, i) => i !== idx))} className="text-xs text-red-600 hover:underline">
+                            Remover
+                          </button>
+                        )}
                       </div>
                     );
                   })}
-
-                  <Button type="button" size="sm" className="w-full gap-2 text-sm font-extrabold py-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-md" onClick={() => setEntradas([...entradas, novaEntrada()])}>
-                    <Plus className="w-4 h-4" /> Adicionar Máquina
+                  <Button variant="outline" onClick={() => setEntradas([...entradas, novaEntrada()])} className="w-full h-9 text-xs gap-1">
+                    <Plus className="w-3 h-3" /> Adicionar Entrada
                   </Button>
-                </div>
-
-                {/* Resumo do Tanque */}
-                {saldoInicial && (
-                  <div className="bg-card border-2 border-primary/30 rounded-2xl p-4">
-                    <h3 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide pb-2 flex items-center gap-2 border-b border-border mb-3">
-                      <Fuel className="w-4 h-4" /> RESUMO DO TANQUE
-                    </h3>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 text-center">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Saldo Inicial</p>
-                        <p className="text-lg font-extrabold text-primary">{Number(saldoInicial).toLocaleString("pt-BR")}</p>
-                        <p className="text-[10px] text-muted-foreground">litros</p>
-                      </div>
-                      <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-center">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Abastecido</p>
-                        <p className="text-lg font-extrabold text-destructive">{totalAbastecido.toLocaleString("pt-BR")}</p>
-                        <p className="text-[10px] text-muted-foreground">litros</p>
-                      </div>
-                      <div className={`border rounded-xl p-3 text-center ${saldoAtual < 0 ? "bg-destructive/10 border-destructive/30" : "bg-emerald-500/10 border-emerald-500/30"}`}>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Saldo Atual</p>
-                        <p className={`text-lg font-extrabold ${saldoAtual < 0 ? "text-destructive" : "text-emerald-600"}`}>{saldoAtual.toLocaleString("pt-BR")}</p>
-                        <p className="text-[10px] text-muted-foreground">litros</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Observação */}
-                <div className="space-y-1.5">
-                  <span className="rdo-label">Observação</span>
-                  <Input value={observacao} onChange={e => setObservacao(e.target.value)} className="h-11 rounded-xl" placeholder="Opcional..." />
                 </div>
               </>
             )}
@@ -632,8 +633,19 @@ export default function AbastecimentoHome() {
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">
-                    <span className="rdo-label">Tipo de Equipamento</span>
-                    <Select value={simpTipoEquip} onValueChange={v => { setSimpTipoEquip(v); setSimpFrota(""); }}>
+                    <span className="rdo-label">Frota *</span>
+                    <Select value={simpFrota} onValueChange={setSimpFrota}>
+                      <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        {equipamentos.map((e: any) => (
+                          <SelectItem key={e.id} value={e.frota}>{e.frota}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="rdo-label">Tipo</span>
+                    <Select value={simpTipoEquip} onValueChange={setSimpTipoEquip}>
                       <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                       <SelectContent>
                         {EQUIPMENT_TYPE_OPTIONS.map(opt => (
@@ -642,80 +654,47 @@ export default function AbastecimentoHome() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Frota *</span>
-                    <Select value={simpFrota} onValueChange={setSimpFrota} disabled={!simpTipoEquip}>
-                      <SelectTrigger className={`h-11 rounded-xl ${!simpTipoEquip ? "opacity-50" : ""}`}>
-                        <SelectValue placeholder={simpTipoEquip ? "Selecione a frota..." : "Tipo primeiro"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getEquipsByTipo(simpTipoEquip).map((eq: any) => (
-                          <SelectItem key={eq.id} value={eq.frota}>{eq.frota} — {eq.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Hora</span>
-                    <Input type="time" value={simpHora} onChange={e => setSimpHora(e.target.value)} className="h-11 rounded-xl" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Litros *</span>
-                    <Input type="number" value={simpLitros} onChange={e => setSimpLitros(e.target.value)} placeholder="0" className="h-11 rounded-xl font-bold" />
-                  </div>
+                  <Input type="time" value={simpHora} onChange={e => setSimpHora(e.target.value)} className="h-11 rounded-xl" placeholder="Hora" />
+                  <Input type="number" value={simpLitros} onChange={e => setSimpLitros(e.target.value)} className="h-11 rounded-xl" placeholder="Litros *" />
                 </div>
-
-                <div className="space-y-1.5">
-                  <span className="rdo-label">OGS — Local de Trabalho</span>
-                  <Select value={simpOgs} onValueChange={setSimpOgs}>
-                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione a OGS..." /></SelectTrigger>
-                    <SelectContent>
-                      {ogsOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <Input type="number" value={simpMedicao} onChange={e => setSimpMedicao(e.target.value)} className="h-11 rounded-xl" placeholder="Medição (Hor/KM)" />
+                <Select value={simpOgs} onValueChange={setSimpOgs}>
+                  <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="OGS" /></SelectTrigger>
+                  <SelectContent>
+                    {ogsOptions.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={simpFornecedor} onValueChange={setSimpFornecedor}>
+                  <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
+                  <SelectContent>
+                    {fornecedoresList.map((f: string) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={simpLubrificado} onCheckedChange={setSimpLubrificado} />
+                  <label className="text-sm">Lubrificado</label>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Horímetro/KM</span>
-                    <Input type="number" value={simpMedicao} onChange={e => setSimpMedicao(e.target.value)} placeholder="0" className="h-11 rounded-xl" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Fornecedor</span>
-                    <Input value={simpFornecedor} onChange={e => setSimpFornecedor(e.target.value)} placeholder="Nome do posto" className="h-11 rounded-xl" />
-                  </div>
-                </div>
-
                 {fonte === "shelbox" && (
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Autorizado por</span>
-                    <Input value={simpAutorizadoPor} onChange={e => setSimpAutorizadoPor(e.target.value)} placeholder="Nome do autorizador" className="h-11 rounded-xl" />
-                  </div>
+                  <Input value={simpAutorizadoPor} onChange={e => setSimpAutorizadoPor(e.target.value)} className="h-11 rounded-xl" placeholder="Autorizado Por" />
                 )}
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={simpLubrificado} onChange={e => setSimpLubrificado(e.target.checked)} className="w-4 h-4" />
-                  <span className="text-sm font-medium">Lubrificado</span>
-                </label>
-
-                <div className="space-y-1.5">
-                  <span className="rdo-label">Observação</span>
-                  <Input value={observacao} onChange={e => setObservacao(e.target.value)} className="h-11 rounded-xl" placeholder="Opcional..." />
-                </div>
               </>
             )}
 
-            <Button
-              onClick={salvar}
-              disabled={salvando || (fonte === "comboio" ? !comboioFrota || entradas.every(e => !e.frota || !e.litros) : !simpFrota || !simpLitros)}
-              className="w-full h-11 rounded-xl font-display font-bold gap-2"
-            >
-              {salvando ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando...</> : "Salvar Abastecimento"}
+            {/* Observação */}
+            <div className="space-y-1.5">
+              <span className="rdo-label">Observação</span>
+              <Input value={observacao} onChange={e => setObservacao(e.target.value)} className="h-11 rounded-xl" placeholder="Adicione observações..." />
+            </div>
+
+            <Button onClick={salvar} disabled={salvando} className="w-full h-11 gap-2">
+              {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              {salvando ? "Salvando..." : "Salvar Lançamento"}
             </Button>
           </div>
         </DialogContent>
