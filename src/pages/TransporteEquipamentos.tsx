@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import logoCi from "@/assets/logo-workflux.png";
+import { sortOgsData } from "@/hooks/useOgsReference";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 const CARRETAS_PROPRIAS = ["PR001", "PR007"];
@@ -84,11 +85,11 @@ export default function TransporteEquipamentos() {
     setLoading(true);
     const [eqRes, ogsRes, transpRes] = await Promise.all([
       (supabase as any).from("equipamentos").select("id, frota, tipo, nome").eq("company_id", COMPANY_ID).eq("status", "ativo").order("tipo").order("frota"),
-      (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address").order("ogs_number", { ascending: false }),
+      (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address"),
       (supabase as any).from("equipamento_transportes").select("*").eq("company_id", COMPANY_ID).order("data", { ascending: false }).order("created_at", { ascending: false }).limit(100),
     ]);
     if (eqRes.data) setEquipamentos(eqRes.data);
-    if (ogsRes.data) setOgsList(ogsRes.data);
+    if (ogsRes.data) setOgsList(sortOgsData(ogsRes.data));
     if (transpRes.data) setTransportes(transpRes.data);
     setLoading(false);
   }

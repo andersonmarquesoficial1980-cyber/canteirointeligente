@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Camera, Trash2, ChevronDown, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
+import { sortOgsData } from "@/hooks/useOgsReference";
 import jsPDF from "jspdf";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
@@ -18,8 +19,8 @@ function OgsSelect({ value, onChange, onSelect }: { value: string; onChange: (v:
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase.from("ogs_reference").select("*").order("ogs_number", { ascending: false })
-      .then(({ data }) => { if (data) setLista(data as any); });
+    supabase.from("ogs_reference").select("*")
+      .then(({ data }) => { if (data) setLista(sortOgsData(data as any) as any); });
   }, []);
 
   useEffect(() => {

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import logoCi from "@/assets/logo-workflux.png";
+import { sortOgsData } from "@/hooks/useOgsReference";
 
 const STATUS_FUNC = ["TRABALHOU", "AFASTADO", "DISPOSIÇÃO", "FÉRIAS", "FALTA"];
 const STATUS_EQUIP = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE"];
@@ -86,8 +87,8 @@ export default function ProgramadorHome() {
       .then(({ data }) => { if (data) setFuncionarios(data as Funcionario[]); });
     (supabase as any).from("equipamentos").select("id, frota, tipo").order("tipo").order("frota")
       .then(({ data }: any) => { if (data) setFrota(data); });
-    (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address").order("ogs_number", { ascending: false })
-      .then(({ data }: any) => { if (data) setOgsList(data); });
+    (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address")
+      .then(({ data }: any) => { if (data) setOgsList(sortOgsData(data)); });
   }, []);
 
   const handleOgsChange = (ogs: string) => {

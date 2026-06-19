@@ -90,7 +90,13 @@ function fmtDate(d: string) {
 function buildOgsOptions(ogsData: any[]) {
   const options: { value: string; label: string }[] = [];
   const seen = new Set<string>();
-  ogsData.forEach((o: any) => {
+  // 000 primeiro, resto decrescente
+  const sorted = [...ogsData].sort((a, b) => {
+    if (a.ogs_number === "000") return -1;
+    if (b.ogs_number === "000") return 1;
+    return parseInt(b.ogs_number) - parseInt(a.ogs_number);
+  });
+  sorted.forEach((o: any) => {
     if (!o.ogs_number) return;
     const addrs = o.location_address
       ? o.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
@@ -162,7 +168,7 @@ export default function AbastecimentoHome() {
     const [abast, equips, ogsRes, cfgRes] = await Promise.all([
       supabase.from("abastecimentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }).limit(200),
       (supabase as any).from("equipamentos").select("id, frota, nome, tipo").in("status", ["ativo", "Operando"]).order("frota"),
-      (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address").order("ogs_number"),
+      (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address"),
       (supabase as any).from("abastecimento_config").select("*").eq("company_id", cid).maybeSingle(),
     ]);
 
