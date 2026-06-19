@@ -123,10 +123,9 @@ export default function AbastecimentoHome() {
 
   // ── Dados de suporte ──
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
-  const [funcionarios, setFuncionarios] = useState<any[]>([]);
-  const [fornecedoresDb, setFornecedoresDb] = useState<any[]>([]);
   const [ogsData, setOgsData] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [abastConfig, setAbastConfig] = useState<{ motoristas: string[]; lubrificadores: string[]; fornecedores_diesel: string[] }>({ motoristas: [], lubrificadores: [], fornecedores_diesel: [] });
 
   // ── Estado do formulário de lançamento ──
   const [fonte, setFonte] = useState<"comboio" | "posto" | "shelbox" | "manual">("comboio");
@@ -160,39 +159,28 @@ export default function AbastecimentoHome() {
     const cid = (profile as any)?.company_id || null;
     setCompanyId(cid);
 
-    const [abast, equips, funcs, forns, ogs] = await Promise.all([
+    const [abast, equips, ogsRes, cfgRes] = await Promise.all([
       supabase.from("abastecimentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }).limit(200),
       (supabase as any).from("equipamentos").select("id, frota, nome, tipo").in("status", ["ativo", "Operando"]).order("frota"),
-      (supabase as any).from("employees").select("id, name, role").eq("status", "ativo").order("name"),
-      (supabase as any).from("fornecedores").select("nome").order("nome"),
-      (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address").eq("status", "ativa").order("ogs_number"),
+      (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address").order("ogs_number"),
+      (supabase as any).from("abastecimento_config").select("*").eq("company_id", cid).maybeSingle(),
     ]);
 
     if (abast.data) setAbastecimentos(abast.data as AbastecimentoRow[]);
     if (equips.data) setEquipamentos(equips.data);
-    if (funcs.data) setFuncionarios(funcs.data);
-    if (forns.data) setFornecedoresDb(forns.data.map((f: any) => f.nome));
-    if (ogs.data) setOgsData(ogs.data);
+    if (ogsRes.data) setOgsData(ogsRes.data);
+    if (cfgRes.data) setAbastConfig(cfgRes.data);
     setLoading(false);
   }
 
   const ogsOptions = useMemo(() => buildOgsOptions(ogsData), [ogsData]);
-  const fornecedoresList = fornecedoresDb.length > 0 ? fornecedoresDb : ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
+  const fornecedoresList = abastConfig.fornecedores_diesel.length > 0 ? abastConfig.fornecedores_diesel : ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
+  const listMotoristas = abastConfig.motoristas;
+  const listLubrificadores = abastConfig.lubrificadores;
 
-  // Funcionários com função de motorista/lubrificador
-  const motoristas = funcionarios.filter((f: any) =>
-    f.role?.toLowerCase().includes("motorista") || f.role?.toLowerCase().includes("operador")
-  );
-  const lubrificadores = funcionarios.filter((f: any) =>
-    f.role?.toLowerCase().includes("lubrificador") || f.role?.toLowerCase().includes("auxiliar")
-  );
-  // fallback: se filtro vazio, usa todos
-  const listMotoristas = motoristas.length > 0 ? motoristas : funcionarios;
-  const listLubrificadores = lubrificadores.length > 0 ? lubrificadores : funcionarios;
-
-  // Frotas de comboio
+  // Frotas de comboio — filtrar pelo tipo
   const frotasComboio = equipamentos.filter((e: any) =>
-    e.frota?.toUpperCase().startsWith("CO") || e.tipo?.toLowerCase().includes("comboio")
+    e.tipo?.toLowerCase().includes("comboio")
   );
 
   function getEquipsByTipo(tipo: string) {
@@ -212,6 +200,8 @@ export default function AbastecimentoHome() {
     setFonte("comboio");
     setData(new Date().toISOString().split("T")[0]);
     setMotoristaComboio(""); setLubrificador(""); setComboioFrota("");
+    // auto-select se só um comboio
+    if (frotasComboio.length === 1) setComboioFrota(frotasComboio[0].frota);
     setSaldoInicial(""); setFornecedor(""); setObservacao("");
     setEntradas([novaEntrada()]);
     setSimpFrota(""); setSimpTipoEquip(""); setSimpHora(""); setSimpLitros("");
@@ -429,22 +419,24 @@ export default function AbastecimentoHome() {
                   <div className="space-y-1.5">
                     <span className="rdo-label">Motorista do Comboio</span>
                     <Select value={motoristaComboio} onValueChange={setMotoristaComboio}>
-                      <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder={listMotoristas.length === 0 ? "Configure no Painel" : "Selecione..."} /></SelectTrigger>
                       <SelectContent>
-                        {listMotoristas.map((f: any) => (
-                          <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>
+                        {listMotoristas.map((nome: string) => (
+                          <SelectItem key={nome} value={nome}>{nome}</SelectItem>
                         ))}
+                        {listMotoristas.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → WF Abastecimento</div>}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
                     <span className="rdo-label">Lubrificador</span>
                     <Select value={lubrificador} onValueChange={setLubrificador}>
-                      <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder={listLubrificadores.length === 0 ? "Configure no Painel" : "Selecione..."} /></SelectTrigger>
                       <SelectContent>
-                        {listLubrificadores.map((f: any) => (
-                          <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>
+                        {listLubrificadores.map((nome: string) => (
+                          <SelectItem key={nome} value={nome}>{nome}</SelectItem>
                         ))}
+                        {listLubrificadores.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → WF Abastecimento</div>}
                       </SelectContent>
                     </Select>
                   </div>

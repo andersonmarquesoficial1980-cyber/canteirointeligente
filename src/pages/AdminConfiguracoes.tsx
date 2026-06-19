@@ -16,7 +16,7 @@ import {
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
   Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2, HardHat, FileText, Settings, LogIn,
-  Briefcase, Building2,
+  Briefcase, Building2, Fuel,
 } from "lucide-react";
 import { useFuncoes } from "@/hooks/useFuncoes";
 import { useEmpresasParceiras } from "@/hooks/useEmpresasParceiras";
@@ -1180,7 +1180,7 @@ function UsersManager() {
   const [nome, setNome] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [perfil, setPerfil] = useState("Apontador");
+  const [perfil, setPerfil] = useState("Usuário");
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [editNome, setEditNome] = useState("");
@@ -1258,7 +1258,7 @@ function UsersManager() {
       }
 
       toast({ title: "✅ Usuário cadastrado com sucesso!", description: `Permissões do perfil ${perfil} aplicadas automaticamente.` });
-      setNome(""); setLogin(""); setPassword(""); setPerfil("Apontador");
+      setNome(""); setLogin(""); setPassword(""); setPerfil("Usuário");
       await load();
     } catch (err: any) {
       toast({ title: "Erro ao criar usuário", description: err.message, variant: "destructive" });
@@ -1398,15 +1398,7 @@ function UsersManager() {
             <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Administrador">Administrador</SelectItem>
-              <SelectItem value="Gerente">Gerente</SelectItem>
-              <SelectItem value="Engenheiro">Engenheiro</SelectItem>
-              <SelectItem value="Encarregado">Encarregado de Obras</SelectItem>
-              <SelectItem value="Segurança">Segurança</SelectItem>
-              <SelectItem value="Manutenção">Manutenção</SelectItem>
-              <SelectItem value="Gestão de Pessoas">Gestão de Pessoas</SelectItem>
-              <SelectItem value="Gestão de Frotas">Gestão de Frotas</SelectItem>
-              <SelectItem value="Apontador">Apontador</SelectItem>
-              <SelectItem value="Operador">Operador / Motorista</SelectItem>
+              <SelectItem value="Usuário">Usuário</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -2745,6 +2737,96 @@ function TerceirizadosManager() {
 // ═══════════════════════════════════════════════════════════════
 // SIDEBAR MENU ITEMS
 // ═══════════════════════════════════════════════════════════════
+// CONFIG WF ABASTECIMENTO
+// ═══════════════════════════════════════════════════════════════
+function AbastecimentoConfigManager() {
+  const [config, setConfig] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [novoMotorista, setNovoMotorista] = useState("");
+  const [novoLubrificador, setNovoLubrificador] = useState("");
+  const [novoFornecedor, setNovoFornecedor] = useState("");
+  const { toast } = useToast();
+
+  useEffect(() => { buscar(); }, []);
+
+  async function buscar() {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
+    const cid = (profile as any)?.company_id;
+    if (!cid) return;
+    const { data } = await (supabase as any).from("abastecimento_config").select("*").eq("company_id", cid).maybeSingle();
+    if (data) {
+      setConfig(data);
+    } else {
+      // criar row se não existe
+      const { data: novo } = await (supabase as any).from("abastecimento_config").insert({ company_id: cid, motoristas: [], lubrificadores: [], fornecedores_diesel: [] }).select().single();
+      setConfig(novo);
+    }
+    setLoading(false);
+  }
+
+  async function salvar(campo: string, lista: string[]) {
+    if (!config?.id) return;
+    setSalvando(true);
+    await (supabase as any).from("abastecimento_config").update({ [campo]: lista, updated_at: new Date().toISOString() }).eq("id", config.id);
+    setConfig((p: any) => ({ ...p, [campo]: lista }));
+    toast({ title: "Salvo!", description: "Configuração atualizada." });
+    setSalvando(false);
+  }
+
+  function ListaConfig({ campo, label, placeholder }: { campo: string; label: string; placeholder: string }) {
+    const lista: string[] = config?.[campo] || [];
+    const [novoItem, setNovoItem] = useState("");
+    function adicionar() {
+      if (!novoItem.trim()) return;
+      const nova = [...lista, novoItem.trim().toUpperCase()];
+      salvar(campo, nova);
+      setNovoItem("");
+    }
+    function remover(idx: number) {
+      salvar(campo, lista.filter((_: string, i: number) => i !== idx));
+    }
+    return (
+      <div className="space-y-3">
+        <h3 className="text-sm font-display font-bold text-primary uppercase tracking-wide flex items-center gap-2">
+          <Fuel className="w-4 h-4" /> {label}
+        </h3>
+        <div className="flex gap-2">
+          <Input value={novoItem} onChange={e => setNovoItem(e.target.value)} placeholder={placeholder} className="h-9 rounded-xl flex-1" onKeyDown={e => e.key === "Enter" && adicionar()} />
+          <Button size="sm" onClick={adicionar} disabled={salvando} className="h-9 rounded-xl gap-1"><Plus className="w-4 h-4" /> Adicionar</Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {lista.map((item: string, i: number) => (
+            <span key={i} className="flex items-center gap-1 bg-secondary border border-border rounded-full px-3 py-1 text-sm font-medium">
+              {item}
+              <button onClick={() => remover(i)} className="text-muted-foreground hover:text-destructive ml-1"><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+          {lista.length === 0 && <p className="text-xs text-muted-foreground">Nenhum cadastrado. Adicione acima.</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) return <div className="text-center py-10"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>;
+
+  return (
+    <div className="space-y-6 p-4">
+      <div className="rdo-card space-y-6">
+        <ListaConfig campo="motoristas" label="Motoristas do Comboio" placeholder="Ex: JOÃO DA SILVA" />
+        <hr className="border-border" />
+        <ListaConfig campo="lubrificadores" label="Lubrificadores" placeholder="Ex: PEDRO SANTOS" />
+        <hr className="border-border" />
+        <ListaConfig campo="fornecedores_diesel" label="Fornecedores de Diesel" placeholder="Ex: POSTO FREMIX" />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 const MENU_SECTIONS = [
   { key: "assinatura", label: "Meu Plano / Faturas", icon: Receipt },
   { key: "dashboard", label: "Dashboards", icon: BarChart3 },
@@ -2776,6 +2858,7 @@ const MENU_SECTIONS = [
   { key: "operadores_habilitados", label: "Operadores Habilitados", icon: ShieldCheck },
   { key: "engenheiros_ogs", label: "Engenheiros por OGS", icon: HardHat },
   { key: "encarregados_ogs", label: "Encarregados por OGS", icon: HardHat },
+  { key: "abastecimento_config", label: "WF Abastecimento", icon: Fuel },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -3784,6 +3867,7 @@ export default function AdminConfiguracoes() {
       case "auditoria": return <AuditLogViewerAdmin />;
       case "engenheiros_ogs": return <EngenheirosOgsManager />;
       case "encarregados_ogs": return <EncEncarregadoOgsManager />;
+      case "abastecimento_config": return <AbastecimentoConfigManager />;
       default: return null;
     }
   };
