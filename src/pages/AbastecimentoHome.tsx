@@ -305,7 +305,7 @@ export default function AbastecimentoHome() {
     if (filtroFrota && !a.equipment_fleet?.toLowerCase().includes(filtroFrota.toLowerCase())) return false;
     if (filtroDataInicio && a.data < filtroDataInicio) return false;
     if (filtroDataFim && a.data > filtroDataFim) return false;
-    if (filtroTipoEquipamento && a.equipment_type !== filtroTipoEquipamento) return false;
+    if (filtroTipoEquipamento && filtroTipoEquipamento !== "__todos__" && a.equipment_type !== filtroTipoEquipamento) return false;
     if (filtroOgs && !a.ogs?.toLowerCase().includes(filtroOgs.toLowerCase())) return false;
     return true;
   });
@@ -366,7 +366,7 @@ export default function AbastecimentoHome() {
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="__todos__">Todos</SelectItem>
                 {EQUIPMENT_TYPE_OPTIONS.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
