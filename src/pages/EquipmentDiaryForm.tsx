@@ -105,7 +105,7 @@ const LINHA_AMARELA_TIPOS = [
 ] as const;
 
 // ── Caminhão configs ──
-const CAMINHAO_TIPOS = ["Pipa", "Carroceria", "Espargidor", "Basculante"] as const;
+const CAMINHAO_TIPOS = ["Pipa", "Carroceria", "Espargidor", "Basculante", "Comboio"] as const;
 // PIPA_FLEETS removido — frotas vêm de maquinas_frota (Painel de Controle)
 const PIPA_FORNECEDORES = ["Bica Amarildo", "Águas Barueri", "Olho D'agua"];
 
@@ -183,7 +183,6 @@ export default function EquipmentDiaryForm() {
   const isRolo = equipmentType === "Rolo";
   const isVibro = equipmentType === "Vibroacabadora";
   const isCaminhoes = equipmentType === "Caminhões";
-  const isComboio = equipmentType === "Comboio";
   const isVeiculo = equipmentType === "Veículo";
   const isCarreta = equipmentType === "Carreta";
 
@@ -193,6 +192,7 @@ export default function EquipmentDiaryForm() {
   const isEspargidor = isCaminhoes && caminhaoTipo === "Espargidor";
   const isCarroceria = isCaminhoes && caminhaoTipo === "Carroceria";
   const isBasculante = isCaminhoes && caminhaoTipo === "Basculante";
+  const isComboio = equipmentType === "Comboio" || (isCaminhoes && caminhaoTipo === "Comboio");
 
   const isTruck = isCaminhoes || isComboio || isVeiculo || isCarreta;
   const usesOdometer = isTruck;
@@ -1969,7 +1969,7 @@ export default function EquipmentDiaryForm() {
                 <SelectContent>
                   {CAMINHAO_TIPOS.map((t) => (
                     <SelectItem key={t} value={t}>
-                      {t === "Pipa" ? "💧 Pipa" : t === "Espargidor" ? "🛢️ Espargidor" : t === "Carroceria" ? "📦 Carroceria" : "🚛 Basculante"}
+                      {t === "Pipa" ? "💧 Pipa" : t === "Espargidor" ? "🛢️ Espargidor" : t === "Carroceria" ? "📦 Carroceria" : t === "Comboio" ? "⛽ Comboio" : "🚛 Basculante"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -2743,31 +2743,22 @@ export default function EquipmentDiaryForm() {
 
         {/* ── COMBOIO MODULE ── */}
         {isComboio && (
-          <ComboioRefuelingSection
-            saldoInicial={comboioSaldoInicial}
-            onSaldoInicialChange={setComboioSaldoInicial}
-            fornecedor={comboioFornecedor}
-            onFornecedorChange={setComboioFornecedor}
-            entries={comboioRefuels}
-            onChange={setComboioRefuels}
-            equipamentos={equipamentos}
-            ogsData={ogsData}
-            fornecedoresDb={fornecedoresDiesel}
-            onGeneratePdf={() =>
-              generateComboioPdf({
-                fleet: selectedFleet,
-                date,
-                operator,
-                turno,
-                odometerInitial: meterInitial,
-                odometerFinal: meterFinal,
-                saldoInicial: comboioSaldoInicial,
-                fornecedor: comboioFornecedor,
-                entries: comboioRefuels,
-                observations,
-              })
-            }
-          />
+          <div className="rdo-card border-l-4 border-l-blue-500 bg-blue-50/50">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-2xl">⛽</span>
+              <div>
+                <p className="font-display font-bold text-sm text-blue-800">Lançamentos de Abastecimento</p>
+                <p className="text-xs text-blue-600">Os abastecimentos de frota deste Comboio são registrados no módulo WF Abastecimento</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.location.href = "/abastecimento"}
+              className="w-full py-2 px-4 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Ir para WF Abastecimento →
+            </button>
+          </div>
         )}
 
         {/* ABASTECIMENTO DO COMBOIO (informativo) */}

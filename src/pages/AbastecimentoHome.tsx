@@ -51,7 +51,7 @@ export default function AbastecimentoHome() {
     equipment_fleet: "", equipment_type: "", data: new Date().toISOString().split("T")[0],
     hora: "", litros: "", horimetro: "", km_odometro: "",
     fonte: "posto", fornecedor: "", ogs: "", observacao: "",
-    lubrificado: false, autorizado_por: "",
+    lubrificado: false, autorizado_por: "", comboio_fleet: "",
   });
 
   useEffect(() => { buscarDados(); }, []);
@@ -83,6 +83,7 @@ export default function AbastecimentoHome() {
         horimetro: form.horimetro ? parseFloat(String(form.horimetro).replace(",", ".")) : null,
         km_odometro: form.km_odometro ? parseFloat(String(form.km_odometro).replace(",", ".")) : null,
         fonte: form.fonte,
+        comboio_fleet: form.fonte === "comboio" ? (form.comboio_fleet || null) : null,
         fornecedor: form.fornecedor || null,
         ogs: form.ogs || null,
         observacao: form.observacao || null,
@@ -224,6 +225,7 @@ export default function AbastecimentoHome() {
               <Select value={form.fonte} onValueChange={v => setForm(p => ({ ...p, fonte: v }))}>
                 <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="comboio">🚛 Comboio</SelectItem>
                   <SelectItem value="posto">⛽ Posto Conveniado</SelectItem>
                   <SelectItem value="shelbox">💳 Shelbox</SelectItem>
                   <SelectItem value="manual">📝 Manual</SelectItem>
@@ -235,6 +237,9 @@ export default function AbastecimentoHome() {
               <div className="space-y-1.5"><span className="rdo-label">Horímetro/KM</span><Input type="number" value={form.horimetro} onChange={e => setForm(p => ({ ...p, horimetro: e.target.value }))} placeholder="0" className="h-11 rounded-xl" /></div>
             </div>
             <div className="space-y-1.5"><span className="rdo-label">Fornecedor</span><Input value={form.fornecedor} onChange={e => setForm(p => ({ ...p, fornecedor: e.target.value }))} placeholder="Nome do posto" className="h-11 rounded-xl" /></div>
+            {form.fonte === "comboio" && (
+              <div className="space-y-1.5"><span className="rdo-label">Frota do Comboio</span><Input value={form.comboio_fleet} onChange={e => setForm(p => ({ ...p, comboio_fleet: e.target.value }))} placeholder="Ex: CO01" className="h-11 rounded-xl" /></div>
+            )}
             {form.fonte === "shelbox" && (
               <div className="space-y-1.5"><span className="rdo-label">Autorizado por</span><Input value={form.autorizado_por} onChange={e => setForm(p => ({ ...p, autorizado_por: e.target.value }))} placeholder="Nome do autorizador" className="h-11 rounded-xl" /></div>
             )}
