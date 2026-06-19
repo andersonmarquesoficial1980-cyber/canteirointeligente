@@ -21,6 +21,7 @@ const EQUIPMENT_TYPES = [
   { id: "Veículo", label: "Veículo de Transporte" },
   { id: "Retro", label: "Linha Amarela" },
   { id: "Carreta", label: "Carreta" },
+  { id: "Lubrificador", label: "Lubrificador (WF Abastecimento)" },
 ] as const;
 
 type EquipmentTypeId = (typeof EQUIPMENT_TYPES)[number]["id"];

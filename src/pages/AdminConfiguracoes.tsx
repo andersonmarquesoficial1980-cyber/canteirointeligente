@@ -2817,8 +2817,8 @@ function AbastecimentoConfigManager() {
     <div className="space-y-6 p-4">
       <div className="rdo-card space-y-3">
         <p className="text-xs text-muted-foreground">
-          👤 <strong>Motoristas</strong> e <strong>Lubrificadores</strong> são carregados automaticamente do cadastro de funcionários.
-          Para ajustar quem aparece, edite a função do funcionário em <strong>Painel → Funcionários</strong>.
+          👤 <strong>Motoristas do Comboio</strong> e <strong>Lubrificadores</strong> são configurados em
+          <strong> Painel → Operadores Habilitados</strong>: tipo <em>Comboio</em> (motoristas) e tipo <em>Lubrificador (WF Abastecimento)</em>.
         </p>
       </div>
       <div className="rdo-card space-y-6">
