@@ -2393,6 +2393,20 @@ export default function EquipmentDiaryForm() {
               <p className="text-[11px] text-muted-foreground mt-1">Máximo 3 palavras</p>
             </Field>
           )}
+
+          {/* Horímetro/Odômetro Final — sempre visível quando Cancelou */}
+          {workStatus === "Cancelou" && (
+            <Field label={`${meterLabel} Final`}>
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={meterFinal}
+                onChange={e => setMeterFinal(e.target.value)}
+                placeholder="0.0"
+                className="bg-secondary border-border"
+              />
+            </Field>
+          )}
           <Field label={`${meterLabel} Inicial`}>
             <Input
               type="text"
