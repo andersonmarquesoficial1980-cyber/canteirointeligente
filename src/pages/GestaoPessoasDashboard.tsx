@@ -79,7 +79,7 @@ function funcaoBase(role: string): string {
   return r;
 }
 
-// ─── Linha de funcionário (sem exibir nome) ───────────────────────────────────
+// ─── Linha de funcionário ─────────────────────────────────────────────────────
 function LinhaFuncionario({ f, index, onClickFuncionario, mostrarSalario }: {
   f: Funcionario; index: number; onClickFuncionario: (id: string) => void; mostrarSalario?: boolean;
 }) {
@@ -89,7 +89,7 @@ function LinhaFuncionario({ f, index, onClickFuncionario, mostrarSalario }: {
       onClick={() => onClickFuncionario(f.id)}
       style={{
         display: "grid",
-        gridTemplateColumns: mostrarSalario ? "44px 70px 1fr 110px 70px" : "44px 70px 1fr",
+        gridTemplateColumns: mostrarSalario ? "44px 70px 1fr 1fr 110px 70px" : "44px 70px 1fr 1fr",
         padding: "10px 16px",
         borderBottom: "1px solid #f1f5f9",
         background: isEnc ? "#eff6ff" : index % 2 === 0 ? "white" : "#fafbfc",
@@ -104,7 +104,8 @@ function LinhaFuncionario({ f, index, onClickFuncionario, mostrarSalario }: {
     >
       <span style={{ fontSize: 11, color: "#94a3b8", textAlign: "center" }}>{index + 1}</span>
       <span style={{ fontSize: 12, fontFamily: "Montserrat", fontWeight: 700, color: "#0A0F2C" }}>{f.matricula || "—"}</span>
-      <span style={{ fontSize: 11, color: isEnc ? "#0055AA" : "#6b7280", fontWeight: isEnc ? 700 : 400 }}>{f.role}</span>
+      <span style={{ fontSize: 13, color: isEnc ? "#0055AA" : "#1e293b", fontWeight: isEnc ? 700 : 500 }}>{f.name}</span>
+      <span style={{ fontSize: 11, color: "#6b7280" }}>{f.role}</span>
       {mostrarSalario && (
         <>
           <span style={{ fontSize: 12, color: "#f97316", fontWeight: 600 }}>{fmtBRL(f.salario)}</span>
@@ -168,11 +169,11 @@ function GrupoColapsavel({ titulo, itens, corTema, onClickFuncionario, mostrarSa
           )}
           <div style={{
             display: "grid",
-            gridTemplateColumns: mostrarSalario ? "44px 70px 1fr 110px 70px" : "44px 70px 1fr",
+            gridTemplateColumns: mostrarSalario ? "44px 70px 1fr 1fr 110px 70px" : "44px 70px 1fr 1fr",
             padding: "6px 16px", background: "#f8fafc",
             borderBottom: "1px solid #e5e7eb", gap: 8,
           }}>
-            {["Nº", "MAT.", "FUNÇÃO", ...(mostrarSalario ? ["SALÁRIO", "TEMPO"] : [])].map(h => (
+            {["Nº", "MAT.", "NOME", "FUNÇÃO", ...(mostrarSalario ? ["SALÁRIO", "TEMPO"] : [])].map(h => (
               <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>{h}</span>
             ))}
           </div>
@@ -309,8 +310,8 @@ function BuscaFuncionario({ todos, onSelect }: { todos: Funcionario[]; onSelect:
                 <User size={16} color="#0055AA" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 1 }}>Mat. {f.matricula || "—"}</p>
-                <p style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.role}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 1 }}>{f.name}</p>
+                <p style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Mat. {f.matricula || "—"} · {f.role}</p>
               </div>
               <ChevronRight size={14} color="#d1d5db" />
             </button>
@@ -523,7 +524,7 @@ export default function GestaoPessoasDashboard() {
                           {dia}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Mat. {f.matricula || "—"}</p>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{f.name}</p>
                           <p style={{ fontSize: 11, color: "#9ca3af" }}>{f.role}{f.equipe ? ` · ${f.equipe}` : ""}</p>
                         </div>
                         <ChevronRight size={16} color="#d1d5db" />
