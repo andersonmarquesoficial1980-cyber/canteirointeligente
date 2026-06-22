@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { ArrowLeft, Download, Loader2, FileSpreadsheet, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
@@ -10,18 +11,6 @@ const EQUIPMENT_TYPES = [
   "Fresadora", "Bobcat", "Rolo", "Vibroacabadora",
   "Usina KMA", "Caminhões", "Comboio", "Veículo", "Retro", "Carreta",
 ];
-
-const MONTHS = [
-  { value: "01", label: "Janeiro" }, { value: "02", label: "Fevereiro" },
-  { value: "03", label: "Março" }, { value: "04", label: "Abril" },
-  { value: "05", label: "Maio" }, { value: "06", label: "Junho" },
-  { value: "07", label: "Julho" }, { value: "08", label: "Agosto" },
-  { value: "09", label: "Setembro" }, { value: "10", label: "Outubro" },
-  { value: "11", label: "Novembro" }, { value: "12", label: "Dezembro" },
-];
-
-const currentYear = new Date().getFullYear();
-const YEARS = [currentYear - 1, currentYear, currentYear + 1].map(y => String(y));
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -101,8 +90,11 @@ function buildHeader(tipoEquip: string): string[] {
 export default function ExportarProtheus() {
   const navigate = useNavigate();
   const [tipoEquip, setTipoEquip] = useState("");
-  const [mes, setMes] = useState("");
-  const [ano, setAno] = useState(String(currentYear));
+  const [frota, setFrota] = useState("__todas__");
+  const [frotas, setFrotas] = useState<string[]>([]);
+  const [loadingFrotas, setLoadingFrotas] = useState(false);
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [erro, setErro] = useState("");
@@ -110,13 +102,30 @@ export default function ExportarProtheus() {
   const [previewHeader, setPreviewHeader] = useState<string[] | null>(null);
   const [previewRows, setPreviewRows] = useState<any[][] | null>(null);
 
-  // ── Função central de busca (reutilizada por preview e exportação) ──────────
-  const fetchData = async () => {
-    const dataInicio = `${ano}-${mes}-01`;
-    const ultimoDia = new Date(parseInt(ano), parseInt(mes), 0).getDate();
-    const dataFim = `${ano}-${mes}-${String(ultimoDia).padStart(2, "0")}`;
+  // ── Carrega frotas disponíveis ao escolher tipo de equipamento ──────────────
+  useEffect(() => {
+    if (!tipoEquip) { setFrotas([]); setFrota("__todas__"); return; }
+    setLoadingFrotas(true);
+    setFrota("__todas__");
+    setPreviewHeader(null); setPreviewRows(null); setTotal(null);
+    supabase
+      .from("equipment_diaries")
+      .select("equipment_fleet")
+      .eq("equipment_type", tipoEquip)
+      .then(({ data }) => {
+        const unique = [...new Set((data ?? []).map((d: any) => d.equipment_fleet).filter(Boolean))].sort();
+        setFrotas(unique);
+        setLoadingFrotas(false);
+      });
+  }, [tipoEquip]);
 
-    const { data: diarios, error: errDiarios } = await supabase
+  const resetPreview = () => {
+    setPreviewHeader(null); setPreviewRows(null); setTotal(null);
+  };
+
+  // ── Função central de busca ──────────────────────────────────────────────────
+  const fetchData = async () => {
+    let query = supabase
       .from("equipment_diaries")
       .select("*")
       .eq("equipment_type", tipoEquip)
@@ -124,9 +133,16 @@ export default function ExportarProtheus() {
       .lte("date", dataFim)
       .order("date", { ascending: true });
 
+    if (frota && frota !== "__todas__") {
+      query = query.eq("equipment_fleet", frota);
+    }
+
+    const { data: diarios, error: errDiarios } = await query;
+
     if (errDiarios) throw errDiarios;
     if (!diarios || diarios.length === 0) {
-      throw new Error(`Nenhum lançamento encontrado para ${tipoEquip} em ${mes}/${ano}.`);
+      const frotaLabel = frota && frota !== "__todas__" ? ` / Frota ${frota}` : "";
+      throw new Error(`Nenhum lançamento encontrado para ${tipoEquip}${frotaLabel} no período selecionado.`);
     }
 
     const diaryIds = diarios.map((d: any) => d.id);
@@ -157,7 +173,7 @@ export default function ExportarProtheus() {
     const bitsMap: Record<string, any[]> = {};
     const prodMap: Record<string, any[]> = {};
 
-    function sortTimeEntries(entries: any[], _period?: string): any[] {
+    function sortTimeEntries(entries: any[]): any[] {
       return [...entries].sort((a, b) => {
         const toMinutes = (t: string) => {
           if (!t) return 0;
@@ -179,7 +195,7 @@ export default function ExportarProtheus() {
       timeMap[t.diary_id].push(t);
     });
     Object.keys(timeMap).forEach(diaryId => {
-      timeMap[diaryId] = sortTimeEntries(timeMap[diaryId], periodMap[diaryId] || "");
+      timeMap[diaryId] = sortTimeEntries(timeMap[diaryId]);
     });
     (bitsEntries ?? []).forEach((b: any) => {
       if (!bitsMap[b.diary_id]) bitsMap[b.diary_id] = [];
@@ -265,10 +281,12 @@ export default function ExportarProtheus() {
     return { header, rows: dataRows, total: diarios.length };
   };
 
+  const isFormValid = tipoEquip && dataInicio && dataFim && dataInicio <= dataFim;
+
   // ── Pré-visualizar ────────────────────────────────────────────────────────
   const handlePrevisualizar = async () => {
-    if (!tipoEquip || !mes || !ano) {
-      setErro("Selecione o tipo de equipamento, mês e ano.");
+    if (!isFormValid) {
+      setErro("Selecione o tipo de equipamento e um período válido (data inicial ≤ data final).");
       return;
     }
     setErro("");
@@ -290,8 +308,8 @@ export default function ExportarProtheus() {
 
   // ── Exportar XLSX ─────────────────────────────────────────────────────────
   const handleExportar = async () => {
-    if (!tipoEquip || !mes || !ano) {
-      setErro("Selecione o tipo de equipamento, mês e ano.");
+    if (!isFormValid) {
+      setErro("Selecione o tipo de equipamento e um período válido.");
       return;
     }
     setErro("");
@@ -323,8 +341,8 @@ export default function ExportarProtheus() {
       const nomeAba = tipoEquip.replace(/\s/g, "_").toUpperCase();
       XLSX.utils.book_append_sheet(wb, ws, nomeAba);
 
-      const mesLabel = MONTHS.find(m => m.value === mes)?.label || mes;
-      const nomeArquivo = `WF_Protheus_${tipoEquip.replace(/\s/g,"_")}_${mesLabel}_${ano}.xlsx`;
+      const frotaLabel = frota && frota !== "__todas__" ? `_${frota.replace(/\s/g,"_")}` : "";
+      const nomeArquivo = `WF_Protheus_${tipoEquip.replace(/\s/g,"_")}${frotaLabel}_${dataInicio}_a_${dataFim}.xlsx`;
       XLSX.writeFile(wb, nomeArquivo);
 
       setTotal(total);
@@ -334,6 +352,8 @@ export default function ExportarProtheus() {
       setLoading(false);
     }
   };
+
+  const periodoLabel = dataInicio && dataFim ? `${fmtDate(dataInicio)} a ${fmtDate(dataFim)}` : "";
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -352,14 +372,15 @@ export default function ExportarProtheus() {
           <div className="flex items-center gap-3 pb-2 border-b border-border">
             <FileSpreadsheet className="w-6 h-6 text-blue-600" />
             <div>
-              <p className="font-display font-bold text-base">Exportação Mensal</p>
+              <p className="font-display font-bold text-base">Exportação por Período</p>
               <p className="text-xs text-muted-foreground">Gera planilha pronta para importar no Protheus</p>
             </div>
           </div>
 
+          {/* Tipo de Equipamento */}
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo de Equipamento</span>
-            <Select value={tipoEquip} onValueChange={v => { setTipoEquip(v); setPreviewHeader(null); setPreviewRows(null); setTotal(null); }}>
+            <Select value={tipoEquip} onValueChange={v => { setTipoEquip(v); resetPreview(); }}>
               <SelectTrigger className="h-12 bg-white border-border rounded-xl">
                 <SelectValue placeholder="Selecione o equipamento" />
               </SelectTrigger>
@@ -369,28 +390,48 @@ export default function ExportarProtheus() {
             </Select>
           </div>
 
+          {/* Frota — aparece só após escolher tipo */}
+          {tipoEquip && (
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Frota</span>
+              {loadingFrotas ? (
+                <div className="h-12 rounded-xl border border-border flex items-center px-4 gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Carregando frotas...
+                </div>
+              ) : (
+                <Select value={frota} onValueChange={v => { setFrota(v); resetPreview(); }}>
+                  <SelectTrigger className="h-12 bg-white border-border rounded-xl">
+                    <SelectValue placeholder="Todas as frotas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__todas__">Todas as frotas</SelectItem>
+                    {frotas.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+
+          {/* Período — Data Inicial e Data Final */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mês</span>
-              <Select value={mes} onValueChange={v => { setMes(v); setPreviewHeader(null); setPreviewRows(null); setTotal(null); }}>
-                <SelectTrigger className="h-12 bg-white border-border rounded-xl">
-                  <SelectValue placeholder="Mês" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Data Inicial</span>
+              <Input
+                type="date"
+                value={dataInicio}
+                onChange={e => { setDataInicio(e.target.value); resetPreview(); }}
+                className="h-12 bg-white border-border rounded-xl"
+              />
             </div>
             <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ano</span>
-              <Select value={ano} onValueChange={v => { setAno(v); setPreviewHeader(null); setPreviewRows(null); setTotal(null); }}>
-                <SelectTrigger className="h-12 bg-white border-border rounded-xl">
-                  <SelectValue placeholder="Ano" />
-                </SelectTrigger>
-                <SelectContent>
-                  {YEARS.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Data Final</span>
+              <Input
+                type="date"
+                value={dataFim}
+                min={dataInicio}
+                onChange={e => { setDataFim(e.target.value); resetPreview(); }}
+                className="h-12 bg-white border-border rounded-xl"
+              />
             </div>
           </div>
 
@@ -407,7 +448,7 @@ export default function ExportarProtheus() {
           <div className="flex gap-2">
             <Button
               onClick={handlePrevisualizar}
-              disabled={loadingPreview || loading || !tipoEquip || !mes || !ano}
+              disabled={loadingPreview || loading || !isFormValid}
               variant="outline"
               className="flex-1 h-12 gap-2 text-base font-display font-bold rounded-xl border-blue-600 text-blue-600 hover:bg-blue-50"
             >
@@ -419,7 +460,7 @@ export default function ExportarProtheus() {
             </Button>
             <Button
               onClick={handleExportar}
-              disabled={loading || loadingPreview || !tipoEquip || !mes || !ano}
+              disabled={loading || loadingPreview || !isFormValid}
               className="flex-1 h-12 gap-2 text-base font-display font-bold rounded-xl"
             >
               {loading ? (
@@ -436,7 +477,9 @@ export default function ExportarProtheus() {
             {/* Header fixo */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-white shadow-sm shrink-0">
               <div>
-                <p className="font-display font-bold text-sm">Pré-visualização — {tipoEquip} {MONTHS.find(m => m.value === mes)?.label}/{ano}</p>
+                <p className="font-display font-bold text-sm">
+                  Pré-visualização — {tipoEquip}{frota && frota !== "__todas__" ? ` / Frota ${frota}` : ""} · {periodoLabel}
+                </p>
                 <p className="text-xs text-muted-foreground">{total} lançamento{total !== 1 ? "s" : ""} encontrado{total !== 1 ? "s" : ""} · {previewHeader.length} colunas</p>
               </div>
               <div className="flex items-center gap-2">
