@@ -2394,7 +2394,18 @@ export default function EquipmentDiaryForm() {
             </Field>
           )}
 
-          {/* Horímetro/Odômetro Final — sempre visível quando Cancelou */}
+          <Field label={`${meterLabel} Inicial`}>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={meterInitial}
+              onChange={(e) => setMeterInitial(e.target.value)}
+              placeholder="0.0"
+              className="bg-secondary border-border"
+            />
+          </Field>
+
+          {/* Horímetro/Odômetro Final — visível quando Cancelou */}
           {workStatus === "Cancelou" && (
             <Field label={`${meterLabel} Final`}>
               <Input
@@ -2407,16 +2418,6 @@ export default function EquipmentDiaryForm() {
               />
             </Field>
           )}
-          <Field label={`${meterLabel} Inicial`}>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={meterInitial}
-              onChange={(e) => setMeterInitial(e.target.value)}
-              placeholder="0.0"
-              className="bg-secondary border-border"
-            />
-          </Field>
         </Section>}
 
         {/* CAMPOS COMPLETOS — ocultos no modo pátio */}
