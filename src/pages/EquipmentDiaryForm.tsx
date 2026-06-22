@@ -1230,7 +1230,6 @@ export default function EquipmentDiaryForm() {
       work_status: workStatus || null,
       ogs_number: isCarreta ? null : (ogsNumber === "BASE / PÁTIO CENTRAL" ? null : (ogsNumber || null)),
       client_name: isCarreta ? null : (clientName || null),
-      location_address: isCarreta ? null : (locationAddress || null),
       observations: isPatioMode && workStatus === "Manutenção"
         ? `[MANUTENÇÃO] ${motivoManutencao}${previsaoLiberacao ? ` | Previsão: ${previsaoLiberacao}` : ""}`.trim()
         : (observations || null),
