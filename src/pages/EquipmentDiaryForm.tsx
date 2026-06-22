@@ -39,7 +39,7 @@ import { generateKmaPdf } from "@/lib/generateKmaPdf";
 import { generateComboioPdf } from "@/lib/generateComboioPdf";
 import { buildComboioEmailReport, buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 
-const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Inoperante", "No Pátio", "Em Transporte"] as const;
+const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Em Transporte"] as const;
 
 // Frotas removidas do hardcode — agora vêm de maquinas_frota (Painel de Controle)
 
@@ -218,7 +218,8 @@ export default function EquipmentDiaryForm() {
   const [horimetroAlerta, setHorimetroAlerta] = useState<{ diff: number; ultimoValor: number; threshold: number } | null>(null);
   const [horimetroConfirmado, setHorimetroConfirmado] = useState(false);
   const { verificarInconsistencia, registrarAudit } = useHorimetroAudit("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
-  const isModoSimples = workStatus === "Folga" || workStatus === "Inoperante";
+  const isModoSimples = workStatus === "Folga" || workStatus === "Cancelou";
+  const [cancelouMotivo, setCancellouMotivo] = useState("");
   const [ogsNumber, setOgsNumber] = useState("");
   const isPatioMode = ogsNumber === "BASE / PÁTIO CENTRAL";
   const PATIO_STATUSES = ["Disposição", "Manutenção", "Inoperante"] as const;
@@ -749,6 +750,11 @@ export default function EquipmentDiaryForm() {
         setOperator(diary.operator_name || "");
         setTurno(diary.period === "noturno" ? "noturno" : "diurno");
         setWorkStatus(diary.work_status || "");
+        // carrega motivo cancelamento se gravado em observations
+        if (diary.work_status === "Cancelou" && diary.observations?.startsWith("[CANCELOU:")) {
+          const m = diary.observations.match(/^\[CANCELOU:\s*(.*?)\]/);
+          if (m) setCancellouMotivo(m[1].trim());
+        }
         setIsEditingDraft(diary.status === "rascunho"); // controla visibilidade do botão Enviar
         setOgsNumber(diary.ogs_number || "");
         setClientName(diary.client_name || "");
@@ -1232,6 +1238,8 @@ export default function EquipmentDiaryForm() {
       client_name: isCarreta ? null : (clientName || null),
       observations: isPatioMode && workStatus === "Manutenção"
         ? `[MANUTENÇÃO] ${motivoManutencao}${previsaoLiberacao ? ` | Previsão: ${previsaoLiberacao}` : ""}`.trim()
+        : workStatus === "Cancelou" && cancelouMotivo.trim()
+        ? `[CANCELOU: ${cancelouMotivo.trim()}]`
         : (observations || null),
       location_address: isPatioMode ? "BASE / PÁTIO CENTRAL" : (isCarreta ? null : (locationAddress || null)),
       company_id: profile?.company_id || null,
@@ -2355,7 +2363,7 @@ export default function EquipmentDiaryForm() {
         {/* STATUS OPERACIONAL + METER INITIAL — oculto no modo pátio (tem própria seção) */}
         {!isPatioMode && <Section title="STATUS OPERACIONAL">
           <Field label="Status">
-            <Select value={workStatus} onValueChange={setWorkStatus}>
+            <Select value={workStatus} onValueChange={v => { setWorkStatus(v); if (v !== "Cancelou") setCancellouMotivo(""); }}>
               <SelectTrigger className="bg-secondary border-border">
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
@@ -2366,6 +2374,25 @@ export default function EquipmentDiaryForm() {
               </SelectContent>
             </Select>
           </Field>
+
+          {/* Motivo do cancelamento — aparece só quando Cancelou */}
+          {workStatus === "Cancelou" && (
+            <Field label="Motivo do Cancelamento">
+              <Input
+                type="text"
+                value={cancelouMotivo}
+                onChange={e => {
+                  // limita a 3 palavras
+                  const words = e.target.value.trimStart().split(/\s+/);
+                  if (words.length <= 3) setCancellouMotivo(e.target.value.trimStart());
+                }}
+                placeholder="Ex: Chuva forte obra"
+                maxLength={40}
+                className="bg-secondary border-border"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Máximo 3 palavras</p>
+            </Field>
+          )}
           <Field label={`${meterLabel} Inicial`}>
             <Input
               type="text"
