@@ -87,7 +87,7 @@ async function bot(sb: any, conv: any, empId: string | null, empName: string | n
     if (["1","ferias","férias"].some(k => msg.includes(k))) {
       await reply(`🏖️ *Férias — Workflux RH*\n\nO que você quer saber?\n\n1️⃣ Saldo disponível\n2️⃣ Histórico de férias\n3️⃣ Agendar / solicitar férias\n0️⃣ Voltar ao menu`, "menu_ferias");
     } else if (["2","vt","vale transporte","transporte","condução"].some(k => msg.includes(k))) {
-      await reply(`🚌 *Vale Transporte — Workflux RH*\n\nO que você quer saber?\n\n1️⃣ Ver minhas conduções e valores\n2️⃣ Reclamar VT incorreto\n3️⃣ Dias trabalhados este mês\n0️⃣ Voltar ao menu`, "menu_vt");
+   await reply(`🚌 *Vale Transporte & Refeição — Workflux RH*\n\nO que você quer saber?\n\n1️⃣ Ver VT e VR cadastrados\n2️⃣ Reclamar VT incorreto\n3️⃣ Dias trabalhados este mês\n0️⃣ Voltar ao menu`, "menu_vt");
     } else if (["3","ponto","espelho","horas"].some(k => msg.includes(k))) {
       await reply(`🕐 *Espelho de Ponto — Workflux RH*\n\nO que você quer saber?\n\n1️⃣ Registros deste mês\n2️⃣ Último registro\n3️⃣ Pontos fora do raio\n0️⃣ Voltar ao menu`, "menu_ponto");
     } else if (["4","atendente","humano","pessoa","falar"].some(k => msg.includes(k))) {
@@ -103,20 +103,30 @@ async function bot(sb: any, conv: any, empId: string | null, empName: string | n
   if (estado === "menu_ferias") {
     if (!empId) { await reply("⚠️ Seu telefone não está cadastrado. Fale com o RH.\n\n_Digite *menu* para voltar._"); return; }
 
-    const { data: ferias } = await sb.from("vacation_periods").select("*").eq("employee_id", empId).order("created_at", { ascending: false }).limit(10);
+    // Busca período aquisitivo + registros de férias tiradas
+    const { data: periodos } = await sb.from("vacation_periods").select("*").eq("employee_id", empId).order("periodo_inicio", { ascending: false }).limit(5);
+    const { data: registros } = await sb.from("vacation_records").select("*").eq("employee_id", empId).order("data_inicio", { ascending: false }).limit(10);
+    const ferias = periodos;
 
     if (["1","2","saldo","historico","histórico"].some(k => msg.includes(k))) {
       if (!ferias?.length) {
         await reply(`ℹ️ *Férias — ${nome}*\n\nAinda não há informações de férias no seu cadastro.\nPara dúvidas, fale com o RH.\n\n_Digite *menu* para voltar._`, "menu_principal");
       } else {
-        const saldo = ferias[0]?.saldo_atual ?? ferias[0]?.saldo ?? null;
-        const saldoTxt = saldo !== null ? `\n\n💼 *Saldo disponível:* ${saldo} dias` : "";
-        const resumo = ferias.slice(0,5).map((f: Record<string,string>) => {
-          const ini = f.data_inicio ? new Date(f.data_inicio).toLocaleDateString("pt-BR") : "—";
-          const fim = f.data_fim    ? new Date(f.data_fim).toLocaleDateString("pt-BR")    : "—";
-          return `• ${ini} a ${fim} (${f.dias_corridos || f.dias || "?"} dias)`;
+        const p = ferias[0]; // período mais recente
+        const saldo = p.dias_direito - p.dias_gozados;
+        const txtPeriodo = `${new Date(p.periodo_inicio+"T12:00:00").toLocaleDateString("pt-BR")} a ${new Date(p.periodo_fim+"T12:00:00").toLocaleDateString("pt-BR")}`;
+        // registros individuais e coletivos
+        const recs = (registros || []).slice(0, 6).map((r: Record<string,string>) => {
+          const ini = new Date(r.data_inicio+"T12:00:00").toLocaleDateString("pt-BR");
+          const fim = new Date(r.data_fim+"T12:00:00").toLocaleDateString("pt-BR");
+          const tipo = r.tipo === "coletiva" ? "Coletiva" : "Individual";
+          return `• ${ini} a ${fim} (${r.dias} dias) — ${tipo}`;
         }).join("\n");
-        await reply(`🏖️ *Férias — ${nome}*${saldoTxt}\n\n*Histórico:*\n${resumo}\n\n_Digite *menu* para voltar._`, "menu_principal");
+        const histTxt = recs || "Nenhum registro encontrado.";
+        await reply(
+          `🏖️ *Férias — ${nome}*\n\n📅 *Período aquisitivo:* ${txtPeriodo}\n💼 *Direito:* ${p.dias_direito} dias\n✅ *Gozados:* ${p.dias_gozados} dias (${p.dias_coletiva} coletiva)\n🟡 *Saldo disponível:* ${saldo} dias\n\n*Histórico:*\n${histTxt}\n\n_Digite *menu* para voltar._`,
+          "menu_principal"
+        );
       }
     } else if (["3","agendar","solicitar","marcar"].some(k => msg.includes(k))) {
       await reply(`📅 Para agendar férias um atendente precisa confirmar.\nVou transferir você agora! 👤`, "aguardando_humano");
@@ -136,9 +146,12 @@ async function bot(sb: any, conv: any, empId: string | null, empName: string | n
       .select("*, vt_tarifas(tipo_transporte, valor_unitario)")
       .eq("funcionario_id", empId);
 
-    if (["1","conduções","conducoes","valor","ver"].some(k => msg.includes(k))) {
+    if (["1","conduções","conducoes","valor","ver","vr","refeição","refeicao"].some(k => msg.includes(k))) {
+      // Busca funcionário para pegar obs_geral (VR)
+      const { data: empInfo } = await sb.from("employees").select("obs_geral,name").eq("id", empId).single();
+      const vrTxt = empInfo?.obs_geral?.includes("R$") ? `\n\n🍽️ *Vale Refeição:* R$ 50,00/dia útil` : "";
       if (!conducoes?.length) {
-        await reply(`ℹ️ Nenhuma condução cadastrada para você.\nFale com o RH para regularizar.\n\n_Digite *menu* para voltar._`, "menu_principal");
+        await reply(`ℹ️ Nenhuma condução cadastrada para você.\nFale com o RH para regularizar.${vrTxt}\n\n_Digite *menu* para voltar._`, "menu_principal");
       } else {
         let total = 0;
         const linhas = conducoes.map((c: Record<string,unknown>) => {
@@ -150,7 +163,7 @@ async function bot(sb: any, conv: any, empId: string | null, empName: string | n
           total += sub;
           return `• ${tipo}\n  ${qtd}x ${brl(valor)} × 2 = ${brl(sub)}/dia`;
         }).join("\n\n");
-        await reply(`🚌 *Vale Transporte — ${nome}*\n\n${linhas}\n\n💰 *Total/dia útil:* ${brl(total)}\n\n_Digite *menu* para voltar._`, "menu_principal");
+        await reply(`🚌 *Vale Transporte — ${nome}*\n\n${linhas}\n\n💰 *Total VT/dia útil:* ${brl(total)}${vrTxt}\n\n_Digite *menu* para voltar._`, "menu_principal");
       }
     } else if (["2","errado","reclamação","reclamacao","incorreto","problema"].some(k => msg.includes(k))) {
       // Mostra conduções + dias trabalhados para o funcionário comparar
