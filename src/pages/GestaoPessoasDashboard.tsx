@@ -458,47 +458,11 @@ export default function GestaoPessoasDashboard() {
           <p style={{ textAlign: "center", color: "#9ca3af", padding: "64px 0" }}>Carregando...</p>
         ) : (
           <>
-            {/* ── ABA TODOS ──────────────────────────────────────────── */}
+            {/* ── ABA TODOS — sem lista, só filtro via busca acima ───── */}
             {aba === "lista" && (
-              <>
-                <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, position: "relative", minWidth: 200 }}>
-                    <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 15, height: 15, color: "#9ca3af" }} />
-                    <input
-                      placeholder="Filtrar por matrícula, função ou equipe..."
-                      value={busca}
-                      onChange={e => setBusca(e.target.value)}
-                      style={{ width: "100%", paddingLeft: 36, height: 40, borderRadius: 12, border: "1.5px solid #e5e7eb", fontSize: 13, outline: "none", background: "white", boxSizing: "border-box" }}
-                    />
-                  </div>
-                  {isAdmin && (
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, color: mostrarSalario ? "#f97316" : "#64748b", whiteSpace: "nowrap" }}>
-                      <input type="checkbox" checked={mostrarSalario} onChange={e => setMostrarSalario(e.target.checked)} style={{ accentColor: "#f97316" }} />
-                      Ver salário
-                    </label>
-                  )}
-                </div>
-                <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8 }}>{filtrados.length} funcionário{filtrados.length !== 1 ? "s" : ""}</p>
-
-                <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}>
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: mostrarSalario ? "44px 70px 1fr 110px 70px" : "44px 70px 1fr",
-                    padding: "8px 16px", background: "#f8fafc",
-                    borderBottom: "2px solid #e5e7eb", gap: 8,
-                  }}>
-                    {["Nº", "MAT.", "FUNÇÃO", ...(mostrarSalario ? ["SALÁRIO", "TEMPO"] : [])].map(h => (
-                      <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>{h}</span>
-                    ))}
-                  </div>
-                  {filtrados.map((f, i) => (
-                    <LinhaFuncionario key={f.id} f={f} index={i} onClickFuncionario={irFuncionario} mostrarSalario={mostrarSalario} />
-                  ))}
-                  {filtrados.length === 0 && (
-                    <p style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0", fontSize: 13 }}>Nenhum resultado para "{busca}"</p>
-                  )}
-                </div>
-              </>
+              <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "24px 0 8px" }}>
+                Use a busca acima para localizar um funcionário pela ficha individual.
+              </p>
             )}
 
             {/* ── ABAS AGRUPADAS ──────────────────────────────────────── */}
