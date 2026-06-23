@@ -197,6 +197,17 @@ export default function RelatoriosHome() {
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
             </button>
+            <button
+              onClick={() => navigate("/equipamentos/exportar-protheus")}
+              className="w-full flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 hover:bg-blue-100 transition-colors text-left"
+            >
+              <span className="text-xl">📊</span>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-blue-700">Exportar para Protheus</p>
+                <p className="text-xs text-muted-foreground">Exportação de diários para o ERP</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+            </button>
           </div>
         )}
 
@@ -210,6 +221,12 @@ export default function RelatoriosHome() {
                 onClick={() => {
                   if (t.id === "equipamento") { navigate("/relatorios/busca-equipamentos"); return; }
                   if (t.id === "carreteiros") { navigate("/relatorios/carreteiros"); return; }
+                  if (t.id === "abastecimento") {
+                    const hoje = new Date().toISOString().split("T")[0];
+                    const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
+                    navigate(`/relatorios/abastecimento/TODAS?ini=${ini}&fim=${hoje}`);
+                    return;
+                  }
                   setTipoRel(t.id); setStep("subtipo");
                 }}
                 className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"

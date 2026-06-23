@@ -266,17 +266,6 @@ export default function EquipmentHome() {
           </div>
         </div>
 
-        {isAdmin && (
-          <Button
-            variant="outline"
-            className="w-full h-12 gap-2 text-sm font-semibold border-blue-200 text-blue-700 hover:bg-blue-50"
-            onClick={() => navigate("/equipamentos/exportar-protheus")}
-          >
-            <FileSpreadsheet className="w-5 h-5" />
-            Exportar para Protheus
-          </Button>
-        )}
-
         <Button
           variant="outline"
           className="w-full h-12 gap-2 text-sm font-semibold"
