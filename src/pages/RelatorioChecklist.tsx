@@ -41,11 +41,11 @@ export default function RelatorioChecklist() {
       // Buscar diários que tiveram checklist enviado no período
       const { data: diaries, error } = await (supabase as any)
         .from("equipment_diaries")
-        .select("id, frota, equipment_type, operator_name, date, checklist_submitted_at")
+        .select("id, equipment_fleet, equipment_type, operator_name, date, checklist_submitted_at")
         .gte("date", dataIni)
         .lte("date", dataFim)
         .not("checklist_submitted_at", "is", null)
-        .order("checklist_submitted_at", { ascending: false });
+        .order("date", { ascending: false });
 
       if (error || !diaries || diaries.length === 0) {
         setReports([]);
@@ -79,7 +79,7 @@ export default function RelatorioChecklist() {
 
         return {
           diaryId: d.id,
-          frota: d.frota || "",
+          frota: d.equipment_fleet || "",
           tipoEquip: d.equipment_type || "",
           operador: d.operator_name || "—",
           data: d.date,
