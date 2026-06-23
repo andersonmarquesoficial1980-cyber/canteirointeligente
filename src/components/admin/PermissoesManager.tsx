@@ -419,6 +419,24 @@ export default function PermissoesManager() {
                                   </label>
                                 ))}
                               </div>
+                              <div className="border-t border-border/50 pt-1 mt-1">
+                                <p className="text-[10px] text-muted-foreground font-semibold pl-1 mb-0.5">Funcionalidades extras:</p>
+                                <label className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-lg hover:bg-muted/50">
+                                  <input
+                                    type="checkbox"
+                                    checked={(perms.equipamentos_permitidos || []).includes("ordens_transporte")}
+                                    onChange={e => {
+                                      const atual = perms.equipamentos_permitidos || [];
+                                      const novo = e.target.checked
+                                        ? [...atual, "ordens_transporte"]
+                                        : atual.filter(x => x !== "ordens_transporte");
+                                      setPermsMap(prev => ({ ...prev, [u.id]: { ...prev[u.id], equipamentos_permitidos: novo } }));
+                                    }}
+                                    className="w-3 h-3 accent-primary"
+                                  />
+                                  <span className="text-[10px]">🚛 Ver Ordens de Transporte</span>
+                                </label>
+                              </div>
                             </div>
                           )}
                         </div>
