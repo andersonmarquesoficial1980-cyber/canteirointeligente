@@ -252,6 +252,8 @@ export default function EquipmentDiaryForm() {
   const [fuelSyncedFromComboio, setFuelSyncedFromComboio] = useState(false);
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
   const [checklistSubmittedAt, setChecklistSubmittedAt] = useState<string | null>(null);
+  const [savedDiaryId, setSavedDiaryId] = useState<string | null>(null);
+  const [enviandoChecklist, setEnviandoChecklist] = useState(false);
 
   // Bobcat-specific
   const [attachmentType, setAttachmentType] = useState("");
@@ -1970,6 +1972,67 @@ export default function EquipmentDiaryForm() {
     }
   }
 
+  // Enviar checklist: se diário já existe, só marca submitted_at
+  // Se diário ainda não foi salvo, cria o diário mínimo primeiro
+  const handleEnviarChecklistDoDiario = async () => {
+    setEnviandoChecklist(true);
+    try {
+      let targetDiaryId = editId || savedDiaryId;
+
+      if (!targetDiaryId) {
+        // Diário ainda não foi salvo — criar agora com o mínimo
+        if (!selectedFleet || !date) {
+          alert("Selecione a frota e a data antes de enviar o checklist.");
+          return;
+        }
+        const now = new Date().toISOString();
+        const { data: newDiary, error: insertErr } = await (supabase as any)
+          .from("equipment_diaries")
+          .insert({
+            equipment_fleet: selectedFleet,
+            frota: selectedFleet,
+            date,
+            period: turno,
+            user_id: session?.user?.id,
+            created_by: session?.user?.id,
+            company_id: profile?.company_id || null,
+            checklist_submitted_at: now,
+          })
+          .select()
+          .single();
+        if (insertErr) throw insertErr;
+        targetDiaryId = newDiary.id;
+        setSavedDiaryId(targetDiaryId);
+        setChecklistSubmittedAt(now);
+
+        // Salvar as entries do checklist nesse novo diary
+        if (checklistResults.length > 0) {
+          const rows = checklistResults.map(cr => ({
+            diary_id: targetDiaryId,
+            item_id: cr.itemId,
+            status: cr.status as any,
+            observation: cr.observation || null,
+            photo_url: null,
+          }));
+          await supabase.from("checklist_entries").insert(rows);
+        }
+      } else {
+        // Diário já existe — só marcar submitted_at
+        const now = new Date().toISOString();
+        await (supabase as any)
+          .from("equipment_diaries")
+          .update({ checklist_submitted_at: now })
+          .eq("id", targetDiaryId);
+        setChecklistSubmittedAt(now);
+      }
+    } catch (err: any) {
+      console.error("[EnviarChecklist]", err);
+      alert("Erro ao enviar checklist: " + (err.message || "Tente novamente"));
+    } finally {
+      setEnviandoChecklist(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <EquipmentHeader
@@ -2390,9 +2453,12 @@ export default function EquipmentDiaryForm() {
                   equipmentType={isRetro ? "Linha Amarela" : equipmentType}
                   results={checklistResults}
                   onChange={setChecklistResults}
-                  diaryId={editId || null}
+                  diaryId={editId || savedDiaryId || null}
                   checklistSubmittedAt={checklistSubmittedAt}
                   onSubmitted={(at) => setChecklistSubmittedAt(at)}
+                  showEnviarButton={true}
+                  onEnviarChecklist={handleEnviarChecklistDoDiario}
+                  enviando={enviandoChecklist}
                 />
               </AccordionContent>
             </AccordionItem>

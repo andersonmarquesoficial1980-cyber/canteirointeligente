@@ -27,6 +27,12 @@ interface Props {
   checklistSubmittedAt?: string | null;
   /** Callback chamado após envio com sucesso */
   onSubmitted?: (submittedAt: string) => void;
+  /** Se true, mostra o botão mesmo sem diaryId (o pai gerencia o envio via onEnviarChecklist) */
+  showEnviarButton?: boolean;
+  /** Alternativa: o pai trata o envio (útil quando o diary ainda não foi salvo) */
+  onEnviarChecklist?: () => Promise<void>;
+  /** Estado de loading do envio externo */
+  enviando?: boolean;
 }
 
 export default function ChecklistSection({
@@ -36,6 +42,9 @@ export default function ChecklistSection({
   diaryId,
   checklistSubmittedAt,
   onSubmitted,
+  showEnviarButton,
+  onEnviarChecklist,
+  enviando = false,
 }: Props) {
   const { data: items = [] } = useQuery({
     queryKey: ["checklist_items_standard", equipmentType],
@@ -71,6 +80,10 @@ export default function ChecklistSection({
   };
 
   const handleEnviarChecklist = async () => {
+    if (onEnviarChecklist) {
+      await onEnviarChecklist();
+      return;
+    }
     if (!diaryId) return;
     const now = new Date().toISOString();
     const { error } = await (supabase as any)
@@ -116,8 +129,8 @@ export default function ChecklistSection({
         })}
       </div>
 
-      {/* Botão Enviar Checklist — só aparece se diaryId fornecido e há itens */}
-      {diaryId && items.length > 0 && (
+      {/* Botão Enviar Checklist — aparece se diaryId OU showEnviarButton fornecido */}
+      {(diaryId || showEnviarButton) && items.length > 0 && (
         <div className="pt-2">
           {jaEnviado ? (
             <div className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3">
@@ -142,11 +155,11 @@ export default function ChecklistSection({
               <Button
                 type="button"
                 onClick={handleEnviarChecklist}
-                disabled={!allAnswered}
+                disabled={!allAnswered || enviando}
                 className="w-full h-11 rounded-xl font-display font-bold gap-2 bg-primary text-primary-foreground disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
-                Enviar Checklist Pré-Operação
+                {enviando ? "Enviando..." : "Enviar Checklist Pré-Operação"}
               </Button>
               {!allAnswered && (
                 <p className="text-[10px] text-muted-foreground text-center">
