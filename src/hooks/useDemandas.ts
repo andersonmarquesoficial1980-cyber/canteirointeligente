@@ -257,6 +257,22 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
     return true;
   };
 
+  const excluir = async (id: string) => {
+    const { error } = await (supabase as any)
+      .from("demandas")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+      return false;
+    }
+
+    toast({ title: "Demanda excluída" });
+    await load();
+    return true;
+  };
+
   return {
     demandas,
     loading,
@@ -266,6 +282,7 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
     atualizarStatus,
     responderDemanda,
     marcarVisualizada,
+    excluir,
     reload: load,
   };
 }
