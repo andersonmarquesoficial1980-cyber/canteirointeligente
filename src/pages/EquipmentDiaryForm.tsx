@@ -1990,7 +1990,6 @@ export default function EquipmentDiaryForm() {
           .from("equipment_diaries")
           .insert({
             equipment_fleet: selectedFleet,
-            frota: selectedFleet,
             date,
             period: turno,
             user_id: session?.user?.id,
