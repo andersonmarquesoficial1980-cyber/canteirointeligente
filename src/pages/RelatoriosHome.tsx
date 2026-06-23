@@ -12,6 +12,7 @@ const TIPOS_RELATORIO = [
   { id: "manutencao", label: "Manutenção", emoji: "🔧", desc: "Ordens de serviço e peças trocadas" },
   { id: "transportes", label: "Transportes (Carreta)", emoji: "🚛", desc: "Relatório de transporte de equipamentos" },
   { id: "carreteiros", label: "Carreteiros (Fechamento)", emoji: "📋", desc: "Fechamento mensal de viagens por placa" },
+  { id: "checklist", label: "Checklist Pré-Operação", emoji: "✔️", desc: "Histórico de checklists enviados pelos operadores" },
 ];
 
 function fmtDate(d: string) {
@@ -37,6 +38,25 @@ export default function RelatoriosHome() {
   const [tiposEquip, setTiposEquip] = useState<string[]>([]);
   const [frotasPorTipo, setFrotasPorTipo] = useState<Record<string, string[]>>({});
   const [ogsList, setOgsList] = useState<{ ogs: string; cliente: string }[]>([]);
+
+  const [relatoriosPermitidos, setRelatoriosPermitidos] = useState<string[] | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    // Carregar permissões de relatórios do usuário
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: perms } = await supabase
+        .from("user_permissions")
+        .select("is_admin, relatorios_permitidos")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (perms) {
+        setIsAdmin(!!perms.is_admin);
+        setRelatoriosPermitidos(perms.is_admin ? null : ((perms as any).relatorios_permitidos || null));
+      }
+    });
+  }, []);
 
   useEffect(() => {
     // Carregar frotas da tabela equipamentos (fonte única)
@@ -217,11 +237,15 @@ export default function RelatoriosHome() {
         {step === "tipo" && (
           <>
             <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Que tipo de relatório você precisa?</p>
-            {TIPOS_RELATORIO.map(t => (
+            {TIPOS_RELATORIO.filter(t => {
+              if (isAdmin || !relatoriosPermitidos) return true;
+              return relatoriosPermitidos.includes(t.id);
+            }).map(t => (
               <button
                 key={t.id}
                 onClick={() => {
                   if (t.id === "carreteiros") { navigate("/relatorios/carreteiros"); return; }
+                  if (t.id === "checklist") { navigate("/relatorios/checklist"); return; }
                   if (t.id === "abastecimento") {
                     const hoje = new Date().toISOString().split("T")[0];
                     const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];

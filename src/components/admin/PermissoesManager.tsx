@@ -35,7 +35,19 @@ interface Perms {
   modulo_engenharia: boolean;
   modulo_encarregado: boolean;
   equipamentos_permitidos: string[];
+  relatorios_permitidos: string[] | null;
 }
+
+const TIPOS_RELATORIO_PERM = [
+  { id: "equipamento", label: "🚜 Equipamentos" },
+  { id: "rdo", label: "🏗️ Diários de Obra (RDO)" },
+  { id: "abastecimento", label: "⛽ Abastecimento" },
+  { id: "manutencao", label: "🔧 Manutenção" },
+  { id: "transportes", label: "🚛 Transportes (Carreta)" },
+  { id: "carreteiros", label: "📋 Carreteiros (Fechamento)" },
+  { id: "checklist", label: "✔️ Checklist Pré-Operação" },
+  { id: "funcionario", label: "👷 Localização de Funcionário" },
+];
 
 const TIPOS_EQUIPAMENTO = [
   "Fresadora", "Bobcat", "Rolo", "Vibroacabadora", "Usina KMA",
@@ -75,6 +87,7 @@ function emptyPerms(userId: string): Perms {
     modulo_suprimentos: false, modulo_medicoes: false,
     modulo_sst: false, modulo_engenharia: false, modulo_encarregado: false,
     equipamentos_permitidos: [],
+    relatorios_permitidos: null,
   };
 }
 
@@ -169,11 +182,12 @@ export default function PermissoesManager() {
     try {
       const perms = permsMap[userId] || emptyPerms(userId);
       // Separar equipamentos_permitidos (array) do resto para evitar conflito de tipo
-      const { equipamentos_permitidos, ...permsBase } = perms as any;
+      const { equipamentos_permitidos, relatorios_permitidos, ...permsBase } = perms as any;
       const payload = {
         ...permsBase,
         user_id: userId,
         equipamentos_permitidos: equipamentos_permitidos ?? [],
+        relatorios_permitidos: relatorios_permitidos ?? null,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase
@@ -442,6 +456,53 @@ export default function PermissoesManager() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Tipos de relatório permitidos (só aparece se WF Relatórios ativo) */}
+                    {perms.modulo_relatorios && (
+                      <div className="border border-border/50 rounded-xl p-3 space-y-2 mt-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-bold text-foreground">📊 Tipos de Relatório Visíveis</p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setPermsMap(prev => ({ ...prev, [u.id]: { ...prev[u.id], relatorios_permitidos: null } }))}
+                              className="text-[10px] text-primary underline"
+                            >Todos</button>
+                            <button
+                              onClick={() => setPermsMap(prev => ({ ...prev, [u.id]: { ...prev[u.id], relatorios_permitidos: [] } }))}
+                              className="text-[10px] text-muted-foreground underline"
+                            >Nenhum</button>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {perms.relatorios_permitidos === null ? "Acesso a todos os tipos" : `${perms.relatorios_permitidos.length} tipo${perms.relatorios_permitidos.length !== 1 ? "s" : ""} selecionado${perms.relatorios_permitidos.length !== 1 ? "s" : ""}`}
+                        </p>
+                        <div className="grid grid-cols-1 gap-1">
+                          {TIPOS_RELATORIO_PERM.map(t => {
+                            const todos = perms.relatorios_permitidos === null;
+                            const marcado = todos || (perms.relatorios_permitidos || []).includes(t.id);
+                            return (
+                              <label key={t.id} className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-lg hover:bg-muted/50">
+                                <input
+                                  type="checkbox"
+                                  checked={marcado}
+                                  onChange={e => {
+                                    const atual = perms.relatorios_permitidos === null
+                                      ? TIPOS_RELATORIO_PERM.map(x => x.id)
+                                      : [...(perms.relatorios_permitidos || [])];
+                                    const novo = e.target.checked
+                                      ? [...atual.filter(x => x !== t.id), t.id]
+                                      : atual.filter(x => x !== t.id);
+                                    setPermsMap(prev => ({ ...prev, [u.id]: { ...prev[u.id], relatorios_permitidos: novo } }));
+                                  }}
+                                  className="w-3 h-3 accent-primary"
+                                />
+                                <span className="text-[10px]">{t.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 

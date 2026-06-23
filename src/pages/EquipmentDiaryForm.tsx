@@ -251,6 +251,7 @@ export default function EquipmentDiaryForm() {
   const [fueling, setFueling] = useState<FuelingData>(createEmptyFueling());
   const [fuelSyncedFromComboio, setFuelSyncedFromComboio] = useState(false);
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
+  const [checklistSubmittedAt, setChecklistSubmittedAt] = useState<string | null>(null);
 
   // Bobcat-specific
   const [attachmentType, setAttachmentType] = useState("");
@@ -956,6 +957,7 @@ export default function EquipmentDiaryForm() {
           photoPreview: row.photo_url || null,
         }));
         setChecklistResults(mappedChecklist);
+        setChecklistSubmittedAt((data[0] as any).checklist_submitted_at || null);
         loadedEditIdRef.current = editId;
       } catch (err: any) {
         if (!cancelled) {
@@ -2388,6 +2390,9 @@ export default function EquipmentDiaryForm() {
                   equipmentType={isRetro ? "Linha Amarela" : equipmentType}
                   results={checklistResults}
                   onChange={setChecklistResults}
+                  diaryId={editId || null}
+                  checklistSubmittedAt={checklistSubmittedAt}
+                  onSubmitted={(at) => setChecklistSubmittedAt(at)}
                 />
               </AccordionContent>
             </AccordionItem>

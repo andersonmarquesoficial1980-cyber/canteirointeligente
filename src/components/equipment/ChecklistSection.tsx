@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, AlertTriangle } from "lucide-react";
+import { Camera, AlertTriangle, Send, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { compressImage } from "@/lib/imageCompression";
@@ -21,9 +21,22 @@ interface Props {
   equipmentType?: string;
   results: ChecklistResult[];
   onChange: (results: ChecklistResult[]) => void;
+  /** Se fornecido, exibe botão "Enviar Checklist" que marca submitted_at no diário */
+  diaryId?: string | null;
+  /** Se já foi enviado anteriormente */
+  checklistSubmittedAt?: string | null;
+  /** Callback chamado após envio com sucesso */
+  onSubmitted?: (submittedAt: string) => void;
 }
 
-export default function ChecklistSection({ equipmentType = "Fresadora", results, onChange }: Props) {
+export default function ChecklistSection({
+  equipmentType = "Fresadora",
+  results,
+  onChange,
+  diaryId,
+  checklistSubmittedAt,
+  onSubmitted,
+}: Props) {
   const { data: items = [] } = useQuery({
     queryKey: ["checklist_items_standard", equipmentType],
     queryFn: async () => {
@@ -57,6 +70,26 @@ export default function ChecklistSection({ equipmentType = "Fresadora", results,
     }
   };
 
+  const handleEnviarChecklist = async () => {
+    if (!diaryId) return;
+    const now = new Date().toISOString();
+    const { error } = await (supabase as any)
+      .from("equipment_diaries")
+      .update({ checklist_submitted_at: now })
+      .eq("id", diaryId);
+    if (!error && onSubmitted) {
+      onSubmitted(now);
+    }
+  };
+
+  const allAnswered = items.length > 0 && items.every(item => {
+    const r = results.find(r => r.itemId === item.id);
+    return r && r.status !== undefined;
+  });
+
+  const naoOkCount = results.filter(r => r.status === "nao_ok").length;
+  const jaEnviado = !!checklistSubmittedAt;
+
   return (
     <div className="space-y-3">
       <h3 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide mb-1">
@@ -82,6 +115,48 @@ export default function ChecklistSection({ equipmentType = "Fresadora", results,
           );
         })}
       </div>
+
+      {/* Botão Enviar Checklist — só aparece se diaryId fornecido e há itens */}
+      {diaryId && items.length > 0 && (
+        <div className="pt-2">
+          {jaEnviado ? (
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-emerald-600">Checklist enviado</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {new Date(checklistSubmittedAt!).toLocaleString("pt-BR")}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {naoOkCount > 0 && (
+                <div className="flex items-center gap-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 px-3 py-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <p className="text-xs font-semibold text-rose-600">
+                    {naoOkCount} item{naoOkCount > 1 ? "s" : ""} não conforme{naoOkCount > 1 ? "s" : ""} — verifique antes de enviar
+                  </p>
+                </div>
+              )}
+              <Button
+                type="button"
+                onClick={handleEnviarChecklist}
+                disabled={!allAnswered}
+                className="w-full h-11 rounded-xl font-display font-bold gap-2 bg-primary text-primary-foreground disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                Enviar Checklist Pré-Operação
+              </Button>
+              {!allAnswered && (
+                <p className="text-[10px] text-muted-foreground text-center">
+                  Responda todos os itens para enviar
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -100,7 +175,7 @@ function ChecklistItem({
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const compressed = await compressImage(file, 1);
+    const compressed = await compressImage(file, 3);
     const preview = URL.createObjectURL(compressed);
     onUpdate({ photoFile: compressed, photoPreview: preview });
   };
