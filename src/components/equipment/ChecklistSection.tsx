@@ -63,7 +63,7 @@ export default function ChecklistSection({
     return results.find((r) => r.itemId === item.id) || {
       itemId: item.id,
       itemName: item.item_name,
-      status: "ok" as ChecklistStatus,
+      status: null as unknown as ChecklistStatus,  // sem seleção inicial — obriga o funcionário a marcar
       observation: "",
       photoFile: null,
       photoPreview: null,
@@ -75,7 +75,7 @@ export default function ChecklistSection({
     if (existing) {
       onChange(results.map((r) => (r.itemId === itemId ? { ...r, ...patch } : r)));
     } else {
-      onChange([...results, { itemId, itemName, status: "ok", observation: "", photoFile: null, photoPreview: null, ...patch }]);
+      onChange([...results, { itemId, itemName, status: null as unknown as ChecklistStatus, observation: "", photoFile: null, photoPreview: null, ...patch }]);
     }
   };
 
@@ -97,7 +97,7 @@ export default function ChecklistSection({
 
   const allAnswered = items.length > 0 && items.every(item => {
     const r = results.find(r => r.itemId === item.id);
-    return r && r.status !== undefined;
+    return r && r.status !== null && r.status !== undefined;
   });
 
   const naoOkCount = results.filter(r => r.status === "nao_ok").length;
@@ -210,7 +210,7 @@ function ChecklistItem({
               type="button"
               onClick={() => onUpdate({ status: btn.value })}
               className={`w-11 h-10 rounded-xl text-xs font-extrabold border-2 transition-all duration-200 ${
-                result.status === btn.value ? btn.activeColor : btn.color
+                result.status != null && result.status === btn.value ? btn.activeColor : btn.color
               }`}
             >
               {btn.label}
@@ -219,7 +219,7 @@ function ChecklistItem({
         </div>
       </div>
 
-      {result.status === "nao_ok" && (
+      {(result.status as any) === "nao_ok" && (
         <div className="space-y-2 pl-2 border-l-3 border-rose-500 ml-1">
           <div className="flex items-center gap-1.5 text-rose-500 text-xs font-extrabold">
             <AlertTriangle className="w-3.5 h-3.5" />
