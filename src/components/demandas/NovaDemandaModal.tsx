@@ -276,7 +276,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
 
   const compartilharTransporteWA = () => {
     const msg = montarMensagemTransporteWA();
-    window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+    window.open("https://web.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
   };
 
   const submitTransporte = async () => {
