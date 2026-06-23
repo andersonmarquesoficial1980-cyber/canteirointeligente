@@ -14,6 +14,16 @@ export default function EquipmentHeader({ title, backTo = "/equipamentos" }: Pro
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
 
+  const handleBack = () => {
+    // Em modo edição vindo de Meus Lançamentos, navigate(-1) volta para a página certa
+    // Se não há histórico, cai no backTo como fallback
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate(backTo);
+    }
+  };
+
   const handleLogout = async () => {
     // Preserva chaves de navegação antes de limpar
     const filtros = sessionStorage.getItem("meusLancamentos_filtros");
@@ -27,7 +37,7 @@ export default function EquipmentHeader({ title, backTo = "/equipamentos" }: Pro
   return (
     <header className="flex items-center justify-between px-4 py-3 bg-header-gradient sticky top-0 z-50 shadow-lg">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(backTo)} className="text-primary-foreground hover:bg-white/15">
+        <Button variant="ghost" size="icon" onClick={handleBack} className="text-primary-foreground hover:bg-white/15">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="relative">
