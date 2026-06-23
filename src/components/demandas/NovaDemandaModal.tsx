@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, MessageCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +86,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
   const [setorOrigemMaterial, setSetorOrigemMaterial] = useState("");
 
   const [transporteEquipamentos, setTransporteEquipamentos] = useState<string[]>([]);
+  const [transporteResponsavelId, setTransporteResponsavelId] = useState("");
   const [origem, setOrigem] = useState("");
   const [origemMaps, setOrigemMaps] = useState("");
   const [destino, setDestino] = useState("");
@@ -196,6 +197,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
     setSetorOrigemTransporte("");
     setSetorOrigemMaterial("");
     setTransporteEquipamentos([]);
+    setTransporteResponsavelId("");
     setOrigem("");
     setOrigemMaps("");
     setDestino("");
@@ -244,6 +246,37 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
       if (prev.includes(maquinaId)) return prev.filter((id) => id !== maquinaId);
       return [...prev, maquinaId];
     });
+  };
+
+  const responsavelTransporte = useMemo(
+    () => usuariosWorkflux.find(u => u.user_id === transporteResponsavelId) || null,
+    [usuariosWorkflux, transporteResponsavelId]
+  );
+
+  const montarMensagemTransporteWA = () => {
+    const equipamentosSelecionados = transporteEquipamentos
+      .map((id) => getMaquinaById(id))
+      .filter(Boolean) as Maquina[];
+    const horarioFinal = horarioTransporte === "Horário específico..." ? horarioLivre.trim() : horarioTransporte;
+    const equipamentosTexto = equipamentosSelecionados.map((m) => `• ${m.frota} — ${m.nome || m.tipo || "-"}`).join("\n");
+
+    let msg = "🚛 *DEMANDA DE TRANSPORTE — Workflux*\n\n";
+    msg += `👷 *Solicitante:* ${solicitanteNome.trim() || userNome}\n`;
+    msg += `📋 *Setor origem:* ${setorOrigemTransporte}\n`;
+    if (horarioFinal) msg += `⏰ *Horário:* ${horarioFinal}\n`;
+    msg += `\n📍 *Origem:* ${origem.trim()}\n`;
+    if (origemMaps.trim()) msg += `🗺️ ${origemMaps.trim()}\n`;
+    msg += `\n🏁 *Destino:* ${destino.trim()}\n`;
+    if (destinoMaps.trim()) msg += `🗺️ ${destinoMaps.trim()}\n`;
+    if (equipamentosTexto) msg += `\n🚧 *Equipamentos:*\n${equipamentosTexto}\n`;
+    if (obsTransporte.trim()) msg += `\n📝 *Obs:* ${obsTransporte.trim()}\n`;
+    msg += "\n_Enviado via Workflux_";
+    return msg;
+  };
+
+  const compartilharTransporteWA = () => {
+    const msg = montarMensagemTransporteWA();
+    window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
   };
 
   const submitTransporte = async () => {
@@ -314,6 +347,10 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
       horario_transporte: horarioFinal,
       observacoes: obsTransporte.trim() || undefined,
       sub_tipo: /OGS/i.test(origem + destino) ? "viagem_ogs" : "viagem",
+      ...(responsavelTransporte && {
+        funcionario_solicitado_id: responsavelTransporte.id,
+        funcionario_solicitado_nome: responsavelTransporte.nome_completo,
+      }),
     };
 
     setSaving(true);
@@ -640,6 +677,25 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
                     <Label>Observações</Label>
                     <Textarea value={obsTransporte} onChange={(e) => setObsTransporte(e.target.value)} rows={3} />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>Responsável pelo transporte (opcional)</Label>
+                    <Select value={transporteResponsavelId} onValueChange={setTransporteResponsavelId}>
+                      <SelectTrigger className="h-11"><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
+                      <SelectContent>
+                        {usuariosWorkflux.map((u) => (
+                          <SelectItem key={u.user_id} value={u.user_id}>
+                            {u.nome_completo} — {u.perfil}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {responsavelTransporte && (
+                      <p className="text-xs text-muted-foreground">
+                        ✅ Demanda vinculada a <span className="font-medium text-foreground">{responsavelTransporte.nome_completo}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -889,6 +945,18 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
 
         <div className="border-t p-4 flex gap-2">
           <Button variant="outline" className="flex-1 h-11" onClick={onClose} disabled={saving}>Cancelar</Button>
+          {tipoSelecionado === "transporte" && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 px-3 border-green-600 text-green-500 hover:bg-green-600/10"
+              onClick={compartilharTransporteWA}
+              disabled={saving}
+              title="Compartilhar via WhatsApp"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </Button>
+          )}
           {tipoSelecionado && (
             <Button className="flex-1 h-11" onClick={handleSubmit} disabled={saving || loadingBase}>
               {saving ? "Salvando..." : "Criar demanda"}
