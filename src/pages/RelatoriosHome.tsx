@@ -147,17 +147,30 @@ export default function RelatoriosHome() {
           </button>
         )}
         {step === "subtipo" && tipoRel === "equipamento" && (
-          <button
-            onClick={() => navigate("/relatorios/busca-equipamentos")}
-            className="w-full flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors text-left"
-          >
-            <Search className="w-4 h-4 text-primary shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-bold text-primary">Busca Avançada de Equipamentos</p>
-              <p className="text-xs text-muted-foreground">Filtrar por frota, tipo, OGS ou operador</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-          </button>
+          <>
+            <button
+              onClick={() => navigate("/equipamentos/exportar-protheus")}
+              className="w-full flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 hover:bg-blue-100 transition-colors text-left"
+            >
+              <span className="text-xl">📊</span>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-blue-700">Exportar para Protheus</p>
+                <p className="text-xs text-muted-foreground">Exportação de diários para o ERP</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+            </button>
+            <button
+              onClick={() => navigate("/relatorios/busca-equipamentos")}
+              className="w-full flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors text-left"
+            >
+              <Search className="w-4 h-4 text-primary shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-primary">Busca Avançada de Equipamentos</p>
+                <p className="text-xs text-muted-foreground">Filtrar por frota, tipo, OGS ou operador</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+            </button>
+          </>
         )}
 
         {/* Atalhos rápidos — sempre visíveis no passo tipo */}
@@ -197,17 +210,6 @@ export default function RelatoriosHome() {
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
             </button>
-            <button
-              onClick={() => navigate("/equipamentos/exportar-protheus")}
-              className="w-full flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 hover:bg-blue-100 transition-colors text-left"
-            >
-              <span className="text-xl">📊</span>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-blue-700">Exportar para Protheus</p>
-                <p className="text-xs text-muted-foreground">Exportação de diários para o ERP</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            </button>
           </div>
         )}
 
@@ -219,7 +221,6 @@ export default function RelatoriosHome() {
               <button
                 key={t.id}
                 onClick={() => {
-                  if (t.id === "equipamento") { navigate("/relatorios/busca-equipamentos"); return; }
                   if (t.id === "carreteiros") { navigate("/relatorios/carreteiros"); return; }
                   if (t.id === "abastecimento") {
                     const hoje = new Date().toISOString().split("T")[0];
