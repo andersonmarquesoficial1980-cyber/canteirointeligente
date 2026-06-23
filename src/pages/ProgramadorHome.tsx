@@ -1,7 +1,7 @@
 // WF Programador — Gestão de equipes, funcionários e equipamentos
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, Wrench, UserPlus, RefreshCw, Calendar } from "lucide-react";
+import { ArrowLeft, Users, Wrench, UserPlus, RefreshCw, Calendar, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -200,6 +200,12 @@ export default function ProgramadorHome() {
             <h1 className="text-lg font-display font-bold text-white">WF Programador</h1>
             <p className="text-xs text-white/70">Equipes · Funcionários · Equipamentos</p>
           </div>
+          <button
+            onClick={() => navigate("/programador/programacao-noturna")}
+            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors"
+          >
+            <CalendarDays className="w-3.5 h-3.5" /> Obras
+          </button>
         </div>
       </header>
 
