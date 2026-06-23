@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, History, CalendarDays } from "lucide-react";
+import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, History } from "lucide-react";
 
 interface RdoPendente {
   id: string;
@@ -132,19 +132,6 @@ export default function EngHome() {
           <div className="text-left">
             <span className="text-sm font-semibold text-foreground">Histórico RDO Técnico</span>
             <p className="text-xs text-muted-foreground">Visualizar, exportar PDF e Excel</p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
-        </button>
-
-        {/* Programação Noturna */}
-        <button
-          onClick={() => navigate("/programador/programacao-noturna")}
-          className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white border border-border shadow-sm active:scale-95 transition-transform"
-        >
-          <CalendarDays className="w-5 h-5 text-primary" />
-          <div className="text-left">
-            <span className="text-sm font-semibold text-foreground">Programação de Obras</span>
-            <p className="text-xs text-muted-foreground">Planejar equipes, equipamentos e carretas</p>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
         </button>

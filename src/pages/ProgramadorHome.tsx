@@ -1,7 +1,7 @@
 // WF Programador — Gestão de equipes, funcionários e equipamentos
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, Wrench, UserPlus, RefreshCw, Calendar, CalendarDays } from "lucide-react";
+import { ArrowLeft, Users, Wrench, UserPlus, RefreshCw, Calendar, CalendarDays, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -231,6 +231,20 @@ export default function ProgramadorHome() {
         {/* ── ABA EQUIPES ── */}
         {aba === "equipes" && (
           <div className="space-y-4">
+
+            {/* Card destaque: Programação de Obras */}
+            <button
+              onClick={() => navigate("/programador/programacao-noturna")}
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-primary text-primary-foreground shadow-md active:scale-95 transition-transform"
+            >
+              <CalendarDays className="w-6 h-6 shrink-0" />
+              <div className="text-left flex-1">
+                <span className="text-sm font-bold block">Programação de Obras</span>
+                <span className="text-xs opacity-80">Planejar equipes, equipamentos e carretas</span>
+              </div>
+              <ChevronRight className="w-4 h-4 opacity-70" />
+            </button>
+
             <p className="text-xs text-muted-foreground">Programe uma equipe inteira de uma vez. Todos os funcionários da equipe receberão essa localização.</p>
 
             <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
