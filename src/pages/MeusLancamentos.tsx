@@ -58,6 +58,19 @@ function fmtDate(value: string | null) {
   return `${d}/${m}/${y}`;
 }
 
+const FILTER_KEY = "meusLancamentos_filtros";
+
+function salvarFiltros(filtros: Record<string, string>) {
+  try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(filtros)); } catch {}
+}
+
+function restaurarFiltros(): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem(FILTER_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
 export default function MeusLancamentos() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -71,10 +84,13 @@ export default function MeusLancamentos() {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [frotas, setFrotas] = useState<string[]>([]);
-  const [tipoEquipamento, setTipoEquipamento] = useState("todos");
-  const [frotaSelecionada, setFrotaSelecionada] = useState("todas");
-  const [dataInicio, setDataInicio] = useState("");
-  const [dataFim, setDataFim] = useState("");
+
+  // Inicializa filtros a partir do sessionStorage (preserva após edição)
+  const filtrosSalvos = restaurarFiltros();
+  const [tipoEquipamento, setTipoEquipamento] = useState(filtrosSalvos.tipoEquipamento || "todos");
+  const [frotaSelecionada, setFrotaSelecionada] = useState(filtrosSalvos.frotaSelecionada || "todas");
+  const [dataInicio, setDataInicio] = useState(filtrosSalvos.dataInicio || "");
+  const [dataFim, setDataFim] = useState(filtrosSalvos.dataFim || "");
   const [selecionado, setSelecionado] = useState<Lancamento | null>(null);
   const [detalheExtra, setDetalheExtra] = useState<{ areas: any[]; bits: any[]; times: any[]; horas: number | null }>({ areas: [], bits: [], times: [], horas: null });
 
@@ -127,6 +143,8 @@ export default function MeusLancamentos() {
   };
 
   const handleEditarLancamento = async (item: Lancamento) => {
+    // Salva filtros ativos antes de sair para edição
+    salvarFiltros({ tipoEquipamento, frotaSelecionada, dataInicio, dataFim });
     setEditandoId(item.id);
     await new Promise((resolve) => setTimeout(resolve, 200));
     navigate(
@@ -248,6 +266,11 @@ export default function MeusLancamentos() {
   useEffect(() => {
     setFrotaSelecionada("todas");
   }, [tipoEquipamento]);
+
+  // Persiste filtros no sessionStorage sempre que mudam
+  useEffect(() => {
+    salvarFiltros({ tipoEquipamento, frotaSelecionada, dataInicio, dataFim });
+  }, [tipoEquipamento, frotaSelecionada, dataInicio, dataFim]);
 
   useEffect(() => {
     carregar();
