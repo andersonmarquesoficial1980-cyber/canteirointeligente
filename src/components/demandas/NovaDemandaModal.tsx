@@ -274,9 +274,18 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
     return msg;
   };
 
-  const compartilharTransporteWA = () => {
+  const [waCopied, setWaCopied] = useState(false);
+
+  const compartilharTransporteWA = async () => {
     const msg = montarMensagemTransporteWA();
-    window.open("https://web.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+    try {
+      await navigator.clipboard.writeText(msg);
+      setWaCopied(true);
+      setTimeout(() => setWaCopied(false), 3000);
+    } catch {
+      // fallback: abre WA Web se clipboard não disponível
+      window.open("https://web.whatsapp.com/send?text=" + encodeURIComponent(msg), "_blank");
+    }
   };
 
   const submitTransporte = async () => {
@@ -949,12 +958,12 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
             <Button
               type="button"
               variant="outline"
-              className="h-11 px-3 border-green-600 text-green-500 hover:bg-green-600/10"
+              className={`h-11 px-3 transition-colors ${waCopied ? "border-green-500 bg-green-500/10 text-green-400" : "border-green-600 text-green-500 hover:bg-green-600/10"}`}
               onClick={compartilharTransporteWA}
               disabled={saving}
-              title="Compartilhar via WhatsApp"
+              title={waCopied ? "Texto copiado! Cole no WhatsApp Web (Ctrl+V)" : "Copiar mensagem para WhatsApp"}
             >
-              <MessageCircle className="w-4 h-4" />
+              {waCopied ? <span className="text-xs font-semibold">✓ Copiado!</span> : <MessageCircle className="w-4 h-4" />}
             </Button>
           )}
           {tipoSelecionado && (
