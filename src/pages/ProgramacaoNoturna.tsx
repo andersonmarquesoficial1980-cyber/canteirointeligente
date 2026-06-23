@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, Plus, Trash2, CalendarDays, ClipboardList,
-  CheckCircle2, Clock, XCircle, Loader2, HardHat, Send, Share2, MessageCircle,
+  CheckCircle2, Clock, XCircle, Loader2, HardHat, Send, Share2, MessageCircle, BarChart3,
 } from "lucide-react";
 import { sortOgsData } from "@/hooks/useOgsReference";
 
@@ -226,6 +226,13 @@ export default function ProgramacaoNoturna() {
           <h1 className="text-base font-bold text-foreground">Programação de Obras</h1>
           <p className="text-xs text-muted-foreground">Planejamento de equipes e equipamentos</p>
         </div>
+        <button
+          onClick={() => navigate("/programador/relatorio-programacoes")}
+          className="flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-xl text-muted-foreground hover:bg-muted"
+          title="Relatório"
+        >
+          <BarChart3 className="w-4 h-4" />
+        </button>
         <button
           onClick={() => { resetForm(); setFormData(filtroData); setShowForm(true); }}
           className="flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-3 py-1.5 rounded-xl"

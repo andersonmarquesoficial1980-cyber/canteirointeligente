@@ -68,6 +68,7 @@ import MinhasDemandas from "./pages/MinhasDemandas";
 import OperadoresHabilitados from "./pages/OperadoresHabilitados";
 import ProgramadorHome from "./pages/ProgramadorHome";
 import ProgramacaoNoturna from "./pages/ProgramacaoNoturna";
+import RelatorioProgramacoes from "./pages/RelatorioProgramacoes";
 import TransporteEquipamentos from "./pages/TransporteEquipamentos";
 import RdoForm from "./pages/RdoForm";
 import RegistrarPonto from "./pages/RegistrarPonto";
@@ -424,6 +425,7 @@ function AppRoutes() {
         <Route path="/programador" element={<RequireModule moduleId="programador"><ProgramadorHome /></RequireModule>} />
         <Route path="/programador/transportes" element={<RequireModule moduleId="programador"><TransporteEquipamentos /></RequireModule>} />
         <Route path="/programador/programacao-noturna" element={<RequireModule moduleId="programador"><ProgramacaoNoturna /></RequireModule>} />
+        <Route path="/programador/relatorio-programacoes" element={<RequireModule moduleId="programador"><RelatorioProgramacoes /></RequireModule>} />
 
         {/* WF Demandas */}
         <Route path="/demandas" element={<RequireModule moduleId="demandas"><DemandasHome /></RequireModule>} />
