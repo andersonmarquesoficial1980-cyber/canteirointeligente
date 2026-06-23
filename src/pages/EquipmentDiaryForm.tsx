@@ -221,6 +221,8 @@ export default function EquipmentDiaryForm() {
   const isModoSimples = workStatus === "Folga" || workStatus === "Cancelou";
   const [cancelouMotivo, setCancellouMotivo] = useState("");
   const [ogsNumber, setOgsNumber] = useState("");
+  const [ogsSugerida, setOgsSugerida] = useState<{ ogs: string; equipe: string; local: string | null; cliente: string | null } | null>(null);
+  const [ogsSugeridaDismissed, setOgsSugeridaDismissed] = useState(false);
   const isPatioMode = ogsNumber === "BASE / PÁTIO CENTRAL";
   const PATIO_STATUSES = ["Disposição", "Manutenção", "Inoperante"] as const;
   const [motivoManutencao, setMotivoManutencao] = useState("");
@@ -339,6 +341,39 @@ export default function EquipmentDiaryForm() {
       setSelectedFleet(fleetFromQuery.toUpperCase());
     }
   }, [isEditMode, fleetFromQuery]);
+
+  // Fase 3 — busca programação do dia para pré-preencher OGS
+  const { data: programacaoDoDia } = useQuery({
+    queryKey: ["programacao_do_dia_ogs", selectedFleet, date],
+    queryFn: async () => {
+      if (!selectedFleet || !date) return null;
+      const { data, error } = await (supabase as any)
+        .from("ci_programacoes")
+        .select("id,ogs,equipe,local,cliente,equipamentos_designados,status_programacao")
+        .eq("data", date)
+        .neq("status_programacao", "CANCELADO")
+        .contains("equipamentos_designados", [selectedFleet.trim().toUpperCase()]);
+      if (error || !data || data.length === 0) return null;
+      const prog = data[0];
+      return {
+        ogs: prog.ogs || "",
+        equipe: prog.equipe || "",
+        local: prog.local || null,
+        cliente: prog.cliente || null,
+      };
+    },
+    enabled: !isEditMode && !!selectedFleet && !!date,
+    staleTime: 60000,
+  });
+
+  // Auto-preenche OGS quando programação encontrada
+  useEffect(() => {
+    if (!programacaoDoDia || isEditMode || ogsNumber || ogsSugeridaDismissed) return;
+    if (programacaoDoDia.ogs) {
+      setOgsSugerida(programacaoDoDia);
+      setOgsNumber(programacaoDoDia.ogs);
+    }
+  }, [programacaoDoDia, isEditMode, ogsNumber, ogsSugeridaDismissed]);
 
   const uniqueOgs = useMemo(() => {
     const seen = new Set<string>();
@@ -2151,6 +2186,24 @@ export default function EquipmentDiaryForm() {
           {!isCarreta && !isComboio && (
             <FieldRow>
               <Field label="OGS">
+                {ogsSugerida && !ogsSugeridaDismissed && (
+                  <div className="mb-2 flex items-start gap-2 rounded-lg border border-green-500/40 bg-green-500/10 px-3 py-2 text-xs text-green-400">
+                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-400" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold">OGS sugerida pela programação do dia</span>
+                      {ogsSugerida.equipe && <span className="ml-1 text-green-300">· Equipe {ogsSugerida.equipe}</span>}
+                      {ogsSugerida.cliente && <div className="text-green-300/80 truncate">{ogsSugerida.cliente}{ogsSugerida.local ? ` — ${ogsSugerida.local}` : ""}</div>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setOgsSugeridaDismissed(true); setOgsSugerida(null); setOgsNumber(""); }}
+                      className="ml-1 shrink-0 text-green-400/60 hover:text-green-400"
+                      aria-label="Remover sugestão"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
                 <Select value={ogsNumber} onValueChange={handleOgsChange}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder={uniqueOgs.length === 0 ? "Carregando OGS..." : "Selecione OGS..."} />
