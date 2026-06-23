@@ -123,29 +123,74 @@ function exportarPdf(fleet: string, rows: AbastecimentoRow[], ini: string, fim: 
 
 export default function RelatorioAbastecimento() {
   const navigate = useNavigate();
-  const { fleet = "" } = useParams<{ fleet: string }>();
   const [searchParams] = useSearchParams();
 
   const iniParam = searchParams.get("ini") || "";
   const fimParam = searchParams.get("fim") || "";
-
-  // Filtros locais (editáveis na tela)
   const today = new Date().toISOString().split("T")[0];
-  const [tipoPeriodo, setTipoPeriodo] = useState<"dia" | "periodo">(iniParam === fimParam ? "dia" : "periodo");
-  const [dataDia, setDataDia] = useState(iniParam || today);
-  const [dataIni, setDataIni] = useState(iniParam || today);
-  const [dataFim, setDataFim] = useState(fimParam || today);
-  const [frotaFiltro, setFrotaFiltro] = useState(fleet === "TODAS" ? "" : fleet);
+  const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
 
-  const [loading, setLoading] = useState(true);
+  // Filtros
+  const [tipoPeriodo, setTipoPeriodo] = useState<"dia" | "periodo">(iniParam && iniParam !== fimParam ? "periodo" : "periodo");
+  const [dataDia, setDataDia] = useState(iniParam || today);
+  const [dataIni, setDataIni] = useState(iniParam || primeiroDiaMes);
+  const [dataFim, setDataFim] = useState(fimParam || today);
+
+  // Seleção tipo → frota (padrão do sistema)
+  const [tipoEquip, setTipoEquip] = useState("__todos__");
+  const [frotaSel, setFrotaSel] = useState("__todas__");
+  const [ogsFiltro, setOgsFiltro] = useState("");
+
+  // Dados auxiliares
+  const [tiposEquip, setTiposEquip] = useState<string[]>([]);
+  const [frotasPorTipo, setFrotasPorTipo] = useState<Record<string, string[]>>({});
+
+  // Resultados
+  const [loading, setLoading] = useState(false);
+  const [buscado, setBuscado] = useState(false);
   const [rows, setRows] = useState<AbastecimentoRow[]>([]);
-  const [frotas, setFrotas] = useState<string[]>([]);
 
   const ini = tipoPeriodo === "dia" ? dataDia : dataIni;
   const fim = tipoPeriodo === "dia" ? dataDia : dataFim;
 
+  // Carregar tipos e frotas do banco
+  useEffect(() => {
+    (supabase as any)
+      .from("equipamentos")
+      .select("frota,tipo")
+      .in("status", ["ativo", "Operando"])
+      .order("tipo")
+      .order("frota")
+      .then(({ data }: { data: { frota: string; tipo: string }[] | null }) => {
+        if (!data) return;
+        const byType: Record<string, Set<string>> = {};
+        data.forEach(d => {
+          const t = d.tipo || "Outros";
+          if (!byType[t]) byType[t] = new Set();
+          byType[t].add(d.frota);
+        });
+        const tipos = Object.keys(byType).sort();
+        setTiposEquip(tipos);
+        const frotas: Record<string, string[]> = {};
+        tipos.forEach(t => { frotas[t] = Array.from(byType[t]).sort(); });
+        setFrotasPorTipo(frotas);
+      });
+  }, []);
+
+  // Frotas disponíveis para o tipo selecionado
+  const frotasDisponiveis = tipoEquip === "__todos__"
+    ? Object.values(frotasPorTipo).flat().sort()
+    : (frotasPorTipo[tipoEquip] || []);
+
+  // Reset frota quando tipo muda
+  const handleTipoChange = (tipo: string) => {
+    setTipoEquip(tipo);
+    setFrotaSel("__todas__");
+  };
+
   const carregar = async () => {
     setLoading(true);
+    setBuscado(true);
     let query = (supabase as any)
       .from("abastecimentos")
       .select("id,equipment_fleet,equipment_type,data,hora,litros,horimetro,km_odometro,ogs,fornecedor,observacao")
@@ -154,23 +199,27 @@ export default function RelatorioAbastecimento() {
       .order("data", { ascending: false })
       .order("equipment_fleet", { ascending: true });
 
-    if (frotaFiltro) query = query.eq("equipment_fleet", frotaFiltro);
+    if (frotaSel !== "__todas__") {
+      query = query.eq("equipment_fleet", frotaSel);
+    } else if (tipoEquip !== "__todos__") {
+      const frotas = frotasPorTipo[tipoEquip] || [];
+      if (frotas.length > 0) query = query.in("equipment_fleet", frotas);
+    }
+
+    if (ogsFiltro.trim()) {
+      query = query.ilike("ogs", `%${ogsFiltro.trim()}%`);
+    }
 
     const { data } = await query;
-    const resultado = (data || []) as AbastecimentoRow[];
-    setRows(resultado);
-
-    // Montar lista de frotas únicas para o filtro
-    const unicas = Array.from(new Set(resultado.map(r => r.equipment_fleet).filter(Boolean))) as string[];
-    setFrotas(unicas.sort());
+    setRows((data || []) as AbastecimentoRow[]);
     setLoading(false);
   };
 
-  useEffect(() => { carregar(); }, []);
-
   const totalLitros = useMemo(() => rows.reduce((s, r) => s + (r.litros || 0), 0), [rows]);
 
-  const fleetLabel = fleet === "TODAS" ? "Todas as Frotas" : `Frota ${fleet}`;
+  const labelFrota = frotaSel !== "__todas__" ? frotaSel
+    : tipoEquip !== "__todos__" ? tipoEquip
+    : "Todas as Frotas";
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -181,13 +230,14 @@ export default function RelatorioAbastecimento() {
         <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Relatório Abastecimento</span>
-          <span className="block text-[11px] text-primary-foreground/80">{fleetLabel}</span>
+          <span className="block text-[11px] text-primary-foreground/80">{labelFrota}</span>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-3">
         {/* Filtros */}
         <div className="rdo-card space-y-3">
+
           {/* Período */}
           <div className="flex gap-2">
             <button onClick={() => setTipoPeriodo("dia")}
@@ -218,20 +268,48 @@ export default function RelatorioAbastecimento() {
             </div>
           )}
 
-          {/* Frota */}
-          {fleet === "TODAS" && (
+          {/* Tipo de equipamento */}
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground font-medium">Tipo de equipamento</span>
+            <select
+              value={tipoEquip}
+              onChange={e => handleTipoChange(e.target.value)}
+              className="w-full h-11 rounded-xl border border-border bg-secondary px-3 text-sm"
+            >
+              <option value="__todos__">Todos os tipos</option>
+              {tiposEquip.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          {/* Frota — só aparece se há tipos carregados */}
+          {frotasDisponiveis.length > 0 && (
             <div className="space-y-1">
-              <span className="text-xs text-muted-foreground font-medium">Equipamento</span>
+              <span className="text-xs text-muted-foreground font-medium">
+                Frota {tipoEquip !== "__todos__" ? `— ${tipoEquip}` : ""}
+              </span>
               <select
-                value={frotaFiltro}
-                onChange={e => setFrotaFiltro(e.target.value)}
+                value={frotaSel}
+                onChange={e => setFrotaSel(e.target.value)}
                 className="w-full h-11 rounded-xl border border-border bg-secondary px-3 text-sm"
               >
-                <option value="">Todos os equipamentos</option>
-                {frotas.map(f => <option key={f} value={f}>{f}</option>)}
+                <option value="__todas__">
+                  {tipoEquip !== "__todos__" ? `Todas as ${tipoEquip}` : "Todas as frotas"}
+                </option>
+                {frotasDisponiveis.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
           )}
+
+          {/* Busca por OGS */}
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground font-medium">Busca por OGS (opcional)</span>
+            <Input
+              placeholder="Ex: 2509"
+              value={ogsFiltro}
+              onChange={e => setOgsFiltro(e.target.value)}
+              className="h-11 rounded-xl"
+            />
+          </div>
 
           <Button onClick={carregar} className="w-full h-11 rounded-xl font-bold gap-2">
             🔍 Buscar
@@ -242,11 +320,11 @@ export default function RelatorioAbastecimento() {
         {!loading && rows.length > 0 && (
           <div className="flex gap-2">
             <ExportButton variant="outline" size="sm" className="gap-2 text-xs"
-              onClick={() => exportarPdf(fleet, rows, ini, fim)}>
+              onClick={() => exportarPdf(labelFrota, rows, ini, fim)}>
               <Printer className="w-3.5 h-3.5" /> PDF
             </ExportButton>
             <ExportButton variant="outline" size="sm" className="gap-2 text-xs"
-              onClick={() => exportarExcel(fleet, rows, ini, fim)}>
+              onClick={() => exportarExcel(labelFrota, rows, ini, fim)}>
               <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
             </ExportButton>
           </div>
@@ -257,9 +335,13 @@ export default function RelatorioAbastecimento() {
           <div className="rdo-card py-10 flex justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
           </div>
+        ) : !buscado ? (
+          <div className="rdo-card py-10 text-center text-muted-foreground text-sm">
+            Selecione os filtros acima e clique em Buscar.
+          </div>
         ) : rows.length === 0 ? (
           <div className="rdo-card py-10 text-center text-muted-foreground text-sm">
-            Nenhum abastecimento encontrado.
+            Nenhum abastecimento encontrado para os filtros selecionados.
           </div>
         ) : (
           <>
@@ -277,6 +359,7 @@ export default function RelatorioAbastecimento() {
                     <tr className="bg-muted/50 border-b border-border">
                       <th className="text-left py-2.5 px-3 font-semibold">Data</th>
                       <th className="text-left py-2.5 px-3 font-semibold">Frota</th>
+                      <th className="text-left py-2.5 px-3 font-semibold">Tipo</th>
                       <th className="text-right py-2.5 px-3 font-semibold">Litros</th>
                       <th className="text-right py-2.5 px-3 font-semibold">Horím.</th>
                       <th className="text-right py-2.5 px-3 font-semibold">Odôm.</th>
@@ -291,6 +374,7 @@ export default function RelatorioAbastecimento() {
                         <tr key={r.id} className={`border-b border-border/50 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
                           <td className="py-2 px-3 whitespace-nowrap">{fmtDate(r.data)}</td>
                           <td className="py-2 px-3 font-medium">{r.equipment_fleet || "-"}</td>
+                          <td className="py-2 px-3 text-muted-foreground">{r.equipment_type || "-"}</td>
                           <td className="py-2 px-3 text-right font-semibold text-primary">{r.litros != null ? fmtNumLib(r.litros) : "-"}</td>
                           <td className="py-2 px-3 text-right">{r.horimetro != null ? r.horimetro : "-"}</td>
                           <td className="py-2 px-3 text-right">{r.km_odometro != null ? r.km_odometro : "-"}</td>
@@ -300,7 +384,7 @@ export default function RelatorioAbastecimento() {
                       );
                     })}
                     <tr className="bg-primary/5 font-bold border-t-2 border-primary/30">
-                      <td colSpan={2} className="py-2 px-3">TOTAL</td>
+                      <td colSpan={3} className="py-2 px-3">TOTAL</td>
                       <td className="py-2 px-3 text-right text-primary">{fmtNumLib(totalLitros)}</td>
                       <td colSpan={4} />
                     </tr>
