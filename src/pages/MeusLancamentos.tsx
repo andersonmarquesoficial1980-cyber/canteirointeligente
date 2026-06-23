@@ -76,7 +76,6 @@ export default function MeusLancamentos() {
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [aba, setAba] = useState<"equipamentos" | "rdos" | "ocorrencias">("equipamentos");
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [rdos, setRdos] = useState<any[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; tipo: "equipamento" | "rdo"; label: string } | null>(null);
@@ -91,6 +90,19 @@ export default function MeusLancamentos() {
   const [frotaSelecionada, setFrotaSelecionada] = useState(filtrosSalvos.frotaSelecionada || "todas");
   const [dataInicio, setDataInicio] = useState(filtrosSalvos.dataInicio || "");
   const [dataFim, setDataFim] = useState(filtrosSalvos.dataFim || "");
+
+  // Abre na aba correta se vier de WF Obras ou WF Equipamentos
+  const abaInicial = (() => {
+    try {
+      const sinal = sessionStorage.getItem("meusLancamentos_aba");
+      if (sinal === "rdos" || sinal === "ocorrencias") {
+        sessionStorage.removeItem("meusLancamentos_aba");
+        return sinal as "rdos" | "ocorrencias";
+      }
+    } catch {}
+    return "equipamentos";
+  })();
+  const [aba, setAba] = useState<"equipamentos" | "rdos" | "ocorrencias">(abaInicial);
   const [selecionado, setSelecionado] = useState<Lancamento | null>(null);
   const [detalheExtra, setDetalheExtra] = useState<{ areas: any[]; bits: any[]; times: any[]; horas: number | null }>({ areas: [], bits: [], times: [], horas: null });
 

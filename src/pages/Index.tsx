@@ -27,11 +27,15 @@ export default function Index() {
       window.location.replace("/");
     };
     const timeout = setTimeout(forceOut, 2000);
-    try {
-      await supabase.auth.signOut();
-    } catch {}
+    try { await supabase.auth.signOut(); } catch {}
     clearTimeout(timeout);
     forceOut();
+  };
+
+  const irParaMeusLancamentos = () => {
+    // Sinaliza para MeusLancamentos abrir direto na aba RDOs
+    try { sessionStorage.setItem("meusLancamentos_aba", "rdos"); } catch {}
+    navigate("/meus-lancamentos");
   };
 
   return (
@@ -73,18 +77,25 @@ export default function Index() {
             Módulo de Obras — apontamento, efetivo, produção e relatórios.
           </p>
         </div>
-
-        {/* KPI icons row */}
         <div className="flex justify-center gap-6 text-muted-foreground/60">
           <Truck className="w-7 h-7" />
           <HardHat className="w-7 h-7" />
           <ClipboardList className="w-7 h-7" />
         </div>
-
         <Button onClick={() => navigate("/obras/rdo")} size="lg" className="h-14 px-10 text-lg font-bold rounded-xl gap-2 shadow-lg">
           <FileText className="w-6 h-6" /> Novo RDO
         </Button>
       </div>
+
+      {/* Meus Lançamentos — abre direto na aba RDOs */}
+      <Button
+        variant="outline"
+        className="w-full h-12 gap-2 text-sm font-semibold"
+        onClick={irParaMeusLancamentos}
+      >
+        <ClipboardList className="w-5 h-5" />
+        Meus Lançamentos (RDOs)
+      </Button>
     </div>
   );
 }

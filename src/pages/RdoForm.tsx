@@ -641,7 +641,7 @@ export default function RdoForm() {
         description: "Será sincronizado quando a internet voltar.",
       });
 
-      if (showNavigate) navigate("/");
+      if (showNavigate) navigate("/obras");
       return;
     }
 
@@ -919,7 +919,7 @@ export default function RdoForm() {
           </button>
         ),
       });
-      if (showNavigate) navigate("/");
+      if (showNavigate) navigate("/obras");
     } catch (err: any) {
       console.error(err);
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
@@ -935,7 +935,7 @@ export default function RdoForm() {
       {/* Gradient Header */}
       <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+          <button onClick={() => navigate("/obras")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
