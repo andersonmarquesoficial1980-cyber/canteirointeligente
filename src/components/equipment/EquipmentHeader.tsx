@@ -15,9 +15,12 @@ export default function EquipmentHeader({ title, backTo = "/equipamentos" }: Pro
   const { isAdmin } = useIsAdmin();
 
   const handleLogout = async () => {
+    // Preserva chaves de navegação antes de limpar
+    const filtros = sessionStorage.getItem("meusLancamentos_filtros");
     await supabase.auth.signOut();
     localStorage.clear();
     sessionStorage.clear();
+    // Não precisa restaurar — usuário saiu do sistema
     window.location.href = "/";
   };
 

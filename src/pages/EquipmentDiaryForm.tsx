@@ -1970,7 +1970,10 @@ export default function EquipmentDiaryForm() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <EquipmentHeader title={isCaminhoes && caminhaoTipo ? `Caminhão ${caminhaoTipo}` : isVeiculo ? "Veículo de Transporte" : (equipmentType || "Novo Diário")} />
+      <EquipmentHeader
+        title={isCaminhoes && caminhaoTipo ? `Caminhão ${caminhaoTipo}` : isVeiculo ? "Veículo de Transporte" : (equipmentType || "Novo Diário")}
+        backTo={isEditMode ? "/meus-lancamentos" : "/equipamentos"}
+      />
 
       <div className="flex-1 p-4 space-y-5 pb-36 max-w-lg mx-auto w-full">
         {isEditMode && (
