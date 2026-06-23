@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ArrowLeft, Plus, Fuel, Loader2, Filter, Trash2, Clock, Truck, Droplets, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
+import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
 // ── Tipos de equipamento com prefixos de frota ──
 const EQUIPMENT_TYPE_OPTIONS = [
@@ -333,7 +334,10 @@ export default function AbastecimentoHome() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
-        
+
+        {/* Programações do dia */}
+        <ProgramacoesDoDia />
+
         {/* ── BOTÃO GRANDE "+ LANÇAR" ── */}
         <button
           onClick={() => { resetForm(); setModal(true); }}

@@ -1,4 +1,5 @@
-// ProgramacaoNoturna — Fase 2: modal de destinatários + disparo WhatsApp
+// ProgramacaoNoturna — Programador cria OS Noturna
+// Compartilha via WhatsApp nativo (wa.me), sem número integrado
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,23 +13,14 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, Plus, Trash2, CalendarDays, ClipboardList,
-  CheckCircle2, Clock, XCircle, Loader2, HardHat, Send,
-  MessageCircle, User, Users, ChevronRight,
+  CheckCircle2, Clock, XCircle, Loader2, HardHat, Send, Share2, MessageCircle,
 } from "lucide-react";
 import { sortOgsData } from "@/hooks/useOgsReference";
 
-// ─── tipos ────────────────────────────────────────────────────────────────────
 interface Equipe { id: string; nome: string; responsavel: string | null; }
 interface Equipamento { id: string; frota: string; tipo: string; nome: string; }
 interface OgsItem { ogs_number: string; client_name: string; location_address: string; }
 interface EngenheiroOpt { id: string; nome: string; }
-interface Contato {
-  id: string;
-  remote_jid: string;
-  remote_name: string;
-  remote_phone: string;
-  conversation_id?: string;
-}
 
 interface Programacao {
   id: string;
@@ -53,8 +45,6 @@ interface Programacao {
 
 const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 const TIPOS_SERVICO = ["PAVIMENTAÇÃO", "RETRABALHO", "FRESAGEM", "INFRA", "BGS", "OUTRO"];
-const SUPABASE_URL = "https://ucgcqexunnsrffzrfhqu.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   RASCUNHO:              { label: "Rascunho",           color: "bg-gray-100 text-gray-600 border-gray-200",   icon: Clock },
@@ -69,26 +59,39 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
-// ─── componente ───────────────────────────────────────────────────────────────
+function montarTextoWA(prog: Programacao): string {
+  const data = prog.data ? prog.data.split("-").reverse().join("/") : "?";
+  const equips = (prog.equipamentos_designados || []).join(", ") || "—";
+  let msg = "🏗️ *PROGRAMAÇÃO DE OBRAS — Workflux*\n\n";
+  msg += "📅 *Data:* " + data + "\n";
+  msg += "👷 *Equipe:* " + prog.equipe + "\n";
+  if (prog.responsavel) msg += "🦺 *Encarregado:* " + prog.responsavel + "\n";
+  if (prog.engenheiro_responsavel) msg += "👨‍💼 *Engenheiro:* " + prog.engenheiro_responsavel + "\n";
+  msg += "🌙 *Período:* " + prog.periodo + "\n";
+  if (prog.tipo_servico) msg += "🔧 *Tipo:* " + prog.tipo_servico + "\n";
+  if (prog.ogs) msg += "📋 *OGS:* " + prog.ogs + "\n";
+  if (prog.cliente) msg += "🏢 *Cliente:* " + prog.cliente + "\n";
+  if (prog.local) msg += "📍 *Local:* " + prog.local + "\n";
+  msg += "\n🚧 *Equipamentos:* " + equips + "\n";
+  if (prog.obs) msg += "\n📝 *Obs:* " + prog.obs + "\n";
+  msg += "\n_Enviado via Workflux_";
+  return msg;
+}
+
 export default function ProgramacaoNoturna() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // dados de referência
   const [equipes, setEquipes]           = useState<Equipe[]>([]);
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [ogsList, setOgsList]           = useState<OgsItem[]>([]);
   const [engenheiros, setEngenheiros]   = useState<EngenheiroOpt[]>([]);
-  const [contatos, setContatos]         = useState<Contato[]>([]);
   const [loading, setLoading]           = useState(true);
   const [saving, setSaving]             = useState(false);
-  const [enviando, setEnviando]         = useState(false);
 
-  // lista de programações
   const [programacoes, setProgramacoes] = useState<Programacao[]>([]);
   const [filtroData, setFiltroData]     = useState(new Date().toISOString().split("T")[0]);
 
-  // form
   const [showForm, setShowForm]             = useState(false);
   const [formData, setFormData]             = useState(new Date().toISOString().split("T")[0]);
   const [formEquipe, setFormEquipe]         = useState("");
@@ -102,63 +105,32 @@ export default function ProgramacaoNoturna() {
   const [formObs, setFormObs]               = useState("");
   const [formEquipSel, setFormEquipSel]     = useState("");
 
-  // modal de destinatários
-  const [showModal, setShowModal]           = useState(false);
-  const [progSalva, setProgSalva]           = useState<Programacao | null>(null);
-  const [destSelecionados, setDestSelecionados] = useState<Set<string>>(new Set());
-  const [busca, setBusca]                   = useState("");
-
-  // ─── carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
-      const [eqs, equips, ogs, profs, convs] = await Promise.all([
+      const [eqs, equips, ogs, profs] = await Promise.all([
         (supabase as any).from("ci_equipes").select("*").eq("ativa", true).order("nome"),
         (supabase as any).from("equipamentos").select("id,frota,tipo,nome").eq("status", "ativo").order("tipo").order("frota"),
         (supabase as any).from("ogs_reference").select("ogs_number,client_name,location_address"),
         supabase.from("profiles").select("id,nome_completo,perfil").eq("status", "ativo").order("nome_completo"),
-        // Contatos WhatsApp disponíveis (com telefone)
-        (supabase as any)
-          .from("wha_conversations")
-          .select("id,remote_jid,remote_name,remote_phone")
-          .not("remote_phone", "is", null)
-          .order("remote_name")
-          .limit(200),
       ]);
-
       setEquipes(eqs.data || []);
       setEquipamentos(equips.data || []);
       setOgsList(sortOgsData(ogs.data || []));
-
-      const engs: EngenheiroOpt[] = (profs.data || [])
-        .filter((p: any) => p.perfil === "Administrador")
-        .map((p: any) => ({ id: p.id, nome: p.nome_completo }));
-      setEngenheiros(engs);
-
-      const cts: Contato[] = (convs.data || []).map((c: any) => ({
-        id: c.id,
-        remote_jid: c.remote_jid,
-        remote_name: c.remote_name || "Sem nome",
-        remote_phone: c.remote_phone,
-        conversation_id: c.id,
-      }));
-      setContatos(cts);
-
+      setEngenheiros(
+        (profs.data || [])
+          .filter((p: any) => p.perfil === "Administrador")
+          .map((p: any) => ({ id: p.id, nome: p.nome_completo }))
+      );
       setLoading(false);
     };
     load();
   }, []);
 
-  useEffect(() => {
-    buscarProgramacoes();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroData]);
+  useEffect(() => { buscarProgramacoes(); }, [filtroData]); // eslint-disable-line
 
   const buscarProgramacoes = async () => {
     const { data } = await (supabase as any)
-      .from("ci_programacoes")
-      .select("*")
-      .eq("data", filtroData)
-      .order("equipe");
+      .from("ci_programacoes").select("*").eq("data", filtroData).order("equipe");
     setProgramacoes(data || []);
   };
 
@@ -180,15 +152,13 @@ export default function ProgramacaoNoturna() {
 
   const removeEquip = (frota: string) => setFormEquipsDesig(prev => prev.filter(f => f !== frota));
 
-  // ─── Passo 1: salva no banco → abre modal destinatários ─────────────────────
   const handleEnviar = async () => {
     if (!formEquipe || !formData) {
       toast({ title: "Preencha equipe e data", variant: "destructive" }); return;
     }
     setSaving(true);
     const equipeInfo = equipes.find(e => e.nome === formEquipe);
-
-    const payload = {
+    const { data: inserted, error } = await (supabase as any).from("ci_programacoes").insert({
       data: formData,
       equipe: formEquipe,
       responsavel: equipeInfo?.responsavel || null,
@@ -204,98 +174,28 @@ export default function ProgramacaoNoturna() {
       obs: formObs || null,
       tipo_servico: formTipo || null,
       confirmado_manutencao: false,
-    };
-
-    const { data: inserted, error } = await (supabase as any)
-      .from("ci_programacoes").insert(payload).select().single();
+    }).select().single();
 
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       setSaving(false); return;
     }
 
-    // Pré-seleciona o encarregado da equipe (se tiver telefone)
-    const enc = contatos.find(c =>
-      equipeInfo?.responsavel &&
-      c.remote_name.toLowerCase().includes(equipeInfo.responsavel.split(" ")[0].toLowerCase())
-    );
-    const presel = new Set<string>();
-    if (enc) presel.add(enc.id);
-
-    setProgSalva(inserted);
-    setDestSelecionados(presel);
-    setBusca("");
-    setShowForm(false);
+    toast({ title: "✅ Programação criada!", description: `${formEquipe} — ${fmtDate(formData)}` });
     resetForm();
+    setShowForm(false);
+    setFiltroData(formData);
     setSaving(false);
-    setShowModal(true);
+
+    // Abre WhatsApp nativo com a mensagem pronta
+    if (inserted) {
+      const texto = montarTextoWA(inserted as Programacao);
+      window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
+    }
   };
 
-  // ─── Passo 2: enviar WhatsApp para selecionados ──────────────────────────────
-  const handleDispararWA = async () => {
-    if (!progSalva) return;
-    if (destSelecionados.size === 0) {
-      // Enviar sem WhatsApp (só salvar)
-      toast({ title: "✅ Programação salva!", description: "Nenhum contato selecionado para WhatsApp." });
-      setShowModal(false);
-      setFiltroData(progSalva.data);
-      buscarProgramacoes();
-      return;
-    }
-
-    setEnviando(true);
-    const destinatarios = contatos
-      .filter(c => destSelecionados.has(c.id))
-      .map(c => ({
-        phone: c.remote_phone,
-        name: c.remote_name,
-        conversation_id: c.conversation_id,
-      }));
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const resp = await fetch(
-        `${SUPABASE_URL}/functions/v1/programacao-send`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token || SUPABASE_ANON_KEY}`,
-            "apikey": SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({
-            programacao_id: progSalva.id,
-            destinatarios,
-          }),
-        }
-      );
-
-      const result = await resp.json();
-
-      if (result.ok) {
-        toast({
-          title: `✅ Enviado para ${result.enviados} contato(s)!`,
-          description: `Equipe ${progSalva.equipe} — ${fmtDate(progSalva.data)}`,
-        });
-      } else {
-        toast({ title: "Programação salva, mas erro no WhatsApp", description: result.error, variant: "destructive" });
-      }
-    } catch (e) {
-      toast({ title: "Programação salva, erro no envio", description: String(e), variant: "destructive" });
-    }
-
-    setShowModal(false);
-    setEnviando(false);
-    setFiltroData(progSalva.data);
-    buscarProgramacoes();
-  };
-
-  const toggleDest = (id: string) => {
-    setDestSelecionados(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  const handleCompartilharWA = (prog: Programacao) => {
+    window.open("https://wa.me/?text=" + encodeURIComponent(montarTextoWA(prog)), "_blank");
   };
 
   const handleCancelar = async (id: string) => {
@@ -310,12 +210,6 @@ export default function ProgramacaoNoturna() {
     setFormEquipsDesig([]); setFormObs(""); setFormEquipSel("");
   };
 
-  const contatosFiltrados = contatos.filter(c =>
-    c.remote_name.toLowerCase().includes(busca.toLowerCase()) ||
-    c.remote_phone.includes(busca)
-  );
-
-  // ─── render ─────────────────────────────────────────────────────────────────
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
   }
@@ -323,102 +217,7 @@ export default function ProgramacaoNoturna() {
   return (
     <div className="min-h-screen bg-background pb-8">
 
-      {/* ── MODAL DESTINATÁRIOS ── */}
-      {showModal && progSalva && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background">
-          {/* header modal */}
-          <div className="sticky top-0 bg-white border-b border-border px-4 py-3 flex items-center gap-3 shadow-sm">
-            <button onClick={() => { setShowModal(false); setFiltroData(progSalva.data); buscarProgramacoes(); }}>
-              <XCircle className="w-5 h-5 text-muted-foreground" />
-            </button>
-            <div className="flex-1">
-              <h2 className="text-base font-bold text-foreground">Enviar via WhatsApp</h2>
-              <p className="text-xs text-muted-foreground">
-                {progSalva.equipe} · {fmtDate(progSalva.data)}
-              </p>
-            </div>
-            <span className="text-xs bg-primary/10 text-primary font-bold rounded-full px-2 py-0.5">
-              {destSelecionados.size} selecionado(s)
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
-            {/* Resumo da programação */}
-            <div className="bg-blue-50 rounded-2xl border border-blue-200 p-3 space-y-1">
-              <p className="text-xs font-bold text-blue-800">📋 Mensagem será enviada com:</p>
-              <p className="text-xs text-blue-700">Equipe: <strong>{progSalva.equipe}</strong></p>
-              {progSalva.ogs && <p className="text-xs text-blue-700">OGS: <strong>{progSalva.ogs}</strong> · {progSalva.cliente}</p>}
-              {progSalva.local && <p className="text-xs text-blue-700">Local: {progSalva.local}</p>}
-              {(progSalva.equipamentos_designados || []).length > 0 && (
-                <p className="text-xs text-blue-700">Equip: {(progSalva.equipamentos_designados || []).join(", ")}</p>
-              )}
-            </div>
-
-            {/* Busca */}
-            <Input
-              placeholder="Buscar contato..."
-              value={busca}
-              onChange={e => setBusca(e.target.value)}
-              className="text-sm"
-            />
-
-            {/* Lista de contatos */}
-            <div className="space-y-1">
-              {contatosFiltrados.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhum contato encontrado</p>
-              ) : (
-                contatosFiltrados.map(c => {
-                  const sel = destSelecionados.has(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => toggleDest(c.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors text-left ${
-                        sel
-                          ? "bg-primary/10 border-primary/30"
-                          : "bg-white border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${sel ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
-                        <User className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{c.remote_name}</p>
-                        <p className="text-xs text-muted-foreground">{c.remote_phone}</p>
-                      </div>
-                      {sel && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Botões do modal */}
-          <div className="sticky bottom-0 bg-white border-t border-border p-4 space-y-2">
-            <Button
-              className="w-full gap-2 font-bold"
-              onClick={handleDispararWA}
-              disabled={enviando}
-            >
-              {enviando
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <MessageCircle className="w-4 h-4" />}
-              {destSelecionados.size > 0
-                ? `Enviar para ${destSelecionados.size} contato(s)`
-                : "Salvar sem enviar"}
-            </Button>
-            <button
-              onClick={() => { setShowModal(false); setFiltroData(progSalva.data); buscarProgramacoes(); }}
-              className="w-full text-sm text-muted-foreground py-1"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Header principal */}
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-border px-4 py-3 flex items-center gap-3 shadow-sm">
         <button onClick={() => navigate(-1)} className="p-1">
           <ArrowLeft className="w-5 h-5 text-muted-foreground" />
@@ -549,10 +348,14 @@ export default function ProgramacaoNoturna() {
               <Textarea value={formObs} onChange={e => setFormObs(e.target.value)} placeholder="Detalhes, instruções especiais..." className="text-sm resize-none" rows={3} />
             </div>
 
+            {/* Botão Enviar — salva + abre WhatsApp nativo */}
             <Button className="w-full gap-2 text-sm font-bold" onClick={handleEnviar} disabled={saving || !formEquipe || !formData}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               Enviar Programação
             </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              Salva no Workflux e abre o WhatsApp para você encaminhar
+            </p>
           </div>
         )}
 
@@ -585,7 +388,6 @@ export default function ProgramacaoNoturna() {
               const cfg = STATUS_CONFIG[prog.status_programacao] || STATUS_CONFIG.CONFIRMADO;
               const Icon = cfg.icon;
               const equips = prog.equipamentos_designados || [];
-
               return (
                 <div key={prog.id} className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
@@ -593,57 +395,30 @@ export default function ProgramacaoNoturna() {
                       <p className="text-sm font-bold text-foreground">{prog.equipe}</p>
                       {prog.responsavel && <p className="text-xs text-muted-foreground">Enc: {prog.responsavel}</p>}
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className={`flex items-center gap-1 text-xs font-semibold border px-2 py-0.5 rounded-full ${cfg.color}`}>
-                        <Icon className="w-3 h-3" />{cfg.label}
-                      </span>
-                      {prog.notificado_em && (
-                        <span className="flex items-center gap-1 text-xs text-green-600">
-                          <MessageCircle className="w-3 h-3" /> Notificado
-                        </span>
-                      )}
-                    </div>
+                    <span className={`flex items-center gap-1 text-xs font-semibold border px-2 py-0.5 rounded-full ${cfg.color}`}>
+                      <Icon className="w-3 h-3" />{cfg.label}
+                    </span>
                   </div>
 
                   <div className="space-y-1">
                     {prog.ogs && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground w-16 shrink-0">OGS</span>
-                        <span className="text-xs font-semibold text-foreground">{prog.ogs}</span>
+                        <span className="text-xs font-semibold">{prog.ogs}</span>
                         {prog.tipo_servico && <span className="text-xs bg-blue-100 text-blue-700 rounded px-1.5">{prog.tipo_servico}</span>}
                       </div>
                     )}
-                    {prog.cliente && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-16 shrink-0">Cliente</span>
-                        <span className="text-xs text-foreground">{prog.cliente}</span>
-                      </div>
-                    )}
-                    {prog.local && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-16 shrink-0">Local</span>
-                        <span className="text-xs text-foreground">{prog.local}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-16 shrink-0">Período</span>
-                      <span className="text-xs font-medium text-foreground">{prog.periodo}</span>
-                    </div>
-                    {prog.engenheiro_responsavel && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-16 shrink-0">Eng.</span>
-                        <span className="text-xs text-foreground">{prog.engenheiro_responsavel}</span>
-                      </div>
-                    )}
+                    {prog.cliente && <div className="flex gap-2"><span className="text-xs text-muted-foreground w-16 shrink-0">Cliente</span><span className="text-xs">{prog.cliente}</span></div>}
+                    {prog.local && <div className="flex gap-2"><span className="text-xs text-muted-foreground w-16 shrink-0">Local</span><span className="text-xs">{prog.local}</span></div>}
+                    <div className="flex gap-2"><span className="text-xs text-muted-foreground w-16 shrink-0">Período</span><span className="text-xs font-medium">{prog.periodo}</span></div>
+                    {prog.engenheiro_responsavel && <div className="flex gap-2"><span className="text-xs text-muted-foreground w-16 shrink-0">Eng.</span><span className="text-xs">{prog.engenheiro_responsavel}</span></div>}
                   </div>
 
                   {equips.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground mb-1">Equipamentos</p>
                       <div className="flex flex-wrap gap-1">
-                        {equips.map(f => (
-                          <span key={f} className="text-xs bg-blue-50 text-blue-800 border border-blue-200 rounded px-2 py-0.5">{f}</span>
-                        ))}
+                        {equips.map(f => <span key={f} className="text-xs bg-blue-50 text-blue-800 border border-blue-200 rounded px-2 py-0.5">{f}</span>)}
                       </div>
                     </div>
                   )}
@@ -660,19 +435,21 @@ export default function ProgramacaoNoturna() {
 
                   {prog.obs && <p className="text-xs text-muted-foreground italic border-t border-border pt-2">{prog.obs}</p>}
 
-                  {prog.status_programacao !== "CANCELADO" && prog.status_programacao !== "CONFIRMADO" && (
-                    <div className="flex items-center justify-between pt-1 border-t border-border">
-                      <button
-                        onClick={() => { setProgSalva(prog); setDestSelecionados(new Set()); setBusca(""); setShowModal(true); }}
-                        className="text-xs text-primary font-semibold flex items-center gap-1"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" /> Reenviar WA
-                      </button>
+                  <div className="flex items-center justify-between pt-1 border-t border-border gap-2">
+                    {/* Compartilhar via WA nativo */}
+                    <button
+                      onClick={() => handleCompartilharWA(prog)}
+                      className="flex items-center gap-1.5 text-xs text-green-700 font-semibold bg-green-50 border border-green-200 rounded-lg px-3 py-1.5"
+                    >
+                      <Share2 className="w-3.5 h-3.5" /> Compartilhar WA
+                    </button>
+
+                    {prog.status_programacao !== "CANCELADO" && prog.status_programacao !== "CONFIRMADO" && (
                       <button onClick={() => handleCancelar(prog.id)} className="text-xs text-red-500 font-semibold flex items-center gap-1">
                         <XCircle className="w-3.5 h-3.5" /> Cancelar
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })

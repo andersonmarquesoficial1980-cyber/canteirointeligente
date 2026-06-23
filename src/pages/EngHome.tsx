@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, History } from "lucide-react";
+import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
 interface RdoPendente {
   id: string;
@@ -84,6 +85,9 @@ export default function EngHome() {
   return (
     <>
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6 pb-24">
+
+        {/* Programações do dia */}
+        <ProgramacoesDoDia />
         {/* Header */}
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/")} className="p-2 rounded-lg hover:bg-muted">

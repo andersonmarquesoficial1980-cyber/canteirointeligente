@@ -8,6 +8,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
 interface Funcionario {
   id: string;
@@ -414,6 +415,10 @@ export default function GestaoPessoasDashboard() {
 
       {/* Painel resumo */}
       <div style={{ background: "linear-gradient(135deg, #0A0F2C, #0D1B4B)", padding: "20px 16px" }}>
+        {/* Programações do dia */}
+        <div style={{ maxWidth: 760, margin: "0 auto 16px auto" }}>
+          <ProgramacoesDoDia />
+        </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", maxWidth: 760, margin: "0 auto" }}>
           {[
             { label: "Total",        value: todos.length,                                                                        cor: "#00C6FF" },

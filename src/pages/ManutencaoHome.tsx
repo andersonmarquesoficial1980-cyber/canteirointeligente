@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Wrench, FileText, Fuel, ChevronRight, AlertTriangle, C
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import NovaOSModal from "@/components/manutencao/NovaOSModal";
+import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
 interface OS {
   id: string;

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowLeft, Plus, Car, Truck, Wrench, FileText, Search, ChevronRight, BarChart3, Loader2, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -256,6 +257,9 @@ export default function GestaoFrotasHome() {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+
+        {/* Programações do dia */}
+        {step === "tipo" && <ProgramacoesDoDia />}
 
         {/* PASSO 1: Tipo */}
         {step === "tipo" && (
