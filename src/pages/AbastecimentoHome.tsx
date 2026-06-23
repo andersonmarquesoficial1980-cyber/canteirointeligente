@@ -388,6 +388,12 @@ export default function AbastecimentoHome() {
         {/* ── LISTA COM ACORDEÃO ── */}
         {loading ? (
           <div className="text-center py-12"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
+        ) : !filtroFrota && !filtroOgs && !filtroDataInicio && !filtroDataFim && (!filtroTipoEquipamento || filtroTipoEquipamento === "__todos__") ? (
+          <div className="text-center py-10 border border-dashed border-border rounded-2xl">
+            <Truck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-muted-foreground">Digite a frota ou aplique um filtro</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Use o campo "Frota" acima para buscar um equipamento</p>
+          </div>
         ) : filtrados.length === 0 ? (
           <div className="text-center py-12">
             <Fuel className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
