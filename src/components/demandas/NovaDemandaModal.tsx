@@ -87,6 +87,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
 
   const [transporteEquipamentos, setTransporteEquipamentos] = useState<string[]>([]);
   const [transporteResponsavelId, setTransporteResponsavelId] = useState("");
+  const [transporteDestinatariosExtra, setTransporteDestinatariosExtra] = useState<string[]>([]);
   const [origem, setOrigem] = useState("");
   const [origemMaps, setOrigemMaps] = useState("");
   const [destino, setDestino] = useState("");
@@ -198,6 +199,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
     setSetorOrigemMaterial("");
     setTransporteEquipamentos([]);
     setTransporteResponsavelId("");
+    setTransporteDestinatariosExtra([]);
     setOrigem("");
     setOrigemMaps("");
     setDestino("");
@@ -359,6 +361,9 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
       ...(responsavelTransporte && {
         funcionario_solicitado_id: responsavelTransporte.id,
         funcionario_solicitado_nome: responsavelTransporte.nome_completo,
+      }),
+      ...(transporteDestinatariosExtra.length > 0 && {
+        viewed_by: transporteDestinatariosExtra,
       }),
     };
 
@@ -688,22 +693,66 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Responsável pelo transporte (opcional)</Label>
-                    <Select value={transporteResponsavelId} onValueChange={setTransporteResponsavelId}>
-                      <SelectTrigger className="h-11"><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
+                    <Label>Destinatários no Workflux</Label>
+                    <p className="text-xs text-muted-foreground">Quem vai receber e ver essa demanda em "Minhas Demandas"</p>
+
+                    {/* Lista de destinatários já adicionados */}
+                    {(transporteResponsavelId || transporteDestinatariosExtra.length > 0) && (
+                      <div className="space-y-1">
+                        {transporteResponsavelId && (() => {
+                          const u = usuariosWorkflux.find(x => x.user_id === transporteResponsavelId);
+                          return u ? (
+                            <div key={u.user_id} className="flex items-center justify-between rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm">
+                              <span>{u.nome_completo} <span className="text-xs text-muted-foreground">— {u.perfil}</span></span>
+                              <button type="button" onClick={() => setTransporteResponsavelId("")} className="text-muted-foreground hover:text-destructive ml-2 text-xs">✕</button>
+                            </div>
+                          ) : null;
+                        })()}
+                        {transporteDestinatariosExtra.map((uid) => {
+                          const u = usuariosWorkflux.find(x => x.id === uid);
+                          return u ? (
+                            <div key={uid} className="flex items-center justify-between rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm">
+                              <span>{u.nome_completo} <span className="text-xs text-muted-foreground">— {u.perfil}</span></span>
+                              <button type="button" onClick={() => setTransporteDestinatariosExtra(prev => prev.filter(x => x !== uid))} className="text-muted-foreground hover:text-destructive ml-2 text-xs">✕</button>
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+
+                    {/* Select para adicionar mais */}
+                    <Select
+                      value=""
+                      onValueChange={(uid) => {
+                        if (!uid) return;
+                        const u = usuariosWorkflux.find(x => x.user_id === uid);
+                        if (!u) return;
+                        // Primeiro destinatário vai no principal, demais no extra (por profile.id)
+                        if (!transporteResponsavelId) {
+                          setTransporteResponsavelId(uid);
+                        } else {
+                          setTransporteDestinatariosExtra(prev =>
+                            prev.includes(u.id) ? prev : [...prev, u.id]
+                          );
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="+ Adicionar destinatário" />
+                      </SelectTrigger>
                       <SelectContent>
-                        {usuariosWorkflux.map((u) => (
-                          <SelectItem key={u.user_id} value={u.user_id}>
-                            {u.nome_completo} — {u.perfil}
-                          </SelectItem>
-                        ))}
+                        {usuariosWorkflux
+                          .filter(u =>
+                            u.user_id !== transporteResponsavelId &&
+                            !transporteDestinatariosExtra.includes(u.id)
+                          )
+                          .map((u) => (
+                            <SelectItem key={u.user_id} value={u.user_id}>
+                              {u.nome_completo} — {u.perfil}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
-                    {responsavelTransporte && (
-                      <p className="text-xs text-muted-foreground">
-                        ✅ Demanda vinculada a <span className="font-medium text-foreground">{responsavelTransporte.nome_completo}</span>
-                      </p>
-                    )}
                   </div>
                 </div>
               )}

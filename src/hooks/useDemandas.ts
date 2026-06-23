@@ -116,6 +116,7 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
     }
 
     if (demanda.funcionario_solicitado_id) {
+      // Notifica o destinatário principal
       supabase.functions.invoke("send-push", {
         body: {
           user_id: demanda.funcionario_solicitado_id,
@@ -124,6 +125,19 @@ export function useDemandas(filtroStatus?: StatusDemanda) {
           url: "/minhas-demandas",
         },
       }).catch(() => {});
+
+      // Notifica destinatários adicionais (stored in viewed_by)
+      const extras: string[] = Array.isArray((demanda as any).viewed_by) ? (demanda as any).viewed_by : [];
+      extras.forEach((uid: string) => {
+        supabase.functions.invoke("send-push", {
+          body: {
+            user_id: uid,
+            title: "📋 Nova demanda para você",
+            body: demanda.titulo,
+            url: "/minhas-demandas",
+          },
+        }).catch(() => {});
+      });
     }
 
     toast({ title: "Demanda criada" });

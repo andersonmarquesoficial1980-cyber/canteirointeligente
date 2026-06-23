@@ -140,14 +140,44 @@ export default function MinhasDemandas() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const { data, error } = await (supabase as any)
-      .from("demandas")
-      .select("*")
-      .eq("funcionario_id", profile?.id ?? user.id)
-      .neq("status", "cancelada")
-      .order("created_at", { ascending: false });
+    const profileId = profile?.id ?? user.id;
 
-    if (!error && data) setDemandas(data as Demanda[]);
+    // Busca demandas onde o usuário é: destinatário principal OU destinatário adicional (viewed_by)
+    const [{ data: data1 }, { data: data2 }, { data: data3 }] = await Promise.all([
+      // 1. Tarefas delegadas diretamente (funcionario_id)
+      (supabase as any)
+        .from("demandas")
+        .select("*")
+        .eq("funcionario_id", profileId)
+        .neq("status", "cancelada")
+        .order("created_at", { ascending: false }),
+      // 2. Demandas de transporte (funcionario_solicitado_id)
+      (supabase as any)
+        .from("demandas")
+        .select("*")
+        .eq("funcionario_solicitado_id", profileId)
+        .neq("status", "cancelada")
+        .order("created_at", { ascending: false }),
+      // 3. Destinatários adicionais (viewed_by contains profileId)
+      (supabase as any)
+        .from("demandas")
+        .select("*")
+        .contains("viewed_by", [profileId])
+        .neq("status", "cancelada")
+        .order("created_at", { ascending: false }),
+    ]);
+
+    // Merge sem duplicatas
+    const merged = [...(data1 || []), ...(data2 || []), ...(data3 || [])];
+    const seen = new Set<string>();
+    const unique = merged.filter((d: any) => {
+      if (seen.has(d.id)) return false;
+      seen.add(d.id);
+      return true;
+    });
+    unique.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    if (unique.length > 0) setDemandas(unique as Demanda[]);
     setLoading(false);
   };
 
