@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, ClipboardCheck, Calendar, User, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
+import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
@@ -85,6 +86,9 @@ export default function SSTHome() {
       </div>
 
       <div style={{ maxWidth: 760, margin: "0 auto", padding: 16 }}>
+        {/* Programações do dia */}
+        <div className="mb-4"><ProgramacoesDoDia /></div>
+
         {loading ? (
           <p style={{ textAlign: "center", color: "#9ca3af", padding: "40px 0" }}>Carregando...</p>
         ) : inspecoes.length === 0 ? (
