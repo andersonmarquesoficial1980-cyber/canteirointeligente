@@ -74,6 +74,10 @@ export default function UsersManager() {
       toast({ title: "Preencha nome, login e senha", variant: "destructive" });
       return;
     }
+    if (password.length < 6) {
+      toast({ title: "Senha muito curta", description: "A senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
+      return;
+    }
     setCreating(true);
     const loginValue = login.trim().toLowerCase();
     const authEmail = loginValue.includes("@") ? loginValue : `${loginValue}${LOGIN_DOMAIN}`;
@@ -83,7 +87,20 @@ export default function UsersManager() {
         body: { email: authEmail, password, nome_completo: nome.trim(), perfil, login_original: loginValue },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-      if (invokeError || result?.error) throw new Error(result?.error || invokeError?.message || "Erro ao criar usuário");
+
+      // Extrai mensagem real — invokeError.context tem o body da resposta 4xx
+      if (invokeError) {
+        let msg = invokeError.message || "Erro ao criar usuário";
+        try {
+          const ctx = (invokeError as any).context;
+          if (ctx) {
+            const body = typeof ctx.json === "function" ? await ctx.json() : null;
+            if (body?.error) msg = body.error;
+          }
+        } catch {}
+        throw new Error(msg);
+      }
+      if (result?.error) throw new Error(result.error);
 
       const newUserId = result?.user_id;
       if (newUserId && PERFIL_PERMISSIONS[perfil]) {
