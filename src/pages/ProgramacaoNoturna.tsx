@@ -1,5 +1,4 @@
-// ProgramacaoNoturna — Fase 1: Engenharia/Programador cria OS Noturna
-// Novo módulo isolado — não altera nenhuma tela existente
+// ProgramacaoNoturna — Fase 1 (rev2): remove carretas, engenheiro selecionável, botão único Enviar
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,15 +12,15 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, Plus, Trash2, CalendarDays, ClipboardList,
-  CheckCircle2, Clock, XCircle, ChevronRight, Loader2, HardHat,
+  CheckCircle2, Clock, XCircle, ChevronRight, Loader2, HardHat, Send,
 } from "lucide-react";
 import { sortOgsData } from "@/hooks/useOgsReference";
 
 // ─── tipos ────────────────────────────────────────────────────────────────────
 interface Equipe { id: string; nome: string; responsavel: string | null; }
 interface Equipamento { id: string; frota: string; tipo: string; nome: string; }
-interface Carreta { id: string; frota: string; modelo: string; }
 interface OgsItem { ogs_number: string; client_name: string; location_address: string; }
+interface EngenheiroOpt { id: string; nome: string; }
 
 interface Programacao {
   id: string;
@@ -50,10 +49,10 @@ const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 const TIPOS_SERVICO = ["PAVIMENTAÇÃO", "RETRABALHO", "FRESAGEM", "INFRA", "BGS", "OUTRO"];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  RASCUNHO:            { label: "Rascunho",            color: "bg-gray-100 text-gray-600 border-gray-200",     icon: Clock },
-  AGUARDANDO_MANUTENCAO: { label: "Aguard. Manutenção", color: "bg-amber-50 text-amber-700 border-amber-200",  icon: Clock },
-  CONFIRMADO:          { label: "Confirmado",           color: "bg-green-50 text-green-700 border-green-200",   icon: CheckCircle2 },
-  CANCELADO:           { label: "Cancelado",            color: "bg-red-50 text-red-700 border-red-200",         icon: XCircle },
+  RASCUNHO:              { label: "Rascunho",            color: "bg-gray-100 text-gray-600 border-gray-200",    icon: Clock },
+  AGUARDANDO_MANUTENCAO: { label: "Aguard. Manutenção",  color: "bg-amber-50 text-amber-700 border-amber-200",  icon: Clock },
+  CONFIRMADO:            { label: "Confirmado",           color: "bg-green-50 text-green-700 border-green-200",  icon: CheckCircle2 },
+  CANCELADO:             { label: "Cancelado",            color: "bg-red-50 text-red-700 border-red-200",        icon: XCircle },
 };
 
 function fmtDate(d: string) {
@@ -68,46 +67,53 @@ export default function ProgramacaoNoturna() {
   const { toast } = useToast();
 
   // dados de referência
-  const [equipes, setEquipes]         = useState<Equipe[]>([]);
+  const [equipes, setEquipes]           = useState<Equipe[]>([]);
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
-  const [carretas, setCarretas]       = useState<Carreta[]>([]);
-  const [ogsList, setOgsList]         = useState<OgsItem[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [saving, setSaving]           = useState(false);
+  const [ogsList, setOgsList]           = useState<OgsItem[]>([]);
+  const [engenheiros, setEngenheiros]   = useState<EngenheiroOpt[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [saving, setSaving]             = useState(false);
 
   // lista de programações
   const [programacoes, setProgramacoes] = useState<Programacao[]>([]);
   const [filtroData, setFiltroData]     = useState(new Date().toISOString().split("T")[0]);
 
   // form
-  const [showForm, setShowForm]           = useState(false);
-  const [formData, setFormData]           = useState(new Date().toISOString().split("T")[0]);
-  const [formEquipe, setFormEquipe]       = useState("");
-  const [formOgs, setFormOgs]             = useState("");
-  const [formCliente, setFormCliente]     = useState("");
-  const [formLocal, setFormLocal]         = useState("");
-  const [formPeriodo, setFormPeriodo]     = useState("NOTURNO");
-  const [formTipo, setFormTipo]           = useState("");
+  const [showForm, setShowForm]             = useState(false);
+  const [formData, setFormData]             = useState(new Date().toISOString().split("T")[0]);
+  const [formEquipe, setFormEquipe]         = useState("");
+  const [formOgs, setFormOgs]               = useState("");
+  const [formCliente, setFormCliente]       = useState("");
+  const [formLocal, setFormLocal]           = useState("");
+  const [formPeriodo, setFormPeriodo]       = useState("NOTURNO");
+  const [formTipo, setFormTipo]             = useState("");
   const [formEngenheiro, setFormEngenheiro] = useState("");
   const [formEquipsDesig, setFormEquipsDesig] = useState<string[]>([]);
-  const [formCarretasDesig, setFormCarretasDesig] = useState<string[]>([]);
-  const [formObs, setFormObs]             = useState("");
-  const [formEquipSel, setFormEquipSel]   = useState("");
-  const [formCarretaSel, setFormCarretaSel] = useState("");
+  const [formObs, setFormObs]               = useState("");
+  const [formEquipSel, setFormEquipSel]     = useState("");
 
   // ─── carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
-      const [eqs, equips, carr, ogs] = await Promise.all([
+      const [eqs, equips, ogs, profs] = await Promise.all([
         (supabase as any).from("ci_equipes").select("*").eq("ativa", true).order("nome"),
         (supabase as any).from("equipamentos").select("id,frota,tipo,nome").eq("status", "ativo").order("tipo").order("frota"),
-        (supabase as any).from("equipamentos").select("id,frota,nome").in("tipo", ["CAMINHÃO PLATAFORMA", "CARRETA CM"]).eq("status", "ativo").order("frota"),
         (supabase as any).from("ogs_reference").select("ogs_number,client_name,location_address"),
+        // Busca profiles Administrador como lista de engenheiros disponíveis
+        // (na Fase futura: tabela própria de engenheiros)
+        supabase.from("profiles").select("id,nome_completo,perfil").eq("status", "ativo").order("nome_completo"),
       ]);
+
       setEquipes(eqs.data || []);
       setEquipamentos(equips.data || []);
-      setCarretas(carr.data || []);
       setOgsList(sortOgsData(ogs.data || []));
+
+      // Usa profiles Administrador como engenheiros por enquanto
+      const engs: EngenheiroOpt[] = (profs.data || [])
+        .filter((p: any) => p.perfil === "Administrador")
+        .map((p: any) => ({ id: p.id, nome: p.nome_completo }));
+      setEngenheiros(engs);
+
       setLoading(false);
     };
     load();
@@ -139,7 +145,7 @@ export default function ProgramacaoNoturna() {
     }
   };
 
-  // ─── adicionar equipamento à lista ──────────────────────────────────────────
+  // ─── equipamentos ───────────────────────────────────────────────────────────
   const addEquip = () => {
     if (!formEquipSel || formEquipsDesig.includes(formEquipSel)) return;
     setFormEquipsDesig(prev => [...prev, formEquipSel]);
@@ -150,18 +156,10 @@ export default function ProgramacaoNoturna() {
     setFormEquipsDesig(prev => prev.filter(f => f !== frota));
   };
 
-  const addCarreta = () => {
-    if (!formCarretaSel || formCarretasDesig.includes(formCarretaSel)) return;
-    setFormCarretasDesig(prev => [...prev, formCarretaSel]);
-    setFormCarretaSel("");
-  };
-
-  const removeCarreta = (frota: string) => {
-    setFormCarretasDesig(prev => prev.filter(f => f !== frota));
-  };
-
-  // ─── salvar programação ─────────────────────────────────────────────────────
-  const handleSalvar = async (status: "RASCUNHO" | "AGUARDANDO_MANUTENCAO") => {
+  // ─── salvar e enviar ────────────────────────────────────────────────────────
+  // Botão único "Enviar" → salva como AGUARDANDO_MANUTENCAO
+  // (na Fase 2: dispara WhatsApp automaticamente após salvar)
+  const handleEnviar = async () => {
     if (!formEquipe || !formData) {
       toast({ title: "Preencha equipe e data", variant: "destructive" });
       return;
@@ -179,9 +177,9 @@ export default function ProgramacaoNoturna() {
       local: formLocal || null,
       periodo: formPeriodo,
       status_equipe: "TRABALHOU",
-      status_programacao: status,
+      status_programacao: "AGUARDANDO_MANUTENCAO",
       equipamentos_designados: formEquipsDesig.length ? formEquipsDesig : [],
-      carretas_designadas: formCarretasDesig.length ? formCarretasDesig : [],
+      carretas_designadas: [],
       engenheiro_responsavel: formEngenheiro || null,
       obs: formObs || null,
       tipo_servico: formTipo || null,
@@ -191,17 +189,16 @@ export default function ProgramacaoNoturna() {
     const { error } = await (supabase as any).from("ci_programacoes").insert(payload);
 
     if (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" });
     } else {
       toast({
-        title: status === "AGUARDANDO_MANUTENCAO"
-          ? "✅ Programação enviada para Manutenção!"
-          : "✅ Rascunho salvo!",
+        title: "✅ Programação enviada!",
         description: `Equipe ${formEquipe} — ${fmtDate(formData)}`,
       });
       resetForm();
       setShowForm(false);
-      buscarProgramacoes();
+      // Atualiza a lista para a data da programação criada
+      setFiltroData(formData);
     }
     setSaving(false);
   };
@@ -227,10 +224,8 @@ export default function ProgramacaoNoturna() {
     setFormTipo("");
     setFormEngenheiro("");
     setFormEquipsDesig([]);
-    setFormCarretasDesig([]);
     setFormObs("");
     setFormEquipSel("");
-    setFormCarretaSel("");
   };
 
   // ─── render ─────────────────────────────────────────────────────────────────
@@ -250,11 +245,11 @@ export default function ProgramacaoNoturna() {
           <ArrowLeft className="w-5 h-5 text-muted-foreground" />
         </button>
         <div className="flex-1">
-          <h1 className="text-base font-bold text-foreground">Programação Noturna</h1>
-          <p className="text-xs text-muted-foreground">Planejamento de obras e equipes</p>
+          <h1 className="text-base font-bold text-foreground">Programação de Obras</h1>
+          <p className="text-xs text-muted-foreground">Planejamento de equipes e equipamentos</p>
         </div>
         <button
-          onClick={() => { resetForm(); setShowForm(true); }}
+          onClick={() => { resetForm(); setFormData(filtroData); setShowForm(true); }}
           className="flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-3 py-1.5 rounded-xl"
         >
           <Plus className="w-4 h-4" /> Nova
@@ -263,7 +258,7 @@ export default function ProgramacaoNoturna() {
 
       <div className="px-4 pt-4 space-y-4 max-w-lg mx-auto">
 
-        {/* ── FORMULÁRIO (colapsável) ── */}
+        {/* ── FORMULÁRIO ── */}
         {showForm && (
           <div className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -278,9 +273,7 @@ export default function ProgramacaoNoturna() {
 
             {/* Data */}
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Data da Obra
-              </Label>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Data da Obra</Label>
               <Input
                 type="date"
                 value={formData}
@@ -291,9 +284,7 @@ export default function ProgramacaoNoturna() {
 
             {/* Equipe */}
             <div className="space-y-1">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Equipe *
-              </Label>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipe *</Label>
               <Select value={formEquipe} onValueChange={setFormEquipe}>
                 <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Selecione a equipe..." />
@@ -303,8 +294,7 @@ export default function ProgramacaoNoturna() {
                     .filter(e => e.nome.startsWith("CBUQ") || e.nome.startsWith("GRU"))
                     .map(e => (
                       <SelectItem key={e.id} value={e.nome}>
-                        {e.nome}
-                        {e.responsavel ? ` — ${e.responsavel}` : ""}
+                        {e.nome}{e.responsavel ? ` — ${e.responsavel}` : ""}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -354,12 +344,12 @@ export default function ProgramacaoNoturna() {
               </Select>
               {formCliente && (
                 <p className="text-xs text-muted-foreground pl-1">
-                  {formCliente} {formLocal ? `· ${formLocal}` : ""}
+                  {formCliente}{formLocal ? ` · ${formLocal}` : ""}
                 </p>
               )}
             </div>
 
-            {/* Local (editável) */}
+            {/* Local editável */}
             {formOgs && (
               <div className="space-y-1">
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Local / Rua</Label>
@@ -372,22 +362,24 @@ export default function ProgramacaoNoturna() {
               </div>
             )}
 
-            {/* Engenheiro responsável */}
+            {/* Engenheiro responsável — selecionável */}
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Engenheiro Responsável</Label>
-              <Input
-                value={formEngenheiro}
-                onChange={e => setFormEngenheiro(e.target.value)}
-                placeholder="Nome do engenheiro..."
-                className="text-sm"
-              />
+              <Select value={formEngenheiro} onValueChange={setFormEngenheiro}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Selecione o engenheiro..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {engenheiros.map(e => (
+                    <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Equipamentos designados */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Equipamentos Designados
-              </Label>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipamentos Designados</Label>
               <div className="flex gap-2">
                 <div className="flex-1">
                   <Select value={formEquipSel} onValueChange={setFormEquipSel}>
@@ -430,53 +422,6 @@ export default function ProgramacaoNoturna() {
               )}
             </div>
 
-            {/* Carretas */}
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Carretas de Transporte
-              </Label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Select value={formCarretaSel} onValueChange={setFormCarretaSel}>
-                    <SelectTrigger className="text-sm">
-                      <SelectValue placeholder="Selecionar carreta..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {carretas
-                        .filter(c => !formCarretasDesig.includes(c.frota))
-                        .map(c => (
-                          <SelectItem key={c.id} value={c.frota}>
-                            {c.frota} — {c.modelo || "Plataforma"}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={addCarreta}
-                  disabled={!formCarretaSel}
-                  className="shrink-0"
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-              {formCarretasDesig.length > 0 && (
-                <div className="space-y-1">
-                  {formCarretasDesig.map(frota => (
-                    <div key={frota} className="flex items-center justify-between bg-orange-50 rounded-lg px-3 py-2">
-                      <span className="text-sm font-medium text-orange-800">{frota}</span>
-                      <button onClick={() => removeCarreta(frota)}>
-                        <Trash2 className="w-3.5 h-3.5 text-orange-400 hover:text-red-500" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Observações */}
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observações</Label>
@@ -489,24 +434,17 @@ export default function ProgramacaoNoturna() {
               />
             </div>
 
-            {/* Botões */}
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                className="flex-1 text-sm"
-                onClick={() => handleSalvar("RASCUNHO")}
-                disabled={saving}
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Rascunho"}
-              </Button>
-              <Button
-                className="flex-1 text-sm"
-                onClick={() => handleSalvar("AGUARDANDO_MANUTENCAO")}
-                disabled={saving || !formEquipe}
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar p/ Manutenção"}
-              </Button>
-            </div>
+            {/* Botão único Enviar */}
+            <Button
+              className="w-full gap-2 text-sm font-bold"
+              onClick={handleEnviar}
+              disabled={saving || !formEquipe || !formData}
+            >
+              {saving
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Send className="w-4 h-4" />}
+              Enviar Programação
+            </Button>
           </div>
         )}
 
@@ -549,13 +487,9 @@ export default function ProgramacaoNoturna() {
               const cfg = STATUS_CONFIG[prog.status_programacao] || STATUS_CONFIG.CONFIRMADO;
               const Icon = cfg.icon;
               const equips = prog.equipamentos_designados || [];
-              const carrs = prog.carretas_designadas || [];
 
               return (
-                <div
-                  key={prog.id}
-                  className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3"
-                >
+                <div key={prog.id} className="bg-white rounded-2xl border border-border shadow-sm p-4 space-y-3">
                   {/* Cabeçalho */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -574,7 +508,7 @@ export default function ProgramacaoNoturna() {
                   <div className="space-y-1">
                     {prog.ogs && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-14 shrink-0">OGS</span>
+                        <span className="text-xs text-muted-foreground w-16 shrink-0">OGS</span>
                         <span className="text-xs font-semibold text-foreground">{prog.ogs}</span>
                         {prog.tipo_servico && (
                           <span className="text-xs bg-blue-100 text-blue-700 rounded px-1.5">{prog.tipo_servico}</span>
@@ -583,23 +517,23 @@ export default function ProgramacaoNoturna() {
                     )}
                     {prog.cliente && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-14 shrink-0">Cliente</span>
+                        <span className="text-xs text-muted-foreground w-16 shrink-0">Cliente</span>
                         <span className="text-xs text-foreground">{prog.cliente}</span>
                       </div>
                     )}
                     {prog.local && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-14 shrink-0">Local</span>
+                        <span className="text-xs text-muted-foreground w-16 shrink-0">Local</span>
                         <span className="text-xs text-foreground">{prog.local}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-14 shrink-0">Período</span>
+                      <span className="text-xs text-muted-foreground w-16 shrink-0">Período</span>
                       <span className="text-xs font-medium text-foreground">{prog.periodo}</span>
                     </div>
                     {prog.engenheiro_responsavel && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-14 shrink-0">Eng.</span>
+                        <span className="text-xs text-muted-foreground w-16 shrink-0">Eng.</span>
                         <span className="text-xs text-foreground">{prog.engenheiro_responsavel}</span>
                       </div>
                     )}
@@ -612,20 +546,6 @@ export default function ProgramacaoNoturna() {
                       <div className="flex flex-wrap gap-1">
                         {equips.map(f => (
                           <span key={f} className="text-xs bg-blue-50 text-blue-800 border border-blue-200 rounded px-2 py-0.5">
-                            {f}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Carretas */}
-                  {carrs.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">Carretas</p>
-                      <div className="flex flex-wrap gap-1">
-                        {carrs.map(f => (
-                          <span key={f} className="text-xs bg-orange-50 text-orange-800 border border-orange-200 rounded px-2 py-0.5">
                             {f}
                           </span>
                         ))}
@@ -648,12 +568,10 @@ export default function ProgramacaoNoturna() {
 
                   {/* Obs */}
                   {prog.obs && (
-                    <p className="text-xs text-muted-foreground italic border-t border-border pt-2">
-                      {prog.obs}
-                    </p>
+                    <p className="text-xs text-muted-foreground italic border-t border-border pt-2">{prog.obs}</p>
                   )}
 
-                  {/* Ações */}
+                  {/* Ação cancelar */}
                   {prog.status_programacao !== "CANCELADO" && prog.status_programacao !== "CONFIRMADO" && (
                     <div className="flex justify-end pt-1 border-t border-border">
                       <button
