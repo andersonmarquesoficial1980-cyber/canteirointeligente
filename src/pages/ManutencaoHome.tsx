@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Wrench, FileText, Fuel, ChevronRight, AlertTriangle, Clock, CheckCircle, Loader2, Tv } from "lucide-react";
+import { ArrowLeft, Plus, Wrench, FileText, Fuel, ChevronRight, AlertTriangle, Clock, CheckCircle, Loader2, Tv, HardHat, CheckCircle2, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import NovaOSModal from "@/components/manutencao/NovaOSModal";
@@ -27,6 +27,22 @@ interface DocVencendo {
   tipo_documento: string;
   data_vencimento: string;
   dias_restantes: number;
+}
+
+interface ProgPendente {
+  id: string;
+  data: string;
+  equipe: string;
+  responsavel: string | null;
+  ogs: string | null;
+  cliente: string | null;
+  local: string | null;
+  periodo: string;
+  tipo_servico: string | null;
+  equipamentos_designados: string[] | null;
+  engenheiro_responsavel: string | null;
+  obs: string | null;
+  confirmado_manutencao: boolean;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -56,6 +72,8 @@ export default function ManutencaoHome() {
   const [aba, setAba] = useState<"os" | "docs">("os");
   const [osList, setOsList] = useState<OS[]>([]);
   const [docsVencendo, setDocsVencendo] = useState<DocVencendo[]>([]);
+  const [progsPendentes, setProgsPendentes] = useState<ProgPendente[]>([]);
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState("todas");
   const [modalNovaOS, setModalNovaOS] = useState(false);
@@ -64,17 +82,31 @@ export default function ManutencaoHome() {
 
   async function buscarDados() {
     setLoading(true);
-    const [{ data: os }, { data: docs }] = await Promise.all([
+    const hoje = new Date().toISOString().split("T")[0];
+    const amanha = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+
+    const [{ data: os }, { data: docs }, { data: progs }] = await Promise.all([
       supabase.from("manutencao_os").select("*").order("created_at", { ascending: false }),
       supabase.from("manutencao_documentos").select("*").not("data_vencimento", "is", null),
+      // Programações de hoje e amanhã aguardando confirmação da manutenção
+      (supabase as any)
+        .from("ci_programacoes")
+        .select("id,data,equipe,responsavel,ogs,cliente,local,periodo,tipo_servico,equipamentos_designados,engenheiro_responsavel,obs,confirmado_manutencao")
+        .in("data", [hoje, amanha])
+        .eq("status_programacao", "AGUARDANDO_MANUTENCAO")
+        .eq("confirmado_manutencao", false)
+        .order("data")
+        .order("equipe"),
     ]);
+
     if (os) setOsList(os);
+    if (progs) setProgsPendentes(progs);
     if (docs) {
-      const hoje = new Date();
+      const agora = new Date();
       const vencendo = docs
         .map(d => ({
           ...d,
-          dias_restantes: Math.ceil((new Date(d.data_vencimento).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)),
+          dias_restantes: Math.ceil((new Date(d.data_vencimento).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)),
         }))
         .filter(d => d.dias_restantes <= 30)
         .sort((a, b) => a.dias_restantes - b.dias_restantes);
@@ -94,6 +126,24 @@ export default function ManutencaoHome() {
     em_andamento: osList.filter(o => o.status === "em_andamento").length,
     aguardando_peca: osList.filter(o => o.status === "aguardando_peca").length,
   };
+
+  async function confirmarProgramacao(id: string, confirmar: boolean) {
+    setConfirmandoId(id);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: prof } = await supabase.from("profiles").select("nome_completo").eq("user_id", user?.id).single();
+    const nome = (prof as any)?.nome_completo || user?.email || "Manutenção";
+
+    await (supabase as any).from("ci_programacoes").update({
+      confirmado_manutencao: confirmar,
+      confirmado_por: confirmar ? nome : null,
+      confirmado_em: confirmar ? new Date().toISOString() : null,
+      status_programacao: confirmar ? "CONFIRMADO" : "AGUARDANDO_MANUTENCAO",
+      obs_manutencao: confirmar ? null : "Bloqueado pela Manutenção",
+    }).eq("id", id);
+
+    setConfirmandoId(null);
+    buscarDados();
+  }
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -137,6 +187,86 @@ export default function ManutencaoHome() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+
+        {/* ── PROGRAMAÇÕES PENDENTES (aparece sempre que houver) ── */}
+        {progsPendentes.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <HardHat className="w-4 h-4 text-amber-500" />
+              Programações Aguardando Confirmação
+              <span className="text-xs bg-amber-100 text-amber-700 font-bold rounded-full px-2 py-0.5">{progsPendentes.length}</span>
+            </h2>
+            {progsPendentes.map(prog => {
+              const equips = prog.equipamentos_designados || [];
+              const dataLabel = prog.data === new Date().toISOString().split("T")[0] ? "HOJE" : "AMANHÃ";
+              const isConfirmando = confirmandoId === prog.id;
+              return (
+                <div key={prog.id} className="bg-white rounded-2xl border border-amber-200 shadow-sm p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold bg-amber-100 text-amber-700 rounded px-1.5">{dataLabel}</span>
+                        {prog.tipo_servico && <span className="text-xs bg-blue-100 text-blue-700 rounded px-1.5">{prog.tipo_servico}</span>}
+                      </div>
+                      <p className="text-sm font-bold text-foreground mt-1">{prog.equipe}</p>
+                      {prog.responsavel && <p className="text-xs text-muted-foreground">Enc: {prog.responsavel}</p>}
+                    </div>
+                    <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-1" />
+                  </div>
+
+                  <div className="space-y-1">
+                    {prog.ogs && (
+                      <div className="flex gap-2"><span className="text-xs text-muted-foreground w-16 shrink-0">OGS</span><span className="text-xs font-semibold">{prog.ogs} · {prog.cliente}</span></div>
+                    )}
+                    {prog.local && (
+                      <div className="flex gap-2"><span className="text-xs text-muted-foreground w-16 shrink-0">Local</span><span className="text-xs">{prog.local}</span></div>
+                    )}
+                    <div className="flex gap-2"><span className="text-xs text-muted-foreground w-16 shrink-0">Período</span><span className="text-xs font-medium">{prog.periodo}</span></div>
+                    {prog.engenheiro_responsavel && (
+                      <div className="flex gap-2"><span className="text-xs text-muted-foreground w-16 shrink-0">Eng.</span><span className="text-xs">{prog.engenheiro_responsavel}</span></div>
+                    )}
+                  </div>
+
+                  {equips.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">Equipamentos solicitados</p>
+                      <div className="flex flex-wrap gap-1">
+                        {equips.map(f => (
+                          <span key={f} className="text-xs bg-blue-50 text-blue-800 border border-blue-200 rounded px-2 py-0.5">{f}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {prog.obs && <p className="text-xs text-muted-foreground italic">{prog.obs}</p>}
+
+                  {/* Ações da Manutenção */}
+                  <div className="flex gap-2 pt-1 border-t border-border">
+                    <Button
+                      size="sm"
+                      className="flex-1 gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold"
+                      onClick={() => confirmarProgramacao(prog.id, true)}
+                      disabled={isConfirmando}
+                    >
+                      {isConfirmando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      Confirmar equipamentos
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-1.5 border-red-300 text-red-600 text-xs font-bold"
+                      onClick={() => confirmarProgramacao(prog.id, false)}
+                      disabled={isConfirmando}
+                    >
+                      {isConfirmando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                      Reportar problema
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Resumo rápido */}
         {aba === "os" && (
