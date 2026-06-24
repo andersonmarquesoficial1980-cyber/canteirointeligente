@@ -1622,10 +1622,10 @@ export default function EquipmentDiaryForm() {
             try {
               const path = `checklist/${diary.id}/${cr.itemId}_${Date.now()}.jpg`;
               const { error: upErr } = await supabase.storage
-                .from("notas_fiscais")
+                .from("checklist-fotos")
                 .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
               if (!upErr) {
-                const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
+                const { data: urlData } = supabase.storage.from("checklist-fotos").getPublicUrl(path);
                 photoUrl = urlData.publicUrl;
               }
             } catch (photoErr) {
@@ -2027,10 +2027,10 @@ export default function EquipmentDiaryForm() {
               try {
                 const path = `checklist/${targetDiaryId}/${cr.itemId}_${Date.now()}.jpg`;
                 const { error: upErr } = await supabase.storage
-                  .from("notas_fiscais")
+                  .from("checklist-fotos")
                   .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
                 if (!upErr) {
-                  const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
+                  const { data: urlData } = supabase.storage.from("checklist-fotos").getPublicUrl(path);
                   photoUrl = urlData.publicUrl;
                 }
               } catch {}
