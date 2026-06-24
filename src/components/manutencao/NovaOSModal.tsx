@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,11 +6,40 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useOgsReference } from "@/hooks/useOgsReference";
+
+const TITULOS_MANUTENCAO = [
+  "Elétrica",
+  "Troca de Pneu",
+  "Troca de Óleo",
+  "Troca de Filtro",
+  "Troca de Correia",
+  "Troca de Bateria",
+  "Troca de Freio",
+  "Troca de Peça",
+  "Reparo Hidráulico",
+  "Reparo Mecânico",
+  "Revisão Geral",
+  "Regulagem",
+  "Vazamento",
+  "Superaquecimento",
+  "Falha no Motor",
+  "Problema de Transmissão",
+  "NC Checklist",
+  "Outro",
+];
 
 const TIPOS = ["Corretiva", "Preventiva", "Preditiva"];
 const PRIORIDADES = ["Baixa", "Normal", "Alta", "Urgente"];
-const ORIGENS = ["Operador", "Encarregado", "Coordenador", "Checklist", "Programada"];
 const MECANICO_TIPOS = ["Interno (Oficina)", "Campo"];
+
+interface Equipamento {
+  id: string;
+  frota: string;
+  tipo: string;
+  nome?: string;
+  status?: string;
+}
 
 interface Props {
   open: boolean;
@@ -29,8 +58,7 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
     prioridade: "Normal",
     titulo: checklistItem ? `NC Checklist: ${checklistItem}` : "",
     descricao: "",
-    origem: "Operador",
-    solicitante_nome: "",
+    local_ogs: "",
     mecanico_nome: "",
     mecanico_tipo: "",
     data_prevista: "",
@@ -38,9 +66,73 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
   });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
+  const [loadingEquip, setLoadingEquip] = useState(false);
+  const [tituloCustom, setTituloCustom] = useState("");
+  const [mostrarTituloCustom, setMostrarTituloCustom] = useState(false);
+
+  const { data: ogsData = [] } = useOgsReference();
+
+  // Busca equipamentos ao abrir o modal
+  useEffect(() => {
+    if (!open) return;
+    setLoadingEquip(true);
+    (supabase as any)
+      .from("equipamentos")
+      .select("id, frota, tipo, nome, status")
+      .order("tipo")
+      .order("frota")
+      .then(({ data }: { data: Equipamento[] | null }) => {
+        setEquipamentos(data || []);
+        setLoadingEquip(false);
+      });
+  }, [open]);
+
+  // Reset form quando abre
+  useEffect(() => {
+    if (open) {
+      setForm({
+        equipment_fleet: equipmentFleet,
+        equipment_type: equipmentType,
+        tipo: "Corretiva",
+        prioridade: "Normal",
+        titulo: checklistItem ? `NC Checklist: ${checklistItem}` : "",
+        descricao: "",
+        local_ogs: "",
+        mecanico_nome: "",
+        mecanico_tipo: "",
+        data_prevista: "",
+        horimetro_abertura: "",
+      });
+      setTituloCustom("");
+      setMostrarTituloCustom(false);
+      setErro("");
+    }
+  }, [open, equipmentFleet, equipmentType, checklistItem]);
+
+  // Quando seleciona uma frota, preenche o tipo automaticamente
+  function handleFrotaChange(frota: string) {
+    const equip = equipamentos.find(e => e.frota === frota);
+    setForm(p => ({
+      ...p,
+      equipment_fleet: frota,
+      equipment_type: equip?.tipo || p.equipment_type,
+    }));
+  }
+
+  function handleTituloChange(value: string) {
+    if (value === "Outro") {
+      setMostrarTituloCustom(true);
+      setForm(p => ({ ...p, titulo: "" }));
+    } else {
+      setMostrarTituloCustom(false);
+      setForm(p => ({ ...p, titulo: value }));
+    }
+  }
 
   async function salvar() {
-    if (!form.equipment_fleet || !form.titulo) {
+    const tituloFinal = mostrarTituloCustom ? tituloCustom : form.titulo;
+    if (!form.equipment_fleet || !tituloFinal) {
       setErro("Frota e título são obrigatórios.");
       return;
     }
@@ -48,15 +140,16 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
     setSalvando(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from("manutencao_os").insert({
+      const { error } = await (supabase as any).from("manutencao_os").insert({
         equipment_fleet: form.equipment_fleet,
         equipment_type: form.equipment_type || null,
         tipo: form.tipo.toLowerCase(),
         prioridade: form.prioridade.toLowerCase(),
-        titulo: form.titulo,
+        titulo: tituloFinal,
         descricao: form.descricao || null,
-        origem: form.origem.toLowerCase(),
-        solicitante_nome: form.solicitante_nome || null,
+        origem: "operador",
+        solicitante_nome: null,
+        local_ogs: form.local_ogs || null,
         mecanico_nome: form.mecanico_nome || null,
         mecanico_tipo: form.mecanico_tipo ? (form.mecanico_tipo.includes("Interno") ? "interno" : "campo") : null,
         data_abertura: new Date().toISOString().split("T")[0],
@@ -77,6 +170,9 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
 
   const f = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
+  // Agrupa equipamentos por tipo para o select
+  const tiposEquip = [...new Set(equipamentos.map(e => e.tipo))].sort();
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[90vh] overflow-y-auto">
@@ -84,27 +180,97 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
           <DialogTitle className="font-display font-bold">Nova Ordem de Serviço</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
+
+          {/* FROTA — select buscando da tabela equipamentos */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <span className="rdo-label">Frota *</span>
-              <Input value={form.equipment_fleet} onChange={e => f("equipment_fleet", e.target.value)} placeholder="Ex: FA14" className="h-11 rounded-xl" />
+              <Select
+                value={form.equipment_fleet}
+                onValueChange={handleFrotaChange}
+                disabled={loadingEquip}
+              >
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder={loadingEquip ? "Carregando..." : "Selecione"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {tiposEquip.map(tipo => (
+                    <div key={tipo}>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/50">
+                        {tipo}
+                      </div>
+                      {equipamentos
+                        .filter(e => e.tipo === tipo)
+                        .map(e => (
+                          <SelectItem key={e.id} value={e.frota}>
+                            {e.frota}{e.nome ? ` — ${e.nome}` : ""}
+                          </SelectItem>
+                        ))}
+                    </div>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* TIPO EQUIP — select buscando tipos únicos da tabela equipamentos */}
             <div className="space-y-1.5">
               <span className="rdo-label">Tipo Equip.</span>
-              <Input value={form.equipment_type} onChange={e => f("equipment_type", e.target.value)} placeholder="Ex: Fresadora" className="h-11 rounded-xl" />
+              <Select
+                value={form.equipment_type}
+                onValueChange={v => f("equipment_type", v)}
+                disabled={loadingEquip}
+              >
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder={loadingEquip ? "Carregando..." : "Selecione"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tiposEquip.map(tipo => (
+                    <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
+          {/* TÍTULO — select com opções pré-definidas + campo livre para "Outro" */}
           <div className="space-y-1.5">
             <span className="rdo-label">Título *</span>
-            <Input value={form.titulo} onChange={e => f("titulo", e.target.value)} placeholder="Resumo do problema" className="h-11 rounded-xl" />
+            <Select
+              value={mostrarTituloCustom ? "Outro" : form.titulo}
+              onValueChange={handleTituloChange}
+            >
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder="Selecione o tipo de manutenção" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {TITULOS_MANUTENCAO.map(t => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {mostrarTituloCustom && (
+              <Input
+                value={tituloCustom}
+                onChange={e => setTituloCustom(e.target.value)}
+                placeholder="Descreva o título da manutenção"
+                className="h-11 rounded-xl mt-1.5"
+                autoFocus
+              />
+            )}
           </div>
 
+          {/* DESCRIÇÃO */}
           <div className="space-y-1.5">
             <span className="rdo-label">Descrição</span>
-            <Textarea value={form.descricao} onChange={e => f("descricao", e.target.value)} placeholder="Descreva o problema com detalhes..." className="min-h-[70px] rounded-xl" />
+            <Textarea
+              value={form.descricao}
+              onChange={e => f("descricao", e.target.value)}
+              placeholder="Descreva o problema com detalhes..."
+              className="min-h-[70px] rounded-xl"
+            />
           </div>
 
+          {/* TIPO OS + PRIORIDADE */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <span className="rdo-label">Tipo OS</span>
@@ -122,20 +288,26 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <span className="rdo-label">Origem</span>
-              <Select value={form.origem} onValueChange={v => f("origem", v)}>
-                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>{ORIGENS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Solicitante</span>
-              <Input value={form.solicitante_nome} onChange={e => f("solicitante_nome", e.target.value)} placeholder="Nome" className="h-11 rounded-xl" />
-            </div>
+          {/* LOCAL (OGS) — substitui Origem + Solicitante */}
+          <div className="space-y-1.5">
+            <span className="rdo-label">Local (OGS)</span>
+            <Select value={form.local_ogs} onValueChange={v => f("local_ogs", v)}>
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder="Selecione a obra / pátio" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {ogsData.map((obra: any) => (
+                  <SelectItem key={obra.id} value={obra.ogs_number}>
+                    {obra.ogs_number === "000"
+                      ? "000 — Pátio Central"
+                      : `${obra.ogs_number} — ${obra.client_name}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
+          {/* MECÂNICO + TIPO MECÂNICO */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <span className="rdo-label">Mecânico</span>
@@ -150,6 +322,7 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
             </div>
           </div>
 
+          {/* DATA PREVISTA + HORÍMETRO */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <span className="rdo-label">Data Prevista</span>
