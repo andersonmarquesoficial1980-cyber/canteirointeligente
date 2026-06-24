@@ -12,6 +12,7 @@ interface ChecklistReport {
   operador: string;
   ogsNumber: string;
   clientName: string;
+  usuarioNome: string;
   data: string;
   submittedAt: string;
   totalItems: number;
@@ -43,7 +44,7 @@ export default function RelatorioChecklist() {
       // Buscar diários que tiveram checklist enviado no período
       const { data: diaries, error } = await (supabase as any)
         .from("equipment_diaries")
-        .select("id, equipment_fleet, equipment_type, operator_name, ogs_number, client_name, date, checklist_submitted_at")
+        .select("id, equipment_fleet, equipment_type, operator_name, ogs_number, client_name, date, checklist_submitted_at, user_id")
         .gte("date", dataIni)
         .lte("date", dataFim)
         .not("checklist_submitted_at", "is", null)
@@ -56,6 +57,15 @@ export default function RelatorioChecklist() {
       }
 
       const diaryIds = diaries.map((d: any) => d.id);
+
+      // Buscar nomes dos usuários que fizeram o checklist
+      const userIds = [...new Set(diaries.map((d: any) => d.user_id).filter(Boolean))];
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("user_id, nome_completo")
+        .in("user_id", userIds);
+      const profileMap: Record<string, string> = {};
+      (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p.nome_completo || ""; });
 
       // Buscar todas as entries + items numa query
       const { data: entries } = await supabase
@@ -86,6 +96,7 @@ export default function RelatorioChecklist() {
           operador: d.operator_name || "—",
           ogsNumber: d.ogs_number || "",
           clientName: d.client_name || "",
+          usuarioNome: d.user_id ? (profileMap[d.user_id] || "—") : "—",
           data: d.date,
           submittedAt: d.checklist_submitted_at,
           totalItems: diaryEntries.length,
@@ -132,7 +143,7 @@ export default function RelatorioChecklist() {
     doc.text("CHECKLIST PRÉ-OPERAÇÃO", pageW / 2, 11, { align: "center" });
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`Frota: ${report.frota}  |  Data: ${fmtDate(report.data)}  |  Operador: ${report.operador}`, pageW / 2, 17, { align: "center" });
+    doc.text(`Frota: ${report.frota}  |  Data: ${fmtDate(report.data)}  |  Operador: ${report.operador}  |  Preenchido por: ${report.usuarioNome}`, pageW / 2, 17, { align: "center" });
     const ogsLine = report.ogsNumber ? `OGS: ${report.ogsNumber}${report.clientName ? "  |  Cliente: " + report.clientName : ""}  |  ` : "";
     doc.text(`${ogsLine}Enviado em: ${new Date(report.submittedAt).toLocaleString("pt-BR")}`, pageW / 2, 23, { align: "center" });
 
@@ -272,6 +283,7 @@ export default function RelatorioChecklist() {
               <div><span className="text-muted-foreground text-xs">Frota</span><p className="font-bold">{selectedReport.frota}</p></div>
               <div><span className="text-muted-foreground text-xs">Data</span><p className="font-bold">{fmtDate(selectedReport.data)}</p></div>
               <div><span className="text-muted-foreground text-xs">Operador</span><p className="font-bold">{selectedReport.operador}</p></div>
+              <div><span className="text-muted-foreground text-xs">Preenchido por</span><p className="font-bold">{selectedReport.usuarioNome}</p></div>
               <div><span className="text-muted-foreground text-xs">Enviado às</span><p className="font-bold">{new Date(selectedReport.submittedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p></div>
               {selectedReport.ogsNumber && <div className="col-span-2"><span className="text-muted-foreground text-xs">Obra (OGS)</span><p className="font-bold">OGS {selectedReport.ogsNumber}{selectedReport.clientName ? ` — ${selectedReport.clientName}` : ""}</p></div>}
             </div>
