@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, Users, Plus, X, Loader2, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, Users, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -47,6 +47,7 @@ export default function EquipesManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [salvando, setSalvando] = useState(false);
+  const [deletando, setDeletando] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -126,6 +127,23 @@ export default function EquipesManager() {
     load();
   }
 
+  async function handleDeletar(eq: Equipe) {
+    const membros = membrosMap[eq.nome]?.length || 0;
+    const msg = membros > 0
+      ? `Excluir a equipe "${eq.nome}"?\n\nAtenção: ${membros} funcionário(s) estão nesta equipe. O vínculo deles será preservado nos registros históricos, mas o campo equipe ficará sem correspondência no cadastro.\n\nEssa ação não pode ser desfeita.`
+      : `Excluir a equipe "${eq.nome}"?\n\nEssa ação não pode ser desfeita.`;
+    if (!window.confirm(msg)) return;
+    setDeletando(eq.id);
+    const { error } = await (supabase as any).from("ci_equipes").delete().eq("id", eq.id);
+    setDeletando(null);
+    if (error) {
+      toast({ title: "Erro ao excluir equipe", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Equipe excluída", description: eq.nome });
+    load();
+  }
+
   if (loading) {
     return <div className="p-6 text-center text-muted-foreground">Carregando equipes...</div>;
   }
@@ -175,6 +193,16 @@ export default function EquipesManager() {
                   title="Editar equipe"
                 >
                   <Pencil className="w-4 h-4 text-muted-foreground" />
+                </button>
+                <button
+                  onClick={() => handleDeletar(equipe)}
+                  disabled={deletando === equipe.id}
+                  className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors shrink-0"
+                  title="Excluir equipe"
+                >
+                  {deletando === equipe.id
+                    ? <Loader2 className="w-4 h-4 animate-spin text-destructive" />
+                    : <Trash2 className="w-4 h-4 text-destructive" />}
                 </button>
               </div>
 
