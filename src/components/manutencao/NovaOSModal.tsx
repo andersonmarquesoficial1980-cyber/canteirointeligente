@@ -73,7 +73,7 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
 
   const { data: ogsData = [] } = useOgsReference();
 
-  // Busca mecânicos da system_lists
+  // Busca mecânicos da equipment_type_operators (categoria 'Mecânico') → employees
   const [mecanicos, setMecanicos] = useState<{ id: string; nome: string }[]>([]);
 
   useEffect(() => {
@@ -81,16 +81,25 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: profile } = await (supabase as any).from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
+      const { data: profile } = await (supabase as any)
+        .from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
       if (!profile?.company_id) return;
-      const { data } = await (supabase as any)
-        .from("system_lists")
-        .select("id, nome")
+
+      // Busca os vínculos de mecânicos
+      const { data: links } = await (supabase as any)
+        .from("equipment_type_operators")
+        .select("funcionario_id")
         .eq("company_id", profile.company_id)
-        .eq("categoria", "mecanico")
-        .eq("ativo", true)
-        .order("nome");
-      setMecanicos(data || []);
+        .eq("equipment_type", "Mecânico");
+
+      if (!links || links.length === 0) { setMecanicos([]); return; }
+
+      const ids = links.map((l: any) => l.funcionario_id);
+      const { data: emps } = await (supabase as any)
+        .from("employees").select("id, name")
+        .in("id", ids).eq("status", "ativo").order("name");
+
+      setMecanicos(((emps || []) as any[]).map((e: any) => ({ id: e.id, nome: e.name })));
     })();
   }, [open]);
 
