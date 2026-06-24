@@ -10,6 +10,8 @@ interface ChecklistReport {
   frota: string;
   tipoEquip: string;
   operador: string;
+  ogsNumber: string;
+  clientName: string;
   data: string;
   submittedAt: string;
   totalItems: number;
@@ -41,7 +43,7 @@ export default function RelatorioChecklist() {
       // Buscar diários que tiveram checklist enviado no período
       const { data: diaries, error } = await (supabase as any)
         .from("equipment_diaries")
-        .select("id, equipment_fleet, equipment_type, operator_name, date, checklist_submitted_at")
+        .select("id, equipment_fleet, equipment_type, operator_name, ogs_number, client_name, date, checklist_submitted_at")
         .gte("date", dataIni)
         .lte("date", dataFim)
         .not("checklist_submitted_at", "is", null)
@@ -82,6 +84,8 @@ export default function RelatorioChecklist() {
           frota: d.equipment_fleet || "",
           tipoEquip: d.equipment_type || "",
           operador: d.operator_name || "—",
+          ogsNumber: d.ogs_number || "",
+          clientName: d.client_name || "",
           data: d.date,
           submittedAt: d.checklist_submitted_at,
           totalItems: diaryEntries.length,
@@ -128,8 +132,9 @@ export default function RelatorioChecklist() {
     doc.text("CHECKLIST PRÉ-OPERAÇÃO", pageW / 2, 11, { align: "center" });
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`Frota: ${report.frota}  |  Data: ${fmtDate(report.data)}  |  Operador: ${report.operador}`, pageW / 2, 19, { align: "center" });
-    doc.text(`Enviado em: ${new Date(report.submittedAt).toLocaleString("pt-BR")}`, pageW / 2, 24, { align: "center" });
+    doc.text(`Frota: ${report.frota}  |  Data: ${fmtDate(report.data)}  |  Operador: ${report.operador}`, pageW / 2, 17, { align: "center" });
+    const ogsLine = report.ogsNumber ? `OGS: ${report.ogsNumber}${report.clientName ? "  |  Cliente: " + report.clientName : ""}  |  ` : "";
+    doc.text(`${ogsLine}Enviado em: ${new Date(report.submittedAt).toLocaleString("pt-BR")}`, pageW / 2, 23, { align: "center" });
 
     // Resumo
     doc.setTextColor(0, 0, 0);
@@ -139,7 +144,10 @@ export default function RelatorioChecklist() {
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(`Total de itens: ${report.totalItems}`, 14, 43);
+    if (report.ogsNumber) {
+      doc.text(`OGS: ${report.ogsNumber}${report.clientName ? "  —  " + report.clientName : ""}`, 14, 40);
+    }
+    doc.text(`Total de itens: ${report.totalItems}`, 14, report.ogsNumber ? 46 : 43);
     doc.setTextColor(34, 197, 94);
     doc.text(`Conformes: ${report.okCount}`, 60, 43);
     doc.setTextColor(239, 68, 68);
@@ -265,6 +273,7 @@ export default function RelatorioChecklist() {
               <div><span className="text-muted-foreground text-xs">Data</span><p className="font-bold">{fmtDate(selectedReport.data)}</p></div>
               <div><span className="text-muted-foreground text-xs">Operador</span><p className="font-bold">{selectedReport.operador}</p></div>
               <div><span className="text-muted-foreground text-xs">Enviado às</span><p className="font-bold">{new Date(selectedReport.submittedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p></div>
+              {selectedReport.ogsNumber && <div className="col-span-2"><span className="text-muted-foreground text-xs">Obra (OGS)</span><p className="font-bold">OGS {selectedReport.ogsNumber}{selectedReport.clientName ? ` — ${selectedReport.clientName}` : ""}</p></div>}
             </div>
             <div className="flex gap-3 pt-3 border-t border-border">
               <div className="flex-1 text-center">
