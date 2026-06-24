@@ -2018,8 +2018,10 @@ export default function EquipmentDiaryForm() {
 
         // Salvar as entries do checklist nesse novo diary (com upload de fotos NC)
         if (checklistResults.length > 0) {
+          // Só salvar itens com status válido (não null)
+          const validResults = checklistResults.filter(cr => cr.status != null && ["ok","nao_ok","na"].includes(cr.status));
           const rows: any[] = [];
-          for (const cr of checklistResults) {
+          for (const cr of validResults) {
             let photoUrl: string | null = null;
             if (cr.photoFile) {
               try {
@@ -2036,12 +2038,18 @@ export default function EquipmentDiaryForm() {
             rows.push({
               diary_id: targetDiaryId,
               item_id: cr.itemId,
-              status: cr.status as any,
+              status: cr.status,
               observation: cr.observation || null,
               photo_url: photoUrl,
             });
           }
-          await supabase.from("checklist_entries").insert(rows);
+          if (rows.length > 0) {
+            const { error: entriesErr } = await supabase.from("checklist_entries").insert(rows);
+            if (entriesErr) {
+              console.error("[EnviarChecklist] Erro ao salvar entries:", entriesErr);
+              throw new Error("Falha ao salvar itens do checklist: " + entriesErr.message);
+            }
+          }
         }
       } else {
         // Diário já existe — só marcar submitted_at
