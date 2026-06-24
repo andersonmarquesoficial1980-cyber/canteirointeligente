@@ -46,7 +46,7 @@ export default function FuncionariosManager() {
   const { funcoes } = useFuncoes();
   const { empresas: empresasParceiras } = useEmpresasParceiras();
   const [items, setItems] = useState<any[]>([]);
-  const [equipes, setEquipes] = useState<string[]>([]);
+  const [equipes, setEquipes] = useState<{ nome: string; responsavel: string | null }[]>([]);
   const [search, setSearch] = useState("");
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ open: boolean; mode: "new" | "edit" }>({ open: false, mode: "new" });
@@ -66,12 +66,11 @@ export default function FuncionariosManager() {
     const [{ data: funcs }, { data: eqs }] = await Promise.all([
       (supabase as any).from("employees").select("*, funcoes(nome), empresas_parceiras(nome)").eq("company_id", cid).order("name"),
       // Fonte única: tabela ci_equipes do Painel de Controle
-      (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"),
+      (supabase as any).from("ci_equipes").select("nome, responsavel").eq("ativa", true).order("nome"),
     ]);
     setItems(funcs || []);
     // SOMENTE equipes cadastradas no Painel de Controle (ci_equipes)
-    const todasEquipes = (eqs || []).map((e: any) => e.nome);
-    setEquipes(todasEquipes);
+    setEquipes((eqs || []).map((e: any) => ({ nome: e.nome, responsavel: e.responsavel || null })));
   }
 
   const filtered = useMemo(() => {
@@ -291,17 +290,34 @@ export default function FuncionariosManager() {
                   <Label className="text-xs text-muted-foreground">Equipe</Label>
                   <select
                     value={form.equipe}
-                    onChange={e => set("equipe", e.target.value)}
+                    onChange={e => {
+                      const nome = e.target.value;
+                      set("equipe", nome);
+                      // Auto-preenche responsável a partir do cadastro de equipes
+                      const eq = equipes.find(eq => eq.nome === nome);
+                      if (eq?.responsavel) set("responsavel", eq.responsavel);
+                    }}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
                   >
                     <option value="">— Selecione —</option>
-                    {form.equipe && !equipes.includes(form.equipe) && (
+                    {form.equipe && !equipes.find(eq => eq.nome === form.equipe) && (
                       <option value={form.equipe}>{form.equipe} (legado)</option>
                     )}
-                    {equipes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                    {equipes.map(eq => <option key={eq.nome} value={eq.nome}>{eq.nome}</option>)}
                   </select>
                 </div>
-                <div className="col-span-2">{renderField("Responsável / Encarregado", "responsavel", "text", "Nome do encarregado")}</div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Responsável / Encarregado</Label>
+                  <Input
+                    value={form.responsavel}
+                    onChange={e => set("responsavel", e.target.value)}
+                    placeholder="Preenchido automaticamente pela equipe"
+                    className="h-10 rounded-xl"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                </div>
                 <div className="col-span-2">{renderField("Centro de Custo", "centro_custo", "text", "OPERACIONAL DE OBRAS")}</div>
                 {renderField("Data de Admissão", "data_admissao", "date")}
                 {renderField("Data de Nascimento", "data_nascimento", "date")}
