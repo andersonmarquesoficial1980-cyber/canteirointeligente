@@ -73,6 +73,27 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
 
   const { data: ogsData = [] } = useOgsReference();
 
+  // Busca mecânicos da system_lists
+  const [mecanicos, setMecanicos] = useState<{ id: string; nome: string }[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await (supabase as any).from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
+      if (!profile?.company_id) return;
+      const { data } = await (supabase as any)
+        .from("system_lists")
+        .select("id, nome")
+        .eq("company_id", profile.company_id)
+        .eq("categoria", "mecanico")
+        .eq("ativo", true)
+        .order("nome");
+      setMecanicos(data || []);
+    })();
+  }, [open]);
+
   // Busca equipamentos ao abrir o modal
   useEffect(() => {
     if (!open) return;
@@ -299,7 +320,16 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <span className="rdo-label">Mecânico</span>
-              <Input value={form.mecanico_nome} onChange={e => f("mecanico_nome", e.target.value)} placeholder="Nome" className="h-11 rounded-xl" />
+              <Select value={form.mecanico_nome} onValueChange={v => f("mecanico_nome", v)}>
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder={mecanicos.length === 0 ? "Nenhum cadastrado" : "Selecione"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {mecanicos.map(m => (
+                    <SelectItem key={m.id} value={m.nome}>{m.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <span className="rdo-label">Tipo Mecânico</span>
