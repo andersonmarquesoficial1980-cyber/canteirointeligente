@@ -110,16 +110,6 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
     }
   }, [open, equipmentFleet, equipmentType, checklistItem]);
 
-  // Quando seleciona uma frota, preenche o tipo automaticamente
-  function handleFrotaChange(frota: string) {
-    const equip = equipamentos.find(e => e.frota === frota);
-    setForm(p => ({
-      ...p,
-      equipment_fleet: frota,
-      equipment_type: equip?.tipo || p.equipment_type,
-    }));
-  }
-
   function handleTituloChange(value: string) {
     if (value === "Outro") {
       setMostrarTituloCustom(true);
@@ -181,55 +171,53 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
         </DialogHeader>
         <div className="space-y-3">
 
-          {/* FROTA — select buscando da tabela equipamentos */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <span className="rdo-label">Frota *</span>
-              <Select
-                value={form.equipment_fleet}
-                onValueChange={handleFrotaChange}
-                disabled={loadingEquip}
-              >
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue placeholder={loadingEquip ? "Carregando..." : "Selecione"} />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {tiposEquip.map(tipo => (
-                    <div key={tipo}>
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/50">
-                        {tipo}
-                      </div>
-                      {equipamentos
-                        .filter(e => e.tipo === tipo)
-                        .map(e => (
-                          <SelectItem key={e.id} value={e.frota}>
-                            {e.frota}{e.nome ? ` — ${e.nome}` : ""}
-                          </SelectItem>
-                        ))}
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* TIPO EQUIP — vem primeiro, filtra as frotas disponíveis */}
+          <div className="space-y-1.5">
+            <span className="rdo-label">Tipo Equip. *</span>
+            <Select
+              value={form.equipment_type}
+              onValueChange={v => {
+                // ao trocar tipo, limpa a frota selecionada
+                setForm(p => ({ ...p, equipment_type: v, equipment_fleet: "" }));
+              }}
+              disabled={loadingEquip}
+            >
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder={loadingEquip ? "Carregando..." : "Selecione o tipo"} />
+              </SelectTrigger>
+              <SelectContent>
+                {tiposEquip.map(tipo => (
+                  <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* TIPO EQUIP — select buscando tipos únicos da tabela equipamentos */}
-            <div className="space-y-1.5">
-              <span className="rdo-label">Tipo Equip.</span>
-              <Select
-                value={form.equipment_type}
-                onValueChange={v => f("equipment_type", v)}
-                disabled={loadingEquip}
-              >
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue placeholder={loadingEquip ? "Carregando..." : "Selecione"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {tiposEquip.map(tipo => (
-                    <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+          {/* FROTA — filtrada pelo tipo selecionado acima */}
+          <div className="space-y-1.5">
+            <span className="rdo-label">Frota *</span>
+            <Select
+              value={form.equipment_fleet}
+              onValueChange={v => f("equipment_fleet", v)}
+              disabled={loadingEquip || !form.equipment_type}
+            >
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder={
+                  loadingEquip ? "Carregando..." :
+                  !form.equipment_type ? "Selecione o tipo primeiro" :
+                  "Selecione a frota"
+                } />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {equipamentos
+                  .filter(e => e.tipo === form.equipment_type)
+                  .map(e => (
+                    <SelectItem key={e.id} value={e.frota}>
+                      {e.frota}{e.nome ? ` — ${e.nome}` : ""}
+                    </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* TÍTULO — select com opções pré-definidas + campo livre para "Outro" */}
