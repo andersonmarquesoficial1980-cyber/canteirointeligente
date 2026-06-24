@@ -47,6 +47,7 @@ export default function FuncionariosManager() {
   const { empresas: empresasParceiras } = useEmpresasParceiras();
   const [items, setItems] = useState<any[]>([]);
   const [equipes, setEquipes] = useState<{ nome: string; responsavel: string | null }[]>([]);
+  const [centrosCusto, setCentrosCusto] = useState<{id:string, nome:string}[]>([]);
   const [search, setSearch] = useState("");
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ open: boolean; mode: "new" | "edit" }>({ open: false, mode: "new" });
@@ -63,14 +64,16 @@ export default function FuncionariosManager() {
     const cid = (profile as any)?.company_id || "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
     setCompanyId(cid);
 
-    const [{ data: funcs }, { data: eqs }] = await Promise.all([
+    const [{ data: funcs }, { data: eqs }, { data: ccs }] = await Promise.all([
       (supabase as any).from("employees").select("*, funcoes(nome), empresas_parceiras(nome)").eq("company_id", cid).order("name"),
       // Fonte única: tabela ci_equipes do Painel de Controle
       (supabase as any).from("ci_equipes").select("nome, responsavel").eq("ativa", true).order("nome"),
+      (supabase as any).from("ci_centros_custo").select("id, nome").eq("ativo", true).order("nome"),
     ]);
     setItems(funcs || []);
     // SOMENTE equipes cadastradas no Painel de Controle (ci_equipes)
     setEquipes((eqs || []).map((e: any) => ({ nome: e.nome, responsavel: e.responsavel || null })));
+    setCentrosCusto(ccs || []);
   }
 
   const filtered = useMemo(() => {
@@ -318,7 +321,20 @@ export default function FuncionariosManager() {
                     spellCheck={false}
                   />
                 </div>
-                <div className="col-span-2">{renderField("Centro de Custo", "centro_custo", "text", "OPERACIONAL DE OBRAS")}</div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Centro de Custo</Label>
+                  <select
+                    value={form.centro_custo}
+                    onChange={e => set("centro_custo", e.target.value)}
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">— Selecione —</option>
+                    {form.centro_custo && !centrosCusto.find(c => c.nome === form.centro_custo) && (
+                      <option value={form.centro_custo}>{form.centro_custo} (legado)</option>
+                    )}
+                    {centrosCusto.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
+                  </select>
+                </div>
                 {renderField("Data de Admissão", "data_admissao", "date")}
                 {renderField("Data de Nascimento", "data_nascimento", "date")}
                 <div className="col-span-2">{renderField("Salário (R$)", "salario", "number", "2500.00")}</div>

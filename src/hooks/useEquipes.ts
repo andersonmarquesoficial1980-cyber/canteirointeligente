@@ -12,6 +12,7 @@ export interface MembroEquipe {
 
 export function useEquipes() {
   const [membros, setMembros] = useState<MembroEquipe[]>([]);
+  const [equipesData, setEquipesData] = useState<{id:string, nome:string, responsavel:string|null, centro_custo:string|null}[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -33,6 +34,14 @@ export function useEquipes() {
         responsavel: e.responsavel || "",
       }))
     );
+
+    const { data: eqsData } = await (supabase as any)
+      .from("ci_equipes")
+      .select("id, nome, responsavel, centro_custo")
+      .eq("ativa", true)
+      .order("nome");
+    setEquipesData(eqsData || []);
+
     setLoading(false);
   }, []);
 
@@ -81,6 +90,7 @@ export function useEquipes() {
   return {
     membros,
     equipes,
+    equipesData,
     responsaveis,
     loading,
     getMembrosDoResponsavel,

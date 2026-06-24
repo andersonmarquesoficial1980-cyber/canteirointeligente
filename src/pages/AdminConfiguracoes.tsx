@@ -16,7 +16,7 @@ import {
   Users, MapPin, Package, Truck, BarChart3,
   Wrench, Factory, Hammer, Mail, ShieldCheck, LogOut, UserMinus, UserCheck, X, Unlock, Bell,
   Target, ClipboardList, Search, Eye, EyeOff, Shield, FileSpreadsheet, Bus, Receipt, Loader2, HardHat, FileText, Settings, LogIn,
-  Briefcase, Building2, Fuel,
+  Briefcase, Building2, Fuel, DollarSign,
 } from "lucide-react";
 import { useFuncoes } from "@/hooks/useFuncoes";
 import { useEmpresasParceiras } from "@/hooks/useEmpresasParceiras";
@@ -29,6 +29,7 @@ import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { startImpersonation } from "@/hooks/useImpersonation";
 import UsersManagerExternal from "@/components/admin/UsersManager";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
+import CentrosCustoManager from "@/components/admin/CentrosCustoManager";
 import EquipesManager from "@/components/admin/EquipesManager";
 import EncarregadosManager from "@/components/admin/EncarregadosManager";
 
@@ -2901,6 +2902,7 @@ const MENU_SECTIONS = [
   { key: "caminhoes", label: "Frota (Carreteiros)", icon: Truck },
   { key: "funcionarios", label: "Funcionários", icon: Users },
   { key: "equipes", label: "Equipes", icon: Users },
+  { key: "centros_custo", label: "Centros de Custo", icon: DollarSign },
   { key: "encarregados", label: "Encarregados de Obra", icon: HardHat },
   { key: "tipos_servico", label: "Tipos de Serviço", icon: Hammer },
   { key: "empresas_parceiras", label: "Empresas Parceiras", icon: Building2 },
@@ -3908,6 +3910,7 @@ export default function AdminConfiguracoes() {
       case "caminhoes": return <TruckRegistryManager />;
       case "funcionarios": return <FuncionariosManager />;
       case "equipes": return <EquipesManager />;
+      case "centros_custo": return <CentrosCustoManager />;
       case "encarregados": return <EncarregadosManager />;
       case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" vinculoOptions={["CAUQ", "PAVIMENTACAO", "INFRA", "RDO", "TODOS"]} />;
       case "empreiteiros": return <EntityManager tableName="empresas_parceiras" label="Empreiteiro" />; // migrado para empresas_parceiras
