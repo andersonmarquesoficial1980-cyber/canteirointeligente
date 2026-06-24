@@ -53,7 +53,6 @@ export default function FuncionariosManager() {
   const [form, setForm] = useState<Funcionario>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [digitandoEquipe, setDigitandoEquipe] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -66,14 +65,12 @@ export default function FuncionariosManager() {
 
     const [{ data: funcs }, { data: eqs }] = await Promise.all([
       (supabase as any).from("employees").select("*, funcoes(nome), empresas_parceiras(nome)").eq("company_id", cid).order("name"),
-      // Buscar equipes sem filtro de company_id para garantir que carregam
-      (supabase as any).from("ci_equipes").select("nome").order("nome"),
+      // Fonte única: tabela ci_equipes do Painel de Controle
+      (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"),
     ]);
     setItems(funcs || []);
-    // Também inclui equipes que já existem nos funcionários (fallback)
-    const eqsNomes = (eqs || []).map((e: any) => e.nome);
-    const eqsFuncs = [...new Set((funcs || []).map((f: any) => f.equipe).filter(Boolean))] as string[];
-    const todasEquipes = [...new Set([...eqsNomes, ...eqsFuncs])].sort();
+    // SOMENTE equipes cadastradas no Painel de Controle (ci_equipes)
+    const todasEquipes = (eqs || []).map((e: any) => e.nome);
     setEquipes(todasEquipes);
   }
 
@@ -86,7 +83,6 @@ export default function FuncionariosManager() {
 
   function openNew() {
     setForm({ ...EMPTY });
-    setDigitandoEquipe(false);
     setDialog({ open: true, mode: "new" });
   }
 
@@ -293,45 +289,17 @@ export default function FuncionariosManager() {
                 </div>
                 <div className="space-y-1 col-span-2">
                   <Label className="text-xs text-muted-foreground">Equipe</Label>
-                  {!digitandoEquipe ? (
-                    <select
-                      value={form.equipe}
-                      onChange={e => {
-                        if (e.target.value === "__digitar") {
-                          setDigitandoEquipe(true);
-                          set("equipe", "");
-                        } else {
-                          set("equipe", e.target.value);
-                        }
-                      }}
-                      className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
-                    >
-                      <option value="">— Selecione —</option>
-                      {form.equipe && !equipes.includes(form.equipe) && (
-                        <option value={form.equipe}>{form.equipe}</option>
-                      )}
-                      {equipes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
-                      <option value="__digitar">+ Digitar outra equipe</option>
-                    </select>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        autoFocus
-                        value={form.equipe}
-                        onChange={e => set("equipe", e.target.value)}
-                        placeholder="Digite o nome da equipe"
-                        className="h-10 rounded-xl flex-1"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        spellCheck={false}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => { setDigitandoEquipe(false); set("equipe", ""); }}
-                        className="text-xs text-muted-foreground hover:text-foreground px-2"
-                      >Cancelar</button>
-                    </div>
-                  )}
+                  <select
+                    value={form.equipe}
+                    onChange={e => set("equipe", e.target.value)}
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">— Selecione —</option>
+                    {form.equipe && !equipes.includes(form.equipe) && (
+                      <option value={form.equipe}>{form.equipe} (legado)</option>
+                    )}
+                    {equipes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                  </select>
                 </div>
                 <div className="col-span-2">{renderField("Responsável / Encarregado", "responsavel", "text", "Nome do encarregado")}</div>
                 <div className="col-span-2">{renderField("Centro de Custo", "centro_custo", "text", "OPERACIONAL DE OBRAS")}</div>
