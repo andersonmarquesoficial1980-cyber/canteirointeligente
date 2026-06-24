@@ -1288,6 +1288,8 @@ export default function EquipmentDiaryForm() {
       attachment_type: isCarreta ? (prancha || null) : (attachmentType || null),
       status: isDraft ? "rascunho" : "enviado",
       fotos_perfil: Object.keys(fotosPerfilUrls).length > 0 ? fotosPerfilUrls : null,
+      // Preservar checklist_submitted_at se já foi enviado
+      ...(checklistSubmittedAt ? { checklist_submitted_at: checklistSubmittedAt } : {}),
     };
 
     if (usesOdometer) {
@@ -1370,6 +1372,16 @@ export default function EquipmentDiaryForm() {
           updateQuery = updateQuery.eq("user_id", session.user.id);
         }
         const { data: updatedDiary, error: updateError } = await updateQuery.select().single();
+        diary = updatedDiary;
+        error = updateError;
+      } else if (savedDiaryId) {
+        // Checklist já criou um diário temporário — atualizar ele com o payload completo
+        const { data: updatedDiary, error: updateError } = await (supabase as any)
+          .from("equipment_diaries")
+          .update(diaryPayload)
+          .eq("id", savedDiaryId)
+          .select()
+          .single();
         diary = updatedDiary;
         error = updateError;
       } else {
@@ -2004,15 +2016,31 @@ export default function EquipmentDiaryForm() {
         setSavedDiaryId(targetDiaryId);
         setChecklistSubmittedAt(now);
 
-        // Salvar as entries do checklist nesse novo diary
+        // Salvar as entries do checklist nesse novo diary (com upload de fotos NC)
         if (checklistResults.length > 0) {
-          const rows = checklistResults.map(cr => ({
-            diary_id: targetDiaryId,
-            item_id: cr.itemId,
-            status: cr.status as any,
-            observation: cr.observation || null,
-            photo_url: null,
-          }));
+          const rows: any[] = [];
+          for (const cr of checklistResults) {
+            let photoUrl: string | null = null;
+            if (cr.photoFile) {
+              try {
+                const path = `checklist/${targetDiaryId}/${cr.itemId}_${Date.now()}.jpg`;
+                const { error: upErr } = await supabase.storage
+                  .from("notas_fiscais")
+                  .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
+                if (!upErr) {
+                  const { data: urlData } = supabase.storage.from("notas_fiscais").getPublicUrl(path);
+                  photoUrl = urlData.publicUrl;
+                }
+              } catch {}
+            }
+            rows.push({
+              diary_id: targetDiaryId,
+              item_id: cr.itemId,
+              status: cr.status as any,
+              observation: cr.observation || null,
+              photo_url: photoUrl,
+            });
+          }
           await supabase.from("checklist_entries").insert(rows);
         }
       } else {
