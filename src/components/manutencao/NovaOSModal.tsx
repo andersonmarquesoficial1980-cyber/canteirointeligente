@@ -75,6 +75,7 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
 
   // Busca mecânicos da equipment_type_operators (categoria 'Mecânico') → employees
   const [mecanicos, setMecanicos] = useState<{ id: string; nome: string }[]>([]);
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -84,6 +85,7 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
       const { data: profile } = await (supabase as any)
         .from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
       if (!profile?.company_id) return;
+      setCompanyId(profile.company_id);
 
       // Busca os vínculos de mecânicos
       const { data: links } = await (supabase as any)
@@ -177,6 +179,7 @@ export default function NovaOSModal({ open, onClose, onSaved, equipmentFleet = "
         horimetro_abertura: form.horimetro_abertura ? parseFloat(form.horimetro_abertura) : null,
         checklist_item: checklistItem || null,
         created_by: user?.id,
+        company_id: companyId,
       });
       if (error) throw error;
       onSaved();
