@@ -13,6 +13,9 @@ const TIPOS_RELATORIO = [
   { id: "transportes", label: "Transportes (Carreta)", emoji: "🚛", desc: "Relatório de transporte de equipamentos" },
   { id: "carreteiros", label: "Carreteiros (Fechamento)", emoji: "📋", desc: "Fechamento mensal de viagens por placa" },
   { id: "checklist", label: "Checklist Pré-Operação", emoji: "✔️", desc: "Histórico de checklists enviados pelos operadores" },
+  { id: "funcionario", label: "Localização de Funcionário", emoji: "👷", desc: "Onde esteve em determinado período (via RDO)" },
+  { id: "equipamentos_rdo", label: "Localização de Equipamentos (RDO)", emoji: "🚜", desc: "Onde a frota estava por período (via RDO)" },
+  { id: "notas_fiscais", label: "Notas Fiscais de Massa", emoji: "📄", desc: "Todas as NFs por OGS e período" },
 ];
 
 function fmtDate(d: string) {
@@ -193,47 +196,7 @@ export default function RelatoriosHome() {
           </>
         )}
 
-        {/* Atalhos rápidos — sempre visíveis no passo tipo */}
-        {step === "tipo" && (
-          <div className="space-y-2 pb-1">
-            <p className="text-xs font-semibold text-muted-foreground px-1">Relatórios Rápidos</p>
-            <button
-              onClick={() => navigate("/relatorios/funcionario")}
-              className="w-full flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-colors text-left"
-            >
-              <span className="text-xl">👷</span>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-foreground">Localização de Funcionário</p>
-                <p className="text-xs text-muted-foreground">Onde esteve em determinado período (via RDO)</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            </button>
-            <button
-              onClick={() => navigate("/relatorios/equipamentos-rdo")}
-              className="w-full flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-colors text-left"
-            >
-              <span className="text-xl">🚜</span>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-foreground">Localização de Equipamentos (RDO)</p>
-                <p className="text-xs text-muted-foreground">Onde a frota estava por período (via RDO)</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            </button>
-            <button
-              onClick={() => navigate("/relatorios/notas-fiscais")}
-              className="w-full flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-colors text-left"
-            >
-              <span className="text-xl">📄</span>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-foreground">Notas Fiscais de Massa</p>
-                <p className="text-xs text-muted-foreground">Todas as NFs por OGS e período</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            </button>
-          </div>
-        )}
-
-        {/* PASSO 1: Tipo de Relatório */}
+                {/* PASSO 1: Tipo de Relatório */}
         {step === "tipo" && (
           <>
             <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Que tipo de relatório você precisa?</p>
@@ -246,6 +209,9 @@ export default function RelatoriosHome() {
                 onClick={() => {
                   if (t.id === "carreteiros") { navigate("/relatorios/carreteiros"); return; }
                   if (t.id === "checklist") { navigate("/relatorios/checklist"); return; }
+                  if (t.id === "funcionario") { navigate("/relatorios/funcionario"); return; }
+                  if (t.id === "equipamentos_rdo") { navigate("/relatorios/equipamentos-rdo"); return; }
+                  if (t.id === "notas_fiscais") { navigate("/relatorios/notas-fiscais"); return; }
                   if (t.id === "abastecimento") {
                     const hoje = new Date().toISOString().split("T")[0];
                     const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
