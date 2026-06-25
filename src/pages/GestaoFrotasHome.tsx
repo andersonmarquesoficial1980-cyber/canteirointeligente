@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Car, Truck, Wrench, FileText, Search, ChevronRight, BarChart3, Loader2, DollarSign } from "lucide-react";
+import { ArrowLeft, Plus, Car, Truck, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, DollarSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 interface Veiculo {
   id: string;
@@ -32,6 +33,13 @@ function fmtDate(d: string) {
   if (!d) return "";
   const [y, m, day] = d.split("-");
   return `${day}/${m}/${y}`;
+}
+
+interface DocVencendo {
+  equipment_fleet: string;
+  tipo_documento: string;
+  data_vencimento: string;
+  dias_restantes: number;
 }
 
 interface MedidorInfo {
@@ -93,9 +101,12 @@ function formatBRL(v: number) {
 
 export default function GestaoFrotasHome() {
   const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
   const [todos, setTodos] = useState<Veiculo[]>([]);
   const [loading, setLoading] = useState(true);
   const [medidoresMap, setMedidoresMap] = useState<Record<string, MedidorInfo>>({});
+  const [aba, setAba] = useState<"frotas" | "documentos" | "consumo">("frotas");
+  const [docsVencendo, setDocsVencendo] = useState<DocVencendo[]>([]);
 
   // Cascata
   const [step, setStep] = useState<"tipo" | "subtipo" | "lista" | "dashboard">("tipo");
@@ -104,6 +115,23 @@ export default function GestaoFrotasHome() {
   const [busca, setBusca] = useState("");
 
   useEffect(() => { buscarTodos(); }, []);
+
+  useEffect(() => {
+    (supabase as any).from("manutencao_documentos")
+      .select("*").not("data_vencimento", "is", null)
+      .then(({ data }: any) => {
+        if (!data) return;
+        const agora = new Date();
+        const vencendo = data
+          .map((d: any) => ({
+            ...d,
+            dias_restantes: Math.ceil((new Date(d.data_vencimento).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)),
+          }))
+          .filter((d: any) => d.dias_restantes <= 30)
+          .sort((a: any, b: any) => a.dias_restantes - b.dias_restantes);
+        setDocsVencendo(vencendo);
+      });
+  }, []);
 
   async function buscarTodos() {
     setLoading(true);
@@ -249,13 +277,36 @@ export default function GestaoFrotasHome() {
             {step === "dashboard" && "Custos com Terceiros"}
           </span>
         </div>
-        {step === "tipo" && (
-          <Button size="sm" onClick={() => navigate("/manutencao/documentos")} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1 text-xs">
-            <FileText className="w-3.5 h-3.5" /> Docs
-          </Button>
-        )}
       </header>
 
+      {/* Abas */}
+      <div className="flex border-b border-border bg-white">
+        <button
+          onClick={() => setAba("frotas")}
+          className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${aba === "frotas" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}
+        >
+          <Wrench className="w-4 h-4" /> Frotas
+        </button>
+        <button
+          onClick={() => setAba("documentos")}
+          className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${aba === "documentos" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}
+        >
+          <FileText className="w-4 h-4" /> Documentos
+          {docsVencendo.length > 0 && (
+            <span className="bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
+              {docsVencendo.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setAba("consumo")}
+          className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${aba === "consumo" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}
+        >
+          <Fuel className="w-4 h-4" /> Consumo de Diesel
+        </button>
+      </div>
+
+      {aba === "frotas" && (
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
 
         {/* Programações do dia */}
@@ -480,6 +531,40 @@ export default function GestaoFrotasHome() {
           </>
         )}
       </div>
+      )}
+
+      {/* ABA DOCUMENTOS */}
+      {aba === "documentos" && (
+        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+          {docsVencendo.length > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+              <p className="text-sm font-bold text-orange-700 mb-2">⚠️ {docsVencendo.length} documento{docsVencendo.length !== 1 ? "s" : ""} vencendo em breve</p>
+              {docsVencendo.slice(0, 3).map((d, i) => (
+                <p key={i} className="text-xs text-orange-600">
+                  {d.equipment_fleet} — {d.tipo_documento}: {d.dias_restantes <= 0 ? "⛔ VENCIDO" : `${d.dias_restantes} dias`}
+                </p>
+              ))}
+            </div>
+          )}
+          {isAdmin && (
+            <Button onClick={() => navigate("/manutencao/documentos/novo")} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
+              <Plus className="w-4 h-4" /> Adicionar Documento
+            </Button>
+          )}
+          <Button onClick={() => navigate("/manutencao/documentos")} variant="outline" className="w-full h-11 gap-2 rounded-xl font-semibold">
+            <FileText className="w-4 h-4" /> Ver Todos os Documentos
+          </Button>
+        </div>
+      )}
+
+      {/* ABA CONSUMO DE DIESEL */}
+      {aba === "consumo" && (
+        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+          <Button onClick={() => navigate("/manutencao/consumo")} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
+            <Fuel className="w-4 h-4" /> Consumo de Diesel
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
