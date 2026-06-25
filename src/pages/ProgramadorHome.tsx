@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import logoCi from "@/assets/logo-workflux.png";
 import { sortOgsData } from "@/hooks/useOgsReference";
+import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 
 const STATUS_FUNC = ["TRABALHOU", "AFASTADO", "DISPOSIÇÃO", "FÉRIAS", "FALTA"];
 const STATUS_EQUIP = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE"];
@@ -524,6 +525,7 @@ export default function ProgramadorHome() {
           </div>
         )}
 
+        <IntegracaoObrasCard />
       </div>
     </div>
   );

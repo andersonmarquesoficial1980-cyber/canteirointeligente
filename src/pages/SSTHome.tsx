@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, ClipboardCheck, Calendar, User, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Plus, ClipboardCheck, Calendar, User, CheckCircle, Clock, AlertTriangle, FolderOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
@@ -36,6 +36,8 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function SSTHome() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const aba = searchParams.get("tab") === "integracao" ? "integracao" : "inspecoes";
   const [inspecoes, setInspecoes] = useState<Inspecao[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -63,13 +65,44 @@ export default function SSTHome() {
           <span className="block font-display font-bold text-sm">WF Segurança do Trabalho</span>
           <span className="block text-[10px] text-primary-foreground/70">{total} inspeções</span>
         </div>
-        <button onClick={() => navigate("/sst/nova")}
-          className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 transition rounded-lg px-3 py-1.5 text-xs font-bold">
-          <Plus size={14} /> Nova
-        </button>
+        {aba === "inspecoes" && (
+          <button onClick={() => navigate("/sst/nova")}
+            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 transition rounded-lg px-3 py-1.5 text-xs font-bold">
+            <Plus size={14} /> Nova
+          </button>
+        )}
       </header>
 
-      {/* Resumo */}
+      {/* Abas */}
+      <div style={{ background: "#0A0F2C", padding: "0 16px" }}>
+        <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", gap: 0 }}>
+          {[
+            { id: "inspecoes", label: "Inspeções SST", icon: ClipboardCheck },
+            { id: "integracao", label: "Integração", icon: FolderOpen },
+          ].map(tab => {
+            const Icon = tab.icon;
+            const ativo = aba === tab.id;
+            return (
+              <button key={tab.id}
+                onClick={() => setSearchParams(tab.id === "inspecoes" ? {} : { tab: tab.id })}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "10px 16px", border: "none", background: "transparent",
+                  color: ativo ? "white" : "rgba(255,255,255,0.45)",
+                  fontWeight: ativo ? 700 : 500, fontSize: 12, cursor: "pointer",
+                  borderBottom: ativo ? "2px solid #00C6FF" : "2px solid transparent",
+                  transition: "all 0.15s",
+                }}>
+                <Icon size={13} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Resumo — só aparece na aba inspeções */}
+      {aba === "inspecoes" && (
       <div style={{ background: "linear-gradient(135deg,#0A0F2C,#0D1B4B)", padding: "16px" }}>
         <div style={{ display: "flex", gap: 10, maxWidth: 760, margin: "0 auto" }}>
           {[
@@ -84,7 +117,72 @@ export default function SSTHome() {
           ))}
         </div>
       </div>
+      )}
 
+      {/* Aba Integração */}
+      {aba === "integracao" && (
+        <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          {[
+            {
+              id: "documentos-funcionarios",
+              icon: "📁",
+              label: "Documentos dos Funcionários",
+              subtitle: "Pasta global de documentos por funcionário (ASO, NR06, NR18, Ficha EPI...)",
+              cor: "#0055AA",
+              rota: "/sst/integracao/documentos-funcionarios",
+            },
+            {
+              id: "analise-ia",
+              icon: "🤖",
+              label: "Análise de Documentos com IA",
+              subtitle: "Validação automática dos documentos antes de enviar às concessionárias",
+              cor: "#7C3AED",
+              rota: "/sst/integracao/analise-ia",
+            },
+            {
+              id: "obras",
+              icon: "🏗️",
+              label: "Integrações por Obra",
+              subtitle: "GRU, MOTIVA, ECOVIAS, AUTOBAN — status de integração e credenciamento",
+              cor: "#059669",
+              rota: "/sst/integracao/obras",
+            },
+          ].map(s => (
+            <button
+              key={s.id}
+              onClick={() => navigate(s.rota)}
+              style={{
+                display: "flex", alignItems: "center", gap: 14,
+                background: "white", border: "1.5px solid #e2e8f0",
+                borderLeft: `4px solid ${s.cor}`, borderRadius: 14,
+                padding: "16px 18px", cursor: "pointer", textAlign: "left",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.05)", width: "100%",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.1)"; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.05)"; }}
+            >
+              <div style={{
+                width: 48, height: 48, borderRadius: 12,
+                background: s.cor + "18",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                fontSize: 22,
+              }}>
+                {s.icon}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", fontFamily: "Montserrat" }}>{s.label}</p>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 3, lineHeight: 1.4 }}>{s.subtitle}</p>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Aba Inspeções */}
+      {aba === "inspecoes" && (
       <div style={{ maxWidth: 760, margin: "0 auto", padding: 16 }}>
         {/* Programações do dia */}
         <div className="mb-4"><ProgramacoesDoDia /></div>
@@ -129,6 +227,7 @@ export default function SSTHome() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

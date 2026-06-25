@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, History } from "lucide-react";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
+import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 
 interface RdoPendente {
   id: string;
@@ -193,6 +194,7 @@ export default function EngHome() {
             </div>
           )}
         </div>
+        <IntegracaoObrasCard />
       </div>
     </>
   );

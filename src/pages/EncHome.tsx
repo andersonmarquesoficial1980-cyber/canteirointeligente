@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, Wrench, TriangleAlert } from "lucide-react";
 import ReportarProblemaModal from "@/components/manutencao/ReportarProblemaModal";
+import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 
 interface RdoPendente {
   id: string;
@@ -178,6 +179,7 @@ export default function EncHome() {
             </div>
           )}
         </div>
+        <IntegracaoObrasCard />
       </div>
       {showReportarModal && (
         <ReportarProblemaModal

@@ -58,6 +58,10 @@ import ProgramacaoFerias from "./pages/ProgramacaoFerias";
 import WhatsAppInbox from "./pages/WhatsAppInbox";
 import SSTHome from "./pages/SSTHome";
 import SSTForm from "./pages/SSTForm";
+import SSTIntegracaoHome from "./pages/SSTIntegracaoHome";
+import SSTFuncionariosDocs from "./pages/SSTFuncionariosDocs";
+import SSTObrasIntegracao from "./pages/SSTObrasIntegracao";
+import SSTObrasVisualizacao from "./pages/SSTObrasVisualizacao";
 import CarreteirosQRScan from "./pages/CarreteirosQRScan";
 import CarreteirosQRPrint from "./pages/CarreteirosQRPrint";
 import ManutencaoDocumentos from "./pages/ManutencaoDocumentos";
@@ -377,6 +381,20 @@ function AppRoutes() {
         <Route path="/sst" element={<RequireModule moduleId="sst"><SSTHome /></RequireModule>} />
         <Route path="/sst/nova" element={<RequireModule moduleId="sst"><SSTForm /></RequireModule>} />
         <Route path="/sst/:id" element={<RequireModule moduleId="sst"><SSTForm /></RequireModule>} />
+
+        {/* SST — Integração (subpáginas) */}
+        <Route path="/sst/integracao" element={<RequireModule moduleId="sst"><SSTIntegracaoHome /></RequireModule>} />
+        <Route path="/sst/integracao/documentos-funcionarios" element={<RequireModule moduleId="sst"><SSTFuncionariosDocs /></RequireModule>} />
+        <Route path="/sst/integracao/analise-ia" element={<RequireModule moduleId="sst"><DocumentosHome /></RequireModule>} />
+        <Route path="/sst/integracao/analise-ia/:id" element={<RequireModule moduleId="sst"><DocumentosIntegracao /></RequireModule>} />
+        <Route path="/sst/integracao/obras" element={<RequireModule moduleId="sst"><SSTObrasIntegracao /></RequireModule>} />
+
+        {/* Visualização somente leitura para outros WFs (modulo_sst não necessário — vê se tem o módulo do WF dele) */}
+        <Route path="/integracao-obras" element={<SSTObrasVisualizacao />} />
+
+        {/* WF Documentos → redireciona para SST aba integração (sem quebrar links antigos) */}
+        <Route path="/documentos" element={<Navigate to="/sst?tab=integracao" replace />} />
+        <Route path="/documentos/:id" element={<RequireModule moduleId="sst"><DocumentosIntegracao /></RequireModule>} />
 
         {/* CRITICAL: DO NOT REMOVE CARRETEIROS OR ADMIN PANEL */}
         {/* Carreteiros module — standalone layout (NUNCA REMOVER) */}

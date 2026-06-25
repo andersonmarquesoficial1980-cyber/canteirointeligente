@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
+import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 
 interface Funcionario {
   id: string;
@@ -542,6 +543,7 @@ export default function GestaoPessoasDashboard() {
 
             {/* ── BLOCO PONTO & VT — sempre visível em todas as abas ─── */}
             <BlocoRH onNavigate={navigate} />
+            <IntegracaoObrasCard />
           </>
         )}
       </div>
