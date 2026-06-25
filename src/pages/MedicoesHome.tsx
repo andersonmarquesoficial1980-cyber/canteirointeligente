@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, FileSpreadsheet, Search, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Search, Loader2, ChevronDown, ChevronUp, FileText, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
@@ -284,6 +284,18 @@ export default function MedicoesHome() {
       </header>
 
       <main className="max-w-7xl mx-auto p-4 space-y-4">
+        {/* Card de acesso: Medições de Terceiros */}
+        <button onClick={() => navigate("/medicoes/terceiros")} className="w-full rdo-card border-l-4 border-l-violet-400 hover:shadow-md transition-all flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-5 h-5 text-violet-500" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="font-display font-bold text-sm">Medições de Terceiros</p>
+            <p className="text-xs text-muted-foreground">Gerar medição por frota e período</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+        </button>
+
         {/* Filtros */}
         <div className="rdo-card space-y-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filtros</p>

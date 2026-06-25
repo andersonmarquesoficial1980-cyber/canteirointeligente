@@ -369,7 +369,7 @@ function AppRoutes() {
         <Route path="/equipamentos/prontuario/:id" element={<RequireModule moduleId="equipamentos"><EquipamentoProntuario /></RequireModule>} />
         <Route path="/manutencao/ocorrencias" element={<RequireModule moduleId="equipamentos"><EquipamentoOcorrencias /></RequireModule>} />
         <Route path="/manutencao/ocorrencia/:id" element={<RequireModule moduleId="equipamentos"><OcorrenciaDetalhe /></RequireModule>} />
-        <Route path="/gestao-frotas/medicoes" element={<RequireModule moduleId="gestao-frotas"><MedicoesTerceiros /></RequireModule>} />
+        <Route path="/medicoes/terceiros" element={<RequireModule moduleId="medicoes"><MedicoesTerceiros /></RequireModule>} />
         <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
         <Route path="/gestao-pessoas/:id" element={<RequireModule moduleId="gestao-pessoas"><FichaFuncionario /></RequireModule>} />
         <Route path="/gestao-pessoas/ferias" element={<RequireModule moduleId="gestao-pessoas"><ProgramacaoFerias /></RequireModule>} />

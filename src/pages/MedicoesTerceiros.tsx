@@ -213,7 +213,7 @@ export default function MedicoesTerceiros() {
       {/* Header */}
       <div className="bg-gradient-to-r from-violet-600 to-violet-500 text-white px-4 pt-12 pb-5">
         <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate(-1)} className="hover:bg-white/15 p-2 rounded-lg">
+          <button onClick={() => navigate("/medicoes")} className="hover:bg-white/15 p-2 rounded-lg">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
