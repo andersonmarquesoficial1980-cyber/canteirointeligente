@@ -547,7 +547,7 @@ export default function GestaoFrotasHome() {
             </div>
           )}
           {isAdmin && (
-            <Button onClick={() => navigate("/manutencao/documentos/novo")} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
+            <Button onClick={() => navigate("/manutencao/documentos")} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
               <Plus className="w-4 h-4" /> Adicionar Documento
             </Button>
           )}
