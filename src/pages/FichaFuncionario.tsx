@@ -64,12 +64,18 @@ interface PontoResumo {
 }
 
 const TIPOS_DOCUMENTO = [
-  "RG", "CPF", "CNH", "CTPS", "ASO - Admissional", "ASO - Periódico",
-  "ASO - Demissional", "Contrato de Trabalho", "Comprovante de Residência",
-  "Certidão de Nascimento", "Certidão de Casamento", "PIS/PASEP",
-  "Comprovante Escolar", "Certificado NR-10", "Certificado NR-35",
-  "Certificado NR-11", "Certificado NR-12", "Habilitação Equipamento",
-  "Foto", "Outro"
+  // Documentos pessoais
+  "RG", "CPF", "CNH", "CTPS", "PIS/PASEP",
+  "Comprovante de Residência", "Certidão de Nascimento", "Certidão de Casamento", "Foto",
+  // ASOs
+  "ASO - Admissional", "ASO - Periódico", "ASO - Demissional",
+  // NRs de integração (SST)
+  "NR06 — Ficha de EPI", "NR18 — Construção Civil", "NR35 — Trabalho em Altura",
+  "NR10", "NR11", "NR12",
+  // Certificados / cursos
+  "COVE", "Habilitação Equipamento",
+  "Certificado NR-10", "Certificado NR-35", "Certificado NR-11", "Certificado NR-12",
+  "Comprovante Escolar", "Contrato de Trabalho", "Outro",
 ];
 
 const TIPO_HISTORICO = [
