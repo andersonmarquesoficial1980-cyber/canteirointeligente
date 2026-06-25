@@ -94,7 +94,7 @@ export default function ManutencaoDocumentos() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/manutencao")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"><ArrowLeft className="w-5 h-5" /></button>
+        <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"><ArrowLeft className="w-5 h-5" /></button>
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Documentos de Veículos</span>
           <span className="block text-[11px] text-primary-foreground/80">CRLV, Licenças, NFs</span>
