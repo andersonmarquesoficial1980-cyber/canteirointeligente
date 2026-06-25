@@ -342,63 +342,31 @@ export default function GestaoPessoasDashboard() {
   const { isAdmin } = useIsAdmin();
   const [todos, setTodos] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aba, setAba] = useState<Aba>("lista");
-  const [busca, setBusca] = useState("");
-  const [mostrarSalario, setMostrarSalario] = useState(false);
 
   useEffect(() => {
     supabase.from("employees").select("*").order("name")
       .then(({ data }) => { if (data) setTodos(data as any); setLoading(false); });
   }, []);
 
-  const porFuncao: Record<string, Funcionario[]> = {};
-  const porEquipe: Record<string, Funcionario[]> = {};
-  const porResp: Record<string, Funcionario[]> = {};
-  const porCentro: Record<string, Funcionario[]> = {};
-
-  todos.forEach(f => {
-    const fb = funcaoBase(f.role);
-    if (!porFuncao[fb]) porFuncao[fb] = [];
-    porFuncao[fb].push(f);
-    const eq = f.equipe || "SEM EQUIPE";
-    if (!porEquipe[eq]) porEquipe[eq] = [];
-    porEquipe[eq].push(f);
-    const resp = f.responsavel || "SEM RESPONSÁVEL";
-    if (!porResp[resp]) porResp[resp] = [];
-    porResp[resp].push(f);
-    const cc = (f as any).centro_custo || "SEM CENTRO DE CUSTO";
-    if (!porCentro[cc]) porCentro[cc] = [];
-    porCentro[cc].push(f);
-  });
-
-  const mesAtual = new Date().getMonth() + 1;
-  const aniversariantes = todos
-    .filter(f => { const n = (f as any).data_nascimento; if (!n) return false; return parseInt(n.split("-")[1]) === mesAtual; })
-    .sort((a, b) => parseInt(((a as any).data_nascimento || "").split("-")[2] || "0") - parseInt(((b as any).data_nascimento || "").split("-")[2] || "0"));
-
-  const filtrados = busca
-    ? todos.filter(f =>
-        f.name.toLowerCase().includes(busca.toLowerCase()) ||
-        (f.matricula || "").includes(busca) ||
-        (f.equipe || "").toLowerCase().includes(busca.toLowerCase()) ||
-        (f.role || "").toLowerCase().includes(busca.toLowerCase()) ||
-        ((f as any).centro_custo || "").toLowerCase().includes(busca.toLowerCase())
-      )
-    : todos;
-
-  const irFuncionario = (id: string) => navigate(`/gestao-pessoas/${id}`);
-
-  const ABAS: { id: Aba; label: string; emoji: string; count?: number }[] = [
-    { id: "lista",           label: "Todos",           emoji: "👤", count: todos.length },
-    { id: "funcao",          label: "Por Função",      emoji: "🔧", count: Object.keys(porFuncao).length },
-    { id: "equipe",          label: "Por Equipe",      emoji: "👷", count: Object.keys(porEquipe).length },
-    { id: "responsavel",     label: "Por Responsável", emoji: "🧑‍💼", count: Object.keys(porResp).filter(k => k !== "SEM RESPONSÁVEL").length },
-    { id: "centro_custo",    label: "Centro de Custo", emoji: "🏢", count: Object.keys(porCentro).filter(k => k !== "SEM CENTRO DE CUSTO").length },
-    { id: "aniversariantes", label: "Aniversariantes", emoji: "🎂", count: aniversariantes.length },
+  // Todos os cards do hub — ordem exata do print
+  const HUB_ITEMS = [
+    {
+      label: "Cadastro de Equipe",
+      desc: "Por função, por equipe, Centro de Custo e Aniversariantes",
+      icon: User,
+      cor: "bg-blue-500/15 text-blue-600",
+      rota: "/gestao-pessoas/equipe",
+    },
+    { label: "Registrar Ponto",       desc: "Ponto facial com GPS e geofencing automático",          icon: Camera,        cor: "bg-blue-500/20 text-blue-600",    rota: "/rh/registrar-ponto" },
+    { label: "Espelho de Ponto",      desc: "Histórico mensal, horas trabalhadas e extras",           icon: ClipboardList,  cor: "bg-green-500/20 text-green-600",  rota: "/rh/espelho-ponto" },
+    { label: "Trajeto e VT",          desc: "Calcule rotas de transporte público e custo de VT",     icon: Bus,            cor: "bg-orange-500/20 text-orange-600", rota: "/rh/trajeto-vt" },
+    { label: "Gestão de VT",          desc: "Tarifas, conduções e custo mensal por funcionário",     icon: MapPin,         cor: "bg-purple-500/20 text-purple-600", rota: "/vale-transporte" },
+    { label: "Solicitações de Ponto", desc: "Ajuste de ponto e abono de falta",                      icon: MessageSquare,  cor: "bg-yellow-500/20 text-yellow-600", rota: "/rh/solicitacoes" },
+    { label: "Aprovações",            desc: "Aprovar ou reprovar solicitações da equipe",            icon: CheckSquare,    cor: "bg-teal-500/20 text-teal-600",    rota: "/rh/aprovacoes" },
+    { label: "Banco de Horas",        desc: "Saldo de horas por funcionário no mês",                 icon: Clock,          cor: "bg-indigo-500/20 text-indigo-600", rota: "/rh/banco-horas" },
+    { label: "Programação de Férias", desc: "Controle de férias, coletivas e saldo por funcionário", icon: Calendar,       cor: "bg-green-500/20 text-green-600",  rota: "/gestao-pessoas/ferias" },
+    { label: "WhatsApp RH",           desc: "Inbox de mensagens dos funcionários via WhatsApp",      icon: Smartphone,     cor: "bg-green-600/20 text-green-700",  rota: "/gestao-pessoas/whatsapp" },
   ];
-
-  const corGrupo = (ab: Aba) =>
-    ab === "funcao" ? "#0055AA" : ab === "equipe" ? "#006640" : ab === "responsavel" ? "#6D28D9" : ab === "centro_custo" ? "#B45309" : "#374151";
 
   return (
     <div className="min-h-screen bg-background">
@@ -410,199 +378,45 @@ export default function GestaoPessoasDashboard() {
         <img src={logoCi} alt="CI" className="h-7 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-bold text-sm">WF Gestão de Pessoas</span>
-          <span className="block text-[10px] text-primary-foreground/70">{todos.length} funcionários</span>
+          <span className="block text-[10px] text-primary-foreground/70">
+            {loading ? "Carregando..." : `${todos.length} funcionários`}
+          </span>
         </div>
       </header>
 
-      {/* Painel resumo */}
-      <div style={{ background: "linear-gradient(135deg, #0A0F2C, #0D1B4B)", padding: "20px 16px" }}>
-        {/* Programações do dia */}
-        <div style={{ maxWidth: 760, margin: "0 auto 16px auto" }}>
+      {/* Programações do dia */}
+      <div style={{ background: "linear-gradient(135deg,#0A0F2C,#0D1B4B)", padding: "16px" }}>
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
           <ProgramacoesDoDia />
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", maxWidth: 760, margin: "0 auto" }}>
-          {[
-            { label: "Total",        value: todos.length,                                                                        cor: "#00C6FF" },
-            { label: "Equipes",      value: Object.keys(porEquipe).length,                                                       cor: "#FFB300" },
-            { label: "Funções",      value: Object.keys(porFuncao).length,                                                       cor: "#22c55e" },
-            { label: "Responsáveis", value: Object.keys(porResp).filter(k => k !== "SEM RESPONSÁVEL").length,                   cor: "#f97316" },
-            { label: "C. Custo",     value: Object.keys(porCentro).filter(k => k !== "SEM CENTRO DE CUSTO").length,             cor: "#B45309" },
-          ].map(s => (
-            <div key={s.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "10px 16px", flex: 1, textAlign: "center", minWidth: 70 }}>
-              <p style={{ fontSize: 24, fontWeight: 900, color: s.cor, fontFamily: "Montserrat" }}>{s.value}</p>
-              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>{s.label}</p>
-            </div>
-          ))}
-        </div>
       </div>
 
-      {/* Abas horizontais */}
-      <div className="flex overflow-x-auto border-b border-border bg-background sticky top-[60px] z-20">
-        {ABAS.map(a => (
-          <button
-            key={a.id}
-            onClick={() => { setAba(a.id); setBusca(""); }}
-            className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium whitespace-nowrap transition-colors border-b-2 shrink-0 ${
-              aba === a.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <span>{a.emoji}</span>
-            <span>{a.label}</span>
-            {a.count !== undefined && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${aba === a.id ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
-                {a.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Hub de cards */}
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {HUB_ITEMS.map(item => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.rota}
+              onClick={() => navigate(item.rota)}
+              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors text-left w-full"
+            >
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${item.cor}`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            </button>
+          );
+        })}
 
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "16px" }}>
-        {/* Busca — sempre visível */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Buscar por nome, matrícula, função ou equipe..."
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            style={{
-              width: "100%", height: 44, borderRadius: 12,
-              border: "1.5px solid #e2e8f0", paddingLeft: 36, paddingRight: 12,
-              fontSize: 13, outline: "none", background: "white",
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-
-        {loading ? (
-          <p style={{ textAlign: "center", color: "#9ca3af", padding: "64px 0" }}>Carregando...</p>
-        ) : (
-          <>
-            {/* ── ABA TODOS — lista completa ────────────────────────── */}
-            {aba === "lista" && (
-              <>
-                <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10 }}>
-                  {filtrados.length} funcionário{filtrados.length !== 1 ? "s" : ""}
-                  {busca ? ` para "${busca}"` : ""}
-                </p>
-                <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-                  {filtrados.length === 0 ? (
-                    <p style={{ textAlign: "center", color: "#9ca3af", padding: "40px 0", fontSize: 13 }}>
-                      Nenhum funcionário encontrado
-                    </p>
-                  ) : filtrados.map((f, i) => (
-                    <div
-                      key={f.id}
-                      onClick={() => irFuncionario(f.id)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 12,
-                        padding: "11px 16px", cursor: "pointer",
-                        borderBottom: i < filtrados.length - 1 ? "1px solid #f1f5f9" : "none",
-                        background: i % 2 === 0 ? "white" : "#fafbfc",
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "#f0f7ff"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? "white" : "#fafbfc"; }}
-                    >
-                      {/* Avatar */}
-                      <div style={{
-                        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                        background: "linear-gradient(135deg,#0055AA,#0077DD)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "white", fontSize: 14, fontWeight: 800,
-                      }}>
-                        {f.name.charAt(0)}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {f.name}
-                        </p>
-                        <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
-                          {f.role ?? "—"}{f.equipe ? ` · ${f.equipe}` : ""}{f.matricula ? ` · Mat. ${f.matricula}` : ""}
-                        </p>
-                      </div>
-                      <ChevronRight size={15} color="#d1d5db" style={{ flexShrink: 0 }} />
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* ── ABAS AGRUPADAS ──────────────────────────────────────── */}
-            {(aba === "funcao" || aba === "equipe" || aba === "responsavel" || aba === "centro_custo") && (
-              <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-                  <p style={{ fontSize: 12, color: "#9ca3af" }}>
-                    {aba === "funcao" ? Object.keys(porFuncao).length : aba === "equipe" ? Object.keys(porEquipe).length : aba === "centro_custo" ? Object.keys(porCentro).length : Object.keys(porResp).length} grupos · {todos.length} funcionários
-                  </p>
-                  {isAdmin && (
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, color: mostrarSalario ? "#f97316" : "#64748b" }}>
-                      <input type="checkbox" checked={mostrarSalario} onChange={e => setMostrarSalario(e.target.checked)} style={{ accentColor: "#f97316" }} />
-                      Ver salário
-                    </label>
-                  )}
-                </div>
-
-                {Object.entries(
-                  aba === "funcao" ? porFuncao : aba === "equipe" ? porEquipe : aba === "centro_custo" ? porCentro : porResp
-                )
-                  .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
-                  .map(([chave, itens]) => (
-                    <GrupoColapsavel
-                      key={chave}
-                      titulo={chave}
-                      itens={itens}
-                      corTema={corGrupo(aba)}
-                      onClickFuncionario={irFuncionario}
-                      mostrarSalario={mostrarSalario && isAdmin}
-                    />
-                  ))}
-              </>
-            )}
-
-            {/* ── ABA ANIVERSARIANTES ─────────────────────────────────── */}
-            {aba === "aniversariantes" && (
-              <>
-                <div style={{ background: "linear-gradient(135deg, #0A0F2C, #AA0055)", borderRadius: 16, padding: "16px 20px", color: "white", marginBottom: 16 }}>
-                  <p style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: 16 }}>🎂 Aniversariantes do Mês</p>
-                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 4 }}>
-                    {new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" })} · {aniversariantes.length} aniversariante{aniversariantes.length !== 1 ? "s" : ""}
-                  </p>
-                </div>
-                <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}>
-                  {aniversariantes.length === 0 ? (
-                    <p style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0", fontSize: 13 }}>Nenhum aniversariante este mês.</p>
-                  ) : aniversariantes.map((f, i) => {
-                    const dia = ((f as any).data_nascimento || "").split("-")[2] || "";
-                    return (
-                      <div
-                        key={f.id}
-                        onClick={() => irFuncionario(f.id)}
-                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "white" : "#fafbfc", cursor: "pointer" }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "#f0f7ff"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? "white" : "#fafbfc"; }}
-                      >
-                        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg, #AA0055, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontFamily: "Montserrat", fontWeight: 900, fontSize: 14, flexShrink: 0 }}>
-                          {dia}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{f.name}</p>
-                          <p style={{ fontSize: 11, color: "#9ca3af" }}>{f.role}{f.equipe ? ` · ${f.equipe}` : ""}</p>
-                        </div>
-                        <ChevronRight size={16} color="#d1d5db" />
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-
-            {/* ── BLOCO PONTO & VT — sempre visível em todas as abas ─── */}
-            <BlocoRH onNavigate={navigate} />
-            <IntegracaoObrasCard />
-          </>
-        )}
+        {/* Card Integrações por Obra */}
+        <IntegracaoObrasCard />
       </div>
     </div>
   );
 }
+

@@ -54,6 +54,7 @@ import EquipamentoOcorrencias from "./pages/EquipamentoOcorrencias";
 import OcorrenciaDetalhe from "./pages/OcorrenciaDetalhe";
 import MedicoesTerceiros from "./pages/MedicoesTerceiros";
 import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
+import GestaoPessoasEquipe from "./pages/GestaoPessoasEquipe";
 import ProgramacaoFerias from "./pages/ProgramacaoFerias";
 import WhatsAppInbox from "./pages/WhatsAppInbox";
 import SSTHome from "./pages/SSTHome";
@@ -375,6 +376,7 @@ function AppRoutes() {
         <Route path="/manutencao/ocorrencia/:id" element={<RequireModule moduleId="equipamentos"><OcorrenciaDetalhe /></RequireModule>} />
         <Route path="/medicoes/terceiros" element={<RequireModule moduleId="medicoes"><MedicoesTerceiros /></RequireModule>} />
         <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
+        <Route path="/gestao-pessoas/equipe" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasEquipe /></RequireModule>} />
         <Route path="/gestao-pessoas/:id" element={<RequireModule moduleId="gestao-pessoas"><FichaFuncionario /></RequireModule>} />
         <Route path="/gestao-pessoas/ferias" element={<RequireModule moduleId="gestao-pessoas"><ProgramacaoFerias /></RequireModule>} />
         <Route path="/gestao-pessoas/whatsapp" element={<RequireModule moduleId="gestao-pessoas"><WhatsAppInbox /></RequireModule>} />
