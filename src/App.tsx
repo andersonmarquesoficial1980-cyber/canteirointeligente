@@ -58,6 +58,7 @@ import GestaoPessoasEquipe from "./pages/GestaoPessoasEquipe";
 import ProgramacaoFerias from "./pages/ProgramacaoFerias";
 import WhatsAppInbox from "./pages/WhatsAppInbox";
 import SSTHome from "./pages/SSTHome";
+import SSTInspecoes from "./pages/SSTInspecoes";
 import SSTForm from "./pages/SSTForm";
 import SSTIntegracaoHome from "./pages/SSTIntegracaoHome";
 import SSTFuncionariosDocs from "./pages/SSTFuncionariosDocs";
@@ -381,6 +382,7 @@ function AppRoutes() {
         <Route path="/gestao-pessoas/ferias" element={<RequireModule moduleId="gestao-pessoas"><ProgramacaoFerias /></RequireModule>} />
         <Route path="/gestao-pessoas/whatsapp" element={<RequireModule moduleId="gestao-pessoas"><WhatsAppInbox /></RequireModule>} />
         <Route path="/sst" element={<RequireModule moduleId="sst"><SSTHome /></RequireModule>} />
+        <Route path="/sst/inspecoes" element={<RequireModule moduleId="sst"><SSTInspecoes /></RequireModule>} />
         <Route path="/sst/nova" element={<RequireModule moduleId="sst"><SSTForm /></RequireModule>} />
         <Route path="/sst/:id" element={<RequireModule moduleId="sst"><SSTForm /></RequireModule>} />
 
