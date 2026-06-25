@@ -458,18 +458,74 @@ export default function GestaoPessoasDashboard() {
       </div>
 
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "16px" }}>
-        {/* Busca de funcionário — sempre visível em todas as abas */}
-        <BuscaFuncionario todos={todos} onSelect={irFuncionario} />
+        {/* Busca — sempre visível */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Buscar por nome, matrícula, função ou equipe..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            style={{
+              width: "100%", height: 44, borderRadius: 12,
+              border: "1.5px solid #e2e8f0", paddingLeft: 36, paddingRight: 12,
+              fontSize: 13, outline: "none", background: "white",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
 
         {loading ? (
           <p style={{ textAlign: "center", color: "#9ca3af", padding: "64px 0" }}>Carregando...</p>
         ) : (
           <>
-            {/* ── ABA TODOS — sem lista, só filtro via busca acima ───── */}
+            {/* ── ABA TODOS — lista completa ────────────────────────── */}
             {aba === "lista" && (
-              <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", padding: "24px 0 8px" }}>
-                Use a busca acima para localizar um funcionário pela ficha individual.
-              </p>
+              <>
+                <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10 }}>
+                  {filtrados.length} funcionário{filtrados.length !== 1 ? "s" : ""}
+                  {busca ? ` para "${busca}"` : ""}
+                </p>
+                <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+                  {filtrados.length === 0 ? (
+                    <p style={{ textAlign: "center", color: "#9ca3af", padding: "40px 0", fontSize: 13 }}>
+                      Nenhum funcionário encontrado
+                    </p>
+                  ) : filtrados.map((f, i) => (
+                    <div
+                      key={f.id}
+                      onClick={() => irFuncionario(f.id)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        padding: "11px 16px", cursor: "pointer",
+                        borderBottom: i < filtrados.length - 1 ? "1px solid #f1f5f9" : "none",
+                        background: i % 2 === 0 ? "white" : "#fafbfc",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "#f0f7ff"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? "white" : "#fafbfc"; }}
+                    >
+                      {/* Avatar */}
+                      <div style={{
+                        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                        background: "linear-gradient(135deg,#0055AA,#0077DD)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        color: "white", fontSize: 14, fontWeight: 800,
+                      }}>
+                        {f.name.charAt(0)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {f.name}
+                        </p>
+                        <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
+                          {f.role ?? "—"}{f.equipe ? ` · ${f.equipe}` : ""}{f.matricula ? ` · Mat. ${f.matricula}` : ""}
+                        </p>
+                      </div>
+                      <ChevronRight size={15} color="#d1d5db" style={{ flexShrink: 0 }} />
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {/* ── ABAS AGRUPADAS ──────────────────────────────────────── */}
