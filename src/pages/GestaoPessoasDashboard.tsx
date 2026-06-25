@@ -404,7 +404,7 @@ export default function GestaoPessoasDashboard() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <img src={logoCi} alt="CI" className="h-7 object-contain" />
