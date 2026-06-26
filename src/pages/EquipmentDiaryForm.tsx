@@ -959,7 +959,7 @@ export default function EquipmentDiaryForm() {
           photoPreview: row.photo_url || null,
         }));
         setChecklistResults(mappedChecklist);
-        setChecklistSubmittedAt((data[0] as any).checklist_submitted_at || null);
+        setChecklistSubmittedAt((diary as any).checklist_submitted_at || null);
         loadedEditIdRef.current = editId;
       } catch (err: any) {
         if (!cancelled) {
