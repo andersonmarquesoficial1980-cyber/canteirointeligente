@@ -49,6 +49,7 @@ interface Lancamento {
   odometer_initial: number | null;
   odometer_final: number | null;
   fuel_liters: number | null;
+  status: string | null;
 }
 
 function fmtDate(value: string | null) {
@@ -81,6 +82,8 @@ export default function MeusLancamentos() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; tipo: "equipamento" | "rdo"; label: string } | null>(null);
   const [deletando, setDeletando] = useState(false);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [rascunhos, setRascunhos] = useState<Lancamento[]>([]);
+  const [rascunhosRdo, setRascunhosRdo] = useState<any[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [frotas, setFrotas] = useState<string[]>([]);
 
@@ -137,6 +140,7 @@ export default function MeusLancamentos() {
       if (confirmDelete.tipo === "equipamento") {
         await (supabase as any).from("equipment_diaries").delete().eq("id", confirmDelete.id);
         setLancamentos(prev => prev.filter(l => l.id !== confirmDelete.id));
+        setRascunhos(prev => prev.filter(l => l.id !== confirmDelete.id));
       } else {
         // Deletar RDO e dados relacionados
         await Promise.all([
@@ -147,6 +151,7 @@ export default function MeusLancamentos() {
         ]);
         await (supabase as any).from("rdo_diarios").delete().eq("id", confirmDelete.id);
         setRdos(prev => prev.filter(r => r.id !== confirmDelete.id));
+        setRascunhosRdo(prev => prev.filter(r => r.id !== confirmDelete.id));
       }
     } finally {
       setDeletando(false);
@@ -193,6 +198,7 @@ export default function MeusLancamentos() {
     let query = (supabase as any)
       .from("equipment_diaries")
       .select("*")
+      .neq("status", "rascunho")
       .order("date", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -229,10 +235,20 @@ export default function MeusLancamentos() {
 
     setLancamentos((rows || []) as Lancamento[]);
 
+    // Buscar rascunhos do próprio usuário (sempre pelo user_id, nunca pelo admin)
+    const { data: rascunhosRows } = await (supabase as any)
+      .from("equipment_diaries")
+      .select("*")
+      .eq("status", "rascunho")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setRascunhos((rascunhosRows || []) as Lancamento[]);
+
     // Buscar RDOs
     let rdoQuery = (supabase as any)
       .from("rdo_diarios")
-      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id")
+      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,status")
+      .neq("status", "rascunho")
       .order("data", { ascending: false })
       .order("created_at", { ascending: false });
     if (isAdmin && companyId) {
@@ -245,6 +261,15 @@ export default function MeusLancamentos() {
     if (dataFim) rdoQuery = rdoQuery.lte("data", dataFim);
     const { data: rdoRows } = await rdoQuery;
     setRdos(rdoRows || []);
+
+    // Buscar rascunhos de RDO do próprio usuário
+    const { data: rascunhosRdoRows } = await (supabase as any)
+      .from("rdo_diarios")
+      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,status")
+      .eq("status", "rascunho")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setRascunhosRdo(rascunhosRdoRows || []);
 
     // Buscar ocorrências do próprio usuário
     let ocorrQuery = (supabase as any)
@@ -311,6 +336,68 @@ export default function MeusLancamentos() {
       </header>
 
       <div className="max-w-3xl mx-auto p-4 space-y-4">
+        {/* Seção de Rascunhos — visível apenas para o próprio usuário quando há rascunhos pendentes */}
+        {(rascunhos.length > 0 || rascunhosRdo.length > 0) && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">📝 Rascunhos não enviados</span>
+              <span className="text-[10px] bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-semibold">
+                {rascunhos.length + rascunhosRdo.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {rascunhos.map((r) => (
+                <div key={r.id} className="flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-blue-800 truncate">
+                      {r.equipment_fleet || "-"} • {r.equipment_type || "-"}
+                    </p>
+                    <p className="text-xs text-blue-600">{fmtDate(r.date)}</p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => handleEditarLancamento(r)}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Continuar
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete({ id: r.id, tipo: "equipamento", label: `Rascunho ${r.equipment_fleet || "-"} • ${fmtDate(r.date)}` })}
+                      className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {rascunhosRdo.map((r: any) => (
+                <div key={r.id} className="flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-blue-800 truncate">
+                      RDO • {r.obra_nome || "-"}
+                    </p>
+                    <p className="text-xs text-blue-600">{fmtDate(r.data)} {r.turno ? `• ${r.turno}` : ""}</p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => navigate(`/obras/rdo?edit=${r.id}`)}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Continuar
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete({ id: r.id, tipo: "rdo", label: `Rascunho RDO ${r.obra_nome || "-"} • ${fmtDate(r.data)}` })}
+                      className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Abas */}
         <div className="flex gap-2">
           <button onClick={() => setAba("equipamentos")}

@@ -2077,11 +2077,17 @@ export default function EquipmentDiaryForm() {
 
       <div className="flex-1 p-4 space-y-5 pb-36 max-w-lg mx-auto w-full">
         {isEditMode && (
-          <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl px-4 py-3 flex items-center gap-2">
-            <Pencil className="w-4 h-4 text-amber-400 flex-shrink-0" />
+          <div className={`border rounded-xl px-4 py-3 flex items-center gap-2 ${isEditingDraft ? "bg-blue-500/15 border-blue-500/40" : "bg-amber-500/15 border-amber-500/40"}`}>
+            <Pencil className={`w-4 h-4 flex-shrink-0 ${isEditingDraft ? "text-blue-400" : "text-amber-400"}`} />
             <div>
-              <p className="text-sm font-bold text-amber-300">Modo Edição</p>
-              <p className="text-xs text-amber-200/80">Você está editando um lançamento existente. As alterações substituirão os dados originais.</p>
+              <p className={`text-sm font-bold ${isEditingDraft ? "text-blue-300" : "text-amber-300"}`}>
+                {isEditingDraft ? "📝 Rascunho — continue preenchendo" : "Modo Edição"}
+              </p>
+              <p className={`text-xs ${isEditingDraft ? "text-blue-200/80" : "text-amber-200/80"}`}>
+                {isEditingDraft
+                  ? "Este rascunho ainda não foi enviado. Preencha e clique em Enviar Diário quando concluir."
+                  : "Você está editando um lançamento existente. As alterações substituirão os dados originais."}
+              </p>
             </div>
           </div>
         )}
@@ -2156,7 +2162,7 @@ export default function EquipmentDiaryForm() {
 
           <FieldRow>
             <Field label="Frota">
-              {isEditMode ? (
+              {isEditMode && !isEditingDraft ? (
                 <div className="h-11 rounded-xl bg-secondary border border-border flex items-center px-3 text-sm font-semibold text-foreground opacity-80">
                   {selectedFleet || "-"} <span className="ml-2 text-xs text-muted-foreground">(não editável)</span>
                 </div>
@@ -2186,7 +2192,7 @@ export default function EquipmentDiaryForm() {
               )}
             </Field>
             <Field label="Data">
-              {isEditMode ? (
+              {isEditMode && !isEditingDraft ? (
                 <div className="h-11 rounded-xl bg-secondary border border-border flex items-center px-3 text-sm font-semibold text-foreground opacity-80">
                   {date || "-"} <span className="ml-2 text-xs text-muted-foreground">(não editável)</span>
                 </div>
