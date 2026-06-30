@@ -296,7 +296,7 @@ export default function DemandasHome() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+          <button onClick={() => navigate("/")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <img src={logoCi} alt="CI" className="w-8 h-8 rounded-full border-2 border-white/30 shadow-md" />
