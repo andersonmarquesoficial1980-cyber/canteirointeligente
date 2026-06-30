@@ -721,6 +721,11 @@ export default function RdoForm() {
               area_m2: area,
               densidade: t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null,
               volume_m3: area && t.espessura_m ? Math.round(area * parseFloat(t.espessura_m.replace(",", ".")) / 100 * 100) / 100 : null,
+              tonelagem: (() => {
+                const vol = area && t.espessura_m ? area * parseFloat(t.espessura_m.replace(",", ".")) / 100 : null;
+                const dens = t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null;
+                return vol && dens ? Math.round(vol * dens * 100) / 100 : null;
+              })(),
               observacoes: t.observacoes || null,
             };
           });
