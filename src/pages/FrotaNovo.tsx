@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { Plus, Truck, Search, Cog, FileText, Warehouse, Wrench, Activity, BarChart3 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -83,6 +84,7 @@ export default function FrotaNovo() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { profile } = useUserProfile();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
@@ -195,11 +197,15 @@ export default function FrotaNovo() {
       toast({ title: "Campos obrigatórios", description: "Preencha o nome e o prefixo/frota.", variant: "destructive" });
       return;
     }
+    if (!profile?.company_id) {
+      toast({ title: "Erro", description: "Empresa não identificada. Faça login novamente.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await (supabase as any)
         .from("equipamentos")
-        .insert({ nome: nome.trim(), frota: frota.trim(), tipo: tipo || null, status, company_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890", condicao: "PROPRIO", vinculos: [] });
+        .insert({ nome: nome.trim(), frota: frota.trim(), tipo: tipo || null, status, company_id: profile.company_id, condicao: "PROPRIO", vinculos: [] });
       if (error) throw error;
       toast({ title: "✅ Equipamento cadastrado!", description: `"${nome}" adicionado com sucesso.` });
       resetForm();
