@@ -245,18 +245,30 @@ export default function MeusLancamentos() {
     setRascunhos((rascunhosRows || []) as Lancamento[]);
 
     // Buscar RDOs
+    // rdo_diarios não tem company_id — admin precisa filtrar via user_ids da empresa
+    let rdoUserIds: string[] | null = null;
+    if (isAdmin && companyId) {
+      const { data: membros } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("company_id", companyId);
+      rdoUserIds = (membros || []).map((m: any) => m.user_id).filter(Boolean);
+    }
+
     let rdoQuery = (supabase as any)
       .from("rdo_diarios")
       .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,status")
       .neq("status", "rascunho")
       .order("data", { ascending: false })
       .order("created_at", { ascending: false });
-    if (isAdmin && companyId) {
-      // admin vê todos da empresa — rdo_diarios não tem company_id, filtra por user_ids da empresa
-      // fallback: busca todos (RLS cuida do escopo)
-    } else {
+
+    if (isAdmin && rdoUserIds && rdoUserIds.length > 0) {
+      rdoQuery = rdoQuery.in("user_id", rdoUserIds);
+    } else if (!isAdmin) {
       rdoQuery = rdoQuery.eq("user_id", user.id);
     }
+    // isAdmin && rdoUserIds === [] → empresa sem membros, retorna vazio naturalmente
+
     if (dataInicio) rdoQuery = rdoQuery.gte("data", dataInicio);
     if (dataFim) rdoQuery = rdoQuery.lte("data", dataFim);
     const { data: rdoRows } = await rdoQuery;
