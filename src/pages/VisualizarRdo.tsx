@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, HardHat, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,11 @@ function fmtDate(value: string | null | undefined) {
   return `${d}/${m}/${y}`;
 }
 
+function expandNomes(nome: string | null): string[] {
+  if (!nome) return [];
+  return nome.split("|||").map((n) => n.trim()).filter(Boolean);
+}
+
 export default function VisualizarRdo() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -21,6 +26,9 @@ export default function VisualizarRdo() {
   const [rdo, setRdo] = useState<any | null>(null);
   const [efetivo, setEfetivo] = useState<any[]>([]);
   const [efetivoTerceiros, setEfetivoTerceiros] = useState<Record<string, string[]>>({});
+  const [equipamentos, setEquipamentos] = useState<any[]>([]);
+  const [producao, setProducao] = useState<any[]>([]);
+  const [nfMassa, setNfMassa] = useState<any[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -38,10 +46,16 @@ export default function VisualizarRdo() {
           { data: rdoRow, error: rdoError },
           { data: efetivoRows, error: efetivoError },
           { data: tercRows },
+          { data: equipRows },
+          { data: prodRows },
+          { data: nfRows },
         ] = await Promise.all([
           supabase.from("rdo_diarios").select("*").eq("id", id).maybeSingle(),
-          supabase.from("rdo_efetivo").select("id,funcao,quantidade,entrada,saida").eq("rdo_id", id),
+          supabase.from("rdo_efetivo").select("id,nome,funcao,matricula,entrada,saida,quantidade").eq("rdo_id", id).order("funcao", { ascending: true }),
           (supabase as any).from("rdo_efetivo_terceiros").select("empresa_nome,funcionario_nome").eq("rdo_id", id),
+          (supabase as any).from("rdo_equipamentos").select("id,frota,categoria,sub_tipo,tipo,nome,patrimonio,empresa_dona").eq("rdo_id", id).order("frota", { ascending: true }),
+          (supabase as any).from("rdo_producao").select("id,tipo_servico,sentido_faixa,sentido,faixa,estaca_inicial,estaca_final,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,densidade,tonelagem").eq("rdo_id", id),
+          (supabase as any).from("rdo_nf_massa").select("id,nf,placa,usina,tonelagem,tipo_material").eq("rdo_id", id).order("nf", { ascending: true }),
         ]);
 
         if (rdoError) throw rdoError;
@@ -53,15 +67,36 @@ export default function VisualizarRdo() {
         }
 
         setRdo(rdoRow);
-        setEfetivo(efetivoRows || []);
 
-        // Agrupar terceirizados por empresa
+        // Expandir efetivo (nomes separados por |||)
+        const expandido: any[] = [];
+        (efetivoRows || []).forEach((ef: any) => {
+          const nomes = expandNomes(ef.nome);
+          if (nomes.length > 0) {
+            const matriculas = ef.matricula ? ef.matricula.split("|||").map((m: string) => m.trim()) : [];
+            nomes.forEach((nome, i) => {
+              expandido.push({ nome, matricula: matriculas[i] || "-", funcao: ef.funcao || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" });
+            });
+          } else {
+            const qtd = Number(ef.quantidade) || 1;
+            for (let i = 0; i < qtd; i++) {
+              expandido.push({ nome: "-", matricula: "-", funcao: ef.funcao || "-", entrada: ef.entrada || "-", saida: ef.saida || "-" });
+            }
+          }
+        });
+        setEfetivo(expandido);
+
+        // Terceirizados agrupados por empresa
         const tercAgrupado: Record<string, string[]> = {};
         (tercRows || []).forEach((t: any) => {
           if (!tercAgrupado[t.empresa_nome]) tercAgrupado[t.empresa_nome] = [];
           tercAgrupado[t.empresa_nome].push(t.funcionario_nome);
         });
         setEfetivoTerceiros(tercAgrupado);
+
+        setEquipamentos(equipRows || []);
+        setProducao(prodRows || []);
+        setNfMassa(nfRows || []);
       } catch (err: any) {
         setError(err?.message || "Erro ao carregar RDO.");
       } finally {
@@ -72,39 +107,25 @@ export default function VisualizarRdo() {
     load();
   }, [id]);
 
-  const efetivoAgrupado = useMemo(() => {
-    const map = new Map<string, number>();
-    (efetivo || []).forEach((item: any) => {
-      const key = item.funcao || "Sem função";
-      const qtd = Number(item.quantidade) || 0;
-      map.set(key, (map.get(key) || 0) + qtd);
-    });
-    return Array.from(map.entries());
-  }, [efetivo]);
+  const entradaGlobal = efetivo[0]?.entrada || "-";
+  const saidaGlobal = efetivo[0]?.saida || "-";
+  const totalArea = producao.reduce((s, p) => s + (parseFloat(String(p.area_m2 || 0)) || 0), 0);
+  const totalTon = nfMassa.reduce((s, n) => s + (parseFloat(String(n.tonelagem || 0)) || 0), 0);
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"
-        >
+        <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
         <div className="flex-1">
-          <span className="block font-display font-extrabold text-sm text-primary-foreground">
-            Visualizar RDO
-          </span>
+          <span className="block font-display font-extrabold text-sm text-primary-foreground">Visualizar RDO</span>
           <span className="block text-[11px] text-primary-foreground/80">Somente leitura</span>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto p-4 space-y-4">
-        <div className="rounded-xl border border-blue-200 bg-blue-50 text-blue-900 px-4 py-3 text-sm font-medium">
-          {`👁️ Visualização — RDO de ${rdo?.responsavel || "Responsável"}`}
-        </div>
-
         {loading ? (
           <div className="rdo-card py-10 flex justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -115,31 +136,58 @@ export default function VisualizarRdo() {
           <div className="rdo-card py-8 text-sm text-muted-foreground">RDO não encontrado.</div>
         ) : (
           <>
-            <div className="rdo-card">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                <Info label="Obra" value={rdo.obra_nome || "-"} />
+            {/* Cabeçalho */}
+            <div className="rounded-xl border border-blue-200 bg-blue-50 text-blue-900 px-4 py-3 text-sm font-medium">
+              👁️ Visualização — RDO de {rdo.responsavel || rdo.encarregado || "Responsável"}
+            </div>
+
+            <div className="rdo-card space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <Info label="Obra / OGS" value={rdo.obra_nome || "-"} />
                 <Info label="Data" value={fmtDate(rdo.data)} />
                 <Info label="Turno" value={rdo.turno || "-"} />
                 <Info label="Clima" value={rdo.clima || "-"} />
-                <Info label="Responsável" value={rdo.responsavel || "-"} />
-                <Info label="Efetivo (registros)" value={String(efetivo.length)} />
+                <Info label="Encarregado" value={rdo.encarregado || rdo.responsavel || "-"} />
+                <Info label="Preenchido por" value={rdo.preenchido_por || "-"} />
+                <Info label="Tipo RDO" value={rdo.tipo_rdo || "-"} />
+                <Info label="Efetivo (pessoas)" value={String(efetivo.length)} />
               </div>
             </div>
 
-            <div className="rdo-card space-y-2">
-              <p className="text-sm font-display font-bold text-primary">Efetivo Fremix</p>
-              {efetivoAgrupado.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum efetivo registrado.</p>
-              ) : (
-                efetivoAgrupado.map(([funcao, quantidade]) => (
-                  <div key={funcao} className="rounded-lg border border-border bg-muted/20 p-2 text-sm flex items-center justify-between">
-                    <span>{funcao}</span>
-                    <strong>{quantidade}</strong>
-                  </div>
-                ))
-              )}
-            </div>
+            {/* Efetivo Fremix */}
+            {efetivo.length > 0 && (
+              <div className="rdo-card space-y-2">
+                <p className="text-sm font-display font-bold text-primary">
+                  👷 EFETIVO ({efetivo.length}) — {entradaGlobal} ÀS {saidaGlobal}
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-muted-foreground">
+                        <th className="text-left p-2 border border-border w-8">#</th>
+                        <th className="text-left p-2 border border-border">Nome</th>
+                        <th className="text-left p-2 border border-border">Função</th>
+                        <th className="text-left p-2 border border-border w-20">Entrada</th>
+                        <th className="text-left p-2 border border-border w-20">Saída</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {efetivo.map((p, i) => (
+                        <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/10"}>
+                          <td className="p-2 border border-border text-muted-foreground">{i + 1}</td>
+                          <td className="p-2 border border-border font-medium">{p.nome}</td>
+                          <td className="p-2 border border-border text-muted-foreground">{p.funcao}</td>
+                          <td className="p-2 border border-border text-center">{p.entrada}</td>
+                          <td className="p-2 border border-border text-center">{p.saida}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
+            {/* Efetivo Terceirizado */}
             {Object.keys(efetivoTerceiros).length > 0 && (
               <div className="rdo-card space-y-3">
                 <p className="text-sm font-display font-bold flex items-center gap-2 text-amber-700">
@@ -150,10 +198,7 @@ export default function VisualizarRdo() {
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">{empresa}</p>
                     <div className="flex flex-wrap gap-1">
                       {nomes.map((nome) => (
-                        <span
-                          key={nome}
-                          className="px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-800"
-                        >
+                        <span key={nome} className="px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-800">
                           {nome}
                         </span>
                       ))}
@@ -163,78 +208,153 @@ export default function VisualizarRdo() {
               </div>
             )}
 
-            {/* Bloco de validações */}
+            {/* Equipamentos */}
+            {equipamentos.length > 0 && (
+              <div className="rdo-card space-y-2">
+                <p className="text-sm font-display font-bold text-primary">🚜 EQUIPAMENTOS ({equipamentos.length})</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-muted-foreground">
+                        <th className="text-left p-2 border border-border">Frota</th>
+                        <th className="text-left p-2 border border-border">Equipamento</th>
+                        <th className="text-left p-2 border border-border">Modelo/Placa</th>
+                        <th className="text-left p-2 border border-border">Empresa</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {equipamentos.map((e, i) => (
+                        <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/10"}>
+                          <td className="p-2 border border-border font-medium">{e.frota || "-"}</td>
+                          <td className="p-2 border border-border">{e.sub_tipo || e.tipo || e.categoria || "-"}</td>
+                          <td className="p-2 border border-border text-muted-foreground">{e.nome || e.patrimonio || "-"}</td>
+                          <td className="p-2 border border-border text-muted-foreground">{e.empresa_dona || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* NFs de Massa */}
+            {nfMassa.length > 0 && (
+              <div className="rdo-card space-y-2">
+                <p className="text-sm font-display font-bold text-primary">📋 NOTAS FISCAIS DE MASSA</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-muted-foreground">
+                        <th className="text-left p-2 border border-border">NF</th>
+                        <th className="text-left p-2 border border-border">Placa</th>
+                        <th className="text-left p-2 border border-border">Usina</th>
+                        <th className="text-right p-2 border border-border">Tonelagem</th>
+                        <th className="text-left p-2 border border-border">Material</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {nfMassa.map((n, i) => (
+                        <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/10"}>
+                          <td className="p-2 border border-border font-medium">{n.nf || "-"}</td>
+                          <td className="p-2 border border-border">{n.placa || "-"}</td>
+                          <td className="p-2 border border-border text-muted-foreground">{n.usina || "-"}</td>
+                          <td className="p-2 border border-border text-right">{n.tonelagem ?? "-"}</td>
+                          <td className="p-2 border border-border text-muted-foreground">{n.tipo_material || "-"}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-muted/40 font-bold">
+                        <td colSpan={3} className="p-2 border border-border text-right">TOTAL</td>
+                        <td className="p-2 border border-border text-right">{totalTon.toFixed(2)}</td>
+                        <td className="p-2 border border-border" />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Produção */}
+            {producao.length > 0 && (
+              <div className="rdo-card space-y-2">
+                <p className="text-sm font-display font-bold text-primary">🏗️ PRODUÇÃO DO DIA</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-muted-foreground">
+                        <th className="text-left p-2 border border-border">Serviço</th>
+                        <th className="text-left p-2 border border-border">Sentido/Faixa</th>
+                        <th className="text-right p-2 border border-border">Comp(m)</th>
+                        <th className="text-right p-2 border border-border">Larg(m)</th>
+                        <th className="text-right p-2 border border-border">Área(m²)</th>
+                        <th className="text-right p-2 border border-border">Esp(cm)</th>
+                        <th className="text-right p-2 border border-border">Volume(m³)</th>
+                        <th className="text-right p-2 border border-border">Dens.</th>
+                        <th className="text-right p-2 border border-border">Ton</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {producao.map((p, i) => (
+                        <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/10"}>
+                          <td className="p-2 border border-border font-medium">{p.tipo_servico || "-"}</td>
+                          <td className="p-2 border border-border text-muted-foreground">{p.sentido_faixa || p.sentido || "-"}</td>
+                          <td className="p-2 border border-border text-right">{p.comprimento_m ?? "-"}</td>
+                          <td className="p-2 border border-border text-right">{p.largura_m ?? "-"}</td>
+                          <td className="p-2 border border-border text-right">{p.area_m2 ?? "-"}</td>
+                          <td className="p-2 border border-border text-right">{p.espessura_cm ?? "-"}</td>
+                          <td className="p-2 border border-border text-right">{p.volume_m3 ?? "-"}</td>
+                          <td className="p-2 border border-border text-right">{p.densidade ?? "-"}</td>
+                          <td className="p-2 border border-border text-right">{p.tonelagem ?? "-"}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-muted/40 font-bold">
+                        <td colSpan={4} className="p-2 border border-border text-right">TOTAL</td>
+                        <td className="p-2 border border-border text-right">{totalArea.toFixed(2)}</td>
+                        <td colSpan={4} className="p-2 border border-border" />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Validações */}
             <div className="rdo-card space-y-3">
               <p className="text-sm font-display font-bold text-primary">Validações</p>
-              {/* Encarregado */}
               <div className={`flex items-start gap-3 rounded-xl p-3 border text-sm ${
-                rdo.validado_encarregado
-                  ? "bg-green-50 border-green-200"
-                  : rdo.nao_aprovado_encarregado
-                  ? "bg-red-50 border-red-200"
-                  : "bg-muted/30 border-border"
+                rdo.validado_encarregado ? "bg-green-50 border-green-200"
+                : rdo.nao_aprovado_encarregado ? "bg-red-50 border-red-200"
+                : "bg-muted/30 border-border"
               }`}>
                 <div className="mt-0.5">
-                  {rdo.validado_encarregado ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  ) : rdo.nao_aprovado_encarregado ? (
-                    <XCircle className="w-4 h-4 text-red-600" />
-                  ) : (
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                  )}
+                  {rdo.validado_encarregado ? <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  : rdo.nao_aprovado_encarregado ? <XCircle className="w-4 h-4 text-red-600" />
+                  : <Clock className="w-4 h-4 text-muted-foreground" />}
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-foreground">Encarregado</p>
-                  <p className={`text-xs mt-0.5 ${
-                    rdo.validado_encarregado ? "text-green-700" :
-                    rdo.nao_aprovado_encarregado ? "text-red-700" :
-                    "text-muted-foreground"
-                  }`}>
-                    {rdo.validado_encarregado
-                      ? "Aprovado"
-                      : rdo.nao_aprovado_encarregado
-                      ? "Não aprovado"
-                      : "Aguardando validação"}
+                  <p className={`text-xs mt-0.5 ${rdo.validado_encarregado ? "text-green-700" : rdo.nao_aprovado_encarregado ? "text-red-700" : "text-muted-foreground"}`}>
+                    {rdo.validado_encarregado ? "Aprovado" : rdo.nao_aprovado_encarregado ? "Não aprovado" : "Aguardando validação"}
                   </p>
                   {rdo.nao_aprovado_encarregado && rdo.motivo_rejeicao_enc && (
                     <p className="text-xs text-red-600 mt-1">Motivo: {rdo.motivo_rejeicao_enc}</p>
                   )}
-                  {rdo.validado_encarregado_em && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(rdo.validado_encarregado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-                    </p>
-                  )}
                 </div>
               </div>
-              {/* Engenheiro */}
+
               <div className={`flex items-start gap-3 rounded-xl p-3 border text-sm ${
-                rdo.status_validacao === "validado"
-                  ? "bg-green-50 border-green-200"
-                  : rdo.status_validacao === "rejeitado"
-                  ? "bg-red-50 border-red-200"
-                  : "bg-muted/30 border-border"
+                rdo.status_validacao === "validado" ? "bg-green-50 border-green-200"
+                : rdo.status_validacao === "rejeitado" ? "bg-red-50 border-red-200"
+                : "bg-muted/30 border-border"
               }`}>
                 <div className="mt-0.5">
-                  {rdo.status_validacao === "validado" ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  ) : rdo.status_validacao === "rejeitado" ? (
-                    <XCircle className="w-4 h-4 text-red-600" />
-                  ) : (
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                  )}
+                  {rdo.status_validacao === "validado" ? <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  : rdo.status_validacao === "rejeitado" ? <XCircle className="w-4 h-4 text-red-600" />
+                  : <Clock className="w-4 h-4 text-muted-foreground" />}
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-foreground">Engenheiro</p>
-                  <p className={`text-xs mt-0.5 ${
-                    rdo.status_validacao === "validado" ? "text-green-700" :
-                    rdo.status_validacao === "rejeitado" ? "text-red-700" :
-                    "text-muted-foreground"
-                  }`}>
-                    {rdo.status_validacao === "validado"
-                      ? "Validado"
-                      : rdo.status_validacao === "rejeitado"
-                      ? "Rejeitado"
-                      : "Aguardando validação"}
+                  <p className={`text-xs mt-0.5 ${rdo.status_validacao === "validado" ? "text-green-700" : rdo.status_validacao === "rejeitado" ? "text-red-700" : "text-muted-foreground"}`}>
+                    {rdo.status_validacao === "validado" ? "Validado" : rdo.status_validacao === "rejeitado" ? "Rejeitado" : "Aguardando validação"}
                   </p>
                   {rdo.status_validacao === "rejeitado" && rdo.motivo_rejeicao_eng && (
                     <p className="text-xs text-red-600 mt-1">Motivo: {rdo.motivo_rejeicao_eng}</p>
