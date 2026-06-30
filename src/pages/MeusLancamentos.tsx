@@ -245,29 +245,19 @@ export default function MeusLancamentos() {
     setRascunhos((rascunhosRows || []) as Lancamento[]);
 
     // Buscar RDOs
-    // rdo_diarios não tem company_id — admin precisa filtrar via user_ids da empresa
-    let rdoUserIds: string[] | null = null;
-    if (isAdmin && companyId) {
-      const { data: membros } = await supabase
-        .from("profiles")
-        .select("user_id")
-        .eq("company_id", companyId);
-      rdoUserIds = (membros || []).map((m: any) => m.user_id).filter(Boolean);
-    }
-
+    // rdo_diarios tem company_id — admin filtra direto por company_id
+    // NOTA: coluna "status" não existe na tabela — filtro de rascunho removido
     let rdoQuery = (supabase as any)
       .from("rdo_diarios")
-      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,status")
-      .neq("status", "rascunho")
+      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,company_id,status_validacao")
       .order("data", { ascending: false })
       .order("created_at", { ascending: false });
 
-    if (isAdmin && rdoUserIds && rdoUserIds.length > 0) {
-      rdoQuery = rdoQuery.in("user_id", rdoUserIds);
-    } else if (!isAdmin) {
+    if (isAdmin && companyId) {
+      rdoQuery = rdoQuery.eq("company_id", companyId);
+    } else {
       rdoQuery = rdoQuery.eq("user_id", user.id);
     }
-    // isAdmin && rdoUserIds === [] → empresa sem membros, retorna vazio naturalmente
 
     if (dataInicio) rdoQuery = rdoQuery.gte("data", dataInicio);
     if (dataFim) rdoQuery = rdoQuery.lte("data", dataFim);
@@ -275,10 +265,11 @@ export default function MeusLancamentos() {
     setRdos(rdoRows || []);
 
     // Buscar rascunhos de RDO do próprio usuário
+    // NOTA: coluna "status" não existe — rascunhos são identificados por status_validacao = 'rascunho'
     const { data: rascunhosRdoRows } = await (supabase as any)
       .from("rdo_diarios")
-      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,status")
-      .eq("status", "rascunho")
+      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,status_validacao")
+      .eq("status_validacao", "rascunho")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setRascunhosRdo(rascunhosRdoRows || []);

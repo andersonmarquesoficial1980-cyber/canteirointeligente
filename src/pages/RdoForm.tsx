@@ -420,7 +420,7 @@ export default function RdoForm() {
         encarregado: encarregado || null,
         user_id: user.id,
         company_id: profile?.company_id || null,
-        status: "rascunho",
+        status_validacao: "rascunho",
       };
 
       // ID existente: vem de rascunho já salvo nesta sessão OU de ?edit= na URL
