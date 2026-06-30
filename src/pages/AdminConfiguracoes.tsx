@@ -439,6 +439,15 @@ function MaquinasManager() {
   const [frota, setFrota] = useState("");
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
+  const [companyId, setCompanyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle()
+        .then(({ data }) => { if ((data as any)?.company_id) setCompanyId((data as any).company_id); });
+    });
+  }, []);
   const [categoria, setCategoria] = useState("");
   const [condicao, setCondicao] = useState("PROPRIO");
   const [empresa, setEmpresa] = useState("PRÓPRIO");
@@ -487,7 +496,11 @@ function MaquinasManager() {
       toast({ title: "Atenção", description: "Preencha Frota e Nome.", variant: "destructive" });
       return;
     }
-    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria_rdo: categoria, condicao, empresa_proprietaria: condicao === 'TERCEIRO' ? empresa.trim() : null, vinculos, vinculo_rdo: vinculos[0], status: "ativo" });
+    if (!companyId) {
+      toast({ title: "Erro", description: "Empresa não identificada. Faça login novamente.", variant: "destructive" });
+      return;
+    }
+    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria_rdo: categoria, condicao, empresa_proprietaria: condicao === 'TERCEIRO' ? empresa.trim() : null, vinculos, vinculo_rdo: vinculos[0], status: "ativo", company_id: companyId });
     if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setCondicao("PROPRIO"); setEmpresa("PRÓPRIO"); setVinculos(["TODOS"]); }
   };
 
