@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, FileText } from "lucide-react";
+import { ArrowLeft, Search, FileText, FileSpreadsheet, Printer } from "lucide-react";
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -16,6 +17,12 @@ function fmtNum(n: any) {
   return isNaN(v) ? "-" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Para CSV: ponto decimal → vírgula (padrão Excel Brasil)
+function fmtNumCsv(n: any) {
+  const v = parseFloat(String(n ?? "").replace(",", "."));
+  return isNaN(v) ? "-" : v.toFixed(2).replace(".", ",");
+}
+
 interface NfRow {
   data: string;
   obra_nome: string;
@@ -26,8 +33,88 @@ interface NfRow {
   tipo_material: string | null;
 }
 
+function exportarExcel(ogs: string, dataIni: string, dataFim: string, rows: NfRow[]) {
+  const linhas: string[][] = [];
+  linhas.push(["Relatório de Notas Fiscais de Massa"]);
+  linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
+  linhas.push([]);
+  linhas.push(["Data", "OGS", "NF", "Placa", "Usina", "Tipo Material", "Tonelagem(t)"]);
+  
+  rows.forEach(r => {
+    linhas.push([
+      fmtDate(r.data),
+      r.obra_nome || "-",
+      r.nf || "-",
+      r.placa || "-",
+      r.usina || "-",
+      r.tipo_material || "-",
+      r.tonelagem != null ? fmtNumCsv(r.tonelagem) : "-",
+    ]);
+  });
+  
+  const total = rows.reduce((s, r) => s + (r.tonelagem || 0), 0);
+  linhas.push(["", "", "", "", "", "", fmtNumCsv(total)]);
+
+  const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `WF_NotasFiscais_${dataIni}_a_${dataFim}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportarPdf(ogs: string, dataIni: string, dataFim: string, rows: NfRow[]) {
+  const total = rows.reduce((s, r) => s + (r.tonelagem || 0), 0);
+  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Notas Fiscais de Massa</title><style>
+    body{font-family:Arial,sans-serif;padding:20px;color:#333;font-size:12px}
+    h1{color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:6px;font-size:16px}
+    .period{font-size:11px;color:#666;margin-bottom:12px}
+    table{width:100%;border-collapse:collapse;margin:10px 0;font-size:11px}
+    th,td{border:1px solid #d1d5db;padding:4px 7px;text-align:left}
+    th{background:#f3f4f6;font-weight:600}
+    td{text-align:left}
+    td:last-child{text-align:right}
+    .total{font-weight:bold;background:#f3f4f6}
+    .total td:first-child{font-weight:bold}
+    .total td:last-child{font-weight:bold;color:#1a56db}
+    @media print{body{padding:8px}}
+  </style></head><body>
+  <h1>📋 Relatório de Notas Fiscais de Massa</h1>
+  <p class="period"><strong>Período:</strong> ${fmtDate(dataIni)} a ${fmtDate(dataFim)}</p>
+  <table>
+    <tr><th>Data</th><th>OGS</th><th>NF</th><th>Placa</th><th>Usina</th><th>Tipo Material</th><th>Tonelagem(t)</th></tr>`;
+  
+  rows.forEach(r => {
+    html += `<tr>
+      <td>${fmtDate(r.data)}</td>
+      <td>${r.obra_nome || "-"}</td>
+      <td>${r.nf || "-"}</td>
+      <td>${r.placa || "-"}</td>
+      <td>${r.usina || "-"}</td>
+      <td>${r.tipo_material || "-"}</td>
+      <td>${r.tonelagem != null ? fmtNum(r.tonelagem) : "-"}</td>
+    </tr>`;
+  });
+  
+  html += `<tr class="total">
+    <td colspan="6">TOTAL</td>
+    <td>${fmtNum(total)} t</td>
+  </tr>`;
+  html += `</table></body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 400);
+}
+
 export default function RelatorioNotasFiscais() {
   const navigate = useNavigate();
+  const { profile } = useUserProfile();
   const [ogs, setOgs] = useState("");
   const [dataIni, setDataIni] = useState("");
   const [dataFim, setDataFim] = useState("");
@@ -38,14 +125,15 @@ export default function RelatorioNotasFiscais() {
   const totalTon = rows.reduce((s, r) => s + (r.tonelagem || 0), 0);
 
   const buscar = async () => {
-    if (!dataIni || !dataFim) return;
+    if (!dataIni || !dataFim || !profile?.company_id) return;
     setLoading(true);
     setSearched(true);
     try {
-      // Busca RDOs no período
+      // Busca RDOs no período com filtro de company_id (RLS)
       let rdoQuery = (supabase as any)
         .from("rdo_diarios")
         .select("id, obra_nome, data")
+        .eq("company_id", profile.company_id)
         .gte("data", dataIni)
         .lte("data", dataFim);
 
@@ -64,11 +152,12 @@ export default function RelatorioNotasFiscais() {
       const rdoMap: Record<string, { data: string; obra_nome: string }> = {};
       rdos.forEach((r: any) => { rdoMap[r.id] = { data: r.data, obra_nome: r.obra_nome }; });
 
-      // Busca NFs desses RDOs
+      // Busca NFs desses RDOs com filtro de company_id (RLS)
       const { data: nfs, error: nfErr } = await (supabase as any)
         .from("rdo_nf_massa")
         .select("rdo_id, nf, placa, usina, tonelagem, tipo_material")
-        .in("rdo_id", rdoIds);
+        .in("rdo_id", rdoIds)
+        .eq("company_id", profile.company_id);
 
       if (nfErr) throw nfErr;
 
@@ -137,6 +226,28 @@ export default function RelatorioNotasFiscais() {
                 <p className="text-sm font-bold text-primary">Total: {fmtNum(totalTon)} t</p>
               )}
             </div>
+            
+            {rows.length > 0 && (
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 text-xs"
+                  onClick={() => exportarExcel(ogs, dataIni, dataFim, rows)}
+                >
+                  <FileSpreadsheet className="w-4 h-4" /> Download Excel
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 text-xs"
+                  onClick={() => exportarPdf(ogs, dataIni, dataFim, rows)}
+                >
+                  <Printer className="w-4 h-4" /> Download PDF
+                </Button>
+              </div>
+            )}
+            
             {rows.length === 0 ? (
               <div className="bg-card rounded-xl border border-border p-6 text-center text-sm text-muted-foreground">
                 Nenhuma nota fiscal encontrada no período.
@@ -151,6 +262,7 @@ export default function RelatorioNotasFiscais() {
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">NF</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Placa</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Usina</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Tipo Material</th>
                       <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Ton</th>
                     </tr>
                   </thead>
@@ -162,11 +274,12 @@ export default function RelatorioNotasFiscais() {
                         <td className="px-3 py-2 font-bold">{r.nf || "-"}</td>
                         <td className="px-3 py-2 text-xs text-muted-foreground uppercase">{r.placa || "-"}</td>
                         <td className="px-3 py-2 text-xs">{r.usina || "-"}</td>
+                        <td className="px-3 py-2 text-xs">{r.tipo_material || "-"}</td>
                         <td className="px-3 py-2 text-right font-semibold">{fmtNum(r.tonelagem)}</td>
                       </tr>
                     ))}
                     <tr className="bg-primary/5 border-t border-border">
-                      <td colSpan={5} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
+                      <td colSpan={7} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
                       <td className="px-3 py-2 text-right font-bold text-primary">{fmtNum(totalTon)} t</td>
                     </tr>
                   </tbody>
