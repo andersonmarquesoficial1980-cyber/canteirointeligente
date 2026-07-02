@@ -341,13 +341,8 @@ export default function RelatorioEquipamentosRdo() {
           if (!rdo) return null; // Skip if rdo not found
           
           const ogsRef = ogsMap[rdo.obra_nome];
-          // Apontador: employee name se user_id existe, senão usa encarregado
-          let apontador = null;
-          if (rdo.user_id && employeeMap[rdo.user_id]) {
-            apontador = employeeMap[rdo.user_id];
-          } else if (rdo.encarregado) {
-            apontador = rdo.encarregado;
-          }
+          // Apontador: APENAS employee name se user_id existe. Se NULL, deixa vazio.
+          const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || null;
           // Empresa: prioridade empresa_dona, depois maquinas_frota, depois null
           const empresa = e.empresa_dona || frotaEmpresaMap[e.frota] || null;
           
