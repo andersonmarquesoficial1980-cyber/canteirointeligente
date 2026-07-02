@@ -12,24 +12,15 @@ function fmtDate(d: string): string {
   return `${day}/${m}/${y}`;
 }
 
-function fmtNum(n: any) {
-  const v = parseFloat(String(n ?? "").replace(",", "."));
-  return isNaN(v) ? "-" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function fmtNumCsv(n: any) {
-  const v = parseFloat(String(n ?? "").replace(",", "."));
-  return isNaN(v) ? "-" : v.toFixed(2).replace(".", ",");
-}
-
 interface ResultRow {
   data: string;
-  ogs: string;
   apontador: string | null;
+  encarregado: string | null;
+  ogs: string;
+  contratante: string | null;
+  local: string | null;
   frota: string;
-  equipamento: string | null;
   empresa: string | null;
-  turno: string | null;
 }
 
 type FilterType = "frota" | "obra" | "encarregado";
@@ -47,17 +38,18 @@ function exportarExcel(filterType: FilterType, filterValue: string, dataIni: str
   linhas.push(["Localização de Equipamentos (RDO)"]);
   linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
   linhas.push([]);
-  linhas.push(["Data", "OGS", "Apontador", "Frota", "Equipamento", "Empresa", "Turno"]);
+  linhas.push(["Data", "Apontador", "Encarregado", "OGS", "Contratante", "Local", "Frota", "Empresa"]);
   
   rows.forEach(r => {
     linhas.push([
       fmtDate(r.data),
-      r.ogs || "-",
       r.apontador || "-",
+      r.encarregado || "-",
+      r.ogs || "-",
+      r.contratante || "-",
+      r.local || "-",
       r.frota || "-",
-      r.equipamento || "-",
       r.empresa || "-",
-      r.turno || "-",
     ]);
   });
   
@@ -88,17 +80,18 @@ function exportarPdf(filterType: FilterType, filterValue: string, dataIni: strin
   <p class="meta"><strong>Filtro:</strong> ${filterType.toUpperCase()} = ${filterValue}</p>
   <p class="meta"><strong>Total de Registros:</strong> ${rows.length}</p>
   <table>
-    <tr><th>Data</th><th>OGS</th><th>Apontador</th><th>Frota</th><th>Equipamento</th><th>Empresa</th><th>Turno</th></tr>`;
+    <tr><th>Data</th><th>Apontador</th><th>Encarregado</th><th>OGS</th><th>Contratante</th><th>Local</th><th>Frota</th><th>Empresa</th></tr>`;
   
   rows.forEach(r => {
     html += `<tr>
       <td>${fmtDate(r.data)}</td>
-      <td>${r.ogs || "-"}</td>
       <td>${r.apontador || "-"}</td>
+      <td>${r.encarregado || "-"}</td>
+      <td>${r.ogs || "-"}</td>
+      <td>${r.contratante || "-"}</td>
+      <td>${r.local || "-"}</td>
       <td>${r.frota || "-"}</td>
-      <td>${r.equipamento || "-"}</td>
       <td>${r.empresa || "-"}</td>
-      <td>${r.turno || "-"}</td>
     </tr>`;
   });
   
@@ -193,24 +186,23 @@ export default function RelatorioEquipamentosRdo() {
 
     setLoading(true);
     setSearched(true);
-    setMessageNoData(""); // Reset message on new search
+    setMessageNoData("");
 
     try {
-      // CORREÇÃO: Query otimizada
-      // Passo 1: Buscar RDOs com filtros aplicados
+      // PASSO 1: Buscar RDOs com filtros
       let rdoQuery = supabase
         .from("rdo_diarios")
-        .select("id, data, obra_nome, turno, encarregado, user_id")
+        .select("id, data, obra_nome, encarregado, user_id, turno")
         .eq("company_id", profile.company_id!);
 
-      // Aplicar filtro de obra
+      // Aplicar filtro de obra via RDO
       if (filterType === "obra") {
         rdoQuery = rdoQuery.ilike("obra_nome", `%${filter.trim()}%`);
       } else if (filterType === "encarregado") {
         rdoQuery = rdoQuery.eq("encarregado", filter.trim());
       }
 
-      // Aplicar filtros de data NA QUERY
+      // Aplicar filtros de data
       if (dataIni) {
         rdoQuery = rdoQuery.gte("data", dataIni);
       }
@@ -221,7 +213,7 @@ export default function RelatorioEquipamentosRdo() {
       const { data: rdos, error: rdoErr } = await rdoQuery;
       if (rdoErr) throw rdoErr;
 
-      console.log(`[DEBUG] RDO Query returned ${rdos?.length || 0} records with filter=${filter}`);
+      console.log(`[DEBUG] RDO Query returned ${rdos?.length || 0} records`);
 
       if (!rdos || rdos.length === 0) {
         setRows([]);
@@ -236,10 +228,10 @@ export default function RelatorioEquipamentosRdo() {
         rdoMap[r.id] = r;
       });
 
-      // Passo 2: Buscar equipamentos da tabela rdo_equipamentos
+      // PASSO 2: Buscar equipamentos
       let equipQuery = supabase
         .from("rdo_equipamentos")
-        .select("frota, categoria, tipo, nome, empresa_dona, rdo_id")
+        .select("frota, empresa_dona, rdo_id")
         .eq("company_id", profile.company_id!)
         .in("rdo_id", rdoIds);
 
@@ -251,49 +243,15 @@ export default function RelatorioEquipamentosRdo() {
       const { data: equips, error: equipErr } = await equipQuery;
       if (equipErr) throw equipErr;
 
-      console.log(`[DEBUG] Equipment Query (rdo_equipamentos) returned ${equips?.length || 0} records`);
+      console.log(`[DEBUG] Equipment Query returned ${equips?.length || 0} records`);
 
-      // Passo 3: Se não encontrou em rdo_equipamentos, tentar equipment_diaries
+      // Se não tem equipamentos, criar linhas dos RDOs (fallback)
       let allEquips = equips || [];
       if (allEquips.length === 0) {
-        console.log("[DEBUG] No equipment found in rdo_equipamentos, trying equipment_diaries...");
-        
-        // Extrair datas para buscar em equipment_diaries
-        const uniqueDates = Array.from(new Set(rdos.map((r: any) => r.data).filter(Boolean)));
-        
-        if (uniqueDates.length > 0) {
-          let edQuery = supabase
-            .from("equipment_diaries")
-            .select("equipment_fleet, equipment_type, ogs_number, date, operator_name, period")
-            .eq("company_id", profile.company_id!)
-            .in("date", uniqueDates);
-
-          // Se filtro é frota, aplicar
-          if (filterType === "frota") {
-            edQuery = edQuery.ilike("equipment_fleet", `%${filter.trim()}%`);
-          }
-
-          const { data: edEquips, error: edErr } = await edQuery;
-          if (edErr) {
-            console.error("[DEBUG] Error fetching equipment_diaries:", edErr);
-          } else {
-            console.log(`[DEBUG] Equipment_diaries query returned ${edEquips?.length || 0} records`);
-            // Converter formato de equipment_diaries para análogo rdo_equipamentos
-            allEquips = (edEquips || []).map((ed: any) => ({
-              frota: ed.equipment_fleet,
-              tipo: ed.equipment_type,
-              nome: null,
-              categoria: null,
-              empresa_dona: null,
-              rdo_id: null, // Será mapeado via data/ogs_number
-              _edDate: ed.date,
-              _edOgsNumber: ed.ogs_number,
-            }));
-          }
-        }
+        console.log("[DEBUG] No equipment found - creating fallback rows from RDO data");
       }
 
-      // Passo 4: Buscar nomes dos apontadores (employees)
+      // PASSO 3: Buscar nomes dos apontadores (employees)
       const userIds = rdos.map((r: any) => r.user_id).filter(Boolean);
       let employeeMap: Record<string, string> = {};
       
@@ -314,53 +272,67 @@ export default function RelatorioEquipamentosRdo() {
       
       console.log(`[DEBUG] Found ${Object.keys(employeeMap).length} employees`);
 
-      // Passo 5: Mapear equipamentos + RDO + employee
+      // PASSO 4: Buscar OGS Reference (para Contratante e Local)
+      const ogsNumbers = Array.from(new Set(rdos.map((r: any) => r.obra_nome).filter(Boolean)));
+      let ogsMap: Record<string, any> = {};
+      
+      if (ogsNumbers.length > 0) {
+        const { data: ogsRefs, error: ogsErr } = await supabase
+          .from("ogs_reference")
+          .select("ogs_number, client_name, location_address")
+          .eq("company_id", profile.company_id!)
+          .in("ogs_number", ogsNumbers);
+        
+        if (ogsErr) {
+          console.error("Erro ao buscar ogs_reference:", ogsErr);
+        } else {
+          (ogsRefs || []).forEach((o: any) => {
+            ogsMap[o.ogs_number] = o;
+          });
+        }
+      }
+      
+      console.log(`[DEBUG] Found ${Object.keys(ogsMap).length} OGS references`);
+
+      // PASSO 5: Montar resultado final
       let result: ResultRow[] = [];
       
       if (allEquips.length > 0) {
+        // Com equipamentos: criar uma linha por equipamento
         result = allEquips.map((e: any) => {
-          // Encontrar RDO correspondente
-          let rdo: any = null;
-          if (e.rdo_id) {
-            rdo = rdoMap[e.rdo_id];
-          } else if (e._edDate && e._edOgsNumber) {
-            // Buscar RDO por data e obra_nome (OGS)
-            rdo = Object.values(rdoMap).find((r: any) => r.data === e._edDate && r.obra_nome === e._edOgsNumber);
-          }
-
-          const apontador = (rdo?.user_id && employeeMap[rdo.user_id]) || rdo?.encarregado || null;
+          const rdo = rdoMap[e.rdo_id];
+          const ogsRef = ogsMap[rdo?.obra_nome];
+          const apontador = (rdo?.user_id && employeeMap[rdo.user_id]) || null;
+          
           return {
             data: rdo?.data || "",
-            ogs: rdo?.obra_nome || "",
             apontador,
+            encarregado: rdo?.encarregado || null,
+            ogs: rdo?.obra_nome || "",
+            contratante: ogsRef?.client_name || null,
+            local: ogsRef?.location_address || null,
             frota: e.frota || "",
-            equipamento: e.nome || e.tipo || e.categoria || null,
             empresa: e.empresa_dona || null,
-            turno: rdo?.turno || null,
           };
         });
       } else {
-        // Sem equipamentos - criar linhas dos RDOs (fallback)
-        if (rdos.length > 0) {
-          setMessageNoData("Nenhum equipamento registrado para o período e filtro selecionado.");
-        }
+        // Sem equipamentos: criar linhas dos RDOs
         result = rdos.map((rdo: any) => {
-          const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || rdo.encarregado || null;
+          const ogsRef = ogsMap[rdo.obra_nome];
+          const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || null;
+          
           return {
             data: rdo.data || "",
-            ogs: rdo.obra_nome || "",
             apontador,
+            encarregado: rdo.encarregado || null,
+            ogs: rdo.obra_nome || "",
+            contratante: ogsRef?.client_name || null,
+            local: ogsRef?.location_address || null,
             frota: "",
-            equipamento: null,
             empresa: null,
-            turno: rdo.turno || null,
           };
         });
       }
-
-      // Filtrar por data (redundante com query, mas garante)
-      if (dataIni) result = result.filter((r) => r.data >= dataIni);
-      if (dataFim) result = result.filter((r) => r.data <= dataFim);
 
       // Sort by date descending
       result.sort((a, b) => b.data.localeCompare(a.data));
@@ -417,7 +389,7 @@ export default function RelatorioEquipamentosRdo() {
   return (
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
@@ -432,7 +404,7 @@ export default function RelatorioEquipamentosRdo() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
+      <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
         {/* Filter Type Selector */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -599,30 +571,33 @@ export default function RelatorioEquipamentosRdo() {
                     </>
                   )}
                 </p>
-                <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
+                <div className="bg-card rounded-xl border border-border overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50 sticky top-0">
                     <tr>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         Data
                       </th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
-                        OGS
-                      </th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         Apontador
                       </th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                        Encarregado
+                      </th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                        OGS
+                      </th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                        Contratante
+                      </th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                        Local
+                      </th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         Frota
                       </th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
-                        Equipamento
-                      </th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         Empresa
-                      </th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
-                        Turno
                       </th>
                     </tr>
                   </thead>
@@ -632,24 +607,29 @@ export default function RelatorioEquipamentosRdo() {
                         key={i}
                         className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}
                       >
-                        <td className="px-3 py-2 font-medium">
+                        <td className="px-3 py-2 font-medium whitespace-nowrap">
                           {fmtDate(r.data)}
                         </td>
-                        <td className="px-3 py-2 text-primary font-semibold text-xs">
-                          {r.ogs}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-muted-foreground">
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                           {r.apontador || "-"}
                         </td>
-                        <td className="px-3 py-2 font-bold text-xs">{r.frota || "-"}</td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {r.equipamento || "-"}
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                          {r.encarregado || "-"}
                         </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                        <td className="px-3 py-2 text-primary font-semibold whitespace-nowrap">
+                          {r.ogs}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                          {r.contratante || "-"}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                          {r.local || "-"}
+                        </td>
+                        <td className="px-3 py-2 font-bold whitespace-nowrap">
+                          {r.frota || "-"}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                           {r.empresa || "-"}
-                        </td>
-                        <td className="px-3 py-2 text-xs capitalize">
-                          {r.turno || "-"}
                         </td>
                       </tr>
                     ))}
