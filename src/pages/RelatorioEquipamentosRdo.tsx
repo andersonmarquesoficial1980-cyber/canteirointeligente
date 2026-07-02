@@ -228,10 +228,10 @@ export default function RelatorioEquipamentosRdo() {
         rdoMap[r.id] = r;
       });
 
-      // PASSO 2: Buscar equipamentos
+      // PASSO 2: Buscar equipamentos de RDO (tabela correta com rdo_id direto)
       let equipQuery = supabase
         .from("rdo_equipamentos")
-        .select("frota, empresa_dona, rdo_id")
+        .select("id, frota, empresa_dona, rdo_id, categoria, tipo")
         .eq("company_id", profile.company_id!)
         .in("rdo_id", rdoIds);
 
@@ -243,12 +243,34 @@ export default function RelatorioEquipamentosRdo() {
       const { data: equips, error: equipErr } = await equipQuery;
       if (equipErr) throw equipErr;
 
-      console.log(`[DEBUG] Equipment Query returned ${equips?.length || 0} records`);
+      console.log(`[DEBUG] rdo_equipamentos Query returned ${equips?.length || 0} records`);
 
-      // Se não tem equipamentos, criar linhas dos RDOs (fallback)
-      let allEquips = equips || [];
+      // Mapa de equipamentos por frota para buscar empresa de maquinas_frota
+      const frotaNames = Array.from(new Set((equips || []).map((e: any) => e.frota).filter(Boolean)));
+      let frotaEmpresaMap: Record<string, string> = {};
+      
+      if (frotaNames.length > 0) {
+        // PASSO 2B: Buscar empresa de maquinas_frota para cada frota
+        const { data: maquinas, error: maqErr } = await supabase
+          .from("maquinas_frota")
+          .select("frota, empresa")
+          .eq("company_id", profile.company_id!)
+          .in("frota", frotaNames);
+        
+        if (maqErr) {
+          console.error("Erro ao buscar maquinas_frota:", maqErr);
+        } else {
+          (maquinas || []).forEach((m: any) => {
+            frotaEmpresaMap[m.frota] = m.empresa || null;
+          });
+        }
+      }
+
+      console.log(`[DEBUG] Found ${Object.keys(frotaEmpresaMap).length} maquinas_frota with empresa`);
+
+      const allEquips = equips || [];
       if (allEquips.length === 0) {
-        console.log("[DEBUG] No equipment found - creating fallback rows from RDO data");
+        console.log("[DEBUG] No equipment found in rdo_equipamentos - creating fallback rows from RDO data");
       }
 
       // PASSO 3: Buscar nomes dos apontadores (employees)
@@ -303,6 +325,8 @@ export default function RelatorioEquipamentosRdo() {
           const rdo = rdoMap[e.rdo_id];
           const ogsRef = ogsMap[rdo?.obra_nome];
           const apontador = (rdo?.user_id && employeeMap[rdo.user_id]) || null;
+          // Prioridade: empresa_dona do rdo_equipamentos, depois buscar de maquinas_frota por frota
+          const empresa = e.empresa_dona || frotaEmpresaMap[e.frota] || null;
           
           return {
             data: rdo?.data || "",
@@ -312,7 +336,7 @@ export default function RelatorioEquipamentosRdo() {
             contratante: ogsRef?.client_name || null,
             local: ogsRef?.location_address || null,
             frota: e.frota || "",
-            empresa: e.empresa_dona || null,
+            empresa,
           };
         });
       } else {
