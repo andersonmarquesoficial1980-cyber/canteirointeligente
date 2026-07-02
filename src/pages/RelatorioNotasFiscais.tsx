@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Search, FileText, FileSpreadsheet, Printer } from "lucide-react";
@@ -116,6 +117,7 @@ function exportarPdf(ogs: string, dataIni: string, dataFim: string, rows: NfRow[
 
 export default function RelatorioNotasFiscais() {
   const navigate = useNavigate();
+  const { profile } = useUserProfile();
   const [ogs, setOgs] = useState("");
   const [dataIni, setDataIni] = useState("");
   const [dataFim, setDataFim] = useState("");
@@ -126,14 +128,15 @@ export default function RelatorioNotasFiscais() {
   const totalTon = rows.reduce((s, r) => s + (r.tonelagem || 0), 0);
 
   const buscar = async () => {
-    if (!dataIni || !dataFim) return;
+    if (!dataIni || !dataFim || !profile?.company_id) return;
     setLoading(true);
     setSearched(true);
     try {
-      // Busca RDOs no período
+      // Busca RDOs no período com filtro de company_id (RLS)
       let rdoQuery = (supabase as any)
         .from("rdo_diarios")
         .select("id, obra_nome, data, user_id")
+        .eq("company_id", profile.company_id)
         .gte("data", dataIni)
         .lte("data", dataFim);
 
@@ -164,15 +167,16 @@ export default function RelatorioNotasFiscais() {
         (emps || []).forEach((e: any) => { employeeMap[e.id] = e.name || "N/A"; });
       }
 
-      // Busca NFs desses RDOs
+      // Busca NFs desses RDOs com filtro de company_id (RLS)
       const { data: nfs, error: nfErr } = await (supabase as any)
         .from("rdo_nf_massa")
         .select("rdo_id, nf, placa, usina, tonelagem, tipo_material")
-        .in("rdo_id", rdoIds);
+        .in("rdo_id", rdoIds)
+        .eq("company_id", profile.company_id);
 
       if (nfErr) throw nfErr;
 
-      const result: NfRow[] = (nfs || []).map((n: any) => (({
+      const result: NfRow[] = (nfs || []).map((n: any) => ({
         data: rdoMap[n.rdo_id]?.data || "",
         obra_nome: rdoMap[n.rdo_id]?.obra_nome || "",
         apontador: employeeMap[rdoMap[n.rdo_id]?.user_id] || null,
@@ -181,7 +185,7 @@ export default function RelatorioNotasFiscais() {
         usina: n.usina || null,
         tonelagem: n.tonelagem != null ? parseFloat(String(n.tonelagem)) : null,
         tipo_material: n.tipo_material || null,
-      })));
+      }));
 
       result.sort((a, b) => b.data.localeCompare(a.data) || (a.nf || "").localeCompare(b.nf || ""));
       setRows(result);

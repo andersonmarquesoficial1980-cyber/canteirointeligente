@@ -228,17 +228,20 @@ export default function RelatorioEquipamentosRdo() {
         rdoMap[r.id] = r;
       });
 
-      // PASSO 2: Buscar equipamentos de RDO (tabela correta com rdo_id direto)
+      // PASSO 2: Buscar equipamentos de RDO
+      // IMPORTANTE: Se filtro é frota, buscar equipamentos com filtro de frota
+      // Se filtro é encarregado ou obra, buscar TODOS os equipamentos para estes RDOs
       let equipQuery = supabase
         .from("rdo_equipamentos")
-        .select("id, frota, empresa_dona, rdo_id, categoria, tipo")
+        .select("id, frota, empresa_dona, rdo_id, categoria, tipo, sub_tipo, nome, patrimonio")
         .eq("company_id", profile.company_id!)
         .in("rdo_id", rdoIds);
 
-      // Se filtro é frota, aplicar aqui
+      // Se filtro é frota, aplicar aqui PARA REDUZIR RESULTADOS
       if (filterType === "frota") {
         equipQuery = equipQuery.ilike("frota", `%${filter.trim()}%`);
       }
+      // Se for encarregado ou obra, NÃO aplicar filtro de frota - pega TODOS
 
       const { data: equips, error: equipErr } = await equipQuery;
       if (equipErr) throw equipErr;
@@ -319,14 +322,19 @@ export default function RelatorioEquipamentosRdo() {
       // PASSO 5: Montar resultado final
       let result: ResultRow[] = [];
       
+      console.log(`[DEBUG] allEquips.length = ${allEquips.length}, rdos.length = ${rdos.length}`);
+      
       if (allEquips.length > 0) {
         // Com equipamentos: criar uma linha por equipamento
+        console.log(`[DEBUG] Criando ${allEquips.length} linhas (1 por equipamento)`);
         result = allEquips.map((e: any) => {
           const rdo = rdoMap[e.rdo_id];
           const ogsRef = ogsMap[rdo?.obra_nome];
           const apontador = (rdo?.user_id && employeeMap[rdo.user_id]) || null;
           // Prioridade: empresa_dona do rdo_equipamentos, depois buscar de maquinas_frota por frota
           const empresa = e.empresa_dona || frotaEmpresaMap[e.frota] || null;
+          
+          console.log(`[DEBUG EQUIP] frota=${e.frota}, empresa_dona=${e.empresa_dona}, empresa_final=${empresa}`);
           
           return {
             data: rdo?.data || "",
@@ -340,7 +348,8 @@ export default function RelatorioEquipamentosRdo() {
           };
         });
       } else {
-        // Sem equipamentos: criar linhas dos RDOs
+        // Sem equipamentos: criar linhas dos RDOs (FALLBACK)
+        console.log(`[DEBUG] FALLBACK: Criando ${rdos.length} linhas (1 por RDO, equipamentos vazios)`);
         result = rdos.map((rdo: any) => {
           const ogsRef = ogsMap[rdo.obra_nome];
           const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || null;
