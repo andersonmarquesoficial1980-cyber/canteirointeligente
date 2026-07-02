@@ -4,10 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Search, Wrench, Download, FileText } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import { ArrowLeft, Search, Wrench, FileSpreadsheet, Printer } from "lucide-react";
 
 function fmtDate(d: string): string {
   if (!d) return "";
@@ -15,19 +12,20 @@ function fmtDate(d: string): string {
   return `${day}/${m}/${y}`;
 }
 
-function formatDateISO(d: string): string {
-  /* Convert DD/MM/YYYY to YYYY-MM-DD for display in dialogs */
-  if (!d) return "";
-  const parts = d.split("/");
-  if (parts.length === 3) {
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  }
-  return d;
+function fmtNum(n: any) {
+  const v = parseFloat(String(n ?? "").replace(",", "."));
+  return isNaN(v) ? "-" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtNumCsv(n: any) {
+  const v = parseFloat(String(n ?? "").replace(",", "."));
+  return isNaN(v) ? "-" : v.toFixed(2).replace(".", ",");
 }
 
 interface ResultRow {
   data: string;
   obra_nome: string;
+  apontador: string | null;
   frota: string;
   categoria: string | null;
   tipo: string | null;
@@ -44,6 +42,74 @@ interface Obra {
 
 interface Encarregado {
   encarregado: string;
+}
+
+function exportarExcel(filterType: FilterType, filterValue: string, dataIni: string, dataFim: string, rows: ResultRow[]) {
+  const linhas: string[][] = [];
+  linhas.push(["Localização de Equipamentos (RDO)"]);
+  linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
+  linhas.push([]);
+  linhas.push(["Data", "OGS", "Apontador", "Frota", "Equipamento", "Turno"]);
+  
+  rows.forEach(r => {
+    linhas.push([
+      fmtDate(r.data),
+      r.obra_nome || "-",
+      r.apontador || "-",
+      r.frota || "-",
+      `${r.tipo || r.categoria || "-"} ${r.nome ? `— ${r.nome}` : ""}`.trim(),
+      r.turno || "-",
+    ]);
+  });
+  
+  const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `WF_EquipamentosRdo_${dataIni}_a_${dataFim}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportarPdf(filterType: FilterType, filterValue: string, dataIni: string, dataFim: string, rows: ResultRow[]) {
+  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Localização de Equipamentos (RDO)</title><style>
+    body{font-family:Arial,sans-serif;padding:20px;color:#333;font-size:12px}
+    h1{color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:6px;font-size:16px}
+    .period{font-size:11px;color:#666;margin-bottom:12px}
+    .meta{font-size:10px;color:#666;margin-bottom:8px}
+    table{width:100%;border-collapse:collapse;margin:10px 0;font-size:11px}
+    th,td{border:1px solid #d1d5db;padding:4px 7px;text-align:left}
+    th{background:#f3f4f6;font-weight:600}
+    td{text-align:left}
+    @media print{body{padding:8px}}
+  </style></head><body>
+  <h1>🔧 Localização de Equipamentos (RDO)</h1>
+  <p class="period"><strong>Período:</strong> ${fmtDate(dataIni)} a ${fmtDate(dataFim)}</p>
+  <p class="meta"><strong>Filtro:</strong> ${filterType.toUpperCase()} = ${filterValue}</p>
+  <p class="meta"><strong>Total de Registros:</strong> ${rows.length}</p>
+  <table>
+    <tr><th>Data</th><th>OGS</th><th>Apontador</th><th>Frota</th><th>Equipamento</th><th>Turno</th></tr>`;
+  
+  rows.forEach(r => {
+    html += `<tr>
+      <td>${fmtDate(r.data)}</td>
+      <td>${r.obra_nome || "-"}</td>
+      <td>${r.apontador || "-"}</td>
+      <td>${r.frota || "-"}</td>
+      <td>${`${r.tipo || r.categoria || "-"} ${r.nome ? `— ${r.nome}` : ""}`.trim()}</td>
+      <td>${r.turno || "-"}</td>
+    </tr>`;
+  });
+  
+  html += `</table></body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 400);
 }
 
 export default function RelatorioEquipamentosRdo() {
@@ -130,7 +196,7 @@ export default function RelatorioEquipamentosRdo() {
     try {
       let query = supabase
         .from("rdo_equipamentos")
-        .select("frota, categoria, tipo, nome, empresa_dona, rdo_id, rdo_diarios(data, obra_nome, turno, encarregado)")
+        .select("frota, categoria, tipo, nome, empresa_dona, rdo_id, rdo_diarios(data, obra_nome, turno, encarregado, user_id)")
         .eq("company_id", profile.company_id!);
 
       // Apply filter based on type
@@ -146,9 +212,25 @@ export default function RelatorioEquipamentosRdo() {
 
       if (error) throw error;
 
+      // Buscar nomes dos apontadores
+      const userIds = (data || [])
+        .map((r: any) => r.rdo_diarios?.user_id)
+        .filter(Boolean);
+      
+      let employeeMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: emps, error: empErr } = await supabase
+          .from("employees")
+          .select("id, name")
+          .in("id", userIds);
+        if (empErr) console.error("Erro ao buscar employees:", empErr);
+        (emps || []).forEach((e: any) => { employeeMap[e.id] = e.name || "N/A"; });
+      }
+
       let result: ResultRow[] = (data || []).map((r: any) => ({
         data: r.rdo_diarios?.data || "",
         obra_nome: r.rdo_diarios?.obra_nome || "",
+        apontador: employeeMap[r.rdo_diarios?.user_id] || null,
         frota: r.frota || "",
         categoria: r.categoria || null,
         tipo: r.tipo || null,
@@ -194,148 +276,15 @@ export default function RelatorioEquipamentosRdo() {
     }
   };
 
-  const exportToScreen = (): void => {
-    // Just show the table - already displayed on the page
-    console.log("Exibindo na tela:", rows.length, "registros");
-  };
-
-  const exportToPDF = (): void => {
-    if (rows.length === 0) return;
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    let yPosition = 10;
-
-    // Title
-    doc.setFontSize(14);
-    doc.setFont(undefined, "bold");
-    doc.text("Localização de Equipamentos (RDO)", pageWidth / 2, yPosition, {
-      align: "center",
-    });
-    yPosition += 8;
-
-    // Metadata
-    doc.setFontSize(9);
-    doc.setFont(undefined, "normal");
-    const filterLabel =
-      filterType === "frota"
-        ? frota
-        : filterType === "obra"
-          ? obra
-          : encarregado;
-    doc.text(`Filtro: ${filterType.toUpperCase()} = ${filterLabel}`, 10, yPosition);
-    yPosition += 5;
-
-    if (dataIni) {
-      doc.text(`Data Início: ${fmtDate(dataIni)}`, 10, yPosition);
-      yPosition += 5;
+  const getFilterValue = (): string => {
+    switch (filterType) {
+      case "obra":
+        return obra;
+      case "encarregado":
+        return encarregado;
+      default:
+        return frota;
     }
-    if (dataFim) {
-      doc.text(`Data Fim: ${fmtDate(dataFim)}`, 10, yPosition);
-      yPosition += 5;
-    }
-
-    doc.text(`Total de Registros: ${rows.length}`, 10, yPosition);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, pageWidth - 10, yPosition, {
-      align: "right",
-    });
-    yPosition += 10;
-
-    // Table
-    autoTable(doc, {
-      startY: yPosition,
-      head: [["Data", "OGS", "Frota", "Equipamento", "Turno"]],
-      body: rows.map((r) => [
-        fmtDate(r.data),
-        r.obra_nome,
-        r.frota,
-        `${r.tipo || r.categoria || "-"} ${r.nome ? `— ${r.nome}` : ""}`.trim(),
-        r.turno || "-",
-      ]),
-      headStyles: {
-        fillColor: [200, 200, 200],
-        textColor: [0, 0, 0],
-        fontSize: 9,
-        fontStyle: "bold",
-      },
-      bodyStyles: {
-        fontSize: 8,
-      },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 50 },
-        4: { cellWidth: 25 },
-      },
-      margin: 10,
-      didDrawPage: (hookData) => {
-        // Footer
-        const pageCount = (doc as any).internal.pages.length - 1;
-        const currentPage = hookData.pageNumber;
-        doc.setFontSize(8);
-        doc.text(
-          `Página ${currentPage} de ${pageCount}`,
-          pageWidth / 2,
-          pageHeight - 5,
-          { align: "center" }
-        );
-      },
-    });
-
-    doc.save(`relatorio-equipamentos-${new Date().toISOString().split("T")[0]}.pdf`);
-  };
-
-  const exportToExcel = (): void => {
-    if (rows.length === 0) return;
-
-    const ws = XLSX.utils.aoa_to_sheet([
-      ["LOCALIZAÇÃO DE EQUIPAMENTOS (RDO)"],
-      [],
-      [
-        "Filtro:",
-        filterType === "frota" ? frota : filterType === "obra" ? obra : encarregado,
-      ],
-      [
-        "Data Início:",
-        dataIni ? fmtDate(dataIni) : "",
-      ],
-      [
-        "Data Fim:",
-        dataFim ? fmtDate(dataFim) : "",
-      ],
-      [
-        "Total de Registros:",
-        rows.length.toString(),
-      ],
-      [
-        "Gerado em:",
-        new Date().toLocaleDateString("pt-BR"),
-      ],
-      [],
-      ["Data", "OGS", "Frota", "Equipamento", "Turno"],
-      ...rows.map((r) => [
-        fmtDate(r.data),
-        r.obra_nome,
-        r.frota,
-        `${r.tipo || r.categoria || "-"} ${r.nome ? `— ${r.nome}` : ""}`.trim(),
-        r.turno || "-",
-      ]),
-    ]);
-
-    ws.A1.font = { bold: true, size: 12 };
-    ws["!cols"] = [
-      { wch: 15 },
-      { wch: 30 },
-      { wch: 15 },
-      { wch: 40 },
-      { wch: 15 },
-    ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Equipamentos");
-    XLSX.writeFile(wb, `relatorio-equipamentos-${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const isFilterValid = (): boolean => {
@@ -495,28 +444,20 @@ export default function RelatorioEquipamentosRdo() {
         {searched && !loading && rows.length > 0 && (
           <div className="flex gap-2">
             <Button
-              onClick={exportToPDF}
+              onClick={() => exportarExcel(filterType, getFilterValue(), dataIni, dataFim, rows)}
               variant="outline"
-              className="flex-1 gap-2"
+              className="flex-1 gap-2 text-xs"
             >
-              <FileText className="w-4 h-4" />
-              Exportar PDF
+              <FileSpreadsheet className="w-4 h-4" />
+              Download Excel
             </Button>
             <Button
-              onClick={exportToExcel}
+              onClick={() => exportarPdf(filterType, getFilterValue(), dataIni, dataFim, rows)}
               variant="outline"
-              className="flex-1 gap-2"
+              className="flex-1 gap-2 text-xs"
             >
-              <Download className="w-4 h-4" />
-              Exportar Excel
-            </Button>
-            <Button
-              onClick={exportToScreen}
-              variant="outline"
-              className="flex-1 gap-2"
-            >
-              <FileText className="w-4 h-4" />
-              Tela
+              <Printer className="w-4 h-4" />
+              Download PDF
             </Button>
           </div>
         )}
@@ -543,6 +484,9 @@ export default function RelatorioEquipamentosRdo() {
                         OGS
                       </th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
+                        Apontador
+                      </th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
                         Frota
                       </th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">
@@ -562,10 +506,13 @@ export default function RelatorioEquipamentosRdo() {
                         <td className="px-3 py-2 font-medium">
                           {fmtDate(r.data)}
                         </td>
-                        <td className="px-3 py-2 text-primary font-semibold">
+                        <td className="px-3 py-2 text-primary font-semibold text-xs">
                           {r.obra_nome}
                         </td>
-                        <td className="px-3 py-2 font-bold">{r.frota}</td>
+                        <td className="px-3 py-2 text-sm text-muted-foreground">
+                          {r.apontador || "-"}
+                        </td>
+                        <td className="px-3 py-2 font-bold text-xs">{r.frota}</td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">
                           {r.tipo || r.categoria || "-"}
                           {r.nome ? ` — ${r.nome}` : ""}
