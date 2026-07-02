@@ -205,7 +205,7 @@ export default function FrotaNovo() {
     try {
       const { error } = await (supabase as any)
         .from("equipamentos")
-        .insert({ nome: nome.trim(), frota: frota.trim(), tipo: tipo || null, status, company_id: profile.company_id, condicao: "PROPRIO", vinculos: [] });
+        .insert({ nome: nome.trim(), frota: frota.trim(), tipo: tipo || null, status, company_id: profile.company_id, empresa: empresa.trim() || null, condicao: "PROPRIO", vinculos: [] });
       if (error) throw error;
       toast({ title: "✅ Equipamento cadastrado!", description: `"${nome}" adicionado com sucesso.` });
       resetForm();
