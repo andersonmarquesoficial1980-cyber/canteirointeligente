@@ -338,9 +338,17 @@ export default function RelatorioEquipamentosRdo() {
         console.log(`[DEBUG] Criando ${allEquips.length} linhas (1 por equipamento)`);
         result = allEquips.map((e: any) => {
           const rdo = rdoMap[e.rdo_id];
-          const ogsRef = ogsMap[rdo?.obra_nome];
-          const apontador = (rdo?.user_id && employeeMap[rdo.user_id]) || null;
-          // Prioridade: empresa_dona do rdo_equipamentos, depois buscar de maquinas_frota por frota
+          if (!rdo) return null; // Skip if rdo not found
+          
+          const ogsRef = ogsMap[rdo.obra_nome];
+          // Apontador: employee name se user_id existe, senão usa encarregado
+          let apontador = null;
+          if (rdo.user_id && employeeMap[rdo.user_id]) {
+            apontador = employeeMap[rdo.user_id];
+          } else if (rdo.encarregado) {
+            apontador = rdo.encarregado;
+          }
+          // Empresa: prioridade empresa_dona, depois maquinas_frota, depois null
           const empresa = e.empresa_dona || frotaEmpresaMap[e.frota] || null;
           
           console.log(`[DEBUG EQUIP] frota=${e.frota}, empresa_dona=${e.empresa_dona}, empresa_final=${empresa}`);
@@ -355,7 +363,7 @@ export default function RelatorioEquipamentosRdo() {
             frota: e.frota || "",
             empresa,
           };
-        });
+        }).filter((row: any) => row !== null);
       } else {
         // Sem equipamentos: criar linhas dos RDOs (FALLBACK)
         console.log(`[DEBUG] FALLBACK: Criando ${rdos.length} linhas (1 por RDO, equipamentos vazios)`);
