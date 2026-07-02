@@ -194,29 +194,50 @@ export default function RelatorioEquipamentosRdo() {
     setSearched(true);
 
     try {
-      let query = supabase
-        .from("rdo_equipamentos")
-        .select("frota, categoria, tipo, nome, empresa_dona, rdo_id, rdo_diarios(data, obra_nome, turno, encarregado, user_id)")
+      // Estratégia: buscar RDO IDs primeiro, depois equipamentos
+      let rdoQuery = supabase
+        .from("rdo_diarios")
+        .select("id, data, obra_nome, turno, encarregado, user_id")
         .eq("company_id", profile.company_id!);
 
-      // Apply filter based on type
-      if (filterType === "frota") {
-        query = query.ilike("frota", `%${filter.trim()}%`);
-      } else if (filterType === "obra") {
-        query = query.eq("rdo_diarios.obra_nome", filter);
+      if (filterType === "obra") {
+        rdoQuery = rdoQuery.ilike("obra_nome", `%${filter.trim()}%`);
       } else if (filterType === "encarregado") {
-        query = query.eq("rdo_diarios.encarregado", filter);
+        rdoQuery = rdoQuery.ilike("encarregado", `%${filter.trim()}%`);
       }
 
-      const { data, error } = await query;
+      const { data: rdos, error: rdoErr } = await rdoQuery;
+      if (rdoErr) throw rdoErr;
 
-      if (error) throw error;
+      if (!rdos || rdos.length === 0) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
 
-      // Buscar nomes dos apontadores
-      const userIds = (data || [])
-        .map((r: any) => r.rdo_diarios?.user_id)
-        .filter(Boolean);
-      
+      const rdoIds = rdos.map((r: any) => r.id);
+      const rdoMap: Record<string, any> = {};
+      rdos.forEach((r: any) => {
+        rdoMap[r.id] = r;
+      });
+
+      // Buscar equipamentos por RDO IDs
+      let equipQuery = supabase
+        .from("rdo_equipamentos")
+        .select("frota, categoria, tipo, nome, empresa_dona, rdo_id")
+        .eq("company_id", profile.company_id!)
+        .in("rdo_id", rdoIds);
+
+      // Se filtro é frota, aplicar aqui
+      if (filterType === "frota") {
+        equipQuery = equipQuery.ilike("frota", `%${filter.trim()}%`);
+      }
+
+      const { data: equips, error: equipErr } = await equipQuery;
+      if (equipErr) throw equipErr;
+
+      // Buscar nomes dos apontadores (employees)
+      const userIds = rdos.map((r: any) => r.user_id).filter(Boolean);
       let employeeMap: Record<string, string> = {};
       if (userIds.length > 0) {
         const { data: emps, error: empErr } = await supabase
@@ -227,17 +248,21 @@ export default function RelatorioEquipamentosRdo() {
         (emps || []).forEach((e: any) => { employeeMap[e.id] = e.name || "N/A"; });
       }
 
-      let result: ResultRow[] = (data || []).map((r: any) => ({
-        data: r.rdo_diarios?.data || "",
-        obra_nome: r.rdo_diarios?.obra_nome || "",
-        apontador: employeeMap[r.rdo_diarios?.user_id] || null,
-        frota: r.frota || "",
-        categoria: r.categoria || null,
-        tipo: r.tipo || null,
-        nome: r.nome || null,
-        empresa_dona: r.empresa_dona || null,
-        turno: r.rdo_diarios?.turno || null,
-      }));
+      // Mapear equipamentos + RDO + employee
+      let result: ResultRow[] = (equips || []).map((e: any) => {
+        const rdo = rdoMap[e.rdo_id];
+        return {
+          data: rdo?.data || "",
+          obra_nome: rdo?.obra_nome || "",
+          apontador: employeeMap[rdo?.user_id] || null,
+          frota: e.frota || "",
+          categoria: e.categoria || null,
+          tipo: e.tipo || null,
+          nome: e.nome || null,
+          empresa_dona: e.empresa_dona || null,
+          turno: rdo?.turno || null,
+        };
+      });
 
       // Apply date filters
       if (dataIni) result = result.filter((r) => r.data >= dataIni);
