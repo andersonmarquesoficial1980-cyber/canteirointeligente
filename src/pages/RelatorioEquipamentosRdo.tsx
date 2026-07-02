@@ -62,7 +62,7 @@ function exportarExcel(filterType: FilterType, filterValue: string, dataIni: str
     ]);
   });
   
-  const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+  const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}""`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -194,20 +194,32 @@ export default function RelatorioEquipamentosRdo() {
     setSearched(true);
 
     try {
-      // Estratégia: buscar RDO IDs primeiro, depois equipamentos
+      // FIX: Estratégia melhorada - buscar RDO IDs com TODOS os filtros aplicados na query
       let rdoQuery = supabase
         .from("rdo_diarios")
         .select("id, data, obra_nome, turno, encarregado, user_id")
         .eq("company_id", profile.company_id!);
 
+      // Aplicar filtro de obra
       if (filterType === "obra") {
         rdoQuery = rdoQuery.ilike("obra_nome", `%${filter.trim()}%`);
       } else if (filterType === "encarregado") {
-        rdoQuery = rdoQuery.ilike("encarregado", `%${filter.trim()}%`);
+        // FIX: Usar eq() com trim() ou ilike() mas com exatidão
+        rdoQuery = rdoQuery.eq("encarregado", filter.trim());
+      }
+
+      // FIX: Aplicar filtros de data NA QUERY, não no client
+      if (dataIni) {
+        rdoQuery = rdoQuery.gte("data", dataIni);
+      }
+      if (dataFim) {
+        rdoQuery = rdoQuery.lte("data", dataFim);
       }
 
       const { data: rdos, error: rdoErr } = await rdoQuery;
       if (rdoErr) throw rdoErr;
+
+      console.log(`[DEBUG] RDO Query returned ${rdos?.length || 0} records with filter=${filter}, dataIni=${dataIni}, dataFim=${dataFim}`);
 
       if (!rdos || rdos.length === 0) {
         setRows([]);
@@ -236,6 +248,8 @@ export default function RelatorioEquipamentosRdo() {
       const { data: equips, error: equipErr } = await equipQuery;
       if (equipErr) throw equipErr;
 
+      console.log(`[DEBUG] Equipment Query returned ${equips?.length || 0} records`);
+
       // Buscar nomes dos apontadores (employees)
       const userIds = rdos.map((r: any) => r.user_id).filter(Boolean);
       let employeeMap: Record<string, string> = {};
@@ -249,28 +263,49 @@ export default function RelatorioEquipamentosRdo() {
       }
 
       // Mapear equipamentos + RDO + employee
-      let result: ResultRow[] = (equips || []).map((e: any) => {
-        const rdo = rdoMap[e.rdo_id];
-        return {
-          data: rdo?.data || "",
-          obra_nome: rdo?.obra_nome || "",
-          apontador: employeeMap[rdo?.user_id] || null,
-          frota: e.frota || "",
-          categoria: e.categoria || null,
-          tipo: e.tipo || null,
-          nome: e.nome || null,
-          empresa_dona: e.empresa_dona || null,
-          turno: rdo?.turno || null,
-        };
-      });
+      // Se não há equipamentos, criar linha do RDO mesmo assim
+      let result: ResultRow[] = [];
+      
+      if (equips && equips.length > 0) {
+        // Caso 1: Há equipamentos - mapear cada um
+        result = equips.map((e: any) => {
+          const rdo = rdoMap[e.rdo_id];
+          return {
+            data: rdo?.data || "",
+            obra_nome: rdo?.obra_nome || "",
+            apontador: employeeMap[rdo?.user_id] || null,
+            frota: e.frota || "",
+            categoria: e.categoria || null,
+            tipo: e.tipo || null,
+            nome: e.nome || null,
+            empresa_dona: e.empresa_dona || null,
+            turno: rdo?.turno || null,
+          };
+        });
+      } else {
+        // Caso 2: Sem equipamentos - criar linhas dos RDOs
+        result = rdos.map((rdo: any) => ({
+          data: rdo.data || "",
+          obra_nome: rdo.obra_nome || "",
+          apontador: employeeMap[rdo.user_id] || null,
+          frota: "",
+          categoria: null,
+          tipo: null,
+          nome: null,
+          empresa_dona: null,
+          turno: rdo.turno || null,
+        }));
+      }
 
-      // Apply date filters
+      // FIX: Data filters já foram aplicados na query, mas aplicamos novamente se necessário
+      // (não prejudica, apenas redundante com o fix acima)
       if (dataIni) result = result.filter((r) => r.data >= dataIni);
       if (dataFim) result = result.filter((r) => r.data <= dataFim);
 
       // Sort by date descending
       result.sort((a, b) => b.data.localeCompare(a.data));
 
+      console.log(`[DEBUG] Final result count: ${result.length}`);
       setRows(result);
     } catch (err: any) {
       console.error("Erro na busca:", err);
