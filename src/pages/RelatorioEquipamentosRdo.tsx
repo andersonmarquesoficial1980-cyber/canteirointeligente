@@ -189,10 +189,10 @@ export default function RelatorioEquipamentosRdo() {
     setMessageNoData("");
 
     try {
-      // PASSO 1: Buscar RDOs com filtros
+      // PASSO 1: Buscar RDOs pelo filtro
       let rdoQuery = supabase
         .from("rdo_diarios")
-        .select("id, data, obra_nome, encarregado, user_id, turno")
+        .select("id, user_id, data, encarregado, obra_nome, turno, preenchido_por, company_id, responsavel")
         .eq("company_id", profile.company_id!);
 
       // Aplicar filtro de obra via RDO
@@ -341,8 +341,8 @@ export default function RelatorioEquipamentosRdo() {
           if (!rdo) return null; // Skip if rdo not found
           
           const ogsRef = ogsMap[rdo.obra_nome];
-          // Apontador: APENAS employee name se user_id existe. Se NULL, deixa vazio.
-          const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || null;
+          // Apontador: usar preenchido_por (quem preencheu o RDO)
+          const apontador = rdo.preenchido_por || null;
           // Empresa: prioridade empresa_dona, depois maquinas_frota, depois null
           const empresa = e.empresa_dona || frotaEmpresaMap[e.frota] || null;
           
@@ -364,7 +364,8 @@ export default function RelatorioEquipamentosRdo() {
         console.log(`[DEBUG] FALLBACK: Criando ${rdos.length} linhas (1 por RDO, equipamentos vazios)`);
         result = rdos.map((rdo: any) => {
           const ogsRef = ogsMap[rdo.obra_nome];
-          const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || null;
+          // Apontador: usar preenchido_por
+          const apontador = rdo.preenchido_por || null;
           
           return {
             data: rdo.data || "",
