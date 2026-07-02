@@ -339,12 +339,11 @@ export default function RelatorioEquipamentosRdo() {
         result = allEquips.map((e: any) => {
           const rdo = rdoMap[e.rdo_id];
           const ogsRef = ogsMap[rdo?.obra_nome];
-          // Apontador: tentar employee por user_id, fallback para encarregado
-          const apontador = (rdo?.user_id && employeeMap[rdo.user_id]) || rdo?.encarregado || null;
+          const apontador = (rdo?.user_id && employeeMap[rdo.user_id]) || null;
           // Prioridade: empresa_dona do rdo_equipamentos, depois buscar de maquinas_frota por frota
           const empresa = e.empresa_dona || frotaEmpresaMap[e.frota] || null;
           
-          console.log(`[DEBUG EQUIP] frota=${e.frota}, empresa_dona=${e.empresa_dona}, empresa_final=${empresa}, apontador=${apontador}`);
+          console.log(`[DEBUG EQUIP] frota=${e.frota}, empresa_dona=${e.empresa_dona}, empresa_final=${empresa}`);
           
           return {
             data: rdo?.data || "",
@@ -362,8 +361,7 @@ export default function RelatorioEquipamentosRdo() {
         console.log(`[DEBUG] FALLBACK: Criando ${rdos.length} linhas (1 por RDO, equipamentos vazios)`);
         result = rdos.map((rdo: any) => {
           const ogsRef = ogsMap[rdo.obra_nome];
-          // Apontador: tentar employee por user_id, fallback para encarregado
-          const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || rdo.encarregado || null;
+          const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || null;
           
           return {
             data: rdo.data || "",
