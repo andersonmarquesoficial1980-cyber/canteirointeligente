@@ -228,11 +228,12 @@ export default function RelatorioEquipamentosRdo() {
         rdoMap[r.id] = r;
       });
 
-      // PASSO 2: Buscar equipamentos da tabela CORRETA (maquinas_frota)
+      // PASSO 2: Buscar equipamentos
       let equipQuery = supabase
-        .from("maquinas_frota")
-        .select("frota, nome, empresa, vinculo_rdo")
-        .eq("company_id", profile.company_id!);
+        .from("rdo_equipamentos")
+        .select("frota, empresa_dona, rdo_id")
+        .eq("company_id", profile.company_id!)
+        .in("rdo_id", rdoIds);
 
       // Se filtro é frota, aplicar aqui
       if (filterType === "frota") {
@@ -242,7 +243,7 @@ export default function RelatorioEquipamentosRdo() {
       const { data: equips, error: equipErr } = await equipQuery;
       if (equipErr) throw equipErr;
 
-      console.log(`[DEBUG] Equipment Query (maquinas_frota) returned ${equips?.length || 0} records`);
+      console.log(`[DEBUG] Equipment Query returned ${equips?.length || 0} records`);
 
       // Se não tem equipamentos, criar linhas dos RDOs (fallback)
       let allEquips = equips || [];
@@ -296,51 +297,31 @@ export default function RelatorioEquipamentosRdo() {
       // PASSO 5: Montar resultado final
       let result: ResultRow[] = [];
       
-      // Criar mapa de equipamentos por RDO (vinculo_rdo pode ser rdo_id ou json com rdo_id)
-      const equipMap: Record<string, any[]> = {};
-      equips.forEach((e: any) => {
-        // vinculo_rdo pode ser string com rdo_id ou array
-        let rdo_ids: string[] = [];
-        if (typeof e.vinculo_rdo === 'string') {
-          try {
-            const parsed = JSON.parse(e.vinculo_rdo);
-            rdo_ids = Array.isArray(parsed) ? parsed : [e.vinculo_rdo];
-          } catch {
-            rdo_ids = [e.vinculo_rdo];
-          }
-        }
-        
-        rdo_ids.forEach((rid: string) => {
-          if (!equipMap[rid]) equipMap[rid] = [];
-          equipMap[rid].push(e);
+      if (allEquips.length > 0) {
+        // Com equipamentos: criar uma linha por equipamento
+        result = allEquips.map((e: any) => {
+          const rdo = rdoMap[e.rdo_id];
+          const ogsRef = ogsMap[rdo?.obra_nome];
+          const apontador = (rdo?.user_id && employeeMap[rdo.user_id]) || null;
+          
+          return {
+            data: rdo?.data || "",
+            apontador,
+            encarregado: rdo?.encarregado || null,
+            ogs: rdo?.obra_nome || "",
+            contratante: ogsRef?.client_name || null,
+            local: ogsRef?.location_address || null,
+            frota: e.frota || "",
+            empresa: e.empresa_dona || null,
+          };
         });
-      });
-      
-      console.log(`[DEBUG] Equipment map keys: ${Object.keys(equipMap).join(', ')}`);
-      
-      // Para cada RDO, criar linhas com seus equipamentos
-      rdos.forEach((rdo: any) => {
-        const equipsDosRdo = equipMap[rdo.id] || [];
-        const ogsRef = ogsMap[rdo.obra_nome];
-        const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || null;
-        
-        if (equipsDosRdo.length > 0) {
-          // Com equipamentos: criar uma linha por equipamento
-          equipsDosRdo.forEach((e: any) => {
-            result.push({
-              data: rdo.data || "",
-              apontador,
-              encarregado: rdo.encarregado || null,
-              ogs: rdo.obra_nome || "",
-              contratante: ogsRef?.client_name || null,
-              local: ogsRef?.location_address || null,
-              frota: e.frota || "",
-              empresa: e.empresa || null,
-            });
-          });
-        } else {
-          // Sem equipamentos: criar linha do RDO
-          result.push({
+      } else {
+        // Sem equipamentos: criar linhas dos RDOs
+        result = rdos.map((rdo: any) => {
+          const ogsRef = ogsMap[rdo.obra_nome];
+          const apontador = (rdo.user_id && employeeMap[rdo.user_id]) || null;
+          
+          return {
             data: rdo.data || "",
             apontador,
             encarregado: rdo.encarregado || null,
@@ -349,9 +330,9 @@ export default function RelatorioEquipamentosRdo() {
             local: ogsRef?.location_address || null,
             frota: "",
             empresa: null,
-          });
-        }
-      });
+          };
+        });
+      }
 
       // Sort by date descending
       result.sort((a, b) => b.data.localeCompare(a.data));
