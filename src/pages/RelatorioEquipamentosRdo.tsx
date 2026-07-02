@@ -128,6 +128,7 @@ export default function RelatorioEquipamentosRdo() {
   const [obras, setObras] = useState<Obra[]>([]);
   const [encarregados, setEncarregados] = useState<Encarregado[]>([]);
   const [loadingDropdowns, setLoadingDropdowns] = useState(false);
+  const [messageNoData, setMessageNoData] = useState("");
 
   // Carregar obras e encarregados quando o filtro muda
   useEffect(() => {
@@ -192,6 +193,7 @@ export default function RelatorioEquipamentosRdo() {
 
     setLoading(true);
     setSearched(true);
+    setMessageNoData(""); // Reset message on new search
 
     try {
       // FIX: Estratégia melhorada - buscar RDO IDs com TODOS os filtros aplicados na query
@@ -223,6 +225,7 @@ export default function RelatorioEquipamentosRdo() {
 
       if (!rdos || rdos.length === 0) {
         setRows([]);
+        setMessageNoData("Nenhum RDO encontrado para o filtro selecionado.");
         setLoading(false);
         return;
       }
@@ -253,14 +256,29 @@ export default function RelatorioEquipamentosRdo() {
       // Buscar nomes dos apontadores (employees)
       const userIds = rdos.map((r: any) => r.user_id).filter(Boolean);
       let employeeMap: Record<string, string> = {};
+      
+      console.log(`[DEBUG] User IDs extracted: ${JSON.stringify(userIds)}`);
+      
       if (userIds.length > 0) {
         const { data: emps, error: empErr } = await supabase
           .from("employees")
           .select("id, name")
           .in("id", userIds);
-        if (empErr) console.error("Erro ao buscar employees:", empErr);
-        (emps || []).forEach((e: any) => { employeeMap[e.id] = e.name || "N/A"; });
+        
+        console.log(`[DEBUG] Employees query returned ${emps?.length || 0} results`);
+        if (empErr) {
+          console.error("Erro ao buscar employees:", empErr);
+        }
+        
+        (emps || []).forEach((e: any) => { 
+          employeeMap[e.id] = e.name || "N/A";
+          console.log(`[DEBUG] Mapped employee: ${e.id} → ${e.name}`);
+        });
+      } else {
+        console.warn("[DEBUG] No user_ids found in RDOs - will use encarregado field as fallback");
       }
+      
+      console.log(`[DEBUG] Final employeeMap: ${JSON.stringify(employeeMap)}`);
 
       // Mapear equipamentos + RDO + employee
       // Se não há equipamentos, criar linha do RDO mesmo assim
@@ -270,10 +288,12 @@ export default function RelatorioEquipamentosRdo() {
         // Caso 1: Há equipamentos - mapear cada um
         result = equips.map((e: any) => {
           const rdo = rdoMap[e.rdo_id];
+          // FALLBACK: Usar encarregado do RDO se employee não encontrado
+          const apontador = employeeMap[rdo?.user_id] || rdo?.encarregado || null;
           return {
             data: rdo?.data || "",
             obra_nome: rdo?.obra_nome || "",
-            apontador: employeeMap[rdo?.user_id] || null,
+            apontador,
             frota: e.frota || "",
             categoria: e.categoria || null,
             tipo: e.tipo || null,
@@ -284,17 +304,24 @@ export default function RelatorioEquipamentosRdo() {
         });
       } else {
         // Caso 2: Sem equipamentos - criar linhas dos RDOs
-        result = rdos.map((rdo: any) => ({
-          data: rdo.data || "",
-          obra_nome: rdo.obra_nome || "",
-          apontador: employeeMap[rdo.user_id] || null,
-          frota: "",
-          categoria: null,
-          tipo: null,
-          nome: null,
-          empresa_dona: null,
-          turno: rdo.turno || null,
-        }));
+        if (rdos.length > 0) {
+          setMessageNoData("Nenhum equipamento registrado para o período e filtro selecionado.");
+        }
+        result = rdos.map((rdo: any) => {
+          // FALLBACK: Usar encarregado do RDO se employee não encontrado
+          const apontador = employeeMap[rdo.user_id] || rdo.encarregado || null;
+          return {
+            data: rdo.data || "",
+            obra_nome: rdo.obra_nome || "",
+            apontador,
+            frota: "",
+            categoria: null,
+            tipo: null,
+            nome: null,
+            empresa_dona: null,
+            turno: rdo.turno || null,
+          };
+        });
       }
 
       // FIX: Data filters já foram aplicados na query, mas aplicamos novamente se necessário
@@ -525,15 +552,21 @@ export default function RelatorioEquipamentosRdo() {
         {/* Results Section */}
         {searched && !loading && (
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground px-1">
-              {rows.length} registro(s) encontrado(s)
-            </p>
             {rows.length === 0 ? (
               <div className="bg-card rounded-xl border border-border p-6 text-center text-sm text-muted-foreground">
-                Nenhum registro encontrado para o filtro selecionado.
+                {messageNoData || "Nenhum registro encontrado para o filtro selecionado."}
               </div>
             ) : (
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <>
+                <p className="text-xs text-muted-foreground px-1">
+                  {rows.length} registro(s) encontrado(s)
+                  {messageNoData && (
+                    <>
+                      <br /><span className="text-xs italic">{messageNoData}</span>
+                    </>
+                  )}
+                </p>
+                <div className="bg-card rounded-xl border border-border overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
                     <tr>
@@ -584,7 +617,8 @@ export default function RelatorioEquipamentosRdo() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </>
             )}
           </div>
         )}
