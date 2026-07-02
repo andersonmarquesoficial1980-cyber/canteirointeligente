@@ -237,7 +237,6 @@ export default function RelatorioEquipamentosRdo() {
       let equipQuery = supabase
         .from("rdo_equipamentos")
         .select("id, frota, empresa_dona, rdo_id, categoria, tipo, sub_tipo, nome, patrimonio")
-        .eq("company_id", profile.company_id!)
         .in("rdo_id", rdoIds);
 
       // Se filtro é frota, aplicar aqui PARA REDUZIR RESULTADOS
@@ -266,7 +265,6 @@ export default function RelatorioEquipamentosRdo() {
         const { data: maquinas, error: maqErr } = await supabase
           .from("maquinas_frota")
           .select("frota, empresa")
-          .eq("company_id", profile.company_id!)
           .in("frota", frotaNames);
         
         if (maqErr) {
@@ -314,7 +312,6 @@ export default function RelatorioEquipamentosRdo() {
         const { data: ogsRefs, error: ogsErr } = await supabase
           .from("ogs_reference")
           .select("ogs_number, client_name, location_address")
-          .eq("company_id", profile.company_id!)
           .in("ogs_number", ogsNumbers);
         
         if (ogsErr) {
