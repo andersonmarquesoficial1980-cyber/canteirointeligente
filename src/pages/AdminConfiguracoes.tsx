@@ -500,7 +500,7 @@ function MaquinasManager() {
       toast({ title: "Erro", description: "Empresa não identificada. Faça login novamente.", variant: "destructive" });
       return;
     }
-    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria_rdo: categoria, condicao, empresa_proprietaria: condicao === 'TERCEIRO' ? empresa.trim() : null, vinculos, vinculo_rdo: vinculos[0], status: "ativo", company_id: companyId });
+    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria_rdo: categoria, condicao, empresa_proprietaria: empresa.trim() || null, vinculos, vinculo_rdo: vinculos[0], status: "ativo", company_id: companyId });
     if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setCondicao("PROPRIO"); setEmpresa("PRÓPRIO"); setVinculos(["TODOS"]); }
   };
 
@@ -517,7 +517,7 @@ function MaquinasManager() {
 
   const saveEdit = async (id: string) => {
     if (!editFrota.trim() || !editNome.trim()) { toast({ title: "Atenção", description: "Frota e Nome são obrigatórios.", variant: "destructive" }); return; }
-    const ok = await update(id, { frota: editFrota.trim(), nome: editNome.trim(), tipo: editTipo.trim(), categoria_rdo: editCategoria, condicao: editCondicao, empresa_proprietaria: editCondicao === 'TERCEIRO' ? editEmpresa.trim() : null, vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
+    const ok = await update(id, { frota: editFrota.trim(), nome: editNome.trim(), tipo: editTipo.trim(), categoria_rdo: editCategoria, condicao: editCondicao, empresa_proprietaria: editEmpresa.trim() || null, vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
     if (ok) setEditingId(null);
   };
 
@@ -550,12 +550,10 @@ function MaquinasManager() {
             </Select>
           </div>
         </div>
-        {condicao === "TERCEIRO" && (
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Empresa Proprietária</Label>
-            <Input value={empresa} onChange={e => setEmpresa(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Ex: MERGULHÃO, FORMILOC..." />
-          </div>
-        )}
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Empresa Proprietária</Label>
+          <Input value={empresa} onChange={e => setEmpresa(e.target.value)} className="h-11 bg-secondary border-border" placeholder={condicao === "TERCEIRO" ? "Ex: MERGULHÃO, FORMILOC..." : "FREMIX"} />
+        </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Categoria</Label>
           <Select value={categoria} onValueChange={setCategoria}>
@@ -635,12 +633,10 @@ function MaquinasManager() {
                     </Select>
                   </div>
                 </div>
-                {editCondicao === "TERCEIRO" && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Empresa Proprietária</Label>
-                    <Input value={editEmpresa} onChange={e => setEditEmpresa(e.target.value)} className="h-9 bg-secondary border-border text-sm" placeholder="Ex: MERGULHÃO, FORMILOC..." />
-                  </div>
-                )}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Empresa Proprietária</Label>
+                  <Input value={editEmpresa} onChange={e => setEditEmpresa(e.target.value)} className="h-9 bg-secondary border-border text-sm" placeholder={editCondicao === "TERCEIRO" ? "Ex: MERGULHÃO, FORMILOC..." : "FREMIX"} />
+                </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Categoria</Label>
                   <Select value={editCategoria} onValueChange={setEditCategoria}>
