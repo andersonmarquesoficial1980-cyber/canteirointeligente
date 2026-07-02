@@ -228,6 +228,9 @@ export default function RelatorioEquipamentosRdo() {
         rdoMap[r.id] = r;
       });
 
+      console.log(`[DEBUG] RDO IDs to search: ${rdoIds.join(", ")}`);
+      console.log(`[DEBUG] Company ID: ${profile.company_id}`);
+
       // PASSO 2: Buscar equipamentos de RDO
       // IMPORTANTE: Se filtro é frota, buscar equipamentos com filtro de frota
       // Se filtro é encarregado ou obra, buscar TODOS os equipamentos para estes RDOs
@@ -244,9 +247,15 @@ export default function RelatorioEquipamentosRdo() {
       // Se for encarregado ou obra, NÃO aplicar filtro de frota - pega TODOS
 
       const { data: equips, error: equipErr } = await equipQuery;
-      if (equipErr) throw equipErr;
+      if (equipErr) {
+        console.error("[DEBUG] ERROR em rdo_equipamentos query:", equipErr);
+        throw equipErr;
+      }
 
       console.log(`[DEBUG] rdo_equipamentos Query returned ${equips?.length || 0} records`);
+      if (equips && equips.length > 0) {
+        console.log(`[DEBUG] Sample equipment:`, equips[0]);
+      }
 
       // Mapa de equipamentos por frota para buscar empresa de maquinas_frota
       const frotaNames = Array.from(new Set((equips || []).map((e: any) => e.frota).filter(Boolean)));
