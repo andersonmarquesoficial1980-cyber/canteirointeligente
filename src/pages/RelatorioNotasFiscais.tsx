@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserProfile } from "@/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Search, FileText, FileSpreadsheet, Printer } from "lucide-react";
@@ -114,7 +113,6 @@ function exportarPdf(ogs: string, dataIni: string, dataFim: string, rows: NfRow[
 
 export default function RelatorioNotasFiscais() {
   const navigate = useNavigate();
-  const { profile } = useUserProfile();
   const [ogs, setOgs] = useState("");
   const [dataIni, setDataIni] = useState("");
   const [dataFim, setDataFim] = useState("");
@@ -125,15 +123,14 @@ export default function RelatorioNotasFiscais() {
   const totalTon = rows.reduce((s, r) => s + (r.tonelagem || 0), 0);
 
   const buscar = async () => {
-    if (!dataIni || !dataFim || !profile?.company_id) return;
+    if (!dataIni || !dataFim) return;
     setLoading(true);
     setSearched(true);
     try {
-      // Busca RDOs no período com filtro de company_id (RLS)
+      // Busca RDOs no período
       let rdoQuery = (supabase as any)
         .from("rdo_diarios")
         .select("id, obra_nome, data")
-        .eq("company_id", profile.company_id)
         .gte("data", dataIni)
         .lte("data", dataFim);
 
@@ -152,12 +149,11 @@ export default function RelatorioNotasFiscais() {
       const rdoMap: Record<string, { data: string; obra_nome: string }> = {};
       rdos.forEach((r: any) => { rdoMap[r.id] = { data: r.data, obra_nome: r.obra_nome }; });
 
-      // Busca NFs desses RDOs com filtro de company_id (RLS)
+      // Busca NFs desses RDOs
       const { data: nfs, error: nfErr } = await (supabase as any)
         .from("rdo_nf_massa")
         .select("rdo_id, nf, placa, usina, tonelagem, tipo_material")
-        .in("rdo_id", rdoIds)
-        .eq("company_id", profile.company_id);
+        .in("rdo_id", rdoIds);
 
       if (nfErr) throw nfErr;
 
