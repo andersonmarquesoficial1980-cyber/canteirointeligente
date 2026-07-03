@@ -227,7 +227,7 @@ export default function RelatorioNotasFiscais() {
   return (
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/relatorios")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -236,7 +236,7 @@ export default function RelatorioNotasFiscais() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
+      <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">OGS (opcional)</label>
@@ -298,44 +298,46 @@ export default function RelatorioNotasFiscais() {
               </div>
             ) : (
               <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Data</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Apontador</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Encarregado</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">OGS</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Contratante</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Local</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">NF</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Placa</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Usina</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Tipo Material</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Ton</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={i} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
-                        <td className="px-3 py-2 font-medium">{fmtDate(r.data)}</td>
-                        <td className="px-3 py-2 text-sm text-muted-foreground">{r.apontador || "-"}</td>
-                        <td className="px-3 py-2 text-sm text-muted-foreground">{r.encarregado || "-"}</td>
-                        <td className="px-3 py-2 text-primary font-semibold text-xs">{r.obra_nome || "-"}</td>
-                        <td className="px-3 py-2 text-xs">{r.contratante || "-"}</td>
-                        <td className="px-3 py-2 text-xs">{r.local || "-"}</td>
-                        <td className="px-3 py-2 font-bold">{r.nf || "-"}</td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground uppercase">{r.placa || "-"}</td>
-                        <td className="px-3 py-2 text-xs">{r.usina || "-"}</td>
-                        <td className="px-3 py-2 text-xs">{r.tipo_material || "-"}</td>
-                        <td className="px-3 py-2 text-right font-semibold">{fmtNum(r.tonelagem)}</td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Data</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Apontador</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Encarregado</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">OGS</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Contratante</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Local</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">NF</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Placa</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Usina</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Tipo Material</th>
+                        <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">Ton</th>
                       </tr>
-                    ))}
-                    <tr className="bg-primary/5 border-t border-border">
-                      <td colSpan={11} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
-                      <td className="px-3 py-2 text-right font-bold text-primary">{fmtNum(totalTon)} t</td>
-                    </tr>
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {rows.map((r, i) => (
+                        <tr key={i} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                          <td className="px-3 py-2 font-medium">{fmtDate(r.data)}</td>
+                          <td className="px-3 py-2 text-sm text-muted-foreground">{r.apontador || "-"}</td>
+                          <td className="px-3 py-2 text-sm text-muted-foreground">{r.encarregado || "-"}</td>
+                          <td className="px-3 py-2 text-primary font-semibold text-xs">{r.obra_nome || "-"}</td>
+                          <td className="px-3 py-2 text-xs">{r.contratante || "-"}</td>
+                          <td className="px-3 py-2 text-xs">{r.local || "-"}</td>
+                          <td className="px-3 py-2 font-bold">{r.nf || "-"}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground uppercase">{r.placa || "-"}</td>
+                          <td className="px-3 py-2 text-xs">{r.usina || "-"}</td>
+                          <td className="px-3 py-2 text-xs">{r.tipo_material || "-"}</td>
+                          <td className="px-3 py-2 text-right font-semibold">{fmtNum(r.tonelagem)}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-primary/5 border-t border-border">
+                        <td colSpan={11} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
+                        <td className="px-3 py-2 text-right font-bold text-primary">{fmtNum(totalTon)} t</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
