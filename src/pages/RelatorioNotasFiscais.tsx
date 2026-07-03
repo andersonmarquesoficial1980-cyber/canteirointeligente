@@ -144,7 +144,7 @@ export default function RelatorioNotasFiscais() {
       // PASSO 1: Busca RDOs no período com filtro de company_id (RLS)
       let rdoQuery = (supabase as any)
         .from("rdo_diarios")
-        .select("id, obra_nome, data, user_id, encarregado")
+        .select("id, obra_nome, data, user_id, encarregado, preenchido_por")
         .eq("company_id", profile.company_id)
         .gte("data", dataIni)
         .lte("data", dataFim);
@@ -161,22 +161,10 @@ export default function RelatorioNotasFiscais() {
       }
 
       const rdoIds = rdos.map((r: any) => r.id);
-      const userIds = rdos.map((r: any) => r.user_id).filter(Boolean);
       const ogsNumbers = Array.from(new Set(rdos.map((r: any) => r.obra_nome).filter(Boolean)));
       
       const rdoMap: Record<string, any> = {};
       rdos.forEach((r: any) => { rdoMap[r.id] = r; });
-
-      // PASSO 2: Busca nomes dos apontadores (employees) via user_id
-      let employeeMap: Record<string, string> = {};
-      if (userIds.length > 0) {
-        const { data: emps, error: empErr } = await (supabase as any)
-          .from("employees")
-          .select("id, name")
-          .in("id", userIds);
-        if (empErr) console.error("Erro ao buscar employees:", empErr);
-        (emps || []).forEach((e: any) => { employeeMap[e.id] = e.name || "N/A"; });
-      }
 
       // PASSO 3: Busca OGS Reference (para Contratante e Local)
       let ogsMap: Record<string, any> = {};
@@ -208,7 +196,8 @@ export default function RelatorioNotasFiscais() {
       const result: NfRow[] = (nfs || []).map((n: any) => {
         const rdo = rdoMap[n.rdo_id];
         const ogsRef = ogsMap[rdo?.obra_nome];
-        const apontador = employeeMap[rdo?.user_id] || null;
+        // Apontador: usar preenchido_por (nome do quem preencheu o RDO)
+        const apontador = rdo?.preenchido_por || null;
         
         return {
           data: rdo?.data || "",
