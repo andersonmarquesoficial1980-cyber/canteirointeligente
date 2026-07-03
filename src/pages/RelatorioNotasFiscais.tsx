@@ -63,7 +63,7 @@ function exportarExcel(ogs: string, dataIni: string, dataFim: string, rows: NfRo
   const total = rows.reduce((s, r) => s + (r.tonelagem || 0), 0);
   linhas.push(["", "", "", "", "", "", "", "", "", "", fmtNumCsv(total)]);
 
-  const csv = "\\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\\n");
+  const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
