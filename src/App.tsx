@@ -87,6 +87,7 @@ import RelatoriosHome from "./pages/RelatoriosHome";
 import SuperAdmin from "./pages/SuperAdmin";
 import SuprimentosHome from "./pages/SuprimentosHome";
 import MedicoesHome from "./pages/MedicoesHome";
+import AdminRolesPage from "./pages/AdminRolesPage";
 import RelatorioCarreteiros from "./pages/RelatorioCarreteiros";
 import RelatorioFuncionario from "./pages/RelatorioFuncionario";
 import RelatorioEquipamentosRdo from "./pages/RelatorioEquipamentosRdo";
