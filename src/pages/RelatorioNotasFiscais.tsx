@@ -197,7 +197,8 @@ export default function RelatorioNotasFiscais() {
         const rdo = rdoMap[n.rdo_id];
         const ogsRef = ogsMap[rdo?.obra_nome];
         // Apontador: usar preenchido_por (nome do quem preencheu o RDO)
-        const apontador = rdo?.preenchido_por || null;
+        // Fallback: se preenchido_por for NULL, usa encarregado
+        const apontador = rdo?.preenchido_por || rdo?.encarregado || null;
         
         return {
           data: rdo?.data || "",
