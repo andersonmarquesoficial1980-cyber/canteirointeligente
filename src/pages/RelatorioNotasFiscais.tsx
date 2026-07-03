@@ -167,12 +167,13 @@ export default function RelatorioNotasFiscais() {
         (emps || []).forEach((e: any) => { employeeMap[e.id] = e.name || "N/A"; });
       }
 
-      // Busca NFs desses RDOs com filtro de company_id (RLS)
+      // Busca NFs desses RDOs
+      // Nota: Não filtramos por company_id aqui pois rdo_nf_massa ainda tem dados com NULL
+      // O filtro já foi aplicado no nível de rdo_diarios (parent)
       const { data: nfs, error: nfErr } = await (supabase as any)
         .from("rdo_nf_massa")
         .select("rdo_id, nf, placa, usina, tonelagem, tipo_material")
-        .in("rdo_id", rdoIds)
-        .eq("company_id", profile.company_id);
+        .in("rdo_id", rdoIds);
 
       if (nfErr) throw nfErr;
 
