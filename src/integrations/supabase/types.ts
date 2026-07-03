@@ -3468,11 +3468,248 @@ export type Database = {
           },
         ]
       }
+      admin_roles: {
+        Row: {
+          active: boolean | null
+          company_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_system_role: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_system_role?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_system_role?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_permissions: {
+        Row: {
+          action: string
+          company_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_sector_scoped: boolean | null
+          metadata: Json | null
+          resource: string
+          role_id: string
+          sector_filter: string | null
+        }
+        Insert: {
+          action: string
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_sector_scoped?: boolean | null
+          metadata?: Json | null
+          resource: string
+          role_id: string
+          sector_filter?: string | null
+        }
+        Update: {
+          action?: string
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_sector_scoped?: boolean | null
+          metadata?: Json | null
+          resource?: string
+          role_id?: string
+          sector_filter?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "admin_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_permissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_permissions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_admin_roles: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          company_id: string | null
+          employee_id: string
+          id: string
+          is_active: boolean | null
+          revoked_at: string | null
+          role_id: string
+          scope_obra: string | null
+          scope_sector: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          company_id?: string | null
+          employee_id: string
+          id?: string
+          is_active?: boolean | null
+          revoked_at?: string | null
+          role_id: string
+          scope_obra?: string | null
+          scope_sector?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          company_id?: string | null
+          employee_id?: string
+          id?: string
+          is_active?: boolean | null
+          revoked_at?: string | null
+          role_id?: string
+          scope_obra?: string | null
+          scope_sector?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_admin_roles_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_admin_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "admin_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_admin_roles_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_admin_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_id: string | null
+          changes_after: Json | null
+          changes_before: Json | null
+          company_id: string | null
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          resource: string
+          resource_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          changes_after?: Json | null
+          changes_before?: Json | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          resource: string
+          resource_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          changes_after?: Json | null
+          changes_before?: Json | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          resource?: string
+          resource_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_audit_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_user_company_id: { Args: never; Returns: string }
       has_module: { Args: { module_name: string }; Returns: boolean }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      has_admin_permission: { Args: { p_action: string; p_company_id?: string; p_resource: string; p_user_id: string }; Returns: boolean }
+      has_sector_access: { Args: { p_action: string; p_company_id?: string; p_resource: string; p_sector: string; p_user_id: string }; Returns: boolean }
+      log_admin_action: { Args: { p_action: string; p_admin_id: string; p_changes_after?: Json; p_changes_before?: Json; p_resource: string; p_resource_id: string }; Returns: string }
     }
     Enums: {
       checklist_status: "ok" | "nao_ok" | "na"

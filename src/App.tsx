@@ -109,6 +109,7 @@ import EngRdoTecnico from "./pages/EngRdoTecnico";
 import EngRdoTecnicoHistorico from "./pages/EngRdoTecnicoHistorico";
 import EngRdoTecnicoDetalhe from "./pages/EngRdoTecnicoDetalhe";
 import EngRdoTecnicoEditar from "./pages/EngRdoTecnicoEditar";
+import AdminRolesPage from "./pages/AdminRolesPage";
 
 const queryClient = new QueryClient();
 
@@ -443,6 +444,8 @@ function AppRoutes() {
             </RequireAdminOrSuperAdmin>
           }
         />
+        <Route path="/admin/roles" element={<RequireAdminOrSuperAdmin><AdminRolesPage /></RequireAdminOrSuperAdmin>} />
+
 
         {/* WF Programador */}
         <Route path="/programador" element={<RequireModule moduleId="programador"><ProgramadorHome /></RequireModule>} />
