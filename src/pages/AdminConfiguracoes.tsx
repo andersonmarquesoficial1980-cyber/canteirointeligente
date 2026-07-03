@@ -34,6 +34,7 @@ import EquipesManager from "@/components/admin/EquipesManager";
 import EncarregadosManager from "@/components/admin/EncarregadosManager";
 
 import PermissoesManager from "@/components/admin/PermissoesManager";
+import AdminRolesPage from "./AdminRolesPage";
 import logoCi from "@/assets/logo-workflux.png";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
@@ -2929,6 +2930,7 @@ const MENU_SECTIONS = [
   { key: "lixeira", label: "Lixeira (30 dias)", icon: Trash2 },
   { key: "auditoria", label: "Log de Auditoria", icon: Shield },
   { key: "operadores_habilitados", label: "Cadastros do Sistema", icon: ShieldCheck },
+  { key: "roles", label: "Admin Roles", icon: ShieldCheck },
   { key: "engenheiros_ogs", label: "Engenheiros por OGS", icon: HardHat },
   { key: "encarregados_ogs", label: "Encarregados por OGS", icon: HardHat },
   { key: "abastecimento_config", label: "WF Abastecimento", icon: Fuel },
@@ -3936,6 +3938,7 @@ export default function AdminConfiguracoes() {
       case "desbloquear": return <DesbloqueioLancamentosManager />;
 
       case "operadores_habilitados": return <OperadoresHabilitadosManager />;
+      case "roles": return <AdminRolesPage />;
       case "tarifas_vt": return <TarifasVTManager />;
       case "lixeira": return <LixeiraManager />;
       case "auditoria": return <AuditLogViewerAdmin />;
