@@ -25,8 +25,11 @@ function fmtNumCsv(n: any) {
 
 interface NfRow {
   data: string;
-  obra_nome: string;
   apontador: string | null;
+  encarregado: string | null;
+  obra_nome: string;
+  contratante: string | null;
+  local: string | null;
   nf: string | null;
   placa: string | null;
   usina: string | null;
@@ -39,13 +42,16 @@ function exportarExcel(ogs: string, dataIni: string, dataFim: string, rows: NfRo
   linhas.push(["Relatório de Notas Fiscais de Massa"]);
   linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
   linhas.push([]);
-  linhas.push(["Data", "OGS", "Apontador", "NF", "Placa", "Usina", "Tipo Material", "Tonelagem(t)"]);
+  linhas.push(["Data", "Apontador", "Encarregado", "OGS", "Contratante", "Local", "NF", "Placa", "Usina", "Tipo Material", "Tonelagem(t)"]);
   
   rows.forEach(r => {
     linhas.push([
       fmtDate(r.data),
-      r.obra_nome || "-",
       r.apontador || "-",
+      r.encarregado || "-",
+      r.obra_nome || "-",
+      r.contratante || "-",
+      r.local || "-",
       r.nf || "-",
       r.placa || "-",
       r.usina || "-",
@@ -55,9 +61,9 @@ function exportarExcel(ogs: string, dataIni: string, dataFim: string, rows: NfRo
   });
   
   const total = rows.reduce((s, r) => s + (r.tonelagem || 0), 0);
-  linhas.push(["", "", "", "", "", "", "", fmtNumCsv(total)]);
+  linhas.push(["", "", "", "", "", "", "", "", "", "", fmtNumCsv(total)]);
 
-  const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+  const csv = "\\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -86,13 +92,16 @@ function exportarPdf(ogs: string, dataIni: string, dataFim: string, rows: NfRow[
   <h1>📋 Relatório de Notas Fiscais de Massa</h1>
   <p class="period"><strong>Período:</strong> ${fmtDate(dataIni)} a ${fmtDate(dataFim)}</p>
   <table>
-    <tr><th>Data</th><th>OGS</th><th>Apontador</th><th>NF</th><th>Placa</th><th>Usina</th><th>Tipo Material</th><th>Tonelagem(t)</th></tr>`;
+    <tr><th>Data</th><th>Apontador</th><th>Encarregado</th><th>OGS</th><th>Contratante</th><th>Local</th><th>NF</th><th>Placa</th><th>Usina</th><th>Tipo Material</th><th>Tonelagem(t)</th></tr>`;
   
   rows.forEach(r => {
     html += `<tr>
       <td>${fmtDate(r.data)}</td>
-      <td>${r.obra_nome || "-"}</td>
       <td>${r.apontador || "-"}</td>
+      <td>${r.encarregado || "-"}</td>
+      <td>${r.obra_nome || "-"}</td>
+      <td>${r.contratante || "-"}</td>
+      <td>${r.local || "-"}</td>
       <td>${r.nf || "-"}</td>
       <td>${r.placa || "-"}</td>
       <td>${r.usina || "-"}</td>
@@ -102,7 +111,7 @@ function exportarPdf(ogs: string, dataIni: string, dataFim: string, rows: NfRow[
   });
   
   html += `<tr class="total">
-    <td colspan="7">TOTAL</td>
+    <td colspan="10">TOTAL</td>
     <td>${fmtNum(total)} t</td>
   </tr>`;
   html += `</table></body></html>`;
@@ -132,10 +141,10 @@ export default function RelatorioNotasFiscais() {
     setLoading(true);
     setSearched(true);
     try {
-      // Busca RDOs no período com filtro de company_id (RLS)
+      // PASSO 1: Busca RDOs no período com filtro de company_id (RLS)
       let rdoQuery = (supabase as any)
         .from("rdo_diarios")
-        .select("id, obra_nome, data, user_id")
+        .select("id, obra_nome, data, user_id, encarregado")
         .eq("company_id", profile.company_id)
         .gte("data", dataIni)
         .lte("data", dataFim);
@@ -153,10 +162,12 @@ export default function RelatorioNotasFiscais() {
 
       const rdoIds = rdos.map((r: any) => r.id);
       const userIds = rdos.map((r: any) => r.user_id).filter(Boolean);
-      const rdoMap: Record<string, { data: string; obra_nome: string; user_id: string }> = {};
-      rdos.forEach((r: any) => { rdoMap[r.id] = { data: r.data, obra_nome: r.obra_nome, user_id: r.user_id }; });
+      const ogsNumbers = Array.from(new Set(rdos.map((r: any) => r.obra_nome).filter(Boolean)));
+      
+      const rdoMap: Record<string, any> = {};
+      rdos.forEach((r: any) => { rdoMap[r.id] = r; });
 
-      // Busca nomes dos apontadores (employees)
+      // PASSO 2: Busca nomes dos apontadores (employees) via user_id
       let employeeMap: Record<string, string> = {};
       if (userIds.length > 0) {
         const { data: emps, error: empErr } = await (supabase as any)
@@ -167,9 +178,25 @@ export default function RelatorioNotasFiscais() {
         (emps || []).forEach((e: any) => { employeeMap[e.id] = e.name || "N/A"; });
       }
 
-      // Busca NFs desses RDOs
-      // Nota: Não filtramos por company_id aqui pois rdo_nf_massa ainda tem dados com NULL
-      // O filtro já foi aplicado no nível de rdo_diarios (parent)
+      // PASSO 3: Busca OGS Reference (para Contratante e Local)
+      let ogsMap: Record<string, any> = {};
+      if (ogsNumbers.length > 0) {
+        const { data: ogsRefs, error: ogsErr } = await (supabase as any)
+          .from("ogs_reference")
+          .select("ogs_number, client_name, location_address")
+          .eq("company_id", profile.company_id!)
+          .in("ogs_number", ogsNumbers);
+        
+        if (ogsErr) {
+          console.error("Erro ao buscar ogs_reference:", ogsErr);
+        } else {
+          (ogsRefs || []).forEach((o: any) => {
+            ogsMap[o.ogs_number] = o;
+          });
+        }
+      }
+
+      // PASSO 4: Busca NFs desses RDOs
       const { data: nfs, error: nfErr } = await (supabase as any)
         .from("rdo_nf_massa")
         .select("rdo_id, nf, placa, usina, tonelagem, tipo_material")
@@ -177,16 +204,26 @@ export default function RelatorioNotasFiscais() {
 
       if (nfErr) throw nfErr;
 
-      const result: NfRow[] = (nfs || []).map((n: any) => ({
-        data: rdoMap[n.rdo_id]?.data || "",
-        obra_nome: rdoMap[n.rdo_id]?.obra_nome || "",
-        apontador: employeeMap[rdoMap[n.rdo_id]?.user_id] || null,
-        nf: n.nf || null,
-        placa: n.placa || null,
-        usina: n.usina || null,
-        tonelagem: n.tonelagem != null ? parseFloat(String(n.tonelagem)) : null,
-        tipo_material: n.tipo_material || null,
-      }));
+      // PASSO 5: Montar resultado final
+      const result: NfRow[] = (nfs || []).map((n: any) => {
+        const rdo = rdoMap[n.rdo_id];
+        const ogsRef = ogsMap[rdo?.obra_nome];
+        const apontador = employeeMap[rdo?.user_id] || null;
+        
+        return {
+          data: rdo?.data || "",
+          apontador,
+          encarregado: rdo?.encarregado || null,
+          obra_nome: rdo?.obra_nome || "",
+          contratante: ogsRef?.client_name || null,
+          local: ogsRef?.location_address || null,
+          nf: n.nf || null,
+          placa: n.placa || null,
+          usina: n.usina || null,
+          tonelagem: n.tonelagem != null ? parseFloat(String(n.tonelagem)) : null,
+          tipo_material: n.tipo_material || null,
+        };
+      });
 
       result.sort((a, b) => b.data.localeCompare(a.data) || (a.nf || "").localeCompare(b.nf || ""));
       setRows(result);
@@ -275,8 +312,11 @@ export default function RelatorioNotasFiscais() {
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Data</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">OGS</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Apontador</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Encarregado</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">OGS</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Contratante</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Local</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">NF</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Placa</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Usina</th>
@@ -288,8 +328,11 @@ export default function RelatorioNotasFiscais() {
                     {rows.map((r, i) => (
                       <tr key={i} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                         <td className="px-3 py-2 font-medium">{fmtDate(r.data)}</td>
-                        <td className="px-3 py-2 text-primary font-semibold text-xs">{r.obra_nome}</td>
                         <td className="px-3 py-2 text-sm text-muted-foreground">{r.apontador || "-"}</td>
+                        <td className="px-3 py-2 text-sm text-muted-foreground">{r.encarregado || "-"}</td>
+                        <td className="px-3 py-2 text-primary font-semibold text-xs">{r.obra_nome || "-"}</td>
+                        <td className="px-3 py-2 text-xs">{r.contratante || "-"}</td>
+                        <td className="px-3 py-2 text-xs">{r.local || "-"}</td>
                         <td className="px-3 py-2 font-bold">{r.nf || "-"}</td>
                         <td className="px-3 py-2 text-xs text-muted-foreground uppercase">{r.placa || "-"}</td>
                         <td className="px-3 py-2 text-xs">{r.usina || "-"}</td>
@@ -298,7 +341,7 @@ export default function RelatorioNotasFiscais() {
                       </tr>
                     ))}
                     <tr className="bg-primary/5 border-t border-border">
-                      <td colSpan={8} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
+                      <td colSpan={11} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
                       <td className="px-3 py-2 text-right font-bold text-primary">{fmtNum(totalTon)} t</td>
                     </tr>
                   </tbody>
