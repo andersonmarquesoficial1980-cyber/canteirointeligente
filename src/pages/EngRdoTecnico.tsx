@@ -92,12 +92,23 @@ export default function EngRdoTecnico() {
         .order("nome");
       setEquipes((eqs || []).map((e: any) => e.nome));
 
-      // Usinas cadastradas
-      const { data: us } = await (supabase as any)
-        .from("usinas")
-        .select("nome")
+      // Usinas cadastradas: buscar fornecedores vinculados a CAUQ/PAVIMENTACAO com tipo_insumo Massa Asfáltica
+      const { data: fornecs } = await (supabase as any)
+        .from("fornecedores")
+        .select("nome, vinculo_rdo, tipo_insumos")
+        .or("vinculo_rdo.eq.CAUQ,vinculo_rdo.eq.PAVIMENTACAO")
         .order("nome");
-      setUsinas((us || []).map((u: any) => u.nome));
+      
+      const usinasList = (fornecs || [])
+        .filter((f: any) => {
+          // Filtrar apenas fornecedores com Massa Asfáltica
+          const tipos = f.tipo_insumos || [];
+          const tiposStr = f.tipo_insumo || "";
+          return tipos.includes("Massa Asfáltica") || tiposStr.includes("Massa Asfáltica");
+        })
+        .map((f: any) => f.nome);
+      
+      setUsinas(usinasList);
     };
     load();
   }, []);
