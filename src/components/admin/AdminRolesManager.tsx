@@ -41,6 +41,41 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Eye } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
+interface AdminRole {
+  id: string;
+  name: string;
+  description: string | null;
+  is_system_role: boolean;
+  active: boolean;
+}
+
+interface AdminPermission {
+  id: string;
+  role_id: string;
+  resource: string;
+  action: string;
+  is_sector_scoped: boolean;
+  sector_filter: string | null;
+}
+
+interface UserAdminRole {
+  id: string;
+  employee_id: string;
+  role_id: string;
+  employees?: { name: string; matricula: string };
+  admin_roles?: { name: string; description: string };
+  scope_sector: string | null;
+  assigned_at: string;
+}
+
+interface AuditLogEntry {
+  id: string;
+  action: string;
+  resource: string;
+  created_at: string;
+  employees?: { name: string };
+}
+
 export function AdminRolesManager() {
   const {
     roles,
@@ -179,7 +214,7 @@ export function AdminRolesManager() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {roles.map((role: any) => (
+                    {roles.map((role: AdminRole) => (
                       <TableRow key={role.id}>
                         <TableCell className="font-medium">{role.name}</TableCell>
                         <TableCell className="text-sm">
@@ -226,7 +261,7 @@ export function AdminRolesManager() {
                       <SelectValue placeholder="Selecione um role" />
                     </SelectTrigger>
                     <SelectContent>
-                      {roles.map((r: any) => (
+                      {roles.map((r: AdminRole) => (
                         <SelectItem key={r.id} value={r.id}>
                           {r.name}
                         </SelectItem>
@@ -316,8 +351,8 @@ export function AdminRolesManager() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {permissions.map((perm: any) => {
-                    const role = roles.find((r: any) => r.id === perm.role_id);
+                  {permissions.map((perm: AdminPermission) => {
+                    const role = roles.find((r: AdminRole) => r.id === perm.role_id);
                     return (
                       <TableRow key={perm.id}>
                         <TableCell className="font-medium">
@@ -370,7 +405,7 @@ export function AdminRolesManager() {
                       <SelectValue placeholder="Selecione role" />
                     </SelectTrigger>
                     <SelectContent>
-                      {roles.map((r: any) => (
+                      {roles.map((r: AdminRole) => (
                         <SelectItem key={r.id} value={r.id}>
                           {r.name}
                         </SelectItem>
@@ -441,7 +476,7 @@ export function AdminRolesManager() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {auditLog.map((log: any) => (
+                        {auditLog.map((log: AuditLogEntry) => (
                           <TableRow key={log.id}>
                             <TableCell className="text-sm">
                               {log.employees?.name || "N/A"}
@@ -480,7 +515,7 @@ export function AdminRolesManager() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {userRoles.map((ur: any) => (
+                    {userRoles.map((ur: UserAdminRole) => (
                       <TableRow key={ur.id}>
                         <TableCell className="font-medium">
                           {ur.employees?.name || "N/A"}

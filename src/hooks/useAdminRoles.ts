@@ -3,6 +3,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useUserProfile } from "./useUserProfile";
 
+interface CreateRoleInput {
+  name: string;
+  description?: string;
+}
+
+interface AddPermissionInput {
+  role_id: string;
+  resource: string;
+  action: string;
+  is_sector_scoped?: boolean;
+  sector_filter?: string;
+}
+
+interface AssignRoleInput {
+  employee_id: string;
+  role_id: string;
+  scope_sector?: string;
+  scope_obra?: string;
+}
+
+interface ErrorResponse {
+  message: string;
+}
+
 export function useAdminRoles() {
   const { profile } = useUserProfile();
   const { toast } = useToast();
@@ -99,7 +123,7 @@ export function useAdminRoles() {
         description: "Role criado com sucesso",
       });
     },
-    onError: (error: any) => {
+    onError: (error: ErrorResponse) => {
       toast({
         title: "Erro",
         description: error.message,
@@ -140,7 +164,7 @@ export function useAdminRoles() {
         description: "Permissão adicionada",
       });
     },
-    onError: (error: any) => {
+    onError: (error: ErrorResponse) => {
       toast({
         title: "Erro",
         description: error.message,
@@ -180,7 +204,7 @@ export function useAdminRoles() {
         description: "Usuário atribuído ao role",
       });
     },
-    onError: (error: any) => {
+    onError: (error: ErrorResponse) => {
       toast({
         title: "Erro",
         description: error.message,
@@ -205,7 +229,7 @@ export function useAdminRoles() {
         description: "Role revogado do usuário",
       });
     },
-    onError: (error: any) => {
+    onError: (error: ErrorResponse) => {
       toast({
         title: "Erro",
         description: error.message,
