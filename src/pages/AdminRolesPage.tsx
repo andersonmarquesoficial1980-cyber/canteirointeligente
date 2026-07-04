@@ -61,7 +61,7 @@ interface UserAdminRole {
 interface Profile {
   user_id: string;
   email: string;
-  name: string | null;
+  nome_completo: string | null;
   company_id: string | null;
 }
 
@@ -634,8 +634,8 @@ function AssignmentsTab() {
           .order("assigned_at", { ascending: false }),
         supabase
           .from("profiles")
-          .select("user_id, email, name, company_id")
-          .order("name"),
+          .select("user_id, email, nome_completo, company_id")
+          .order("nome_completo"),
         supabase.from("admin_roles").select("id, name"),
       ]);
 
@@ -728,7 +728,7 @@ function AssignmentsTab() {
 
   const getProfileDisplay = (userId: string) => {
     const profile = profiles.find((p) => p.user_id === userId);
-    return profile ? `${profile.name || profile.email} (${profile.email})` : userId;
+    return profile ? `${profile.nome_completo || profile.email} (${profile.email})` : userId;
   };
 
   const getRoleName = (roleId: string) => {
@@ -824,7 +824,7 @@ function AssignmentsTab() {
                 <option value="">Selecione um usuário</option>
                 {profiles.map((profile) => (
                   <option key={profile.user_id} value={profile.user_id}>
-                    {profile.name || profile.email} ({profile.email})
+                    {profile.nome_completo || profile.email} ({profile.email})
                   </option>
                 ))}
               </select>
