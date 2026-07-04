@@ -50,7 +50,7 @@ interface AdminPermission {
 
 interface UserAdminRole {
   id: string;
-  employee_id: string;
+  user_id: string;
   role_id: string;
   scope_sector: string | null;
   scope_obra: string | null;
@@ -58,10 +58,11 @@ interface UserAdminRole {
   assigned_at: string | null;
 }
 
-interface Employee {
-  id: string;
-  name: string;
-  email: string | null;
+interface Profile {
+  user_id: string;
+  email: string;
+  name: string | null;
+  company_id: string | null;
 }
 
 // Abas de Roles
@@ -610,14 +611,14 @@ function PermissionsTab() {
 // Abas de Atribuições
 function AssignmentsTab() {
   const [assignments, setAssignments] = useState<UserAdminRole[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<UserAdminRole | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    employee_id: "",
+    user_id: "",
     role_id: "",
     scope_sector: "",
     scope_obra: "",
@@ -626,21 +627,24 @@ function AssignmentsTab() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [assignmentsRes, employeesRes, rolesRes] = await Promise.all([
+      const [assignmentsRes, profilesRes, rolesRes] = await Promise.all([
         supabase
           .from("user_admin_roles")
           .select("*")
           .order("assigned_at", { ascending: false }),
-        supabase.from("employees").select("id, name, email").order("name"),
+        supabase
+          .from("profiles")
+          .select("user_id, email, name, company_id")
+          .order("name"),
         supabase.from("admin_roles").select("id, name"),
       ]);
 
       if (assignmentsRes.error) throw assignmentsRes.error;
-      if (employeesRes.error) throw employeesRes.error;
+      if (profilesRes.error) throw profilesRes.error;
       if (rolesRes.error) throw rolesRes.error;
 
       setAssignments(assignmentsRes.data || []);
-      setEmployees(employeesRes.data || []);
+      setProfiles(profilesRes.data || []);
       setRoles(rolesRes.data || []);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao carregar dados");
@@ -657,21 +661,21 @@ function AssignmentsTab() {
     if (assignment) {
       setEditingAssignment(assignment);
       setFormData({
-        employee_id: assignment.employee_id,
+        user_id: assignment.user_id,
         role_id: assignment.role_id,
         scope_sector: assignment.scope_sector || "",
         scope_obra: assignment.scope_obra || "",
       });
     } else {
       setEditingAssignment(null);
-      setFormData({ employee_id: "", role_id: "", scope_sector: "", scope_obra: "" });
+      setFormData({ user_id: "", role_id: "", scope_sector: "", scope_obra: "" });
     }
     setIsDialogOpen(true);
   };
 
   const handleSaveAssignment = async () => {
-    if (!formData.employee_id || !formData.role_id) {
-      toast.error("Funcionário e Role são obrigatórios");
+    if (!formData.user_id || !formData.role_id) {
+      toast.error("Usuário e Role são obrigatórios");
       return;
     }
 
@@ -680,7 +684,7 @@ function AssignmentsTab() {
         const { error } = await supabase
           .from("user_admin_roles")
           .update({
-            employee_id: formData.employee_id,
+            user_id: formData.user_id,
             role_id: formData.role_id,
             scope_sector: formData.scope_sector || null,
             scope_obra: formData.scope_obra || null,
@@ -691,7 +695,7 @@ function AssignmentsTab() {
         toast.success("Atribuição atualizada com sucesso");
       } else {
         const { error } = await supabase.from("user_admin_roles").insert({
-          employee_id: formData.employee_id,
+          user_id: formData.user_id,
           role_id: formData.role_id,
           scope_sector: formData.scope_sector || null,
           scope_obra: formData.scope_obra || null,
@@ -722,8 +726,9 @@ function AssignmentsTab() {
     }
   };
 
-  const getEmployeeName = (employeeId: string) => {
-    return employees.find((e) => e.id === employeeId)?.name || employeeId;
+  const getProfileDisplay = (userId: string) => {
+    const profile = profiles.find((p) => p.user_id === userId);
+    return profile ? `${profile.name || profile.email} (${profile.email})` : userId;
   };
 
   const getRoleName = (roleId: string) => {
@@ -755,7 +760,7 @@ function AssignmentsTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Funcionário</TableHead>
+                <TableHead>Usuário</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Setor</TableHead>
                 <TableHead>Obra</TableHead>
@@ -767,7 +772,7 @@ function AssignmentsTab() {
             <TableBody>
               {assignments.map((assignment) => (
                 <TableRow key={assignment.id}>
-                  <TableCell className="font-semibold">{getEmployeeName(assignment.employee_id)}</TableCell>
+                  <TableCell className="font-semibold">{getProfileDisplay(assignment.user_id)}</TableCell>
                   <TableCell>{getRoleName(assignment.role_id)}</TableCell>
                   <TableCell className="text-sm">{assignment.scope_sector || "-"}</TableCell>
                   <TableCell className="text-sm">{assignment.scope_obra || "-"}</TableCell>
@@ -803,23 +808,23 @@ function AssignmentsTab() {
           <DialogHeader>
             <DialogTitle>{editingAssignment ? "Editar Atribuição" : "Criar Nova Atribuição"}</DialogTitle>
             <DialogDescription>
-              {editingAssignment ? "Atualize a atribuição do role" : "Atribua um role a um funcionário"}
+              {editingAssignment ? "Atualize a atribuição do role" : "Atribua um role a um usuário"}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="employee_id">Funcionário *</Label>
+              <Label htmlFor="user_id">Usuário *</Label>
               <select
-                id="employee_id"
-                value={formData.employee_id}
-                onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                id="user_id"
+                value={formData.user_id}
+                onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="">Selecione um funcionário</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
+                <option value="">Selecione um usuário</option>
+                {profiles.map((profile) => (
+                  <option key={profile.user_id} value={profile.user_id}>
+                    {profile.name || profile.email} ({profile.email})
                   </option>
                 ))}
               </select>
