@@ -51,11 +51,15 @@ interface AdminPermission {
 interface UserAdminRole {
   id: string;
   user_id: string;
+  employee_id: string;
   role_id: string;
   scope_sector: string | null;
   scope_obra: string | null;
   is_active: boolean | null;
   assigned_at: string | null;
+  assigned_by: string | null;
+  revoked_at: string | null;
+  company_id: string | null;
 }
 
 interface Profile {
@@ -630,12 +634,10 @@ function AssignmentsTab() {
       const [assignmentsRes, profilesRes, rolesRes] = await Promise.all([
         supabase
           .from("user_admin_roles")
-          .select("*")
-          .order("assigned_at", { ascending: false }),
+          .select("*"),
         supabase
           .from("profiles")
-          .select("user_id, email, nome_completo, company_id")
-          .order("nome_completo"),
+          .select("user_id, email, nome_completo, company_id"),
         supabase.from("admin_roles").select("id, name"),
       ]);
 
