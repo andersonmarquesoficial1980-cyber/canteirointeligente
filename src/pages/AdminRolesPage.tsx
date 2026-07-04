@@ -64,7 +64,7 @@ interface Employee {
   email: string | null;
 }
 
-// Tabs Roles
+// Abas de Roles
 function RolesTab() {
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,7 +191,7 @@ function RolesTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
+                <TableHead>Nome do Role</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead>Sistema</TableHead>
                 <TableHead>Ativo</TableHead>
@@ -269,7 +269,7 @@ function RolesTab() {
                 checked={formData.is_system_role}
                 onChange={(e) => setFormData({ ...formData, is_system_role: e.target.checked })}
               />
-              <Label htmlFor="is_system_role">Role de Sistema</Label>
+              <Label htmlFor="is_system_role">É um Role de Sistema</Label>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -319,7 +319,7 @@ function RolesTab() {
   );
 }
 
-// Permissions Tab
+// Abas de Permissões
 function PermissionsTab() {
   const [permissions, setPermissions] = useState<AdminPermission[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
@@ -381,7 +381,7 @@ function PermissionsTab() {
 
   const handleSavePermission = async () => {
     if (!formData.role_id || !formData.resource || !formData.action) {
-      toast.error("Preecha todos os campos obrigatórios");
+      toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
@@ -555,7 +555,7 @@ function PermissionsTab() {
                 checked={formData.is_sector_scoped}
                 onChange={(e) => setFormData({ ...formData, is_sector_scoped: e.target.checked })}
               />
-              <Label htmlFor="is_sector_scoped">Scoped por Setor</Label>
+              <Label htmlFor="is_sector_scoped">Setor (Escopo)</Label>
             </div>
 
             {formData.is_sector_scoped && (
@@ -607,7 +607,7 @@ function PermissionsTab() {
   );
 }
 
-// Assignments Tab
+// Abas de Atribuições
 function AssignmentsTab() {
   const [assignments, setAssignments] = useState<UserAdminRole[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -899,7 +899,7 @@ function AssignmentsTab() {
   );
 }
 
-// Main Component
+// Componente Principal
 export default function AdminRolesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
