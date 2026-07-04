@@ -50,7 +50,6 @@ interface AdminPermission {
 
 interface UserAdminRole {
   id: string;
-  user_id: string;
   employee_id: string;
   role_id: string;
   scope_sector: string | null;
@@ -622,7 +621,7 @@ function AssignmentsTab() {
   const [editingAssignment, setEditingAssignment] = useState<UserAdminRole | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    user_id: "",
+    employee_id: "",
     role_id: "",
     scope_sector: "",
     scope_obra: "",
@@ -663,20 +662,20 @@ function AssignmentsTab() {
     if (assignment) {
       setEditingAssignment(assignment);
       setFormData({
-        user_id: assignment.user_id,
+        employee_id: assignment.employee_id,
         role_id: assignment.role_id,
         scope_sector: assignment.scope_sector || "",
         scope_obra: assignment.scope_obra || "",
       });
     } else {
       setEditingAssignment(null);
-      setFormData({ user_id: "", role_id: "", scope_sector: "", scope_obra: "" });
+      setFormData({ employee_id: "", role_id: "", scope_sector: "", scope_obra: "" });
     }
     setIsDialogOpen(true);
   };
 
   const handleSaveAssignment = async () => {
-    if (!formData.user_id || !formData.role_id) {
+    if (!formData.employee_id || !formData.role_id) {
       toast.error("Usuário e Role são obrigatórios");
       return;
     }
@@ -686,7 +685,7 @@ function AssignmentsTab() {
         const { error } = await supabase
           .from("user_admin_roles")
           .update({
-            user_id: formData.user_id,
+            employee_id: formData.employee_id,
             role_id: formData.role_id,
             scope_sector: formData.scope_sector || null,
             scope_obra: formData.scope_obra || null,
@@ -697,7 +696,7 @@ function AssignmentsTab() {
         toast.success("Atribuição atualizada com sucesso");
       } else {
         const { error } = await supabase.from("user_admin_roles").insert({
-          user_id: formData.user_id,
+          employee_id: formData.employee_id,
           role_id: formData.role_id,
           scope_sector: formData.scope_sector || null,
           scope_obra: formData.scope_obra || null,
@@ -728,9 +727,9 @@ function AssignmentsTab() {
     }
   };
 
-  const getProfileDisplay = (userId: string) => {
-    const profile = profiles.find((p) => p.user_id === userId);
-    return profile ? `${profile.nome_completo || profile.email} (${profile.email})` : userId;
+  const getProfileDisplay = (employeeId: string) => {
+    const profile = profiles.find((p) => p.user_id === employeeId);
+    return profile ? `${profile.nome_completo || profile.email} (${profile.email})` : employeeId;
   };
 
   const getRoleName = (roleId: string) => {
@@ -774,7 +773,7 @@ function AssignmentsTab() {
             <TableBody>
               {assignments.map((assignment) => (
                 <TableRow key={assignment.id}>
-                  <TableCell className="font-semibold">{getProfileDisplay(assignment.user_id)}</TableCell>
+                  <TableCell className="font-semibold">{getProfileDisplay(assignment.employee_id)}</TableCell>
                   <TableCell>{getRoleName(assignment.role_id)}</TableCell>
                   <TableCell className="text-sm">{assignment.scope_sector || "-"}</TableCell>
                   <TableCell className="text-sm">{assignment.scope_obra || "-"}</TableCell>
@@ -819,8 +818,8 @@ function AssignmentsTab() {
               <Label htmlFor="user_id">Usuário *</Label>
               <select
                 id="user_id"
-                value={formData.user_id}
-                onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
+                value={formData.employee_id}
+                onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="">Selecione um usuário</option>
