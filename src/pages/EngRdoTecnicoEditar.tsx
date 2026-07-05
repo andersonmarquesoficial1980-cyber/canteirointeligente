@@ -41,6 +41,8 @@ export default function EngRdoTecnicoEditar() {
     bgs_ton: "",
     sma_ton: "",
     geogrelha_m2: "",
+    egl_ton: "",
+    rachao_ton: "",
     qtd_caminhoes_fresa: "",
     perc_conclusao_via: "",
     houve_ocorrencia: false,
@@ -82,6 +84,8 @@ export default function EngRdoTecnicoEditar() {
           bgs_ton: numToStr(rdo.bgs_ton),
           sma_ton: numToStr(rdo.sma_ton),
           geogrelha_m2: numToStr(rdo.geogrelha_m2),
+          egl_ton: numToStr((rdo as any).egl_ton),
+          rachao_ton: numToStr((rdo as any).rachao_ton),
           qtd_caminhoes_fresa: numToStr(rdo.qtd_caminhoes_fresa),
           perc_conclusao_via: numToStr(rdo.perc_conclusao_via),
           houve_ocorrencia: rdo.houve_ocorrencia ?? false,
@@ -157,6 +161,8 @@ export default function EngRdoTecnicoEditar() {
       bgs_ton: toNum(form.bgs_ton),
       sma_ton: toNum(form.sma_ton),
       geogrelha_m2: toNum(form.geogrelha_m2),
+      egl_ton: toNum(form.egl_ton),
+      rachao_ton: toNum(form.rachao_ton),
       qtd_caminhoes_fresa: form.qtd_caminhoes_fresa === "" ? null : parseInt(form.qtd_caminhoes_fresa),
       perc_conclusao_via: toNum(form.perc_conclusao_via),
       houve_ocorrencia: form.houve_ocorrencia,
@@ -300,24 +306,43 @@ export default function EngRdoTecnicoEditar() {
             {/* Seção 3 — Quantitativos */}
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Quantitativos de Produção</h2>
+              
+              {/* Mapeamento: Tipo de Serviço → Campo de Produção
+                  - FRESAGEM → fresagem_m2
+                  - RAP ESPUMADO → rap_espumado_m2
+                  - BINDER → binder_ton (não há checkbox, sempre visível)
+                  - CBUQ FX3 → cbuq_fx3_ton (não há checkbox, sempre visível)
+                  - GAP GRADED → gap_ton
+                  - BGS → bgs_ton
+                  - SMA → sma_ton
+                  - Geogrelha → geogrelha_m2 (não há checkbox, sempre visível)
+                  - EGL → egl_ton (novo campo)
+                  - RACHÃO → rachao_ton (novo campo)
+              */}
+              
               {[
-                { label: "Fresagem (m²)", field: "fresagem_m2" },
-                { label: "RAP Espumado (m²)", field: "rap_espumado_m2" },
-                { label: "Binder (ton)", field: "binder_ton" },
-                { label: "CBUQ FX3 (ton)", field: "cbuq_fx3_ton" },
-                { label: "GAP (ton)", field: "gap_ton" },
-                { label: "BGS (ton)", field: "bgs_ton" },
-                { label: "SMA (ton)", field: "sma_ton" },
-                { label: "Geogrelha (m²)", field: "geogrelha_m2" },
-                { label: "Qtd caminhões fresa/demolição", field: "qtd_caminhoes_fresa" },
-                { label: "% conclusão da via", field: "perc_conclusao_via" },
-              ].map(({ label, field }) => (
-                <div key={field}>
-                  <label className={labelCls}>{label}</label>
-                  <input type="number" value={(form as any)[field]} onChange={e => set(field, e.target.value)}
-                    placeholder="0" min={0} max={field === "perc_conclusao_via" ? 100 : undefined} className={inputCls} />
-                </div>
-              ))}
+                { label: "Fresagem (m²)", field: "fresagem_m2", requiredType: "FRESAGEM" },
+                { label: "RAP Espumado (m²)", field: "rap_espumado_m2", requiredType: "RAP ESPUMADO" },
+                { label: "Binder (ton)", field: "binder_ton", requiredType: null },
+                { label: "CBUQ FX3 (ton)", field: "cbuq_fx3_ton", requiredType: null },
+                { label: "GAP (ton)", field: "gap_ton", requiredType: "GAP GRADED" },
+                { label: "BGS (ton)", field: "bgs_ton", requiredType: "BGS" },
+                { label: "SMA (ton)", field: "sma_ton", requiredType: "SMA" },
+                { label: "Geogrelha (m²)", field: "geogrelha_m2", requiredType: null },
+                { label: "EGL (ton)", field: "egl_ton", requiredType: "EGL" },
+                { label: "RACHÃO (ton)", field: "rachao_ton", requiredType: "RACHÃO" },
+                { label: "Qtd caminhões fresa/demolição", field: "qtd_caminhoes_fresa", requiredType: null },
+                { label: "% conclusão da via", field: "perc_conclusao_via", requiredType: null },
+              ].map(({ label, field, requiredType }) => {
+                const shouldShow = requiredType === null || form.tipos_servico.includes(requiredType);
+                return shouldShow ? (
+                  <div key={field}>
+                    <label className={labelCls}>{label}</label>
+                    <input type="number" value={(form as any)[field]} onChange={e => set(field, e.target.value)}
+                      placeholder="0" min={0} max={field === "perc_conclusao_via" ? 100 : undefined} className={inputCls} />
+                  </div>
+                ) : null;
+              })}
             </div>
 
             {/* Seção 4 — Ocorrências */}

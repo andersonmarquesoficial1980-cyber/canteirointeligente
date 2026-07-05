@@ -26,6 +26,8 @@ interface Rdo {
   bgs_ton: number | null;
   sma_ton: number | null;
   geogrelha_m2: number | null;
+  egl_ton: number | null;
+  rachao_ton: number | null;
   qtd_caminhoes_fresa: number | null;
   perc_conclusao_via: number | null;
   houve_ocorrencia: boolean;
@@ -165,6 +167,8 @@ export default function EngRdoTecnicoDetalhe() {
     { label: "BGS", value: rdo.bgs_ton != null ? `${fmtNum(rdo.bgs_ton)} ton` : null },
     { label: "SMA", value: rdo.sma_ton != null ? `${fmtNum(rdo.sma_ton)} ton` : null },
     { label: "Geogrelha", value: rdo.geogrelha_m2 != null ? `${fmtNum(rdo.geogrelha_m2)} m²` : null },
+    { label: "EGL", value: rdo.egl_ton != null ? `${fmtNum(rdo.egl_ton)} ton` : null },
+    { label: "RACHÃO", value: rdo.rachao_ton != null ? `${fmtNum(rdo.rachao_ton)} ton` : null },
     { label: "Caminhões Fresa", value: rdo.qtd_caminhoes_fresa != null ? `${rdo.qtd_caminhoes_fresa}` : null },
     { label: "% Conclusão Via", value: rdo.perc_conclusao_via != null ? `${rdo.perc_conclusao_via}%` : null },
   ].filter(q => q.value);
