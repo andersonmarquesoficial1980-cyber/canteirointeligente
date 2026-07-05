@@ -264,23 +264,6 @@ export default function EngRdoTecnicoEditar() {
                 })()}
               </div>
               <div>
-                <label className={labelCls}>Tipo de Serviço</label>
-                <div className="rounded-xl border border-border bg-background p-2 space-y-1 max-h-52 overflow-y-auto">
-                  {tiposServico.map(t => (
-                    <label key={t} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted cursor-pointer text-sm">
-                      <input type="checkbox" checked={form.tipos_servico.includes(t)}
-                        onChange={e => { const prev = form.tipos_servico; set("tipos_servico", e.target.checked ? [...prev, t] : prev.filter(x => x !== t)); }}
-                        className="w-4 h-4 accent-primary" />{t}
-                    </label>
-                  ))}
-                  {form.tipos_servico.length > 0 && (
-                    <p className="text-xs text-primary font-semibold px-2 pt-1 border-t border-border">
-                      {form.tipos_servico.length} selecionado{form.tipos_servico.length > 1 ? "s" : ""}: {form.tipos_servico.join(", ")}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div>
                 <label className={labelCls}>Usina Programada</label>
                 <select value={form.usina_programada} onChange={e => set("usina_programada", e.target.value)} className={inputCls}>
                   <option value="">Selecione a usina...</option>
@@ -299,6 +282,23 @@ export default function EngRdoTecnicoEditar() {
                       className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${form.usina_atendeu === opt ? "bg-primary text-white border-primary" : "bg-background text-foreground border-border"}`}
                     >{opt === "sim" ? "Sim" : "Não"}</button>
                   ))}
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Tipo de Serviço</label>
+                <div className="rounded-xl border border-border bg-background p-2 space-y-1 max-h-52 overflow-y-auto">
+                  {tiposServico.map(t => (
+                    <label key={t} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted cursor-pointer text-sm">
+                      <input type="checkbox" checked={form.tipos_servico.includes(t)}
+                        onChange={e => { const prev = form.tipos_servico; set("tipos_servico", e.target.checked ? [...prev, t] : prev.filter(x => x !== t)); }}
+                        className="w-4 h-4 accent-primary" />{t}
+                    </label>
+                  ))}
+                  {form.tipos_servico.length > 0 && (
+                    <p className="text-xs text-primary font-semibold px-2 pt-1 border-t border-border">
+                      {form.tipos_servico.length} selecionado{form.tipos_servico.length > 1 ? "s" : ""}: {form.tipos_servico.join(", ")}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
