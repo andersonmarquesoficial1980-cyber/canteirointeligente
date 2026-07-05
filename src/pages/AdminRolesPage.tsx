@@ -710,8 +710,14 @@ function AssignmentsTab() {
         if (error) throw error;
         toast.success("Atribuição atualizada com sucesso");
       } else {
+        // Buscar company_id do perfil selecionado
+        const selectedProfile = profiles.find((p) => p.user_id === formData.employee_id);
+        const companyId = selectedProfile?.company_id || null;
+
         const { error } = await supabase.from("user_admin_roles").insert({
+          user_id: formData.employee_id,
           employee_id: formData.employee_id,
+          company_id: companyId,
           role_id: formData.role_id,
           scope_sector: formData.scope_sector || null,
           scope_obra: formData.scope_obra || null,
