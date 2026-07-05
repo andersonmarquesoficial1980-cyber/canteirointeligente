@@ -193,17 +193,37 @@ export default function MeusLancamentos() {
     const isAdminByProfile = (profileData as any)?.perfil === "Administrador" || (profileData as any)?.role === "superadmin";
     const companyId = (profileData as any)?.company_id;
 
-    // Verificar se usuário tem role ativo em user_admin_roles (ex: RDO_Admin)
-    const { data: roleData } = await (supabase as any)
+    // Buscar permissões do role do usuário em user_admin_roles → admin_permissions
+    const { data: roleAssignment } = await (supabase as any)
       .from("user_admin_roles")
-      .select("id")
+      .select("role_id, company_id")
       .eq("user_id", user.id)
       .eq("is_active", true)
       .maybeSingle();
 
-    const isAdminUser = isAdminByProfile || !!roleData;
-    setIsAdmin(isAdminUser);
-    const isAdmin = isAdminUser;
+    let permRdoViewAll = false;
+    let permEquipViewAll = false;
+
+    if (roleAssignment?.role_id) {
+      const { data: perms } = await (supabase as any)
+        .from("admin_permissions")
+        .select("resource, action")
+        .eq("role_id", roleAssignment.role_id);
+
+      (perms || []).forEach((p: any) => {
+        if ((p.resource === "rdo_diarios" || p.resource === "all") && (p.action === "view_all" || p.action === "manage")) {
+          permRdoViewAll = true;
+        }
+        if ((p.resource === "equipment_diaries" || p.resource === "all") && (p.action === "view_all" || p.action === "manage")) {
+          permEquipViewAll = true;
+        }
+      });
+    }
+
+    const isAdminUser = isAdminByProfile;
+    const effectiveCompanyId = companyId || roleAssignment?.company_id;
+    setIsAdmin(isAdminUser || permEquipViewAll);
+    const isAdmin = isAdminUser || permEquipViewAll;
 
     let query = (supabase as any)
       .from("equipment_diaries")
@@ -265,6 +285,9 @@ export default function MeusLancamentos() {
 
     if (isAdmin && companyId) {
       rdoQuery = rdoQuery.eq("company_id", companyId);
+    } else if (permRdoViewAll && effectiveCompanyId) {
+      // RDO_Admin com permissão view_all: vê todos os RDOs da empresa
+      rdoQuery = rdoQuery.eq("company_id", effectiveCompanyId);
     } else {
       rdoQuery = rdoQuery.eq("user_id", user.id);
     }

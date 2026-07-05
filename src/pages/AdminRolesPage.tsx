@@ -534,22 +534,37 @@ function PermissionsTab() {
 
             <div>
               <Label htmlFor="resource">Recurso *</Label>
-              <Input
+              <select
                 id="resource"
                 value={formData.resource}
-                onChange={(e) => setFormData({ ...formData, resource: e.target.value })}
-                placeholder="Ex: users"
-              />
+                onChange={(e) => setFormData({ ...formData, resource: e.target.value, action: "" })}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Selecione um recurso</option>
+                <option value="rdo_diarios">📋 RDOs (Relatórios Diários de Obra)</option>
+                <option value="equipment_diaries">🚜 Equipamentos (Lançamentos de Equip.)</option>
+                <option value="ocorrencias">⚠️ Ocorrências</option>
+                <option value="funcionarios">👷 Funcionários</option>
+                <option value="all">🔓 Todos os recursos</option>
+              </select>
             </div>
 
             <div>
               <Label htmlFor="action">Ação *</Label>
-              <Input
+              <select
                 id="action"
                 value={formData.action}
                 onChange={(e) => setFormData({ ...formData, action: e.target.value })}
-                placeholder="Ex: create, read, update, delete"
-              />
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Selecione uma ação</option>
+                <option value="view_all">👁️ Ver todos (da empresa)</option>
+                <option value="view_own">👤 Ver apenas os próprios</option>
+                <option value="create">✏️ Criar</option>
+                <option value="edit">📝 Editar</option>
+                <option value="delete">🗑️ Deletar</option>
+                <option value="manage">⚙️ Gerenciar (criar/editar/deletar)</option>
+              </select>
             </div>
 
             <div className="flex items-center space-x-2">
