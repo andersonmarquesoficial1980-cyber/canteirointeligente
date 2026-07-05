@@ -73,17 +73,15 @@ export function usePermissions() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (perms) {
-        // role="admin" em profiles NÃO bypassa mais — respeita user_permissions
-        // Apenas superadmin (role="superadmin") via useCompanyModules tem acesso total
-        setPermissions(perms as unknown as Permissions);
-      } else if (profile?.role === "superadmin") {
-        // Somente superadmin sem registro em user_permissions ganha acesso total
+      // has_role('admin') = anderson@fremix.com.br ou user_roles → acesso total
+      // is_admin em user_permissions = admin de empresa → respeita user_permissions
+      if (profile?.role === "admin" || profile?.role === "superadmin") {
         setPermissions(ADMIN_PERMISSIONS);
-        if (permsError) console.warn("[usePermissions] erro ao buscar permissões:", permsError.message);
+      } else if (perms) {
+        setPermissions(perms as unknown as Permissions);
       } else {
         setPermissions(DEFAULT_PERMISSIONS);
-        if (permsError) console.warn("[usePermissions] erro ao buscar permissões:", permsError.message);
+        if (permsError) console.warn("[usePermissions] erro:", permsError.message);
       }
       setLoading(false);
     }
