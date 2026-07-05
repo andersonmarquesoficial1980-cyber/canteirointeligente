@@ -120,8 +120,7 @@ export default function Home() {
             // Super-admin (dono do Workflux) vê tudo
             // Admin da empresa vê módulos contratados pela empresa
             if (!hasModule(mod.id)) return false;
-            if (isAdmin) return true; // admin da empresa vê todos os módulos liberados
-            // Filtrar por permissão individual do usuário
+            // Filtrar por permissão individual do usuário (sempre, independente de isAdmin)
             const permMap: Record<string, keyof typeof permissions> = {
               obras: "modulo_obras",
               equipamentos: "modulo_equipamentos",
