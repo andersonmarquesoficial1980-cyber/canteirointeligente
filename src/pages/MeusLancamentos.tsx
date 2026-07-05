@@ -190,8 +190,18 @@ export default function MeusLancamentos() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const isAdminUser = (profileData as any)?.perfil === "Administrador" || (profileData as any)?.role === "superadmin";
+    const isAdminByProfile = (profileData as any)?.perfil === "Administrador" || (profileData as any)?.role === "superadmin";
     const companyId = (profileData as any)?.company_id;
+
+    // Verificar se usuário tem role ativo em user_admin_roles (ex: RDO_Admin)
+    const { data: roleData } = await (supabase as any)
+      .from("user_admin_roles")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    const isAdminUser = isAdminByProfile || !!roleData;
     setIsAdmin(isAdminUser);
     const isAdmin = isAdminUser;
 
