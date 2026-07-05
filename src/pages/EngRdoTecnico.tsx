@@ -347,37 +347,33 @@ export default function EngRdoTecnico() {
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Quantitativos de Produção</h2>
               
-              {/* Mapeamento: Tipo de Serviço → Campo de Produção
+              {/* Mapeamento: Tipo de Serviço → Campo de Produção (100% CONDICIONAL)
                   - FRESAGEM → fresagem_m2
                   - APLICAÇÃO DE RAP ESPUMADO → rap_espumado_m2
-                  - APLICAÇÃO DE FX II - BINDER → binder_ton (não há checkbox, sempre visível)
-                  - APLICAÇÃO DE FX III → cbuq_fx3_ton (não há checkbox, sempre visível)
+                  - APLICAÇÃO DE FX II - BINDER → binder_ton
+                  - APLICAÇÃO DE FX III → cbuq_fx3_ton
                   - APLICAÇÃO DE GAP GRADED → gap_ton
                   - APLICAÇÃO DE BGS → bgs_ton
                   - APLICAÇÃO DE SMA → sma_ton
-                  - Geogrelha → geogrelha_m2 (não há checkbox, sempre visível)
-                  - APLICAÇÃO DE EGL → egl_ton (novo campo)
-                  - APLICAÇÃO DE RACHÃO → rachao_ton (novo campo)
+                  - GEOGRELHA → geogrelha_m2
+                  - APLICAÇÃO DE EGL → egl_ton
+                  - APLICAÇÃO DE RACHÃO → rachao_ton
               */}
               
               {[
                 { label: "Fresagem (m²)", field: "fresagem_m2", requiredType: "FRESAGEM" },
                 { label: "RAP Espumado (m²)", field: "rap_espumado_m2", requiredType: "APLICAÇÃO DE RAP ESPUMADO" },
-                { label: "Binder (ton)", field: "binder_ton", requiredType: null }, // sempre visível
-                { label: "CBUQ FX3 (ton)", field: "cbuq_fx3_ton", requiredType: null }, // sempre visível
+                { label: "Binder (ton)", field: "binder_ton", requiredType: "APLICAÇÃO DE FX II - BINDER" },
+                { label: "CBUQ FX3 (ton)", field: "cbuq_fx3_ton", requiredType: "APLICAÇÃO DE FX III" },
                 { label: "GAP (ton)", field: "gap_ton", requiredType: "APLICAÇÃO DE GAP GRADED" },
                 { label: "BGS (ton)", field: "bgs_ton", requiredType: "APLICAÇÃO DE BGS" },
                 { label: "SMA (ton)", field: "sma_ton", requiredType: "APLICAÇÃO DE SMA" },
-                { label: "Geogrelha (m²)", field: "geogrelha_m2", requiredType: null }, // sempre visível
-                { label: "EGL (ton)", field: "egl_ton", requiredType: "APLICAÇÃO DE EGL" }, // novo campo
-                { label: "RACHÃO (ton)", field: "rachao_ton", requiredType: "APLICAÇÃO DE RACHÃO" }, // novo campo
-                { label: "Qtd caminhões fresa/demolição", field: "qtd_caminhoes_fresa", requiredType: null }, // sempre visível
-                { label: "% conclusão da via", field: "perc_conclusao_via", requiredType: null }, // sempre visível
+                { label: "Geogrelha (m²)", field: "geogrelha_m2", requiredType: "GEOGRELHA" },
+                { label: "EGL (ton)", field: "egl_ton", requiredType: "APLICAÇÃO DE EGL" },
+                { label: "RACHÃO (ton)", field: "rachao_ton", requiredType: "APLICAÇÃO DE RACHÃO" },
               ].map(({ label, field, requiredType }) => {
-                // Lógica condicional: mostrar campo apenas se:
-                // 1. requiredType é null (campo sempre visível), OU
-                // 2. requiredType está presente em tipos_servico (campo selecionado)
-                const shouldShow = requiredType === null || form.tipos_servico.includes(requiredType);
+                // Lógica: mostrar campo APENAS se tipo de serviço foi selecionado
+                const shouldShow = form.tipos_servico.includes(requiredType);
                 
                 return shouldShow ? (
                   <div key={field}>
@@ -388,12 +384,45 @@ export default function EngRdoTecnico() {
                       onChange={e => set(field, e.target.value)}
                       placeholder="0"
                       min={0}
-                      max={field === "perc_conclusao_via" ? 100 : undefined}
                       className={inputCls}
                     />
                   </div>
                 ) : null;
               })}
+              
+              {form.tipos_servico.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">Selecione um tipo de serviço acima para ver os campos de produção</p>
+              )}
+            </div>
+
+            {/* Seção 3b — Informações Adicionais */}
+            <div className={sectionCls}>
+              <h2 className="text-sm font-bold text-foreground">Informações Adicionais</h2>
+              
+              <div>
+                <label className={labelCls}>Qtd caminhões fresa/demolição</label>
+                <input
+                  type="number"
+                  value={form.qtd_caminhoes_fresa}
+                  onChange={e => set("qtd_caminhoes_fresa", e.target.value)}
+                  placeholder="0"
+                  min={0}
+                  className={inputCls}
+                />
+              </div>
+              
+              <div>
+                <label className={labelCls}>% conclusão da via</label>
+                <input
+                  type="number"
+                  value={form.perc_conclusao_via}
+                  onChange={e => set("perc_conclusao_via", e.target.value)}
+                  placeholder="0"
+                  min={0}
+                  max={100}
+                  className={inputCls}
+                />
+              </div>
             </div>
 
             {/* Seção 4 — Ocorrências */}
