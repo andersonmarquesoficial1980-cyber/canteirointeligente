@@ -66,13 +66,7 @@ export function usePermissions() {
         .eq("user_id", user.id)
         .single();
 
-      if (profile?.role === "admin") {
-        setPermissions(ADMIN_PERMISSIONS);
-        setLoading(false);
-        return;
-      }
-
-      // Buscar permissões específicas
+      // Buscar permissões específicas do user_permissions (fonte de verdade)
       const { data: perms, error: permsError } = await supabase
         .from("user_permissions")
         .select("*")
@@ -80,9 +74,14 @@ export function usePermissions() {
         .maybeSingle();
 
       if (perms) {
-        setPermissions(perms as Permissions);
+        // role="admin" em profiles NÃO bypassa mais — respeita user_permissions
+        // Apenas superadmin (role="superadmin") via useCompanyModules tem acesso total
+        setPermissions(perms as unknown as Permissions);
+      } else if (profile?.role === "superadmin") {
+        // Somente superadmin sem registro em user_permissions ganha acesso total
+        setPermissions(ADMIN_PERMISSIONS);
+        if (permsError) console.warn("[usePermissions] erro ao buscar permissões:", permsError.message);
       } else {
-        // Sem registro = sem acesso (exceto se for admin)
         setPermissions(DEFAULT_PERMISSIONS);
         if (permsError) console.warn("[usePermissions] erro ao buscar permissões:", permsError.message);
       }
