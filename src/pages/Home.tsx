@@ -112,10 +112,10 @@ export default function Home() {
         )}
         {!loadingPerms && !loadingModules && HUB_MODULES
           .filter(mod => {
-            // adminOnly: permite acesso a quem é admin de role OU tem is_admin nas permissões individuais
-            const hasAdminAccess = isAdmin || permissions?.is_admin === true;
+            // adminOnly: só quem tem is_admin=true em user_permissions (checkbox "Painel de Controle")
+            const hasAdminAccess = isSuperAdmin || permissions?.is_admin === true;
             if (mod.adminOnly && !hasAdminAccess) return false;
-            // Módulo admin: se passou o check acima, libera direto (não tem coluna no permMap)
+            // Módulo admin: libera só quem tem permissão explícita
             if (mod.id === "admin") return hasAdminAccess;
             // Super-admin (dono do Workflux) vê tudo
             // Admin da empresa vê módulos contratados pela empresa
