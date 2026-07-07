@@ -2213,6 +2213,10 @@ const SYSTEM_CATEGORIES_HABILITADOS = [
   { id: "Mecânico", label: "Mecânicos (WF Manutenção)" },
 ];
 
+const SYSTEM_CATEGORIES_ABASTECIMENTO = [
+  { id: "Lubrificador", label: "Lubrificadores (WF Abastecimento)" },
+];
+
 function OperadoresHabilitadosManager() {
   const { toast } = useToast();
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -2295,6 +2299,58 @@ function OperadoresHabilitadosManager() {
         <p className="text-sm font-semibold text-foreground mb-1">WF Manutenção</p>
         <p className="text-xs text-muted-foreground mb-3">Funcionários que aparecem no campo "Mecânico" ao abrir uma Ordem de Serviço.</p>
         {SYSTEM_CATEGORIES_HABILITADOS.map(({ id, label }) => {
+          const habilitados = links.filter(l => l.equipment_type === id).map(l => funcionarios.find(f => f.id === l.funcionario_id)).filter(Boolean);
+          const habIds = new Set(habilitados.map((f: any) => f.id));
+          const search = (searchByType[id] || "").toLowerCase();
+          const disponiveis = funcionarios.filter(f => !habIds.has(f.id) && (!search || f.nome.toLowerCase().includes(search) || f.funcao.toLowerCase().includes(search)));
+          const isOpen = openType === id;
+          return (
+            <div key={id} className="rounded-xl border border-border bg-card">
+              <button onClick={() => setOpenType(isOpen ? null : id)} className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/30 transition-colors rounded-xl">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm text-foreground">{label}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{habilitados.length} habilitado(s)</span>
+                </div>
+                <span className="text-muted-foreground text-xs">{isOpen ? "▲" : "▼"}</span>
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+                  {habilitados.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum habilitado. Busque abaixo para adicionar.</p> : (
+                    <div className="flex flex-wrap gap-2">
+                      {habilitados.map((f: any) => (
+                        <div key={f.id} className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 text-primary rounded-full px-3 py-1 text-xs font-medium">
+                          {f.nome}<button onClick={() => removeOperador(id, f.id)} className="hover:text-destructive transition-colors"><X className="w-3 h-3" /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div>
+                    <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      placeholder="Buscar funcionário para adicionar..." value={searchByType[id] || ""}
+                      onChange={e => setSearchByType(prev => ({ ...prev, [id]: e.target.value }))} />
+                    {search && (
+                      <div className="mt-2 rounded-lg border border-border bg-card max-h-48 overflow-y-auto">
+                        {disponiveis.length === 0 ? <p className="text-xs text-muted-foreground px-3 py-2">Nenhum resultado.</p> : disponiveis.map((f: any) => (
+                          <button key={f.id} onClick={() => addOperador(id, f.id)} className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between">
+                            <div><span className="font-medium">{f.nome}</span><span className="text-muted-foreground text-xs ml-2">{f.funcao}</span></div>
+                            <span className="text-xs text-primary">+ Adicionar</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── WF Abastecimento ── */}
+      <div className="mb-2">
+        <p className="text-sm font-semibold text-foreground mb-1">WF Abastecimento</p>
+        <p className="text-xs text-muted-foreground mb-3">Funcionários que aparecem no campo "Lubrificador" ao lançar um abastecimento.</p>
+        {SYSTEM_CATEGORIES_ABASTECIMENTO.map(({ id, label }) => {
           const habilitados = links.filter(l => l.equipment_type === id).map(l => funcionarios.find(f => f.id === l.funcionario_id)).filter(Boolean);
           const habIds = new Set(habilitados.map((f: any) => f.id));
           const search = (searchByType[id] || "").toLowerCase();
