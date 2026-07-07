@@ -241,7 +241,7 @@ export default function RelatorioEquipamentosRdo() {
   }, [filterType, profile?.company_id]);
 
   const buscar = async () => {
-    const filter = filterType === "frota" ? frota : (filterType === "obra" ? obra : encarregado);
+    const filter = filterType === "frota" ? tipoEquip : (filterType === "obra" ? obra : encarregado);
     
     if (!filter.trim()) return;
     if (!profile?.company_id) return;
@@ -304,7 +304,13 @@ export default function RelatorioEquipamentosRdo() {
 
       // Se filtro é frota, aplicar aqui PARA REDUZIR RESULTADOS
       if (filterType === "frota") {
-        equipQuery = equipQuery.ilike("frota", `%${filter.trim()}%`);
+        if (frota.trim()) {
+          // Frota específica selecionada
+          equipQuery = equipQuery.ilike("frota", `%${frota.trim()}%`);
+        } else if (tipoEquip.trim()) {
+          // Apenas tipo selecionado → filtra pelo tipo (campo tipo em rdo_equipamentos)
+          equipQuery = equipQuery.ilike("tipo", `%${tipoEquip.trim()}%`);
+        }
       }
       // Se for encarregado ou obra, NÃO aplicar filtro de frota - pega TODOS
 
@@ -488,7 +494,7 @@ export default function RelatorioEquipamentosRdo() {
   };
 
   const isFilterValid = (): boolean => {
-    if (filterType === "frota") return tipoEquip.trim().length > 0 && frota.trim().length > 0;
+    if (filterType === "frota") return tipoEquip.trim().length > 0;
     if (filterType === "obra") return obra.trim().length > 0;
     if (filterType === "encarregado") return encarregado.trim().length > 0;
     return false;
@@ -599,7 +605,7 @@ export default function RelatorioEquipamentosRdo() {
                 {tipoEquip && (
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Frota *
+                      Frota (opcional — deixe em branco para todas)
                     </label>
                     <select
                       value={frota}
@@ -607,7 +613,7 @@ export default function RelatorioEquipamentosRdo() {
                       disabled={loadingFrotas}
                       className="h-11 w-full px-3 bg-secondary border border-border rounded-md text-sm"
                     >
-                      <option value="">{loadingFrotas ? "Carregando frotas..." : frotasSelecionaveis.length === 0 ? "Nenhuma frota cadastrada" : "Selecione a frota..."}</option>
+                      <option value="">{loadingFrotas ? "Carregando frotas..." : frotasSelecionaveis.length === 0 ? "Nenhuma frota cadastrada" : "Todas as frotas"}</option>
                       {frotasSelecionaveis.map((f) => (
                         <option key={f} value={f}>{f}</option>
                       ))}
