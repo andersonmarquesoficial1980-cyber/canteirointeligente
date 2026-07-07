@@ -307,10 +307,11 @@ export default function RelatorioEquipamentosRdo() {
         if (frota.trim()) {
           // Frota específica selecionada
           equipQuery = equipQuery.ilike("frota", `%${frota.trim()}%`);
-        } else if (tipoEquip.trim()) {
-          // Apenas tipo selecionado → filtra pelo tipo (campo tipo em rdo_equipamentos)
-          equipQuery = equipQuery.ilike("tipo", `%${tipoEquip.trim()}%`);
+        } else if (frotasSelecionaveis.length > 0) {
+          // Tipo selecionado, frota em branco → filtra pelas frotas daquele tipo
+          equipQuery = equipQuery.in("frota", frotasSelecionaveis);
         }
+        // Se frotasSelecionaveis vazio (tipo sem frotas cadastradas), retorna sem filtro de frota
       }
       // Se for encarregado ou obra, NÃO aplicar filtro de frota - pega TODOS
 
@@ -427,8 +428,8 @@ export default function RelatorioEquipamentosRdo() {
             empresa,
           };
         }).filter((row: any) => row !== null);
-      } else {
-        // Sem equipamentos: criar linhas dos RDOs (FALLBACK)
+      } else if (filterType !== "frota") {
+        // Sem equipamentos: fallback somente para busca por obra ou encarregado
         console.log(`[DEBUG] FALLBACK: Criando ${rdos.length} linhas (1 por RDO, equipamentos vazios)`);
         result = rdos.map((rdo: any) => {
           const ogsRef = ogsMap[rdo.obra_nome];
@@ -446,6 +447,12 @@ export default function RelatorioEquipamentosRdo() {
             empresa: null,
           };
         });
+      } else {
+        // Filtro por frota/tipo sem resultado em equipamentos
+        setRows([]);
+        setMessageNoData(`Nenhum equipamento do tipo "${tipoEquip}"${frota ? ` (${frota})` : ""} encontrado nos RDOs do período.`);
+        setLoading(false);
+        return;
       }
 
       // Sort by date descending
