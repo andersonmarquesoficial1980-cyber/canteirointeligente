@@ -153,7 +153,7 @@ const EQUIPMENT_USES_ODOMETER = [
 
 function getMarcador(diario: Diario) {
   // Determina qual medição usar baseado no tipo de equipamento
-  const equipType = (diario.equipment_type || "").toLowerCase().trim();
+  const equipType = (diario.equipment_type || diario.equipment_fleet || "").toLowerCase().trim();
   const usesOdometer = EQUIPMENT_USES_ODOMETER.some(type => equipType.includes(type));
 
   if (usesOdometer) {
@@ -534,8 +534,8 @@ export default function RelatorioEquipamento() {
           ) : (
             <div className="overflow-x-auto">
               {(() => {
-                const firstEquipType = diarios[0]?.equipment_type || "";
-                const usesOdometer = EQUIPMENT_USES_ODOMETER.some(type => firstEquipType.toLowerCase().includes(type));
+                const firstEquipType = (diarios[0]?.equipment_type || fleetParam || "").toLowerCase().trim();
+                const usesOdometer = EQUIPMENT_USES_ODOMETER.some(type => firstEquipType.includes(type));
                 const tableMeterLabel = usesOdometer ? "Odômetro" : "Horímetro";
                 return (
                   <table className="w-full min-w-[1100px] text-xs">
