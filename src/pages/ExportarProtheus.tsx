@@ -31,6 +31,8 @@ function fmtNum(val: any): string {
 const TEM_AUXILIAR = ["Fresadora", "Usina KMA"];
 // Equipamentos com coluna de Produção (Comp/Larg/Esp)
 const TEM_PRODUCAO = ["Fresadora", "Usina KMA"];
+// Equipamentos que usam Odômetro (km) em vez de Horímetro (h)
+const USA_ODOMETRO = ["Caminhões", "Veículo", "Comboio", "Carreta"];
 
 // ── Cabeçalho fixo ──────────────────────────────────────────────────────────
 function buildHeader(tipoEquip: string): string[] {
@@ -50,8 +52,8 @@ function buildHeader(tipoEquip: string): string[] {
     "LOCAL",
     "STATUS",
     "PERÍODO",
-    tipoEquip === "Carreta" ? "ODÔMETRO INICIAL" : "HORÍMETRO INICIAL",
-    tipoEquip === "Carreta" ? "ODÔMETRO FINAL" : "HORÍMETRO FINAL",
+    USA_ODOMETRO.includes(tipoEquip) ? "ODÔMETRO INICIAL" : "HORÍMETRO INICIAL",
+    USA_ODOMETRO.includes(tipoEquip) ? "ODÔMETRO FINAL" : "HORÍMETRO FINAL",
   ];
 
   // 10 blocos de apontamento fixos
@@ -243,8 +245,8 @@ export default function ExportarProtheus() {
         d.location_address ?? "",
         d.work_status ?? "",
         turnoCorrigido,
-        tipoEquip === "Carreta" ? fmtNum(d.odometer_initial) : fmtNum(d.meter_initial),
-        tipoEquip === "Carreta" ? fmtNum(d.odometer_final) : fmtNum(d.meter_final),
+        USA_ODOMETRO.includes(tipoEquip) ? fmtNum(d.odometer_initial) : fmtNum(d.meter_initial),
+        USA_ODOMETRO.includes(tipoEquip) ? fmtNum(d.odometer_final) : fmtNum(d.meter_final),
       ];
 
       for (let i = 0; i < 10; i++) {
