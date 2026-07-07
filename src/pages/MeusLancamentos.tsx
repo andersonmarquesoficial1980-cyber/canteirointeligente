@@ -193,22 +193,27 @@ export default function MeusLancamentos() {
     const isAdminByProfile = (profileData as any)?.perfil === "Administrador" || (profileData as any)?.role === "superadmin";
     const companyId = (profileData as any)?.company_id;
 
-    // Buscar permissões do role do usuário em user_admin_roles → admin_permissions
-    const { data: roleAssignment } = await (supabase as any)
+    // Buscar TODOS os roles do usuário em user_admin_roles (pode ter múltiplos)
+    const { data: roleAssignments } = await (supabase as any)
       .from("user_admin_roles")
       .select("role_id, company_id")
       .eq("user_id", user.id)
-      .eq("is_active", true)
-      .maybeSingle();
+      .eq("is_active", true);
 
     let permRdoViewAll = false;
     let permEquipViewAll = false;
+    let roleCompanyId: string | null = null;
 
-    if (roleAssignment?.role_id) {
+    if (roleAssignments && roleAssignments.length > 0) {
+      // Pega o company_id de qualquer assignment (todos devem ser da mesma empresa)
+      roleCompanyId = roleAssignments[0]?.company_id || null;
+
+      // Busca permissões de TODOS os roles do usuário de uma vez
+      const roleIds = roleAssignments.map((r: any) => r.role_id).filter(Boolean);
       const { data: perms } = await (supabase as any)
         .from("admin_permissions")
         .select("resource, action")
-        .eq("role_id", roleAssignment.role_id);
+        .in("role_id", roleIds);
 
       (perms || []).forEach((p: any) => {
         if ((p.resource === "rdo_diarios" || p.resource === "all") && (p.action === "view_all" || p.action === "manage")) {
@@ -221,9 +226,9 @@ export default function MeusLancamentos() {
     }
 
     const isAdminUser = isAdminByProfile;
-    const effectiveCompanyId = companyId || roleAssignment?.company_id;
-    setIsAdmin(isAdminUser || permEquipViewAll);
-    const isAdmin = isAdminUser || permEquipViewAll;
+    const effectiveCompanyId = companyId || roleCompanyId;
+    setIsAdmin(isAdminUser || permEquipViewAll || permRdoViewAll);
+    const isAdmin = isAdminUser || permEquipViewAll || permRdoViewAll;
 
     let query = (supabase as any)
       .from("equipment_diaries")
