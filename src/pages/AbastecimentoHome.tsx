@@ -74,6 +74,7 @@ interface AbastecimentoRow {
   ogs: string;
   observacao: string;
   saldo_inicial: number;
+  created_by?: string;
 }
 
 const FONTE_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
@@ -139,6 +140,7 @@ export default function AbastecimentoHome() {
   const [motoristas, setMotoristas] = useState<string[]>([]);
   const [lubrificadores, setLubrificadores] = useState<string[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [abastConfig, setAbastConfig] = useState<{ motoristas: string[]; lubrificadores: string[]; fornecedores_diesel: string[] }>({ motoristas: [], lubrificadores: [], fornecedores_diesel: [] });
 
   // ── Estado do formulário de lançamento ──
@@ -169,6 +171,7 @@ export default function AbastecimentoHome() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    setUserId(user.id);
     const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
     const cid = (profile as any)?.company_id || null;
     setCompanyId(cid);
@@ -349,6 +352,52 @@ export default function AbastecimentoHome() {
           </div>
         </button>
 
+        {/* ── MEUS LANÇAMENTOS ── */}
+        {(() => {
+          const meusLancamentos = abastecimentos.filter(a => a.created_by === userId);
+          if (meusLancamentos.length === 0) return null;
+          return (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Droplets className="w-4 h-4 text-primary" />
+                <span className="text-sm font-display font-extrabold text-foreground uppercase tracking-wide">Meus Lançamentos</span>
+                <span className="ml-auto text-xs text-muted-foreground">{meusLancamentos.length} registro{meusLancamentos.length !== 1 ? "s" : ""}</span>
+              </div>
+              <div className="space-y-2">
+                {meusLancamentos.slice(0, 10).map(a => {
+                  const cfg = FONTE_CONFIG[a.fonte] || FONTE_CONFIG.manual;
+                  const medicao = a.horimetro ? `${fmtNum(a.horimetro)} h` : a.km_odometro ? `${fmtNum(a.km_odometro)} km` : null;
+                  return (
+                    <div key={a.id} className="bg-card border rounded-2xl p-3 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${cfg.color}`}>{cfg.emoji} {cfg.label}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{fmtDate(a.data)}{a.hora ? ` · ${a.hora}` : ""}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Truck className="w-4 h-4 text-primary shrink-0" />
+                        <span className="text-sm font-bold">{a.equipment_fleet}</span>
+                        {a.equipment_type && <span className="text-xs text-muted-foreground">({a.equipment_type})</span>}
+                        <span className="ml-auto text-sm font-bold text-primary">{fmtNum(a.litros)} L</span>
+                      </div>
+                      {(a.ogs || medicao || a.comboio_fleet) && (
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                          {a.comboio_fleet && <span>🚛 {a.comboio_fleet}</span>}
+                          {a.ogs && <span>OGS: {a.ogs}</span>}
+                          {medicao && <span>⏱ {medicao}</span>}
+                        </div>
+                      )}
+                      <div className="flex gap-3 text-xs">
+                        {a.lubrificado && <span className="text-green-600 font-medium">✓ Lubrificado</span>}
+                        {a.lavado && <span className="text-blue-600 font-medium">✓ Lavado</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Espaço pra rodapé */}
         <div className="h-24" />
       </div>
@@ -449,6 +498,16 @@ export default function AbastecimentoHome() {
                       </Select>
                     </div>
                   </div>
+                  {/* Saldo em tempo real */}
+                  <div className="flex items-center justify-between bg-muted/50 rounded-xl px-3 py-2">
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">{fmtNum(Number(saldoInicial) || 0)} L</span> inicial
+                      {totalAbastecido > 0 && <> — <span className="font-semibold text-orange-600">−{fmtNum(totalAbastecido)} L</span> abastecidos</>}
+                    </div>
+                    <div className={`text-sm font-bold ${saldoAtual < 0 ? "text-red-600" : saldoAtual < 50 ? "text-orange-500" : "text-green-600"}`}>
+                      Saldo: {fmtNum(saldoAtual)} L
+                    </div>
+                  </div>
                 </div>
 
                 {/* Abastecimentos de Frota */}
@@ -482,7 +541,7 @@ export default function AbastecimentoHome() {
                         <div className="grid grid-cols-3 gap-2">
                           <Input type="time" value={entry.hora} onChange={e => updateEntrada(idx, "hora", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Hora" />
                           <Input type="number" value={entry.litros} onChange={e => updateEntrada(idx, "litros", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Litros" />
-                          <Input type="number" value={entry.medicao} onChange={e => updateEntrada(idx, "medicao", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Medição" />
+                          <Input type="number" value={entry.medicao} onChange={e => updateEntrada(idx, "medicao", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Hor / Odo" />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Select value={entry.ogs} onValueChange={v => updateEntrada(idx, "ogs", v)}>
