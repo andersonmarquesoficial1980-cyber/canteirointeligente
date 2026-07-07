@@ -5,6 +5,8 @@ import { useOgsReference } from "@/hooks/useOgsReference";
 import { CalendarDays, Building2, MapPin, Activity } from "lucide-react";
 import { ResponsavelInput } from "./ResponsavelInput";
 
+const OGS_LOCAL_LIVRE = ["2509"]; // OGSs onde o Local deve ser digitável livremente
+
 interface RdoHeaderProps {
   data: {
     data: string;
@@ -89,16 +91,21 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
     const entries = obras?.filter(o => o.ogs_number === value) || [];
     if (entries.length > 0) {
       onChange("cliente", entries[0].client_name || "");
-      const addrs: string[] = [];
-      entries.forEach(e => {
-        if (e.location_address) {
-          e.location_address.split(";").forEach((s: string) => {
-            const trimmed = s.trim();
-            if (trimmed && !addrs.includes(trimmed)) addrs.push(trimmed);
-          });
-        }
-      });
-      onChange("local", addrs.length === 1 ? addrs[0] : "");
+      // Se OGS de local livre, limpa para o usuário digitar
+      if (OGS_LOCAL_LIVRE.includes(value)) {
+        onChange("local", "");
+      } else {
+        const addrs: string[] = [];
+        entries.forEach(e => {
+          if (e.location_address) {
+            e.location_address.split(";").forEach((s: string) => {
+              const trimmed = s.trim();
+              if (trimmed && !addrs.includes(trimmed)) addrs.push(trimmed);
+            });
+          }
+        });
+        onChange("local", addrs.length === 1 ? addrs[0] : "");
+      }
     }
   };
 
@@ -202,7 +209,14 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
         <span className="rdo-label flex items-center gap-1">
           <MapPin className="w-3.5 h-3.5" /> Local
         </span>
-        {uniqueAddresses.length > 1 ? (
+        {OGS_LOCAL_LIVRE.includes(data.obra_nome) ? (
+          <Input
+            value={data.local}
+            onChange={e => onChange("local", e.target.value)}
+            placeholder="Digite a rua exata do retrabalho..."
+            className="h-12 text-base bg-white border-border rounded-xl"
+          />
+        ) : uniqueAddresses.length > 1 ? (
           <Select value={data.local} onValueChange={v => onChange("local", v)}>
             <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
               <SelectValue placeholder="Selecione o local" />
