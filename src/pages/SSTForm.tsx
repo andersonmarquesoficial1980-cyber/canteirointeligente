@@ -573,7 +573,7 @@ export default function SSTForm() {
             ))}
             <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 12, border: "2px dashed #0055AA", cursor: "pointer", color: "#0055AA", fontWeight: 700, fontSize: 13 }}>
               <Camera size={18} /> Adicionar Foto
-              <input type="file" accept="image/*" capture="environment" onChange={handleUploadFoto} style={{ display: "none" }} />
+              <input type="file" accept="image/*" onChange={handleUploadFoto} style={{ display: "none" }} />
             </label>
           </div>
         </Section>
