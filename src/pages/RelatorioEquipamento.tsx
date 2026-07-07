@@ -533,54 +533,61 @@ export default function RelatorioEquipamento() {
             <p className="text-sm text-muted-foreground italic">Nenhum diário encontrado para a frota no mês selecionado.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px] text-xs">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Data</th>
-                    <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Frota</th>
-                    <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Operador</th>
-                    <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Auxiliar</th>
-                    <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">OGS</th>
-                    <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Status</th>
-                    <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Hor. Inicial</th>
-                    <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Hor. Final</th>
-                    <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Horas</th>
-                    <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Área m²</th>
-                    <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Diesel (L)</th>
-                    <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Lançado por</th>
-                    <th className="text-right py-2 font-semibold text-muted-foreground">Detalhe</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {diarios.map((d) => {
-                    const marcador = getMarcador(d);
-                    const lancadoPor = (d.user_id && profilesMap[d.user_id]) || d.created_by || "-";
-                    const aberto = selectedDiaryId === d.id;
-
-                    return (
-                      <tr
-                        key={d.id}
-                        className={`border-b border-border/50 hover:bg-muted/40 cursor-pointer ${aberto ? "bg-muted/40" : ""}`}
-                        onClick={() => abrirDetalhe(d.id)}
-                      >
-                        <td className="py-2 pr-3">{fmtDate(d.date)}</td>
-                        <td className="py-2 pr-3 font-medium">{d.equipment_fleet || "-"}</td>
-                        <td className="py-2 pr-3">{d.operator_name || "-"}</td>
-                        <td className="py-2 pr-3">{d.operator_solo || "-"}</td>
-                        <td className="py-2 pr-3">{d.ogs_number || "-"}</td>
-                        <td className="py-2 pr-3">{d.work_status || d.status || "-"}</td>
-                        <td className="py-2 pr-3 text-right">{marcador.ini ?? "-"}</td>
-                        <td className="py-2 pr-3 text-right">{marcador.fim ?? "-"}</td>
-                        <td className="py-2 pr-3 text-right font-medium">{getHoras(d).toFixed(2)}</td>
-                        <td className="py-2 pr-3 text-right">{(areasMap[d.id]?.m2 || 0).toFixed(2)}</td>
-                        <td className="py-2 pr-3 text-right">{toNum(d.fuel_liters).toFixed(2)}</td>
-                        <td className="py-2 pr-3">{lancadoPor}</td>
-                        <td className="py-2 text-right">{aberto ? <ChevronUp className="w-4 h-4 inline" /> : <ChevronDown className="w-4 h-4 inline" />}</td>
+              {(() => {
+                const firstEquipType = diarios[0]?.equipment_type || "";
+                const usesOdometer = EQUIPMENT_USES_ODOMETER.some(type => firstEquipType.toLowerCase().includes(type));
+                const tableMeterLabel = usesOdometer ? "Odômetro" : "Horímetro";
+                return (
+                  <table className="w-full min-w-[1100px] text-xs">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Data</th>
+                        <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Frota</th>
+                        <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Operador</th>
+                        <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Auxiliar</th>
+                        <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">OGS</th>
+                        <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Status</th>
+                        <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">{tableMeterLabel} Inicial</th>
+                        <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">{tableMeterLabel} Final</th>
+                        <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Horas</th>
+                        <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Área m²</th>
+                        <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Diesel (L)</th>
+                        <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Lançado por</th>
+                        <th className="text-right py-2 font-semibold text-muted-foreground">Detalhe</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {diarios.map((d) => {
+                        const marcador = getMarcador(d);
+                        const lancadoPor = (d.user_id && profilesMap[d.user_id]) || d.created_by || "-";
+                        const aberto = selectedDiaryId === d.id;
+
+                        return (
+                          <tr
+                            key={d.id}
+                            className={`border-b border-border/50 hover:bg-muted/40 cursor-pointer ${aberto ? "bg-muted/40" : ""}`}
+                            onClick={() => abrirDetalhe(d.id)}
+                          >
+                            <td className="py-2 pr-3">{fmtDate(d.date)}</td>
+                            <td className="py-2 pr-3 font-medium">{d.equipment_fleet || "-"}</td>
+                            <td className="py-2 pr-3">{d.operator_name || "-"}</td>
+                            <td className="py-2 pr-3">{d.operator_solo || "-"}</td>
+                            <td className="py-2 pr-3">{d.ogs_number || "-"}</td>
+                            <td className="py-2 pr-3">{d.work_status || d.status || "-"}</td>
+                            <td className="py-2 pr-3 text-right">{marcador.ini ?? "-"}</td>
+                            <td className="py-2 pr-3 text-right">{marcador.fim ?? "-"}</td>
+                            <td className="py-2 pr-3 text-right font-medium">{getHoras(d).toFixed(2)}</td>
+                            <td className="py-2 pr-3 text-right">{(areasMap[d.id]?.m2 || 0).toFixed(2)}</td>
+                            <td className="py-2 pr-3 text-right">{toNum(d.fuel_liters).toFixed(2)}</td>
+                            <td className="py-2 pr-3">{lancadoPor}</td>
+                            <td className="py-2 text-right">{aberto ? <ChevronUp className="w-4 h-4 inline" /> : <ChevronDown className="w-4 h-4 inline" />}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                );
+              })()}
             </div>
           )}
         </section>
