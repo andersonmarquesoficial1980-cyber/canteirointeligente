@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Fuel, Loader2, Filter, Trash2, Clock, Truck, Droplets, ChevronDown } from "lucide-react";
+import { ArrowLeft, Plus, Fuel, Loader2, Filter, Trash2, Clock, Truck, Droplets, ChevronDown, Pencil } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
@@ -141,6 +141,17 @@ export default function AbastecimentoHome() {
   const [lubrificadores, setLubrificadores] = useState<string[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isFuelAdmin, setIsFuelAdmin] = useState(false);
+
+  // ── Modal edição ──
+  const [editingRow, setEditingRow] = useState<AbastecimentoRow | null>(null);
+  const [editLitros, setEditLitros] = useState("");
+  const [editMedicao, setEditMedicao] = useState("");
+  const [editOgs, setEditOgs] = useState("");
+  const [editLubrificado, setEditLubrificado] = useState(false);
+  const [editLavado, setEditLavado] = useState(false);
+  const [editObs, setEditObs] = useState("");
+  const [salvandoEdit, setSalvandoEdit] = useState(false);
   const [abastConfig, setAbastConfig] = useState<{ motoristas: string[]; lubrificadores: string[]; fornecedores_diesel: string[] }>({ motoristas: [], lubrificadores: [], fornecedores_diesel: [] });
 
   // ── Estado do formulário de lançamento ──
@@ -206,6 +217,15 @@ export default function AbastecimentoHome() {
       const { data: nomes } = await (supabase as any).from("employees").select("name").in("id", idsLubri).order("name");
       if (nomes) setLubrificadores(nomes.map((r: any) => r.name).filter(Boolean));
     }
+    // Checar se usuário é fuel_admin
+    const { data: fuelAdminCheck } = await (supabase as any)
+      .from("user_admin_roles")
+      .select("id, admin_roles(name)")
+      .eq("user_id", user.id)
+      .eq("is_active", true);
+    const fuelAdminNames = (fuelAdminCheck || []).map((r: any) => r.admin_roles?.name?.toLowerCase() || "");
+    setIsFuelAdmin(fuelAdminNames.some((n: string) => n.includes("fuel") || n.includes("abastec")));
+
     setLoading(false);
   }
 
@@ -244,6 +264,42 @@ export default function AbastecimentoHome() {
       .maybeSingle();
     setSaldoComboio(data?.saldo_atual ?? 0);
     setBuscandoSaldo(false);
+  }
+  function abrirEdicao(a: AbastecimentoRow) {
+    setEditingRow(a);
+    setEditLitros(String(a.litros || ""));
+    setEditMedicao(String(a.horimetro || a.km_odometro || ""));
+    setEditOgs(a.ogs || "");
+    setEditLubrificado(!!a.lubrificado);
+    setEditLavado(!!a.lavado);
+    setEditObs(a.observacao || "");
+  }
+
+  async function salvarEdicao() {
+    if (!editingRow) return;
+    setSalvandoEdit(true);
+    try {
+      const litros = parseFloat(String(editLitros).replace(",", "."));
+      const medicaoVal = editMedicao ? parseFloat(String(editMedicao).replace(",", ".")) : null;
+      await (supabase as any).from("abastecimentos").update({
+        litros: isNaN(litros) ? editingRow.litros : litros,
+        horimetro: !isVehicleFleet(editingRow.equipment_fleet) ? medicaoVal : null,
+        km_odometro: isVehicleFleet(editingRow.equipment_fleet) ? medicaoVal : null,
+        ogs: editOgs || null,
+        lubrificado: editLubrificado,
+        lavado: editLavado,
+        observacao: editObs || null,
+      }).eq("id", editingRow.id);
+      setEditingRow(null);
+      buscarTudo();
+    } catch (e) { console.error(e); }
+    finally { setSalvandoEdit(false); }
+  }
+
+  async function excluirLancamento(id: string) {
+    if (!confirm("Tem certeza que deseja excluir este lançamento?")) return;
+    await (supabase as any).from("abastecimentos").delete().eq("id", id);
+    buscarTudo();
   }
   function resetForm() {
     setFonte("comboio");
@@ -390,24 +446,45 @@ export default function AbastecimentoHome() {
 
         {/* ── MEUS LANÇAMENTOS ── */}
         {(() => {
-          const meusLancamentos = abastecimentos.filter(a => a.created_by === userId);
+           const meusLancamentos = isFuelAdmin
+             ? abastecimentos
+             : abastecimentos.filter(a => a.created_by === userId);
           if (meusLancamentos.length === 0) return null;
           return (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Droplets className="w-4 h-4 text-primary" />
-                <span className="text-sm font-display font-extrabold text-foreground uppercase tracking-wide">Meus Lançamentos</span>
+                 <span className="text-sm font-display font-extrabold text-foreground uppercase tracking-wide">{isFuelAdmin ? "Todos os Lançamentos" : "Meus Lançamentos"}</span>
                 <span className="ml-auto text-xs text-muted-foreground">{meusLancamentos.length} registro{meusLancamentos.length !== 1 ? "s" : ""}</span>
               </div>
               <div className="space-y-2">
                 {meusLancamentos.slice(0, 10).map(a => {
                   const cfg = FONTE_CONFIG[a.fonte] || FONTE_CONFIG.manual;
                   const medicao = a.horimetro ? `${fmtNum(a.horimetro)} h` : a.km_odometro ? `${fmtNum(a.km_odometro)} km` : null;
+                   const podeEditarExcluir = isFuelAdmin || a.created_by === userId;
                   return (
                     <div key={a.id} className="bg-card border rounded-2xl p-3 space-y-1.5">
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${cfg.color}`}>{cfg.emoji} {cfg.label}</span>
                         <span className="text-xs text-muted-foreground ml-auto">{fmtDate(a.data)}{a.hora ? ` · ${a.hora}` : ""}</span>
+                         {podeEditarExcluir && (
+                           <div className="flex gap-1 ml-1">
+                             <button
+                               onClick={() => abrirEdicao(a)}
+                               className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors"
+                               title="Editar"
+                             >
+                               <Pencil className="w-3.5 h-3.5" />
+                             </button>
+                             <button
+                               onClick={() => excluirLancamento(a.id)}
+                               className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                               title="Excluir"
+                             >
+                               <Trash2 className="w-3.5 h-3.5" />
+                             </button>
+                           </div>
+                         )}
                       </div>
                       <div className="flex items-center gap-3">
                         <Truck className="w-4 h-4 text-primary shrink-0" />
@@ -586,9 +663,8 @@ export default function AbastecimentoHome() {
                           </Select>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
-                          <Input type="time" value={entry.hora} onChange={e => updateEntrada(idx, "hora", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Hora" />
-                          <Input type="number" value={entry.litros} onChange={e => updateEntrada(idx, "litros", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Litros" />
-                          <Input type="number" value={entry.medicao} onChange={e => updateEntrada(idx, "medicao", e.target.value)} className="h-9 rounded-lg text-xs" placeholder="Hor / Odo" />
+                          <Input type="number" value={entry.litros} onChange={e => updateEntrada(idx, "litros", e.target.value)} className="h-9 rounded-lg text-xs col-span-1" placeholder="Litros *" />
+                          <Input type="number" value={entry.medicao} onChange={e => updateEntrada(idx, "medicao", e.target.value)} className="h-9 rounded-lg text-xs col-span-2" placeholder="Hor / Odo" />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Select value={entry.ogs} onValueChange={v => updateEntrada(idx, "ogs", v)}>
@@ -694,6 +770,61 @@ export default function AbastecimentoHome() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
+
+       {/* ── MODAL DE EDIÇÃO ── */}
+       <Dialog open={!!editingRow} onOpenChange={v => { if (!v) setEditingRow(null); }}>
+         <DialogContent className="max-w-sm mx-2 rounded-2xl">
+           <DialogHeader><DialogTitle className="font-display font-bold">Editar Lançamento</DialogTitle></DialogHeader>
+           {editingRow && (
+             <div className="space-y-3">
+               <div className="bg-muted/40 rounded-xl px-3 py-2 text-sm">
+                 <span className="font-bold text-primary">{editingRow.equipment_fleet}</span>
+                 {editingRow.equipment_type && <span className="text-muted-foreground ml-2">({editingRow.equipment_type})</span>}
+                 <span className="text-xs text-muted-foreground ml-2">· {fmtDate(editingRow.data)}</span>
+               </div>
+               <div className="grid grid-cols-2 gap-2">
+                 <div className="space-y-1.5">
+                   <span className="rdo-label">Litros *</span>
+                   <Input type="number" value={editLitros} onChange={e => setEditLitros(e.target.value)} className="h-11 rounded-xl font-bold" />
+                 </div>
+                 <div className="space-y-1.5">
+                   <span className="rdo-label">Hor / Odo</span>
+                   <Input type="number" value={editMedicao} onChange={e => setEditMedicao(e.target.value)} className="h-11 rounded-xl" placeholder="—" />
+                 </div>
+               </div>
+               <div className="space-y-1.5">
+                 <span className="rdo-label">OGS</span>
+                 <Select value={editOgs} onValueChange={setEditOgs}>
+                   <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                   <SelectContent>
+                     {ogsOptions.map(opt => (
+                       <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+               <div className="flex gap-4">
+                 <div className="flex items-center gap-2">
+                   <Checkbox checked={editLubrificado} onCheckedChange={v => setEditLubrificado(v === true)} />
+                   <label className="text-sm">Lubrificado</label>
+                 </div>
+                 <div className="flex items-center gap-2">
+                   <Checkbox checked={editLavado} onCheckedChange={v => setEditLavado(v === true)} />
+                   <label className="text-sm">Lavado</label>
+                 </div>
+               </div>
+               <div className="space-y-1.5">
+                 <span className="rdo-label">Observação</span>
+                 <Input value={editObs} onChange={e => setEditObs(e.target.value)} className="h-11 rounded-xl" placeholder="Observações..." />
+               </div>
+               <Button onClick={salvarEdicao} disabled={salvandoEdit} className="w-full h-11 gap-2">
+                 {salvandoEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+                 {salvandoEdit ? "Salvando..." : "Salvar Alterações"}
+               </Button>
+             </div>
+           )}
+         </DialogContent>
+       </Dialog>
+      </div>
+      );
+      }
