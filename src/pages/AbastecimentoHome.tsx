@@ -149,7 +149,10 @@ export default function AbastecimentoHome() {
   const [motoristaComboio, setMotoristaComboio] = useState("");
   const [lubrificador, setLubrificador] = useState("");
   const [comboioFrota, setComboioFrota] = useState("");
-  const [saldoInicial, setSaldoInicial] = useState("");
+  // Saldo persistente do comboio
+  const [saldoComboio, setSaldoComboio] = useState<number>(0);  // vem do DB
+  const [reposicao, setReposicao] = useState<string>("");       // reposição neste turno
+  const [buscandoSaldo, setBuscandoSaldo] = useState(false);
   const [fornecedor, setFornecedor] = useState("");
   const [observacao, setObservacao] = useState("");
   const [entradas, setEntradas] = useState<EntradaAbastecimento[]>([novaEntrada()]);
@@ -227,15 +230,28 @@ export default function AbastecimentoHome() {
     () => entradas.reduce((s, e) => s + (Number(e.litros) || 0), 0),
     [entradas]
   );
-  const saldoAtual = (Number(saldoInicial) || 0) - totalAbastecido;
-
+  // Saldo calculado: (saldo no DB) + (reposição deste turno) - (total abastecido agora)
+  const saldoAtualCalculado = saldoComboio + (Number(reposicao) || 0) - totalAbastecido;
+  // Buscar saldo persistente do comboio quando frota mudar
+  async function buscarSaldoComboio(frota: string) {
+    if (!frota || !companyId) { setSaldoComboio(0); return; }
+    setBuscandoSaldo(true);
+    const { data } = await (supabase as any)
+      .from("comboio_saldo")
+      .select("saldo_atual")
+      .eq("company_id", companyId)
+      .eq("comboio_fleet", frota)
+      .maybeSingle();
+    setSaldoComboio(data?.saldo_atual ?? 0);
+    setBuscandoSaldo(false);
+  }
   function resetForm() {
     setFonte("comboio");
     setData(new Date().toISOString().split("T")[0]);
     setMotoristaComboio(""); setLubrificador(""); setComboioFrota("");
     // auto-select se só um comboio
     if (frotasComboio.length === 1) setComboioFrota(frotasComboio[0].frota);
-    setSaldoInicial(""); setFornecedor(""); setObservacao("");
+    setSaldoComboio(0); setReposicao(""); setFornecedor(""); setObservacao("");
     setEntradas([novaEntrada()]);
     setSimpFrota(""); setSimpTipoEquip(""); setSimpHora(""); setSimpLitros("");
     setSimpMedicao(""); setSimpOgs(""); setSimpFornecedor("");
@@ -277,10 +293,30 @@ export default function AbastecimentoHome() {
             motorista_comboio: motoristaComboio || null,
             lubrificador: lubrificador || null,
             fornecedor: fornecedor || null,
-            saldo_inicial: saldoInicial ? parseFloat(String(saldoInicial).replace(",", ".")) : null,
             observacao: observacao || null,
           }));
-        if (rows.length > 0) await supabase.from("abastecimentos").insert(rows);
+        if (rows.length > 0) {
+          await (supabase as any).from("abastecimentos").insert(rows);
+          // Atualizar saldo persistente do comboio
+          if (comboioFrota && companyId) {
+            const novoSaldo = saldoAtualCalculado;
+            await (supabase as any).from("comboio_saldo").upsert(
+              { company_id: companyId, comboio_fleet: comboioFrota, saldo_atual: novoSaldo, updated_by: (await supabase.auth.getUser()).data.user?.id, updated_at: new Date().toISOString() },
+              { onConflict: "company_id,comboio_fleet" }
+            );
+            // Registrar reposição se houve
+            if (reposicao && Number(reposicao) > 0) {
+              await (supabase as any).from("comboio_reposicoes").insert({
+                company_id: companyId,
+                comboio_fleet: comboioFrota,
+                litros: Number(reposicao),
+                data,
+                fornecedor: fornecedor || null,
+                created_by: (await supabase.auth.getUser()).data.user?.id,
+              });
+            }
+          }
+        }
       } else {
         if (!simpFrota || !simpLitros) return;
         await supabase.from("abastecimentos").insert({
@@ -438,7 +474,7 @@ export default function AbastecimentoHome() {
                 {/* Frota do Comboio */}
                 <div className="space-y-1.5">
                   <span className="rdo-label">Frota do Comboio *</span>
-                  <Select value={comboioFrota} onValueChange={setComboioFrota}>
+                  <Select value={comboioFrota} onValueChange={v => { setComboioFrota(v); buscarSaldoComboio(v); }}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione o comboio..." /></SelectTrigger>
                     <SelectContent>
                       {frotasComboio.map((e: any) => (
@@ -483,8 +519,10 @@ export default function AbastecimentoHome() {
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <span className="rdo-label">Saldo Inicial (Litros)</span>
-                      <Input type="number" value={saldoInicial} onChange={e => setSaldoInicial(e.target.value)} placeholder="0" className="h-11 rounded-xl font-bold" />
+                      <span className="rdo-label">Saldo Atual (Litros)</span>
+                      <div className={`h-11 rounded-xl border flex items-center px-3 font-bold text-sm ${saldoAtualCalculado < 0 ? "bg-red-50 border-red-300 text-red-700" : saldoAtualCalculado < 50 ? "bg-orange-50 border-orange-300 text-orange-700" : "bg-green-50 border-green-300 text-green-700"}`}>
+                        {buscandoSaldo ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{fmtNum(saldoAtualCalculado)} L</>}
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <span className="rdo-label">Fornecedor da Carga</span>
@@ -498,16 +536,25 @@ export default function AbastecimentoHome() {
                       </Select>
                     </div>
                   </div>
-                  {/* Saldo em tempo real */}
-                  <div className="flex items-center justify-between bg-muted/50 rounded-xl px-3 py-2">
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-semibold text-foreground">{fmtNum(Number(saldoInicial) || 0)} L</span> inicial
-                      {totalAbastecido > 0 && <> — <span className="font-semibold text-orange-600">−{fmtNum(totalAbastecido)} L</span> abastecidos</>}
-                    </div>
-                    <div className={`text-sm font-bold ${saldoAtual < 0 ? "text-red-600" : saldoAtual < 50 ? "text-orange-500" : "text-green-600"}`}>
-                      Saldo: {fmtNum(saldoAtual)} L
-                    </div>
+                  {/* Reposição de combustível */}
+                  <div className="space-y-1.5">
+                    <span className="rdo-label">Reposição de Combustível (Litros)</span>
+                    <Input
+                      type="number"
+                      value={reposicao}
+                      onChange={e => setReposicao(e.target.value)}
+                      placeholder="0 — preencha somente ao abastecer o tanque do comboio"
+                      className="h-11 rounded-xl"
+                    />
                   </div>
+                  {/* Resumo dinâmico */}
+                  {(saldoComboio > 0 || Number(reposicao) > 0 || totalAbastecido > 0) && (
+                    <div className="text-xs text-muted-foreground space-y-0.5 bg-muted/40 rounded-xl px-3 py-2">
+                      {saldoComboio > 0 && <div>📦 Saldo anterior: <span className="font-semibold text-foreground">{fmtNum(saldoComboio)} L</span></div>}
+                      {Number(reposicao) > 0 && <div>⛽ Reposição: <span className="font-semibold text-green-700">+{fmtNum(Number(reposicao))} L</span></div>}
+                      {totalAbastecido > 0 && <div>🚜 Abastecido agora: <span className="font-semibold text-orange-600">−{fmtNum(totalAbastecido)} L</span></div>}
+                    </div>
+                  )}
                 </div>
 
                 {/* Abastecimentos de Frota */}
