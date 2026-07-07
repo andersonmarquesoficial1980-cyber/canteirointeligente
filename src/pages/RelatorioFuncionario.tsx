@@ -282,7 +282,6 @@ export default function RelatorioFuncionario() {
         const { data: efetivo, error: efErr } = await (supabase as any)
           .from("rdo_efetivo")
           .select("nome, funcao, entrada, saida, rdo_id")
-          .eq("company_id", profile.company_id!)
           .in("rdo_id", rdoIds);
 
         if (efErr) throw efErr;
