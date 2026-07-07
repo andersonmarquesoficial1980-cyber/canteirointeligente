@@ -26,7 +26,8 @@ const ALL_CATEGORIES = [
   { id: "Veículo",     label: "Veículo de Transporte",       section: "operadores" },
   { id: "Retro",       label: "Linha Amarela",               section: "operadores" },
   { id: "Carreta",     label: "Carreta",                     section: "operadores" },
-  { id: "Lubrificador", label: "Lubrificador (WF Abastecimento)", section: "operadores" },
+  // WF Abastecimento
+  { id: "Lubrificador", label: "Lubrificadores (WF Abastecimento)", section: "abastecimento" },
 ] as const;
 
 interface AccessContext { role: string | null; companyId: string | null; }
@@ -179,6 +180,7 @@ export default function OperadoresHabilitados() {
   }
 
   const catsManutencao = ALL_CATEGORIES.filter(c => c.section === "manutencao");
+  const catsAbastecimento = ALL_CATEGORIES.filter(c => c.section === "abastecimento");
   const catsOperadores = ALL_CATEGORIES.filter(c => c.section === "operadores");
 
   return (
@@ -207,6 +209,12 @@ export default function OperadoresHabilitados() {
           <h2 className="font-display font-bold text-base mb-1">WF Manutenção</h2>
           <p className="text-sm text-muted-foreground mb-3">Funcionários que aparecem no campo "Mecânico" ao abrir uma Ordem de Serviço.</p>
           <AccordionSection cats={catsManutencao as any} />
+        </section>
+
+        <section>
+          <h2 className="font-display font-bold text-base mb-1">WF Abastecimento</h2>
+          <p className="text-sm text-muted-foreground mb-3">Funcionários que aparecem no campo "Lubrificador" ao lançar um abastecimento.</p>
+          <AccordionSection cats={catsAbastecimento as any} />
         </section>
 
         <section>
