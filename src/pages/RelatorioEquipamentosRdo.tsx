@@ -111,6 +111,11 @@ export default function RelatorioEquipamentosRdo() {
   
   const [filterType, setFilterType] = useState<FilterType>("frota");
   const [frota, setFrota] = useState("");
+  const [tipoEquip, setTipoEquip] = useState("");
+  const [tiposEquip, setTiposEquip] = useState<string[]>([]);
+  const [frotasSelecionaveis, setFrotasSelecionaveis] = useState<string[]>([]);
+  const [loadingTipos, setLoadingTipos] = useState(false);
+  const [loadingFrotas, setLoadingFrotas] = useState(false);
   const [obra, setObra] = useState("");
   const [encarregado, setEncarregado] = useState("");
   const [dataIni, setDataIni] = useState("");
@@ -122,6 +127,63 @@ export default function RelatorioEquipamentosRdo() {
   const [encarregados, setEncarregados] = useState<Encarregado[]>([]);
   const [loadingDropdowns, setLoadingDropdowns] = useState(false);
   const [messageNoData, setMessageNoData] = useState("");
+
+  // Carregar tipos de equipamento quando filtro = frota
+  useEffect(() => {
+    if (filterType !== "frota") return;
+    if (!profile?.company_id) return;
+
+    const loadTipos = async () => {
+      setLoadingTipos(true);
+      try {
+        const { data, error } = await supabase
+          .from("equipamentos")
+          .select("tipo")
+          .not("tipo", "is", null)
+          .order("tipo", { ascending: true });
+
+        if (error) throw error;
+
+        const unique = Array.from(new Set((data || []).map((d: any) => d.tipo).filter(Boolean))).sort() as string[];
+        setTiposEquip(unique);
+      } catch (err) {
+        console.error("Erro ao carregar tipos de equipamento:", err);
+      } finally {
+        setLoadingTipos(false);
+      }
+    };
+
+    loadTipos();
+  }, [filterType, profile?.company_id]);
+
+  // Carregar frotas quando tipo é selecionado
+  useEffect(() => {
+    if (!tipoEquip || filterType !== "frota") return;
+
+    const loadFrotas = async () => {
+      setLoadingFrotas(true);
+      setFrota("");
+      try {
+        const { data, error } = await supabase
+          .from("equipamentos")
+          .select("frota")
+          .eq("tipo", tipoEquip)
+          .not("frota", "is", null)
+          .order("frota", { ascending: true });
+
+        if (error) throw error;
+
+        const unique = Array.from(new Set((data || []).map((d: any) => d.frota).filter(Boolean))).sort() as string[];
+        setFrotasSelecionaveis(unique);
+      } catch (err) {
+        console.error("Erro ao carregar frotas:", err);
+      } finally {
+        setLoadingFrotas(false);
+      }
+    };
+
+    loadFrotas();
+  }, [tipoEquip, filterType]);
 
   // Carregar obras e encarregados quando o filtro muda
   useEffect(() => {
@@ -426,7 +488,7 @@ export default function RelatorioEquipamentosRdo() {
   };
 
   const isFilterValid = (): boolean => {
-    if (filterType === "frota") return frota.trim().length > 0;
+    if (filterType === "frota") return tipoEquip.trim().length > 0 && frota.trim().length > 0;
     if (filterType === "obra") return obra.trim().length > 0;
     if (filterType === "encarregado") return encarregado.trim().length > 0;
     return false;
@@ -463,6 +525,9 @@ export default function RelatorioEquipamentosRdo() {
                 setFilterType("frota");
                 setObra("");
                 setEncarregado("");
+                setTipoEquip("");
+                setFrota("");
+                setFrotasSelecionaveis([]);
               }}
               className="flex-1"
             >
@@ -473,6 +538,8 @@ export default function RelatorioEquipamentosRdo() {
               onClick={() => {
                 setFilterType("obra");
                 setFrota("");
+                setTipoEquip("");
+                setFrotasSelecionaveis([]);
                 setEncarregado("");
               }}
               className="flex-1"
@@ -484,6 +551,8 @@ export default function RelatorioEquipamentosRdo() {
               onClick={() => {
                 setFilterType("encarregado");
                 setFrota("");
+                setTipoEquip("");
+                setFrotasSelecionaveis([]);
                 setObra("");
               }}
               className="flex-1"
@@ -496,18 +565,56 @@ export default function RelatorioEquipamentosRdo() {
         {/* Main Filter Card */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              {getFilterLabel()}
-            </label>
+            {filterType !== "frota" && (
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {getFilterLabel()}
+              </label>
+            )}
 
             {filterType === "frota" && (
-              <Input
-                value={frota}
-                onChange={(e) => setFrota(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && buscar()}
-                placeholder={getFilterPlaceholder()}
-                className="h-11 bg-secondary border-border"
-              />
+              <div className="space-y-3">
+                {/* Select 1: Tipo de Equipamento */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Tipo de Equipamento *
+                  </label>
+                  <select
+                    value={tipoEquip}
+                    onChange={(e) => {
+                      setTipoEquip(e.target.value);
+                      setFrota("");
+                      setFrotasSelecionaveis([]);
+                    }}
+                    disabled={loadingTipos}
+                    className="h-11 w-full px-3 bg-secondary border border-border rounded-md text-sm"
+                  >
+                    <option value="">{loadingTipos ? "Carregando..." : "Selecione o tipo..."}</option>
+                    {tiposEquip.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Select 2: Frota (dependente do tipo) */}
+                {tipoEquip && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Frota *
+                    </label>
+                    <select
+                      value={frota}
+                      onChange={(e) => setFrota(e.target.value)}
+                      disabled={loadingFrotas}
+                      className="h-11 w-full px-3 bg-secondary border border-border rounded-md text-sm"
+                    >
+                      <option value="">{loadingFrotas ? "Carregando frotas..." : frotasSelecionaveis.length === 0 ? "Nenhuma frota cadastrada" : "Selecione a frota..."}</option>
+                      {frotasSelecionaveis.map((f) => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
             )}
 
             {filterType === "obra" && (
