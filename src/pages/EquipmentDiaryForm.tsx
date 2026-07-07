@@ -13,6 +13,8 @@ import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+const OGS_LOCAL_LIVRE = ["2509"]; // OGSs onde o Local deve ser digitável livremente
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -323,12 +325,16 @@ export default function EquipmentDiaryForm() {
   }, [selectedOgsEntries]);
 
   const hasMultipleAddresses = ogsAddressList.length > 1;
+  const isLocalLivre = OGS_LOCAL_LIVRE.includes(ogsNumber);
 
   useEffect(() => {
     if (preserveManualClientLocation) return;
     if (selectedOgs) {
       setClientName(selectedOgs.client_name || "");
-      if (!hasMultipleAddresses && ogsAddressList.length === 1) {
+      // Se OGS de local livre, limpa o campo para o usuário digitar
+      if (OGS_LOCAL_LIVRE.includes(ogsNumber)) {
+        setLocationAddress("");
+      } else if (!hasMultipleAddresses && ogsAddressList.length === 1) {
         setLocationAddress(ogsAddressList[0]);
       } else {
         setLocationAddress("");
@@ -337,7 +343,7 @@ export default function EquipmentDiaryForm() {
       setClientName("");
       setLocationAddress("");
     }
-  }, [selectedOgs, ogsAddressList, hasMultipleAddresses, preserveManualClientLocation]);
+  }, [selectedOgs, ogsAddressList, hasMultipleAddresses, preserveManualClientLocation, ogsNumber]);
 
   useEffect(() => {
     if (!isEditMode && fleetFromQuery) {
@@ -2332,14 +2338,24 @@ export default function EquipmentDiaryForm() {
             </FieldRow>
           )}
 
-          {!isCarreta && !isComboio && (clientName || locationAddress || hasMultipleAddresses) && (
+          {!isCarreta && !isComboio && (clientName || locationAddress || hasMultipleAddresses || isLocalLivre) && (
             <div className="bg-secondary/50 border border-border rounded-lg p-3 space-y-2">
               {clientName && (
                 <p className="text-xs text-muted-foreground">
                   Cliente: <span className="text-foreground font-medium">{clientName}</span>
                 </p>
               )}
-              {hasMultipleAddresses ? (
+              {isLocalLivre ? (
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-accent uppercase tracking-wide">Local da Obra</span>
+                  <Input
+                    value={locationAddress}
+                    onChange={e => setLocationAddress(e.target.value)}
+                    placeholder="Digite a rua exata do retrabalho..."
+                    className="bg-secondary border-border"
+                  />
+                </div>
+              ) : hasMultipleAddresses ? (
                 <div className="space-y-1">
                   <span className="text-xs font-semibold text-accent uppercase tracking-wide">Local da Obra</span>
                   <Select value={locationAddress} onValueChange={setLocationAddress}>

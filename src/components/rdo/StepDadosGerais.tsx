@@ -5,6 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { useMaquinasFrota } from "@/hooks/useMaquinasFrota";
 
+const OGS_LOCAL_LIVRE = ["2509"]; // OGSs onde o Local deve ser digitável livremente
+
 interface StepDadosGeraisProps {
   data: any;
   onChange: (field: string, value: any) => void;
@@ -18,6 +20,7 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
   const { data: maquinas, isLoading: loadingMaquinas } = useMaquinasFrota();
 
   const selectedObra = obras?.find(o => o.ogs_number === data.obra_nome);
+  const isLocalLivre = OGS_LOCAL_LIVRE.includes(data.obra_nome || "");
 
   // Split locations by ';' for cascading select
   const locations = selectedObra?.location_address
@@ -32,7 +35,10 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
     const locs = obra?.location_address
       ? obra.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
       : [];
-    if (locs.length === 1) {
+    // Se OGS de local livre, limpa o campo para o usuário digitar
+    if (OGS_LOCAL_LIVRE.includes(v)) {
+      onChange("local", "");
+    } else if (locs.length === 1) {
       onChange("local", locs[0]);
     } else {
       onChange("local", "");
@@ -80,7 +86,14 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
       {selectedObra && (
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-foreground">Local da Obra</Label>
-          {hasMultipleLocations ? (
+          {isLocalLivre ? (
+            <Input
+              value={data.local || ""}
+              onChange={e => onChange("local", e.target.value)}
+              placeholder="Digite a rua exata do retrabalho..."
+              className="h-14 text-lg bg-card border-border"
+            />
+          ) : hasMultipleLocations ? (
             <Select value={data.local || ""} onValueChange={v => onChange("local", v)}>
               <SelectTrigger className="h-14 text-lg bg-card border-border">
                 <SelectValue placeholder="Selecione a rua..." />
