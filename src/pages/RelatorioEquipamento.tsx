@@ -136,20 +136,39 @@ function getHoras(diario: Diario) {
   return 0;
 }
 
+// Tipos de equipamento que usam odômetro em vez de horímetro
+const EQUIPMENT_USES_ODOMETER = [
+  "caminhão",
+  "caminhoes",
+  "caminhôes",
+  "caminhão",
+  "veículo",
+  "veiculo",
+  "veículos",
+  "veiculos",
+  "comboio",
+  "carreta",
+  "carretas",
+];
+
 function getMarcador(diario: Diario) {
-  const hasMeter = typeof diario.meter_initial === "number" || typeof diario.meter_final === "number";
-  if (hasMeter) {
+  // Determina qual medição usar baseado no tipo de equipamento
+  const equipType = (diario.equipment_type || "").toLowerCase().trim();
+  const usesOdometer = EQUIPMENT_USES_ODOMETER.some(type => equipType.includes(type));
+
+  if (usesOdometer) {
     return {
-      label: "Horímetro",
-      ini: diario.meter_initial,
-      fim: diario.meter_final,
+      label: "Odômetro",
+      ini: diario.odometer_initial,
+      fim: diario.odometer_final,
     };
   }
 
+  // Para qualquer outro equipamento (Fresadora, Rolo, etc), usa horímetro
   return {
-    label: "Odômetro",
-    ini: diario.odometer_initial,
-    fim: diario.odometer_final,
+    label: "Horímetro",
+    ini: diario.meter_initial,
+    fim: diario.meter_final,
   };
 }
 
