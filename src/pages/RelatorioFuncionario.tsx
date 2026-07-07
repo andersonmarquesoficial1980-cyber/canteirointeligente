@@ -231,19 +231,27 @@ export default function RelatorioFuncionario() {
         const { data, error } = await query;
         if (error) throw error;
 
-        let result: ResultRow[] = (data || []).map((r: any) => ({
-          nome: r.nome || "",
-          data: r.rdo_diarios?.data || "",
-          obra_nome: r.rdo_diarios?.obra_nome || "",
-          encarregado: r.rdo_diarios?.encarregado || null,
-          funcao: r.funcao || null,
-          entrada: r.entrada || null,
-          saida: r.saida || null,
-          turno: r.rdo_diarios?.turno || null,
-          clima: r.rdo_diarios?.clima || null,
-          contratante: null,
-          local: null,
-        }));
+        let result: ResultRow[] = [];
+        (data || []).forEach((r: any) => {
+          // nome pode conter múltiplos nomes separados por "|||"
+          const nomes = (r.nome || "").split("|||").map((n: string) => n.trim()).filter(Boolean);
+          const lista = nomes.length > 0 ? nomes : [""];
+          lista.forEach((n: string) => {
+            result.push({
+              nome: n,
+              data: r.rdo_diarios?.data || "",
+              obra_nome: r.rdo_diarios?.obra_nome || "",
+              encarregado: r.rdo_diarios?.encarregado || null,
+              funcao: r.funcao || null,
+              entrada: r.entrada || null,
+              saida: r.saida || null,
+              turno: r.rdo_diarios?.turno || null,
+              clima: r.rdo_diarios?.clima || null,
+              contratante: null,
+              local: null,
+            });
+          });
+        });
 
         if (dataIni) result = result.filter(r => r.data >= dataIni);
         if (dataFim) result = result.filter(r => r.data <= dataFim);
@@ -286,21 +294,28 @@ export default function RelatorioFuncionario() {
 
         if (efErr) throw efErr;
 
-        let result: ResultRow[] = (efetivo || []).map((r: any) => {
+        let result: ResultRow[] = [];
+        (efetivo || []).forEach((r: any) => {
           const rdo = rdoMap[r.rdo_id];
-          return {
-            nome: r.nome || "",
-            data: rdo?.data || "",
-            obra_nome: rdo?.obra_nome || "",
-            encarregado: rdo?.encarregado || null,
-            funcao: r.funcao || null,
-            entrada: r.entrada || null,
-            saida: r.saida || null,
-            turno: rdo?.turno || null,
-            clima: rdo?.clima || null,
-            contratante: null,
-            local: null,
-          };
+          if (!rdo) return;
+          // nome pode conter múltiplos nomes separados por "|||"
+          const nomes = (r.nome || "").split("|||").map((n: string) => n.trim()).filter(Boolean);
+          const lista = nomes.length > 0 ? nomes : [""];
+          lista.forEach((n: string) => {
+            result.push({
+              nome: n,
+              data: rdo?.data || "",
+              obra_nome: rdo?.obra_nome || "",
+              encarregado: rdo?.encarregado || null,
+              funcao: r.funcao || null,
+              entrada: r.entrada || null,
+              saida: r.saida || null,
+              turno: rdo?.turno || null,
+              clima: rdo?.clima || null,
+              contratante: null,
+              local: null,
+            });
+          });
         });
 
         result = await enrichWithOgs(result, profile.company_id!);
