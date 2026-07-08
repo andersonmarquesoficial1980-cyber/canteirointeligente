@@ -110,7 +110,10 @@ import EngRdoTecnico from "./pages/EngRdoTecnico";
 import EngRdoTecnicoHistorico from "./pages/EngRdoTecnicoHistorico";
 import EngRdoTecnicoDetalhe from "./pages/EngRdoTecnicoDetalhe";
 import EngRdoTecnicoEditar from "./pages/EngRdoTecnicoEditar";
-import AdminRolesPage from "./pages/AdminRolesPage";
+import WFDashboards from "./pages/WFDashboards";
+import DashboardObras from "./pages/DashboardObras";
+import DashboardManutencao from "./pages/DashboardManutencao";
+import DashboardFrota from "./pages/DashboardFrota";
 
 const queryClient = new QueryClient();
 
@@ -366,6 +369,11 @@ function AppRoutes() {
         {/* Alias para compatibilidade */}
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
         <Route path="/dashboard" element={<RequireAdminOrSuperAdmin><DashboardAdmin /></RequireAdminOrSuperAdmin>} />
+        {/* WF Dashboards para TVs */}
+        <Route path="/wf-dashboards" element={<RequireAdminOrSuperAdmin><WFDashboards /></RequireAdminOrSuperAdmin>} />
+        <Route path="/wf-dashboards/obras" element={<RequireAdminOrSuperAdmin><DashboardObras /></RequireAdminOrSuperAdmin>} />
+        <Route path="/wf-dashboards/manutencao" element={<RequireAdminOrSuperAdmin><DashboardManutencao /></RequireAdminOrSuperAdmin>} />
+        <Route path="/wf-dashboards/frota" element={<RequireAdminOrSuperAdmin><DashboardFrota /></RequireAdminOrSuperAdmin>} />
         <Route path="/super-admin" element={
           <RequireAdminOrSuperAdmin>
             <SuperAdmin />

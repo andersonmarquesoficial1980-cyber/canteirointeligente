@@ -39,6 +39,7 @@ import logoCi from "@/assets/logo-workflux.png";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
+const WFDashboardsHub = lazy(() => import("./WFDashboards"));
 
 const VINCULO_OPTIONS = [
   "FRESADORA", "BOBCAT", "VIBRO", "KMA",
@@ -2958,7 +2959,7 @@ function AbastecimentoConfigManager() {
 // ═══════════════════════════════════════════════════════════════
 const MENU_SECTIONS = [
   { key: "assinatura", label: "Meu Plano / Faturas", icon: Receipt },
-  { key: "dashboard", label: "Dashboards", icon: BarChart3 },
+  { key: "dashboard", label: "WF Dashboards", icon: BarChart3 },
   { key: "usuarios", label: "Usuários", icon: Users },
   { key: "permissoes", label: "Permissões", icon: Users },
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
@@ -3958,8 +3959,8 @@ export default function AdminConfiguracoes() {
       case "assinatura": return <AssinaturaManager />;
       case "dashboard":
         return (
-          <Suspense fallback={<div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Carregando dashboard...</p></div>}>
-            <FleetDashboard />
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Carregando dashboards...</p></div>}>
+            <WFDashboardsHub />
           </Suspense>
         );
       case "visao_equipamentos":
