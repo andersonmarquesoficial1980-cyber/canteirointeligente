@@ -1987,7 +1987,7 @@ function MateriaisUnificadoManager() {
 }
 
 const MATERIAL_VINCULO_OPTIONS = ["CAUQ", "PAVIMENTACAO", "CANTEIRO", "INFRA", "TODOS"];
-const FORNECEDOR_VINCULO_OPTIONS = ["CAUQ", "PAVIMENTACAO", "CANTEIRO", "INFRA", "COMBOIO", "ESPARGIDOR", "PIPA", "TODOS"];
+const FORNECEDOR_VINCULO_OPTIONS = ["CAUQ", "PAVIMENTACAO", "CANTEIRO", "INFRA", "COMBOIO", "ESPARGIDOR", "PIPA", "KMA", "TODOS"];
 
 function MaterialManager() {
   const { items, add, remove, update } = useCrudTable("materiais");
