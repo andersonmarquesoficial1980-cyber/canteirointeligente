@@ -49,6 +49,7 @@ const TIPOS_RELATORIO_PERM = [
   { id: "funcionario", label: "👷 Localização de Funcionário" },
   { id: "equipamentos_rdo", label: "🚜 Localização de Equipamentos (RDO)" },
   { id: "notas_fiscais", label: "📄 Notas Fiscais de Massa" },
+  { id: "producao_infra", label: "🏗️ Produção de Infra (RDO)" },
 ];
 
 const TIPOS_EQUIPAMENTO = [
