@@ -299,7 +299,9 @@ export default function RelatorioEquipamentosRdo() {
       let equipQuery = supabase
         .from("rdo_equipamentos")
         .select("id, frota, empresa_dona, rdo_id, categoria, tipo, sub_tipo, nome, patrimonio")
-        .eq("company_id", profile.company_id!)
+        // NÃO filtrar por company_id aqui — rdo_equipamentos pode ter company_id NULL.
+        // O isolamento por empresa já está garantido pelo .in("rdo_id", rdoIds),
+        // pois os rdoIds vieram de rdo_diarios filtrado por company_id.
         .in("rdo_id", rdoIds);
 
       // Se filtro é frota, aplicar aqui PARA REDUZIR RESULTADOS
