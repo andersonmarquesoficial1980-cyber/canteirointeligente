@@ -294,7 +294,9 @@ export default function VisualizarRdo() {
             )}
 
             {/* Produção */}
-            {producao.length > 0 && (
+            {producao.length > 0 && (() => {
+              const isInfra = rdo.tipo_rdo === "INFRAESTRUTURA";
+              return (
               <div className="rdo-card space-y-2">
                 <p className="text-sm font-display font-bold text-primary">🏗️ PRODUÇÃO DO DIA</p>
                 <div className="overflow-x-auto">
@@ -308,8 +310,8 @@ export default function VisualizarRdo() {
                         <th className="text-right p-2 border border-border">Área(m²)</th>
                         <th className="text-right p-2 border border-border">Esp(cm)</th>
                         <th className="text-right p-2 border border-border">Volume(m³)</th>
-                        <th className="text-right p-2 border border-border">Dens.</th>
-                        <th className="text-right p-2 border border-border">Ton</th>
+                        {!isInfra && <th className="text-right p-2 border border-border">Dens.</th>}
+                        {!isInfra && <th className="text-right p-2 border border-border">Ton</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -322,20 +324,21 @@ export default function VisualizarRdo() {
                           <td className="p-2 border border-border text-right">{p.area_m2 ?? "-"}</td>
                           <td className="p-2 border border-border text-right">{p.espessura_cm ?? "-"}</td>
                           <td className="p-2 border border-border text-right">{p.volume_m3 ?? "-"}</td>
-                          <td className="p-2 border border-border text-right">{p.densidade ?? "-"}</td>
-                          <td className="p-2 border border-border text-right">{p.tonelagem ?? "-"}</td>
+                          {!isInfra && <td className="p-2 border border-border text-right">{p.densidade ?? "-"}</td>}
+                          {!isInfra && <td className="p-2 border border-border text-right">{p.tonelagem ?? "-"}</td>}
                         </tr>
                       ))}
                       <tr className="bg-muted/40 font-bold">
-                        <td colSpan={4} className="p-2 border border-border text-right">TOTAL</td>
+                        <td colSpan={isInfra ? 4 : 4} className="p-2 border border-border text-right">TOTAL</td>
                         <td className="p-2 border border-border text-right">{totalArea.toFixed(2)}</td>
-                        <td colSpan={4} className="p-2 border border-border" />
+                        <td colSpan={isInfra ? 2 : 4} className="p-2 border border-border" />
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* Validações */}
             <div className="rdo-card space-y-3">

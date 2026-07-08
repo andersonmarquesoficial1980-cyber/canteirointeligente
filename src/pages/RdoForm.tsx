@@ -116,8 +116,8 @@ export default function RdoForm() {
   const [empreiteiro, setEmpreiteiro] = useState("");
   const [tipoServico, setTipoServico] = useState("");
   const [infraProducao, setInfraProducao] = useState<InfraProducaoEntry[]>([{
-    id: crypto.randomUUID(), sentido: "", estaca_inicial: "", estaca_final: "",
-    comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false, material: "",
+    id: crypto.randomUUID(), tipo_servico: "", sentido: "", estaca_inicial: "", estaca_final: "",
+    comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false,
   }]);
 
   // NF Concreto (Infra)
@@ -349,6 +349,20 @@ export default function RdoForm() {
           })),
           tonelagem_aplicada: "",
         });
+      }
+      // Produção INFRA (edição)
+      if (producao?.length && rdo.tipo_rdo === "INFRAESTRUTURA") {
+        setInfraProducao(producao.map((p: any) => ({
+          id: p.id || crypto.randomUUID(),
+          tipo_servico: p.tipo_servico || "",
+          sentido: p.sentido_faixa || p.sentido || "",
+          estaca_inicial: p.estaca_inicial || String(p.km_inicial || ""),
+          estaca_final: p.estaca_final || String(p.km_final || ""),
+          comprimento_m: String(p.comprimento_m || ""),
+          largura_m: String(p.largura_m || ""),
+          espessura_cm: String(p.espessura_cm || ""),
+          is_retrabalho: p.is_retrabalho || false,
+        })));
       }
       // Equipamentos
       if (equipamentos?.length) {
@@ -679,18 +693,30 @@ export default function RdoForm() {
       // Produção (infra)
       if (tipoRdo === "INFRAESTRUTURA") {
         const entries = infraProducao
-          .filter(p => p.comprimento_m || p.largura_m)
-          .map(p => ({
-            rdo_id: rdoId,
-            tipo_servico: tipoServico || null,
-            sentido: p.sentido || null,
-            faixa: p.estaca_inicial || null,
-            km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,
-            km_final: p.estaca_final ? parseFloat(String(p.estaca_final).replace(",", ".")) : null,
-            comprimento_m: p.comprimento_m ? parseFloat(String(p.comprimento_m).replace(",", ".")) : null,
-            largura_m: p.largura_m ? parseFloat(String(p.largura_m).replace(",", ".")) : null,
-            espessura_cm: p.espessura_cm ? parseFloat(String(p.espessura_cm).replace(",", ".")) : null,
-          }));
+          .filter(p => p.comprimento_m || p.largura_m || p.tipo_servico)
+          .map(p => {
+            const comp = p.comprimento_m ? parseFloat(String(p.comprimento_m).replace(",", ".")) : null;
+            const larg = p.largura_m ? parseFloat(String(p.largura_m).replace(",", ".")) : null;
+            const esp = p.espessura_cm ? parseFloat(String(p.espessura_cm).replace(",", ".")) : null;
+            const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
+            const volume = area && esp ? Math.round(area * (esp / 100) * 1000) / 1000 : null;
+            return {
+              rdo_id: rdoId,
+              tipo_servico: p.tipo_servico || null,
+              sentido: p.sentido || null,
+              sentido_faixa: p.sentido || null,
+              faixa: p.sentido || null,
+              estaca_inicial: p.estaca_inicial || null,
+              estaca_final: p.estaca_final || null,
+              km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,
+              km_final: p.estaca_final ? parseFloat(String(p.estaca_final).replace(",", ".")) : null,
+              comprimento_m: comp,
+              largura_m: larg,
+              espessura_cm: esp,
+              area_m2: area,
+              volume_m3: volume,
+            };
+          });
         if (entries.length > 0) {
           const { error } = await supabase.from("rdo_producao").insert(entries);
           if (error) throw error;
