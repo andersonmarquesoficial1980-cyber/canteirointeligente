@@ -2168,43 +2168,31 @@ export default function EquipmentDiaryForm() {
 
           <FieldRow>
             <Field label="Frota">
-              {isEditMode && !isEditingDraft ? (
-                <div className="h-11 rounded-xl bg-secondary border border-border flex items-center px-3 text-sm font-semibold text-foreground opacity-80">
-                  {selectedFleet || "-"} <span className="ml-2 text-xs text-muted-foreground">(não editável)</span>
-                </div>
+              {/* Fonte única: maquinas_frota filtrado por tipo de equipamento (Painel de Controle) */}
+              {(isCaminhoes && !caminhaoTipo) || (isRolo && !roloType) || (isVeiculo && !veiculoType) || (isRetro && !attachmentType) ? (
+                <Select disabled>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Escolha o tipo primeiro" />
+                  </SelectTrigger>
+                  <SelectContent />
+                </Select>
               ) : (
-                // Fonte única: maquinas_frota filtrado por tipo de equipamento (Painel de Controle)
-                (isCaminhoes && !caminhaoTipo) || (isRolo && !roloType) || (isVeiculo && !veiculoType) || (isRetro && !attachmentType) ? (
-                  <Select disabled>
-                    <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder="Escolha o tipo primeiro" />
-                    </SelectTrigger>
-                    <SelectContent />
-                  </Select>
-                ) : (
-                  <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
-                    <SelectTrigger className="bg-secondary border-border">
-                      <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : filteredFleetForType.length === 0 ? "Nenhuma frota cadastrada" : "Selecione..."} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredFleetForType.filter((eq: any) => eq && eq.frota).map((eq: any) => (
-                        <SelectItem key={eq.id} value={eq.frota}>
-                          {eq.frota} — {eq.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )
+                <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : filteredFleetForType.length === 0 ? "Nenhuma frota cadastrada" : "Selecione..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredFleetForType.filter((eq: any) => eq && eq.frota).map((eq: any) => (
+                      <SelectItem key={eq.id} value={eq.frota}>
+                        {eq.frota} — {eq.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </Field>
             <Field label="Data">
-              {isEditMode && !isEditingDraft ? (
-                <div className="h-11 rounded-xl bg-secondary border border-border flex items-center px-3 text-sm font-semibold text-foreground opacity-80">
-                  {date || "-"} <span className="ml-2 text-xs text-muted-foreground">(não editável)</span>
-                </div>
-              ) : (
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
-              )}
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
             </Field>
           </FieldRow>
 
