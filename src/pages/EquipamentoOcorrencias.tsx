@@ -36,11 +36,6 @@ export default function EquipamentoOcorrencias() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const { isSuperAdmin } = useCompanyModules();
 
-  // Lixeirinha visível para superadmin e admins da empresa
-  const canDelete = isSuperAdmin ||
-    ["admin", "superadmin", "administrador", "gerente"].includes((profile?.role || "").toLowerCase()) ||
-    ["admin", "superadmin", "administrador", "gerente"].includes((profile?.perfil || "").toLowerCase());
-
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +43,11 @@ export default function EquipamentoOcorrencias() {
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("ABERTA");
   const [profile, setProfile] = useState<any>(null);
+
+  // Lixeirinha visível para superadmin e admins da empresa (depois de profile ser declarado)
+  const canDelete = isSuperAdmin ||
+    ["admin", "superadmin", "administrador", "gerente"].includes((profile?.role || "").toLowerCase()) ||
+    ["admin", "superadmin", "administrador", "gerente"].includes((profile?.perfil || "").toLowerCase());
 
   // Form
   const [equipId, setEquipId] = useState("");
