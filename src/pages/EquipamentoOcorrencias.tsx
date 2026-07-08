@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Camera, Upload, Loader2, Save, AlertTriangle, CheckCircle, Clock, Search } from "lucide-react";
+import { ArrowLeft, Plus, Camera, Upload, Loader2, Save, AlertTriangle, CheckCircle, Clock, Search, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCompanyModules } from "@/hooks/useCompanyModules";
 
 const TIPOS = ["OCORRÊNCIA", "FALHA MECÂNICA", "PNEU", "ELÉTRICA", "VAZAMENTO", "RUÍDO ANORMAL", "MANUTENÇÃO PREVENTIVA", "OUTRO"];
 const PRIORIDADES = [
@@ -33,6 +34,7 @@ export default function EquipamentoOcorrencias() {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const { isSuperAdmin } = useCompanyModules();
 
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
@@ -113,6 +115,18 @@ export default function EquipamentoOcorrencias() {
       toast({ title: "Erro ao registrar", variant: "destructive" });
     }
     setSalvando(false);
+  }
+
+  async function deletar(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm("Apagar esta ocorrência permanentemente?")) return;
+    const { error } = await (supabase as any).from("equipamentos_ocorrencias").delete().eq("id", id);
+    if (!error) {
+      toast({ title: "Ocorrência apagada." });
+      setOcorrencias(prev => prev.filter(o => o.id !== id));
+    } else {
+      toast({ title: "Erro ao apagar", variant: "destructive" });
+    }
   }
 
   const lista = ocorrencias.filter(o => {
@@ -245,7 +259,18 @@ export default function EquipamentoOcorrencias() {
                     <span>🕐 {fmtDateTime(o.created_at)}</span>
                   </div>
                 </div>
-                {o.foto_url && <img src={o.foto_url} className="w-14 h-14 rounded-lg object-cover shrink-0" alt="foto" />}
+                <div className="flex items-start gap-2 shrink-0">
+                  {isSuperAdmin && (
+                    <button
+                      onClick={(e) => deletar(o.id, e)}
+                      className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                      title="Apagar ocorrência"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                  {o.foto_url && <img src={o.foto_url} className="w-14 h-14 rounded-lg object-cover" alt="foto" />}
+                </div>
               </div>
             </button>
           );
