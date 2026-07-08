@@ -333,18 +333,21 @@ export default function RelatorioEquipamentosRdo() {
       let frotaEmpresaMap: Record<string, string> = {};
       
       if (frotaNames.length > 0) {
-        // PASSO 2B: Buscar empresa de maquinas_frota para cada frota
+        // PASSO 2B: Buscar empresa de maquinas_frota por frota
+        // SEM filtro de company_id — maquinas_frota pode ter company_id NULL
+        // Segurança: frotas já foram filtradas pelos rdoIds da empresa
         const { data: maquinas, error: maqErr } = await supabase
           .from("maquinas_frota")
           .select("frota, empresa")
-          .eq("company_id", profile.company_id!)
           .in("frota", frotaNames);
         
         if (maqErr) {
-          console.error("Erro ao buscar maquinas_frota:", maqErr);
+          console.error("Erro ao buscar empresa das frotas:", maqErr);
         } else {
           (maquinas || []).forEach((m: any) => {
-            frotaEmpresaMap[m.frota] = m.empresa || null;
+            if (m.frota && m.empresa) {
+              frotaEmpresaMap[m.frota] = m.empresa;
+            }
           });
         }
       }
