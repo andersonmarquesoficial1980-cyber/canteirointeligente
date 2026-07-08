@@ -129,7 +129,12 @@ export default function VisualizarRdo() {
 
   const entradaGlobal = efetivo[0]?.entrada || "-";
   const saidaGlobal = efetivo[0]?.saida || "-";
-  const totalArea = producao.reduce((s, p) => s + (parseFloat(String(p.area_m2 || 0)) || 0), 0);
+  const totalArea = producao.reduce((s, p) => {
+    if (p.area_m2 != null) return s + (parseFloat(String(p.area_m2)) || 0);
+    const comp = parseFloat(String(p.comprimento_m || 0)) || 0;
+    const larg = parseFloat(String(p.largura_m || 0)) || 0;
+    return s + (comp && larg ? comp * larg : 0);
+  }, 0);
   const totalTon = nfMassa.reduce((s, n) => s + (parseFloat(String(n.tonelagem || 0)) || 0), 0);
 
   return (
@@ -315,19 +320,28 @@ export default function VisualizarRdo() {
                       </tr>
                     </thead>
                     <tbody>
-                      {producao.map((p, i) => (
+                      {producao.map((p, i) => {
+                          const comp = parseFloat(String(p.comprimento_m || 0)) || 0;
+                          const larg = parseFloat(String(p.largura_m || 0)) || 0;
+                          const esp = parseFloat(String(p.espessura_cm || 0)) || 0;
+                          const areaCalc = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
+                          const volCalc = areaCalc && esp ? Math.round(areaCalc * (esp / 100) * 1000) / 1000 : null;
+                          const areaDisplay = p.area_m2 != null ? p.area_m2 : areaCalc;
+                          const volDisplay = p.volume_m3 != null ? p.volume_m3 : volCalc;
+                          return (
                         <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/10"}>
                           <td className="p-2 border border-border font-medium">{p.tipo_servico || "-"}</td>
                           <td className="p-2 border border-border text-muted-foreground">{p.sentido_faixa || p.sentido || "-"}</td>
                           <td className="p-2 border border-border text-right">{p.comprimento_m ?? "-"}</td>
                           <td className="p-2 border border-border text-right">{p.largura_m ?? "-"}</td>
-                          <td className="p-2 border border-border text-right">{p.area_m2 ?? "-"}</td>
+                          <td className="p-2 border border-border text-right">{areaDisplay ?? "-"}</td>
                           <td className="p-2 border border-border text-right">{p.espessura_cm ?? "-"}</td>
-                          <td className="p-2 border border-border text-right">{p.volume_m3 ?? "-"}</td>
+                          <td className="p-2 border border-border text-right">{volDisplay ?? "-"}</td>
                           {!isInfra && <td className="p-2 border border-border text-right">{p.densidade ?? "-"}</td>}
                           {!isInfra && <td className="p-2 border border-border text-right">{p.tonelagem ?? "-"}</td>}
                         </tr>
-                      ))}
+                          );
+                        })}
                       <tr className="bg-muted/40 font-bold">
                         <td colSpan={isInfra ? 4 : 4} className="p-2 border border-border text-right">TOTAL</td>
                         <td className="p-2 border border-border text-right">{totalArea.toFixed(2)}</td>
