@@ -92,6 +92,7 @@ import RelatorioCarreteiros from "./pages/RelatorioCarreteiros";
 import RelatorioFuncionario from "./pages/RelatorioFuncionario";
 import RelatorioEquipamentosRdo from "./pages/RelatorioEquipamentosRdo";
 import RelatorioNotasFiscais from "./pages/RelatorioNotasFiscais";
+import RelatorioProducaoInfra from "./pages/RelatorioProducaoInfra";
 import RelatorioChecklist from "./pages/RelatorioChecklist";
 import TrajetoVT from "./pages/TrajetoVT";
 import TruckerHome from "./pages/TruckerHome";
@@ -475,6 +476,7 @@ function AppRoutes() {
         <Route path="/relatorios/funcionario" element={<RequireModule moduleId="relatorios"><RelatorioFuncionario /></RequireModule>} />
         <Route path="/relatorios/equipamentos-rdo" element={<RequireModule moduleId="relatorios"><RelatorioEquipamentosRdo /></RequireModule>} />
         <Route path="/relatorios/notas-fiscais" element={<RequireModule moduleId="relatorios"><RelatorioNotasFiscais /></RequireModule>} />
+        <Route path="/relatorios/producao-infra" element={<RequireModule moduleId="relatorios"><RelatorioProducaoInfra /></RequireModule>} />
         <Route path="/relatorios/checklist" element={<RequireModule moduleId="relatorios"><RelatorioChecklist /></RequireModule>} />
 
         <Route path="*" element={<NotFound />} />
