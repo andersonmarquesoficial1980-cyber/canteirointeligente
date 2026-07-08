@@ -111,18 +111,19 @@ export default function RelatorioFuncionario() {
   const [searched, setSearched] = useState(false);
   const [messageNoData, setMessageNoData] = useState("");
 
-  // Carregar funções disponíveis
+  // Carregar funções disponíveis — busca da tabela funcoes (cadastro oficial)
   useEffect(() => {
     if (filterType !== "funcao" || !profile?.company_id) return;
     const load = async () => {
       setLoadingFuncoes(true);
       try {
+        // Busca apenas funções que têm pelo menos 1 funcionário ativo vinculado à empresa
         const { data } = await (supabase as any)
-          .from("rdo_efetivo")
-          .select("funcao, rdo_diarios!inner(company_id)")
-          .eq("rdo_diarios.company_id", profile.company_id!)
-          .not("funcao", "is", null);
-        const unique = Array.from(new Set((data || []).map((d: any) => d.funcao).filter(Boolean))).sort() as string[];
+          .from("funcoes")
+          .select("nome, employees!inner(company_id, funcao_id)")
+          .eq("employees.company_id", profile.company_id!)
+          .not("nome", "is", null);
+        const unique = Array.from(new Set((data || []).map((d: any) => d.nome).filter(Boolean))).sort() as string[];
         setFuncoes(unique);
       } catch (err) {
         console.error("Erro ao carregar funções:", err);
@@ -146,7 +147,11 @@ export default function RelatorioFuncionario() {
           .eq("funcao", funcao)
           .eq("rdo_diarios.company_id", profile.company_id!)
           .not("nome", "is", null);
-        const unique = Array.from(new Set((data || []).map((d: any) => d.nome).filter(Boolean))).sort() as string[];
+        // Split por ||| para não mostrar nomes compostos no dropdown
+        const allNomes = (data || []).flatMap((d: any) =>
+          (d.nome || "").split("|||").map((n: string) => n.trim()).filter(Boolean)
+        );
+        const unique = Array.from(new Set(allNomes)).sort() as string[];
         setNomesSelecionaveis(unique);
       } catch (err) {
         console.error("Erro ao carregar nomes:", err);
