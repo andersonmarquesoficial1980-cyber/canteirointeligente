@@ -36,6 +36,11 @@ export default function EquipamentoOcorrencias() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const { isSuperAdmin } = useCompanyModules();
 
+  // Lixeirinha visível para superadmin e admins da empresa
+  const canDelete = isSuperAdmin ||
+    ["admin", "superadmin", "administrador", "gerente"].includes((profile?.role || "").toLowerCase()) ||
+    ["admin", "superadmin", "administrador", "gerente"].includes((profile?.perfil || "").toLowerCase());
+
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +67,7 @@ export default function EquipamentoOcorrencias() {
     if (!user.user) return;
     const { data: p } = await supabase.from("profiles").select("*").eq("user_id", user.user.id).single();
     setProfile(p);
+    console.log("[DEBUG] profile:", JSON.stringify(p));
 
     const [{ data: ocorr }, { data: equips }] = await Promise.all([
       (supabase as any).from("equipamentos_ocorrencias").select("*, equipamentos(frota, nome, tipo)").eq("company_id", p?.company_id).order("created_at", { ascending: false }),
@@ -260,7 +266,7 @@ export default function EquipamentoOcorrencias() {
                   </div>
                 </div>
                 <div className="flex items-start gap-2 shrink-0">
-                  {isSuperAdmin && (
+                  {canDelete && (
                     <button
                       onClick={(e) => deletar(o.id, e)}
                       className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
