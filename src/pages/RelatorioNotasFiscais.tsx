@@ -12,6 +12,31 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
+// Mapa de prefixos por usina — adicione novas usinas aqui quando necessário
+const PREFIXO_USINA: Record<string, string> = {
+  "ELLENCO": "ELL",
+  "JULIO E JULIO": "JUJ",
+  "JÚLIO E JÚLIO": "JUJ",
+  "AUPAV": "AUP",
+  "USINAS SP PAVIMENTACAO E TECNOLOGIA LTDA": "USP",
+  "USINAS SP PAVIMENTAÇÃO E TECNOLOGIA LTDA": "USP",
+};
+
+function prefixoUsina(usina: string | null): string {
+  if (!usina) return "";
+  const key = usina.trim().toUpperCase();
+  return PREFIXO_USINA[key] || "";
+}
+
+// Retorna NF com prefixo da usina para exibição/exportação
+// Ex: "042545" da usina ELLENCO → "ELL-042545"
+function nfComPrefixo(nf: string | null, usina: string | null): string {
+  if (!nf) return "-";
+  const prefix = prefixoUsina(usina);
+  if (!prefix) return nf;
+  return `${prefix}-${nf}`;
+}
+
 function fmtNum(n: any) {
   const v = parseFloat(String(n ?? "").replace(",", "."));
   return isNaN(v) ? "-" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -52,7 +77,7 @@ function exportarExcel(ogs: string, dataIni: string, dataFim: string, rows: NfRo
       r.obra_nome || "-",
       r.contratante || "-",
       r.local || "-",
-      r.nf || "-",
+      nfComPrefixo(r.nf, r.usina),
       r.placa || "-",
       r.usina || "-",
       r.tipo_material || "-",
@@ -102,7 +127,7 @@ function exportarPdf(ogs: string, dataIni: string, dataFim: string, rows: NfRow[
       <td>${r.obra_nome || "-"}</td>
       <td>${r.contratante || "-"}</td>
       <td>${r.local || "-"}</td>
-      <td>${r.nf || "-"}</td>
+      <td>${nfComPrefixo(r.nf, r.usina)}</td>
       <td>${r.placa || "-"}</td>
       <td>${r.usina || "-"}</td>
       <td>${r.tipo_material || "-"}</td>
@@ -324,7 +349,7 @@ export default function RelatorioNotasFiscais() {
                           <td className="px-3 py-2 text-primary font-semibold text-xs">{r.obra_nome || "-"}</td>
                           <td className="px-3 py-2 text-xs">{r.contratante || "-"}</td>
                           <td className="px-3 py-2 text-xs">{r.local || "-"}</td>
-                          <td className="px-3 py-2 font-bold">{r.nf || "-"}</td>
+                          <td className="px-3 py-2 font-bold">{nfComPrefixo(r.nf, r.usina)}</td>
                           <td className="px-3 py-2 text-xs text-muted-foreground uppercase">{r.placa || "-"}</td>
                           <td className="px-3 py-2 text-xs">{r.usina || "-"}</td>
                           <td className="px-3 py-2 text-xs">{r.tipo_material || "-"}</td>
