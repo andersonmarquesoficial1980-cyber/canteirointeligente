@@ -330,22 +330,24 @@ export default function RelatorioEquipamentosRdo() {
 
       // Mapa de equipamentos por frota para buscar empresa
       const frotaNames = Array.from(new Set((equips || []).map((e: any) => e.frota).filter(Boolean)));
-      let frotaEmpresaMap: Record<string, string> = {};
+      let frotaEmpresaMap: Record<string, { empresa: string | null; condicao: string | null }> = {};
       
       if (frotaNames.length > 0) {
-        // PASSO 2B: Buscar empresa da tabela equipamentos por frota
-        // (é onde FrotaNovo.tsx salva o campo empresa — não em maquinas_frota)
+        // PASSO 2B: Buscar empresa_proprietaria e condicao de equipamentos por frota
         const { data: maquinas, error: maqErr } = await (supabase as any)
           .from("equipamentos")
-          .select("frota, empresa")
+          .select("frota, empresa_proprietaria, condicao")
           .in("frota", frotaNames);
         
         if (maqErr) {
           console.error("Erro ao buscar empresa das frotas:", maqErr);
         } else {
           (maquinas || []).forEach((m: any) => {
-            if (m.frota && m.empresa) {
-              frotaEmpresaMap[m.frota] = m.empresa;
+            if (m.frota) {
+              frotaEmpresaMap[m.frota] = {
+                empresa: m.empresa_proprietaria || null,
+                condicao: m.condicao || null,
+              };
             }
           });
         }
@@ -416,8 +418,11 @@ export default function RelatorioEquipamentosRdo() {
           const ogsRef = ogsMap[rdo.obra_nome];
           // Apontador: usar preenchido_por (quem preencheu o RDO)
           const apontador = rdo.preenchido_por || null;
-          // Empresa: prioridade empresa_dona, depois maquinas_frota, depois null
-          const empresa = e.empresa_dona || frotaEmpresaMap[e.frota] || null;
+          // Empresa: prioridade empresa_dona (do RDO) → empresa_proprietaria (terceiros) → "PRÓPRIO"
+          const frotaInfo = frotaEmpresaMap[e.frota];
+          const empresa = e.empresa_dona ||
+            (frotaInfo?.empresa ? frotaInfo.empresa : null) ||
+            (frotaInfo?.condicao?.toUpperCase() === "PROPRIO" ? "PRÓPRIO" : null);
           
           console.log(`[DEBUG EQUIP] frota=${e.frota}, empresa_dona=${e.empresa_dona}, empresa_final=${empresa}`);
           

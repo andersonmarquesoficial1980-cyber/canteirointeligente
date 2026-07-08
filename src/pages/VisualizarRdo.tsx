@@ -100,16 +100,18 @@ export default function VisualizarRdo() {
         if (frotasParaBuscar.length > 0) {
           const { data: equipEmpresas } = await (supabase as any)
             .from("equipamentos")
-            .select("frota, empresa")
+            .select("frota, empresa_proprietaria, condicao")
             .in("frota", frotasParaBuscar);
-          const empresaMap: Record<string, string> = {};
+          const empresaMap: Record<string, { empresa: string | null; condicao: string | null }> = {};
           (equipEmpresas || []).forEach((m: any) => {
-            if (m.frota && m.empresa) empresaMap[m.frota] = m.empresa;
+            if (m.frota) empresaMap[m.frota] = { empresa: m.empresa_proprietaria || null, condicao: m.condicao || null };
           });
-          equipRowsEnriquecidos = equipRowsEnriquecidos.map((e: any) => ({
-            ...e,
-            empresa_dona: e.empresa_dona || empresaMap[e.frota] || null,
-          }));
+          equipRowsEnriquecidos = equipRowsEnriquecidos.map((e: any) => {
+            if (e.empresa_dona) return e; // já tem empresa no RDO
+            const info = empresaMap[e.frota];
+            const empresaFallback = info?.empresa || (info?.condicao?.toUpperCase() === "PROPRIO" ? "PRÓPRIO" : null);
+            return { ...e, empresa_dona: empresaFallback };
+          });
         }
 
         setEquipamentos(equipRowsEnriquecidos);
