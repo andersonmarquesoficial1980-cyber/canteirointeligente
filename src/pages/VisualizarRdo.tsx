@@ -94,7 +94,25 @@ export default function VisualizarRdo() {
         });
         setEfetivoTerceiros(tercAgrupado);
 
-        setEquipamentos(equipRows || []);
+        // Enriquecer equipamentos com empresa de 'equipamentos' quando empresa_dona é nulo
+        let equipRowsEnriquecidos = equipRows || [];
+        const frotasParaBuscar = (equipRows || []).map((e: any) => e.frota).filter(Boolean);
+        if (frotasParaBuscar.length > 0) {
+          const { data: equipEmpresas } = await (supabase as any)
+            .from("equipamentos")
+            .select("frota, empresa")
+            .in("frota", frotasParaBuscar);
+          const empresaMap: Record<string, string> = {};
+          (equipEmpresas || []).forEach((m: any) => {
+            if (m.frota && m.empresa) empresaMap[m.frota] = m.empresa;
+          });
+          equipRowsEnriquecidos = equipRowsEnriquecidos.map((e: any) => ({
+            ...e,
+            empresa_dona: e.empresa_dona || empresaMap[e.frota] || null,
+          }));
+        }
+
+        setEquipamentos(equipRowsEnriquecidos);
         setProducao(prodRows || []);
         setNfMassa(nfRows || []);
       } catch (err: any) {

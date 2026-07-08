@@ -328,16 +328,15 @@ export default function RelatorioEquipamentosRdo() {
         console.log(`[DEBUG] Sample equipment:`, equips[0]);
       }
 
-      // Mapa de equipamentos por frota para buscar empresa de maquinas_frota
+      // Mapa de equipamentos por frota para buscar empresa
       const frotaNames = Array.from(new Set((equips || []).map((e: any) => e.frota).filter(Boolean)));
       let frotaEmpresaMap: Record<string, string> = {};
       
       if (frotaNames.length > 0) {
-        // PASSO 2B: Buscar empresa de maquinas_frota por frota
-        // SEM filtro de company_id — maquinas_frota pode ter company_id NULL
-        // Segurança: frotas já foram filtradas pelos rdoIds da empresa
-        const { data: maquinas, error: maqErr } = await supabase
-          .from("maquinas_frota")
+        // PASSO 2B: Buscar empresa da tabela equipamentos por frota
+        // (é onde FrotaNovo.tsx salva o campo empresa — não em maquinas_frota)
+        const { data: maquinas, error: maqErr } = await (supabase as any)
+          .from("equipamentos")
           .select("frota, empresa")
           .in("frota", frotaNames);
         
