@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, FileSpreadsheet, Printer, Loader2, Truck } from "lucide-react";
+import { Button as PlainButton } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
@@ -282,9 +283,9 @@ export default function RelatorioTransportes() {
                             </p>
                           )}
                         </div>
-                        <ExportButton variant="outline" size="sm" className="gap-1.5 text-xs shrink-0" onClick={() => exportarPdf(d)}>
+                        <PlainButton variant="outline" size="sm" className="gap-1.5 text-xs shrink-0" onClick={() => exportarPdf(d)}>
                           <Printer className="w-3.5 h-3.5" /> PDF
-                        </ExportButton>
+                        </PlainButton>
                       </div>
 
                       {entries.length > 0 && (
@@ -292,21 +293,30 @@ export default function RelatorioTransportes() {
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-border bg-muted/30">
-                                <th className="text-left py-1.5 px-2">Atividade</th>
+                                <th className="text-left py-1.5 px-2">Equip. 01</th>
+                                <th className="text-left py-1.5 px-2">Equip. 02</th>
+                                <th className="text-left py-1.5 px-2">Equip. 03</th>
                                 <th className="text-left py-1.5 px-2">Origem</th>
                                 <th className="text-left py-1.5 px-2">Destino</th>
+                                <th className="text-left py-1.5 px-2">OGS (Destino)</th>
                                 <th className="text-left py-1.5 px-2">Horário</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {entries.map((e: any) => (
-                                <tr key={e.id} className="border-b border-border/60 last:border-0">
-                                  <td className="py-1.5 px-2">{e.activity || "—"}</td>
-                                  <td className="py-1.5 px-2">{e.origin === "BASE / PÁTIO CENTRAL" ? "BASE" : (e.origin || "—")}</td>
-                                  <td className="py-1.5 px-2">{e.destination === "BASE / PÁTIO CENTRAL" ? "BASE" : (e.destination || "—")}</td>
-                                  <td className="py-1.5 px-2 whitespace-nowrap">{e.start_time} — {e.end_time}</td>
-                                </tr>
-                              ))}
+                              {entries.map((e: any) => {
+                                const [eq1, eq2, eq3] = parseEquipamentos(e.description);
+                                return (
+                                  <tr key={e.id} className="border-b border-border/60 last:border-0">
+                                    <td className="py-1.5 px-2">{eq1 || "—"}</td>
+                                    <td className="py-1.5 px-2">{eq2 || "—"}</td>
+                                    <td className="py-1.5 px-2">{eq3 || "—"}</td>
+                                    <td className="py-1.5 px-2">{e.origin === "BASE / PÁTIO CENTRAL" ? "BASE" : (e.origin || "—")}</td>
+                                    <td className="py-1.5 px-2">{e.destination === "BASE / PÁTIO CENTRAL" ? "BASE" : (e.destination || "—")}</td>
+                                    <td className="py-1.5 px-2">{e.ogs_destination || "—"}</td>
+                                    <td className="py-1.5 px-2 whitespace-nowrap">{e.start_time} — {e.end_time}</td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
