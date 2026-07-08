@@ -444,18 +444,10 @@ export default function AdvancedReports() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <Button onClick={exportTransportes} disabled={!hasRange || loadingTransport} className="gap-2 font-extrabold py-5 rounded-xl bg-[hsl(215_80%_35%)] hover:bg-[hsl(215_80%_28%)] text-white shadow-md">
             {loadingTransport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4" />}
             Transportes (Carreta)
-          </Button>
-          <Button onClick={exportAbastecimentos} disabled={!hasRange || loadingRefuel} className="gap-2 font-extrabold py-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">
-            {loadingRefuel ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fuel className="w-4 h-4" />}
-            Abastecimentos (Comboio)
-          </Button>
-          <Button onClick={exportConsolidado} disabled={!hasRange || loadingConsolidado} className="gap-2 font-extrabold py-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md">
-            {loadingConsolidado ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Consolidado (Ambos)
           </Button>
         </div>
       </CardContent>
