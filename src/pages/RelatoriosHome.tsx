@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import AdvancedReports from "@/components/dashboard/AdvancedReports";
 
 const TIPOS_RELATORIO = [
   { id: "equipamento", label: "Equipamentos", emoji: "🚜", desc: "Diário, consumo, manutenção, produção" },
@@ -278,6 +279,7 @@ export default function RelatoriosHome() {
                 </div>
               </button>
             ))}
+            <AdvancedReports />
           </>
         )}
 

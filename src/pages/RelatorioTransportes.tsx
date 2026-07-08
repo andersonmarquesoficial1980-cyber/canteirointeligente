@@ -12,7 +12,6 @@ import { buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 import logoCi from "@/assets/logo-workflux.png";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
-import AdvancedReports from "@/components/dashboard/AdvancedReports";
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -249,9 +248,6 @@ export default function RelatorioTransportes() {
             {loading ? "Buscando..." : "Gerar Relatório"}
           </Button>
         </div>
-
-        {/* Relatórios Avançados (Excel) */}
-        <AdvancedReports />
 
         {/* Resultados */}
         {buscado && !loading && (
