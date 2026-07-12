@@ -63,6 +63,7 @@ const VINCULO_LABELS: Record<string, string> = {
   CAMINHAO_CARROCERIA: "📦 Caminhão Carroceria",
   CAMINHAO_ESPARGIDOR: "🛢️ Caminhão Espargidor",
   CAMINHAO_BASCULANTE: "🚛 Caminhão Basculante",
+  CAMINHAO_PLATAFORMA: "🚚 Caminhão Plataforma",
   COMBOIO: "Comboio",
   VEICULO_VAN: "🚐 Van",
   VEICULO_MICROONIBUS: "🚌 Microônibus",
