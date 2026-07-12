@@ -3,14 +3,14 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Edit2, Save, UserCheck, History, FileText, Loader2, Gauge } from "lucide-react";
+import { ArrowLeft, Edit2, Save, UserCheck, History, FileText, Loader2, Gauge, Lock, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type MedidorAtual = {
   valor: number;
   tipo: "horímetro" | "odômetro";
   data: string;
-  fonte: string; // "Diário" | "Abastecimento"
+  fonte: string;
 } | null;
 
 function fmtDate(d: string) {
@@ -18,6 +18,25 @@ function fmtDate(d: string) {
   const [y, m, day] = d.split("-");
   return `${day}/${m}/${y}`;
 }
+
+function formatBRL(v: number) {
+  if (!v) return "—";
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+const STATUS_OPTIONS = [
+  { value: "ativo",          label: "✅ Operacional" },
+  { value: "em_manutencao", label: "🔧 Em Manutenção" },
+  { value: "inativo",        label: "🚫 Inativo" },
+  { value: "disposicao",     label: "📦 Disposição" },
+];
+
+const STATUS_LABELS: Record<string, { label: string; bg: string; cor: string }> = {
+  ativo:          { label: "Operacional",  bg: "#dcfce7", cor: "#166534" },
+  em_manutencao:  { label: "Manutenção",   bg: "#fef3c7", cor: "#92400e" },
+  inativo:        { label: "Inativo",      bg: "#fee2e2", cor: "#991b1b" },
+  disposicao:     { label: "Disposição",   bg: "#f1f5f9", cor: "#475569" },
+};
 
 export default function GestaoFrotasVeiculo() {
   const { id } = useParams<{ id: string }>();
@@ -44,12 +63,10 @@ export default function GestaoFrotasVeiculo() {
     ]);
     if (v) setVeiculo(v);
     if (h) setHistorico(h);
-    // Buscar docs pela placa também
     if (v) {
       const { data: docsByPlaca } = await supabase.from("manutencao_documentos").select("*").eq("equipment_fleet", v.placa);
       setDocumentos(docsByPlaca || d || []);
 
-      // Buscar último horímetro/odômetro dos diários
       const frota = v.frota || v.placa;
       const usaOdometro = ["CAMINHÃO", "CARRETA", "VEÍCULO", "VAN", "MICRO-ÔNIBUS"].some(
         t => (v.tipo || "").toUpperCase().includes(t)
@@ -76,13 +93,11 @@ export default function GestaoFrotasVeiculo() {
           .maybeSingle(),
       ]);
 
-      // Escolhe o mais recente entre diário e abastecimento
       const valorDiario = ultimoDiario ? (usaOdometro ? ultimoDiario.odometer_final : ultimoDiario.meter_final) : null;
       const dataDiario = ultimoDiario?.date || null;
       const valorAbastec = ultimoAbastec ? (usaOdometro ? ultimoAbastec.km_odometro : ultimoAbastec.horimetro) : null;
       const dataAbastec = ultimoAbastec?.data || null;
 
-      // Compara por data para pegar o mais atual
       let melhor: MedidorAtual = null;
       if (valorDiario != null && dataDiario) {
         melhor = { valor: Number(valorDiario), tipo: usaOdometro ? "odômetro" : "horímetro", data: dataDiario, fonte: "Diário" };
@@ -99,7 +114,16 @@ export default function GestaoFrotasVeiculo() {
 
   async function salvarEdicao() {
     setSalvando(true);
-    await (supabase as any).from("equipamentos").update({ ...veiculo, updated_at: new Date().toISOString() }).eq("id", id);
+    // Salva APENAS os campos operacionais — não toca nos dados cadastrais
+    await (supabase as any).from("equipamentos").update({
+      status: veiculo.status,
+      setor: veiculo.setor,
+      condutor_atual: veiculo.condutor_atual,
+      valor_mensal: veiculo.valor_mensal,
+      motivo_manutencao: veiculo.motivo_manutencao,
+      previsao_liberacao: veiculo.previsao_liberacao || null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id);
     setEditando(false);
     setSalvando(false);
   }
@@ -133,6 +157,10 @@ export default function GestaoFrotasVeiculo() {
     return dias <= 30;
   });
 
+  const statusAtual = STATUS_LABELS[veiculo.status] || STATUS_LABELS["ativo"];
+  const condicaoLabel = (veiculo.condicao === "TERCEIRO" || veiculo.categoria === "locado") ? "Terceiro (Locado)" : "Próprio (Fremix)";
+  const isTerceiro = veiculo.condicao === "TERCEIRO" || veiculo.categoria === "locado";
+
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
@@ -140,10 +168,19 @@ export default function GestaoFrotasVeiculo() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <span className="block font-display font-extrabold text-sm text-primary-foreground">{veiculo.placa}</span>
-          <span className="block text-[11px] text-primary-foreground/80">{veiculo.modelo}</span>
+          <span className="block font-display font-extrabold text-sm text-primary-foreground">
+            {veiculo.frota || veiculo.placa}
+          </span>
+          <span className="block text-[11px] text-primary-foreground/80">
+            {veiculo.tipo || veiculo.nome} {veiculo.placa && veiculo.placa !== veiculo.frota ? `· ${veiculo.placa}` : ""}
+          </span>
         </div>
-        <Button size="sm" onClick={() => editando ? salvarEdicao() : setEditando(true)} disabled={salvando} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1">
+        <Button
+          size="sm"
+          onClick={() => editando ? salvarEdicao() : setEditando(true)}
+          disabled={salvando}
+          className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1"
+        >
           {editando ? <><Save className="w-4 h-4" /> Salvar</> : <><Edit2 className="w-4 h-4" /> Editar</>}
         </Button>
       </header>
@@ -162,9 +199,7 @@ export default function GestaoFrotasVeiculo() {
         )}
 
         {/* Horímetro / Odômetro atual */}
-        <div className={`rdo-card flex items-center gap-4 ${
-          medidorAtual ? "border-l-4 border-l-primary" : "border-l-4 border-l-muted"
-        }`}>
+        <div className={`rdo-card flex items-center gap-4 ${medidorAtual ? "border-l-4 border-l-primary" : "border-l-4 border-l-muted"}`}>
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
             <Gauge className="w-5 h-5 text-primary" />
           </div>
@@ -192,84 +227,153 @@ export default function GestaoFrotasVeiculo() {
           </div>
         </div>
 
-        {/* Dados do veículo */}
+        {/* ── BLOCO 1: DADOS CADASTRAIS (somente leitura — gerenciado no Painel de Controle) */}
         <div className="rdo-card space-y-3">
-          <h3 className="font-display font-bold text-sm">Dados do Veículo</h3>
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-muted-foreground" />
+            <h3 className="font-display font-bold text-sm">Dados Cadastrais</h3>
+            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              Editar no Painel de Controle
+            </span>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "Código de Custo", field: "codigo_custo" },
-              { label: "Placa", field: "placa" },
-              { label: "Modelo", field: "modelo" },
-              { label: "Ano", field: "ano" },
-              { label: "Setor", field: "setor" },
-              { label: "Empresa", field: "locadora" },
-              { label: "Status", field: "status" },
-            ].map(({ label, field }) => (
-              <div key={field} className="space-y-1">
+              { label: "Código / Frota",    value: veiculo.frota || "—" },
+              { label: "Placa",             value: veiculo.placa || "—" },
+              { label: "Tipo",              value: veiculo.tipo || veiculo.nome || "—" },
+              { label: "Modelo / Nome",     value: veiculo.modelo_completo || veiculo.nome || "—" },
+              { label: "Condição",          value: condicaoLabel },
+              { label: "Empresa",           value: veiculo.empresa_proprietaria || veiculo.locadora || "—" },
+            ].map(({ label, value }) => (
+              <div key={label} className="space-y-0.5">
                 <span className="rdo-label">{label}</span>
-                {editando ? (
-                  <Input value={veiculo[field] || ""} onChange={e => setVeiculo((v: any) => ({ ...v, [field]: e.target.value }))} className="h-10 rounded-xl" />
-                ) : (
-                  <p className="text-sm font-medium">{veiculo[field] || "—"}</p>
-                )}
+                <p className="text-sm font-medium text-muted-foreground">{value}</p>
               </div>
             ))}
           </div>
-          {editando && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <span className="rdo-label">Condição</span>
-                <Select
-                  value={veiculo.condicao || (veiculo.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')}
-                  onValueChange={v => setVeiculo((prev: any) => ({ ...prev, condicao: v, categoria: v === 'TERCEIRO' ? 'locado' : 'proprio' }))}
-                >
-                  <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PROPRIO">Próprio (Fremix)</SelectItem>
-                    <SelectItem value="TERCEIRO">Terceiro (Locado/Alugado)</SelectItem>
-                  </SelectContent>
-                </Select>
+        </div>
+
+        {/* ── BLOCO 2: GESTÃO OPERACIONAL (editável pelo Gestão de Frotas) */}
+        <div className="rdo-card space-y-4">
+          <div className="flex items-center gap-2">
+            <Settings className="w-4 h-4 text-primary" />
+            <h3 className="font-display font-bold text-sm">Gestão Operacional</h3>
+            {editando && (
+              <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-semibold">
+                modo edição
+              </span>
+            )}
+          </div>
+
+          {/* Status */}
+          <div className="space-y-1.5">
+            <span className="rdo-label">Status do Equipamento</span>
+            {editando ? (
+              <Select
+                value={veiculo.status || "ativo"}
+                onValueChange={v => setVeiculo((prev: any) => ({
+                  ...prev,
+                  status: v,
+                  // Limpa motivo e previsão se saiu de manutenção
+                  motivo_manutencao: v !== "em_manutencao" ? "" : prev.motivo_manutencao,
+                  previsao_liberacao: v !== "em_manutencao" ? null : prev.previsao_liberacao,
+                }))}
+              >
+                <SelectTrigger className="h-10 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span style={{
+                  background: statusAtual.bg, color: statusAtual.cor,
+                  padding: "4px 12px", borderRadius: 20, fontSize: 13, fontWeight: 700,
+                }}>
+                  {statusAtual.label}
+                </span>
               </div>
+            )}
+          </div>
+
+          {/* Motivo e previsão — aparecem quando em manutenção */}
+          {(editando && (veiculo.status === "em_manutencao" || !veiculo.status)) || (!editando && (veiculo.motivo_manutencao || veiculo.previsao_liberacao)) ? (
+            <div className="space-y-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
               <div className="space-y-1.5">
                 <span className="rdo-label">🔧 Motivo de Manutenção</span>
-                <Input
-                  value={veiculo.motivo_manutencao || ""}
-                  onChange={e => setVeiculo((v: any) => ({ ...v, motivo_manutencao: e.target.value }))}
-                  placeholder="Ex: Troca de óleo, reparo elétrico..."
-                  className="h-10 rounded-xl"
-                />
+                {editando ? (
+                  <Input
+                    value={veiculo.motivo_manutencao || ""}
+                    onChange={e => setVeiculo((v: any) => ({ ...v, motivo_manutencao: e.target.value }))}
+                    placeholder="Ex: Troca de óleo, reparo elétrico..."
+                    className="h-10 rounded-xl"
+                  />
+                ) : (
+                  <p className="text-sm font-medium text-amber-800">{veiculo.motivo_manutencao || "—"}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <span className="rdo-label">📅 Previsão de Liberação</span>
-                <Input
-                  type="date"
-                  value={veiculo.previsao_liberacao || ""}
-                  onChange={e => setVeiculo((v: any) => ({ ...v, previsao_liberacao: e.target.value || null }))}
-                  className="h-10 rounded-xl"
-                />
+                {editando ? (
+                  <Input
+                    type="date"
+                    value={veiculo.previsao_liberacao || ""}
+                    onChange={e => setVeiculo((v: any) => ({ ...v, previsao_liberacao: e.target.value || null }))}
+                    className="h-10 rounded-xl"
+                  />
+                ) : (
+                  <p className="text-sm font-medium text-blue-700">
+                    {veiculo.previsao_liberacao ? fmtDate(veiculo.previsao_liberacao) : "—"}
+                  </p>
+                )}
               </div>
             </div>
-          )}
-          {/* Exibir motivo/previsão quando não está editando */}
-          {!editando && (veiculo.motivo_manutencao || veiculo.previsao_liberacao) && (
-            <div className="space-y-2 pt-1 border-t border-border">
-              {veiculo.motivo_manutencao && (
-                <div>
-                  <span className="rdo-label">🔧 Motivo de Manutenção</span>
-                  <p className="text-sm font-medium text-amber-700">{veiculo.motivo_manutencao}</p>
+          ) : null}
+
+          {/* Equipe / Setor */}
+          <div className="space-y-1.5">
+            <span className="rdo-label">Equipe / Setor</span>
+            {editando ? (
+              <Input
+                value={veiculo.setor || ""}
+                onChange={e => setVeiculo((v: any) => ({ ...v, setor: e.target.value }))}
+                placeholder="Ex: CBUQ01 - AELSON"
+                className="h-10 rounded-xl"
+              />
+            ) : (
+              <p className="text-sm font-medium">{veiculo.setor || "—"}</p>
+            )}
+          </div>
+
+          {/* Valor mensal (só para terceiros) */}
+          {(isTerceiro || editando) && (
+            <div className="space-y-1.5">
+              <span className="rdo-label">💰 Valor Mensal (locação)</span>
+              {editando ? (
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                  <Input
+                    type="number"
+                    value={veiculo.valor_mensal || ""}
+                    onChange={e => setVeiculo((v: any) => ({ ...v, valor_mensal: e.target.value ? Number(e.target.value) : null }))}
+                    placeholder="0,00"
+                    className="h-10 rounded-xl pl-9"
+                  />
                 </div>
-              )}
-              {veiculo.previsao_liberacao && (
-                <div>
-                  <span className="rdo-label">📅 Previsão de Liberação</span>
-                  <p className="text-sm font-medium text-blue-700">{veiculo.previsao_liberacao.split("-").reverse().join("/")}</p>
-                </div>
+              ) : (
+                <p className="text-sm font-medium text-orange-600 font-bold">
+                  {veiculo.valor_mensal > 0 ? `${formatBRL(veiculo.valor_mensal)}/mês` : "—"}
+                </p>
               )}
             </div>
           )}
         </div>
 
-        {/* Condutor atual + troca */}
+        {/* ── CONDUTOR ── */}
         <div className="rdo-card space-y-3">
           <h3 className="font-display font-bold text-sm flex items-center gap-2">
             <UserCheck className="w-4 h-4 text-primary" /> Condutor
@@ -289,7 +393,7 @@ export default function GestaoFrotasVeiculo() {
           </div>
         </div>
 
-        {/* Documentos */}
+        {/* ── DOCUMENTOS ── */}
         <div className="rdo-card space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-sm flex items-center gap-2">
@@ -306,7 +410,7 @@ export default function GestaoFrotasVeiculo() {
                 <div key={i} className={`flex items-center justify-between p-2 rounded-xl border text-xs ${dias <= 0 ? "bg-red-50 border-red-200" : dias <= 30 ? "bg-orange-50 border-orange-200" : "bg-green-50 border-green-200"}`}>
                   <span className="font-semibold">{d.tipo_documento}</span>
                   <span className={dias <= 0 ? "text-red-600 font-bold" : dias <= 30 ? "text-orange-600 font-semibold" : "text-green-600"}>
-                    {d.data_vencimento ? (dias <= 0 ? "⛔ VENCIDO" : `${fmtDate(d.data_vencimento)}`) : "Sem vencimento"}
+                    {d.data_vencimento ? (dias <= 0 ? "⛔ VENCIDO" : fmtDate(d.data_vencimento)) : "Sem vencimento"}
                   </span>
                 </div>
               );
@@ -314,7 +418,7 @@ export default function GestaoFrotasVeiculo() {
           )}
         </div>
 
-        {/* Histórico de condutores */}
+        {/* ── HISTÓRICO DE CONDUTORES ── */}
         {historico.length > 0 && (
           <div className="rdo-card space-y-2">
             <h3 className="font-display font-bold text-sm flex items-center gap-2">
