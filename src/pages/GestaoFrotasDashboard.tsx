@@ -256,7 +256,7 @@ export default function GestaoFrotasDashboard() {
       );
     }
     return lista;
-  }, [todos, chipSel, modoVis, filtroStatus, busca]);
+  }, [todos, chipSel, subChipSel, modoVis, filtroStatus, busca]);
 
   const kpiSel = useMemo(() => {
     const t = listaFiltrada.filter(isTerceiro);
