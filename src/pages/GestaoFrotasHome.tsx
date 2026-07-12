@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Car, Truck, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, DollarSign } from "lucide-react";
+import { ArrowLeft, Plus, Car, Truck, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, DollarSign, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
@@ -323,6 +323,18 @@ export default function GestaoFrotasHome() {
               <div className="flex-1 text-left">
                 <p className="font-display font-bold text-sm">Dashboard por Equipe / Tipo</p>
                 <p className="text-xs text-muted-foreground">Visão detalhada com tabelas para apresentação</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+            </button>
+
+            {/* Dashboard de localização via RDO */}
+            <button onClick={() => navigate("/gestao-frotas/dashboard-rdo")} className="w-full rdo-card border-l-4 border-l-green-400 hover:shadow-md transition-all flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-5 h-5 text-green-500" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-display font-bold text-sm">Localização das Frotas (RDO)</p>
+                <p className="text-xs text-muted-foreground">Onde cada equipamento estava — via apontamento</p>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
             </button>
