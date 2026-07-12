@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useFuncoes } from "@/hooks/useFuncoes";
 import { useEmpresasParceiras } from "@/hooks/useEmpresasParceiras";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -435,6 +436,30 @@ function FornecedoresManager() {
 }
 
 // Machines manager
+// ─── Componente de Select de Tipo alimentado pelo banco ───────────────────────
+function TipoSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { categorias, loading } = useEquipamentoTipos();
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={loading}
+      className="h-11 w-full px-3 bg-secondary border border-border rounded-md text-sm"
+    >
+      <option value="">{loading ? "Carregando..." : "Selecione o tipo..."}</option>
+      {categorias.map(cat => (
+        <optgroup key={cat.key} label={cat.label}>
+          {cat.tipos.map(t => (
+            <option key={t.subtipo} value={t.tipoValor}>
+              {t.icone ? `${t.icone} ${t.label}` : t.label}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
 function MaquinasManager() {
   const { items, loading, add, remove, update } = useCrudTable("equipamentos");
   const { toast } = useToast();
@@ -540,7 +565,7 @@ function MaquinasManager() {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Tipo</Label>
-            <Input value={tipo} onChange={e => setTipo(e.target.value)} className="h-11 bg-secondary border-border" placeholder="FRESADORA" />
+            <TipoSelect value={tipo} onChange={setTipo} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Condição</Label>
@@ -624,7 +649,7 @@ function MaquinasManager() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1"><Label className="text-xs text-muted-foreground">Frota *</Label><Input value={editFrota} onChange={e => setEditFrota(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
                   <div className="space-y-1"><Label className="text-xs text-muted-foreground">Nome/Modelo *</Label><Input value={editNome} onChange={e => setEditNome(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
-                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Tipo</Label><Input value={editTipo} onChange={e => setEditTipo(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Tipo</Label><TipoSelect value={editTipo} onChange={setEditTipo} /></div>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Condição</Label>
                     <Select value={editCondicao} onValueChange={v => { setEditCondicao(v); if (v === "PROPRIO") setEditEmpresa("PRÓPRIO"); }}>

@@ -1,32 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Car, Truck, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, DollarSign, MapPin } from "lucide-react";
+import { ArrowLeft, Plus, Car, Truck, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useEquipamentoTipos, EquipCategoria } from "@/hooks/useEquipamentoTipos";
 
-interface Veiculo {
-  id: string;
-  frota: string;       // código da frota (CM001, FRS01 etc)
-  placa: string;
-  nome: string;        // nome curto
-  modelo_completo: string; // descrição completa
-  ano: string;
-  setor: string;
-  condutor_atual: string;
-  tipo_veiculo: string;
-  categoria: string;
-  locadora: string;
-  empresa_proprietaria: string;
-  status: string;
-  observacoes: string;
-  valor_mensal: number;
-  condicao?: string;
-  tipo: string;
+// Categorias que agrupam múltiplos tipos (exibem subtipo ao clicar)
+const CATEGORIAS_GRUPO = ["CAMINHOES", "CARRETAS", "VEICULOS"];
+
+// Ícone por categoria
+function iconePorCategoria(cat: string): any {
+  if (cat === "CAMINHOES" || cat === "CARRETAS") return Truck;
+  if (cat === "VEICULOS") return Car;
+  return Wrench;
+}
+
+function formatBRL(v: number) {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function fmtDate(d: string) {
@@ -35,82 +30,19 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
-interface DocVencendo {
-  equipment_fleet: string;
-  tipo_documento: string;
-  data_vencimento: string;
-  dias_restantes: number;
-}
-
-interface MedidorInfo {
-  valor: number;
-  tipo: "horímetro" | "odômetro";
-  data: string;
-}
-
-// Tipos principais e seus subtipos
-// Mapeamento do campo `tipo` do banco para ícone e grupo
-const TIPO_ICONE: Record<string, any> = {
-  "FRESADORA": Wrench, "BOBCAT": Wrench, "RETROESCAVADEIRA": Wrench,
-  "ROLO CHAPA": Wrench, "ROLO PNEU": Wrench, "ROLO PÉ DE CARNEIRO": Wrench,
-  "VIBRO ACABADORA": Wrench, "USINA MÓVEL": Wrench, "COMPRESSOR": Wrench,
-  "GERADOR": Wrench, "SERRA CLIPER": Wrench, "ROMPEDOR ELÉTRICO": Wrench,
-  "ROMPEDOR PNEUMATICO": Wrench, "PLACA VIBRATÓRIA": Wrench,
-  "MISTURADOR DE ARGAMASSA": Wrench, "PA CARREGADEIRA": Wrench,
-  "CAMINHÃO BASCULANTE": Truck, "CAMINHÃO CARROCERIA": Truck,
-  "CAMINHÃO COMBOIO": Truck, "CAMINHÃO ESPARGIDOR": Truck,
-  "CAMINHÃO PIPA": Truck, "CAMINHÃO PLATAFORMA": Truck,
-  "CARRETA CM": Truck, "CAVALO MECANICO": Truck,
-  "VAN": Car, "MICROONIBUS": Car,
-};
-
-// Grupos agrupados (caminhões, carretas, vans) — o resto vira categoria própria
-const GRUPOS_AGRUPADOS: Record<string, { label: string; icon: any; tipos: string[] }> = {
-  caminhao: {
-    label: "Caminhões",
-    icon: Truck,
-    tipos: ["CAMINHÃO BASCULANTE", "CAMINHÃO CARROCERIA", "CAMINHÃO COMBOIO",
-            "CAMINHÃO ESPARGIDOR", "CAMINHÃO PIPA", "CAMINHÃO PLATAFORMA"],
-  },
-  carreta: {
-    label: "Carretas",
-    icon: Truck,
-    tipos: ["CARRETA CM", "CAVALO MECANICO"],
-  },
-  van: {
-    label: "Vans / Micro-ônibus",
-    icon: Car,
-    tipos: ["VAN", "MICROONIBUS"],
-  },
-};
-
-// Tipos que ficam individualmente (não entram em grupo)
-const TIPOS_INDIVIDUAIS = [
-  "FRESADORA", "BOBCAT", "RETROESCAVADEIRA",
-  "ROLO CHAPA", "ROLO PNEU", "ROLO PÉ DE CARNEIRO",
-  "VIBRO ACABADORA", "USINA MÓVEL", "COMPRESSOR",
-  "GERADOR", "SERRA CLIPER", "ROMPEDOR ELÉTRICO",
-  "ROMPEDOR PNEUMATICO", "PLACA VIBRATÓRIA",
-  "MISTURADOR DE ARGAMASSA", "PA CARREGADEIRA",
-  "BANHEIRO QUÍMICO", "CARRETINHA BANHEIRO",
-];
-
-function formatBRL(v: number) {
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
 export default function GestaoFrotasHome() {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
-  const [todos, setTodos] = useState<Veiculo[]>([]);
+  const { categorias, loading: loadingTipos } = useEquipamentoTipos();
+  const [todos, setTodos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [medidoresMap, setMedidoresMap] = useState<Record<string, MedidorInfo>>({});
+  const [medidoresMap, setMedidoresMap] = useState<Record<string, any>>({});
   const [aba, setAba] = useState<"frotas" | "documentos" | "consumo">("frotas");
-  const [docsVencendo, setDocsVencendo] = useState<DocVencendo[]>([]);
+  const [docsVencendo, setDocsVencendo] = useState<any[]>([]);
 
-  // Cascata
-  const [step, setStep] = useState<"tipo" | "subtipo" | "lista" | "dashboard">("tipo");
-  const [tipoSel, setTipoSel] = useState("");
+  // Cascata: categoria → subtipo → lista
+  const [step, setStep] = useState<"tipo" | "subtipo" | "lista">("tipo");
+  const [catSel, setCatSel] = useState<EquipCategoria | null>(null);
   const [subtipoSel, setSubtipoSel] = useState("");
   const [busca, setBusca] = useState("");
 
@@ -138,134 +70,73 @@ export default function GestaoFrotasHome() {
     const { data } = await (supabase as any).from("equipamentos").select("*").eq("status", "ativo").order("tipo,frota");
     if (data) {
       setTodos(data);
-      // Buscar últimos horímetros/odômetros dos diários em paralelo
       buscarMedidores(data);
     }
     setLoading(false);
   }
 
-  async function buscarMedidores(veiculos: Veiculo[]) {
+  async function buscarMedidores(veiculos: any[]) {
     if (!veiculos.length) return;
-    // Busca sem filtro por frota para evitar limite de URL do Supabase com 140+ frotas
-    // Filtra no JS depois
-    const frotasSet = new Set(veiculos.map(v => v.frota || v.placa).filter(Boolean));
+    const frotasSet = new Set(veiculos.map((v: any) => v.frota || v.placa).filter(Boolean));
     const [{ data: diarios }, { data: abastecs }] = await Promise.all([
-      (supabase as any)
-        .from("equipment_diaries")
-        .select("equipment_fleet,equipment_type,meter_final,odometer_final,date")
-        .order("date", { ascending: false })
-        .limit(3000),
-      (supabase as any)
-        .from("abastecimentos")
-        .select("equipment_fleet,horimetro,km_odometro,data")
-        .order("data", { ascending: false })
-        .limit(3000),
+      (supabase as any).from("equipment_diaries").select("equipment_fleet,equipment_type,meter_final,odometer_final,date").order("date", { ascending: false }).limit(3000),
+      (supabase as any).from("abastecimentos").select("equipment_fleet,horimetro,km_odometro,data").order("data", { ascending: false }).limit(3000),
     ]);
-
-    const map: Record<string, MedidorInfo> = {};
-
-    // Processar diários — pega o mais recente por frota
+    const map: Record<string, any> = {};
     (diarios || []).forEach((d: any) => {
       const frota = d.equipment_fleet;
       if (!frota || !frotasSet.has(frota)) return;
       const usaOdometro = ["Carreta", "Caminhões", "Veículo", "Comboio"].includes(d.equipment_type || "");
       const valor = usaOdometro ? d.odometer_final : d.meter_final;
       if (valor == null) return;
-      if (!map[frota] || d.date > map[frota].data) {
-        map[frota] = { valor: Number(valor), tipo: usaOdometro ? "odômetro" : "horímetro", data: d.date };
-      }
+      if (!map[frota] || d.date > map[frota].data) map[frota] = { valor: Number(valor), tipo: usaOdometro ? "odômetro" : "horímetro", data: d.date };
     });
-
-    // Processar abastecimentos — substitui se mais recente
     (abastecs || []).forEach((a: any) => {
       const frota = a.equipment_fleet;
       if (!frota || !frotasSet.has(frota)) return;
       const temKm = a.km_odometro != null;
       const valor = temKm ? a.km_odometro : a.horimetro;
       if (valor == null) return;
-      if (!map[frota] || a.data > map[frota].data) {
-        map[frota] = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro", data: a.data };
-      }
+      if (!map[frota] || a.data > map[frota].data) map[frota] = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro", data: a.data };
     });
-
     setMedidoresMap(map);
   }
 
-  // Resolve o rótulo do tipoSel atual
-  const tipoSelLabel = GRUPOS_AGRUPADOS[tipoSel]?.label ?? tipoSel;
-
-  // Verifica se tipoSel é um grupo agrupado
-  const isGrupo = !!GRUPOS_AGRUPADOS[tipoSel];
+  const isGrupo = catSel ? CATEGORIAS_GRUPO.includes(catSel.key) : false;
 
   function voltar() {
     if (step === "lista") {
       if (isGrupo) { setStep("subtipo"); setBusca(""); }
-      else { setStep("tipo"); setTipoSel(""); setBusca(""); }
-    } else if (step === "subtipo") { setStep("tipo"); setTipoSel(""); }
-    else if (step === "dashboard") setStep("tipo");
+      else { setStep("tipo"); setCatSel(null); setBusca(""); }
+    } else if (step === "subtipo") { setStep("tipo"); setCatSel(null); }
   }
 
-  // Filtrar veículos para a lista atual
-  const listaFiltrada = todos.filter(v => {
-    const tipoEquip = (v.tipo || "").toUpperCase();
-    // Se for grupo agrupado, filtra pelo subtipo selecionado ou todos do grupo
-    if (isGrupo) {
-      const tiposDoGrupo = GRUPOS_AGRUPADOS[tipoSel].tipos.map(t => t.toUpperCase());
-      if (!tiposDoGrupo.includes(tipoEquip)) return false;
+  // Lista de equipamentos filtrada
+  const listaFiltrada = useMemo(() => {
+    if (!catSel) return [];
+    return todos.filter(v => {
+      const tipoEquip = (v.tipo || "").toUpperCase();
+      const tiposNaCat = catSel.tipos.map(t => t.tipoValor.toUpperCase());
+      if (!tiposNaCat.includes(tipoEquip)) return false;
       if (subtipoSel && tipoEquip !== subtipoSel.toUpperCase()) return false;
-    } else if (tipoSel === "__outros") {
-      // "Outros" = tipos que não estão em nenhum grupo nem na lista de individuais
-      const tiposNoGrupo = Object.values(GRUPOS_AGRUPADOS).flatMap(g => g.tipos.map(t => t.toUpperCase()));
-      const tiposConhecidos = [...tiposNoGrupo, ...TIPOS_INDIVIDUAIS.map(t => t.toUpperCase())];
-      if (tiposConhecidos.includes(tipoEquip)) return false;
-    } else {
-      // Tipo individual — filtra direto pelo campo tipo
-      if (tipoEquip !== tipoSel.toUpperCase()) return false;
-    }
-    if (busca) {
-      const b = busca.toLowerCase();
-      return [v.placa, v.frota, v.nome, v.modelo_completo, v.condutor_atual, v.setor, v.locadora, v.empresa_proprietaria].some(f => f?.toLowerCase().includes(b));
-    }
-    return true;
-  });
-
-  // Monta lista de categorias dinâmicas a partir dos dados reais
-  const categoriasDinamicas = (() => {
-    const tiposNoGrupo = Object.values(GRUPOS_AGRUPADOS).flatMap(g => g.tipos.map(t => t.toUpperCase()));
-    const result: { key: string; label: string; icon: any; count: number; isGrupo: boolean }[] = [];
-
-    // Grupos agrupados
-    Object.entries(GRUPOS_AGRUPADOS).forEach(([key, cfg]) => {
-      const count = todos.filter(v => cfg.tipos.map(t => t.toUpperCase()).includes((v.tipo || "").toUpperCase())).length;
-      if (count > 0) result.push({ key, label: cfg.label, icon: cfg.icon, count, isGrupo: true });
+      if (busca) {
+        const b = busca.toLowerCase();
+        return [v.placa, v.frota, v.nome, v.modelo_completo, v.condutor_atual, v.setor, v.locadora, v.empresa_proprietaria].some((f: any) => f?.toLowerCase().includes(b));
+      }
+      return true;
     });
+  }, [todos, catSel, subtipoSel, busca]);
 
-    // Tipos individuais
-    TIPOS_INDIVIDUAIS.forEach(tipo => {
-      const count = todos.filter(v => (v.tipo || "").toUpperCase() === tipo.toUpperCase()).length;
-      if (count > 0) result.push({ key: tipo, label: tipo.charAt(0) + tipo.slice(1).toLowerCase(), icon: TIPO_ICONE[tipo] || Wrench, count, isGrupo: false });
-    });
+  // Categorias com contagem real
+  const categoriasComCount = useMemo(() => {
+    return categorias.map(cat => {
+      const tiposNaCat = cat.tipos.map(t => t.tipoValor.toUpperCase());
+      const count = todos.filter(v => tiposNaCat.includes((v.tipo || "").toUpperCase())).length;
+      return { ...cat, count };
+    }).filter(c => c.count > 0);
+  }, [categorias, todos]);
 
-    // Outros (não catalogados)
-    const outrosCount = todos.filter(v => {
-      const t = (v.tipo || "").toUpperCase();
-      return !tiposNoGrupo.includes(t) && !TIPOS_INDIVIDUAIS.map(x => x.toUpperCase()).includes(t);
-    }).length;
-    if (outrosCount > 0) result.push({ key: "__outros", label: "Outros", icon: Wrench, count: outrosCount, isGrupo: false });
-
-    return result;
-  })();
-
-  // Dashboard de custos
-  const terceiros = todos.filter(v => v.categoria === "locado" && v.valor_mensal > 0);
-  const totalMensal = terceiros.reduce((s, v) => s + (v.valor_mensal || 0), 0);
-  const porTipo = Object.entries(
-    terceiros.reduce<Record<string, number>>((acc, v) => {
-      const t = (v.tipo || v.tipo_veiculo || "Outros");
-      acc[t] = (acc[t] || 0) + (v.valor_mensal || 0);
-      return acc;
-    }, {})
-  ).sort((a, b) => b[1] - a[1]);
+  const catSelLabel = catSel?.label ?? "";
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -277,9 +148,8 @@ export default function GestaoFrotasHome() {
           <span className="block font-display font-extrabold text-sm text-primary-foreground">WF Gestão de Frotas</span>
           <span className="block text-[11px] text-primary-foreground/80">
             {step === "tipo" && `${todos.length} equipamentos cadastrados`}
-            {step === "subtipo" && tipoSelLabel}
-            {step === "lista" && `${subtipoSel || tipoSelLabel} — ${listaFiltrada.length} itens`}
-            {step === "dashboard" && "Custos com Terceiros"}
+            {step === "subtipo" && catSelLabel}
+            {step === "lista" && `${subtipoSel || catSelLabel} — ${listaFiltrada.length} itens`}
           </span>
         </div>
       </header>
@@ -345,14 +215,17 @@ export default function GestaoFrotasHome() {
             </button>
 
             <p className="text-xs text-muted-foreground font-semibold px-1 pt-2">Selecione o tipo de equipamento:</p>
-            {categoriasDinamicas.map(cat => {
-              const Icon = cat.icon;
+            {(loading || loadingTipos) ? (
+              <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
+            ) : categoriasComCount.map(cat => {
+              const Icon = iconePorCategoria(cat.key);
+              const ehGrupo = CATEGORIAS_GRUPO.includes(cat.key);
               return (
                 <button key={cat.key} onClick={() => {
-                  setTipoSel(cat.key);
-                  setSubtipoSel(""); // limpa subtipo anterior
+                  setCatSel(cat);
+                  setSubtipoSel("");
                   setBusca("");
-                  if (cat.isGrupo) setStep("subtipo");
+                  if (ehGrupo) setStep("subtipo");
                   else setStep("lista");
                 }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -369,32 +242,32 @@ export default function GestaoFrotasHome() {
           </>
         )}
 
-        {/* PASSO 2: Subtipo (apenas para grupos agrupados: Caminhões, Carretas, Vans) */}
-        {step === "subtipo" && tipoSel && isGrupo && (
+        {/* PASSO 2: Subtipo (apenas para categorias agrupadas: Caminhões, Carretas, Veículos) */}
+        {step === "subtipo" && catSel && isGrupo && (
           <>
-            <p className="text-xs text-muted-foreground font-semibold px-1">Selecione o tipo de {tipoSelLabel}:</p>
+            <p className="text-xs text-muted-foreground font-semibold px-1">Selecione o tipo de {catSelLabel}:</p>
             {/* Ver todos do grupo */}
             <button onClick={() => { setSubtipoSel(""); setStep("lista"); }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">📋</div>
               <div className="flex-1 text-left">
                 <p className="font-display font-bold text-sm">Todos</p>
                 <p className="text-xs text-muted-foreground">
-                  {todos.filter(v => GRUPOS_AGRUPADOS[tipoSel].tipos.map(t => t.toUpperCase()).includes((v.tipo || "").toUpperCase())).length} equipamentos
+                  {todos.filter(v => catSel.tipos.map(t => t.tipoValor.toUpperCase()).includes((v.tipo || "").toUpperCase())).length} equipamentos
                 </p>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
             </button>
-            {GRUPOS_AGRUPADOS[tipoSel].tipos.map(sub => {
-              const count = todos.filter(v => (v.tipo || "").toUpperCase() === sub.toUpperCase()).length;
+            {catSel.tipos.map(sub => {
+              const count = todos.filter(v => (v.tipo || "").toUpperCase() === sub.tipoValor.toUpperCase()).length;
               if (count === 0) return null;
-              const Icon = TIPO_ICONE[sub] || Truck;
+              const Icon = iconePorCategoria(catSel.key);
               return (
-                <button key={sub} onClick={() => { setSubtipoSel(sub); setStep("lista"); }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
+                <button key={sub.subtipo} onClick={() => { setSubtipoSel(sub.tipoValor); setStep("lista"); }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-5 h-5 text-primary" />
+                    {sub.icone ? <span className="text-lg">{sub.icone}</span> : <Icon className="w-5 h-5 text-primary" />}
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="font-display font-bold text-sm">{sub.charAt(0) + sub.slice(1).toLowerCase()}</p>
+                    <p className="font-display font-bold text-sm">{sub.label}</p>
                     <p className="text-xs text-muted-foreground">{count} equipamento{count !== 1 ? "s" : ""}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
