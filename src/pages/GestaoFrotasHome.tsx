@@ -339,18 +339,6 @@ export default function GestaoFrotasHome() {
               <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
             </button>
 
-        {/* Dashboard de custos */}
-            <button onClick={() => setStep("dashboard")} className="w-full rdo-card border-l-4 border-l-orange-400 hover:shadow-md transition-all flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
-                <DollarSign className="w-5 h-5 text-orange-500" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-display font-bold text-sm">Dashboard de Custos</p>
-                <p className="text-xs text-muted-foreground">Total terceiros: <strong className="text-orange-600">{formatBRL(totalMensal)}/mês</strong></p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            </button>
-
             <p className="text-xs text-muted-foreground font-semibold px-1 pt-2">Selecione o tipo de equipamento:</p>
             {categoriasDinamicas.map(cat => {
               const Icon = cat.icon;
@@ -469,65 +457,6 @@ export default function GestaoFrotasHome() {
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
               </button>
             ))}
-          </>
-        )}
-
-        {/* DASHBOARD DE CUSTOS */}
-        {step === "dashboard" && (
-          <>
-            <div className="rdo-card border-l-4 border-l-orange-400 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Total Mensal com Terceiros</p>
-              <p className="text-3xl font-display font-black text-orange-600">{formatBRL(totalMensal)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{terceiros.length} equipamentos terceirizados</p>
-            </div>
-
-            <div className="rdo-card space-y-2">
-              <h3 className="font-display font-bold text-sm flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-primary" /> Por Tipo de Equipamento
-              </h3>
-              {porTipo.map(([tipo, valor]) => {
-                const pct = Math.round((valor / totalMensal) * 100);
-                return (
-                  <div key={tipo} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium">{tipo}</span>
-                      <span className="font-bold text-orange-600">{formatBRL(valor)}</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-primary to-orange-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground text-right">{pct}% do total</p>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="rdo-card space-y-2">
-              <h3 className="font-display font-bold text-sm">Por Fornecedor/Locadora</h3>
-              {Object.entries(
-                terceiros.reduce<Record<string, number>>((acc, v) => {
-                  const loc = v.locadora || "Sem locadora";
-                  acc[loc] = (acc[loc] || 0) + (v.valor_mensal || 0);
-                  return acc;
-                }, {})
-              ).sort((a, b) => b[1] - a[1]).map(([loc, val]) => (
-                <div key={loc} className="flex items-center justify-between text-sm border-b border-border pb-1.5 last:border-0">
-                  <span className="text-muted-foreground">{loc}</span>
-                  <span className="font-bold text-orange-600">{formatBRL(val)}/mês</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-center text-xs">
-              <div className="rdo-card">
-                <p className="text-lg font-display font-bold text-orange-600">{formatBRL(totalMensal * 12)}</p>
-                <p className="text-muted-foreground">Custo Anual</p>
-              </div>
-              <div className="rdo-card">
-                <p className="text-lg font-display font-bold text-primary">{todos.filter(v => (v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'PROPRIO').length}</p>
-                <p className="text-muted-foreground">Próprios</p>
-              </div>
-            </div>
           </>
         )}
       </div>
