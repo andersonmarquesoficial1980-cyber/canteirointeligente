@@ -17,6 +17,15 @@ interface RdoRow {
   condicao: string | null;
 }
 
+interface EquipSemRdo {
+  frota: string;
+  tipo: string;
+  setor: string | null;
+  empresa: string | null;
+  condicao: string | null;
+  status: string | null;
+}
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function fmtDate(d: string) {
   if (!d) return "—";
@@ -229,6 +238,7 @@ export default function GestaoFrotasDashboardRdo() {
 
   // Snapshot vs período completo
   const [modoSnapshot, setModoSnapshot] = useState(true);
+  const [mostraSemRdo, setMostraSemRdo] = useState(false);
 
   // Sidebar
   const [modoVis, setModoVis] = useState<ModoVis>("tipo");
@@ -240,6 +250,7 @@ export default function GestaoFrotasDashboardRdo() {
 
   // Dados
   const [allRows, setAllRows] = useState<RdoRow[]>([]);
+  const [equipSemRdo, setEquipSemRdo] = useState<EquipSemRdo[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastFetch, setLastFetch] = useState("");
 
@@ -328,6 +339,28 @@ export default function GestaoFrotasDashboardRdo() {
 
       setAllRows(rows);
       setLastFetch(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+
+      // ── SEM APONTAMENTO: equipamentos ativos que NÃO aparecem em nenhum RDO do período ──
+      const frotasComRdo = new Set(rows.map(r => r.frota));
+      const { data: todosEquip } = await (supabase as any)
+        .from("equipamentos")
+        .select("frota, tipo, setor, empresa_proprietaria, condicao, status")
+        .eq("status", "ativo")
+        .not("frota", "is", null);
+
+      const semRdo: EquipSemRdo[] = (todosEquip || [])
+        .filter((e: any) => e.frota && !frotasComRdo.has(e.frota))
+        .map((e: any) => ({
+          frota: e.frota,
+          tipo: e.tipo || "—",
+          setor: e.setor || null,
+          empresa: e.empresa_proprietaria || null,
+          condicao: e.condicao || null,
+          status: e.status || null,
+        }))
+        .sort((a: EquipSemRdo, b: EquipSemRdo) => (a.tipo || "").localeCompare(b.tipo || "") || (a.frota || "").localeCompare(b.frota || ""));
+
+      setEquipSemRdo(semRdo);
     } catch (err) {
       console.error(err);
     } finally {
@@ -544,13 +577,13 @@ export default function GestaoFrotasDashboardRdo() {
               {modoVis === "tipo" ? "Tipo" : "Equipe"}
             </p>
 
-            <SideChip label="Todos" count={baseRows.length} ativo={chipSel === "todos"} onClick={() => { setChipSel("todos"); setSubChipSel("todos"); }} />
+            <SideChip label="Todos" count={baseRows.length} ativo={chipSel === "todos" && !mostraSemRdo} onClick={() => { setChipSel("todos"); setSubChipSel("todos"); setMostraSemRdo(false); }} />
 
             {chips.map(c => (
               <div key={c.key}>
                 <SideChip
                   label={c.label} count={c.count} ativo={chipSel === c.key && subChipSel === "todos"}
-                  onClick={() => { setChipSel(c.key); setSubChipSel("todos"); }}
+                  onClick={() => { setChipSel(c.key); setSubChipSel("todos"); setMostraSemRdo(false); }}
                 />
                 {/* Subchips para grupos de caminhão */}
                 {modoVis === "tipo" && chipSel === c.key && (() => {
@@ -580,6 +613,37 @@ export default function GestaoFrotasDashboardRdo() {
             ))}
           </div>
 
+          {/* Botão Sem Apontamento */}
+          {equipSemRdo.length > 0 && (
+            <div style={{ padding: "8px 8px 0" }}>
+              <button onClick={() => { setMostraSemRdo(true); setChipSel("todos"); setSubChipSel("todos"); }}
+                style={{
+                  width: "100%", padding: "9px 10px", borderRadius: 9,
+                  background: mostraSemRdo ? "#b91c1c" : "rgba(239,68,68,0.12)",
+                  border: mostraSemRdo ? "none" : "1px solid rgba(239,68,68,0.25)",
+                  cursor: "pointer", textAlign: "left",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  boxShadow: mostraSemRdo ? "0 2px 10px rgba(185,28,28,0.4)" : "none",
+                  transition: "all 0.12s",
+                }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: mostraSemRdo ? "white" : "#fca5a5" }}>
+                  ⚠️ Sem Apontamento
+                </span>
+                <span style={{
+                  fontSize: 11, fontWeight: 800,
+                  background: mostraSemRdo ? "rgba(255,255,255,0.2)" : "rgba(239,68,68,0.25)",
+                  color: mostraSemRdo ? "white" : "#fca5a5",
+                  borderRadius: 20, padding: "1px 7px",
+                }}>
+                  {equipSemRdo.length}
+                </span>
+              </button>
+              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: 4, paddingLeft: 4, lineHeight: 1.4 }}>
+                Ativos sem RDO no período
+              </p>
+            </div>
+          )}
+
           {/* Legenda */}
           <div style={{ padding: "12px 12px 16px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
             <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginBottom: 6, fontWeight: 700, textTransform: "uppercase" }}>Modo</p>
@@ -597,14 +661,16 @@ export default function GestaoFrotasDashboardRdo() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
             <div>
               <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 18, color: "#0A0F2C", margin: 0 }}>
-                {chipLabel}
+                {mostraSemRdo ? "⚠️ Sem Apontamento no Período" : chipLabel}
               </h2>
               <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
                 {fmtDate(dataIni)} a {fmtDate(dataFim)}
                 {" · "}
-                {modoSnapshot
-                  ? `${listaFiltrada.length} frota${listaFiltrada.length !== 1 ? "s" : ""} (última posição)`
-                  : `${listaFiltrada.length} registro${listaFiltrada.length !== 1 ? "s" : ""}`}
+                {mostraSemRdo
+                  ? `${equipSemRdo.length} equipamento${equipSemRdo.length !== 1 ? "s" : ""} ativos sem RDO`
+                  : modoSnapshot
+                    ? `${listaFiltrada.length} frota${listaFiltrada.length !== 1 ? "s" : ""} (última posição)`
+                    : `${listaFiltrada.length} registro${listaFiltrada.length !== 1 ? "s" : ""}`}
               </p>
             </div>
           </div>
@@ -629,6 +695,55 @@ export default function GestaoFrotasDashboardRdo() {
             <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af" }}>
               <RefreshCw size={24} style={{ animation: "spin 1s linear infinite", display: "inline-block" }} />
               <p style={{ marginTop: 12, fontSize: 14 }}>Carregando dados do RDO...</p>
+            </div>
+          ) : mostraSemRdo ? (
+            /* ── TABELA SEM APONTAMENTO ── */
+            <div style={{ background: "white", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+              {/* Aviso */}
+              <div style={{ background: "#fef2f2", borderBottom: "2px solid #fecaca", padding: "12px 16px" }}>
+                <p style={{ fontSize: 12, color: "#991b1b", fontWeight: 600 }}>
+                  ⚠️ Estes equipamentos estão cadastrados como <strong>ativos</strong> mas não tiveram nenhum apontamento via RDO no período selecionado ({fmtDate(dataIni)} a {fmtDate(dataFim)}).
+                </p>
+              </div>
+              {/* Header */}
+              <div style={{
+                display: "grid", gridTemplateColumns: "90px 180px 180px 150px 110px",
+                background: "#f1f5f9", borderBottom: "2px solid #e2e8f0",
+                padding: "9px 16px", gap: 8,
+              }}>
+                {["Frota", "Tipo", "Equipe / Setor", "Empresa", "Condição"].map(h => (
+                  <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</span>
+                ))}
+              </div>
+              {/* Linhas */}
+              {equipSemRdo.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 0", color: "#9ca3af", fontSize: 14 }}>
+                  Todos os equipamentos ativos tiveram apontamento no período! 🎉
+                </div>
+              ) : equipSemRdo.map((e, i) => (
+                <div key={`${e.frota}-${i}`} style={{
+                  display: "grid", gridTemplateColumns: "90px 180px 180px 150px 110px",
+                  padding: "10px 16px", gap: 8,
+                  borderBottom: "1px solid #f8fafc",
+                  background: i % 2 === 0 ? "white" : "#fafbfc",
+                  borderLeft: "4px solid #fca5a5",
+                }}>
+                  <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 13, color: "#0A0F2C", alignSelf: "center" }}>
+                    {e.frota}
+                  </span>
+                  <span style={{ fontSize: 11, color: "#374151", fontWeight: 600, alignSelf: "center" }}>{e.tipo}</span>
+                  <span style={{ fontSize: 12, color: "#1e3a5f", fontWeight: 600, alignSelf: "center" }}>{e.setor || "—"}</span>
+                  <span style={{ fontSize: 12, color: "#374151", alignSelf: "center" }}>{e.empresa || "—"}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, alignSelf: "center",
+                    color: (e.condicao || "").toUpperCase() === "TERCEIRO" ? "#1d4ed8" : "#166534",
+                    background: (e.condicao || "").toUpperCase() === "TERCEIRO" ? "#eff6ff" : "#f0fdf4",
+                    padding: "3px 10px", borderRadius: 20, display: "inline-block",
+                  }}>
+                    {(e.condicao || "").toUpperCase() === "TERCEIRO" ? "Terceiro" : "Próprio"}
+                  </span>
+                </div>
+              ))}
             </div>
           ) : (
             <TabelaRdo rows={listaFiltrada} modoSnapshot={modoSnapshot} />
