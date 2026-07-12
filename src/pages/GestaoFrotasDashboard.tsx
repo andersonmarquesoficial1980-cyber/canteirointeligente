@@ -80,7 +80,7 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
       {/* Header */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "88px 140px 1fr 140px 90px 110px 110px",
+        gridTemplateColumns: "88px 160px 180px 140px 110px 110px 110px",
         background: "#f1f5f9", borderBottom: "2px solid #e2e8f0",
         padding: "9px 16px", gap: 8,
       }}>
@@ -100,7 +100,7 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
         return (
           <div key={e.id} style={{
             display: "grid",
-            gridTemplateColumns: "88px 140px 1fr 140px 90px 110px 110px",
+            gridTemplateColumns: "88px 160px 180px 140px 110px 110px 110px",
             padding: "10px 16px", gap: 8,
             borderBottom: "1px solid #f8fafc",
             background: isManut ? "#fffbeb" : (i % 2 === 0 ? "white" : "#fafbfc"),
@@ -177,6 +177,7 @@ export default function GestaoFrotasDashboard() {
 
   const [modoVis, setModoVis] = useState<"tipo" | "equipe">("tipo");
   const [chipSel, setChipSel] = useState<string>("todos");
+  const [subChipSel, setSubChipSel] = useState<string>("todos"); // subtipo dentro do grupo
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "operacional" | "manutencao" | "terceiro">("todos");
   const [busca, setBusca] = useState("");
 
@@ -231,8 +232,15 @@ export default function GestaoFrotasDashboard() {
     if (chipSel !== "todos") {
       if (modoVis === "tipo") {
         const grupo = GRUPOS_CHIP.find(g => g.key === chipSel);
-        if (grupo) lista = lista.filter(e => grupo.tipos.some(t => t.toUpperCase() === (e.tipo || "").toUpperCase()));
-        else lista = lista.filter(e => (e.tipo || "").toUpperCase() === chipSel.toUpperCase());
+        if (grupo) {
+          if (subChipSel !== "todos") {
+            lista = lista.filter(e => (e.tipo || "").toUpperCase() === subChipSel.toUpperCase());
+          } else {
+            lista = lista.filter(e => grupo.tipos.some(t => t.toUpperCase() === (e.tipo || "").toUpperCase()));
+          }
+        } else {
+          lista = lista.filter(e => (e.tipo || "").toUpperCase() === chipSel.toUpperCase());
+        }
       } else {
         lista = lista.filter(e => e.setor === chipSel);
       }
@@ -265,6 +273,7 @@ export default function GestaoFrotasDashboard() {
   function trocarModo(m: "tipo" | "equipe") {
     setModoVis(m);
     setChipSel("todos");
+    setSubChipSel("todos");
     setBusca("");
     setFiltroStatus("todos");
   }
@@ -272,7 +281,9 @@ export default function GestaoFrotasDashboard() {
   // Label do chip atual
   const chipLabel = chipSel === "todos"
     ? (modoVis === "tipo" ? "Todos os Equipamentos" : "Todas as Equipes")
-    : (chips.find(c => c.key === chipSel)?.label ?? chipSel);
+    : subChipSel !== "todos"
+      ? subChipSel.charAt(0) + subChipSel.slice(1).toLowerCase()
+      : (chips.find(c => c.key === chipSel)?.label ?? chipSel);
 
   return (
     <div style={{ minHeight: "100vh", background: "#f0f4f8", fontFamily: "Inter, sans-serif", display: "flex", flexDirection: "column" }}>
@@ -355,27 +366,56 @@ export default function GestaoFrotasDashboard() {
             />
 
             {chips.map(c => (
-              <SideChip
-                key={c.key}
-                label={c.label}
-                count={c.count}
-                ativo={chipSel === c.key}
-                manut={
-                  modoVis === "tipo"
-                    ? (() => {
-                        const grupo = GRUPOS_CHIP.find(g => g.key === c.key);
-                        return todos.filter(e =>
-                          getStatusNorm(e) === "manutencao" && (
-                            grupo
-                              ? grupo.tipos.some(t => t.toUpperCase() === (e.tipo || "").toUpperCase())
-                              : (e.tipo || "").toUpperCase() === c.key.toUpperCase()
-                          )
-                        ).length;
-                      })()
-                    : todos.filter(e => e.setor === c.key && getStatusNorm(e) === "manutencao").length
-                }
-                onClick={() => setChipSel(c.key)}
-              />
+              <div key={c.key}>
+                <SideChip
+                  label={c.label}
+                  count={c.count}
+                  ativo={chipSel === c.key && subChipSel === "todos"}
+                  manut={
+                    modoVis === "tipo"
+                      ? (() => {
+                          const grupo = GRUPOS_CHIP.find(g => g.key === c.key);
+                          return todos.filter(e =>
+                            getStatusNorm(e) === "manutencao" && (
+                              grupo
+                                ? grupo.tipos.some(t => t.toUpperCase() === (e.tipo || "").toUpperCase())
+                                : (e.tipo || "").toUpperCase() === c.key.toUpperCase()
+                            )
+                          ).length;
+                        })()
+                      : todos.filter(e => e.setor === c.key && getStatusNorm(e) === "manutencao").length
+                  }
+                  onClick={() => { setChipSel(c.key); setSubChipSel("todos"); }}
+                />
+                {/* Subchips quando grupo está selecionado */}
+                {modoVis === "tipo" && chipSel === c.key && (() => {
+                  const grupo = GRUPOS_CHIP.find(g => g.key === c.key);
+                  if (!grupo) return null;
+                  const subtiposPresentes = grupo.tipos.filter(t =>
+                    todos.some(e => (e.tipo || "").toUpperCase() === t.toUpperCase())
+                  );
+                  if (subtiposPresentes.length <= 1) return null;
+                  return (
+                    <div style={{ paddingLeft: 10, marginBottom: 4 }}>
+                      {subtiposPresentes.map(sub => {
+                        const count = todos.filter(e => (e.tipo || "").toUpperCase() === sub.toUpperCase()).length;
+                        const manut = todos.filter(e => (e.tipo || "").toUpperCase() === sub.toUpperCase() && getStatusNorm(e) === "manutencao").length;
+                        const label = sub.replace("CAMINHÃO ", "").replace("CAMINHAO ", "");
+                        return (
+                          <SideChip
+                            key={sub}
+                            label={"↳ " + label.charAt(0) + label.slice(1).toLowerCase()}
+                            count={count}
+                            ativo={subChipSel === sub}
+                            manut={manut}
+                            onClick={() => setSubChipSel(sub)}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
             ))}
           </div>
 
