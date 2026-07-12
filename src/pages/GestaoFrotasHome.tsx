@@ -213,6 +213,11 @@ export default function GestaoFrotasHome() {
       const tiposDoGrupo = GRUPOS_AGRUPADOS[tipoSel].tipos.map(t => t.toUpperCase());
       if (!tiposDoGrupo.includes(tipoEquip)) return false;
       if (subtipoSel && tipoEquip !== subtipoSel.toUpperCase()) return false;
+    } else if (tipoSel === "__outros") {
+      // "Outros" = tipos que não estão em nenhum grupo nem na lista de individuais
+      const tiposNoGrupo = Object.values(GRUPOS_AGRUPADOS).flatMap(g => g.tipos.map(t => t.toUpperCase()));
+      const tiposConhecidos = [...tiposNoGrupo, ...TIPOS_INDIVIDUAIS.map(t => t.toUpperCase())];
+      if (tiposConhecidos.includes(tipoEquip)) return false;
     } else {
       // Tipo individual — filtra direto pelo campo tipo
       if (tipoEquip !== tipoSel.toUpperCase()) return false;
