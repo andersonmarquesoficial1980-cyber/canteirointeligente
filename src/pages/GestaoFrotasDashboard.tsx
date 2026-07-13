@@ -358,19 +358,100 @@ export default function GestaoFrotasDashboard() {
     const textos = formas.filter(f => f.tipo === "texto" && f.texto);
     const now = new Date();
     const dateStr = now.toLocaleDateString("pt-BR", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    let txt = "══════════════════════════════════════════\n  REUNIÃO SEMANAL DE FROTAS — WORKFLUX\n══════════════════════════════════════════\n";
-    txt += `Data     : ${dateStr}\nExportado: ${now.toLocaleTimeString("pt-BR")}\n\n`;
-    txt += `FILTRO   : ${chipLabel}\nTotal    : ${kpiSel.total} equipamento${kpiSel.total !== 1 ? "s" : ""}\n`;
-    if (kpiSel.manut > 0)     txt += `Manutenção: ${kpiSel.manut}\n`;
-    if (kpiSel.terceiros > 0) txt += `Terceiros : ${kpiSel.terceiros}\n`;
-    if (kpiSel.custo > 0)     txt += `Custo loc.: ${formatBRL(kpiSel.custo)}/mês\n`;
-    txt += "\n──────────────────────────────────────────\n";
-    txt += textos.length === 0 ? "Nenhuma anotação de texto registrada.\n"
-      : `ANOTAÇÕES (${textos.length}):\n──────────────────────────────────────────\n${textos.map(a => `[${a.ts ?? "--:--"}] ${a.texto}`).join("\n")}\n`;
-    txt += "\n══════════════════════════════════════════\n";
+    const hora    = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+    // Equipamentos em manutenção da lista atual
+    const emManut  = listaFiltrada.filter(e => getStatusNorm(e) === "manutencao");
+    const terceiros = listaFiltrada.filter(isTerceiro);
+
+    const sep  = "─".repeat(52);
+    const sep2 = "═".repeat(52);
+
+    let txt = "";
+    txt += sep2 + "\n";
+    txt += "  ATA DE REUNIÃO SEMANAL — GESTÃO DE FROTAS\n";
+    txt += "  Workflux · Fremix Pavimentação\n";
+    txt += sep2 + "\n\n";
+
+    txt += `Data      : ${dateStr}\n`;
+    txt += `Horário   : ${hora}\n`;
+    txt += `Gerado por: Dashboard de Frotas — Workflux\n\n`;
+
+    txt += sep + "\n";
+    txt += "1. ESCOPO DA REUNIÃO\n";
+    txt += sep + "\n";
+    txt += `Filtro ativo : ${chipLabel}\n`;
+    txt += `Total analisado : ${kpiSel.total} equipamento${kpiSel.total !== 1 ? "s" : ""}\n`;
+    txt += `Operacionais : ${kpiSel.total - kpiSel.manut - listaFiltrada.filter(e => getStatusNorm(e) === "disposicao").length}\n`;
+    if (kpiSel.manut > 0)      txt += `Em manutenção: ${kpiSel.manut}\n`;
+    if (kpiSel.terceiros > 0)  txt += `Locados (3º) : ${kpiSel.terceiros}\n`;
+    if (kpiSel.custo > 0)      txt += `Custo locação: ${formatBRL(kpiSel.custo)}/mês\n`;
+    txt += "\n";
+
+    if (emManut.length > 0) {
+      txt += sep + "\n";
+      txt += "2. EQUIPAMENTOS EM MANUTENÇÃO\n";
+      txt += sep + "\n";
+      emManut.forEach(e => {
+        txt += `• ${e.frota || e.placa || "—"} — ${e.tipo || "—"}`;
+        if (e.setor) txt += ` (${e.setor})`;
+        txt += "\n";
+        if (e.motivo_manutencao) txt += `  Motivo  : ${e.motivo_manutencao}\n`;
+        if (e.previsao_liberacao) txt += `  Previsão: ${fmtDate(e.previsao_liberacao)}\n`;
+      });
+      txt += "\n";
+    }
+
+    if (terceiros.length > 0) {
+      txt += sep + "\n";
+      txt += "3. EQUIPAMENTOS LOCADOS\n";
+      txt += sep + "\n";
+      // Agrupa por empresa
+      const porEmpresa: Record<string, typeof terceiros> = {};
+      terceiros.forEach(e => {
+        const emp = e.empresa_proprietaria || e.locadora || "Sem empresa";
+        if (!porEmpresa[emp]) porEmpresa[emp] = [];
+        porEmpresa[emp].push(e);
+      });
+      Object.entries(porEmpresa).sort((a, b) => a[0].localeCompare(b[0])).forEach(([emp, equips]) => {
+        const custoEmp = equips.reduce((s, e) => s + (e.valor_mensal || 0), 0);
+        txt += `\n  ${emp}${custoEmp > 0 ? ` — ${formatBRL(custoEmp)}/mês` : ""}:\n`;
+        equips.forEach(e => {
+          txt += `    • ${e.frota || e.placa || "—"} — ${e.tipo || "—"}`;
+          if (e.setor) txt += ` (${e.setor})`;
+          if (e.valor_mensal > 0) txt += ` · ${formatBRL(e.valor_mensal)}/mês`;
+          txt += "\n";
+        });
+      });
+      txt += `\n  Total locação: ${formatBRL(kpiSel.custo)}/mês\n\n`;
+    }
+
+    txt += sep + "\n";
+    txt += `${emManut.length > 0 || terceiros.length > 0 ? "4" : "2"}. ANOTAÇÕES DA REUNIÃO\n`;
+    txt += sep + "\n";
+    if (textos.length === 0) {
+      txt += "  (Nenhuma anotação registrada durante a apresentação)\n";
+    } else {
+      textos.forEach((a, i) => {
+        txt += `\n  [${a.ts ?? "--:--"}] Anotação ${i + 1}:\n`;
+        txt += `  ${a.texto}\n`;
+      });
+    }
+    txt += "\n";
+
+    txt += sep + "\n";
+    txt += `${emManut.length > 0 || terceiros.length > 0 ? "5" : "3"}. ENCERRAMENTO\n`;
+    txt += sep + "\n";
+    txt += `Reunião encerrada às ${hora} · ${dateStr}\n`;
+    txt += "Documento gerado automaticamente pelo Workflux.\n\n";
+    txt += sep2 + "\n";
+
     const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = `reuniao-frotas-${now.toISOString().split("T")[0]}.txt`; a.click();
+    a.href = URL.createObjectURL(blob);
+    a.download = `ata-reuniao-frotas-${now.toISOString().split("T")[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   const getCursor = () => {
