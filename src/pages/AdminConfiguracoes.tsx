@@ -3500,10 +3500,15 @@ const CARGOS = [
 // TIPOS DE EQUIPAMENTO MANAGER
 // ═══════════════════════════════════════════════════════════════
 const CATEGORIAS_TIPOS = [
-  { key: "CAMINHOES", label: "Caminhões" },
-  { key: "ROLO", label: "Rolos" },
-  { key: "VEICULO", label: "Veículos de Transporte" },
-  { key: "LINHA_AMARELA", label: "Linha Amarela" },
+  { key: "CAMINHOES",     label: "🚛 Caminhões" },
+  { key: "CARRETAS",      label: "🚚 Carretas e Cavalos" },
+  { key: "VEICULOS",      label: "🚐 Veículos de Transporte" },
+  { key: "PAVIMENTACAO",  label: "🛣️ Pavimentação" },
+  { key: "FRESAGEM",      label: "⚒️ Fresagem" },
+  { key: "USINAGEM",      label: "🏭 Usinagem" },
+  { key: "LINHA_AMARELA", label: "🟡 Linha Amarela" },
+  { key: "PEQUENO_PORTE", label: "🔩 Pequeno Porte" },
+  { key: "SANITARIO",     label: "🚽 Sanitários e Apoio" },
 ];
 
 function TiposEquipamentoManager() {
