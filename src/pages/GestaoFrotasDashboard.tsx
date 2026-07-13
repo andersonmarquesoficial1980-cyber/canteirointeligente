@@ -21,6 +21,7 @@ interface Forma {
   pontos?: { x: number; y: number }[];
   x1?: number; y1?: number; x2?: number; y2?: number;
   texto?: string; ts?: string;
+  label?: string; // rótulo opcional para formas desenhadas (circulo, seta, retangulo, caneta)
 }
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────────
@@ -224,6 +225,9 @@ export default function GestaoFrotasDashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [textInput, setTextInput]   = useState<{ svgX: number; svgY: number; screenX: number; screenY: number } | null>(null);
   const [textVal, setTextVal]       = useState("");
+  // Prompt de rótulo após desenhar forma (circulo, seta, retangulo, caneta)
+  const [labelPrompt, setLabelPrompt] = useState<{ forma: Forma; screenX: number; screenY: number } | null>(null);
+  const [labelVal, setLabelVal]       = useState("");
 
   // Refs para SVG e interações (sem criar closure stale)
   const svgRef        = useRef<SVGSVGElement>(null);
@@ -303,9 +307,11 @@ export default function GestaoFrotasDashboard() {
           drawRef.current = null; setFormaPreview(null); return;
         }
       }
-      setFormas(prev => [...prev, nova]);
       setFormaPreview(null);
       drawRef.current = null;
+      // Abre prompt de rótulo (só para formas não-texto)
+      setLabelVal("");
+      setLabelPrompt({ forma: nova, screenX: e.clientX, screenY: e.clientY });
     };
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup",   handleUp);
@@ -354,8 +360,18 @@ export default function GestaoFrotasDashboard() {
     setTextInput(null); setTextVal("");
   }
 
+  function confirmarLabel(pular = false) {
+    if (!labelPrompt) return;
+    const ts = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const forma = pular || !labelVal.trim()
+      ? { ...labelPrompt.forma, ts }
+      : { ...labelPrompt.forma, label: labelVal.trim(), ts };
+    setFormas(prev => [...prev, forma]);
+    setLabelPrompt(null);
+    setLabelVal("");
+  }
+
   function exportarAnotacoes() {
-    const textos = formas.filter(f => f.tipo === "texto" && f.texto);
     const now = new Date();
     const dateStr = now.toLocaleDateString("pt-BR", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     const hora    = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -429,12 +445,25 @@ export default function GestaoFrotasDashboard() {
     txt += sep + "\n";
     txt += `${emManut.length > 0 || terceiros.length > 0 ? "4" : "2"}. ANOTAÇÕES DA REUNIÃO\n`;
     txt += sep + "\n";
-    if (textos.length === 0) {
+
+    // Separa textos e formas com rótulo
+    const textos   = formas.filter(f => f.tipo === "texto" && f.texto);
+    const rotulos  = formas.filter(f => f.tipo !== "texto" && f.label);
+    const formaIcon: Record<string, string> = { seta: "→", circulo: "○", retangulo: "□", caneta: "✏" };
+
+    if (textos.length === 0 && rotulos.length === 0) {
       txt += "  (Nenhuma anotação registrada durante a apresentação)\n";
     } else {
-      textos.forEach((a, i) => {
-        txt += `\n  [${a.ts ?? "--:--"}] Anotação ${i + 1}:\n`;
-        txt += `  ${a.texto}\n`;
+      let idx = 1;
+      // Mistura textos e formas com rótulo ordenados por ts
+      const todos_anot = [
+        ...textos.map(a => ({ ts: a.ts ?? "00:00", icon: "📝", conteudo: a.texto! })),
+        ...rotulos.map(a => ({ ts: a.ts ?? "00:00", icon: formaIcon[a.tipo] ?? "◉", conteudo: a.label! })),
+      ].sort((a, b) => a.ts.localeCompare(b.ts));
+
+      todos_anot.forEach(a => {
+        txt += `\n  [${a.ts}] ${a.icon} Anotação ${idx++}:\n`;
+        txt += `  ${a.conteudo}\n`;
       });
     }
     txt += "\n";
@@ -799,6 +828,33 @@ export default function GestaoFrotasDashboard() {
             <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
               <button onClick={confirmarTexto} style={{ flex: 1, padding: "7px 0", background: "#0055AA", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓ Confirmar</button>
               <button onClick={() => setTextInput(null)} style={{ padding: "7px 14px", background: "#f1f5f9", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, color: "#64748b" }}>✕</button>
+            </div>
+          </div>
+        )}
+
+        {/* ── PROMPT DE RÓTULO após desenhar forma ── */}
+        {labelPrompt && (
+          <div style={{
+            position: "fixed",
+            left: Math.min(labelPrompt.screenX, window.innerWidth - 320),
+            top: Math.max(HEADER_H + TOOLBAR_H + 8, Math.min(labelPrompt.screenY - 50, window.innerHeight - 140)),
+            zIndex: 10002,
+            background: "white", border: "2px solid #f59e0b", borderRadius: 12,
+            padding: "12px 16px", boxShadow: "0 8px 32px rgba(0,0,0,0.35)", width: 310,
+          }}>
+            <p style={{ fontSize: 10, color: "#92400e", fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {labelPrompt.forma.tipo === "circulo" ? "○" : labelPrompt.forma.tipo === "seta" ? "→" : labelPrompt.forma.tipo === "retangulo" ? "□" : "✏"} O que você marcou?
+            </p>
+            <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8 }}>Opcional — aparece na ata. Pule se não precisar.</p>
+            <input
+              autoFocus value={labelVal} onChange={e => setLabelVal(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") confirmarLabel(); if (e.key === "Escape") confirmarLabel(true); e.stopPropagation(); }}
+              placeholder="Ex: FA14 — devolver, circulo na frota 22..."
+              style={{ border: "none", borderBottom: "1.5px solid #fde68a", outline: "none", fontSize: 13, width: "100%", background: "transparent", color: "#0A0F2C", fontFamily: "Inter, sans-serif", paddingBottom: 4, boxSizing: "border-box" }}
+            />
+            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+              <button onClick={() => confirmarLabel()} style={{ flex: 1, padding: "7px 0", background: "#f59e0b", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓ Registrar na ata</button>
+              <button onClick={() => confirmarLabel(true)} style={{ padding: "7px 12px", background: "#f1f5f9", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 11, color: "#64748b" }}>Pular</button>
             </div>
           </div>
         )}
