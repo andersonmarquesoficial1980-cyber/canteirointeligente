@@ -67,7 +67,7 @@ export default function GestaoFrotasHome() {
 
   async function buscarTodos() {
     setLoading(true);
-    const { data } = await (supabase as any).from("equipamentos").select("*").eq("status", "ativo").order("tipo,frota");
+    const { data } = await (supabase as any).from("equipamentos").select("*").order("tipo,frota");
     if (data) {
       setTodos(data);
       buscarMedidores(data);
@@ -304,6 +304,19 @@ export default function GestaoFrotasHome() {
                     }`}>
                       {(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}
                     </span>
+                    {/* Tag Status (só aparece quando não está ativo) */}
+                    {v.status && v.status !== 'ativo' && (
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                        v.status === 'em_manutencao' ? 'bg-orange-100 text-orange-700' :
+                        v.status === 'inativo'       ? 'bg-red-100 text-red-600' :
+                        v.status === 'disposicao'    ? 'bg-gray-100 text-gray-600' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {v.status === 'em_manutencao' ? '🔧 Manutenção' :
+                         v.status === 'inativo'       ? '🚫 Inativo' :
+                         v.status === 'disposicao'    ? '📦 Disposição' : v.status}
+                      </span>
+                    )}
                     {/* Tag Empresa */}
                     {v.locadora && (
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
