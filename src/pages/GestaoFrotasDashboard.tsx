@@ -178,7 +178,7 @@ export default function GestaoFrotasDashboard() {
   const [modoVis, setModoVis] = useState<"tipo" | "equipe">("tipo");
   const [chipSel, setChipSel] = useState<string>("todos");
   const [subChipSel, setSubChipSel] = useState<string>("todos"); // subtipo dentro do grupo
-  const [filtroStatus, setFiltroStatus] = useState<"todos" | "operacional" | "manutencao" | "terceiro">("todos");
+  const [filtroStatus, setFiltroStatus] = useState<"todos" | "operacional" | "manutencao" | "terceiro" | "disposicao">("todos");
   const [busca, setBusca] = useState("");
 
   useEffect(() => {
@@ -248,6 +248,7 @@ export default function GestaoFrotasDashboard() {
     if (filtroStatus === "manutencao") lista = lista.filter(e => getStatusNorm(e) === "manutencao");
     else if (filtroStatus === "operacional") lista = lista.filter(e => getStatusNorm(e) === "operacional");
     else if (filtroStatus === "terceiro") lista = lista.filter(isTerceiro);
+    else if (filtroStatus === "disposicao") lista = lista.filter(e => getStatusNorm(e) === "disposicao");
     if (busca.trim()) {
       const b = busca.toLowerCase();
       lista = lista.filter(e =>
@@ -459,6 +460,7 @@ export default function GestaoFrotasDashboard() {
                 { key: "todos",       label: "Todos",       cor: "#374151", bg: "#f1f5f9" },
                 { key: "operacional", label: "Operacional", cor: "#166534", bg: "#f0fdf4" },
                 { key: "manutencao",  label: "Manutenção",  cor: "#92400e", bg: "#fef9c3" },
+                { key: "disposicao",  label: "Disposição",  cor: "#475569", bg: "#f1f5f9" },
                 { key: "terceiro",    label: "Locados",     cor: "#1d4ed8", bg: "#eff6ff" },
               ].map(f => (
                 <button key={f.key} onClick={() => setFiltroStatus(f.key as any)}
