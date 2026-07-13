@@ -80,7 +80,7 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
       {/* Header */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "160px 130px 170px 130px 110px 100px 110px",
+        gridTemplateColumns: "160px 170px 210px 130px 110px 100px 110px",
         background: "#f1f5f9", borderBottom: "2px solid #e2e8f0",
         padding: "9px 16px", gap: 8,
       }}>
@@ -100,7 +100,7 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
         return (
           <div key={e.id} style={{
             display: "grid",
-            gridTemplateColumns: "160px 130px 170px 130px 110px 100px 110px",
+            gridTemplateColumns: "160px 170px 210px 130px 110px 100px 110px",
             padding: "10px 16px", gap: 8,
             borderBottom: "1px solid #f8fafc",
             background: isManut ? "#fffbeb" : (i % 2 === 0 ? "white" : "#fafbfc"),
@@ -115,12 +115,12 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
               )}
             </div>
 
-            <span style={{ fontSize: 11, color: "#374151", fontWeight: 600, lineHeight: 1.3, alignSelf: "center" }}>
+            <span style={{ fontSize: 11, color: "#374151", fontWeight: 600, lineHeight: 1.3, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {e.tipo || e.nome || "—"}
             </span>
 
-            <div style={{ alignSelf: "center" }}>
-              <p style={{ fontSize: 12, color: "#1e3a5f", fontWeight: 600 }}>{e.setor || "—"}</p>
+            <div style={{ alignSelf: "center", overflow: "hidden" }}>
+              <p style={{ fontSize: 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
               {e.condutor_atual && (
                 <p style={{ fontSize: 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>
               )}
