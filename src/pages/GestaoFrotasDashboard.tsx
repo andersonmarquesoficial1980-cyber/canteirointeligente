@@ -222,7 +222,7 @@ export default function GestaoFrotasDashboard() {
   const [formas, setFormas]         = useState<Forma[]>([]);
   const [formaPreview, setFormaPreview] = useState<Forma | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [textInput, setTextInput]   = useState<{ x: number; y: number } | null>(null);
+  const [textInput, setTextInput]   = useState<{ svgX: number; svgY: number; screenX: number; screenY: number } | null>(null);
   const [textVal, setTextVal]       = useState("");
 
   // Refs para SVG e interações (sem criar closure stale)
@@ -329,7 +329,8 @@ export default function GestaoFrotasDashboard() {
     if (ft === "selecionar") { setSelectedId(null); return; }
     if (ft === "texto") {
       const pt = getSvgPtFrom(e.clientX, e.clientY);
-      setTextInput(pt); setTextVal(""); return;
+      setTextInput({ svgX: pt.x, svgY: pt.y, screenX: e.clientX, screenY: e.clientY });
+      setTextVal(""); return;
     }
     const pt = getSvgPtFrom(e.clientX, e.clientY);
     drawRef.current = { startPt: pt, pts: [pt] };
@@ -349,7 +350,7 @@ export default function GestaoFrotasDashboard() {
   function confirmarTexto() {
     if (!textInput || !textVal.trim()) { setTextInput(null); return; }
     const ts = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    setFormas(prev => [...prev, { id: Date.now().toString(), tipo: "texto", cor, esp: 1, x1: textInput.x, y1: textInput.y, texto: textVal.trim(), ts }]);
+    setFormas(prev => [...prev, { id: Date.now().toString(), tipo: "texto", cor, esp: 1, x1: textInput.svgX, y1: textInput.svgY, texto: textVal.trim(), ts }]);
     setTextInput(null); setTextVal("");
   }
 
@@ -691,27 +692,35 @@ export default function GestaoFrotasDashboard() {
                 {formaPreview && (
                   <SvgFormaEl f={formaPreview} selecionada={false} ferramenta={ferramenta} />
                 )}
-                {/* Input de texto inline no SVG */}
-                {textInput && (
-                  <foreignObject x={textInput.x} y={textInput.y - 36} width={300} height={70} style={{ overflow: "visible" }}>
-                    <div style={{ background: "white", border: "2px solid #0055AA", borderRadius: 10, padding: "8px 12px", boxShadow: "0 6px 24px rgba(0,0,0,0.25)" }}>
-                      <input
-                        autoFocus value={textVal} onChange={e => setTextVal(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") confirmarTexto(); if (e.key === "Escape") setTextInput(null); e.stopPropagation(); }}
-                        placeholder="Anotação... (Enter)"
-                        style={{ border: "none", outline: "none", fontSize: 13, width: "100%", background: "transparent", color: "#0A0F2C", fontFamily: "Inter, sans-serif" }}
-                      />
-                      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                        <button onClick={confirmarTexto} style={{ flex: 1, padding: "5px 0", background: "#0055AA", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>✓ Confirmar</button>
-                        <button onClick={() => setTextInput(null)} style={{ padding: "5px 10px", background: "#f1f5f9", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 11, color: "#64748b" }}>✕</button>
-                      </div>
-                    </div>
-                  </foreignObject>
-                )}
+                {/* Input de texto inline no SVG — removido (usa div fixed abaixo) */}
               </svg>
             </div>
           </div>
         </div>
+
+        {/* ── INPUT DE TEXTO: div fixed, sempre alinhado à tela independente de zoom/scroll ── */}
+        {textInput && (
+          <div style={{
+            position: "fixed",
+            left: Math.min(textInput.screenX, window.innerWidth - 310),
+            top: Math.max(HEADER_H + TOOLBAR_H + 8, Math.min(textInput.screenY - 40, window.innerHeight - 120)),
+            zIndex: 10002,
+            background: "white", border: "2px solid #0055AA", borderRadius: 12,
+            padding: "12px 16px", boxShadow: "0 8px 32px rgba(0,0,0,0.35)", width: 300,
+          }}>
+            <p style={{ fontSize: 10, color: "#64748b", fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>📝 Nova anotação</p>
+            <input
+              autoFocus value={textVal} onChange={e => setTextVal(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") confirmarTexto(); if (e.key === "Escape") setTextInput(null); e.stopPropagation(); }}
+              placeholder="Digite aqui e pressione Enter..."
+              style={{ border: "none", borderBottom: "1.5px solid #e2e8f0", outline: "none", fontSize: 14, width: "100%", background: "transparent", color: "#0A0F2C", fontFamily: "Inter, sans-serif", paddingBottom: 4, boxSizing: "border-box" }}
+            />
+            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+              <button onClick={confirmarTexto} style={{ flex: 1, padding: "7px 0", background: "#0055AA", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓ Confirmar</button>
+              <button onClick={() => setTextInput(null)} style={{ padding: "7px 14px", background: "#f1f5f9", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, color: "#64748b" }}>✕</button>
+            </div>
+          </div>
+        )}
 
         {/* Dica de ferramenta seleção */}
         {ferramenta === "selecionar" && !selectedId && (
