@@ -80,7 +80,7 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
       {/* Header */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "88px 160px 180px 140px 110px 110px 110px",
+        gridTemplateColumns: "160px 130px 170px 130px 110px 100px 110px",
         background: "#f1f5f9", borderBottom: "2px solid #e2e8f0",
         padding: "9px 16px", gap: 8,
       }}>
@@ -100,14 +100,14 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
         return (
           <div key={e.id} style={{
             display: "grid",
-            gridTemplateColumns: "88px 160px 180px 140px 110px 110px 110px",
+            gridTemplateColumns: "160px 130px 170px 130px 110px 100px 110px",
             padding: "10px 16px", gap: 8,
             borderBottom: "1px solid #f8fafc",
             background: isManut ? "#fffbeb" : (i % 2 === 0 ? "white" : "#fafbfc"),
             borderLeft: isManut ? "4px solid #f59e0b" : "4px solid transparent",
           }}>
             <div>
-              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 13, color: "#0A0F2C" }}>
+              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>
                 {e.frota || e.placa || "—"}
               </span>
               {e.placa && e.placa !== e.frota && (
