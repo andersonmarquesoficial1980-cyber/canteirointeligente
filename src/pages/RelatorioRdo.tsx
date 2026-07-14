@@ -382,11 +382,26 @@ export default function RelatorioRdo() {
         .select("id,rdo_id,frota,categoria,sub_tipo,tipo,nome,patrimonio,empresa_dona")
         .in("rdo_id", ids)
         .order("frota", { ascending: true });
+
+      // Enriquecer empresa_dona: buscar empresa_proprietaria da tabela equipamentos para frotas sem empresa salva
+      const frotasSemEmpresa = [...new Set((equipRows || []).filter((e: any) => !e.empresa_dona && e.frota).map((e: any) => e.frota))];
+      let empresaMap: Record<string, string> = {};
+      if (frotasSemEmpresa.length > 0) {
+        const { data: eqData } = await (supabase as any)
+          .from("equipamentos")
+          .select("frota,empresa_proprietaria")
+          .in("frota", frotasSemEmpresa);
+        (eqData || []).forEach((eq: any) => {
+          if (eq.frota && eq.empresa_proprietaria) empresaMap[eq.frota] = eq.empresa_proprietaria;
+        });
+      }
+
       const equipGrupo: Record<string, EquipamentoItem[]> = {};
       (equipRows || []).forEach((item: any) => {
         if (!item.rdo_id) return;
         if (!equipGrupo[item.rdo_id]) equipGrupo[item.rdo_id] = [];
-        equipGrupo[item.rdo_id].push(item as EquipamentoItem);
+        const enriched = { ...item, empresa_dona: item.empresa_dona || empresaMap[item.frota] || "" };
+        equipGrupo[item.rdo_id].push(enriched as EquipamentoItem);
       });
       setEquipByRdoId(equipGrupo);
 

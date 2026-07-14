@@ -120,7 +120,7 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
       onChange(
         entries.map((e) =>
           e.id === id
-            ? { ...e, frota: value, tipo: maq?.tipo || "", nome: maq?.nome || "", empresa_dona: maq?.empresa || "" }
+            ? { ...e, frota: value, tipo: maq?.tipo || "", nome: maq?.nome || "", empresa_dona: maq?.empresa_proprietaria || "" }
             : e
         )
       );
