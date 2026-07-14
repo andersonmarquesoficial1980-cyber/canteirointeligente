@@ -12,20 +12,31 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
-// Mapa de prefixos por usina — adicione novas usinas aqui quando necessário
+// Mapa de prefixos por usina — usinas específicas com siglas customizadas
 const PREFIXO_USINA: Record<string, string> = {
   "ELLENCO": "ELL",
   "JULIO E JULIO": "JUJ",
   "JÚLIO E JÚLIO": "JUJ",
   "AUPAV": "AUP",
+  "USICITY": "USI",
   "USINAS SP PAVIMENTACAO E TECNOLOGIA LTDA": "USP",
   "USINAS SP PAVIMENTAÇÃO E TECNOLOGIA LTDA": "USP",
 };
 
+// Gera sigla automática a partir do nome da usina (primeiras 3 letras, sem acento)
+function gerarSiglaAuto(nome: string): string {
+  const limpo = nome
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .replace(/[^A-Z0-9]/g, "")                        // só alfanumérico
+    .toUpperCase();
+  return limpo.slice(0, 3);
+}
+
 function prefixoUsina(usina: string | null): string {
   if (!usina) return "";
   const key = usina.trim().toUpperCase();
-  return PREFIXO_USINA[key] || "";
+  // Primeiro tenta o mapa customizado, senão gera automaticamente
+  return PREFIXO_USINA[key] || gerarSiglaAuto(key);
 }
 
 // Retorna NF com prefixo da usina para exibição/exportação
@@ -240,7 +251,7 @@ export default function RelatorioNotasFiscais() {
         };
       });
 
-      result.sort((a, b) => b.data.localeCompare(a.data) || (a.nf || "").localeCompare(b.nf || ""));
+      result.sort((a, b) => a.data.localeCompare(b.data) || (a.nf || "").localeCompare(b.nf || ""));
       setRows(result);
     } catch (err: any) {
       console.error(err);
