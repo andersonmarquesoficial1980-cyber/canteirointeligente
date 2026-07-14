@@ -83,22 +83,12 @@ export function useMaquinasFrotaFiltered(tipoRdo: string) {
   return useQuery({
     queryKey: ["equipamentos_filtered", tipoRdo],
     queryFn: async () => {
-      // Pátio Central: busca todos os equipamentos ativos sem filtro de vínculo
-      if (tipoRdo === "PATIO") {
-        const { data, error } = await supabase
-          .from("equipamentos" as any)
-          .select("*")
-          .in("status", ["ativo", "Operando"])
-          .order("frota");
-        if (error) throw error;
-        return data as any[];
-      }
-      // Busca equipamentos vinculados ao RDO (campo vinculos[]) ou TODOS
+      // Busca todos os equipamentos ativos — filtragem por categoria é feita no cliente
+      // (equipamentos como fresadoras têm vinculo_rdo="FRESADORA" e não batem com tipoRdo)
       const { data, error } = await supabase
         .from("equipamentos" as any)
         .select("*")
         .in("status", ["ativo", "Operando"])
-        .or(`vinculo_rdo.eq.${tipoRdo},vinculo_rdo.eq.TODOS,vinculo_rdo.eq.RDO,vinculos.cs.{RDO},vinculos.cs.{TODOS}`)
         .order("frota");
       if (error) throw error;
       return data as any[];

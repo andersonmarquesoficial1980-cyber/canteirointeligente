@@ -141,6 +141,18 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
     "PEQUENO PORTE": "RDO",
   };
 
+  // Aliases: categoria_rdo no banco pode ter nome diferente da categoria do RDO
+  const CATEGORIA_RDO_ALIAS: Record<string, string[]> = {
+    FRESADORA: ["FRESADORA", "FRESAGEM"],
+    BOBCAT: ["BOBCAT"],
+    VIBROACABADORA: ["VIBROACABADORA"],
+    "ROLO COMPACTADOR": ["ROLO COMPACTADOR"],
+    "VEÍCULOS EM GERAL": ["VEÍCULOS EM GERAL", "VEÍCULOS"],
+    "USINA MÓVEL": ["USINA MÓVEL", "USINA MOVEL"],
+    "LINHA AMARELA": ["LINHA AMARELA"],
+    "PEQUENO PORTE": ["PEQUENO PORTE"],
+  };
+
   const getFilteredMaquinas = (categoria: string, subTipo: string) => {
     if (!maquinas) return [];
 
@@ -152,9 +164,10 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
     }
 
     return maquinas.filter((m: any) => {
-      // 1. Prioridade: categoria_rdo do banco (campo mais confiável)
+      // 1. Prioridade: categoria_rdo do banco (campo mais confiável, com aliases)
       if (m.categoria_rdo) {
-        return m.categoria_rdo.toUpperCase() === categoria.toUpperCase();
+        const aliases = CATEGORIA_RDO_ALIAS[categoria] || [categoria];
+        return aliases.some((a) => m.categoria_rdo.toUpperCase() === a.toUpperCase());
       }
       // 2. Vínculos específicos (não genéricos): usa como filtro
       const vinculos: string[] = m.vinculos || [];
