@@ -18,6 +18,7 @@ const TIPOS_RELATORIO = [
   { id: "equipamentos_rdo", label: "Localização de Equipamentos (RDO)", emoji: "🚜", desc: "Onde a frota estava por período (via RDO)" },
   { id: "notas_fiscais", label: "Notas Fiscais de Massa", emoji: "📄", desc: "Todas as NFs por OGS e período" },
   { id: "producao_infra", label: "Produção de Infra (RDO)", emoji: "🏗️", desc: "Produção de infraestrutura por período, OGS e apontador" },
+  { id: "controle_lancamentos", label: "Controle de Lançamentos", emoji: "📊", desc: "Visão gerencial dos diários por usuário e por equipamento" },
 ];
 
 function fmtDate(d: string) {
@@ -259,6 +260,7 @@ export default function RelatoriosHome() {
                   if (t.id === "equipamentos_rdo") { navigate("/relatorios/equipamentos-rdo"); return; }
                   if (t.id === "notas_fiscais") { navigate("/relatorios/notas-fiscais"); return; }
                   if (t.id === "producao_infra") { navigate("/relatorios/producao-infra"); return; }
+                  if (t.id === "controle_lancamentos") { navigate("/relatorios/controle-lancamentos"); return; }
                   if (t.id === "abastecimento") {
                     const hoje = new Date().toISOString().split("T")[0];
                     const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
