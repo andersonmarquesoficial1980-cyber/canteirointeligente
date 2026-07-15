@@ -249,6 +249,10 @@ export default function RelatorioControleLancamentos() {
     };
   });
 
+  // Mapa frota → tipo canônico (fonte: tabela equipamentos)
+  const frotaToTipo: Record<string, string> = {};
+  todasFrotas.forEach(f => { if (f.frota) frotaToTipo[f.frota] = f.tipo; });
+
   // Agrupamento por usuário
   const porUsuario: Record<string, { nome: string; email: string; rows: DiarioRow[] }> = {};
   diarios.forEach(r => {
@@ -257,11 +261,12 @@ export default function RelatorioControleLancamentos() {
     porUsuario[k].rows.push(r);
   });
 
-  // Agrupamento por frota
+  // Agrupamento por frota — tipo SEMPRE vem do mapa canônico (equipamentos)
   const porFrota: Record<string, { frota: string; tipo: string; rows: DiarioRow[] }> = {};
   diarios.forEach(r => {
     const k = r.equipment_fleet;
-    if (!porFrota[k]) porFrota[k] = { frota: r.equipment_fleet, tipo: r.equipment_type || "", rows: [] };
+    const tipoCanon = frotaToTipo[r.equipment_fleet] || r.equipment_type || "";
+    if (!porFrota[k]) porFrota[k] = { frota: r.equipment_fleet, tipo: tipoCanon, rows: [] };
     porFrota[k].rows.push(r);
   });
 
@@ -269,11 +274,10 @@ export default function RelatorioControleLancamentos() {
   const usuariosComLancamento = new Set(diarios.filter(r => r.status === "enviado").map(r => r.usuario_id));
   const frotasComLancamento   = new Set(diarios.filter(r => r.status === "enviado").map(r => r.equipment_fleet));
 
-  // Tipos únicos — normaliza tudo para MAIÚSCULAS antes de deduplicar
-  const tiposEquipamento = [...new Set([
-    ...diarios.map(r => r.equipment_type?.trim().toUpperCase()),
-    ...todasFrotas.map(f => f.tipo?.trim().toUpperCase()),
-  ].filter(Boolean) as string[])].sort();
+  // Tipos únicos — SOMENTE da tabela equipamentos (fonte canônica), sem misturar texto livre dos diários
+  const tiposEquipamento = [...new Set(
+    todasFrotas.map(f => f.tipo?.trim().toUpperCase()).filter(Boolean) as string[]
+  )].sort();
 
   // ── Cards de usuários ─────────────────────────────────────────────────────
   const usuarioCards: UsuarioCard[] = apenasSemlancamento
@@ -294,7 +298,7 @@ export default function RelatorioControleLancamentos() {
         .filter(f => !busca || f.frota.toLowerCase().includes(busca.toLowerCase()) || f.tipo.toLowerCase().includes(busca.toLowerCase()))
         .map(f => ({ key: f.frota, frota: f.frota, tipo: f.tipo, rows: [], semLancamento: true }))
     : Object.entries(porFrota)
-        .filter(([, v]) => !tipoFiltro || v.tipo.trim().toUpperCase() === tipoFiltro)
+        .filter(([, v]) => !tipoFiltro || v.tipo.trim().toUpperCase() === tipoFiltro.trim().toUpperCase())
         .filter(([, v]) => !busca || v.frota.toLowerCase().includes(busca.toLowerCase()) || v.tipo.toLowerCase().includes(busca.toLowerCase()))
         .sort((a, b) => a[1].frota.localeCompare(b[1].frota))
         .map(([k, v]) => ({ key: k, frota: v.frota, tipo: v.tipo, rows: v.rows, semLancamento: false }));
