@@ -16,7 +16,7 @@ import { HUB_MODULES } from "@/config/navigation";
 export default function Home() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
-  const { permissions, loading: loadingPerms } = usePermissions();
+  const { permissions, loading: loadingPerms, semPerfil } = usePermissions();
   const { hasModule, loading: loadingModules, isSuperAdmin, companyLogo } = useCompanyModules();
   const { requestPermission, isSupported, isSubscribed } = usePushNotifications();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -102,6 +102,13 @@ export default function Home() {
 
       {/* @LOCK-UI: Single-column vertical layout — DO NOT change to grid-cols-2 */}
       <div className="flex flex-col gap-3 w-full max-w-lg relative z-10">
+        {/* Aviso: usuário logado mas sem perfil cadastrado no sistema */}
+        {semPerfil && !loadingPerms && (
+          <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 px-5 py-4 text-sm text-yellow-300 space-y-1">
+            <p className="font-semibold">⚠️ Acesso pendente de configuração</p>
+            <p className="text-yellow-300/80">Seu usuário ainda não foi configurado no sistema. Entre em contato com o administrador da sua empresa para liberar o acesso.</p>
+          </div>
+        )}
         {/* Loading skeleton enquanto permissões carregam */}
         {(loadingPerms || loadingModules) && (
           <div className="space-y-3">

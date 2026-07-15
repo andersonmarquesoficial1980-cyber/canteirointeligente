@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 export interface UserProfile {
   user_id: string;
@@ -25,12 +28,15 @@ export function useUserProfile() {
           .eq("user_id", user.id)
           .maybeSingle();
 
+        // data é tipado como Partial<ProfileRow> | null — sem 'as any'
+        const row = data as Pick<ProfileRow, "nome_completo" | "perfil" | "company_id"> | null;
+
         setProfile({
           user_id: user.id,
-          nome_completo: (data as any)?.nome_completo || user.email?.split("@")[0] || "Usuário",
-          perfil: (data as any)?.perfil || "Apontador",
+          nome_completo: row?.nome_completo || user.email?.split("@")[0] || "Usuário",
+          perfil: row?.perfil || "Apontador",
           email: user.email || "",
-          company_id: (data as any)?.company_id || null,
+          company_id: row?.company_id || null,
         });
       } catch {
         // non-blocking

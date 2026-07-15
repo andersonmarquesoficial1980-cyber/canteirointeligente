@@ -53,6 +53,7 @@ const ADMIN_PERMISSIONS: Permissions = Object.fromEntries(
 export function usePermissions() {
   const [permissions, setPermissions] = useState<Permissions | null>(null);
   const [loading, setLoading] = useState(true);
+  const [semPerfil, setSemPerfil] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -65,6 +66,14 @@ export function usePermissions() {
         .select("role, company_id")
         .eq("user_id", user.id)
         .single();
+
+      // Usuário existe no Auth mas não tem profile ainda — situação de novo cadastro pendente
+      if (!profile) {
+        setSemPerfil(true);
+        setPermissions(DEFAULT_PERMISSIONS);
+        setLoading(false);
+        return;
+      }
 
       // Buscar permissões específicas do user_permissions (fonte de verdade)
       const { data: perms, error: permsError } = await supabase
@@ -88,5 +97,5 @@ export function usePermissions() {
     load();
   }, []);
 
-  return { permissions, loading };
+  return { permissions, loading, semPerfil };
 }

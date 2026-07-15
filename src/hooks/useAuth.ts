@@ -14,10 +14,10 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Safety timeout — never stay loading forever (increased for slow connections)
+    // Safety timeout — never stay loading forever (5s cobre conexões lentas em campo)
     const safetyTimeout = setTimeout(() => {
       setLoading(false);
-    }, 8000);
+    }, 5000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
       if (_event === "SIGNED_OUT") {
