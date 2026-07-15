@@ -91,10 +91,9 @@ function statusIcon(ws: string | null) {
 function CalCell({ rows, onClick }: { rows: DiarioRow[]; onClick: () => void }) {
   if (rows.length === 0) {
     return (
-      <button onClick={onClick}
-        className="w-full h-10 rounded flex items-center justify-center bg-red-50 border border-red-200 hover:bg-red-100 transition-colors">
+      <div className="w-full h-10 rounded flex items-center justify-center bg-red-50 border border-red-200">
         <span className="text-red-400 text-xs font-medium">❌</span>
-      </button>
+      </div>
     );
   }
   const env = rows.filter(r => r.status === "enviado");
@@ -120,7 +119,8 @@ function CalCell({ rows, onClick }: { rows: DiarioRow[]; onClick: () => void }) 
 
 export default function RelatorioControleLancamentos() {
   const navigate = useNavigate();
-  const { companyId } = useUserProfile();
+  const { profile } = useUserProfile();
+  const companyId = profile?.company_id;
 
   const hoje = new Date();
   const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split("T")[0];
@@ -422,7 +422,7 @@ export default function RelatorioControleLancamentos() {
                                 return (
                                   <div key={d} className="w-20 flex-shrink-0">
                                     <CalCell rows={dayRows}
-                                      onClick={() => dayRows.length > 0 && setModal({ titulo: `${nome} — ${fmtDate(d)}`, rows: dayRows })}
+                                      onClick={() => setModal({ titulo: `${nome} — ${fmtDate(d)}`, rows: dayRows })}
                                     />
                                   </div>
                                 );
@@ -543,7 +543,7 @@ export default function RelatorioControleLancamentos() {
                                 return (
                                   <div key={d} className="w-20 flex-shrink-0">
                                     <CalCell rows={dayRows}
-                                      onClick={() => dayRows.length > 0 && setModal({ titulo: `${frota} — ${fmtDate(d)}`, rows: dayRows })}
+                                      onClick={() => setModal({ titulo: `${frota} — ${fmtDate(d)}`, rows: dayRows })}
                                     />
                                   </div>
                                 );
