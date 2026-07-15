@@ -134,8 +134,6 @@ export default function RelatorioControleLancamentos() {
   const [apenasSemlancamento, setApenasSemlancamento] = useState(false); // filtro sem lançamento
   const [loading, setLoading]   = useState(false);
   const [diarios, setDiarios]   = useState<DiarioRow[]>([]);
-  const [todosUsuarios, setTodosUsuarios] = useState<{ id: string; nome: string; email: string }[]>([]);
-  const [todasFrotas, setTodasFrotas]     = useState<{ frota: string; tipo: string }[]>([]);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const [modal, setModal]       = useState<{ titulo: string; rows: DiarioRow[] } | null>(null);
 
@@ -199,29 +197,6 @@ export default function RelatorioControleLancamentos() {
       }));
 
       setDiarios(rows);
-
-      // 3ª query: todos os usuários ativos da empresa (para "sem lançamento")
-      const { data: profilesAll } = await supabase
-        .from("profiles")
-        .select("user_id, nome_completo, email")
-        .eq("company_id", companyId)
-        .eq("status", "ativo");
-      setTodosUsuarios((profilesAll || []).map((p: any) => ({
-        id: p.user_id,
-        nome: p.nome_completo || "—",
-        email: p.email || "",
-      })));
-
-      // 4ª query: todos os equipamentos da empresa (para "sem lançamento")
-      const { data: equipAll } = await (supabase as any)
-        .from("equipamentos")
-        .select("frota, tipo")
-        .eq("company_id", companyId)
-        .order("frota");
-      setTodasFrotas((equipAll || []).map((e: any) => ({
-        frota: e.frota || "—",
-        tipo: e.tipo || "",
-      })));
     } catch (err) {
       console.error("[ControleLancamentos]", err);
     }
@@ -255,40 +230,28 @@ export default function RelatorioControleLancamentos() {
     porFrota[key].rows.push(r);
   });
 
-  // IDs/frotas que TÊM pelo menos 1 lançamento enviado no período
-  const usuariosComLancamento = new Set(diarios.filter(r => r.status === "enviado").map(r => r.usuario_id));
-  const frotasComLancamento   = new Set(diarios.filter(r => r.status === "enviado").map(r => r.equipment_fleet));
-
-  // Tipos únicos — combina dados carregados + lista mestre de frotas
-  const tiposEquipamento = [...new Set([
-    ...diarios.map(r => r.equipment_type),
-    ...todasFrotas.map(f => f.tipo),
-  ].filter(Boolean))].sort() as string[];
+  // Tipos únicos de equipamento presentes nos dados
+  const tiposEquipamento = [...new Set(diarios.map(r => r.equipment_type).filter(Boolean))].sort() as string[];
 
   // Filtrar por busca + tipo + sem lançamento
-  const usuariosFiltrados = apenasSemlancamento
-    // Modo "sem lançamento": mostra usuários da empresa que NÃO têm nenhum diário enviado
-    ? todosUsuarios
-        .filter(u => !usuariosComLancamento.has(u.id))
-        .filter(u => !busca || u.nome.toLowerCase().includes(busca.toLowerCase()) || u.email.toLowerCase().includes(busca.toLowerCase()))
-        .map(u => [u.id, { nome: u.nome, email: u.email, rows: [] as DiarioRow[] }] as [string, { nome: string; email: string; rows: DiarioRow[] }])
-    // Modo normal: mostra usuários com lançamentos no período
-    : Object.entries(porUsuario)
-        .filter(([, v]) => !busca || v.nome.toLowerCase().includes(busca.toLowerCase()) || v.email.toLowerCase().includes(busca.toLowerCase()))
-        .sort((a, b) => a[1].nome.localeCompare(b[1].nome));
+  const usuariosFiltrados = Object.entries(porUsuario)
+    .filter(([, v]) => !busca || v.nome.toLowerCase().includes(busca.toLowerCase()) || v.email.toLowerCase().includes(busca.toLowerCase()))
+    .filter(([, v]) => {
+      if (!apenasSemlancamento) return true;
+      const diasEnv = new Set(v.rows.filter(r => r.status === "enviado").map(r => r.date)).size;
+      return diasEnv < allDays.length;
+    })
+    .sort((a, b) => a[1].nome.localeCompare(b[1].nome));
 
-  const frotasFiltradas = apenasSemlancamento
-    // Modo "sem lançamento": mostra frotas da empresa que NÃO têm nenhum diário enviado
-    ? todasFrotas
-        .filter(f => !frotasComLancamento.has(f.frota))
-        .filter(f => !tipoFiltro || f.tipo === tipoFiltro)
-        .filter(f => !busca || f.frota.toLowerCase().includes(busca.toLowerCase()) || f.tipo.toLowerCase().includes(busca.toLowerCase()))
-        .map(f => [f.frota, { frota: f.frota, tipo: f.tipo, rows: [] as DiarioRow[] }] as [string, { frota: string; tipo: string | null; rows: DiarioRow[] }])
-    // Modo normal: mostra frotas com lançamentos no período
-    : Object.entries(porFrota)
-        .filter(([, v]) => !tipoFiltro || v.tipo === tipoFiltro)
-        .filter(([, v]) => !busca || v.frota.toLowerCase().includes(busca.toLowerCase()) || (v.tipo || "").toLowerCase().includes(busca.toLowerCase()))
-        .sort((a, b) => a[1].frota.localeCompare(b[1].frota));
+  const frotasFiltradas = Object.entries(porFrota)
+    .filter(([, v]) => !tipoFiltro || v.tipo === tipoFiltro)
+    .filter(([, v]) => !busca || v.frota.toLowerCase().includes(busca.toLowerCase()) || (v.tipo || "").toLowerCase().includes(busca.toLowerCase()))
+    .filter(([, v]) => {
+      if (!apenasSemlancamento) return true;
+      const diasEnv = new Set(v.rows.filter(r => r.status === "enviado").map(r => r.date)).size;
+      return diasEnv < allDays.length;
+    })
+    .sort((a, b) => a[1].frota.localeCompare(b[1].frota));
 
   // ── Toggle expandido ──────────────────────────────────────────────────────────
   function toggleExpandido(key: string) {
@@ -455,9 +418,7 @@ export default function RelatorioControleLancamentos() {
                 <div className="text-center py-16 text-gray-400 text-sm">Carregando lançamentos...</div>
               )}
               {!loading && usuariosFiltrados.length === 0 && (
-                <div className="text-center py-16 text-gray-400 text-sm">
-                  {apenasSemlancamento ? "🎉 Todos os usuários lançaram no período!" : "Nenhum usuário encontrado para o período."}
-                </div>
+                <div className="text-center py-16 text-gray-400 text-sm">Nenhum usuário encontrado para o período.</div>
               )}
               {!loading && usuariosFiltrados.map(([key, { nome, email, rows }]) => {
                 const enviados  = rows.filter(r => r.status === "enviado");
@@ -465,8 +426,7 @@ export default function RelatorioControleLancamentos() {
                 const totalDias  = allDays.length;
                 const pct        = Math.round((diasUnicos / totalDias) * 100);
                 const exp        = expandidos.has(key);
-                // No modo "sem lançamento" o badge sempre vermelho (0 dias)
-                const badgeColor = apenasSemlancamento ? "bg-red-100 text-red-700" : pct === 100 ? "bg-green-100 text-green-700" : pct >= 70 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700";
+                const badgeColor = pct === 100 ? "bg-green-100 text-green-700" : pct >= 70 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700";
 
                 return (
                   <div key={key} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -482,15 +442,15 @@ export default function RelatorioControleLancamentos() {
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <span className={`text-xs font-bold px-3 py-1 rounded-full ${badgeColor}`}>
-                          {apenasSemlancamento ? "0 lançamentos" : `${diasUnicos}/${totalDias} dias (${pct}%)`}
+                          {diasUnicos}/{totalDias} dias ({pct}%)
                         </span>
                         <span className="text-xs text-gray-400">{rows.length} registros</span>
-                        {!apenasSemlancamento && (exp ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />)}
+                        {exp ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
                       </div>
                     </button>
 
-                    {/* Calendário — só mostra se tiver dados */}
-                    {exp && !apenasSemlancamento && (
+                    {/* Calendário */}
+                    {exp && (
                       <div className="border-t border-gray-100 p-4">
                         {/* Grade calendário */}
                         <div className="overflow-x-auto">
@@ -579,9 +539,7 @@ export default function RelatorioControleLancamentos() {
                 <div className="text-center py-16 text-gray-400 text-sm">Carregando lançamentos...</div>
               )}
               {!loading && frotasFiltradas.length === 0 && (
-                <div className="text-center py-16 text-gray-400 text-sm">
-                  {apenasSemlancamento ? "🎉 Todos os equipamentos lançaram no período!" : "Nenhum equipamento encontrado para o período."}
-                </div>
+                <div className="text-center py-16 text-gray-400 text-sm">Nenhum equipamento encontrado para o período.</div>
               )}
               {!loading && frotasFiltradas.map(([key, { frota, tipo, rows }]) => {
                 const enviados   = rows.filter(r => r.status === "enviado");
@@ -589,33 +547,33 @@ export default function RelatorioControleLancamentos() {
                 const totalDias  = allDays.length;
                 const pct        = Math.round((diasUnicos / totalDias) * 100);
                 const exp        = expandidos.has("eq_" + key);
-                const badgeColor = apenasSemlancamento ? "bg-red-100 text-red-700" : pct === 100 ? "bg-green-100 text-green-700" : pct >= 70 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700";
+                const badgeColor = pct === 100 ? "bg-green-100 text-green-700" : pct >= 70 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700";
                 const operadoresU = [...new Set(rows.map(r => r.usuario_nome))].join(", ");
                 const ogsU        = [...new Set(rows.map(r => r.ogs_number).filter(Boolean))].join(", ");
 
                 return (
                   <div key={key} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                    <button onClick={() => !apenasSemlancamento && toggleExpandido("eq_" + key)}
-                      className={`w-full flex items-center gap-3 px-5 py-4 text-left transition-colors ${apenasSemlancamento ? "cursor-default" : "hover:bg-gray-50"}`}>
+                    <button onClick={() => toggleExpandido("eq_" + key)}
+                      className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors">
                       <div className="w-10 h-10 rounded-full bg-teal-700 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
                         <Wrench size={18}/>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-slate-800 text-base">{frota}</div>
                         <div className="text-xs text-gray-400 truncate">
-                          {tipo || "—"} {ogsU ? `| OGS: ${ogsU}` : ""} {operadoresU ? `| ${operadoresU}` : ""}
+                          {tipo || "—"} {ogsU ? `| OGS: ${ogsU}` : ""} | {operadoresU}
                         </div>
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <span className={`text-xs font-bold px-3 py-1 rounded-full ${badgeColor}`}>
-                          {apenasSemlancamento ? "0 lançamentos" : `${diasUnicos}/${totalDias} dias (${pct}%)`}
+                          {diasUnicos}/{totalDias} dias ({pct}%)
                         </span>
                         <span className="text-xs text-gray-400">{rows.length} registros</span>
-                        {!apenasSemlancamento && (exp ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />)}
+                        {exp ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
                       </div>
                     </button>
 
-                    {exp && !apenasSemlancamento && (
+                    {exp && (
                       <div className="border-t border-gray-100 p-4">
                         {/* Calendário por status */}
                         <div className="overflow-x-auto">
