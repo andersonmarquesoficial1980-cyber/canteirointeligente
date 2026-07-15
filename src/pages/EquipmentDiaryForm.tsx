@@ -1520,6 +1520,77 @@ export default function EquipmentDiaryForm() {
           console.error("[Apontamentos] Erro ao salvar:", entriesErr);
           throw new Error(`Erro ao salvar apontamentos de horas: ${entriesErr.message}`);
         }
+
+        // FRENTE 2 — Rastreamento de equipamentos transportados por carretas
+        // Quando é uma carreta, registrar cada trecho de transporte com equipamento informado
+        // na tabela equipamento_transportes para rastreabilidade completa
+        if (isCarreta && diary) {
+          const transportRows = validTimeEntries.filter(
+            (t) => t.activity === "Transporte" && !t.transportVazio && t.origin && t.destination
+          );
+          for (const t of transportRows) {
+            const equipsList = [
+              t.transportEquip1 === "Outro" ? t.transportEquip1Custom : t.transportEquip1,
+              t.transportEquip2 === "Outro" ? t.transportEquip2Custom : t.transportEquip2,
+              t.transportEquip3 === "Outro" ? t.transportEquip3Custom : t.transportEquip3,
+            ].filter(Boolean) as string[];
+
+            // Buscar meter/odômetro do diário que está sendo salvo
+            const lastMeter = typeof meterFinal === "string"
+              ? parseFloat(meterFinal.replace(",", ".")) || null
+              : (meterFinal as number | null) ?? null;
+            const lastOdom = usesOdometer ? lastMeter : null;
+            const lastHorimetro = !usesOdometer ? lastMeter : null;
+
+            const origemDesc = t.origin === "__OUTROS__" ? (t.originCustom || t.origin) : t.origin;
+            const destinoDesc = t.destination === "__OUTROS__" ? (t.destinationCustom || t.destination) : t.destination;
+
+            if (equipsList.length === 0) {
+              // Carreta andou vazia ou sem equipamento informado — registra o trecho mesmo assim
+              await (supabase as any).from("equipamento_transportes").insert({
+                company_id: effectiveCompanyId,
+                equipment_fleet: normalizedSelectedFleet,
+                equipment_type: equipmentType,
+                data: date,
+                origem_ogs: t.origin || "000",
+                origem_descricao: origemDesc || "",
+                destino_ogs: t.destination || "000",
+                destino_descricao: destinoDesc || "",
+                tipo_transportador: "PROPRIO",
+                transportador_nome: normalizedSelectedFleet,
+                meter_no_transporte: lastMeter,
+                odometer_no_transporte: lastOdom,
+                observacoes: "Carreta sem equipamento informado",
+                diary_id: diary.id,
+                created_by: session.user.id,
+              });
+            } else {
+              // Um registro por equipamento transportado — permite rastrear cada um individualmente
+              for (const equipFrota of equipsList) {
+                // Buscar id do equipamento pelo frota para manter FK
+                const equipRef = equipamentos?.find((e: any) => e.frota === equipFrota || e.frota?.toUpperCase() === equipFrota.toUpperCase());
+                await (supabase as any).from("equipamento_transportes").insert({
+                  company_id: effectiveCompanyId,
+                  equipment_id: equipRef?.id ?? null,
+                  equipment_fleet: equipFrota,
+                  equipment_type: equipRef?.tipo ?? "",
+                  data: date,
+                  origem_ogs: t.origin || "000",
+                  origem_descricao: origemDesc || "",
+                  destino_ogs: t.destination || "000",
+                  destino_descricao: destinoDesc || "",
+                  tipo_transportador: "PROPRIO",
+                  transportador_nome: normalizedSelectedFleet,
+                  meter_no_transporte: lastMeter,
+                  odometer_no_transporte: lastOdom,
+                  observacoes: null,
+                  diary_id: diary.id,
+                  created_by: session.user.id,
+                });
+              }
+            }
+          }
+        }
       }
 
       // Save KMA calibration
