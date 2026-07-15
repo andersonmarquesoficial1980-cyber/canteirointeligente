@@ -130,6 +130,8 @@ export default function RelatorioControleLancamentos() {
   const [dataIni, setDataIni]   = useState(primeiroDia);
   const [dataFim, setDataFim]   = useState(ultimoDia);
   const [busca, setBusca]       = useState("");
+  const [tipoFiltro, setTipoFiltro] = useState(""); // filtro tipo equipamento (aba equipamento)
+  const [apenasSemlancamento, setApenasSemlancamento] = useState(false); // filtro sem lançamento
   const [loading, setLoading]   = useState(false);
   const [diarios, setDiarios]   = useState<DiarioRow[]>([]);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
@@ -228,13 +230,27 @@ export default function RelatorioControleLancamentos() {
     porFrota[key].rows.push(r);
   });
 
-  // Filtrar por busca
+  // Tipos únicos de equipamento presentes nos dados
+  const tiposEquipamento = [...new Set(diarios.map(r => r.equipment_type).filter(Boolean))].sort() as string[];
+
+  // Filtrar por busca + tipo + sem lançamento
   const usuariosFiltrados = Object.entries(porUsuario)
     .filter(([, v]) => !busca || v.nome.toLowerCase().includes(busca.toLowerCase()) || v.email.toLowerCase().includes(busca.toLowerCase()))
+    .filter(([, v]) => {
+      if (!apenasSemlancamento) return true;
+      const diasEnv = new Set(v.rows.filter(r => r.status === "enviado").map(r => r.date)).size;
+      return diasEnv < allDays.length;
+    })
     .sort((a, b) => a[1].nome.localeCompare(b[1].nome));
 
   const frotasFiltradas = Object.entries(porFrota)
+    .filter(([, v]) => !tipoFiltro || v.tipo === tipoFiltro)
     .filter(([, v]) => !busca || v.frota.toLowerCase().includes(busca.toLowerCase()) || (v.tipo || "").toLowerCase().includes(busca.toLowerCase()))
+    .filter(([, v]) => {
+      if (!apenasSemlancamento) return true;
+      const diasEnv = new Set(v.rows.filter(r => r.status === "enviado").map(r => r.date)).size;
+      return diasEnv < allDays.length;
+    })
     .sort((a, b) => a[1].frota.localeCompare(b[1].frota));
 
   // ── Toggle expandido ──────────────────────────────────────────────────────────
@@ -316,11 +332,44 @@ export default function RelatorioControleLancamentos() {
               <Button onClick={buscarDados} disabled={loading} className="h-9 bg-slate-700 hover:bg-slate-800 text-white gap-2">
                 <Search size={15} /> {loading ? "Buscando..." : "Buscar"}
               </Button>
+
+              {/* Filtro tipo equipamento — só visível na aba Por Equipamento */}
+              {aba === "equipamento" && tiposEquipamento.length > 0 && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 mb-1 block">TIPO DE EQUIPAMENTO</label>
+                  <select
+                    value={tipoFiltro}
+                    onChange={e => setTipoFiltro(e.target.value)}
+                    className="h-9 text-sm border border-gray-200 rounded-md px-3 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 min-w-[180px]"
+                  >
+                    <option value="">Todos os tipos</option>
+                    {tiposEquipamento.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="flex-1 min-w-48">
                 <label className="text-xs font-semibold text-gray-500 mb-1 block">BUSCAR</label>
                 <Input placeholder={aba === "usuario" ? "Nome ou email..." : "Frota ou tipo..."}
                   value={busca} onChange={e => setBusca(e.target.value)}
                   className="h-9 text-sm" />
+              </div>
+
+              {/* Toggle: apenas sem lançamentos */}
+              <div className="flex items-center gap-2 self-end pb-0.5">
+                <button
+                  onClick={() => setApenasSemlancamento(v => !v)}
+                  className={`flex items-center gap-2 h-9 px-4 rounded-md text-sm font-semibold border transition-all ${
+                    apenasSemlancamento
+                      ? "bg-red-600 text-white border-red-600"
+                      : "bg-white text-slate-600 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <FileX size={15} />
+                  Só sem lançamentos
+                </button>
               </div>
             </div>
           </div>
@@ -349,7 +398,7 @@ export default function RelatorioControleLancamentos() {
               { id: "usuario",    label: "Por Usuário",    icon: <Users size={15}/> },
               { id: "equipamento",label: "Por Equipamento",icon: <Wrench size={15}/> },
             ] as const).map(t => (
-              <button key={t.id} onClick={() => { setAba(t.id); setBusca(""); }}
+              <button key={t.id} onClick={() => { setAba(t.id); setBusca(""); setTipoFiltro(""); setApenasSemlancamento(false); }}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                   aba === t.id
                     ? "bg-slate-800 text-white shadow"
