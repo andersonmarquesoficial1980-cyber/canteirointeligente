@@ -142,26 +142,36 @@ export default function RelatorioControleLancamentos() {
     if (!companyId) return;
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
+      // 1ª query: diários sem join (user_id aponta para auth.users, não profiles)
+      const { data: raw, error } = await (supabase as any)
         .from("equipment_diaries")
         .select(`
           date, operator_name, equipment_fleet, equipment_type,
           ogs_number, location_address, period, work_status,
           meter_initial, meter_final, odometer_initial, odometer_final,
-          fuel_type, fuel_liters, observations, status, created_at,
-          user_id,
-          profiles!equipment_diaries_user_id_fkey (
-            nome_completo, email, user_id
-          )
+          fuel_type, fuel_liters, observations, status, created_at, user_id
         `)
         .eq("company_id", companyId)
         .gte("date", dataIni)
         .lte("date", dataFim)
         .order("date", { ascending: true });
 
-      if (error) throw error;
+      if (error) { console.error("[ControleLancamentos] query error", error); setLoading(false); return; }
+      if (!raw || raw.length === 0) { setDiarios([]); setLoading(false); return; }
 
-      const rows: DiarioRow[] = (data || []).map((d: any) => ({
+      // 2ª query: profiles pelos user_ids únicos
+      const userIds = [...new Set((raw as any[]).map((d: any) => d.user_id).filter(Boolean))];
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("user_id, nome_completo, email")
+        .in("user_id", userIds);
+
+      const profileMap: Record<string, { nome: string; email: string }> = {};
+      (profilesData || []).forEach((p: any) => {
+        profileMap[p.user_id] = { nome: p.nome_completo || "—", email: p.email || "" };
+      });
+
+      const rows: DiarioRow[] = (raw as any[]).map((d: any) => ({
         date: d.date,
         operator_name: d.operator_name,
         equipment_fleet: d.equipment_fleet || "—",
@@ -180,8 +190,8 @@ export default function RelatorioControleLancamentos() {
         status: d.status || "rascunho",
         created_at: d.created_at,
         usuario_id: d.user_id || "",
-        usuario_nome: d.profiles?.nome_completo || d.operator_name || "—",
-        usuario_email: d.profiles?.email || "",
+        usuario_nome: profileMap[d.user_id]?.nome || d.operator_name || "—",
+        usuario_email: profileMap[d.user_id]?.email || "",
       }));
 
       setDiarios(rows);
@@ -191,7 +201,9 @@ export default function RelatorioControleLancamentos() {
     setLoading(false);
   };
 
-  useEffect(() => { buscarDados(); }, [companyId]);
+  useEffect(() => {
+    if (companyId) buscarDados();
+  }, [companyId]);
 
   // ── Derivar dados agrupados ───────────────────────────────────────────────────
   const allDays = getAllDays(dataIni, dataFim);
