@@ -29,15 +29,32 @@ function fmtDate(d: string) {
 export default function RelatoriosHome() {
   const navigate = useNavigate();
 
-  // Cascata de seleção
-  const [step, setStep] = useState<"tipo" | "subtipo" | "frota_ogs" | "periodo">("tipo");
-  const [tipoRel, setTipoRel] = useState("");
-  const [tipoEquip, setTipoEquip] = useState("");
-  const [frotaOgs, setFrotaOgs] = useState("");
-  const [tipoPeriodo, setTipoPeriodo] = useState<"dia" | "periodo">("dia");
-  const [dataDia, setDataDia] = useState(new Date().toISOString().split("T")[0]);
-  const [dataIni, setDataIni] = useState("");
-  const [dataFim, setDataFim] = useState("");
+  // ── Persistência de filtros ─────────────────────────────────────────────
+  const RKEY = "relatoriosHome_filtros";
+  function salvar(patch: Record<string, string>) {
+    try {
+      const cur = JSON.parse(sessionStorage.getItem(RKEY) || "{}");
+      sessionStorage.setItem(RKEY, JSON.stringify({ ...cur, ...patch }));
+    } catch {}
+  }
+  function restaurar(): Record<string, string> {
+    try { return JSON.parse(sessionStorage.getItem(RKEY) || "{}"); } catch { return {}; }
+  }
+  const saved = restaurar();
+
+  // Cascata de seleção — restaura do sessionStorage ao montar
+  const [step, setStep] = useState<"tipo" | "subtipo" | "frota_ogs" | "periodo">(
+    (saved.step as any) || "tipo"
+  );
+  const [tipoRel, setTipoRel] = useState(saved.tipoRel || "");
+  const [tipoEquip, setTipoEquip] = useState(saved.tipoEquip || "");
+  const [frotaOgs, setFrotaOgs] = useState(saved.frotaOgs || "");
+  const [tipoPeriodo, setTipoPeriodo] = useState<"dia" | "periodo">(
+    (saved.tipoPeriodo as any) || "dia"
+  );
+  const [dataDia, setDataDia] = useState(saved.dataDia || new Date().toISOString().split("T")[0]);
+  const [dataIni, setDataIni] = useState(saved.dataIni || "");
+  const [dataFim, setDataFim] = useState(saved.dataFim || "");
 
   // Dados dinâmicos
   const [tiposEquip, setTiposEquip] = useState<string[]>([]);
@@ -105,8 +122,10 @@ export default function RelatoriosHome() {
     const ini = tipoPeriodo === "dia" ? dataDia : dataIni;
     const fim = tipoPeriodo === "dia" ? dataDia : dataFim;
 
+    // Limpa sessionStorage ao abrir o relatório — volta restaura ao passo correto
+    salvar({ step: "periodo", tipoRel, tipoEquip, frotaOgs, tipoPeriodo, dataDia, dataIni, dataFim });
+
     if (tipoRel === "equipamento") {
-      // Passa período completo (ini+fim) em vez de apenas mês
       navigate(`/relatorio-equipamento/${encodeURIComponent(frotaOgs)}?ini=${ini}&fim=${fim}`);
     } else if (tipoRel === "transportes") {
       navigate(`/relatorios/transportes?frota=${encodeURIComponent(frotaOgs)}&ini=${ini}&fim=${fim}`);
@@ -120,9 +139,34 @@ export default function RelatoriosHome() {
   }
 
   function voltar() {
-    if (step === "periodo") setStep(tipoRel !== "equipamento" ? "subtipo" : "frota_ogs");
-    else if (step === "frota_ogs") setStep("subtipo");
-    else if (step === "subtipo") setStep("tipo");
+    if (step === "periodo") {
+      const novoStep = tipoRel !== "equipamento" ? "subtipo" : "frota_ogs";
+      setStep(novoStep);
+      salvar({ step: novoStep });
+    } else if (step === "frota_ogs") {
+      setStep("subtipo");
+      salvar({ step: "subtipo" });
+    } else if (step === "subtipo") {
+      setStep("tipo");
+      salvar({ step: "tipo" });
+    }
+  }
+
+  // Wrappers que salvam automaticamente ao mudar estado
+  function selecionarTipo(tipo: string) {
+    setTipoRel(tipo);
+    setStep("subtipo");
+    salvar({ tipoRel: tipo, step: "subtipo" });
+  }
+  function selecionarTipoEquip(tipo: string) {
+    setTipoEquip(tipo);
+    setStep("frota_ogs");
+    salvar({ tipoEquip: tipo, step: "frota_ogs" });
+  }
+  function selecionarFrotaOgs(frota: string) {
+    setFrotaOgs(frota);
+    setStep("periodo");
+    salvar({ frotaOgs: frota, step: "periodo" });
   }
 
   const frotas = tipoEquip ? (frotasPorTipo[tipoEquip] || []) : [];
@@ -221,7 +265,7 @@ export default function RelatoriosHome() {
                     navigate(`/relatorios/abastecimento/TODAS?ini=${ini}&fim=${hoje}`);
                     return;
                   }
-                  setTipoRel(t.id); setStep("subtipo");
+                  selecionarTipo(t.id);
                 }}
                 className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
               >
@@ -243,7 +287,7 @@ export default function RelatoriosHome() {
             {tiposEquip.map(t => (
               <button
                 key={t}
-                onClick={() => { setTipoEquip(t); setStep("frota_ogs"); }}
+                onClick={() => { selecionarTipoEquip(t); }}
                 className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
               >
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -263,7 +307,7 @@ export default function RelatoriosHome() {
           <>
             <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Selecione a Carreta (ou todas)</p>
             <button
-              onClick={() => { setFrotaOgs("TODAS"); setStep("periodo"); }}
+              onClick={() => { selecionarFrotaOgs("TODAS"); }}
               className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
             >
               <span className="text-2xl">🚛</span>
@@ -273,7 +317,7 @@ export default function RelatoriosHome() {
               </div>
             </button>
             {(frotasPorTipo["Carreta"] || []).map((f: string) => (
-              <button key={f} onClick={() => { setFrotaOgs(f); setStep("periodo"); }}
+              <button key={f} onClick={() => { selecionarFrotaOgs(f); }}
                 className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3">
                 <span className="text-2xl">🚛</span>
                 <div className="flex-1">
@@ -309,7 +353,7 @@ export default function RelatoriosHome() {
                       {ogsList
                         .filter(o => o.ogs.includes(frotaOgs) || o.cliente.toLowerCase().includes(frotaOgs.toLowerCase()))
                         .map(o => (
-                          <button key={o.ogs} onClick={() => { setFrotaOgs(o.ogs); setStep("periodo"); }}
+                          <button key={o.ogs} onClick={() => { selecionarFrotaOgs(o.ogs); }}
                             className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/10 transition-colors flex items-center justify-between">
                             <div>
                               <span className="text-sm font-bold">OGS {o.ogs}</span>
@@ -322,7 +366,7 @@ export default function RelatoriosHome() {
                   )}
                 </div>
                 <button
-                  onClick={() => { if (frotaOgs.trim()) setStep("periodo"); }}
+                  onClick={() => { if (frotaOgs.trim()) selecionarFrotaOgs(frotaOgs.trim()); }}
                   disabled={!frotaOgs.trim()}
                   className="w-full h-12 rounded-xl bg-primary text-white font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -334,7 +378,7 @@ export default function RelatoriosHome() {
               <>
                 {/* Opção: Todos os equipamentos — descrição varia conforme tipo */}
                 <button
-                  onClick={() => { setFrotaOgs("TODAS"); setStep("periodo"); }}
+                  onClick={() => { selecionarFrotaOgs("TODAS"); }}
                   className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3 border-primary/30 bg-primary/5"
                 >
                   <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0 text-lg">
@@ -352,7 +396,7 @@ export default function RelatoriosHome() {
                 {Object.values(frotasPorTipo).flat().sort().map(f => (
                   <button
                     key={f}
-                    onClick={() => { setFrotaOgs(f); setStep("periodo"); }}
+                    onClick={() => { selecionarFrotaOgs(f); }}
                     className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
                   >
                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -374,7 +418,7 @@ export default function RelatoriosHome() {
             {frotas.map(f => (
               <button
                 key={f}
-                onClick={() => { setFrotaOgs(f); setStep("periodo"); }}
+                onClick={() => { selecionarFrotaOgs(f); }}
                 className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
               >
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 font-display font-bold text-primary text-sm">

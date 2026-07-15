@@ -477,8 +477,7 @@ export default function RelatorioEquipamento() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)] print:bg-white">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg print:hidden">
-        <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
-          <ArrowLeft className="w-5 h-5" />
+        <button onClick={() => navigate("/relatorios")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
         </button>
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Relatório de Equipamento</span>

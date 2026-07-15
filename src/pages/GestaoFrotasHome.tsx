@@ -40,9 +40,25 @@ export default function GestaoFrotasHome() {
   const [aba, setAba] = useState<"frotas" | "documentos" | "consumo">("frotas");
   const [docsVencendo, setDocsVencendo] = useState<any[]>([]);
 
-  // Cascata: categoria → subtipo → lista
-  const [step, setStep] = useState<"tipo" | "subtipo" | "lista">("tipo");
-  const [catSel, setCatSel] = useState<EquipCategoria | null>(null);
+  // Cascata: categoria → subtipo → lista — com persistência de filtros
+  const GFKEY = "gestaoFrotasHome_filtros";
+  function gfSalvar(patch: Record<string, any>) {
+    try {
+      const cur = JSON.parse(sessionStorage.getItem(GFKEY) || "{}");
+      sessionStorage.setItem(GFKEY, JSON.stringify({ ...cur, ...patch }));
+    } catch {}
+  }
+  function gfRestaurar(): Record<string, any> {
+    try { return JSON.parse(sessionStorage.getItem(GFKEY) || "{}"); } catch { return {}; }
+  }
+  const gfSaved = gfRestaurar();
+
+  const [step, setStep] = useState<"tipo" | "subtipo" | "lista">(
+    (gfSaved.step as any) || "tipo"
+  );
+  const [catSel, setCatSel] = useState<EquipCategoria | null>(
+    gfSaved.catSel || null
+  );
   const [subtipoSel, setSubtipoSel] = useState("");
   const [busca, setBusca] = useState("");
 
@@ -106,9 +122,17 @@ export default function GestaoFrotasHome() {
 
   function voltar() {
     if (step === "lista") {
-      if (isGrupo) { setStep("subtipo"); setBusca(""); }
-      else { setStep("tipo"); setCatSel(null); setBusca(""); }
-    } else if (step === "subtipo") { setStep("tipo"); setCatSel(null); }
+      if (isGrupo) {
+        setStep("subtipo"); setBusca("");
+        gfSalvar({ step: "subtipo" });
+      } else {
+        setStep("tipo"); setCatSel(null); setBusca("");
+        gfSalvar({ step: "tipo", catSel: null });
+      }
+    } else if (step === "subtipo") {
+      setStep("tipo"); setCatSel(null);
+      gfSalvar({ step: "tipo", catSel: null });
+    }
   }
 
   // Lista de equipamentos filtrada
@@ -225,6 +249,8 @@ export default function GestaoFrotasHome() {
                   setCatSel(cat);
                   setSubtipoSel("");
                   setBusca("");
+                  const novoStep = ehGrupo ? "subtipo" : "lista";
+                  gfSalvar({ catSel: cat, subtipoSel: "", step: novoStep });
                   if (ehGrupo) setStep("subtipo");
                   else setStep("lista");
                 }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
@@ -247,7 +273,7 @@ export default function GestaoFrotasHome() {
           <>
             <p className="text-xs text-muted-foreground font-semibold px-1">Selecione o tipo de {catSelLabel}:</p>
             {/* Ver todos do grupo */}
-            <button onClick={() => { setSubtipoSel(""); setStep("lista"); }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
+            <button onClick={() => { setSubtipoSel(""); setStep("lista"); gfSalvar({ subtipoSel: "", step: "lista" }); }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">📋</div>
               <div className="flex-1 text-left">
                 <p className="font-display font-bold text-sm">Todos</p>
@@ -262,7 +288,7 @@ export default function GestaoFrotasHome() {
               if (count === 0) return null;
               const Icon = iconePorCategoria(catSel.key);
               return (
-                <button key={sub.subtipo} onClick={() => { setSubtipoSel(sub.tipoValor); setStep("lista"); }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
+                <button key={sub.subtipo} onClick={() => { setSubtipoSel(sub.tipoValor); setStep("lista"); gfSalvar({ subtipoSel: sub.tipoValor, step: "lista" }); }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                     {sub.icone ? <span className="text-lg">{sub.icone}</span> : <Icon className="w-5 h-5 text-primary" />}
                   </div>
