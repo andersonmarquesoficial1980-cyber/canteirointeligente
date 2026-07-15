@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ChevronDown, ChevronUp, Loader2, FileDown, FileSpreadsheet, Printer, Trash2, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { fmtNum, fmtNumCsv, toNum as toNumLib } from "@/lib/fmt";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -494,7 +494,7 @@ export default function RelatorioRdo() {
         <button onClick={() => navigate("/relatorios")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
+        <LogoHomeButton className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Relatório RDO</span>
           <span className="block text-[11px] text-primary-foreground/80">OGS {ogs} • {fmtDate(ini)} a {fmtDate(fim)}</span>

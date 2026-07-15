@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, HardHat, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "-";
@@ -143,7 +143,7 @@ export default function VisualizarRdo() {
         <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
+        <LogoHomeButton className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Visualizar RDO</span>
           <span className="block text-[11px] text-primary-foreground/80">Somente leitura</span>

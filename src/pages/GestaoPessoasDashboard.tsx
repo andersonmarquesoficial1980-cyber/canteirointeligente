@@ -6,7 +6,7 @@ import {
   MessageSquare, CheckSquare, Clock, Calendar, Smartphone, X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
@@ -375,7 +375,7 @@ export default function GestaoPessoasDashboard() {
         <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <img src={logoCi} alt="CI" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-bold text-sm">WF Gestão de Pessoas</span>
           <span className="block text-[10px] text-primary-foreground/70">

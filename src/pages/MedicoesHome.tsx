@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
 import * as XLSX from "xlsx";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 function fmtDate(d: string) {
   const [y, m, day] = d.split("-");
@@ -271,7 +271,7 @@ export default function MedicoesHome() {
         <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <img src={logoCi} alt="Workflux" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-bold text-sm text-primary-foreground">WF Medições</span>
           <span className="block text-[10px] text-primary-foreground/70">Fechamento de equipamentos terceirizados</span>

@@ -8,7 +8,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Truck, MapPin, Send, CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOgsReference } from "@/hooks/useOgsReference";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
@@ -179,7 +179,7 @@ export default function CarreteirosQRScan() {
     <div style={{ minHeight: "100vh", background: "#f8fafc", paddingBottom: 32 }}>
       {/* Header */}
       <div style={{ background: "linear-gradient(135deg,#0A0F2C,#0D1B4B)", padding: "16px", display: "flex", alignItems: "center", gap: 12 }}>
-        <img src={logoCi} alt="" style={{ height: 32 }} />
+        <LogoHomeButton style={{ height: 32 }} />
         <div>
           <p style={{ color: "white", fontWeight: 800, fontSize: 14, fontFamily: "Montserrat" }}>WF Carreteiros</p>
           <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 11 }}>Registro por QR Code</p>

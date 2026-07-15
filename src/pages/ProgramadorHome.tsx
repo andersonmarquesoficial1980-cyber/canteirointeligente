@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 
@@ -196,7 +196,7 @@ export default function ProgramadorHome() {
           <button onClick={() => navigate("/")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
+          <LogoHomeButton className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
           <div className="flex-1">
             <h1 className="text-lg font-display font-bold text-white">WF Programador</h1>
             <p className="text-xs text-white/70">Equipes · Funcionários · Equipamentos</p>

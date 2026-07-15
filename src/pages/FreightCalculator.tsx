@@ -15,7 +15,7 @@ import {
   ArrowLeft, Calculator, MapPin, Route, DollarSign, Clock,
   Save, Loader2, Trash2, History, Truck
 } from "lucide-react";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 declare global {
   interface Window {
@@ -465,7 +465,7 @@ export default function FreightCalculator() {
         <button onClick={() => navigate("/carreteiros")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <img src={logoCi} alt="CI" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <h1 className="font-display font-bold text-base leading-tight">Calculadora de Fretes</h1>
           <p className="text-[10px] text-primary-foreground/70">Google Maps + Custo Automático</p>

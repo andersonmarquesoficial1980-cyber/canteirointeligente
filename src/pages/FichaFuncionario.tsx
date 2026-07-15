@@ -13,7 +13,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { toast } from "@/hooks/use-toast";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Funcionario {
@@ -392,7 +392,7 @@ export default function FichaFuncionario() {
         <button onClick={() => navigate("/gestao-pessoas")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <img src={logoCi} alt="CI" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1 min-w-0">
           <h1 className="font-display font-bold text-sm leading-tight truncate">{func.name}</h1>
           <p className="text-[10px] text-primary-foreground/70">Mat. {func.matricula} · {func.role}</p>

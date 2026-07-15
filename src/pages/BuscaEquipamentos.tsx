@@ -9,7 +9,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Search, Loader2, X, ChevronRight, Wrench, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -145,7 +145,7 @@ export default function BuscaEquipamentos() {
         <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <img src={logoCi} alt="Workflux" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-bold text-sm text-primary-foreground">Buscar Equipamentos</span>
           <span className="block text-[10px] text-primary-foreground/70">Filtrar diários por OGS, frota, tipo ou operador</span>

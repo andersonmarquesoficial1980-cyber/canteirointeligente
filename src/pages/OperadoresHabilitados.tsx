@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Settings2, X } from "lucide-react";
 
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -188,7 +188,7 @@ export default function OperadoresHabilitados() {
       <header className="sticky top-0 z-40 bg-header-gradient text-primary-foreground px-4 py-3 shadow-lg">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
           <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition"><ArrowLeft className="h-5 w-5" /></button>
-          <img src={logoCi} alt="Workflux" className="h-9 object-contain" />
+          <LogoHomeButton className="h-9 object-contain" />
           <div className="flex-1">
             <h1 className="font-display font-extrabold text-base leading-tight flex items-center gap-2">
               <Settings2 className="w-4 h-4" /> Cadastros do Sistema

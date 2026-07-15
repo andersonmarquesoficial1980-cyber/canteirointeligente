@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { LogOut, ChevronRight, FileSpreadsheet, ClipboardList, Truck, MapPin, ExternalLink, Clock } from "lucide-react";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 import imgFresadora from "@/assets/equip-fresadora.png";
 import imgBobcat from "@/assets/equip-bobcat.webp";
@@ -199,7 +199,7 @@ export default function EquipmentHome() {
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/")} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="relative">
-              <img src={logoCi} alt="Workflux" className="h-11 object-contain drop-shadow-lg" />
+              <LogoHomeButton className="h-11 object-contain drop-shadow-lg" />
               <div className="absolute inset-0 rounded-full bg-white/20 blur-md -z-10 scale-110" />
             </div>
             <div>

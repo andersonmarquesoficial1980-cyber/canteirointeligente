@@ -36,7 +36,7 @@ import EncarregadosManager from "@/components/admin/EncarregadosManager";
 
 import PermissoesManager from "@/components/admin/PermissoesManager";
 import AdminRolesPage from "./AdminRolesPage";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
@@ -4047,7 +4047,7 @@ export default function AdminConfiguracoes() {
           <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <img src={logoCi} alt="CI" className="h-7 object-contain" />
+          <LogoHomeButton className="h-7 object-contain" />
           <div className="flex-1">
             <h1 className="font-display font-bold text-base leading-tight flex items-center gap-2">
               <ShieldCheck className="w-4 h-4" /> Painel de Controle

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDemandas, type Demanda } from "@/hooks/useDemandas";
 import NovaDemandaModal from "@/components/demandas/NovaDemandaModal";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { getSetorLabel, getStatusLabel, getTipoMeta, getUrgenciaMeta, TRANSPORTE_HORARIOS } from "@/lib/demandas";
 
 type FiltroStatus = "todas" | "abertas" | "andamento" | "concluidas";
@@ -299,7 +299,7 @@ export default function DemandasHome() {
           <button onClick={() => navigate("/")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <img src={logoCi} alt="CI" className="w-8 h-8 rounded-full border-2 border-white/30 shadow-md" />
+          <LogoHomeButton className="w-8 h-8 rounded-full border-2 border-white/30 shadow-md" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-display font-bold text-white">Transporte & Logística</h1>
             <p className="text-xs text-white/80">{abertasCount} abertas</p>

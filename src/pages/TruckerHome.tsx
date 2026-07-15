@@ -11,7 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { toast } from "sonner";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 // Materials are now loaded dynamically from insumos_materiais
 
@@ -320,7 +320,7 @@ export default function TruckerHome() {
         <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <img src={logoCi} alt="CI" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <h1 className="font-display font-bold text-base leading-tight">WF Carreteiros</h1>
           <p className="text-[10px] text-primary-foreground/70">Logística de Materiais</p>

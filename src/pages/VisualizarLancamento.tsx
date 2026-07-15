@@ -4,7 +4,7 @@ import { ArrowLeft, Loader2, Printer, FileSpreadsheet, ZoomIn } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { fmtNum } from "@/lib/fmt";
@@ -337,7 +337,7 @@ export default function VisualizarLancamento() {
         <button onClick={() => navigate("/meus-lancamentos")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
+        <LogoHomeButton className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Visualizar Lançamento</span>
           <span className="block text-[11px] text-primary-foreground/80">{diary ? `${diary.equipment_fleet} • ${diary.date?.split('-').reverse().join('/')}` : 'Somente leitura'}</span>

@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 // Ordena apontamentos respeitando turno noturno (virada de meia-noite)
 // Horários antes das 07:00 são tratados como continuação do dia anterior
@@ -367,7 +367,7 @@ export default function MeusLancamentos() {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <img src={logoCi} alt="Workflux" className="h-10 object-contain" />
+        <LogoHomeButton className="h-10 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">
             {isAdmin ? "Lançamentos — Todos" : "Meus Lançamentos"}

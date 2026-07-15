@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, FolderOpen, Brain, Building2 } from "lucide-react";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 const SECOES = [
   {
@@ -39,7 +39,7 @@ export default function SSTIntegracaoHome() {
         <button onClick={() => navigate("/sst")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <img src={logoCi} alt="CI" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-bold text-sm">Integração — SST</span>
           <span className="block text-[10px] text-primary-foreground/70">Gestão de integrações com concessionárias</span>

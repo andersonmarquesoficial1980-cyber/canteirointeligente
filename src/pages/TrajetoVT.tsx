@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Bus, MapPin, Clock, Route, Search, Loader2, DollarSign,
 } from "lucide-react";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 declare global {
   interface Window {
@@ -508,7 +508,7 @@ export default function TrajetoVT() {
         <button onClick={() => navigate("/rh")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <img src={logoCi} alt="CI" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <h1 className="font-display font-bold text-base leading-tight">Trajeto e VT</h1>
           <p className="text-[10px] text-primary-foreground/70">Transporte Público de Funcionários</p>

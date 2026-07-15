@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Demanda, StatusDemanda } from "@/hooks/useDemandas";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 const STATUS_LABELS: Record<StatusDemanda, string> = {
   aberta: "Aberta",
@@ -206,7 +206,7 @@ export default function MinhasDemandas() {
           <button onClick={() => navigate("/")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
+          <LogoHomeButton className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
           <div className="flex-1">
             <h1 className="text-lg font-display font-bold text-white">Minhas Tarefas</h1>
             <p className="text-xs text-white/70">Demandas atribuídas a você</p>

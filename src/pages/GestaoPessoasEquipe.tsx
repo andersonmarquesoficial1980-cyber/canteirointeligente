@@ -8,7 +8,7 @@ import {
   ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, User, X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 interface Funcionario {
@@ -173,7 +173,7 @@ export default function GestaoPessoasEquipe() {
         <button onClick={() => navigate("/gestao-pessoas")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <img src={logoCi} alt="CI" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-bold text-sm">Funcionários</span>
           <span className="block text-[10px] text-primary-foreground/70">{todos.length} cadastrados</span>

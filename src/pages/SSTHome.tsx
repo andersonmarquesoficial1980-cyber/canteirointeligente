@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ClipboardCheck, FolderOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
@@ -42,7 +42,7 @@ export default function SSTHome() {
         <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <img src={logoCi} alt="CI" className="h-7 object-contain" />
+        <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-bold text-sm">WF Segurança do Trabalho</span>
           <span className="block text-[10px] text-primary-foreground/70">

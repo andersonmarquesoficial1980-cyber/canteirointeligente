@@ -27,7 +27,7 @@ import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import SectionProducaoCauq, { type ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
 import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteiro";
 import { buildHtmlReport } from "@/lib/buildHtmlReport";
-import logoCi from "@/assets/logo-workflux.png";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
 import { useEquipes } from "@/hooks/useEquipes";
 
@@ -969,7 +969,7 @@ export default function RdoForm() {
           <button onClick={() => navigate("/obras")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <img src={logoCi} alt="CI" className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
+          <LogoHomeButton className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
           <div className="flex-1">
             <h1 className="text-lg font-display font-bold text-white">RDO Digital</h1>
             <p className="text-xs text-white/70">Relatório Diário de Obra</p>
