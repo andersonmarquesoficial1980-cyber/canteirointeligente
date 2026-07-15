@@ -269,10 +269,10 @@ export default function RelatorioControleLancamentos() {
   const usuariosComLancamento = new Set(diarios.filter(r => r.status === "enviado").map(r => r.usuario_id));
   const frotasComLancamento   = new Set(diarios.filter(r => r.status === "enviado").map(r => r.equipment_fleet));
 
-  // Tipos únicos
+  // Tipos únicos — normaliza tudo para MAIÚSCULAS antes de deduplicar
   const tiposEquipamento = [...new Set([
-    ...diarios.map(r => r.equipment_type),
-    ...todasFrotas.map(f => f.tipo),
+    ...diarios.map(r => r.equipment_type?.trim().toUpperCase()),
+    ...todasFrotas.map(f => f.tipo?.trim().toUpperCase()),
   ].filter(Boolean) as string[])].sort();
 
   // ── Cards de usuários ─────────────────────────────────────────────────────
@@ -290,11 +290,11 @@ export default function RelatorioControleLancamentos() {
   const frotaCards: FrotaCard[] = apenasSemlancamento
     ? todasFrotas
         .filter(f => !frotasComLancamento.has(f.frota))
-        .filter(f => !tipoFiltro || f.tipo === tipoFiltro)
+        .filter(f => !tipoFiltro || f.tipo.trim().toUpperCase() === tipoFiltro)
         .filter(f => !busca || f.frota.toLowerCase().includes(busca.toLowerCase()) || f.tipo.toLowerCase().includes(busca.toLowerCase()))
         .map(f => ({ key: f.frota, frota: f.frota, tipo: f.tipo, rows: [], semLancamento: true }))
     : Object.entries(porFrota)
-        .filter(([, v]) => !tipoFiltro || v.tipo === tipoFiltro)
+        .filter(([, v]) => !tipoFiltro || v.tipo.trim().toUpperCase() === tipoFiltro)
         .filter(([, v]) => !busca || v.frota.toLowerCase().includes(busca.toLowerCase()) || v.tipo.toLowerCase().includes(busca.toLowerCase()))
         .sort((a, b) => a[1].frota.localeCompare(b[1].frota))
         .map(([k, v]) => ({ key: k, frota: v.frota, tipo: v.tipo, rows: v.rows, semLancamento: false }));
