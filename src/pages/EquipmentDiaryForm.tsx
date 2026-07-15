@@ -1281,7 +1281,8 @@ export default function EquipmentDiaryForm() {
         ? `[CANCELOU: ${cancelouMotivo.trim()}]`
         : (observations || null),
       location_address: isPatioMode ? "BASE / PÁTIO CENTRAL" : (isCarreta ? null : (locationAddress || null)),
-      company_id: profile?.company_id || null,
+      // effectiveCompanyId tem fallback da Fremix — evita company_id null corrompendo o registro
+      company_id: effectiveCompanyId || null,
       user_id: session.user.id,
       created_by: session.user.id,
       fresagem_type: isRolo ? roloType : (isVeiculo ? veiculoType : (isCaminhoes ? caminhaoTipo : null)),
@@ -1371,9 +1372,18 @@ export default function EquipmentDiaryForm() {
         if (!isAdminOrGerente) {
           updateQuery = updateQuery.eq("user_id", session.user.id);
         }
-        const { data: updatedDiary, error: updateError } = await updateQuery.select().single();
+        const { data: updatedDiary, error: updateError } = await updateQuery.select().maybeSingle();
         diary = updatedDiary;
         error = updateError;
+        // maybeSingle retorna null sem erro quando RLS filtra a linha — busca manualmente
+        if (!diary && !error) {
+          const { data: fetched } = await (supabase as any)
+            .from("equipment_diaries")
+            .select("id")
+            .eq("id", editId)
+            .maybeSingle();
+          diary = fetched || { id: editId };
+        }
       } else if (savedDiaryId) {
         // Checklist já criou um diário temporário — atualizar ele com o payload completo
         const { data: updatedDiary, error: updateError } = await (supabase as any)
@@ -1381,8 +1391,8 @@ export default function EquipmentDiaryForm() {
           .update(diaryPayload)
           .eq("id", savedDiaryId)
           .select()
-          .single();
-        diary = updatedDiary;
+          .maybeSingle();
+        diary = updatedDiary || { id: savedDiaryId };
         error = updateError;
       } else {
         const duplicateQuery = (supabase as any)
