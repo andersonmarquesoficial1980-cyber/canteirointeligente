@@ -188,6 +188,19 @@ function RequireModule({ moduleId, children }: { moduleId: string; children: JSX
   return children;
 }
 
+function RequireAuth({ children }: { children: JSX.Element }) {
+  const { session, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+  if (!session) return <Navigate to="/" replace />;
+  return children;
+}
+
 function RequireAdminOrSuperAdmin({ children }: { children: JSX.Element }) {
   const { isAdmin, loading: loadingAdmin } = useIsAdmin();
   const { isSuperAdmin, loading: loadingModules } = useCompanyModules();
@@ -406,8 +419,8 @@ function AppRoutes() {
         <Route path="/sst/integracao/analise-ia/:id" element={<RequireModule moduleId="sst"><DocumentosIntegracao /></RequireModule>} />
         <Route path="/sst/integracao/obras" element={<RequireModule moduleId="sst"><SSTObrasIntegracao /></RequireModule>} />
 
-        {/* Visualização somente leitura para outros WFs (modulo_sst não necessário — vê se tem o módulo do WF dele) */}
-        <Route path="/integracao-obras" element={<SSTObrasVisualizacao />} />
+        {/* Visualização somente leitura para outros WFs — exige login mas não módulo SST */}
+        <Route path="/integracao-obras" element={<RequireAuth><SSTObrasVisualizacao /></RequireAuth>} />
 
         {/* WF Documentos → redireciona para SST aba integração (sem quebrar links antigos) */}
         <Route path="/documentos" element={<Navigate to="/sst?tab=integracao" replace />} />
