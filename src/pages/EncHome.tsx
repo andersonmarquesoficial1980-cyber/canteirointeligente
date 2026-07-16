@@ -36,7 +36,44 @@ export default function EncHome() {
       const { data: prof } = await (supabase as any).from("profiles").select("*").eq("user_id", user.id).maybeSingle();
       setProfile(prof);
 
-      // Buscar OGSs vinculadas ao encarregado
+      if (!prof?.company_id) { setLoading(false); return; }
+
+      // Encontrar nome exato do encarregado na tabela employees pelo primeiro+último nome do perfil
+      const nameParts = (prof.nome_completo || "")
+        .trim()
+        .split(/\s+/)
+        .filter((p: string) => p.length > 2);
+
+      let nomeEncarregado: string | null = null;
+      if (nameParts.length >= 2) {
+        const { data: emp } = await (supabase as any)
+          .from("employees")
+          .select("name")
+          .eq("company_id", prof.company_id)
+          .ilike("name", `%${nameParts[0]}%`)
+          .ilike("name", `%${nameParts[nameParts.length - 1]}%`)
+          .maybeSingle();
+        nomeEncarregado = emp?.name || null;
+      }
+
+      // Buscar RDOs pendentes de validação pelo nome do encarregado
+      let rdoQuery = (supabase as any)
+        .from("rdo_diarios")
+        .select("id, data, obra_nome, preenchido_por, ogs_id")
+        .eq("company_id", prof.company_id)
+        .eq("validado_encarregado", false)
+        .eq("nao_aprovado_encarregado", false)
+        .order("data", { ascending: false })
+        .limit(20);
+
+      if (nomeEncarregado) {
+        rdoQuery = rdoQuery.eq("encarregado", nomeEncarregado);
+      }
+
+      const { data: rdos } = await rdoQuery;
+      setRdosPendentes(rdos || []);
+
+      // Buscar obras/OGSs vinculadas (via encarregado_ogs, se houver configuração)
       const { data: vinculos } = await (supabase as any)
         .from("encarregado_ogs")
         .select("ogs_id, ogs_reference(id, ogs_number, client_name)")
@@ -50,21 +87,6 @@ export default function EncHome() {
       })).filter((o: MinhaOgs) => o.id);
 
       setMinhasOgs(ogs);
-
-      if (ogs.length > 0) {
-        const ogsIds = ogs.map(o => o.id);
-        // Buscar RDOs ainda não avaliados pelo encarregado
-        const { data: rdos } = await (supabase as any)
-          .from("rdo_diarios")
-          .select("id, data, obra_nome, preenchido_por, ogs_id")
-          .in("ogs_id", ogsIds)
-          .eq("validado_encarregado", false)
-          .eq("nao_aprovado_encarregado", false)
-          .order("data", { ascending: false })
-          .limit(20);
-
-        setRdosPendentes(rdos || []);
-      }
       setLoading(false);
     };
     load();

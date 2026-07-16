@@ -23,25 +23,55 @@ export default function EncValidacoes() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: vinculos } = await (supabase as any)
-        .from("encarregado_ogs")
-        .select("ogs_id")
-        .eq("encarregado_id", user.id)
-        .eq("ativo", true);
+      // Buscar perfil para obter nome_completo e company_id
+      const { data: prof } = await (supabase as any)
+        .from("profiles")
+        .select("nome_completo, company_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      const ogsIds = (vinculos || []).map((v: any) => v.ogs_id).filter(Boolean);
+      if (!prof?.company_id) { setLoading(false); return; }
 
-      if (ogsIds.length > 0) {
-        const { data } = await (supabase as any)
-          .from("rdo_diarios")
-          .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo")
-          .in("ogs_id", ogsIds)
-          .eq("validado_encarregado", false)
-          .eq("nao_aprovado_encarregado", false)
-          .order("data", { ascending: false })
-          .limit(50);
-        setRdos(data || []);
+      // Tentar encontrar o nome exato do encarregado na tabela employees
+      // cruzando pelo primeiro e último nome do perfil (case-insensitive)
+      const nameParts = (prof.nome_completo || "")
+        .trim()
+        .split(/\s+/)
+        .filter((p: string) => p.length > 2);
+
+      let nomeEncarregado: string | null = null;
+
+      if (nameParts.length >= 2) {
+        const primeiro = nameParts[0];
+        const ultimo = nameParts[nameParts.length - 1];
+        const { data: emp } = await (supabase as any)
+          .from("employees")
+          .select("name")
+          .eq("company_id", prof.company_id)
+          .ilike("name", `%${primeiro}%`)
+          .ilike("name", `%${ultimo}%`)
+          .maybeSingle();
+        nomeEncarregado = emp?.name || null;
       }
+
+      // Montar query de RDOs pendentes de validação
+      let query = (supabase as any)
+        .from("rdo_diarios")
+        .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo")
+        .eq("company_id", prof.company_id)
+        .eq("validado_encarregado", false)
+        .eq("nao_aprovado_encarregado", false)
+        .order("data", { ascending: false })
+        .limit(50);
+
+      // Se encontrou o nome exato, filtrar somente os RDOs deste encarregado
+      if (nomeEncarregado) {
+        query = query.eq("encarregado", nomeEncarregado);
+      }
+      // fallback: sem filtro por nome — mostra todos da empresa pendentes
+
+      const { data } = await query;
+      setRdos(data || []);
       setLoading(false);
     };
     load();

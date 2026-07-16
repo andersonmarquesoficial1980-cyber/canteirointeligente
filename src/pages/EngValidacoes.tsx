@@ -24,24 +24,26 @@ export default function EngValidacoes() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: vinculos } = await (supabase as any)
-        .from("engenheiro_ogs")
-        .select("ogs_id")
-        .eq("engenheiro_id", user.id)
-        .eq("ativo", true);
+      // Buscar company_id do engenheiro
+      const { data: prof } = await (supabase as any)
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      const ogsIds = (vinculos || []).map((v: any) => v.ogs_id).filter(Boolean);
+      if (!prof?.company_id) { setLoading(false); return; }
 
-      if (ogsIds.length > 0) {
-        const { data } = await (supabase as any)
-          .from("rdo_diarios")
-          .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo, status_validacao")
-          .in("ogs_id", ogsIds)
-          .eq("status_validacao", "aguardando_validacao")
-          .order("data", { ascending: false })
-          .limit(50);
-        setRdos(data || []);
-      }
+      // Engenheiro vê todos os RDOs da empresa pendentes de validação
+      // Status aceitos: 'enviado' ou 'aguardando_validacao' (ambos = pendente)
+      const { data } = await (supabase as any)
+        .from("rdo_diarios")
+        .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo, status_validacao")
+        .eq("company_id", prof.company_id)
+        .in("status_validacao", ["enviado", "aguardando_validacao"])
+        .is("validado_por", null)
+        .order("data", { ascending: false })
+        .limit(50);
+      setRdos(data || []);
       setLoading(false);
     };
     load();

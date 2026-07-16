@@ -31,7 +31,28 @@ export default function EngHome() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Buscar OGSs vinculadas ao engenheiro
+      // Buscar company_id do engenheiro
+      const { data: prof } = await (supabase as any)
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!prof?.company_id) { setLoading(false); return; }
+
+      // Buscar RDOs pendentes de validação de toda a empresa (status 'enviado' ou 'aguardando_validacao')
+      const { data: rdos } = await (supabase as any)
+        .from("rdo_diarios")
+        .select("id, data, obra_nome, preenchido_por, status_validacao, ogs_id")
+        .eq("company_id", prof.company_id)
+        .in("status_validacao", ["enviado", "aguardando_validacao"])
+        .is("validado_por", null)
+        .order("data", { ascending: false })
+        .limit(20);
+
+      setRdosPendentes(rdos || []);
+
+      // Buscar OGSs vinculadas (via engenheiro_ogs, se houver)
       const { data: vinculos } = await (supabase as any)
         .from("engenheiro_ogs")
         .select("ogs_id, ogs_reference(id, ogs_number, client_name)")
@@ -45,20 +66,6 @@ export default function EngHome() {
       })).filter((o: MinhaOgs) => o.id);
 
       setMinhasOgs(ogs);
-
-      if (ogs.length > 0) {
-        const ogsIds = ogs.map(o => o.id);
-        // Buscar RDOs aguardando validação nas obras do engenheiro
-        const { data: rdos } = await (supabase as any)
-          .from("rdo_diarios")
-          .select("id, data, obra_nome, preenchido_por, status_validacao, ogs_id")
-          .in("ogs_id", ogsIds)
-          .eq("status_validacao", "aguardando_validacao")
-          .order("data", { ascending: false })
-          .limit(20);
-
-        setRdosPendentes(rdos || []);
-      }
       setLoading(false);
     };
     load();
