@@ -2,16 +2,18 @@
  * GestaoFrotasRastreamento — Dashboard de Rastreamento Unificado
  * Rota: /gestao-frotas/rastreamento
  *
- * Mostra onde está cada equipamento ativo, unindo 3 fontes:
- *   1. Diário de equipamento do dia (manual ou auto)
- *   2. Registros de transporte via carreta (equipamento_transportes)
- *   3. Apontamento de horas (equipment_time_entries) — atividade mais recente
+ * LÓGICA DE RASTREAMENTO (simplificada — uma fonte por vez):
  *
- * Lógica de prioridade por equipamento (dia atual):
- *   1º Diário manual → local e status real
- *   2º Em transporte  → mostra carreta e destino
- *   3º Diário auto    → Pátio Central (cinza)
- *   4º Sem apontamento → alerta vermelho
+ * Para equipamentos COM diário histórico:
+ *   → Mostra o ÚLTIMO diário registrado (qualquer data), com indicação de quando foi
+ *   → "Trabalhando/Disposição/Manutenção" vem do work_status do último diário
+ *   → Hoje sem diário = badge "Sem diário hoje" — mas localização ainda é exibida
+ *
+ * Para equipamentos SEM nenhum diário:
+ *   → Localização vem do campo `setor` do cadastro (equipe/obra onde está alocado)
+ *   → Se não tem setor: realmente sem informação
+ *
+ * NÃO MISTURA fontes — o setor do cadastro é o fallback quando não há diário.
  */
 
 import { useState, useEffect, useMemo } from "react";
@@ -19,155 +21,126 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, RefreshCw, MapPin, AlertTriangle,
   Truck, Bot, CheckCircle2, Wrench, Clock,
-  ChevronDown, ChevronUp, Search, Filter
+  ChevronDown, ChevronUp, Search, Filter, CalendarDays
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
-// Tipos que não entram no controle de diário automático
-const TIPOS_EXCLUIDOS_AUTO = [
-  "BANHEIRO QUÍMICO", "CAMINHÃO BASCULANTE", "CAMINHÃO PLATAFORMA",
-  "CAMINHÃO COMBOIO", "CARRETINHA BANHEIRO", "COMPRESSOR", "GERADOR",
-  "MISTURADOR DE ARGAMASSA", "PLACA VIBRATÓRIA", "PRANCHA REBOQUE",
-  "ROMPEDOR ELÉTRICO", "ROMPEDOR PNEUMÁTICO", "SERRA CLIPPER",
-  "TORRE DE ILUMINAÇÃO", "VAN",
-];
-
-type StatusRastreio =
-  | "trabalhando"   // diário manual, trabalhando
-  | "disposicao"    // diário manual, à disposição
-  | "manutencao"    // diário manual ou setor, em manutenção
-  | "transporte"    // em transporte registrado por carreta
-  | "patioAuto"     // diário automático — pátio central
-  | "semApontamento"; // sem diário hoje
+type FonteInfo = "diario_manual" | "diario_auto" | "setor_cadastro" | "sem_info";
+type StatusOperacao = "trabalhando" | "disposicao" | "manutencao" | "transporte" | "folga" | "patio" | "sem_info";
 
 interface EquipRastreio {
   id: string;
   frota: string;
   tipo: string;
   setor: string | null;
-  status: string | null;
-  // Rastreamento
-  rastreioStatus: StatusRastreio;
+  // Localização
   localAtual: string;
   ogsAtual: string | null;
+  statusOperacao: StatusOperacao;
   operador: string | null;
-  workStatus: string | null;
-  isAuto: boolean;
-  // Transporte
+  // Rastreabilidade
+  fonte: FonteInfo;
+  ultimaDiarioData: string | null;   // data do último diário
+  diasSemDiario: number | null;      // dias desde o último diário
+  temDiarioHoje: boolean;
+  isAutoHoje: boolean;
+  // Transporte via carreta
   carretaTransporte: string | null;
   destinoTransporte: string | null;
-  // Marcador de tipo "excluído do auto"
-  excluídoAuto: boolean;
 }
 
-const STATUS_CONFIG: Record<StatusRastreio, {
-  label: string;
-  icon: React.ReactNode;
-  bgRow: string;
-  badge: string;
-  dot: string;
-}> = {
-  trabalhando: {
-    label: "Trabalhando",
-    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
-    bgRow: "bg-white",
-    badge: "bg-emerald-100 text-emerald-700 border border-emerald-200",
-    dot: "bg-emerald-500",
-  },
-  disposicao: {
-    label: "À Disposição",
-    icon: <Clock className="w-3.5 h-3.5" />,
-    bgRow: "bg-white",
-    badge: "bg-blue-100 text-blue-700 border border-blue-200",
-    dot: "bg-blue-400",
-  },
-  manutencao: {
-    label: "Manutenção",
-    icon: <Wrench className="w-3.5 h-3.5" />,
-    bgRow: "bg-amber-50",
-    badge: "bg-amber-100 text-amber-700 border border-amber-200",
-    dot: "bg-amber-500",
-  },
-  transporte: {
-    label: "Em Transporte",
-    icon: <Truck className="w-3.5 h-3.5" />,
-    bgRow: "bg-purple-50",
-    badge: "bg-purple-100 text-purple-700 border border-purple-200",
-    dot: "bg-purple-500",
-  },
-  patioAuto: {
-    label: "Pátio (Auto)",
-    icon: <Bot className="w-3.5 h-3.5" />,
-    bgRow: "bg-slate-50",
-    badge: "bg-slate-100 text-slate-600 border border-slate-200",
-    dot: "bg-slate-400",
-  },
-  semApontamento: {
-    label: "Sem Apontamento",
-    icon: <AlertTriangle className="w-3.5 h-3.5" />,
-    bgRow: "bg-red-50",
-    badge: "bg-red-100 text-red-700 border border-red-200",
-    dot: "bg-red-500",
-  },
+const STATUS_CFG: Record<StatusOperacao, { label: string; dot: string; badge: string; bgRow: string }> = {
+  trabalhando:  { label: "Trabalhando",    dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-700 border border-emerald-200", bgRow: "bg-white" },
+  disposicao:   { label: "À Disposição",   dot: "bg-blue-400",    badge: "bg-blue-100 text-blue-700 border border-blue-200",         bgRow: "bg-white" },
+  manutencao:   { label: "Manutenção",     dot: "bg-amber-500",   badge: "bg-amber-100 text-amber-700 border border-amber-200",       bgRow: "bg-amber-50" },
+  transporte:   { label: "Em Transporte",  dot: "bg-purple-500",  badge: "bg-purple-100 text-purple-700 border border-purple-200",    bgRow: "bg-purple-50" },
+  folga:        { label: "Folga/Parado",   dot: "bg-slate-400",   badge: "bg-slate-100 text-slate-600 border border-slate-200",       bgRow: "bg-slate-50" },
+  patio:        { label: "No Pátio",       dot: "bg-slate-400",   badge: "bg-slate-100 text-slate-600 border border-slate-200",       bgRow: "bg-slate-50" },
+  sem_info:     { label: "Sem informação", dot: "bg-gray-300",    badge: "bg-gray-100 text-gray-500 border border-gray-200",          bgRow: "bg-white" },
 };
 
-function resolverStatusRastreio(workStatus: string | null): StatusRastreio {
-  if (!workStatus) return "semApontamento";
+function resolverStatus(workStatus: string | null, setor: string | null): StatusOperacao {
+  if (!workStatus) {
+    // Sem diário — inferir pelo setor
+    const s = (setor || "").toUpperCase();
+    if (s.includes("MANUTENÇÃO") || s.includes("MANUTENCAO")) return "manutencao";
+    if (s.includes("DISPOSIÇÃO") || s.includes("DISPOSICAO")) return "disposicao";
+    return "sem_info";
+  }
   const ws = workStatus.toLowerCase();
   if (ws.includes("manuten")) return "manutencao";
   if (ws.includes("disposição") || ws.includes("disposicao")) return "disposicao";
   if (ws.includes("transporte")) return "transporte";
+  if (ws.includes("folga") || ws.includes("cancelou") || ws.includes("inoperante")) return "folga";
+  if (ws.includes("pátio") || ws.includes("patio")) return "patio";
   return "trabalhando";
 }
 
-type FiltroStatus = "todos" | StatusRastreio;
-type FiltroTipo = "todos" | string;
+function diasAtras(dataStr: string | null): number | null {
+  if (!dataStr) return null;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const data = new Date(dataStr + "T00:00:00");
+  return Math.round((hoje.getTime() - data.getTime()) / 86400000);
+}
+
+function labelDias(d: number | null): string {
+  if (d === null) return "sem diário";
+  if (d === 0) return "hoje";
+  if (d === 1) return "ontem";
+  return `há ${d} dias`;
+}
+
+function corDias(d: number | null): string {
+  if (d === null) return "text-gray-400";
+  if (d === 0) return "text-emerald-600 font-semibold";
+  if (d <= 2) return "text-blue-600";
+  if (d <= 7) return "text-amber-600";
+  return "text-red-600 font-semibold";
+}
 
 export default function GestaoFrotasRastreamento() {
   const navigate = useNavigate();
-  const [equipamentos, setEquipamentos] = useState<EquipRastreio[]>([]);
+  const [lista, setLista] = useState<EquipRastreio[]>([]);
   const [loading, setLoading] = useState(true);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
-  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
-  const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("todos");
   const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<StatusOperacao | "todos">("todos");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    buscarDados();
-  }, []);
+  useEffect(() => { buscarDados(); }, []);
 
   async function buscarDados() {
     setLoading(true);
     const hoje = new Date().toISOString().split("T")[0];
 
     // 1. Todos equipamentos ativos
-    const { data: equips } = await supabase
+    const { data: equips } = await (supabase as any)
       .from("equipamentos")
       .select("id, frota, tipo, setor, status")
       .eq("company_id", COMPANY_ID)
       .eq("status", "ativo")
       .not("frota", "is", null)
-      .order("tipo")
-      .order("frota");
+      .order("tipo").order("frota");
 
-    if (!equips?.length) {
-      setEquipamentos([]);
-      setLoading(false);
-      return;
-    }
+    if (!equips?.length) { setLista([]); setLoading(false); return; }
 
-    // 2. Diários de hoje
-    const frotas = equips.map((e) => e.frota!);
-    const { data: diarios } = await supabase
+    const frotas = equips.map((e: any) => e.frota!);
+
+    // 2. Último diário de cada equipamento (qualquer data, manual ou auto)
+    //    Buscamos os últimos 10 dias de diários para pegar o mais recente de cada frota
+    const { data: diarios } = await (supabase as any)
       .from("equipment_diaries")
-      .select("equipment_fleet, work_status, location_address, ogs_number, operator_name, is_auto, status")
-      .eq("date", hoje)
+      .select("equipment_fleet, date, work_status, location_address, ogs_number, operator_name, is_auto, status")
       .eq("company_id", COMPANY_ID)
-      .in("equipment_fleet", frotas);
+      .in("status", ["enviado", "auto"])
+      .in("equipment_fleet", frotas)
+      .gte("date", (() => { const d = new Date(); d.setDate(d.getDate() - 90); return d.toISOString().split("T")[0]; })())
+      .order("date", { ascending: false });
 
     // 3. Transportes de hoje (equipamento sendo carregado por carreta)
     const { data: transportes } = await (supabase as any)
@@ -176,13 +149,25 @@ export default function GestaoFrotasRastreamento() {
       .eq("data", hoje)
       .eq("company_id", COMPANY_ID);
 
-    // Montar mapas para lookup rápido
-    const diarioMap = new Map<string, typeof diarios extends (infer T)[] | null ? T : never>();
-    for (const d of diarios || []) {
-      // Priorizar diário manual sobre auto
-      const existing = diarioMap.get(d.equipment_fleet!);
-      if (!existing || (!d.is_auto && existing.is_auto)) {
-        diarioMap.set(d.equipment_fleet!, d);
+    // Montar mapa: último diário manual por frota, e se tem diário hoje
+    const ultimoDiarioMap = new Map<string, typeof diarios extends (infer T)[] | null ? T : never>();
+    const diarioHojeMap = new Map<string, boolean>();  // frota → tem diário hoje?
+    const diarioHojeAutoMap = new Map<string, boolean>(); // frota → diário de hoje é auto?
+
+    for (const d of (diarios || []) as any[]) {
+      const frota = d.equipment_fleet as string;
+      // Marcar se tem diário hoje
+      if (d.date === hoje) {
+        diarioHojeMap.set(frota, true);
+        if (d.is_auto) diarioHojeAutoMap.set(frota, true);
+      }
+      // Guardar último diário manual (preferência sobre auto)
+      const existing = ultimoDiarioMap.get(frota);
+      if (!existing) {
+        ultimoDiarioMap.set(frota, d);
+      } else if (!d.is_auto && existing.is_auto) {
+        // Preferir manual sobre auto para a localização
+        ultimoDiarioMap.set(frota, d);
       }
     }
 
@@ -195,241 +180,202 @@ export default function GestaoFrotasRastreamento() {
       });
     }
 
-    // Montar lista final
-    const result: EquipRastreio[] = equips.map((eq) => {
-      const diario = diarioMap.get(eq.frota!);
-      const transporte = transporteMap.get(eq.frota!);
-      const excluídoAuto = TIPOS_EXCLUIDOS_AUTO.includes((eq.tipo || "").toUpperCase());
+    // Montar resultado
+    const result: EquipRastreio[] = (equips as any[]).map((eq: any) => {
+      const frota = eq.frota as string;
+      const ultimoDiario = ultimoDiarioMap.get(frota);
+      const transporte = transporteMap.get(frota);
+      const temDiarioHoje = diarioHojeMap.get(frota) ?? false;
+      const isAutoHoje = diarioHojeAutoMap.get(frota) ?? false;
+      const dAtras = diasAtras(ultimoDiario?.date ?? null);
 
-      if (diario && !diario.is_auto) {
-        // Diário manual — fonte mais confiável
-        let rastreioStatus = resolverStatusRastreio(diario.work_status);
-
-        // Se tem registro de transporte e o diário diz "Em Transporte"
-        if (rastreioStatus === "transporte" && transporte) {
-          return {
-            ...eq,
-            rastreioStatus: "transporte",
-            localAtual: transporte.destino || diario.location_address || "—",
-            ogsAtual: transporte.destinoOgs || diario.ogs_number || null,
-            operador: diario.operator_name,
-            workStatus: diario.work_status,
-            isAuto: false,
-            carretaTransporte: transporte.carreta,
-            destinoTransporte: transporte.destino,
-            excluídoAuto,
-          };
-        }
-
-        return {
-          ...eq,
-          rastreioStatus,
-          localAtual: diario.location_address || "—",
-          ogsAtual: diario.ogs_number || null,
-          operador: diario.operator_name,
-          workStatus: diario.work_status,
-          isAuto: false,
-          carretaTransporte: null,
-          destinoTransporte: null,
-          excluídoAuto,
-        };
-      }
-
+      // Transporte de hoje tem prioridade sobre o diário para localização
       if (transporte) {
-        // Em transporte registrado por carreta (sem diário manual)
         return {
           ...eq,
-          rastreioStatus: "transporte",
           localAtual: transporte.destino || "Em rota",
           ogsAtual: transporte.destinoOgs,
-          operador: null,
-          workStatus: "Em Transporte",
-          isAuto: true,
+          statusOperacao: "transporte" as StatusOperacao,
+          operador: ultimoDiario?.operator_name ?? null,
+          fonte: "diario_manual" as FonteInfo,
+          ultimaDiarioData: ultimoDiario?.date ?? null,
+          diasSemDiario: dAtras,
+          temDiarioHoje,
+          isAutoHoje,
           carretaTransporte: transporte.carreta,
           destinoTransporte: transporte.destino,
-          excluídoAuto,
         };
       }
 
-      if (diario && diario.is_auto) {
-        // Diário automático — pátio central
-        const setor = (eq.setor || "").toUpperCase();
-        let rastreioStatus: StatusRastreio = "patioAuto";
-        if (setor.includes("MANUTENÇÃO") || setor.includes("MANUTENCAO")) rastreioStatus = "manutencao";
-        else if (setor.includes("DISPOSIÇÃO") || setor.includes("DISPOSICAO")) rastreioStatus = "disposicao";
-
+      if (ultimoDiario) {
         return {
           ...eq,
-          rastreioStatus,
-          localAtual: diario.location_address || "Pátio Central",
-          ogsAtual: null,
-          operador: null,
-          workStatus: diario.work_status,
-          isAuto: true,
+          localAtual: ultimoDiario.location_address || eq.setor || "—",
+          ogsAtual: ultimoDiario.ogs_number || null,
+          statusOperacao: resolverStatus(ultimoDiario.work_status, eq.setor),
+          operador: ultimoDiario.operator_name ?? null,
+          fonte: ultimoDiario.is_auto ? "diario_auto" : "diario_manual",
+          ultimaDiarioData: ultimoDiario.date,
+          diasSemDiario: dAtras,
+          temDiarioHoje,
+          isAutoHoje,
           carretaTransporte: null,
           destinoTransporte: null,
-          excluídoAuto,
         };
       }
 
-      // Sem nenhum apontamento
+      // Sem nenhum diário — usar setor do cadastro como localização
+      const setor = eq.setor;
       return {
         ...eq,
-        rastreioStatus: excluídoAuto ? "patioAuto" : "semApontamento",
-        localAtual: excluídoAuto ? "Pátio Central" : "—",
+        localAtual: setor || "—",
         ogsAtual: null,
+        statusOperacao: resolverStatus(null, setor),
         operador: null,
-        workStatus: null,
-        isAuto: false,
+        fonte: setor ? "setor_cadastro" : "sem_info",
+        ultimaDiarioData: null,
+        diasSemDiario: null,
+        temDiarioHoje: false,
+        isAutoHoje: false,
         carretaTransporte: null,
         destinoTransporte: null,
-        excluídoAuto,
       };
     });
 
-    setEquipamentos(result);
+    setLista(result);
     setUltimaAtualizacao(new Date());
     setLoading(false);
   }
 
   // KPIs
-  const kpis = useMemo(() => {
-    const total = equipamentos.length;
-    const trabalhando = equipamentos.filter((e) => e.rastreioStatus === "trabalhando").length;
-    const manutencao = equipamentos.filter((e) => e.rastreioStatus === "manutencao").length;
-    const transporte = equipamentos.filter((e) => e.rastreioStatus === "transporte").length;
-    const patio = equipamentos.filter((e) => e.rastreioStatus === "patioAuto" || e.rastreioStatus === "disposicao").length;
-    const semApontamento = equipamentos.filter((e) => e.rastreioStatus === "semApontamento").length;
-    return { total, trabalhando, manutencao, transporte, patio, semApontamento };
-  }, [equipamentos]);
+  const kpis = useMemo(() => ({
+    total: lista.length,
+    trabalhando: lista.filter((e) => e.statusOperacao === "trabalhando").length,
+    manutencao: lista.filter((e) => e.statusOperacao === "manutencao").length,
+    transporte: lista.filter((e) => e.statusOperacao === "transporte").length,
+    disposicao: lista.filter((e) => e.statusOperacao === "disposicao" || e.statusOperacao === "patio" || e.statusOperacao === "folga").length,
+    semDiarioHoje: lista.filter((e) => !e.temDiarioHoje).length,
+    semInfo: lista.filter((e) => e.fonte === "sem_info").length,
+  }), [lista]);
 
-  // Tipos únicos para filtro
-  const tiposUnicos = useMemo(() => {
-    const set = new Set(equipamentos.map((e) => e.tipo || "").filter(Boolean));
-    return Array.from(set).sort();
-  }, [equipamentos]);
+  const tiposUnicos = useMemo(() =>
+    Array.from(new Set(lista.map((e) => e.tipo || "").filter(Boolean))).sort(),
+    [lista]);
 
-  // Lista filtrada
-  const lista = useMemo(() => {
-    let r = equipamentos;
-    if (filtroStatus !== "todos") r = r.filter((e) => e.rastreioStatus === filtroStatus);
+  const listaFiltrada = useMemo(() => {
+    let r = lista;
+    if (filtroStatus !== "todos") r = r.filter((e) => e.statusOperacao === filtroStatus);
     if (filtroTipo !== "todos") r = r.filter((e) => e.tipo === filtroTipo);
     if (busca.trim()) {
       const q = busca.toLowerCase();
-      r = r.filter(
-        (e) =>
-          e.frota?.toLowerCase().includes(q) ||
-          e.tipo?.toLowerCase().includes(q) ||
-          e.localAtual?.toLowerCase().includes(q) ||
-          e.operador?.toLowerCase().includes(q) ||
-          e.setor?.toLowerCase().includes(q)
+      r = r.filter((e) =>
+        e.frota?.toLowerCase().includes(q) ||
+        e.tipo?.toLowerCase().includes(q) ||
+        e.localAtual?.toLowerCase().includes(q) ||
+        e.operador?.toLowerCase().includes(q) ||
+        e.setor?.toLowerCase().includes(q) ||
+        e.ogsAtual?.toLowerCase().includes(q)
       );
     }
-    // Ordenar: sem apontamento primeiro, depois manutenção, depois os demais
-    const prioridade: Record<StatusRastreio, number> = {
-      semApontamento: 0,
-      manutencao: 1,
-      transporte: 2,
-      trabalhando: 3,
-      disposicao: 4,
-      patioAuto: 5,
+    // Ordenação: manutenção primeiro, depois trabalhando, depois o resto
+    const ord: Record<StatusOperacao, number> = {
+      manutencao: 0, transporte: 1, trabalhando: 2,
+      disposicao: 3, patio: 4, folga: 5, sem_info: 6,
     };
-    return r.sort((a, b) => prioridade[a.rastreioStatus] - prioridade[b.rastreioStatus]);
-  }, [equipamentos, filtroStatus, filtroTipo, busca]);
+    return r.sort((a, b) => {
+      const diff = ord[a.statusOperacao] - ord[b.statusOperacao];
+      if (diff !== 0) return diff;
+      return (a.diasSemDiario ?? 999) - (b.diasSemDiario ?? 999);
+    });
+  }, [lista, filtroStatus, filtroTipo, busca]);
 
-  const fmtHora = (d: Date) =>
-    d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const fmtHora = (d: Date) => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const fmtData = (s: string) => {
+    const [y, m, d] = s.split("-");
+    return `${d}/${m}/${y}`;
+  };
 
-  const FILTROS: { key: FiltroStatus; label: string; count: number; cor: string }[] = [
-    { key: "todos", label: "Todos", count: kpis.total, cor: "bg-gray-100 text-gray-700 border border-gray-200" },
-    { key: "semApontamento", label: "⚠ Sem apontamento", count: kpis.semApontamento, cor: kpis.semApontamento > 0 ? "bg-red-100 text-red-700 border border-red-300" : "bg-gray-100 text-gray-400 border border-gray-200" },
-    { key: "trabalhando", label: "✅ Trabalhando", count: kpis.trabalhando, cor: "bg-emerald-100 text-emerald-700 border border-emerald-200" },
-    { key: "transporte", label: "🚛 Em transporte", count: kpis.transporte, cor: "bg-purple-100 text-purple-700 border border-purple-200" },
-    { key: "manutencao", label: "🔧 Manutenção", count: kpis.manutencao, cor: "bg-amber-100 text-amber-700 border border-amber-200" },
-    { key: "patioAuto", label: "🤖 Pátio / Disp.", count: kpis.patio, cor: "bg-slate-100 text-slate-600 border border-slate-200" },
+  const CHIPS = [
+    { key: "todos" as const,      label: "Todos",          count: kpis.total,       cor: "bg-gray-100 text-gray-700 border border-gray-200" },
+    { key: "trabalhando" as const, label: "✅ Trabalhando", count: kpis.trabalhando,  cor: "bg-emerald-100 text-emerald-700 border border-emerald-200" },
+    { key: "transporte" as const,  label: "🚛 Transporte",  count: kpis.transporte,   cor: "bg-purple-100 text-purple-700 border border-purple-200" },
+    { key: "manutencao" as const,  label: "🔧 Manutenção",  count: kpis.manutencao,   cor: "bg-amber-100 text-amber-700 border border-amber-200" },
+    { key: "disposicao" as const,  label: "📦 Disp./Pátio", count: kpis.disposicao,   cor: "bg-blue-100 text-blue-700 border border-blue-200" },
   ];
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
-      {/* Header */}
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg sticky top-0 z-10">
         <button onClick={() => navigate("/gestao-frotas")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
-          <span className="block font-display font-extrabold text-sm text-primary-foreground">
-            Rastreamento de Frotas
-          </span>
+          <span className="block font-display font-extrabold text-sm text-primary-foreground">Rastreamento de Frotas</span>
           <span className="block text-[11px] text-primary-foreground/80">
             {ultimaAtualizacao ? `Atualizado às ${fmtHora(ultimaAtualizacao)}` : "Carregando..."}
           </span>
         </div>
-        <button
-          onClick={buscarDados}
-          disabled={loading}
-          className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-xl transition-colors disabled:opacity-50"
-        >
+        <button onClick={buscarDados} disabled={loading}
+          className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-xl transition-colors disabled:opacity-50">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </button>
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
-        {/* KPIs inline */}
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+
+        {/* KPIs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
-            { label: "Total", value: kpis.total, cor: "text-gray-700" },
+            { label: "Total ativos", value: kpis.total, cor: "text-gray-700" },
             { label: "Trabalhando", value: kpis.trabalhando, cor: "text-emerald-600" },
-            { label: "Em Transporte", value: kpis.transporte, cor: "text-purple-600" },
-            { label: "Manutenção", value: kpis.manutencao, cor: "text-amber-600" },
-            { label: "Pátio/Disp.", value: kpis.patio, cor: "text-slate-600" },
-            { label: "Sem Apontamento", value: kpis.semApontamento, cor: kpis.semApontamento > 0 ? "text-red-600 font-bold" : "text-gray-400" },
+            { label: "Manutenção", value: kpis.manutencao, cor: kpis.manutencao > 0 ? "text-amber-600 font-bold" : "text-gray-400" },
+            { label: "Sem diário hoje", value: kpis.semDiarioHoje, cor: kpis.semDiarioHoje > 0 ? "text-orange-600" : "text-gray-400" },
           ].map((k) => (
-            <div key={k.label} className="bg-white rounded-xl border border-border px-3 py-2 text-center">
-              <p className={`text-xl font-display font-extrabold ${k.cor}`}>{k.value}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight">{k.label}</p>
+            <div key={k.label} className="bg-white rounded-xl border border-border px-3 py-2.5 text-center">
+              <p className={`text-2xl font-display font-extrabold ${k.cor}`}>{k.value}</p>
+              <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{k.label}</p>
             </div>
           ))}
         </div>
 
+        {/* Aviso sobre o que "sem diário hoje" significa */}
+        {kpis.semDiarioHoje > 0 && (
+          <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2.5">
+            <CalendarDays className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-orange-800">
+              <strong>{kpis.semDiarioHoje} equipamentos</strong> não têm diário preenchido hoje — mas a localização abaixo é do <strong>último diário registrado</strong> (pode ser ontem ou dias anteriores). O diário automático do pátio é gerado às 21h para os equipamentos que precisam.
+            </p>
+          </div>
+        )}
+
         {/* Filtros de status */}
         <div className="flex flex-wrap gap-2">
-          {FILTROS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFiltroStatus(f.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${f.cor} ${
-                filtroStatus === f.key ? "ring-2 ring-offset-1 ring-primary/50 scale-105" : "opacity-80 hover:opacity-100"
-              }`}
-            >
-              {f.label} <span className="font-bold ml-1">{f.count}</span>
+          {CHIPS.map((c) => (
+            <button key={c.key} onClick={() => setFiltroStatus(c.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${c.cor} ${
+                filtroStatus === c.key ? "ring-2 ring-offset-1 ring-primary/50 scale-105" : "opacity-80 hover:opacity-100"
+              }`}>
+              {c.label} <span className="font-bold ml-1">{c.count}</span>
             </button>
           ))}
         </div>
 
-        {/* Busca + filtro de tipo */}
+        {/* Busca + tipo */}
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar frota, local, operador..."
-              className="w-full h-10 pl-9 pr-3 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
+            <input value={busca} onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar frota, local, OGS, operador..."
+              className="w-full h-10 pl-9 pr-3 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
           </div>
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-            <select
-              value={filtroTipo}
-              onChange={(e) => setFiltroTipo(e.target.value)}
-              className="h-10 pl-9 pr-8 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
-            >
+            <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}
+              className="h-10 pl-9 pr-8 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none">
               <option value="todos">Todos os tipos</option>
-              {tiposUnicos.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
+              {tiposUnicos.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
         </div>
@@ -438,35 +384,30 @@ export default function GestaoFrotasRastreamento() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <RefreshCw className="w-8 h-8 animate-spin text-primary/40" />
-            <p className="text-sm text-muted-foreground">Carregando localização de {""} equipamentos...</p>
+            <p className="text-sm text-muted-foreground">Buscando localização de todos os equipamentos...</p>
           </div>
-        ) : lista.length === 0 ? (
+        ) : listaFiltrada.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground text-sm">
             <MapPin className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            Nenhum equipamento encontrado com esse filtro.
+            Nenhum equipamento com esse filtro.
           </div>
         ) : (
-          <div className="space-y-2">
-            {lista.map((eq) => {
-              const cfg = STATUS_CONFIG[eq.rastreioStatus];
-              const isExpanded = expandido[eq.frota];
+          <div className="space-y-1.5">
+            {listaFiltrada.map((eq) => {
+              const cfg = STATUS_CFG[eq.statusOperacao];
+              const isOpen = expandido[eq.frota];
+              const dAtras = eq.diasSemDiario;
 
               return (
-                <div
-                  key={eq.frota}
-                  className={`rounded-xl border border-border overflow-hidden ${cfg.bgRow}`}
-                >
-                  {/* Linha principal */}
+                <div key={eq.frota} className={`rounded-xl border border-border overflow-hidden ${cfg.bgRow}`}>
                   <button
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-black/5 transition-colors"
-                    onClick={() =>
-                      setExpandido((prev) => ({ ...prev, [eq.frota]: !prev[eq.frota] }))
-                    }
-                  >
-                    {/* Dot de status */}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-black/[0.03] transition-colors"
+                    onClick={() => setExpandido((p) => ({ ...p, [eq.frota]: !p[eq.frota] }))}>
+
+                    {/* Dot */}
                     <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
 
-                    {/* Frota + Tipo */}
+                    {/* Frota */}
                     <div className="w-28 flex-shrink-0">
                       <p className="font-display font-bold text-sm leading-tight">{eq.frota}</p>
                       <p className="text-[10px] text-muted-foreground truncate">{eq.tipo}</p>
@@ -474,80 +415,90 @@ export default function GestaoFrotasRastreamento() {
 
                     {/* Local */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate font-medium">{eq.localAtual}</p>
-                      {eq.ogsAtual && eq.ogsAtual !== "000" && (
-                        <p className="text-[10px] text-muted-foreground">OGS {eq.ogsAtual}</p>
-                      )}
+                      <p className="text-sm truncate font-medium">
+                        {eq.localAtual}
+                        {eq.ogsAtual && eq.ogsAtual !== "000" && (
+                          <span className="text-muted-foreground text-xs ml-1.5">OGS {eq.ogsAtual}</span>
+                        )}
+                      </p>
+                      {/* Quando foi o último diário */}
+                      <p className={`text-[10px] ${corDias(dAtras)}`}>
+                        {eq.fonte === "setor_cadastro"
+                          ? "📋 Localização pelo setor cadastrado"
+                          : eq.fonte === "sem_info"
+                          ? "❓ Sem informação"
+                          : `📅 Último diário: ${eq.ultimaDiarioData ? fmtData(eq.ultimaDiarioData) : "—"} (${labelDias(dAtras)})`
+                        }
+                        {eq.isAutoHoje && " 🤖"}
+                      </p>
                     </div>
 
-                    {/* Badge de status */}
-                    <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${cfg.badge}`}>
-                      {cfg.icon}
+                    {/* Badge status */}
+                    <span className={`hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${cfg.badge}`}>
                       {cfg.label}
                     </span>
 
-                    {/* Expandir */}
-                    {isExpanded
+                    {/* Badge "sem diário hoje" */}
+                    {!eq.temDiarioHoje && eq.fonte !== "setor_cadastro" && eq.fonte !== "sem_info" && (
+                      <span className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-orange-100 text-orange-700 border border-orange-200">
+                        <CalendarDays className="w-3 h-3" /> Sem diário hoje
+                      </span>
+                    )}
+
+                    {isOpen
                       ? <ChevronUp className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
-                      : <ChevronDown className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />
-                    }
+                      : <ChevronDown className="w-4 h-4 text-muted-foreground/50 flex-shrink-0" />}
                   </button>
 
-                  {/* Detalhe expandido */}
-                  {isExpanded && (
-                    <div className="px-4 pb-3 pt-0 border-t border-border/50 bg-black/[0.02] space-y-1.5">
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                        {eq.setor && (
-                          <div>
-                            <span className="text-muted-foreground">Equipe/Setor: </span>
-                            <span className="font-medium">{eq.setor}</span>
-                          </div>
-                        )}
-                        {eq.operador && (
-                          <div>
-                            <span className="text-muted-foreground">Operador: </span>
-                            <span className="font-medium">{eq.operador}</span>
-                          </div>
-                        )}
-                        {eq.workStatus && (
-                          <div>
-                            <span className="text-muted-foreground">Status diário: </span>
-                            <span className="font-medium">{eq.workStatus}</span>
-                          </div>
+                  {/* Expansão */}
+                  {isOpen && (
+                    <div className="px-4 pb-3 pt-0 border-t border-border/50 bg-black/[0.02] space-y-2">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-2">
+                        <div><span className="text-muted-foreground">Status: </span><span className="font-medium">{cfg.label}</span></div>
+                        {eq.setor && <div><span className="text-muted-foreground">Equipe/Setor: </span><span className="font-medium">{eq.setor}</span></div>}
+                        {eq.operador && <div><span className="text-muted-foreground">Operador: </span><span className="font-medium">{eq.operador}</span></div>}
+                        {eq.ogsAtual && eq.ogsAtual !== "000" && (
+                          <div><span className="text-muted-foreground">OGS: </span><span className="font-medium">{eq.ogsAtual}</span></div>
                         )}
                         {eq.carretaTransporte && (
-                          <div>
-                            <span className="text-muted-foreground">Transportado por: </span>
-                            <span className="font-medium text-purple-700">{eq.carretaTransporte}</span>
-                          </div>
+                          <div><span className="text-muted-foreground">Carreta: </span><span className="font-medium text-purple-700">{eq.carretaTransporte}</span></div>
                         )}
                         {eq.destinoTransporte && (
-                          <div>
-                            <span className="text-muted-foreground">Destino: </span>
-                            <span className="font-medium text-purple-700">{eq.destinoTransporte}</span>
-                          </div>
+                          <div><span className="text-muted-foreground">Destino: </span><span className="font-medium text-purple-700">{eq.destinoTransporte}</span></div>
                         )}
                         <div>
-                          <span className="text-muted-foreground">Fonte: </span>
+                          <span className="text-muted-foreground">Fonte da localização: </span>
                           <span className="font-medium">
-                            {eq.rastreioStatus === "transporte" && eq.carretaTransporte
-                              ? "Diário da carreta"
-                              : eq.isAuto
-                              ? "🤖 Automático"
-                              : eq.workStatus
-                              ? "Diário manual"
-                              : "—"}
+                            {eq.fonte === "diario_manual" ? "Diário do operador" :
+                             eq.fonte === "diario_auto" ? "🤖 Diário automático" :
+                             eq.fonte === "setor_cadastro" ? "📋 Setor cadastrado" :
+                             "❓ Sem informação"}
                           </span>
                         </div>
+                        {eq.ultimaDiarioData && (
+                          <div>
+                            <span className="text-muted-foreground">Último diário: </span>
+                            <span className={`font-medium ${corDias(dAtras)}`}>
+                              {fmtData(eq.ultimaDiarioData)} ({labelDias(dAtras)})
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Alerta sem apontamento */}
-                      {eq.rastreioStatus === "semApontamento" && (
-                        <div className="mt-2 flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      {/* Alertas contextuais */}
+                      {!eq.temDiarioHoje && dAtras !== null && dAtras > 7 && (
+                        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                           <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
                           <p className="text-xs text-red-700">
-                            Nenhum diário registrado hoje. Verificar com o operador/equipe.
-                            {!eq.excluídoAuto && " O diário automático de pátio será gerado às 21h se não houver apontamento."}
+                            Último diário há <strong>{dAtras} dias</strong>. Verificar situação do equipamento.
+                          </p>
+                        </div>
+                      )}
+                      {eq.fonte === "setor_cadastro" && (
+                        <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                          <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-blue-700">
+                            Localização pelo <strong>setor cadastrado</strong> — nenhum diário de equipamento registrado ainda para esta frota.
                           </p>
                         </div>
                       )}
@@ -560,19 +511,19 @@ export default function GestaoFrotasRastreamento() {
         )}
 
         {/* Legenda */}
-        <div className="bg-white rounded-xl border border-border p-3">
-          <p className="text-xs font-bold text-muted-foreground mb-2">Legenda de Fontes</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-muted-foreground">
-            <span>✅ <strong>Diário manual</strong> — operador preencheu hoje</span>
-            <span>🚛 <strong>Em Transporte</strong> — informado pelo motorista da carreta</span>
-            <span>🤖 <strong>Pátio (Auto)</strong> — gerado automaticamente às 21h</span>
-            <span>⚠️ <strong>Sem apontamento</strong> — nenhum registro encontrado</span>
+        <div className="bg-white rounded-xl border border-border p-3 mt-2">
+          <p className="text-xs font-bold text-muted-foreground mb-2">Como funciona o rastreamento</p>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <p>📅 <strong>Último diário do operador</strong> → fonte mais confiável. Data indica quando foi registrado.</p>
+            <p>🤖 <strong>Diário automático</strong> → gerado às 21h pelo Workflux quando não há apontamento manual.</p>
+            <p>📋 <strong>Setor cadastrado</strong> → equipamentos sem nenhum diário: localização pelo cadastro.</p>
+            <p>🚛 <strong>Em transporte</strong> → registrado hoje pelo motorista da carreta.</p>
           </div>
         </div>
 
         <p className="text-center text-[10px] text-muted-foreground pb-4">
-          Mostrando {lista.length} de {equipamentos.length} equipamentos ativos •{" "}
-          {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+          {listaFiltrada.length} de {lista.length} equipamentos •{" "}
+          {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
         </p>
       </div>
     </div>
