@@ -62,7 +62,7 @@ const STATUS_CFG: Record<StatusOperacao, { label: string; dot: string; badge: st
   sem_info:     { label: "Sem informação", dot: "bg-gray-300",    badge: "bg-gray-100 text-gray-500 border border-gray-200",          bgRow: "bg-white" },
 };
 
-function resolverStatus(workStatus: string | null, setor: string | null): StatusOperacao {
+function resolverStatus(workStatus: string | null, setor: string | null, diarioData: string | null): StatusOperacao {
   if (!workStatus) {
     // Sem diário — inferir pelo setor
     const s = (setor || "").toUpperCase();
@@ -73,7 +73,11 @@ function resolverStatus(workStatus: string | null, setor: string | null): Status
   const ws = workStatus.toLowerCase();
   if (ws.includes("manuten")) return "manutencao";
   if (ws.includes("disposição") || ws.includes("disposicao")) return "disposicao";
-  if (ws.includes("transporte")) return "transporte";
+  // "Em Transporte" só vale se o diário for de hoje — senão o equip já chegou
+  if (ws.includes("transporte")) {
+    const hoje = new Date().toISOString().split("T")[0];
+    return diarioData === hoje ? "transporte" : "trabalhando";
+  }
   if (ws.includes("folga") || ws.includes("cancelou") || ws.includes("inoperante")) return "folga";
   if (ws.includes("pátio") || ws.includes("patio")) return "patio";
   return "trabalhando";
@@ -183,7 +187,7 @@ export default function GestaoFrotasRastreamento() {
     // Montar resultado
     const result: EquipRastreio[] = (equips as any[]).map((eq: any) => {
       const frota = eq.frota as string;
-      const ultimoDiario = ultimoDiarioMap.get(frota);
+      const ultimoDiario = ultimoDiarioMap.get(frota) as any;
       const transporte = transporteMap.get(frota);
       const temDiarioHoje = diarioHojeMap.get(frota) ?? false;
       const isAutoHoje = diarioHojeAutoMap.get(frota) ?? false;
@@ -212,7 +216,7 @@ export default function GestaoFrotasRastreamento() {
           ...eq,
           localAtual: ultimoDiario.location_address || eq.setor || "—",
           ogsAtual: ultimoDiario.ogs_number || null,
-          statusOperacao: resolverStatus(ultimoDiario.work_status, eq.setor),
+          statusOperacao: resolverStatus(ultimoDiario.work_status, eq.setor, ultimoDiario.date),
           operador: ultimoDiario.operator_name ?? null,
           fonte: ultimoDiario.is_auto ? "diario_auto" : "diario_manual",
           ultimaDiarioData: ultimoDiario.date,
@@ -230,7 +234,7 @@ export default function GestaoFrotasRastreamento() {
         ...eq,
         localAtual: setor || "—",
         ogsAtual: null,
-        statusOperacao: resolverStatus(null, setor),
+        statusOperacao: resolverStatus(null, setor, null),
         operador: null,
         fonte: setor ? "setor_cadastro" : "sem_info",
         ultimaDiarioData: null,
