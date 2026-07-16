@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Loader2, Users, Truck, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface RdoDetalhe {
@@ -18,14 +18,55 @@ interface RdoDetalhe {
   motivo_rejeicao_enc: string | null;
 }
 
+interface EfetivoRow {
+  id: string;
+  funcao: string;
+  quantidade: number;
+  entrada: string;
+  saida: string;
+  nome: string | null;
+  matricula: string | null;
+}
+
+interface EquipamentoRow {
+  id: string;
+  frota: string;
+  categoria: string | null;
+  sub_tipo: string | null;
+}
+
+interface ProducaoRow {
+  id: string;
+  tipo_servico: string | null;
+  rodovia: string | null;
+  km_inicial: number | null;
+  km_final: number | null;
+  estaca_inicial: string | null;
+  estaca_final: string | null;
+  comprimento_m: number | null;
+  largura_m: number | null;
+  espessura_cm: number | null;
+  area_m2: number | null;
+  tonelagem: number | null;
+  densidade: number | null;
+  volume_m3: number | null;
+  observacoes: string | null;
+}
+
+// Split nomes/matriculas separados por |||
+function splitPipe(val: string | null): string[] {
+  if (!val) return [];
+  return val.split("|||").map(s => s.trim()).filter(Boolean);
+}
+
 export default function EncValidarRdo() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [rdo, setRdo] = useState<RdoDetalhe | null>(null);
-  const [producoes, setProducoes] = useState<any[]>([]);
-  const [equipamentos, setEquipamentos] = useState<any[]>([]);
-  const [efetivo, setEfetivo] = useState<any[]>([]);
+  const [producoes, setProducoes] = useState<ProducaoRow[]>([]);
+  const [equipamentos, setEquipamentos] = useState<EquipamentoRow[]>([]);
+  const [efetivo, setEfetivo] = useState<EfetivoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [motivo, setMotivo] = useState("");
@@ -85,7 +126,7 @@ export default function EncValidarRdo() {
       return;
     }
     toast({
-      title: acao === "aprovar" ? "RDO aprovado pelo encarregado!" : "RDO marcado como não aprovado",
+      title: acao === "aprovar" ? "RDO aprovado!" : "RDO marcado como não aprovado",
       variant: acao === "aprovar" ? "default" : "destructive",
     });
     navigate("/encarregado");
@@ -105,16 +146,22 @@ export default function EncValidarRdo() {
 
   const jaAvaliado = rdo.validado_encarregado || rdo.nao_aprovado_encarregado;
 
+  // Contar total de pessoas no efetivo (expandindo |||)
+  const totalPessoas = efetivo.reduce((acc, e) => {
+    const nomes = splitPipe(e.nome);
+    return acc + (nomes.length > 0 ? nomes.length : (e.quantidade || 1));
+  }, 0);
+
   return (
-    <div className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-32">
+    <div className="max-w-lg mx-auto px-4 py-6 space-y-4 pb-32">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-muted">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-lg font-bold">Validar RDO — Encarregado</h1>
-          <p className="text-xs text-muted-foreground">{rdo.obra_nome}</p>
+          <h1 className="text-lg font-bold">Validar RDO</h1>
+          <p className="text-xs text-muted-foreground">Obra {rdo.obra_nome}</p>
         </div>
       </div>
 
@@ -127,7 +174,7 @@ export default function EncValidarRdo() {
         }`}>
           {rdo.validado_encarregado ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
           <div>
-            <p>{rdo.validado_encarregado ? "Você já aprovou este RDO" : "Você marcou este RDO como não aprovado"}</p>
+            <p>{rdo.validado_encarregado ? "Você já aprovou este RDO" : "Você marcou como não aprovado"}</p>
             {rdo.nao_aprovado_encarregado && rdo.motivo_rejeicao_enc && (
               <p className="text-xs font-normal mt-0.5 opacity-80">Motivo: {rdo.motivo_rejeicao_enc}</p>
             )}
@@ -169,13 +216,86 @@ export default function EncValidarRdo() {
       {/* Produção */}
       {producoes.length > 0 && (
         <div className="rounded-2xl bg-white border border-border p-4 space-y-3">
-          <h2 className="text-sm font-semibold">Produção ({producoes.length} item{producoes.length > 1 ? "s" : ""})</h2>
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            Produção ({producoes.length} item{producoes.length > 1 ? "s" : ""})
+          </h2>
           {producoes.map((p, i) => (
-            <div key={p.id || i} className="text-sm border-t border-border pt-2 grid grid-cols-2 gap-1">
-              <div><span className="text-xs text-muted-foreground">Tipo: </span>{p.tipo_servico || "—"}</div>
-              <div><span className="text-xs text-muted-foreground">Área: </span>{p.area_m2 ? `${p.area_m2} m²` : "—"}</div>
-              <div><span className="text-xs text-muted-foreground">Ton: </span>{p.tonelagem ? `${p.tonelagem} t` : "—"}</div>
-              <div><span className="text-xs text-muted-foreground">Esp: </span>{p.espessura_cm ? `${p.espessura_cm} cm` : "—"}</div>
+            <div key={p.id || i} className="border-t border-border pt-3 space-y-2">
+              {p.tipo_servico && (
+                <p className="text-sm font-semibold text-primary">{p.tipo_servico}</p>
+              )}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                {(p.estaca_inicial || p.estaca_final) && (
+                  <>
+                    <div>
+                      <span className="text-xs text-muted-foreground block">Estaca inicial</span>
+                      <span className="font-medium">{p.estaca_inicial || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground block">Estaca final</span>
+                      <span className="font-medium">{p.estaca_final || "—"}</span>
+                    </div>
+                  </>
+                )}
+                {(p.km_inicial !== null || p.km_final !== null) && (
+                  <>
+                    <div>
+                      <span className="text-xs text-muted-foreground block">KM inicial</span>
+                      <span className="font-medium">{p.km_inicial ?? "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground block">KM final</span>
+                      <span className="font-medium">{p.km_final ?? "—"}</span>
+                    </div>
+                  </>
+                )}
+                {p.comprimento_m !== null && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Comprimento</span>
+                    <span className="font-medium">{p.comprimento_m} m</span>
+                  </div>
+                )}
+                {p.largura_m !== null && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Largura</span>
+                    <span className="font-medium">{p.largura_m} m</span>
+                  </div>
+                )}
+                {p.espessura_cm !== null && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Espessura</span>
+                    <span className="font-medium">{p.espessura_cm} cm</span>
+                  </div>
+                )}
+                {p.area_m2 !== null && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Área</span>
+                    <span className="font-medium">{p.area_m2} m²</span>
+                  </div>
+                )}
+                {p.tonelagem !== null && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Tonelagem</span>
+                    <span className="font-medium">{p.tonelagem} t</span>
+                  </div>
+                )}
+                {p.densidade !== null && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Densidade</span>
+                    <span className="font-medium">{p.densidade} t/m³</span>
+                  </div>
+                )}
+                {p.volume_m3 !== null && (
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Volume</span>
+                    <span className="font-medium">{p.volume_m3} m³</span>
+                  </div>
+                )}
+              </div>
+              {p.observacoes && (
+                <p className="text-xs text-muted-foreground italic">📝 {p.observacoes}</p>
+              )}
             </div>
           ))}
         </div>
@@ -184,26 +304,51 @@ export default function EncValidarRdo() {
       {/* Equipamentos */}
       {equipamentos.length > 0 && (
         <div className="rounded-2xl bg-white border border-border p-4 space-y-2">
-          <h2 className="text-sm font-semibold">Equipamentos ({equipamentos.length})</h2>
-          {equipamentos.map((e, i) => (
-            <div key={e.id || i} className="text-sm flex justify-between">
-              <span className="font-medium">{e.frota}</span>
-              <span className="text-muted-foreground">{e.sub_tipo || e.categoria}</span>
-            </div>
-          ))}
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Truck className="w-4 h-4 text-primary" />
+            Equipamentos ({equipamentos.length})
+          </h2>
+          <div className="divide-y divide-border">
+            {equipamentos.map((e, i) => (
+              <div key={e.id || i} className="flex justify-between py-1.5 text-sm">
+                <span className="font-medium">{e.frota}</span>
+                <span className="text-muted-foreground text-right">{e.sub_tipo || e.categoria || "—"}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Efetivo */}
+      {/* Efetivo — expandindo nomes ||| */}
       {efetivo.length > 0 && (
-        <div className="rounded-2xl bg-white border border-border p-4 space-y-2">
-          <h2 className="text-sm font-semibold">Efetivo ({efetivo.length})</h2>
-          {efetivo.map((e, i) => (
-            <div key={e.id || i} className="text-sm flex justify-between">
-              <span className="font-medium">{e.nome || e.matricula}</span>
-              <span className="text-muted-foreground">{e.funcao}</span>
-            </div>
-          ))}
+        <div className="rounded-2xl bg-white border border-border p-4 space-y-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" />
+            Efetivo ({totalPessoas} pessoa{totalPessoas !== 1 ? "s" : ""})
+          </h2>
+          {efetivo.map((row, i) => {
+            const nomes = splitPipe(row.nome);
+            const matriculas = splitPipe(row.matricula);
+            return (
+              <div key={row.id || i} className="border-t border-border pt-2">
+                <p className="text-xs font-bold text-primary uppercase mb-1.5">
+                  {row.funcao} · {row.entrada}–{row.saida}
+                </p>
+                <div className="space-y-1">
+                  {nomes.length > 0 ? nomes.map((nome, j) => (
+                    <div key={j} className="flex justify-between text-sm">
+                      <span className="font-medium">{nome}</span>
+                      {matriculas[j] && (
+                        <span className="text-muted-foreground text-xs">Mat. {matriculas[j]}</span>
+                      )}
+                    </div>
+                  )) : (
+                    <p className="text-sm text-muted-foreground">{row.quantidade} profissional(is)</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -224,7 +369,7 @@ export default function EncValidarRdo() {
         </div>
       )}
 
-      {/* Botões de ação — sempre visíveis para permitir mudança de posição */}
+      {/* Botões de ação */}
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 flex gap-3 max-w-lg mx-auto">
         <button
           onClick={() => { setShowMotivo(true); handleAcao("nao_aprovar"); }}
