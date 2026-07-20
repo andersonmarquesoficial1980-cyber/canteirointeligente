@@ -300,6 +300,7 @@ export default function RdoForm() {
         encarregado: (rdo as any).encarregado || rdo.responsavel || "",
         preenchido_por: (rdo as any).preenchido_por || rdo.responsavel || "",
       }));
+      setObservacoesGerais((rdo as any).observacoes_gerais || "");
       if (rdo.tipo_rdo) setTipoRdo(rdo.tipo_rdo);
       // Efetivo
       if (efetivo?.length) {
@@ -432,6 +433,7 @@ export default function RdoForm() {
         responsavel: encarregado || preenchidoPor,
         preenchido_por: preenchidoPor,
         encarregado: encarregado || null,
+        observacoes_gerais: observacoesGerais || null,
         user_id: user.id,
         company_id: profile?.company_id || null,
         status_validacao: "rascunho",
@@ -460,7 +462,7 @@ export default function RdoForm() {
     } finally {
       setSavingDraft(false);
     }
-  }, [header, profile, motivoCancelamento, draftId, searchParams, setSearchParams, toast]);
+  }, [header, profile, motivoCancelamento, observacoesGerais, draftId, searchParams, setSearchParams, toast]);
 
   const formatDateBR = (d: string) => {
     if (!d) return "";
@@ -630,6 +632,7 @@ export default function RdoForm() {
       responsavel: encarregado || preenchidoPor, // legado — compat
       preenchido_por: preenchidoPor,
       encarregado: encarregado || null,
+      observacoes_gerais: observacoesGerais || null,
       user_id: user.id,
       tipo_rdo: tipoRdo || null,
       company_id: profile?.company_id || null,

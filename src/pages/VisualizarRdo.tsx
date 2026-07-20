@@ -213,12 +213,14 @@ export default function VisualizarRdo() {
             )}
 
             {/* Efetivo Terceirizado */}
-            {Object.keys(efetivoTerceiros).length > 0 && (
-              <div className="rdo-card space-y-3">
-                <p className="text-sm font-display font-bold flex items-center gap-2 text-amber-700">
-                  <HardHat className="w-4 h-4" /> Efetivo Terceirizado
-                </p>
-                {Object.entries(efetivoTerceiros).map(([empresa, nomes]) => (
+            <div className="rdo-card space-y-3">
+              <p className="text-sm font-display font-bold flex items-center gap-2 text-amber-700">
+                <HardHat className="w-4 h-4" /> Efetivo Terceirizado
+              </p>
+              {Object.keys(efetivoTerceiros).length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Nenhum efetivo terceirizado informado neste RDO.</p>
+              ) : (
+                Object.entries(efetivoTerceiros).map(([empresa, nomes]) => (
                   <div key={empresa}>
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">{empresa}</p>
                     <div className="flex flex-wrap gap-1">
@@ -229,9 +231,9 @@ export default function VisualizarRdo() {
                       ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
 
             {/* Equipamentos */}
             {equipamentos.length > 0 && (
@@ -353,6 +355,14 @@ export default function VisualizarRdo() {
               </div>
               );
             })()}
+
+            {/* Observações Gerais */}
+            <div className="rdo-card space-y-2">
+              <p className="text-sm font-display font-bold text-primary">📝 Observações Gerais</p>
+              <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm whitespace-pre-wrap">
+                {rdo.observacoes_gerais?.trim() || "Nenhuma observação geral informada."}
+              </div>
+            </div>
 
             {/* Validações */}
             <div className="rdo-card space-y-3">
