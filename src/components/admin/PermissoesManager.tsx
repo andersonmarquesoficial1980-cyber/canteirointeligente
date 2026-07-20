@@ -50,6 +50,7 @@ const TIPOS_RELATORIO_PERM = [
   { id: "equipamentos_rdo", label: "🚜 Localização de Equipamentos (RDO)" },
   { id: "notas_fiscais", label: "📄 Notas Fiscais de Massa" },
   { id: "producao_infra", label: "🏗️ Produção de Infra (RDO)" },
+  { id: "producao_pavimentacao", label: "🛣️ Produção de Pavimentação (RDO)" },
   { id: "controle_lancamentos", label: "📊 Controle de Lançamentos" },
 ];
 
