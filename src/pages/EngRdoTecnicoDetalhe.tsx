@@ -31,6 +31,10 @@ interface Rdo {
   gap_ton: number | null;
   bgs_ton: number | null;
   sma_ton: number | null;
+  bgtc_m3: number | null;
+  macadame_m3: number | null;
+  cauq_rima_ton: number | null;
+  bm25_ton: number | null;
   geogrelha_m2: number | null;
   egl_ton: number | null;
   rachao_ton: number | null;
@@ -137,6 +141,10 @@ export default function EngRdoTecnicoDetalhe() {
       ["GAP (ton)", fmtNum(rdo.gap_ton)],
       ["BGS (ton)", fmtNum(rdo.bgs_ton)],
       ["SMA (ton)", fmtNum(rdo.sma_ton)],
+      ["BGTC (m³)", fmtNum(rdo.bgtc_m3)],
+      ["Macadame (m³)", fmtNum(rdo.macadame_m3)],
+      ["CAUQ-RIMA (ton)", fmtNum(rdo.cauq_rima_ton)],
+      ["BM25 (ton)", fmtNum(rdo.bm25_ton)],
       ["Geogrelha (m²)", fmtNum(rdo.geogrelha_m2)],
       ["Qtd Caminhões Fresa", fmtNum(rdo.qtd_caminhoes_fresa)],
       ["% Conclusão Via", rdo.perc_conclusao_via != null ? `${rdo.perc_conclusao_via}%` : "—"],
@@ -187,6 +195,10 @@ export default function EngRdoTecnicoDetalhe() {
     { label: "GAP", value: rdo.gap_ton != null ? `${fmtNum(rdo.gap_ton)} ton` : null },
     { label: "BGS", value: rdo.bgs_ton != null ? `${fmtNum(rdo.bgs_ton)} ton` : null },
     { label: "SMA", value: rdo.sma_ton != null ? `${fmtNum(rdo.sma_ton)} ton` : null },
+    { label: "BGTC", value: rdo.bgtc_m3 != null ? `${fmtNum(rdo.bgtc_m3)} m³` : null },
+    { label: "Macadame", value: rdo.macadame_m3 != null ? `${fmtNum(rdo.macadame_m3)} m³` : null },
+    { label: "CAUQ-RIMA", value: rdo.cauq_rima_ton != null ? `${fmtNum(rdo.cauq_rima_ton)} ton` : null },
+    { label: "BM25", value: rdo.bm25_ton != null ? `${fmtNum(rdo.bm25_ton)} ton` : null },
     { label: "Geogrelha", value: rdo.geogrelha_m2 != null ? `${fmtNum(rdo.geogrelha_m2)} m²` : null },
     { label: "EGL", value: rdo.egl_ton != null ? `${fmtNum(rdo.egl_ton)} ton` : null },
     { label: "RACHÃO", value: rdo.rachao_ton != null ? `${fmtNum(rdo.rachao_ton)} ton` : null },

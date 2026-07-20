@@ -50,6 +50,10 @@ export default function EngRdoTecnico() {
     gap_ton: "",
     bgs_ton: "",
     sma_ton: "",
+    bgtc_m3: "",
+    macadame_m3: "",
+    cauq_rima_ton: "",
+    bm25_ton: "",
     geogrelha_m2: "",
     egl_ton: "",
     rachao_ton: "",
@@ -221,6 +225,10 @@ export default function EngRdoTecnico() {
       gap_ton: semProducao ? null : toNum(form.gap_ton),
       bgs_ton: semProducao ? null : toNum(form.bgs_ton),
       sma_ton: semProducao ? null : toNum((form as any).sma_ton),
+      bgtc_m3: semProducao ? null : toNum(form.bgtc_m3),
+      macadame_m3: semProducao ? null : toNum(form.macadame_m3),
+      cauq_rima_ton: semProducao ? null : toNum(form.cauq_rima_ton),
+      bm25_ton: semProducao ? null : toNum(form.bm25_ton),
       geogrelha_m2: semProducao ? null : toNum(form.geogrelha_m2),
       egl_ton: semProducao ? null : toNum(form.egl_ton),
       rachao_ton: semProducao ? null : toNum(form.rachao_ton),
@@ -555,6 +563,10 @@ export default function EngRdoTecnico() {
                   - APLICAÇÃO DE GAP GRADED → gap_ton
                   - APLICAÇÃO DE BGS → bgs_ton
                   - APLICAÇÃO DE SMA → sma_ton
+                  - APLICAÇÃO DE BGTC → bgtc_m3
+                  - APLICAÇÃO DE MACADAME → macadame_m3
+                  - APLICAÇÃO DE CAUQ-RIMA → cauq_rima_ton
+                  - APLICAÇÃO DE BM25 → bm25_ton
                   - GEOGRELHA → geogrelha_m2
                   - APLICAÇÃO DE EGL → egl_ton
                   - APLICAÇÃO DE RACHÃO → rachao_ton
@@ -568,6 +580,10 @@ export default function EngRdoTecnico() {
                 { label: "GAP (ton)", field: "gap_ton", requiredType: "APLICAÇÃO DE GAP GRADED" },
                 { label: "BGS (ton)", field: "bgs_ton", requiredType: "APLICAÇÃO DE BGS" },
                 { label: "SMA (ton)", field: "sma_ton", requiredType: "APLICAÇÃO DE SMA" },
+                { label: "BGTC (m³)", field: "bgtc_m3", requiredType: "APLICAÇÃO DE BGTC" },
+                { label: "Macadame (m³)", field: "macadame_m3", requiredType: "APLICAÇÃO DE MACADAME" },
+                { label: "CAUQ-RIMA (ton)", field: "cauq_rima_ton", requiredType: "APLICAÇÃO DE CAUQ-RIMA" },
+                { label: "BM25 (ton)", field: "bm25_ton", requiredType: "APLICAÇÃO DE BM25" },
                 { label: "Geogrelha (m²)", field: "geogrelha_m2", requiredType: "GEOGRELHA" },
                 { label: "EGL (ton)", field: "egl_ton", requiredType: "APLICAÇÃO DE EGL" },
                 { label: "RACHÃO (ton)", field: "rachao_ton", requiredType: "APLICAÇÃO DE RACHÃO" },
