@@ -40,6 +40,8 @@ interface Rdo {
   rachao_ton: number | null;
   qtd_caminhoes_fresa: number | null;
   perc_conclusao_via: number | null;
+  equipamentos_conforme: boolean | null;
+  equipamentos_nao_conformes: string | null;
   houve_ocorrencia: boolean;
   descricao_ocorrencia: string | null;
   observacoes: string | null;
@@ -148,6 +150,8 @@ export default function EngRdoTecnicoDetalhe() {
       ["Geogrelha (m²)", fmtNum(rdo.geogrelha_m2)],
       ["Qtd Caminhões Fresa", fmtNum(rdo.qtd_caminhoes_fresa)],
       ["% Conclusão Via", rdo.perc_conclusao_via != null ? `${rdo.perc_conclusao_via}%` : "—"],
+      ["Equipamentos na Obra", rdo.equipamentos_conforme == null ? "—" : rdo.equipamentos_conforme ? "Conforme" : "Não Conforme"],
+      ["Equipamentos não conformes", rdo.equipamentos_nao_conformes || "—"],
       [""],
       ["OCORRÊNCIAS", ""],
       ["Houve Ocorrência", rdo.houve_ocorrencia ? "Sim" : "Não"],
@@ -334,6 +338,8 @@ export default function EngRdoTecnicoDetalhe() {
             <Row label="Usina Programada" value={rdo.usina_programada} />
             <Row label="CAUQ Programado" value={rdo.cauq_programado != null ? `${fmtNum(rdo.cauq_programado)} t` : null} />
             <Row label="Usina Atendeu" value={rdo.usina_atendeu == null ? null : rdo.usina_atendeu ? "Sim" : "Não"} />
+            <Row label="Equipamentos na Obra" value={rdo.equipamentos_conforme == null ? null : rdo.equipamentos_conforme ? "Conforme" : "Não Conforme"} />
+            <Row label="Equipamentos não conformes" value={rdo.equipamentos_nao_conformes} />
 
             {quantitativos.length > 0 && (
               <>

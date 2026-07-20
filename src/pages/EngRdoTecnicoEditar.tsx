@@ -59,6 +59,8 @@ export default function EngRdoTecnicoEditar() {
     rachao_ton: "",
     qtd_caminhoes_fresa: "",
     perc_conclusao_via: "",
+    equipamentos_conforme: "",
+    equipamentos_nao_conformes: "",
     houve_ocorrencia: false,
     descricao_ocorrencia: "",
     observacoes: "",
@@ -112,6 +114,8 @@ export default function EngRdoTecnicoEditar() {
           rachao_ton: numToStr((rdo as any).rachao_ton),
           qtd_caminhoes_fresa: numToStr(rdo.qtd_caminhoes_fresa),
           perc_conclusao_via: numToStr(rdo.perc_conclusao_via),
+          equipamentos_conforme: rdo.equipamentos_conforme == null ? "" : rdo.equipamentos_conforme ? "sim" : "nao",
+          equipamentos_nao_conformes: rdo.equipamentos_nao_conformes || "",
           houve_ocorrencia: rdo.houve_ocorrencia ?? false,
           descricao_ocorrencia: rdo.descricao_ocorrencia || "",
           observacoes: rdo.observacoes || "",
@@ -190,6 +194,14 @@ export default function EngRdoTecnicoEditar() {
       toast({ title: "Descreva o tipo de infra executada", variant: "destructive" });
       return;
     }
+    if (form.houve_producao && form.equipamentos_conforme === "") {
+      toast({ title: "Informe a condição dos equipamentos na obra", variant: "destructive" });
+      return;
+    }
+    if (form.houve_producao && form.equipamentos_conforme === "nao" && !form.equipamentos_nao_conformes.trim()) {
+      toast({ title: "Descreva quais equipamentos não estão conformes", variant: "destructive" });
+      return;
+    }
     setSalvando(true);
 
     const semProducao = !form.houve_producao;
@@ -232,6 +244,12 @@ export default function EngRdoTecnicoEditar() {
       rachao_ton: semProducao ? null : toNum(form.rachao_ton),
       qtd_caminhoes_fresa: semProducao ? null : form.qtd_caminhoes_fresa === "" ? null : parseInt(form.qtd_caminhoes_fresa),
       perc_conclusao_via: semProducao ? null : toNum(form.perc_conclusao_via),
+      equipamentos_conforme: semProducao ? null : form.equipamentos_conforme === "" ? null : form.equipamentos_conforme === "sim",
+      equipamentos_nao_conformes: semProducao
+        ? null
+        : form.equipamentos_conforme === "nao"
+          ? form.equipamentos_nao_conformes.trim() || null
+          : null,
       houve_ocorrencia: semProducao ? false : form.houve_ocorrencia,
       descricao_ocorrencia: semProducao ? null : form.houve_ocorrencia ? form.descricao_ocorrencia || null : null,
       observacoes: form.observacoes || null,
@@ -586,6 +604,51 @@ export default function EngRdoTecnicoEditar() {
 
               {form.tipos_servico.length === 0 && (
                 <p className="text-xs text-muted-foreground italic">Selecione um tipo de serviço para exibir os quantitativos adicionais</p>
+              )}
+            </div>
+
+            {/* Seção 3c — Equipamentos na Obra */}
+            <div className={sectionCls}>
+              <h2 className="text-sm font-bold text-foreground">Equipamentos na Obra</h2>
+              <div>
+                <label className={labelCls}>Condição dos equipamentos *</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setForm((current) => ({ ...current, equipamentos_conforme: "sim", equipamentos_nao_conformes: "" }))}
+                    className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                      form.equipamentos_conforme === "sim"
+                        ? "bg-primary text-white border-primary"
+                        : "bg-background text-foreground border-border"
+                    }`}
+                  >
+                    Conforme
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => set("equipamentos_conforme", "nao")}
+                    className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                      form.equipamentos_conforme === "nao"
+                        ? "bg-primary text-white border-primary"
+                        : "bg-background text-foreground border-border"
+                    }`}
+                  >
+                    Não Conforme
+                  </button>
+                </div>
+              </div>
+
+              {form.equipamentos_conforme === "nao" && (
+                <div>
+                  <label className={labelCls}>Quais equipamentos não estão conformes? *</label>
+                  <textarea
+                    value={form.equipamentos_nao_conformes}
+                    onChange={e => set("equipamentos_nao_conformes", e.target.value)}
+                    rows={3}
+                    placeholder="Ex: Rolo frota 124 com vazamento hidráulico; vibroacabadora sem sensor..."
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                  />
+                </div>
               )}
             </div>
 
