@@ -6,6 +6,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const PERFIL_CANONICO: Record<string, string> = {
+  "administrador": "Administrador",
+  "gerente": "Gerente",
+  "engenheiro": "Engenheiro",
+  "encarregado": "Encarregado",
+  "seguranca": "Segurança",
+  "segurança": "Segurança",
+  "manutencao": "Manutenção",
+  "manutenção": "Manutenção",
+  "gestao de pessoas": "Gestão de Pessoas",
+  "gestão de pessoas": "Gestão de Pessoas",
+  "gestao de frotas": "Gestão de Frotas",
+  "gestão de frotas": "Gestão de Frotas",
+  "apontador": "Apontador",
+  "operador": "Operador",
+  "motorista": "Motorista",
+  "usuario": "Usuário",
+  "usuário": "Usuário",
+};
+
+function canonicalizarPerfil(raw: unknown): string {
+  const original = String(raw ?? "").trim();
+  if (!original) return "Apontador";
+  const normalized = original.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  return PERFIL_CANONICO[original.toLowerCase()] || PERFIL_CANONICO[normalized] || "Apontador";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -84,6 +111,7 @@ serve(async (req) => {
     if (action === "update") {
       const { user_id, nome_completo, perfil, password, email: novoEmail } = body;
       if (!user_id) throw new Error("user_id é obrigatório");
+      const perfilDb = perfil ? canonicalizarPerfil(perfil) : undefined;
 
       // Atualizar e-mail no Auth (se fornecido)
       if (novoEmail && novoEmail.trim()) {
@@ -94,21 +122,21 @@ serve(async (req) => {
       }
 
       // Update profile
-      if (nome_completo || perfil) {
+      if (nome_completo || perfilDb) {
         const updates: any = {};
         if (nome_completo) updates.nome_completo = nome_completo;
-        if (perfil) updates.perfil = perfil;
+        if (perfilDb) updates.perfil = perfilDb;
         await supabaseAdmin.from("profiles").update(updates).eq("user_id", user_id);
       }
 
       // Update role + can_delete + can_create_users
-      if (perfil) {
-        const role = (perfil === "Administrador" || perfil === "Gerente") ? "admin" : "apontador";
-        const can_delete = perfil === "Administrador";
-        const can_create_users = perfil === "Administrador";
+      if (perfilDb) {
+        const role = (perfilDb === "Administrador" || perfilDb === "Gerente") ? "admin" : "user";
+        const can_delete = perfilDb === "Administrador";
+        const can_create_users = perfilDb === "Administrador";
 
         // Atualizar can_delete e can_create_users no profile
-        await supabaseAdmin.from("profiles").update({ perfil, can_delete, can_create_users }).eq("user_id", user_id);
+        await supabaseAdmin.from("profiles").update({ perfil: perfilDb, can_delete, can_create_users }).eq("user_id", user_id);
 
         const { data: existingRole } = await supabaseAdmin
           .from("user_roles")
@@ -208,11 +236,10 @@ serve(async (req) => {
       userId = newUser.user.id;
     }
 
-    const PERFIS_ACEITOS = ["Administrador", "Gerente", "Engenheiro", "Segurança", "Manutenção", "Gestão de Pessoas", "Gestão de Frotas", "Apontador", "Operador", "Motorista", "Usuário"];
-    const perfilDb = PERFIS_ACEITOS.includes(perfil) ? perfil : "Apontador";
-    const role = ["Administrador", "Gerente"].includes(perfil) ? "admin" : "user";
-    const can_delete = perfil === "Administrador";
-    const can_create_users = perfil === "Administrador";
+    const perfilDb = canonicalizarPerfil(perfil);
+    const role = ["Administrador", "Gerente"].includes(perfilDb) ? "admin" : "user";
+    const can_delete = perfilDb === "Administrador";
+    const can_create_users = perfilDb === "Administrador";
     const normalizedLogin =
       typeof login_original === "string" && login_original.trim().length > 0
         ? login_original.trim().toLowerCase()

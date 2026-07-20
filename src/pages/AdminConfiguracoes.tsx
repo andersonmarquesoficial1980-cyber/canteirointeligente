@@ -1199,7 +1199,7 @@ function NotificationTargetsManager() {
 
 // Users manager
 function UsersManager() {
-  const LOGIN_DOMAIN = "@workflux.app";
+  const LOGIN_DOMAIN = "@fremix.workflux.app";
 
   // Templates de permissão por perfil — aplicados automaticamente ao criar usuário
   const PERFIL_PERMISSIONS: Record<string, Record<string, boolean>> = {
@@ -1213,6 +1213,7 @@ function UsersManager() {
     "Gestão de Frotas":   { is_admin: false, modulo_obras: false, modulo_equipamentos: false, modulo_rh: false, modulo_carreteiros: true,  modulo_programador: false, modulo_demandas: true,  modulo_manutencao: false, modulo_abastecimento: true,  modulo_documentos: false, modulo_relatorios: true,  modulo_dashboard: false },
     "Apontador":          { is_admin: false, modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
     "Operador":           { is_admin: false, modulo_obras: false, modulo_equipamentos: true,  modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
+    "Usuário":            { is_admin: false, modulo_obras: false, modulo_equipamentos: false, modulo_rh: false, modulo_carreteiros: false, modulo_programador: false, modulo_demandas: false, modulo_manutencao: false, modulo_abastecimento: false, modulo_documentos: false, modulo_relatorios: false, modulo_dashboard: false },
   };
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);

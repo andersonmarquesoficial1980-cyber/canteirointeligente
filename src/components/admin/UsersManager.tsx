@@ -11,7 +11,7 @@ import { Plus, Pencil, Search, Eye, EyeOff, FileSpreadsheet, LogIn, UserMinus, U
 import { startImpersonation } from "@/hooks/useImpersonation";
 import { Badge } from "@/components/ui/badge";
 
-const LOGIN_DOMAIN = "@workflux.app";
+const LOGIN_DOMAIN = "@fremix.workflux.app";
 
 const PERFIL_PERMISSIONS: Record<string, Record<string, boolean>> = {
   "Administrador":      { is_admin: true,  modulo_obras: true,  modulo_equipamentos: true,  modulo_rh: true,  modulo_carreteiros: true,  modulo_programador: true,  modulo_demandas: true,  modulo_manutencao: true,  modulo_abastecimento: true,  modulo_documentos: true,  modulo_relatorios: true,  modulo_dashboard: true  },
