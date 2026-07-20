@@ -813,6 +813,7 @@ export default function RdoForm() {
         .filter(e => e.funcao)
         .map(e => ({
           rdo_id: rdoId,
+          company_id: profile?.company_id || null,
           funcao: e.funcao,
           nome: e.nome || null,
           matricula: e.matricula || null,

@@ -378,10 +378,14 @@ async function syncPendingRdo(item: any) {
     .filter((e) => e.funcao)
     .map((e) => ({
       rdo_id: rdoId,
+      company_id: payload.rdoPayload?.company_id || null,
       funcao: e.funcao,
+      nome: e.nome || null,
+      matricula: e.matricula || null,
       quantidade: 1,
-      entrada: payload.globalEntrada || null,
-      saida: payload.globalSaida || null,
+      entrada: e.entrada || payload.globalEntrada || null,
+      saida: e.saida || payload.globalSaida || null,
+      employee_id: e.employee_id && !(e.nome || "").includes("|||") ? e.employee_id : null,
     }));
 
   if (efetivoEntries.length > 0) {
