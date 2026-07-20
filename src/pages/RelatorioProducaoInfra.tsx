@@ -22,6 +22,11 @@ function fmtNumCsv(n: any, decimais = 2) {
   return isNaN(v) ? "-" : v.toFixed(decimais).replace(".", ",");
 }
 
+function toAbsNum(n: any): number | null {
+  const v = parseFloat(String(n ?? "").replace(",", "."));
+  return isNaN(v) ? null : Math.abs(v);
+}
+
 interface InfraRow {
   data: string;
   apontador: string | null;
@@ -55,7 +60,7 @@ function exportarExcel(dataIni: string, dataFim: string, rows: InfraRow[]) {
       r.local || "-",
       r.tipo_servico || "-",
       r.sentido_faixa || "-",
-      r.comprimento_m != null ? fmtNumCsv(r.comprimento_m) : "-",
+      getComp(r) != null ? fmtNumCsv(getComp(r)!) : "-",
       r.largura_m != null ? fmtNumCsv(r.largura_m, 3) : "-",
       area != null ? fmtNumCsv(area) : "-",
       r.espessura_cm != null ? fmtNumCsv(r.espessura_cm, 3) : "-",
@@ -115,7 +120,7 @@ function exportarPdf(dataIni: string, dataFim: string, rows: InfraRow[], filtros
       <td>${r.local || "-"}</td>
       <td>${r.tipo_servico || "-"}</td>
       <td>${r.sentido_faixa || "-"}</td>
-      <td class="num">${r.comprimento_m != null ? fmtNum(r.comprimento_m) : "-"}</td>
+      <td class="num">${getComp(r) != null ? fmtNum(getComp(r)!) : "-"}</td>
       <td class="num">${r.largura_m != null ? fmtNum(r.largura_m, 3) : "-"}</td>
       <td class="num">${area != null ? fmtNum(area) : "-"}</td>
       <td class="num">${r.espessura_cm != null ? fmtNum(r.espessura_cm, 3) : "-"}</td>
@@ -142,19 +147,26 @@ function exportarPdf(dataIni: string, dataFim: string, rows: InfraRow[], filtros
 
 // Helpers — calcula área/vol se nulo no banco (compatibilidade com RDOs antigos)
 function getArea(r: InfraRow): number | null {
-  if (r.area_m2 != null) return parseFloat(String(r.area_m2));
-  if (r.comprimento_m && r.largura_m) {
-    return Math.round(r.comprimento_m * r.largura_m * 100) / 100;
+  if (r.area_m2 != null) return toAbsNum(r.area_m2);
+  const comp = toAbsNum(r.comprimento_m);
+  const larg = toAbsNum(r.largura_m);
+  if (comp != null && larg != null) {
+    return Math.round(comp * larg * 100) / 100;
   }
   return null;
 }
 function getVol(r: InfraRow): number | null {
-  if (r.volume_m3 != null) return parseFloat(String(r.volume_m3));
+  if (r.volume_m3 != null) return toAbsNum(r.volume_m3);
   const area = getArea(r);
-  if (area && r.espessura_cm && r.espessura_cm > 0) {
-    return Math.round(area * (r.espessura_cm / 100) * 1000) / 1000;
+  const esp = toAbsNum(r.espessura_cm);
+  if (area && esp && esp > 0) {
+    return Math.round(area * (esp / 100) * 1000) / 1000;
   }
   return null;
+}
+
+function getComp(r: InfraRow): number | null {
+  return toAbsNum(r.comprimento_m);
 }
 
 // ---------- COMPONENTE PRINCIPAL ----------
@@ -402,7 +414,7 @@ export default function RelatorioProducaoInfra() {
                               <td className="px-3 py-2 border-b border-border/50 text-muted-foreground max-w-[160px] truncate" title={r.local || ""}>{r.local || "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 font-medium">{r.tipo_servico || "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-muted-foreground">{r.sentido_faixa || "-"}</td>
-                              <td className="px-3 py-2 border-b border-border/50 text-right">{r.comprimento_m != null ? fmtNum(r.comprimento_m) : "-"}</td>
+                              <td className="px-3 py-2 border-b border-border/50 text-right">{getComp(r) != null ? fmtNum(getComp(r)!) : "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-right">{r.largura_m != null ? fmtNum(r.largura_m, 3) : "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-right font-medium">{area != null ? fmtNum(area) : "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-right">{r.espessura_cm != null ? fmtNum(r.espessura_cm, 3) : "-"}</td>
