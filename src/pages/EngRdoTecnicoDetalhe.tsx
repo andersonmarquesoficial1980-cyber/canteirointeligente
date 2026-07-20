@@ -11,6 +11,8 @@ interface Rdo {
   ogs_number: string;
   data: string;
   houve_producao: boolean;
+  motivo_sem_producao: string | null;
+  outro_motivo_sem_producao: string | null;
   equipe: string | null;
   localizacao: string | null;
   tipo_servico: string | null;
@@ -88,6 +90,16 @@ export default function EngRdoTecnicoDetalhe() {
     ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Enviado</span>
     : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">Rascunho</span>;
 
+  const getMotivoNaoProducao = (item: Rdo) => {
+    if (!item.motivo_sem_producao) return null;
+    if (item.motivo_sem_producao === "Outro") {
+      return item.outro_motivo_sem_producao
+        ? `Outro: ${item.outro_motivo_sem_producao}`
+        : "Outro";
+    }
+    return item.motivo_sem_producao;
+  };
+
   const exportarPDF = () => window.print();
 
   const exportarExcel = () => {
@@ -102,6 +114,7 @@ export default function EngRdoTecnicoDetalhe() {
       ["Localização / Rua", rdo.localizacao || "—"],
       ["Status", rdo.status],
       ["Houve produção", rdo.houve_producao ? "Sim" : "Não"],
+      ["Motivo não produção", rdo.houve_producao ? "—" : getMotivoNaoProducao(rdo) || "—"],
       [""],
       ["PRODUÇÃO", ""],
       ["Tipos de Serviço", rdo.tipo_servico || "—"],
@@ -267,6 +280,9 @@ export default function EngRdoTecnicoDetalhe() {
           <Row label="Equipe" value={rdo.equipe} />
           <Row label="Localização / Rua" value={rdo.localizacao} />
           <Row label="Houve Produção" value={rdo.houve_producao ? "Sim" : "Não"} />
+          {!rdo.houve_producao && (
+            <Row label="Motivo da não produção" value={getMotivoNaoProducao(rdo)} />
+          )}
         </div>
 
         {/* Produção */}

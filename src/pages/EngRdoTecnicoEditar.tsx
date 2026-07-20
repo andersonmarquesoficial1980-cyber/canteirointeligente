@@ -22,10 +22,14 @@ export default function EngRdoTecnicoEditar() {
   const [salvo, setSalvo] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
+  const motivosSemProducao = ["Chuva", "Sem Atividade", "Folga / Feriado", "Outro"];
+
   const [form, setForm] = useState({
     ogs_id: "",
     data: "",
     houve_producao: true,
+    motivo_sem_producao: "",
+    outro_motivo_sem_producao: "",
     equipe: "",
     localizacao: "",
     tipos_servico: [] as string[],
@@ -69,6 +73,8 @@ export default function EngRdoTecnicoEditar() {
           ogs_id: rdo.ogs_id || "",
           data: rdo.data || "",
           houve_producao: rdo.houve_producao ?? true,
+          motivo_sem_producao: rdo.motivo_sem_producao || "",
+          outro_motivo_sem_producao: rdo.outro_motivo_sem_producao || "",
           equipe: rdo.equipe || "",
           localizacao: rdo.localizacao || "",
           tipos_servico: rdo.tipo_servico ? rdo.tipo_servico.split(", ").map((s: string) => s.trim()) : [],
@@ -137,36 +143,50 @@ export default function EngRdoTecnicoEditar() {
   const handleSalvar = async (status: "rascunho" | "enviado") => {
     if (!form.ogs_id) { toast({ title: "Selecione uma OGS", variant: "destructive" }); return; }
     if (!form.data) { toast({ title: "Informe a data", variant: "destructive" }); return; }
+    if (!form.houve_producao && !form.motivo_sem_producao) {
+      toast({ title: "Selecione o motivo da não produção", variant: "destructive" });
+      return;
+    }
+    if (!form.houve_producao && form.motivo_sem_producao === "Outro" && !form.outro_motivo_sem_producao.trim()) {
+      toast({ title: "Descreva o motivo em 'Outro'", variant: "destructive" });
+      return;
+    }
     setSalvando(true);
 
     const selectedOgs = minhasOgs.find(o => o.id === form.ogs_id);
+
+    const semProducao = !form.houve_producao;
 
     const payload = {
       ogs_id: form.ogs_id,
       ogs_number: selectedOgs?.ogs_number,
       data: form.data,
       houve_producao: form.houve_producao,
-      equipe: form.equipe || null,
-      localizacao: form.localizacao || null,
-      tipo_servico: form.tipos_servico.length > 0 ? form.tipos_servico.join(", ") : null,
-      solucao_empregada: form.solucao_empregada || null,
-      usina_programada: form.usina_programada || null,
-      cauq_programado: toNum(form.cauq_programado),
-      usina_atendeu: form.usina_atendeu === "" ? null : form.usina_atendeu === "sim",
-      fresagem_m2: toNum(form.fresagem_m2),
-      rap_espumado_m2: toNum(form.rap_espumado_m2),
-      binder_ton: toNum(form.binder_ton),
-      cbuq_fx3_ton: toNum(form.cbuq_fx3_ton),
-      gap_ton: toNum(form.gap_ton),
-      bgs_ton: toNum(form.bgs_ton),
-      sma_ton: toNum(form.sma_ton),
-      geogrelha_m2: toNum(form.geogrelha_m2),
-      egl_ton: toNum(form.egl_ton),
-      rachao_ton: toNum(form.rachao_ton),
-      qtd_caminhoes_fresa: form.qtd_caminhoes_fresa === "" ? null : parseInt(form.qtd_caminhoes_fresa),
-      perc_conclusao_via: toNum(form.perc_conclusao_via),
-      houve_ocorrencia: form.houve_ocorrencia,
-      descricao_ocorrencia: form.houve_ocorrencia ? form.descricao_ocorrencia || null : null,
+      motivo_sem_producao: semProducao ? form.motivo_sem_producao || null : null,
+      outro_motivo_sem_producao: semProducao && form.motivo_sem_producao === "Outro"
+        ? form.outro_motivo_sem_producao.trim() || null
+        : null,
+      equipe: semProducao ? null : form.equipe || null,
+      localizacao: semProducao ? null : form.localizacao || null,
+      tipo_servico: semProducao ? null : form.tipos_servico.length > 0 ? form.tipos_servico.join(", ") : null,
+      solucao_empregada: semProducao ? null : form.solucao_empregada || null,
+      usina_programada: semProducao ? null : form.usina_programada || null,
+      cauq_programado: semProducao ? null : toNum(form.cauq_programado),
+      usina_atendeu: semProducao ? null : form.usina_atendeu === "" ? null : form.usina_atendeu === "sim",
+      fresagem_m2: semProducao ? null : toNum(form.fresagem_m2),
+      rap_espumado_m2: semProducao ? null : toNum(form.rap_espumado_m2),
+      binder_ton: semProducao ? null : toNum(form.binder_ton),
+      cbuq_fx3_ton: semProducao ? null : toNum(form.cbuq_fx3_ton),
+      gap_ton: semProducao ? null : toNum(form.gap_ton),
+      bgs_ton: semProducao ? null : toNum(form.bgs_ton),
+      sma_ton: semProducao ? null : toNum(form.sma_ton),
+      geogrelha_m2: semProducao ? null : toNum(form.geogrelha_m2),
+      egl_ton: semProducao ? null : toNum(form.egl_ton),
+      rachao_ton: semProducao ? null : toNum(form.rachao_ton),
+      qtd_caminhoes_fresa: semProducao ? null : form.qtd_caminhoes_fresa === "" ? null : parseInt(form.qtd_caminhoes_fresa),
+      perc_conclusao_via: semProducao ? null : toNum(form.perc_conclusao_via),
+      houve_ocorrencia: semProducao ? false : form.houve_ocorrencia,
+      descricao_ocorrencia: semProducao ? null : form.houve_ocorrencia ? form.descricao_ocorrencia || null : null,
       observacoes: form.observacoes || null,
       status,
       updated_at: new Date().toISOString(),
@@ -227,12 +247,61 @@ export default function EngRdoTecnicoEditar() {
             <label className={labelCls}>Houve produção?</label>
             <div className="flex gap-3">
               {["Sim", "Não"].map(opt => (
-                <button key={opt} type="button" onClick={() => set("houve_producao", opt === "Sim")}
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => {
+                    const houveProducao = opt === "Sim";
+                    setForm(prev => ({
+                      ...prev,
+                      houve_producao: houveProducao,
+                      ...(houveProducao
+                        ? { motivo_sem_producao: "", outro_motivo_sem_producao: "" }
+                        : {}),
+                    }));
+                  }}
                   className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${form.houve_producao === (opt === "Sim") ? "bg-primary text-white border-primary" : "bg-background text-foreground border-border"}`}
                 >{opt}</button>
               ))}
             </div>
           </div>
+
+          {!form.houve_producao && (
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Motivo da não produção *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {motivosSemProducao.map((motivo) => (
+                    <button
+                      key={motivo}
+                      type="button"
+                      onClick={() => set("motivo_sem_producao", motivo)}
+                      className={`h-10 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                        form.motivo_sem_producao === motivo
+                          ? "bg-primary text-white border-primary"
+                          : "bg-background text-foreground border-border"
+                      }`}
+                    >
+                      {motivo}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {form.motivo_sem_producao === "Outro" && (
+                <div>
+                  <label className={labelCls}>Descreva o motivo *</label>
+                  <textarea
+                    value={form.outro_motivo_sem_producao}
+                    onChange={e => set("outro_motivo_sem_producao", e.target.value)}
+                    rows={3}
+                    placeholder="Digite o motivo da não produção..."
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {form.houve_producao && (
