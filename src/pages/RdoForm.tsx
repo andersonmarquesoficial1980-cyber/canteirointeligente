@@ -702,7 +702,10 @@ export default function RdoForm() {
       // Produção (infra)
       if (tipoRdo === "INFRAESTRUTURA") {
         const entries = infraProducao
-          .filter(p => p.comprimento_m || p.largura_m || p.tipo_servico)
+          .filter(p =>
+            p.tipo_servico || p.sentido || p.estaca_inicial || p.estaca_final ||
+            p.comprimento_m || p.largura_m || p.espessura_cm
+          )
           .map(p => {
             const comp = p.comprimento_m ? parseFloat(String(p.comprimento_m).replace(",", ".")) : null;
             const larg = p.largura_m ? parseFloat(String(p.largura_m).replace(",", ".")) : null;
@@ -711,6 +714,7 @@ export default function RdoForm() {
             const volume = area && esp ? Math.round(area * (esp / 100) * 1000) / 1000 : null;
             return {
               rdo_id: rdoId,
+              company_id: profile?.company_id || null,
               tipo_servico: p.tipo_servico || null,
               sentido: p.sentido || null,
               sentido_faixa: p.sentido || null,
@@ -735,17 +739,22 @@ export default function RdoForm() {
       // Produção CAUQ
       if (tipoRdo === "CAUQ") {
         const trechoEntries = producaoCauq.trechos
-          .filter(t => t.comprimento_m || t.largura_m || t.tipo_servico)
+          .filter(t =>
+            t.tipo_servico || t.sentido || t.faixa || t.estaca_inicial || t.estaca_final ||
+            t.comprimento_m || t.largura_m || t.espessura_m || t.densidade || t.observacoes
+          )
           .map(t => {
             const comp = t.comprimento_m ? parseFloat(String(t.comprimento_m).replace(",", ".")) : null;
             const larg = t.largura_m ? parseFloat(String(t.largura_m).replace(",", ".")) : null;
             const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
+            const sentidoFaixa = [t.sentido, t.faixa].filter(Boolean).join(" - ") || null;
             return {
               rdo_id: rdoId,
+              company_id: profile?.company_id || null,
               tipo_servico: t.tipo_servico || null,
-              sentido: t.sentido_faixa || null,
-              faixa: t.sentido_faixa || null,
-              sentido_faixa: t.sentido_faixa || null,
+              sentido: t.sentido || null,
+              faixa: t.faixa || null,
+              sentido_faixa: sentidoFaixa,
               estaca_inicial: t.estaca_inicial || null,
               estaca_final: t.estaca_final || null,
               km_inicial: t.estaca_inicial ? parseFloat(String(t.estaca_inicial).replace(",", ".")) : null,

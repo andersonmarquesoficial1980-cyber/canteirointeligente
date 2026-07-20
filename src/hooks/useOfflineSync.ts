@@ -334,17 +334,21 @@ async function syncPendingRdo(item: any) {
 
   if (payload.tipoRdo === "INFRAESTRUTURA") {
     const entries = ((payload.infraProducao || []) as any[])
-      .filter((p) => p.comprimento_m || p.largura_m)
+      .filter((p) => p.tipo_servico || p.sentido || p.estaca_inicial || p.estaca_final || p.comprimento_m || p.largura_m || p.espessura_cm)
       .map((p) => ({
         rdo_id: rdoId,
-        tipo_servico: payload.tipoServico || null,
+        company_id: payload.rdoPayload?.company_id || null,
+        tipo_servico: p.tipo_servico || payload.tipoServico || null,
         sentido: p.sentido || null,
-        faixa: p.estaca_inicial || null,
-        km_inicial: p.estaca_inicial ? parseFloat(p.estaca_inicial) : null,
-        km_final: p.estaca_final ? parseFloat(p.estaca_final) : null,
-        comprimento_m: p.comprimento_m ? parseFloat(p.comprimento_m) : null,
-        largura_m: p.largura_m ? parseFloat(p.largura_m) : null,
-        espessura_cm: p.espessura_cm ? parseFloat(p.espessura_cm) : null,
+        sentido_faixa: p.sentido || null,
+        faixa: p.sentido || null,
+        estaca_inicial: p.estaca_inicial || null,
+        estaca_final: p.estaca_final || null,
+        km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,
+        km_final: p.estaca_final ? parseFloat(String(p.estaca_final).replace(",", ".")) : null,
+        comprimento_m: p.comprimento_m ? parseFloat(String(p.comprimento_m).replace(",", ".")) : null,
+        largura_m: p.largura_m ? parseFloat(String(p.largura_m).replace(",", ".")) : null,
+        espessura_cm: p.espessura_cm ? parseFloat(String(p.espessura_cm).replace(",", ".")) : null,
       }));
 
     if (entries.length > 0) {
@@ -355,17 +359,23 @@ async function syncPendingRdo(item: any) {
 
   if (payload.tipoRdo === "CAUQ") {
     const entries = ((payload.producaoCauq?.trechos || []) as any[])
-      .filter((t) => t.comprimento_m || t.largura_m || t.tipo_servico)
+      .filter((t) => t.tipo_servico || t.sentido || t.faixa || t.estaca_inicial || t.estaca_final || t.comprimento_m || t.largura_m || t.espessura_m || t.densidade || t.observacoes)
       .map((t) => ({
         rdo_id: rdoId,
+        company_id: payload.rdoPayload?.company_id || null,
         tipo_servico: t.tipo_servico || null,
-        sentido: t.sentido_faixa || null,
-        faixa: t.sentido_faixa || null,
-        km_inicial: t.estaca_inicial ? parseFloat(t.estaca_inicial) : null,
-        km_final: t.estaca_final ? parseFloat(t.estaca_final) : null,
-        comprimento_m: t.comprimento_m ? parseFloat(t.comprimento_m) : null,
-        largura_m: t.largura_m ? parseFloat(t.largura_m) : null,
-        espessura_cm: t.espessura_m ? parseFloat(t.espessura_m) : null,
+        sentido: t.sentido || null,
+        faixa: t.faixa || null,
+        sentido_faixa: [t.sentido, t.faixa].filter(Boolean).join(" - ") || null,
+        estaca_inicial: t.estaca_inicial || null,
+        estaca_final: t.estaca_final || null,
+        km_inicial: t.estaca_inicial ? parseFloat(String(t.estaca_inicial).replace(",", ".")) : null,
+        km_final: t.estaca_final ? parseFloat(String(t.estaca_final).replace(",", ".")) : null,
+        comprimento_m: t.comprimento_m ? parseFloat(String(t.comprimento_m).replace(",", ".")) : null,
+        largura_m: t.largura_m ? parseFloat(String(t.largura_m).replace(",", ".")) : null,
+        espessura_cm: t.espessura_m ? parseFloat(String(t.espessura_m).replace(",", ".")) : null,
+        densidade: t.densidade ? parseFloat(String(t.densidade).replace(",", ".")) : null,
+        observacoes: t.observacoes || null,
       }));
 
     if (entries.length > 0) {
