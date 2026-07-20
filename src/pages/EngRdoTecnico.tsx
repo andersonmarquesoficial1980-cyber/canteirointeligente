@@ -242,7 +242,7 @@ export default function EngRdoTecnico() {
       geogrelha_m2: semProducao ? null : toNum(form.geogrelha_m2),
       egl_ton: semProducao ? null : toNum(form.egl_ton),
       rachao_ton: semProducao ? null : toNum(form.rachao_ton),
-      qtd_caminhoes_fresa: semProducao ? null : form.qtd_caminhoes_fresa === "" ? null : parseInt(form.qtd_caminhoes_fresa),
+      qtd_caminhoes_fresa: null,
       perc_conclusao_via: semProducao ? null : toNum(form.perc_conclusao_via),
       equipamentos_conforme: semProducao ? null : form.equipamentos_conforme === "" ? null : form.equipamentos_conforme === "sim",
       equipamentos_nao_conformes: semProducao
@@ -630,20 +630,6 @@ export default function EngRdoTecnico() {
             {/* Seção 3b — Informações Adicionais */}
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Informações Adicionais</h2>
-
-              {(form.tipos_servico.includes("FRESAGEM") || form.tipos_servico.includes("DEMOLIÇÃO")) && (
-                <div>
-                  <label className={labelCls}>Qtd caminhões fresa/demolição</label>
-                  <input
-                    type="number"
-                    value={form.qtd_caminhoes_fresa}
-                    onChange={e => set("qtd_caminhoes_fresa", e.target.value)}
-                    placeholder="0"
-                    min={0}
-                    className={inputCls}
-                  />
-                </div>
-              )}
 
               {form.tipos_servico.length > 0 && (
                 <div>

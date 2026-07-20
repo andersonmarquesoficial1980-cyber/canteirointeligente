@@ -148,7 +148,6 @@ export default function EngRdoTecnicoDetalhe() {
       ["CAUQ-RIMA (ton)", fmtNum(rdo.cauq_rima_ton)],
       ["BM25 (ton)", fmtNum(rdo.bm25_ton)],
       ["Geogrelha (m²)", fmtNum(rdo.geogrelha_m2)],
-      ["Qtd Caminhões Fresa", fmtNum(rdo.qtd_caminhoes_fresa)],
       ["% Conclusão Via", rdo.perc_conclusao_via != null ? `${rdo.perc_conclusao_via}%` : "—"],
       ["Equipamentos na Obra", rdo.equipamentos_conforme == null ? "—" : rdo.equipamentos_conforme ? "Conforme" : "Não Conforme"],
       ["Equipamentos não conformes", rdo.equipamentos_nao_conformes || "—"],
@@ -206,7 +205,6 @@ export default function EngRdoTecnicoDetalhe() {
     { label: "Geogrelha", value: rdo.geogrelha_m2 != null ? `${fmtNum(rdo.geogrelha_m2)} m²` : null },
     { label: "EGL", value: rdo.egl_ton != null ? `${fmtNum(rdo.egl_ton)} ton` : null },
     { label: "RACHÃO", value: rdo.rachao_ton != null ? `${fmtNum(rdo.rachao_ton)} ton` : null },
-    { label: "Caminhões Fresa", value: rdo.qtd_caminhoes_fresa != null ? `${rdo.qtd_caminhoes_fresa}` : null },
     { label: "% Conclusão Via", value: rdo.perc_conclusao_via != null ? `${rdo.perc_conclusao_via}%` : null },
   ].filter(q => q.value);
 
