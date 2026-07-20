@@ -728,6 +728,7 @@ export type Database = {
           equipe: string | null
           foto_url: string | null
           id: string
+          is_engenheiro: boolean | null
           matricula: string | null
           name: string
           obs_geral: string | null
@@ -749,6 +750,7 @@ export type Database = {
           equipe?: string | null
           foto_url?: string | null
           id?: string
+          is_engenheiro?: boolean | null
           matricula?: string | null
           name: string
           obs_geral?: string | null
@@ -770,6 +772,7 @@ export type Database = {
           equipe?: string | null
           foto_url?: string | null
           id?: string
+          is_engenheiro?: boolean | null
           matricula?: string | null
           name?: string
           obs_geral?: string | null

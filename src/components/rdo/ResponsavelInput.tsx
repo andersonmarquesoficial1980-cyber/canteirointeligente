@@ -47,41 +47,20 @@ export function ResponsavelInput({ value, onChange, placeholder = "Nome do encar
   useEffect(() => {
     const load = async () => {
       if (mode === "engenheiro") {
-        const { data: auth } = await supabase.auth.getUser();
-        const userId = auth.user?.id;
-
-        let companyId: string | null = null;
-        if (userId) {
-          const { data: me } = await (supabase as any)
-            .from("profiles")
-            .select("company_id")
-            .eq("user_id", userId)
-            .maybeSingle();
-          companyId = me?.company_id || null;
-        }
-
-        let engQuery = (supabase as any)
-          .from("profiles")
-          .select("user_id, nome_completo, perfil")
-          .in("perfil", ["Engenheiro", "engenheiro"])
+        const { data: marcados } = await (supabase as any)
+          .from("employees")
+          .select("id, name, role, matricula")
+          .eq("is_engenheiro", true)
           .eq("status", "ativo")
-          .order("nome_completo");
+          .order("name");
 
-        if (companyId) {
-          engQuery = engQuery.eq("company_id", companyId);
-        }
-
-        const { data: engenheiros } = await engQuery;
-        if (engenheiros && engenheiros.length > 0) {
-          setCandidatos(
-            engenheiros.map((f: any) => ({
-              id: f.user_id,
-              name: f.nome_completo || "",
-              role: f.perfil || "Engenheiro",
-              matricula: "",
-            }))
-            .filter((f: Responsavel) => !!f.name)
-          );
+        if (marcados && marcados.length > 0) {
+          setCandidatos(marcados.map((f: any) => ({
+            id: f.id,
+            name: f.name || "",
+            role: f.role || "Engenheiro",
+            matricula: f.matricula || "",
+          })));
           return;
         }
 

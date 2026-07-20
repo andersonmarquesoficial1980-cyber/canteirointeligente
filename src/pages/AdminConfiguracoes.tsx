@@ -33,6 +33,7 @@ import FuncionariosManager from "@/components/admin/FuncionariosManager";
 import CentrosCustoManager from "@/components/admin/CentrosCustoManager";
 import EquipesManager from "@/components/admin/EquipesManager";
 import EncarregadosManager from "@/components/admin/EncarregadosManager";
+import EngenheirosManager from "@/components/admin/EngenheirosManager";
 
 import PermissoesManager from "@/components/admin/PermissoesManager";
 import AdminRolesPage from "./AdminRolesPage";
@@ -2997,6 +2998,7 @@ const MENU_SECTIONS = [
   { key: "equipes", label: "Equipes", icon: Users },
   { key: "centros_custo", label: "Centros de Custo", icon: DollarSign },
   { key: "encarregados", label: "Encarregados de Obra", icon: HardHat },
+  { key: "engenheiros", label: "Engenheiros de Obra", icon: HardHat },
   { key: "tipos_servico", label: "Tipos de Serviço", icon: Hammer },
   { key: "empresas_parceiras", label: "Empresas Parceiras", icon: Building2 },
   { key: "funcoes", label: "Funções", icon: Briefcase },
@@ -4011,6 +4013,7 @@ export default function AdminConfiguracoes() {
       case "equipes": return <EquipesManager />;
       case "centros_custo": return <CentrosCustoManager />;
       case "encarregados": return <EncarregadosManager />;
+      case "engenheiros": return <EngenheirosManager />;
       case "tipos_servico": return <EntityManager tableName="tipos_servico" label="Tipo de Serviço" vinculoOptions={["CAUQ", "PAVIMENTACAO", "INFRA", "RDO", "TODOS"]} />;
       case "empreiteiros": return <EntityManager tableName="empresas_parceiras" label="Empreiteiro" />; // migrado para empresas_parceiras
       case "empresas_parceiras": return <EmpresasParceirasManager />;
