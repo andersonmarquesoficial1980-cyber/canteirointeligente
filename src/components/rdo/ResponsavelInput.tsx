@@ -18,6 +18,7 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  mode?: "encarregado" | "engenheiro";
 }
 
 // Funções que aparecem como sugestão (responsáveis típicos de obra)
@@ -35,17 +36,75 @@ function isResponsavel(role: string): boolean {
   return FUNCOES_RESPONSAVEL.some(f => r.includes(f));
 }
 
-export function ResponsavelInput({ value, onChange, placeholder = "Nome do encarregado ou responsável" }: Props) {
+export function ResponsavelInput({ value, onChange, placeholder = "Nome do encarregado ou responsável", mode = "encarregado" }: Props) {
   const [candidatos, setCandidatos] = useState<Responsavel[]>([]);
   const [filtrados, setFiltrados] = useState<Responsavel[]>([]);
   const [aberto, setAberto] = useState(false);
   const [inputFocus, setInputFocus] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Carregar encarregados: is_encarregado=true em employees; fallback por função
+  // Carregar candidatos conforme o modo (encarregado/engenheiro)
   useEffect(() => {
     const load = async () => {
-      // 1. Puxar quem está marcado como encarregado
+      if (mode === "engenheiro") {
+        const { data: auth } = await supabase.auth.getUser();
+        const userId = auth.user?.id;
+
+        let companyId: string | null = null;
+        if (userId) {
+          const { data: me } = await (supabase as any)
+            .from("profiles")
+            .select("company_id")
+            .eq("user_id", userId)
+            .maybeSingle();
+          companyId = me?.company_id || null;
+        }
+
+        let engQuery = (supabase as any)
+          .from("profiles")
+          .select("user_id, nome_completo, perfil")
+          .in("perfil", ["Engenheiro", "engenheiro"])
+          .eq("status", "ativo")
+          .order("nome_completo");
+
+        if (companyId) {
+          engQuery = engQuery.eq("company_id", companyId);
+        }
+
+        const { data: engenheiros } = await engQuery;
+        if (engenheiros && engenheiros.length > 0) {
+          setCandidatos(
+            engenheiros.map((f: any) => ({
+              id: f.user_id,
+              name: f.nome_completo || "",
+              role: f.perfil || "Engenheiro",
+              matricula: "",
+            }))
+            .filter((f: Responsavel) => !!f.name)
+          );
+          return;
+        }
+
+        // Fallback por função em employees
+        const { data } = await supabase
+          .from("employees")
+          .select("id, name, role, matricula")
+          .eq("status", "ativo")
+          .order("name");
+
+        if (data) {
+          const resp = (data as any[]).filter(f => String(f.role || "").toUpperCase().includes("ENGENHEIRO"));
+          setCandidatos(resp.map(f => ({
+            id: f.id,
+            name: f.name,
+            role: f.role || "Engenheiro",
+            matricula: f.matricula || "",
+          })));
+        }
+        return;
+      }
+
+      // Modo encarregado
       const { data: marcados } = await (supabase as any)
         .from("employees")
         .select("id, name, role, matricula")
@@ -79,7 +138,7 @@ export function ResponsavelInput({ value, onChange, placeholder = "Nome do encar
       }
     };
     load();
-  }, []);
+  }, [mode]);
 
   // Filtrar conforme o usuário digita
   useEffect(() => {
@@ -174,13 +233,15 @@ export function ResponsavelInput({ value, onChange, placeholder = "Nome do encar
 
           {filtrados.length === 0 && value.trim() ? (
             <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-              Nenhum encarregado encontrado — você pode usar qualquer nome acima
+              Nenhum responsável encontrado — você pode usar qualquer nome acima
             </div>
           ) : (
             <>
               {!value.trim() && (
                 <div className="px-3 py-1.5 bg-muted/30 border-b border-border">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Encarregados e Responsáveis</p>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    {mode === "engenheiro" ? "Engenheiros" : "Encarregados e Responsáveis"}
+                  </p>
                 </div>
               )}
               {filtrados.map(c => (

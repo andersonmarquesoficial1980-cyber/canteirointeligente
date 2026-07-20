@@ -24,25 +24,51 @@ export default function EngValidacoes() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Buscar company_id do engenheiro
-      const { data: prof } = await (supabase as any)
-        .from("profiles")
-        .select("company_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [{ data: prof }, { data: perms }] = await Promise.all([
+        (supabase as any)
+          .from("profiles")
+          .select("company_id, nome_completo, perfil, role")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        (supabase as any)
+          .from("user_permissions")
+          .select("is_admin")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
 
       if (!prof?.company_id) { setLoading(false); return; }
 
-      // Engenheiro vê todos os RDOs da empresa pendentes de validação
-      // Status aceitos: 'enviado' ou 'aguardando_validacao' (ambos = pendente)
-      const { data } = await (supabase as any)
+      const perfilNorm = String(prof?.perfil || "").trim().toLowerCase();
+      const roleNorm = String(prof?.role || "").trim().toLowerCase();
+      const isAdmin =
+        roleNorm === "admin" ||
+        roleNorm === "superadmin" ||
+        roleNorm === "super_admin" ||
+        perfilNorm === "administrador" ||
+        perfilNorm === "gerente" ||
+        !!perms?.is_admin;
+
+      let query = (supabase as any)
         .from("rdo_diarios")
-        .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo, status_validacao")
+        .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo, status_validacao, engenheiro_responsavel")
         .eq("company_id", prof.company_id)
         .in("status_validacao", ["enviado", "aguardando_validacao"])
         .is("validado_por", null)
         .order("data", { ascending: false })
         .limit(50);
+
+      if (!isAdmin) {
+        const nomeEng = String(prof?.nome_completo || "").trim();
+        if (!nomeEng) {
+          setRdos([]);
+          setLoading(false);
+          return;
+        }
+        query = query.ilike("engenheiro_responsavel", nomeEng);
+      }
+
+      const { data } = await query;
       setRdos(data || []);
       setLoading(false);
     };
@@ -79,7 +105,7 @@ export default function EngValidacoes() {
         </div>
         <div>
           <h1 className="text-lg font-bold text-foreground">Validar RDOs</h1>
-          <p className="text-xs text-muted-foreground">RDOs aguardando validação do Engenheiro</p>
+          <p className="text-xs text-muted-foreground">RDOs aguardando validação do engenheiro responsável</p>
         </div>
       </div>
 

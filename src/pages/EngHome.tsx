@@ -25,32 +25,64 @@ export default function EngHome() {
   const [rdosPendentes, setRdosPendentes] = useState<RdoPendente[]>([]);
   const [minhasOgs, setMinhasOgs] = useState<MinhaOgs[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canViewValidacoes, setCanViewValidacoes] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Buscar company_id do engenheiro
-      const { data: prof } = await (supabase as any)
-        .from("profiles")
-        .select("company_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [{ data: prof }, { data: perms }] = await Promise.all([
+        (supabase as any)
+          .from("profiles")
+          .select("company_id, nome_completo, perfil, role")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        (supabase as any)
+          .from("user_permissions")
+          .select("is_admin")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
 
       if (!prof?.company_id) { setLoading(false); return; }
 
-      // Buscar RDOs pendentes de validação de toda a empresa (status 'enviado' ou 'aguardando_validacao')
-      const { data: rdos } = await (supabase as any)
+      const perfilNorm = String(prof?.perfil || "").trim().toLowerCase();
+      const roleNorm = String(prof?.role || "").trim().toLowerCase();
+      const isAdmin =
+        roleNorm === "admin" ||
+        roleNorm === "superadmin" ||
+        roleNorm === "super_admin" ||
+        perfilNorm === "administrador" ||
+        perfilNorm === "gerente" ||
+        !!perms?.is_admin;
+
+      let rdoQuery = (supabase as any)
         .from("rdo_diarios")
-        .select("id, data, obra_nome, preenchido_por, status_validacao, ogs_id")
+        .select("id, data, obra_nome, preenchido_por, status_validacao, ogs_id, engenheiro_responsavel")
         .eq("company_id", prof.company_id)
         .in("status_validacao", ["enviado", "aguardando_validacao"])
         .is("validado_por", null)
         .order("data", { ascending: false })
         .limit(20);
 
-      setRdosPendentes(rdos || []);
+      if (!isAdmin) {
+        const nomeEng = String(prof?.nome_completo || "").trim();
+        if (!nomeEng) {
+          setRdosPendentes([]);
+          setCanViewValidacoes(false);
+        } else {
+          rdoQuery = rdoQuery.ilike("engenheiro_responsavel", nomeEng);
+          const { data: rdos } = await rdoQuery;
+          const pendentes = rdos || [];
+          setRdosPendentes(pendentes);
+          setCanViewValidacoes(pendentes.length > 0);
+        }
+      } else {
+        const { data: rdos } = await rdoQuery;
+        setRdosPendentes(rdos || []);
+        setCanViewValidacoes(true);
+      }
 
       // Buscar OGSs vinculadas (via engenheiro_ogs, se houver)
       const { data: vinculos } = await (supabase as any)
@@ -111,7 +143,7 @@ export default function EngHome() {
         </div>
 
         {/* Ações rápidas */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 ${canViewValidacoes ? "grid-cols-2" : "grid-cols-1"}`}>
           <button
             onClick={() => navigate("/engenharia/rdo-tecnico")}
             className="flex flex-col items-start gap-2 p-4 rounded-2xl bg-primary text-white shadow-sm active:scale-95 transition-transform"
@@ -120,19 +152,21 @@ export default function EngHome() {
             <span className="text-sm font-semibold">Novo RDO Técnico</span>
             <span className="text-xs opacity-80">Lançar produção do dia</span>
           </button>
-          <button
-            onClick={() => navigate("/engenharia/validacoes")}
-            className="flex flex-col items-start gap-2 p-4 rounded-2xl bg-white border border-border shadow-sm active:scale-95 transition-transform relative"
-          >
-            <ClipboardCheck className="w-5 h-5 text-primary" />
-            <span className="text-sm font-semibold text-foreground">Validar RDOs</span>
-            <span className="text-xs text-muted-foreground">Aprovar ou rejeitar</span>
-            {rdosPendentes.length > 0 && (
-              <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                {rdosPendentes.length}
-              </span>
-            )}
-          </button>
+          {canViewValidacoes && (
+            <button
+              onClick={() => navigate("/engenharia/validacoes")}
+              className="flex flex-col items-start gap-2 p-4 rounded-2xl bg-white border border-border shadow-sm active:scale-95 transition-transform relative"
+            >
+              <ClipboardCheck className="w-5 h-5 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Validar RDOs</span>
+              <span className="text-xs text-muted-foreground">Aprovar ou rejeitar</span>
+              {rdosPendentes.length > 0 && (
+                <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                  {rdosPendentes.length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Histórico RDO Técnico */}

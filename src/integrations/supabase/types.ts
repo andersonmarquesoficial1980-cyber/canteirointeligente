@@ -2421,6 +2421,7 @@ export type Database = {
           created_at: string | null
           data: string | null
           encarregado: string | null
+          engenheiro_responsavel: string | null
           id: string
           obra_nome: string
           preenchido_por: string | null
@@ -2435,6 +2436,7 @@ export type Database = {
           created_at?: string | null
           data?: string | null
           encarregado?: string | null
+          engenheiro_responsavel?: string | null
           id?: string
           obra_nome: string
           preenchido_por?: string | null
@@ -2449,6 +2451,7 @@ export type Database = {
           created_at?: string | null
           data?: string | null
           encarregado?: string | null
+          engenheiro_responsavel?: string | null
           id?: string
           obra_nome?: string
           preenchido_por?: string | null

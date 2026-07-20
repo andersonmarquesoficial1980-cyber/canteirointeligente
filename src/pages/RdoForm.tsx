@@ -62,6 +62,7 @@ export default function RdoForm() {
     data: today, obra_nome: "", cliente: "", local: "", status_obra: "Trabalhou", turno: "",
     responsavel: "",    // legado
     encarregado: "",    // encarregado da obra (autocomplete)
+    engenheiro_responsavel: "", // novo: quem valida no WF Engenharia
     preenchido_por: "", // preenchido automaticamente com nome do usuário logado
   });
   const {
@@ -298,6 +299,7 @@ export default function RdoForm() {
         turno: rdo.turno || "",
         responsavel: rdo.responsavel || "",
         encarregado: (rdo as any).encarregado || rdo.responsavel || "",
+        engenheiro_responsavel: (rdo as any).engenheiro_responsavel || "",
         preenchido_por: (rdo as any).preenchido_por || rdo.responsavel || "",
       }));
       setObservacoesGerais((rdo as any).observacoes_gerais || "");
@@ -424,6 +426,7 @@ export default function RdoForm() {
       }
       const preenchidoPor = header.preenchido_por || profile?.nome_completo || "Não identificado";
       const encarregado = header.encarregado?.trim() || "";
+      const engenheiroResponsavel = header.engenheiro_responsavel?.trim() || "";
       const draftPayload = {
         data: header.data,
         obra_nome: header.obra_nome,
@@ -433,6 +436,7 @@ export default function RdoForm() {
         responsavel: encarregado || preenchidoPor,
         preenchido_por: preenchidoPor,
         encarregado: encarregado || null,
+        engenheiro_responsavel: engenheiroResponsavel || null,
         observacoes_gerais: observacoesGerais || null,
         user_id: user.id,
         company_id: profile?.company_id || null,
@@ -623,6 +627,7 @@ export default function RdoForm() {
     }
     const preenchidoPor = header.preenchido_por || profile?.nome_completo || "Não identificado";
     const encarregado = header.encarregado?.trim() || "";
+    const engenheiroResponsavel = header.engenheiro_responsavel?.trim() || "";
     const rdoPayload = {
       data: header.data,
       obra_nome: header.obra_nome,
@@ -632,6 +637,7 @@ export default function RdoForm() {
       responsavel: encarregado || preenchidoPor, // legado — compat
       preenchido_por: preenchidoPor,
       encarregado: encarregado || null,
+      engenheiro_responsavel: engenheiroResponsavel || null,
       observacoes_gerais: observacoesGerais || null,
       user_id: user.id,
       tipo_rdo: tipoRdo || null,

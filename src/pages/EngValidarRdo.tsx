@@ -12,6 +12,7 @@ interface RdoDetalhe {
   turno: string;
   clima: string;
   encarregado: string;
+  engenheiro_responsavel: string;
   status_validacao: string;
   tipo_rdo: string;
 }
@@ -25,6 +26,7 @@ export default function EngValidarRdo() {
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [efetivo, setEfetivo] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [acessoNegado, setAcessoNegado] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [showMotivo, setShowMotivo] = useState(false);
@@ -32,12 +34,53 @@ export default function EngValidarRdo() {
   useEffect(() => {
     if (!id) return;
     const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const [{ data: prof }, { data: perms }] = await Promise.all([
+        (supabase as any)
+          .from("profiles")
+          .select("company_id, nome_completo, perfil, role")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        (supabase as any)
+          .from("user_permissions")
+          .select("is_admin")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
+
       const [rdoRes, prodRes, equiRes, efetRes] = await Promise.all([
         (supabase as any).from("rdo_diarios").select("*").eq("id", id).single(),
         (supabase as any).from("rdo_producao").select("*").eq("rdo_id", id),
         (supabase as any).from("rdo_equipamentos").select("*").eq("rdo_id", id),
         (supabase as any).from("rdo_efetivo").select("*").eq("rdo_id", id),
       ]);
+
+      const perfilNorm = String(prof?.perfil || "").trim().toLowerCase();
+      const roleNorm = String(prof?.role || "").trim().toLowerCase();
+      const isAdmin =
+        roleNorm === "admin" ||
+        roleNorm === "superadmin" ||
+        roleNorm === "super_admin" ||
+        perfilNorm === "administrador" ||
+        perfilNorm === "gerente" ||
+        !!perms?.is_admin;
+
+      const nomeEng = String(prof?.nome_completo || "").trim().toLowerCase();
+      const engRdo = String((rdoRes.data as any)?.engenheiro_responsavel || "").trim().toLowerCase();
+      const canValidate = isAdmin || (!!nomeEng && !!engRdo && nomeEng === engRdo);
+
+      if (!canValidate) {
+        setAcessoNegado(true);
+        setLoading(false);
+        return;
+      }
+
+      setAcessoNegado(false);
       setRdo(rdoRes.data);
       setProducoes(prodRes.data || []);
       setEquipamentos(equiRes.data || []);
@@ -84,6 +127,16 @@ export default function EngValidarRdo() {
     </>
   );
 
+  if (acessoNegado) return (
+    <>
+      <div className="max-w-lg mx-auto px-4 py-6">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Este RDO não está vinculado ao seu usuário como engenheiro responsável.
+        </div>
+      </div>
+    </>
+  );
+
   if (!rdo) return (
     <>
       <div className="max-w-lg mx-auto px-4 py-6">
@@ -125,6 +178,10 @@ export default function EngValidarRdo() {
             <div>
               <p className="text-xs text-muted-foreground">Encarregado</p>
               <p className="font-medium">{rdo.encarregado || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Engenheiro responsável</p>
+              <p className="font-medium">{rdo.engenheiro_responsavel || "—"}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Clima</p>

@@ -17,6 +17,7 @@ interface RdoHeaderProps {
     turno: string;
     responsavel?: string;  // legado — campo "encarregado" substituiu
     encarregado?: string;
+    engenheiro_responsavel?: string;
     preenchido_por?: string; // readonly — vem do perfil logado
   };
   onChange: (field: string, value: string) => void;
@@ -200,6 +201,15 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
             value={data.encarregado || ""}
             onChange={v => onChange("encarregado", v)}
             placeholder="Selecione ou digite o encarregado do dia"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <span className="rdo-label">Engenheiro responsável</span>
+          <ResponsavelInput
+            mode="engenheiro"
+            value={data.engenheiro_responsavel || ""}
+            onChange={v => onChange("engenheiro_responsavel", v)}
+            placeholder="Selecione o engenheiro que validará este RDO"
           />
         </div>
       </div>
