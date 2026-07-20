@@ -19,6 +19,7 @@ interface Rdo {
   equipe: string | null;
   localizacao: string | null;
   tipo_servico: string | null;
+  infra_descricao: string | null;
   solucao_empregada: string | null;
   usina_programada: string | null;
   cauq_programado: number | null;
@@ -124,6 +125,7 @@ export default function EngRdoTecnicoDetalhe() {
       [""],
       ["PRODUÇÃO", ""],
       ["Tipos de Serviço", rdo.tipo_servico || "—"],
+      ["Descrição da Infra", rdo.infra_descricao || "—"],
       ["Solução Empregada", rdo.solucao_empregada || "—"],
       ["Usina Programada", rdo.usina_programada || "—"],
       ["CAUQ Programado (t)", fmtNum(rdo.cauq_programado)],
@@ -315,6 +317,7 @@ export default function EngRdoTecnicoDetalhe() {
                 <p className="text-sm text-foreground">{rdo.tipo_servico}</p>
               </div>
             )}
+            <Row label="Descrição da Infra" value={rdo.infra_descricao} />
             <Row label="Solução Empregada" value={rdo.solucao_empregada} />
             <Row label="Usina Programada" value={rdo.usina_programada} />
             <Row label="CAUQ Programado" value={rdo.cauq_programado != null ? `${fmtNum(rdo.cauq_programado)} t` : null} />

@@ -38,6 +38,7 @@ export default function EngRdoTecnico() {
     equipe: "",
     localizacao: "",
     tipos_servico: [] as string[],
+    infra_descricao: "",
     solucao_empregada: "",
     usina_programada: "",
     cauq_programado: "",
@@ -174,6 +175,10 @@ export default function EngRdoTecnico() {
       toast({ title: "Selecione ao menos uma seção da obra", variant: "destructive" });
       return;
     }
+    if (form.tipos_servico.includes("INFRA") && !form.infra_descricao.trim()) {
+      toast({ title: "Descreva o tipo de infra executada", variant: "destructive" });
+      return;
+    }
     setSalvando(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -204,6 +209,7 @@ export default function EngRdoTecnico() {
       equipe: semProducao ? null : form.equipe || null,
       localizacao: semProducao ? null : form.localizacao || null,
       tipo_servico: semProducao ? null : form.tipos_servico.length > 0 ? form.tipos_servico.join(", ") : null,
+      infra_descricao: semProducao ? null : form.tipos_servico.includes("INFRA") ? form.infra_descricao.trim() || null : null,
       solucao_empregada: semProducao ? null : form.solucao_empregada || null,
       usina_programada: semProducao ? null : form.usina_programada || null,
       cauq_programado: semProducao ? null : toNum(form.cauq_programado),
@@ -503,7 +509,12 @@ export default function EngRdoTecnico() {
                         checked={form.tipos_servico.includes(t)}
                         onChange={e => {
                           const prev = form.tipos_servico;
-                          set("tipos_servico", e.target.checked ? [...prev, t] : prev.filter(x => x !== t));
+                          const next = e.target.checked ? [...prev, t] : prev.filter(x => x !== t);
+                          setForm(current => ({
+                            ...current,
+                            tipos_servico: next,
+                            ...(next.includes("INFRA") ? {} : { infra_descricao: "" }),
+                          }));
                         }}
                         className="w-4 h-4 accent-primary"
                       />
@@ -517,6 +528,19 @@ export default function EngRdoTecnico() {
                   )}
                 </div>
               </div>
+
+              {form.tipos_servico.includes("INFRA") && (
+                <div>
+                  <label className={labelCls}>Descrição da infra *</label>
+                  <textarea
+                    value={form.infra_descricao}
+                    onChange={e => set("infra_descricao", e.target.value)}
+                    rows={3}
+                    placeholder="Ex: execução de galeria, drenagem, guia/sarjeta..."
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Seção 3 — Quantitativos */}
@@ -574,31 +598,39 @@ export default function EngRdoTecnico() {
             {/* Seção 3b — Informações Adicionais */}
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Informações Adicionais</h2>
-              
-              <div>
-                <label className={labelCls}>Qtd caminhões fresa/demolição</label>
-                <input
-                  type="number"
-                  value={form.qtd_caminhoes_fresa}
-                  onChange={e => set("qtd_caminhoes_fresa", e.target.value)}
-                  placeholder="0"
-                  min={0}
-                  className={inputCls}
-                />
-              </div>
-              
-              <div>
-                <label className={labelCls}>% conclusão da via</label>
-                <input
-                  type="number"
-                  value={form.perc_conclusao_via}
-                  onChange={e => set("perc_conclusao_via", e.target.value)}
-                  placeholder="0"
-                  min={0}
-                  max={100}
-                  className={inputCls}
-                />
-              </div>
+
+              {(form.tipos_servico.includes("FRESAGEM") || form.tipos_servico.includes("DEMOLIÇÃO")) && (
+                <div>
+                  <label className={labelCls}>Qtd caminhões fresa/demolição</label>
+                  <input
+                    type="number"
+                    value={form.qtd_caminhoes_fresa}
+                    onChange={e => set("qtd_caminhoes_fresa", e.target.value)}
+                    placeholder="0"
+                    min={0}
+                    className={inputCls}
+                  />
+                </div>
+              )}
+
+              {form.tipos_servico.length > 0 && (
+                <div>
+                  <label className={labelCls}>% conclusão da via</label>
+                  <input
+                    type="number"
+                    value={form.perc_conclusao_via}
+                    onChange={e => set("perc_conclusao_via", e.target.value)}
+                    placeholder="0"
+                    min={0}
+                    max={100}
+                    className={inputCls}
+                  />
+                </div>
+              )}
+
+              {form.tipos_servico.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">Selecione um tipo de serviço para exibir os quantitativos adicionais</p>
+              )}
             </div>
 
             {/* Seção 4 — Ocorrências */}
