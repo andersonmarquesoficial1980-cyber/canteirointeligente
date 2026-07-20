@@ -178,7 +178,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
             const estIni = parseFloat(trecho.estaca_inicial) || 0;
             const estFin = parseFloat(trecho.estaca_final) || 0;
             const comp = toNum(trecho.comprimento_m);
-            const compEsperado = estIni > 0 && estFin > 0 ? estFin - estIni : null;
+            const compEsperado = estIni > 0 && estFin > 0 ? Math.abs(estFin - estIni) : null;
             const diverge = compEsperado !== null && comp > 0 && Math.abs(comp - compEsperado) > 0.01;
             if (!diverge || compEsperado === null) return null;
             return (
@@ -194,7 +194,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <span className="rdo-label">Comp. (m)</span>
-              <NumericInput value={trecho.comprimento_m} onChange={e => updateTrecho(trecho.id, "comprimento_m", e.target.value)} className={`h-11 bg-white border-border rounded-xl ${(() => { const ei = parseFloat(trecho.estaca_inicial)||0; const ef = parseFloat(trecho.estaca_final)||0; const c = toNum(trecho.comprimento_m); const ce = ei>0&&ef>0?ef-ei:null; return ce!==null&&c>0&&Math.abs(c-ce)>0.01?"border-amber-400 ring-1 ring-amber-400":""; })()}`} placeholder="0,0" />
+              <NumericInput value={trecho.comprimento_m} onChange={e => updateTrecho(trecho.id, "comprimento_m", e.target.value)} className={`h-11 bg-white border-border rounded-xl ${(() => { const ei = parseFloat(trecho.estaca_inicial)||0; const ef = parseFloat(trecho.estaca_final)||0; const c = toNum(trecho.comprimento_m); const ce = ei>0&&ef>0?Math.abs(ef-ei):null; return ce!==null&&c>0&&Math.abs(c-ce)>0.01?"border-amber-400 ring-1 ring-amber-400":""; })()}`} placeholder="0,0" />
             </div>
             <div className="space-y-1.5">
               <span className="rdo-label">Larg. (m)</span>

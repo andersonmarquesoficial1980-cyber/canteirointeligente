@@ -78,7 +78,7 @@ export default function SectionInfraestrutura({ empreiteiro, producao, onChangeE
         // Alerta de estaca vs comprimento
         const estIni = parseFloat(entry.estaca_inicial) || 0;
         const estFin = parseFloat(entry.estaca_final) || 0;
-        const compEsperado = estIni > 0 && estFin > 0 ? estFin - estIni : null;
+        const compEsperado = estIni > 0 && estFin > 0 ? Math.abs(estFin - estIni) : null;
         const divergenciaEstaca = compEsperado !== null && comp > 0 && Math.abs(comp - compEsperado) > 0.01;
         return (
           <div key={entry.id} className="rdo-card space-y-3">
