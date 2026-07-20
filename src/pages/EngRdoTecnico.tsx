@@ -43,6 +43,7 @@ export default function EngRdoTecnico() {
     usina_programada: "",
     cauq_programado: "",
     usina_atendeu: "",
+    usina_nao_atendeu_motivo: "",
     fresagem_m2: "",
     rap_espumado_m2: "",
     binder_ton: "",
@@ -185,6 +186,10 @@ export default function EngRdoTecnico() {
       toast({ title: "Descreva o tipo de infra executada", variant: "destructive" });
       return;
     }
+    if (form.houve_producao && form.usina_atendeu === "nao" && !form.usina_nao_atendeu_motivo.trim()) {
+      toast({ title: "Descreva o motivo de a usina não ter atendido", variant: "destructive" });
+      return;
+    }
     if (form.houve_producao && form.equipamentos_conforme === "") {
       toast({ title: "Informe a condição dos equipamentos na obra", variant: "destructive" });
       return;
@@ -228,6 +233,11 @@ export default function EngRdoTecnico() {
       usina_programada: semProducao ? null : form.usina_programada || null,
       cauq_programado: semProducao ? null : toNum(form.cauq_programado),
       usina_atendeu: semProducao ? null : form.usina_atendeu === "" ? null : form.usina_atendeu === "sim",
+      usina_nao_atendeu_motivo: semProducao
+        ? null
+        : form.usina_atendeu === "nao"
+          ? form.usina_nao_atendeu_motivo.trim() || null
+          : null,
       fresagem_m2: semProducao ? null : toNum(form.fresagem_m2),
       rap_espumado_m2: semProducao ? null : toNum(form.rap_espumado_m2),
       binder_ton: semProducao ? null : toNum(form.binder_ton),
@@ -320,7 +330,7 @@ export default function EngRdoTecnico() {
                       houve_producao: houveProducao,
                       ...(houveProducao
                         ? { motivo_sem_producao: "", outro_motivo_sem_producao: "" }
-                        : { choveu: false, intensidade_chuva: "" }),
+                        : { choveu: false, intensidade_chuva: "", usina_atendeu: "", usina_nao_atendeu_motivo: "" }),
                     }));
                   }}
                   className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${
@@ -517,7 +527,11 @@ export default function EngRdoTecnico() {
                 <div className="flex gap-3">
                   {["sim", "nao"].map((opt) => (
                     <button key={opt} type="button"
-                      onClick={() => set("usina_atendeu", opt)}
+                      onClick={() => setForm((current) => ({
+                        ...current,
+                        usina_atendeu: opt,
+                        ...(opt === "nao" ? {} : { usina_nao_atendeu_motivo: "" }),
+                      }))}
                       className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${
                         form.usina_atendeu === opt ? "bg-primary text-white border-primary" : "bg-background text-foreground border-border"
                       }`}
@@ -525,6 +539,19 @@ export default function EngRdoTecnico() {
                   ))}
                 </div>
               </div>
+
+              {form.usina_atendeu === "nao" && (
+                <div>
+                  <label className={labelCls}>Motivo de a usina não atender *</label>
+                  <textarea
+                    value={form.usina_nao_atendeu_motivo}
+                    onChange={e => set("usina_nao_atendeu_motivo", e.target.value)}
+                    rows={3}
+                    placeholder="Ex: usina sem capacidade no horário, atraso na carga, falta de insumo..."
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                  />
+                </div>
+              )}
               <div>
                 <label className={labelCls}>Tipo de Serviço</label>
                 <div className="rounded-xl border border-border bg-background p-2 space-y-1 max-h-52 overflow-y-auto">

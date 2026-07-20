@@ -24,6 +24,7 @@ interface Rdo {
   usina_programada: string | null;
   cauq_programado: number | null;
   usina_atendeu: boolean | null;
+  usina_nao_atendeu_motivo: string | null;
   fresagem_m2: number | null;
   rap_espumado_m2: number | null;
   binder_ton: number | null;
@@ -136,6 +137,7 @@ export default function EngRdoTecnicoDetalhe() {
       ["Usina Programada", rdo.usina_programada || "—"],
       ["CAUQ Programado (t)", fmtNum(rdo.cauq_programado)],
       ["Usina Atendeu", rdo.usina_atendeu == null ? "—" : rdo.usina_atendeu ? "Sim" : "Não"],
+      ["Motivo de a usina não atender", rdo.usina_atendeu === false ? (rdo.usina_nao_atendeu_motivo || "—") : "—"],
       ["Fresagem (m²)", fmtNum(rdo.fresagem_m2)],
       ["RAP Espumado (m²)", fmtNum(rdo.rap_espumado_m2)],
       ["Binder (ton)", fmtNum(rdo.binder_ton)],
@@ -336,6 +338,7 @@ export default function EngRdoTecnicoDetalhe() {
             <Row label="Usina Programada" value={rdo.usina_programada} />
             <Row label="CAUQ Programado" value={rdo.cauq_programado != null ? `${fmtNum(rdo.cauq_programado)} t` : null} />
             <Row label="Usina Atendeu" value={rdo.usina_atendeu == null ? null : rdo.usina_atendeu ? "Sim" : "Não"} />
+            <Row label="Motivo de a usina não atender" value={rdo.usina_atendeu === false ? rdo.usina_nao_atendeu_motivo : null} />
             <Row label="Equipamentos na Obra" value={rdo.equipamentos_conforme == null ? null : rdo.equipamentos_conforme ? "Conforme" : "Não Conforme"} />
             <Row label="Equipamentos não conformes" value={rdo.equipamentos_nao_conformes} />
 
