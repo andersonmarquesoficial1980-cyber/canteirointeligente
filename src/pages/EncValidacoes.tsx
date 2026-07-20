@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, ClipboardCheck, Clock, ChevronRight, Loader2, CheckCircle2 } from "lucide-react";
 
+const VALIDATION_START_DATE = "2026-07-17";
+
 interface RdoPendente {
   id: string;
   data: string;
@@ -61,6 +63,7 @@ export default function EncValidacoes() {
         .eq("company_id", prof.company_id)
         .eq("validado_encarregado", false)
         .eq("nao_aprovado_encarregado", false)
+        .gte("data", VALIDATION_START_DATE)
         .order("data", { ascending: false })
         .limit(50);
 

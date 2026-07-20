@@ -6,6 +6,8 @@ import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardH
 import ReportarProblemaModal from "@/components/manutencao/ReportarProblemaModal";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 
+const VALIDATION_START_DATE = "2026-07-17";
+
 interface RdoPendente {
   id: string;
   data: string;
@@ -63,6 +65,7 @@ export default function EncHome() {
         .eq("company_id", prof.company_id)
         .eq("validado_encarregado", false)
         .eq("nao_aprovado_encarregado", false)
+        .gte("data", VALIDATION_START_DATE)
         .order("data", { ascending: false })
         .limit(20);
 

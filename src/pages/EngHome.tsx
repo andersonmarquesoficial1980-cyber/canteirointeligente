@@ -5,6 +5,8 @@ import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, Chev
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 
+const VALIDATION_START_DATE = "2026-07-17";
+
 interface RdoPendente {
   id: string;
   data: string;
@@ -63,6 +65,7 @@ export default function EngHome() {
         .eq("company_id", prof.company_id)
         .in("status_validacao", ["enviado", "aguardando_validacao"])
         .is("validado_por", null)
+        .gte("data", VALIDATION_START_DATE)
         .order("data", { ascending: false })
         .limit(20);
 
