@@ -33,6 +33,17 @@ function canonicalizarPerfil(raw: unknown): string {
   return PERFIL_CANONICO[original.toLowerCase()] || PERFIL_CANONICO[normalized] || "Apontador";
 }
 
+const DEFAULT_LOGIN_DOMAIN = "@fremix.workflux.app";
+
+function normalizarEmail(raw: unknown): string {
+  const input = String(raw ?? "").trim().toLowerCase();
+  if (!input) return input;
+  if (!input.includes("@")) return `${input}${DEFAULT_LOGIN_DOMAIN}`;
+  const [local, domain] = input.split("@");
+  if (domain === "workflux.app") return `${local}${DEFAULT_LOGIN_DOMAIN}`;
+  return `${local}@${domain}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -112,13 +123,14 @@ serve(async (req) => {
       const { user_id, nome_completo, perfil, password, email: novoEmail } = body;
       if (!user_id) throw new Error("user_id é obrigatório");
       const perfilDb = perfil ? canonicalizarPerfil(perfil) : undefined;
+      const emailNormalizado = novoEmail ? normalizarEmail(novoEmail) : "";
 
       // Atualizar e-mail no Auth (se fornecido)
-      if (novoEmail && novoEmail.trim()) {
-        const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(user_id, { email: novoEmail.trim().toLowerCase() });
+      if (emailNormalizado) {
+        const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(user_id, { email: emailNormalizado });
         if (emailError) throw new Error("Erro ao atualizar e-mail: " + emailError.message);
         // Atualizar e-mail no profile também
-        await supabaseAdmin.from("profiles").update({ email: novoEmail.trim().toLowerCase() }).eq("user_id", user_id);
+        await supabaseAdmin.from("profiles").update({ email: emailNormalizado }).eq("user_id", user_id);
       }
 
       // Update profile
@@ -165,7 +177,8 @@ serve(async (req) => {
 
     // === CREATE USER (default) ===
     const { email, password, nome_completo, perfil, login_original } = body;
-    if (!email || !password || !nome_completo || !perfil) {
+    const emailNormalizado = normalizarEmail(email);
+    if (!emailNormalizado || !password || !nome_completo || !perfil) {
       throw new Error("Campos obrigatórios: email, password, nome_completo, perfil");
     }
     if (password.length < 6) {
@@ -200,13 +213,13 @@ serve(async (req) => {
     let userId: string;
 
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: emailNormalizado,
       password,
       email_confirm: true,
       user_metadata: {
         login_original: typeof login_original === "string" && login_original.trim().length > 0
           ? login_original.trim().toLowerCase()
-          : email.split("@")[0],
+          : emailNormalizado.split("@")[0],
       },
     });
 
@@ -216,7 +229,7 @@ serve(async (req) => {
         const { data: existingProfileByEmail } = await supabaseAdmin
           .from("profiles")
           .select("user_id, status")
-          .eq("email", email)
+          .eq("email", emailNormalizado)
           .maybeSingle();
 
         if (existingProfileByEmail && existingProfileByEmail.status === "ativo") {
@@ -226,7 +239,7 @@ serve(async (req) => {
         // Reactivate inactive user or link existing auth user
         const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
         if (listError) throw new Error("Erro ao buscar usuário existente");
-        const existing = listData.users.find((u: any) => u.email === email);
+        const existing = listData.users.find((u: any) => u.email === emailNormalizado);
         if (!existing) throw new Error("Usuário não encontrado no Auth");
         userId = existing.id;
       } else {
@@ -243,7 +256,7 @@ serve(async (req) => {
     const normalizedLogin =
       typeof login_original === "string" && login_original.trim().length > 0
         ? login_original.trim().toLowerCase()
-        : email.split("@")[0];
+        : emailNormalizado.split("@")[0];
 
     await supabaseAdmin.auth.admin.updateUserById(userId, {
       user_metadata: { login_original: normalizedLogin },
@@ -258,12 +271,12 @@ serve(async (req) => {
     if (existingProfile) {
       await supabaseAdmin
         .from("profiles")
-        .update({ nome_completo, perfil: perfilDb, email, status: "ativo", senha_temporaria: true, can_delete, can_create_users, company_id })
+        .update({ nome_completo, perfil: perfilDb, email: emailNormalizado, status: "ativo", senha_temporaria: true, can_delete, can_create_users, company_id })
         .eq("user_id", userId);
     } else {
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
-        .insert({ user_id: userId, email, nome_completo, perfil: perfilDb, status: "ativo", senha_temporaria: true, can_delete, can_create_users, company_id });
+        .insert({ user_id: userId, email: emailNormalizado, nome_completo, perfil: perfilDb, status: "ativo", senha_temporaria: true, can_delete, can_create_users, company_id });
       if (profileError) throw new Error("Erro ao criar perfil: " + profileError.message);
     }
 
