@@ -13,6 +13,7 @@ interface Rdo {
   houve_producao: boolean;
   choveu: boolean | null;
   intensidade_chuva: string | null;
+  tipo_secao: string | null;
   motivo_sem_producao: string | null;
   outro_motivo_sem_producao: string | null;
   equipe: string | null;
@@ -118,6 +119,7 @@ export default function EngRdoTecnicoDetalhe() {
       ["Houve produção", rdo.houve_producao ? "Sim" : "Não"],
       ["Choveu no período", rdo.choveu ? "Sim" : "Não"],
       ["Nível da chuva", rdo.choveu ? (rdo.intensidade_chuva || "—") : "—"],
+      ["Seção da obra", rdo.tipo_secao || "—"],
       ["Motivo não produção", rdo.houve_producao ? "—" : getMotivoNaoProducao(rdo) || "—"],
       [""],
       ["PRODUÇÃO", ""],
@@ -295,6 +297,13 @@ export default function EngRdoTecnicoDetalhe() {
           <Row label="Choveu no período" value={rdo.choveu ? "Sim" : "Não"} />
           {rdo.choveu && <Row label="Nível da chuva" value={rdo.intensidade_chuva || "—"} />}
         </div>
+
+        {rdo.tipo_secao && (
+          <div className={secCls}>
+            <h2 className="text-sm font-bold">Seção da Obra</h2>
+            <Row label="Seção(ões)" value={rdo.tipo_secao} />
+          </div>
+        )}
 
         {/* Produção */}
         {rdo.houve_producao && (

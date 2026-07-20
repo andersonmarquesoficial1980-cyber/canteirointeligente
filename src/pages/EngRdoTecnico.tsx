@@ -24,6 +24,7 @@ export default function EngRdoTecnico() {
 
   const motivosSemProducao = ["Chuva", "Sem Atividade", "Folga / Feriado", "Outro"];
   const niveisChuva = ["Fraco", "Moderado", "Forte"];
+  const tiposSecao = ["Funcional", "Intermediário", "Estrutural"];
 
   const [form, setForm] = useState({
     ogs_id: "",
@@ -31,6 +32,7 @@ export default function EngRdoTecnico() {
     houve_producao: true,
     choveu: false,
     intensidade_chuva: "",
+    tipo_secao: [] as string[],
     motivo_sem_producao: "",
     outro_motivo_sem_producao: "",
     equipe: "",
@@ -144,6 +146,15 @@ export default function EngRdoTecnico() {
     buscarLocalizacoes();
   }, [form.ogs_id]);
 
+  const ogsSelecionada = minhasOgs.find(o => o.id === form.ogs_id);
+  const obraExigeSecao = !!ogsSelecionada?.client_name && /(MOTIVA|PMSP)/i.test(ogsSelecionada.client_name);
+
+  useEffect(() => {
+    if (!obraExigeSecao && form.tipo_secao.length > 0) {
+      set("tipo_secao", []);
+    }
+  }, [obraExigeSecao]);
+
   const handleSalvar = async (status: "rascunho" | "enviado") => {
     if (!form.ogs_id) { toast({ title: "Selecione uma OGS", variant: "destructive" }); return; }
     if (!form.data) { toast({ title: "Informe a data", variant: "destructive" }); return; }
@@ -159,6 +170,10 @@ export default function EngRdoTecnico() {
       toast({ title: "Selecione a intensidade da chuva", variant: "destructive" });
       return;
     }
+    if (obraExigeSecao && form.tipo_secao.length === 0) {
+      toast({ title: "Selecione ao menos uma seção da obra", variant: "destructive" });
+      return;
+    }
     setSalvando(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -168,19 +183,20 @@ export default function EngRdoTecnico() {
       .eq("user_id", user?.id)
       .single();
 
-    const selectedOgs = minhasOgs.find(o => o.id === form.ogs_id);
-
     const semProducao = !form.houve_producao;
 
     const payload = {
       company_id: profile?.company_id,
       engenheiro_id: user?.id,
       ogs_id: form.ogs_id,
-      ogs_number: selectedOgs?.ogs_number,
+      ogs_number: ogsSelecionada?.ogs_number,
       data: form.data,
       houve_producao: form.houve_producao,
       choveu: form.choveu,
       intensidade_chuva: form.choveu ? form.intensidade_chuva || null : null,
+      tipo_secao: obraExigeSecao
+        ? (form.tipo_secao.length > 0 ? form.tipo_secao.join(", ") : null)
+        : null,
       motivo_sem_producao: semProducao ? form.motivo_sem_producao || null : null,
       outro_motivo_sem_producao: semProducao && form.motivo_sem_producao === "Outro"
         ? form.outro_motivo_sem_producao.trim() || null
@@ -376,6 +392,41 @@ export default function EngRdoTecnico() {
             </div>
           )}
         </div>
+
+        {obraExigeSecao && (
+          <div className={sectionCls}>
+            <h2 className="text-sm font-bold text-foreground">Seção da Obra</h2>
+            <div>
+              <label className={labelCls}>Selecione a seção (1 ou mais) *</label>
+              <div className="grid grid-cols-1 gap-2">
+                {tiposSecao.map((secao) => (
+                  <button
+                    key={secao}
+                    type="button"
+                    onClick={() => {
+                      const atual = form.tipo_secao;
+                      set("tipo_secao", atual.includes(secao)
+                        ? atual.filter((s) => s !== secao)
+                        : [...atual, secao]);
+                    }}
+                    className={`h-10 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                      form.tipo_secao.includes(secao)
+                        ? "bg-primary text-white border-primary"
+                        : "bg-background text-foreground border-border"
+                    }`}
+                  >
+                    {secao}
+                  </button>
+                ))}
+              </div>
+              {form.tipo_secao.length > 0 && (
+                <p className="text-xs text-primary font-semibold mt-2">
+                  Selecionada{form.tipo_secao.length > 1 ? "s" : ""}: {form.tipo_secao.join(", ")}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {form.houve_producao && (
           <>
