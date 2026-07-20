@@ -182,7 +182,7 @@ export default function EngRdoTecnicoEditar() {
       toast({ title: "Descreva o motivo em 'Outro'", variant: "destructive" });
       return;
     }
-    if (form.choveu && !form.intensidade_chuva) {
+    if (form.houve_producao && form.choveu && !form.intensidade_chuva) {
       toast({ title: "Selecione a intensidade da chuva", variant: "destructive" });
       return;
     }
@@ -211,8 +211,8 @@ export default function EngRdoTecnicoEditar() {
       ogs_number: ogsSelecionada?.ogs_number,
       data: form.data,
       houve_producao: form.houve_producao,
-      choveu: form.choveu,
-      intensidade_chuva: form.choveu ? form.intensidade_chuva || null : null,
+      choveu: semProducao ? false : form.choveu,
+      intensidade_chuva: semProducao ? null : (form.choveu ? form.intensidade_chuva || null : null),
       tipo_secao: obraExigeSecao
         ? (form.tipo_secao.length > 0 ? form.tipo_secao.join(", ") : null)
         : null,
@@ -322,7 +322,7 @@ export default function EngRdoTecnicoEditar() {
                       houve_producao: houveProducao,
                       ...(houveProducao
                         ? { motivo_sem_producao: "", outro_motivo_sem_producao: "" }
-                        : {}),
+                        : { choveu: false, intensidade_chuva: "" }),
                     }));
                   }}
                   className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${form.houve_producao === (opt === "Sim") ? "bg-primary text-white border-primary" : "bg-background text-foreground border-border"}`}
@@ -370,56 +370,58 @@ export default function EngRdoTecnicoEditar() {
         </div>
 
         {/* Seção 1.5 — Meteorologia */}
-        <div className={sectionCls}>
-          <h2 className="text-sm font-bold text-foreground">Meteorologia</h2>
+        {form.houve_producao && (
+          <div className={sectionCls}>
+            <h2 className="text-sm font-bold text-foreground">Meteorologia</h2>
 
-          <div>
-            <label className={labelCls}>Choveu no período?</label>
-            <div className="flex gap-3">
-              {["Sim", "Não"].map(opt => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => {
-                    const choveu = opt === "Sim";
-                    setForm(prev => ({
-                      ...prev,
-                      choveu,
-                      intensidade_chuva: choveu ? prev.intensidade_chuva : "",
-                    }));
-                  }}
-                  className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${
-                    form.choveu === (opt === "Sim")
-                      ? "bg-primary text-white border-primary"
-                      : "bg-background text-foreground border-border"
-                  }`}
-                >{opt}</button>
-              ))}
-            </div>
-          </div>
-
-          {form.choveu && (
             <div>
-              <label className={labelCls}>Nível da chuva *</label>
-              <div className="grid grid-cols-3 gap-2">
-                {niveisChuva.map((nivel) => (
+              <label className={labelCls}>Choveu no período?</label>
+              <div className="flex gap-3">
+                {["Sim", "Não"].map(opt => (
                   <button
-                    key={nivel}
+                    key={opt}
                     type="button"
-                    onClick={() => set("intensidade_chuva", nivel)}
-                    className={`h-10 rounded-xl text-sm font-semibold border-2 transition-colors ${
-                      form.intensidade_chuva === nivel
+                    onClick={() => {
+                      const choveu = opt === "Sim";
+                      setForm(prev => ({
+                        ...prev,
+                        choveu,
+                        intensidade_chuva: choveu ? prev.intensidade_chuva : "",
+                      }));
+                    }}
+                    className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                      form.choveu === (opt === "Sim")
                         ? "bg-primary text-white border-primary"
                         : "bg-background text-foreground border-border"
                     }`}
-                  >
-                    {nivel}
-                  </button>
+                  >{opt}</button>
                 ))}
               </div>
             </div>
-          )}
-        </div>
+
+            {form.choveu && (
+              <div>
+                <label className={labelCls}>Nível da chuva *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {niveisChuva.map((nivel) => (
+                    <button
+                      key={nivel}
+                      type="button"
+                      onClick={() => set("intensidade_chuva", nivel)}
+                      className={`h-10 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                        form.intensidade_chuva === nivel
+                          ? "bg-primary text-white border-primary"
+                          : "bg-background text-foreground border-border"
+                      }`}
+                    >
+                      {nivel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {obraExigeSecao && (
           <div className={sectionCls}>
