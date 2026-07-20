@@ -11,6 +11,8 @@ interface Rdo {
   ogs_number: string;
   data: string;
   houve_producao: boolean;
+  choveu: boolean | null;
+  intensidade_chuva: string | null;
   motivo_sem_producao: string | null;
   outro_motivo_sem_producao: string | null;
   equipe: string | null;
@@ -114,6 +116,8 @@ export default function EngRdoTecnicoDetalhe() {
       ["Localização / Rua", rdo.localizacao || "—"],
       ["Status", rdo.status],
       ["Houve produção", rdo.houve_producao ? "Sim" : "Não"],
+      ["Choveu no período", rdo.choveu ? "Sim" : "Não"],
+      ["Nível da chuva", rdo.choveu ? (rdo.intensidade_chuva || "—") : "—"],
       ["Motivo não produção", rdo.houve_producao ? "—" : getMotivoNaoProducao(rdo) || "—"],
       [""],
       ["PRODUÇÃO", ""],
@@ -283,6 +287,13 @@ export default function EngRdoTecnicoDetalhe() {
           {!rdo.houve_producao && (
             <Row label="Motivo da não produção" value={getMotivoNaoProducao(rdo)} />
           )}
+        </div>
+
+        {/* Meteorologia */}
+        <div className={secCls}>
+          <h2 className="text-sm font-bold">Meteorologia</h2>
+          <Row label="Choveu no período" value={rdo.choveu ? "Sim" : "Não"} />
+          {rdo.choveu && <Row label="Nível da chuva" value={rdo.intensidade_chuva || "—"} />}
         </div>
 
         {/* Produção */}

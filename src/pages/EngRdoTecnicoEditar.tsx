@@ -23,11 +23,14 @@ export default function EngRdoTecnicoEditar() {
   const [carregando, setCarregando] = useState(true);
 
   const motivosSemProducao = ["Chuva", "Sem Atividade", "Folga / Feriado", "Outro"];
+  const niveisChuva = ["Fraco", "Moderado", "Forte"];
 
   const [form, setForm] = useState({
     ogs_id: "",
     data: "",
     houve_producao: true,
+    choveu: false,
+    intensidade_chuva: "",
     motivo_sem_producao: "",
     outro_motivo_sem_producao: "",
     equipe: "",
@@ -73,6 +76,8 @@ export default function EngRdoTecnicoEditar() {
           ogs_id: rdo.ogs_id || "",
           data: rdo.data || "",
           houve_producao: rdo.houve_producao ?? true,
+          choveu: rdo.choveu ?? false,
+          intensidade_chuva: rdo.intensidade_chuva || "",
           motivo_sem_producao: rdo.motivo_sem_producao || "",
           outro_motivo_sem_producao: rdo.outro_motivo_sem_producao || "",
           equipe: rdo.equipe || "",
@@ -151,6 +156,10 @@ export default function EngRdoTecnicoEditar() {
       toast({ title: "Descreva o motivo em 'Outro'", variant: "destructive" });
       return;
     }
+    if (form.choveu && !form.intensidade_chuva) {
+      toast({ title: "Selecione a intensidade da chuva", variant: "destructive" });
+      return;
+    }
     setSalvando(true);
 
     const selectedOgs = minhasOgs.find(o => o.id === form.ogs_id);
@@ -162,6 +171,8 @@ export default function EngRdoTecnicoEditar() {
       ogs_number: selectedOgs?.ogs_number,
       data: form.data,
       houve_producao: form.houve_producao,
+      choveu: form.choveu,
+      intensidade_chuva: form.choveu ? form.intensidade_chuva || null : null,
       motivo_sem_producao: semProducao ? form.motivo_sem_producao || null : null,
       outro_motivo_sem_producao: semProducao && form.motivo_sem_producao === "Outro"
         ? form.outro_motivo_sem_producao.trim() || null
@@ -300,6 +311,58 @@ export default function EngRdoTecnicoEditar() {
                   />
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Seção 1.5 — Meteorologia */}
+        <div className={sectionCls}>
+          <h2 className="text-sm font-bold text-foreground">Meteorologia</h2>
+
+          <div>
+            <label className={labelCls}>Choveu no período?</label>
+            <div className="flex gap-3">
+              {["Sim", "Não"].map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => {
+                    const choveu = opt === "Sim";
+                    setForm(prev => ({
+                      ...prev,
+                      choveu,
+                      intensidade_chuva: choveu ? prev.intensidade_chuva : "",
+                    }));
+                  }}
+                  className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                    form.choveu === (opt === "Sim")
+                      ? "bg-primary text-white border-primary"
+                      : "bg-background text-foreground border-border"
+                  }`}
+                >{opt}</button>
+              ))}
+            </div>
+          </div>
+
+          {form.choveu && (
+            <div>
+              <label className={labelCls}>Nível da chuva *</label>
+              <div className="grid grid-cols-3 gap-2">
+                {niveisChuva.map((nivel) => (
+                  <button
+                    key={nivel}
+                    type="button"
+                    onClick={() => set("intensidade_chuva", nivel)}
+                    className={`h-10 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                      form.intensidade_chuva === nivel
+                        ? "bg-primary text-white border-primary"
+                        : "bg-background text-foreground border-border"
+                    }`}
+                  >
+                    {nivel}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
