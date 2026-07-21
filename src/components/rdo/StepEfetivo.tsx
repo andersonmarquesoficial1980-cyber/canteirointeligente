@@ -200,9 +200,11 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
                   <SelectValue placeholder="Selecione a equipe" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[250px]">
-                  {equipes.map(eq => (
-                    <SelectItem key={eq} value={eq}>{eq}</SelectItem>
-                  ))}
+                  {equipes
+                    .filter((eq) => String(eq || "").trim() !== "")
+                    .map(eq => (
+                      <SelectItem key={eq} value={eq}>{eq}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <Button
@@ -270,7 +272,9 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
                     <SelectValue placeholder="Selecione a função..." />
                   </SelectTrigger>
                   <SelectContent className="max-h-[250px]">
-                    {funcoes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    {funcoes
+                      .filter((f) => String(f || "").trim() !== "")
+                      .map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                   </SelectContent>
                 </Select>
               )}

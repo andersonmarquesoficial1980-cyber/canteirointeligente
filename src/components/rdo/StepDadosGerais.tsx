@@ -125,11 +125,13 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
               <SelectValue placeholder={loadingMaquinas ? "Carregando..." : "Selecione o equipamento"} />
             </SelectTrigger>
             <SelectContent className="max-h-[300px]">
-              {maquinas.map((m: any) => (
-                <SelectItem key={m.id} value={m.frota} className="py-3 text-base">
-                  {m.frota} — {m.nome} {m.tipo ? `(${m.tipo})` : ""}
-                </SelectItem>
-              ))}
+              {maquinas
+                .filter((m: any) => String(m?.frota || "").trim() !== "")
+                .map((m: any) => (
+                  <SelectItem key={m.id} value={m.frota} className="py-3 text-base">
+                    {m.frota} — {m.nome} {m.tipo ? `(${m.tipo})` : ""}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         ) : (

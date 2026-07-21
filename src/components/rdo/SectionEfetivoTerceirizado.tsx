@@ -127,11 +127,13 @@ export default function SectionEfetivoTerceirizado({
                         <SelectValue placeholder="Selecione a empresa" />
                       </SelectTrigger>
                       <SelectContent>
-                        {empresas.map((emp) => (
-                          <SelectItem key={emp.id} value={emp.id}>
-                            {emp.nome}
-                          </SelectItem>
-                        ))}
+                        {empresas
+                          .filter((emp) => String(emp?.id || "").trim() !== "")
+                          .map((emp) => (
+                            <SelectItem key={emp.id} value={emp.id}>
+                              {emp.nome}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>

@@ -107,7 +107,7 @@ export default function SectionEquipamentosPatio({ entries, onChange }: Props) {
                 </SelectTrigger>
                 <SelectContent>
                   {(maquinas as any[])
-                    .filter((m: any) => m.frota && (!entry.categoria || m.categoria === entry.categoria))
+                    .filter((m: any) => String(m?.frota || "").trim() !== "" && (!entry.categoria || m.categoria === entry.categoria))
                     .map((m: any) => (
                       <SelectItem key={m.id} value={m.frota}>{m.frota} — {m.nome}</SelectItem>
                     ))}

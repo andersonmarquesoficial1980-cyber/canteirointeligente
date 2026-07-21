@@ -294,11 +294,13 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
                           <SelectValue placeholder="Selecione o equipamento" />
                         </SelectTrigger>
                         <SelectContent className="max-h-[250px]">
-                          {filteredFleets.map((m: any) => (
-                            <SelectItem key={m.id} value={m.frota}>
-                              {m.frota} — {m.nome}
-                            </SelectItem>
-                          ))}
+                          {filteredFleets
+                            .filter((m: any) => String(m?.frota || "").trim() !== "")
+                            .map((m: any) => (
+                              <SelectItem key={m.id} value={m.frota}>
+                                {m.frota} — {m.nome}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     ) : (
