@@ -73,6 +73,7 @@ interface ExtratoReservatorioRow {
   tipo: "entrada" | "saida";
   litros: number;
   fornecedor?: string | null;
+  lubrificador?: string | null;
   equipamento?: string | null;
   ogs?: string | null;
   saldoApos: number;
@@ -179,6 +180,7 @@ export default function AbastecimentoHome() {
   const [cargaHora, setCargaHora] = useState(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
   const [cargaComboioFrota, setCargaComboioFrota] = useState("");
   const [cargaFornecedor, setCargaFornecedor] = useState("");
+  const [cargaLubrificador, setCargaLubrificador] = useState("");
   const [cargaLitros, setCargaLitros] = useState("");
   const [cargaObservacao, setCargaObservacao] = useState("");
 
@@ -295,7 +297,7 @@ export default function AbastecimentoHome() {
           .maybeSingle(),
         (supabase as any)
           .from("comboio_reposicoes")
-          .select("id, data, hora, litros, fornecedor, created_at")
+          .select("id, data, hora, litros, fornecedor, lubrificador, created_at")
           .eq("company_id", companyId)
           .eq("comboio_fleet", frota)
           .order("data", { ascending: false })
@@ -323,6 +325,7 @@ export default function AbastecimentoHome() {
         tipo: "entrada" as const,
         litros: Number(r.litros || 0),
         fornecedor: r.fornecedor || null,
+        lubrificador: r.lubrificador || null,
         equipamento: null,
         ogs: null,
         delta: Number(r.litros || 0),
@@ -353,6 +356,7 @@ export default function AbastecimentoHome() {
           tipo: ev.tipo,
           litros: ev.litros,
           fornecedor: ev.fornecedor,
+          lubrificador: ev.lubrificador,
           equipamento: ev.equipamento,
           ogs: ev.ogs,
           saldoApos: runningAfter,
@@ -448,6 +452,7 @@ export default function AbastecimentoHome() {
     setCargaHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
     setCargaComboioFrota(frotasComboio.length === 1 ? (frotasComboio[0].frota || "") : "");
     setCargaFornecedor("");
+    setCargaLubrificador("");
     setCargaLitros("");
     setCargaObservacao("");
   }
@@ -455,7 +460,7 @@ export default function AbastecimentoHome() {
   async function salvarControleCarga() {
     if (!companyId) return;
     const litrosNum = Number(cargaLitros);
-    if (!cargaComboioFrota || !litrosNum || litrosNum <= 0) return;
+    if (!cargaComboioFrota || !litrosNum || litrosNum <= 0 || !cargaLubrificador) return;
 
     setSalvandoCarga(true);
     try {
@@ -479,6 +484,7 @@ export default function AbastecimentoHome() {
         data: cargaData,
         hora: cargaHora || null,
         fornecedor: cargaFornecedor || null,
+        lubrificador: cargaLubrificador || null,
         observacao: cargaObservacao || null,
         created_by: currentUserId,
       });
@@ -671,8 +677,8 @@ export default function AbastecimentoHome() {
                     <span>{r.hora || "--:--"}</span>
                     <span className={`font-semibold ${r.tipo === "entrada" ? "text-green-700" : "text-orange-700"}`}>{r.tipo === "entrada" ? "Entrada" : "Saída"}</span>
                     <span className={`text-right font-semibold ${r.tipo === "entrada" ? "text-green-700" : "text-orange-700"}`}>{r.tipo === "entrada" ? "+" : "-"}{fmtNum(r.litros)}</span>
-                    <span className="truncate" title={r.tipo === "entrada" ? (r.fornecedor || "Reposição") : `${r.equipamento || "Frota"}${r.ogs ? ` · OGS ${r.ogs}` : ""}`}>
-                      {r.tipo === "entrada" ? (r.fornecedor || "Reposição de tanque") : `${r.equipamento || "Frota"}${r.ogs ? ` · OGS ${r.ogs}` : ""}`}
+                    <span className="truncate" title={r.tipo === "entrada" ? `${r.fornecedor || "Reposição"}${r.lubrificador ? ` · Lubrificador: ${r.lubrificador}` : ""}` : `${r.equipamento || "Frota"}${r.ogs ? ` · OGS ${r.ogs}` : ""}`}>
+                      {r.tipo === "entrada" ? `${r.fornecedor || "Reposição de tanque"}${r.lubrificador ? ` · ${r.lubrificador}` : ""}` : `${r.equipamento || "Frota"}${r.ogs ? ` · OGS ${r.ogs}` : ""}`}
                     </span>
                     <span className={`text-right font-bold ${r.saldoApos < 0 ? "text-red-600" : "text-foreground"}`}>{fmtNum(r.saldoApos)} L</span>
                   </div>
@@ -1075,6 +1081,19 @@ export default function AbastecimentoHome() {
             </div>
 
             <div className="space-y-1.5">
+              <span className="rdo-label">Lubrificador responsável *</span>
+              <Select value={cargaLubrificador} onValueChange={setCargaLubrificador}>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder={listLubrificadores.length === 0 ? "Configure no Painel" : "Selecione..."} /></SelectTrigger>
+                <SelectContent>
+                  {listLubrificadores.map((nome: string) => (
+                    <SelectItem key={`carga-lub-${nome}`} value={nome}>{nome}</SelectItem>
+                  ))}
+                  {listLubrificadores.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → WF Abastecimento</div>}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
               <span className="rdo-label">Observação / Equipe responsável</span>
               <Input
                 value={cargaObservacao}
@@ -1084,7 +1103,7 @@ export default function AbastecimentoHome() {
               />
             </div>
 
-            <Button onClick={salvarControleCarga} disabled={salvandoCarga || !cargaComboioFrota || !(Number(cargaLitros) > 0)} className="w-full h-11 gap-2">
+            <Button onClick={salvarControleCarga} disabled={salvandoCarga || !cargaComboioFrota || !(Number(cargaLitros) > 0) || !cargaLubrificador} className="w-full h-11 gap-2">
               {salvandoCarga ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fuel className="w-4 h-4" />}
               {salvandoCarga ? "Salvando carga..." : "Salvar Controle de Carga"}
             </Button>
