@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense, memo } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense, memo } from "react";
 import { AuditLogViewer } from "@/components/admin/AuditLogViewer";
 import { EngenheirosOgsManager } from "@/components/admin/EngenheirosOgsManager";
 import { EncEncarregadoOgsManager } from "@/components/admin/EncEncarregadoOgsManager";
@@ -92,6 +92,26 @@ const VINCULO_LABELS: Record<string, string> = {
 const TIPO_INSUMO_OPTIONS = ["Diesel", "Emulsão", "Água", "Concreto", "Massa Asfáltica", "Insumos", "Outro"];
 const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
 const CATEGORIAS_EQUIP = ["FRESAGEM", "BOBCAT", "VIBROACABADORA", "ROLO COMPACTADOR", "VEÍCULOS", "LINHA AMARELA", "PEQUENO PORTE", "USINA MÓVEL"];
+
+// Mapeia categorias do cadastro de equipamentos para categorias detalhadas (equipamento_tipos)
+const CATEGORIA_RDO_TO_TIPOS_KEYS: Record<string, string[]> = {
+  FRESAGEM: ["FRESAGEM"],
+  BOBCAT: ["PAVIMENTACAO", "LINHA_AMARELA"],
+  VIBROACABADORA: ["PAVIMENTACAO"],
+  "ROLO COMPACTADOR": ["PAVIMENTACAO"],
+  "VEÍCULOS": ["CAMINHOES", "CARRETAS", "VEICULOS"],
+  "LINHA AMARELA": ["LINHA_AMARELA"],
+  "PEQUENO PORTE": ["PEQUENO_PORTE"],
+  "USINA MÓVEL": ["USINAGEM"],
+};
+
+function normTxt(v: string) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
 
 // Generic CRUD hook for simple tables
 function useCrudTable(tableName: string) {
@@ -463,6 +483,7 @@ function TipoSelect({ value, onChange }: { value: string; onChange: (v: string) 
 
 function MaquinasManager() {
   const { items, loading, add, remove, update } = useCrudTable("equipamentos");
+  const { categorias: categoriasTipos } = useEquipamentoTipos();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [frota, setFrota] = useState("");
@@ -487,6 +508,7 @@ function MaquinasManager() {
   const [editTipo, setEditTipo] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategoria, setFilterCategoria] = useState("");
+  const [filterTipoDetalhado, setFilterTipoDetalhado] = useState("");
   const [editCategoria, setEditCategoria] = useState("");
   const [editEmpresa, setEditEmpresa] = useState("");
   const [editCondicao, setEditCondicao] = useState("PROPRIO");
@@ -550,6 +572,55 @@ function MaquinasManager() {
     if (ok) setEditingId(null);
   };
 
+  const tiposPorValor = useMemo(() => {
+    const map = new Map<string, { label: string; icone?: string | null }>();
+    categoriasTipos.forEach(cat => {
+      cat.tipos.forEach(t => {
+        map.set(normTxt(t.tipoValor), { label: t.label, icone: t.icone });
+      });
+    });
+    return map;
+  }, [categoriasTipos]);
+
+  const opcoesTipoDetalhado = useMemo(() => {
+    if (!filterCategoria) return [] as { value: string; label: string; count: number }[];
+
+    const categoriasDetalhadas = CATEGORIA_RDO_TO_TIPOS_KEYS[filterCategoria] || [];
+    const tiposDaCategoria = new Map<string, { label: string; icone?: string | null }>();
+
+    categoriasDetalhadas.forEach(key => {
+      const cat = categoriasTipos.find(c => c.key === key);
+      cat?.tipos.forEach(t => {
+        tiposDaCategoria.set(normTxt(t.tipoValor), { label: t.label, icone: t.icone });
+      });
+    });
+
+    const countMap = new Map<string, { label: string; count: number }>();
+
+    items.forEach((m: any) => {
+      const categoriaItem = m.categoria_rdo || m.categoria || "";
+      if (normTxt(categoriaItem) !== normTxt(filterCategoria)) return;
+
+      const tipoItemRaw = (m.tipo || "").trim();
+      if (!tipoItemRaw) return;
+
+      const tipoKey = normTxt(tipoItemRaw);
+      const fromCadastro = tiposDaCategoria.get(tipoKey) || tiposPorValor.get(tipoKey);
+      const label = fromCadastro ? `${fromCadastro.icone ? `${fromCadastro.icone} ` : ""}${fromCadastro.label}` : tipoItemRaw;
+
+      const prev = countMap.get(tipoKey);
+      if (prev) {
+        prev.count += 1;
+      } else {
+        countMap.set(tipoKey, { label, count: 1 });
+      }
+    });
+
+    return Array.from(countMap.entries())
+      .map(([value, data]) => ({ value, label: data.label, count: data.count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"));
+  }, [filterCategoria, categoriasTipos, items, tiposPorValor]);
+
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
@@ -607,7 +678,10 @@ function MaquinasManager() {
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
-            onClick={() => setFilterCategoria("")}
+            onClick={() => {
+              setFilterCategoria("");
+              setFilterTipoDetalhado("");
+            }}
             className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
               filterCategoria === "" ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border"
             }`}>
@@ -617,7 +691,11 @@ function MaquinasManager() {
             <button
               key={c}
               type="button"
-              onClick={() => setFilterCategoria(prev => prev === c ? "" : c)}
+              onClick={() => {
+                const nextCategoria = filterCategoria === c ? "" : c;
+                setFilterCategoria(nextCategoria);
+                setFilterTipoDetalhado("");
+              }}
               className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
                 filterCategoria === c ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border"
               }`}>
@@ -625,6 +703,38 @@ function MaquinasManager() {
             </button>
           ))}
         </div>
+
+        {filterCategoria && (
+          <div className="pt-2 mt-1 border-t border-border/70 space-y-1.5">
+            <p className="text-[11px] font-semibold text-muted-foreground">
+              Filtrar tipo dentro de {filterCategoria}:
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFilterTipoDetalhado("")}
+                className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+                  filterTipoDetalhado === "" ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border"
+                }`}
+              >
+                Todos os tipos
+              </button>
+
+              {opcoesTipoDetalhado.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setFilterTipoDetalhado(prev => prev === opt.value ? "" : opt.value)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+                    filterTipoDetalhado === opt.value ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border"
+                  }`}
+                >
+                  {opt.label} ({opt.count})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -637,8 +747,10 @@ function MaquinasManager() {
               m.frota?.toLowerCase().includes(q) ||
               m.nome?.toLowerCase().includes(q) ||
               m.tipo?.toLowerCase().includes(q);
-            const matchCat = !filterCategoria || (m.categoria_rdo || m.categoria) === filterCategoria;
-            return matchSearch && matchCat;
+            const categoriaItem = m.categoria_rdo || m.categoria || "";
+            const matchCat = !filterCategoria || normTxt(categoriaItem) === normTxt(filterCategoria);
+            const matchTipoDetalhado = !filterTipoDetalhado || normTxt(m.tipo || "") === filterTipoDetalhado;
+            return matchSearch && matchCat && matchTipoDetalhado;
           });
           if (filtered.length === 0) return (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhum resultado encontrado.</p>
