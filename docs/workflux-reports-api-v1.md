@@ -51,6 +51,9 @@ API consolidada para o ADM da Engenharia com 3 blocos:
 
 Retorno: objeto `secoes` com totais e linhas por bloco.
 
+Filtros opcionais:
+- `tipo_rdo` (ex.: `CAUQ`, `INFRAESTRUTURA`) — quando omitido, retorna **todos** os tipos de RDO no período.
+
 ## 1) RDO Summary
 `report_key`: `rdo/summary`
 
