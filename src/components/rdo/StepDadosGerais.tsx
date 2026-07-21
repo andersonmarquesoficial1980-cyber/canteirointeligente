@@ -68,11 +68,13 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
             <SelectValue placeholder={loadingObras ? "Carregando..." : "Selecione a obra"} />
           </SelectTrigger>
           <SelectContent className="max-h-[300px]">
-            {obras?.map(obra => (
-              <SelectItem key={obra.id} value={obra.ogs_number || ""} className="py-3 text-base">
-                {obra.ogs_number} — {obra.client_name}
-              </SelectItem>
-            ))}
+            {(obras || [])
+              .filter((obra) => String(obra.ogs_number || "").trim() !== "")
+              .map(obra => (
+                <SelectItem key={obra.id} value={obra.ogs_number} className="py-3 text-base">
+                  {obra.ogs_number} — {obra.client_name}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
         {selectedObra && (

@@ -39,7 +39,7 @@ const emptyTrecho = (): TrechoCauqEntry => ({
 
 export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries }: Props & { nfEntries?: { tonelagem: string }[] }) {
   const { data: servicosData } = useTiposServico(tipoRdo);
-  const servicos = servicosData?.map(s => s.nome) ?? [];
+  const servicos = (servicosData?.map(s => String(s.nome || "").trim()) ?? []).filter(Boolean);
 
   const toNum = (val: string) => {
     if (!val) return 0;

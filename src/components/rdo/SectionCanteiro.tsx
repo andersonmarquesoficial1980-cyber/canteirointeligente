@@ -26,9 +26,9 @@ const emptyNF = (): NotaFiscalInsumoEntry => ({
 
 export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
   const { data: fornecedoresData } = useFornecedores(tipoRdo);
-  const fornecedores = fornecedoresData?.map(f => f.nome) ?? [];
+  const fornecedores = (fornecedoresData?.map(f => String(f.nome || "").trim()) ?? []).filter(Boolean);
   const { data: materiaisData } = useMateriais(tipoRdo, "Nota Fiscal");
-  const materiais = materiaisData?.map(m => m.nome) ?? [];
+  const materiais = (materiaisData?.map(m => String(m.nome || "").trim()) ?? []).filter(Boolean);
 
   const update = (id: string, field: string, value: string) =>
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));

@@ -36,12 +36,14 @@ export default function SectionInfraestrutura({ empreiteiro, producao, onChangeE
   const { data: empreiteiros } = useEmpreiteiros(tipoRdo);
   const { data: servicos } = useTiposServico(tipoRdo);
 
+  const empreiteirosValidos = (empreiteiros ?? []).filter((e: any) => String(e?.nome || "").trim() !== "");
+
   const update = (id: string, field: string, value: any) =>
     onChangeProducao(producao.map(e => e.id === id ? { ...e, [field]: value } : e));
 
   // Tipos de serviço: lista do banco + opções fixas
   const tiposServico = [
-    ...(servicos?.map(s => s.nome) ?? []),
+    ...(servicos?.map(s => String(s.nome || "").trim()).filter(Boolean) ?? []),
     "DEMOLIÇÃO", "REPARO", "LIMPEZA",
   ].filter((v, i, arr) => arr.indexOf(v) === i);
 
@@ -58,8 +60,8 @@ export default function SectionInfraestrutura({ empreiteiro, producao, onChangeE
           <Select value={empreiteiro} onValueChange={onChangeEmpreiteiro}>
             <SelectTrigger className="h-12 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>
-              {empreiteiros && empreiteiros.length > 0
-                ? empreiteiros.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)
+              {empreiteirosValidos.length > 0
+                ? empreiteirosValidos.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)
                 : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
             </SelectContent>
           </Select>

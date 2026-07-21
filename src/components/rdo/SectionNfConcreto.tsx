@@ -143,9 +143,11 @@ export default function SectionNfConcreto({ entries, onChange }: Props) {
                 </SelectTrigger>
                 <SelectContent>
                   {fornecedores && fornecedores.length > 0
-                    ? fornecedores.map(f => (
-                        <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
-                      ))
+                    ? fornecedores
+                        .filter((f: any) => String(f?.nome || "").trim() !== "")
+                        .map(f => (
+                          <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
+                        ))
                     : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum fornecedor cadastrado</p>}
                 </SelectContent>
               </Select>

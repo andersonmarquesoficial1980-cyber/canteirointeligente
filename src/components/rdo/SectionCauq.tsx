@@ -37,8 +37,10 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
     f.tipo_insumo === "Massa Asfáltica" ||
     f.tipo_insumos.includes("Geral") ||
     f.tipo_insumo === "Geral"
-  ).map((f: any) => f.nome);
-  const materiais = materiaisData?.map(m => m.nome) ?? [];
+  )
+    .map((f: any) => String(f.nome || "").trim())
+    .filter(Boolean);
+  const materiais = (materiaisData?.map(m => String(m.nome || "").trim()) ?? []).filter(Boolean);
   const materiaisWithOutro = materiais.length > 0 ? [...materiais, "Outro"] : ["Outro"];
 
   const update = (id: string, field: string, value: string) =>
