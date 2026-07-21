@@ -157,7 +157,11 @@ th{background:#f3f4f6;font-weight:600}
 <tr><th>Faixa</th><td>${sinalizacaoHorizontal.faixa || "—"}</td><th>Qtd. Taxas</th><td>${sinalizacaoHorizontal.quantidade_taxas || "—"}</td></tr>
 <tr><th>Estaca Inicial</th><td>${sinalizacaoHorizontal.estaca_inicial || "—"}</td><th>Estaca Final</th><td>${sinalizacaoHorizontal.estaca_final || "—"}</td></tr>
 <tr><th>Quantidade</th><td>${sinalizacaoHorizontal.quantidade || "—"}</td><th>Comprimento (m)</th><td>${sinalizacaoHorizontal.comprimento_m || "—"}</td></tr>
-<tr><th>Largura (m)</th><td colspan="3">${sinalizacaoHorizontal.largura_m || "—"}</td></tr>
+<tr><th>Largura (m)</th><td>${sinalizacaoHorizontal.largura_m || "—"}</td><th>Área (m²)</th><td>${(() => {
+  const c = parseFloat(String(sinalizacaoHorizontal.comprimento_m || "0").replace(",", ".")) || 0;
+  const l = parseFloat(String(sinalizacaoHorizontal.largura_m || "0").replace(",", ".")) || 0;
+  return c > 0 && l > 0 ? fmtBR(c * l) : "—";
+})()}</td></tr>
 </table>`;
   }
 

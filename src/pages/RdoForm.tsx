@@ -565,6 +565,11 @@ export default function RdoForm() {
         lines.push(`  Quantidade: ${sinalizacaoHorizontal.quantidade || "—"}`);
         lines.push(`  Comprimento: ${sinalizacaoHorizontal.comprimento_m || "—"} m`);
         lines.push(`  Largura: ${sinalizacaoHorizontal.largura_m || "—"} m`);
+        lines.push(`  Área: ${(() => {
+          const c = parseFloat(String(sinalizacaoHorizontal.comprimento_m || "0").replace(",", ".")) || 0;
+          const l = parseFloat(String(sinalizacaoHorizontal.largura_m || "0").replace(",", ".")) || 0;
+          return c > 0 && l > 0 ? fmtBR(c * l) : "—";
+        })()} m²`);
         lines.push(`  Qtd. Taxas: ${sinalizacaoHorizontal.quantidade_taxas || "—"}`);
       }
 

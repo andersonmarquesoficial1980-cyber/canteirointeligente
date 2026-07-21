@@ -41,6 +41,19 @@ export default function SectionSinalizacaoDmt({
     onChangeDmt({ ...dmt, [field]: value });
   };
 
+  const toNumber = (value: string) => {
+    if (!value) return 0;
+    const n = parseFloat(String(value).replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const areaM2 = (() => {
+    const comp = toNumber(sinalizacao.comprimento_m);
+    const larg = toNumber(sinalizacao.largura_m);
+    if (comp <= 0 || larg <= 0) return "";
+    return (comp * larg).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  })();
+
   return (
     <div className="px-4 space-y-4">
       <div className="rdo-card space-y-4">
@@ -125,7 +138,7 @@ export default function SectionSinalizacaoDmt({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <span className="rdo-label">Comprimento (m)</span>
             <NumericInput
@@ -140,6 +153,15 @@ export default function SectionSinalizacaoDmt({
               value={sinalizacao.largura_m}
               onChange={(e) => updateSinalizacao("largura_m", e.target.value)}
               className="h-11 bg-white border-border rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <span className="rdo-label">Área (m²)</span>
+            <Input
+              value={areaM2}
+              readOnly
+              placeholder="Auto"
+              className="h-11 bg-muted/50 border-border rounded-xl text-muted-foreground cursor-not-allowed"
             />
           </div>
         </div>
