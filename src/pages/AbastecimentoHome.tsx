@@ -341,26 +341,42 @@ export default function AbastecimentoHome() {
             fornecedor: fornecedor || null,
             observacao: observacao || null,
           }));
-        if (rows.length > 0) {
+
+        const reposicaoNum = Number(reposicao) || 0;
+        const hasAbastecimento = rows.length > 0;
+        const hasReposicao = reposicaoNum > 0;
+
+        // Permite lançamento só de reposição do reservatório (sem abastecer equipamento)
+        if (!hasAbastecimento && !hasReposicao) {
+          setSalvando(false);
+          return;
+        }
+
+        if (hasAbastecimento) {
           await (supabase as any).from("abastecimentos").insert(rows);
-          // Atualizar saldo persistente do comboio
-          if (comboioFrota && companyId) {
-            const novoSaldo = saldoAtualCalculado;
-            await (supabase as any).from("comboio_saldo").upsert(
-              { company_id: companyId, comboio_fleet: comboioFrota, saldo_atual: novoSaldo, updated_by: (await supabase.auth.getUser()).data.user?.id, updated_at: new Date().toISOString() },
-              { onConflict: "company_id,comboio_fleet" }
-            );
-            // Registrar reposição se houve
-            if (reposicao && Number(reposicao) > 0) {
-              await (supabase as any).from("comboio_reposicoes").insert({
-                company_id: companyId,
-                comboio_fleet: comboioFrota,
-                litros: Number(reposicao),
-                data,
-                fornecedor: fornecedor || null,
-                created_by: (await supabase.auth.getUser()).data.user?.id,
-              });
-            }
+        }
+
+        // Atualizar saldo persistente do comboio mesmo quando houver apenas reposição
+        if (comboioFrota && companyId && (hasAbastecimento || hasReposicao)) {
+          const novoSaldo = saldoAtualCalculado;
+          const { data: currentUser } = await supabase.auth.getUser();
+          const currentUserId = currentUser.user?.id;
+
+          await (supabase as any).from("comboio_saldo").upsert(
+            { company_id: companyId, comboio_fleet: comboioFrota, saldo_atual: novoSaldo, updated_by: currentUserId, updated_at: new Date().toISOString() },
+            { onConflict: "company_id,comboio_fleet" }
+          );
+
+          // Registrar reposição se houve
+          if (hasReposicao) {
+            await (supabase as any).from("comboio_reposicoes").insert({
+              company_id: companyId,
+              comboio_fleet: comboioFrota,
+              litros: reposicaoNum,
+              data,
+              fornecedor: fornecedor || null,
+              created_by: currentUserId,
+            });
           }
         }
       } else {
