@@ -65,6 +65,19 @@ interface AbastecimentoRow {
   created_by?: string;
 }
 
+interface ExtratoReservatorioRow {
+  id: string;
+  timestamp: string;
+  data: string;
+  hora: string;
+  tipo: "entrada" | "saida";
+  litros: number;
+  fornecedor?: string | null;
+  equipamento?: string | null;
+  ogs?: string | null;
+  saldoApos: number;
+}
+
 const FONTE_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
   comboio: { label: "Comboio",  color: "bg-blue-50 text-blue-700 border-blue-200",   emoji: "🚛" },
   posto:   { label: "Posto",    color: "bg-green-50 text-green-700 border-green-200", emoji: "⛽" },
@@ -117,6 +130,10 @@ export default function AbastecimentoHome() {
   const [filtroDataFim, setFiltroDataFim] = useState("");
   const [filtroTipoEquipamento, setFiltroTipoEquipamento] = useState("");
   const [filtroOgs, setFiltroOgs] = useState("");
+  const [extratoComboioFrota, setExtratoComboioFrota] = useState("");
+  const [extratoRows, setExtratoRows] = useState<ExtratoReservatorioRow[]>([]);
+  const [extratoSaldoAtual, setExtratoSaldoAtual] = useState(0);
+  const [extratoLoading, setExtratoLoading] = useState(false);
 
   // ── Modal de lançamento ──
   const [modal, setModal] = useState(false);
@@ -230,6 +247,116 @@ export default function AbastecimentoHome() {
   const frotasComboio = equipamentos.filter((e: any) =>
     e.tipo?.toLowerCase().includes("comboio")
   );
+
+  useEffect(() => {
+    if (!extratoComboioFrota && frotasComboio.length > 0) {
+      setExtratoComboioFrota(frotasComboio[0].frota || "");
+    }
+  }, [frotasComboio, extratoComboioFrota]);
+
+  useEffect(() => {
+    if (!companyId || !extratoComboioFrota) {
+      setExtratoRows([]);
+      setExtratoSaldoAtual(0);
+      return;
+    }
+    carregarExtratoReservatorio(extratoComboioFrota);
+  }, [companyId, extratoComboioFrota]);
+
+  function eventTimestamp(date?: string | null, hour?: string | null, fallback?: string | null) {
+    if (date && hour) return new Date(`${date}T${hour}`).toISOString();
+    if (date) return new Date(`${date}T00:00:00`).toISOString();
+    if (fallback) return new Date(fallback).toISOString();
+    return new Date(0).toISOString();
+  }
+
+  async function carregarExtratoReservatorio(frota: string) {
+    if (!companyId || !frota) return;
+    setExtratoLoading(true);
+    try {
+      const [saldoRes, reposicoesRes, saidasRes] = await Promise.all([
+        (supabase as any)
+          .from("comboio_saldo")
+          .select("saldo_atual")
+          .eq("company_id", companyId)
+          .eq("comboio_fleet", frota)
+          .maybeSingle(),
+        (supabase as any)
+          .from("comboio_reposicoes")
+          .select("id, data, litros, fornecedor, created_at")
+          .eq("company_id", companyId)
+          .eq("comboio_fleet", frota)
+          .order("data", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(120),
+        (supabase as any)
+          .from("abastecimentos")
+          .select("id, data, hora, litros, fornecedor, equipment_fleet, ogs, created_at")
+          .eq("company_id", companyId)
+          .eq("fonte", "comboio")
+          .eq("comboio_fleet", frota)
+          .order("data", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(240),
+      ]);
+
+      const saldoAtual = Number(saldoRes.data?.saldo_atual || 0);
+      setExtratoSaldoAtual(saldoAtual);
+
+      const entradas = (reposicoesRes.data || []).map((r: any) => ({
+        id: `repo-${r.id}`,
+        timestamp: eventTimestamp(r.data, null, r.created_at),
+        data: r.data || "",
+        hora: r.created_at ? new Date(r.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "",
+        tipo: "entrada" as const,
+        litros: Number(r.litros || 0),
+        fornecedor: r.fornecedor || null,
+        equipamento: null,
+        ogs: null,
+        delta: Number(r.litros || 0),
+      }));
+
+      const saidas = (saidasRes.data || []).map((s: any) => ({
+        id: `abast-${s.id}`,
+        timestamp: eventTimestamp(s.data, s.hora, s.created_at),
+        data: s.data || "",
+        hora: s.hora || (s.created_at ? new Date(s.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""),
+        tipo: "saida" as const,
+        litros: Number(s.litros || 0),
+        fornecedor: s.fornecedor || null,
+        equipamento: s.equipment_fleet || null,
+        ogs: s.ogs || null,
+        delta: -Number(s.litros || 0),
+      }));
+
+      const eventos = [...entradas, ...saidas].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+      let runningAfter = saldoAtual;
+      const extrato: ExtratoReservatorioRow[] = eventos.map((ev) => {
+        const row: ExtratoReservatorioRow = {
+          id: ev.id,
+          timestamp: ev.timestamp,
+          data: ev.data,
+          hora: ev.hora,
+          tipo: ev.tipo,
+          litros: ev.litros,
+          fornecedor: ev.fornecedor,
+          equipamento: ev.equipamento,
+          ogs: ev.ogs,
+          saldoApos: runningAfter,
+        };
+        runningAfter = runningAfter - ev.delta;
+        return row;
+      });
+
+      setExtratoRows(extrato);
+    } catch (e) {
+      console.error("Erro ao carregar extrato do reservatório:", e);
+      setExtratoRows([]);
+    } finally {
+      setExtratoLoading(false);
+    }
+  }
 
   function getEquipsByTipo(tipo: string) {
     if (!tipo) return [];
@@ -438,6 +565,69 @@ export default function AbastecimentoHome() {
 
         {/* Programações do dia */}
         <ProgramacoesDoDia />
+
+        {/* ── EXTRATO DO RESERVATÓRIO DO COMBOIO ── */}
+        <div className="bg-card border rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Fuel className="w-4 h-4 text-primary" />
+            <span className="text-sm font-display font-extrabold text-foreground uppercase tracking-wide">Extrato do Reservatório</span>
+            <span className="ml-auto text-xs text-muted-foreground">Saldo atual: <span className={`font-bold ${extratoSaldoAtual < 0 ? "text-red-600" : "text-green-700"}`}>{fmtNum(extratoSaldoAtual)} L</span></span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-start">
+            <div className="space-y-1.5">
+              <span className="rdo-label">Comboio</span>
+              <Select value={extratoComboioFrota} onValueChange={setExtratoComboioFrota}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {frotasComboio.map((e: any) => (
+                    <SelectItem key={`extrato-${e.id}`} value={e.frota}>{e.frota} — {e.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-xs text-muted-foreground bg-muted/40 rounded-xl p-2">
+              Entradas = abastecimento do tanque (reposições) · Saídas = abastecimentos feitos nos equipamentos.
+            </div>
+          </div>
+
+          {extratoLoading ? (
+            <div className="h-24 flex items-center justify-center text-sm text-muted-foreground gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Carregando extrato...
+            </div>
+          ) : extratoComboioFrota ? (
+            <div className="border rounded-xl overflow-hidden">
+              <div className="grid grid-cols-[90px_56px_74px_74px_1fr_120px] gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wide bg-muted/40">
+                <span>Data</span>
+                <span>Hora</span>
+                <span>Tipo</span>
+                <span className="text-right">Litros</span>
+                <span>Referência</span>
+                <span className="text-right">Saldo após</span>
+              </div>
+              <div className="max-h-72 overflow-y-auto divide-y">
+                {extratoRows.length === 0 && (
+                  <div className="px-3 py-4 text-xs text-muted-foreground">Sem movimentações para este comboio.</div>
+                )}
+                {extratoRows.map((r) => (
+                  <div key={r.id} className="grid grid-cols-[90px_56px_74px_74px_1fr_120px] gap-2 px-3 py-2 text-xs items-center">
+                    <span>{fmtDate(r.data)}</span>
+                    <span>{r.hora || "--:--"}</span>
+                    <span className={`font-semibold ${r.tipo === "entrada" ? "text-green-700" : "text-orange-700"}`}>{r.tipo === "entrada" ? "Entrada" : "Saída"}</span>
+                    <span className={`text-right font-semibold ${r.tipo === "entrada" ? "text-green-700" : "text-orange-700"}`}>{r.tipo === "entrada" ? "+" : "-"}{fmtNum(r.litros)}</span>
+                    <span className="truncate" title={r.tipo === "entrada" ? (r.fornecedor || "Reposição") : `${r.equipamento || "Frota"}${r.ogs ? ` · OGS ${r.ogs}` : ""}`}>
+                      {r.tipo === "entrada" ? (r.fornecedor || "Reposição de tanque") : `${r.equipamento || "Frota"}${r.ogs ? ` · OGS ${r.ogs}` : ""}`}
+                    </span>
+                    <span className={`text-right font-bold ${r.saldoApos < 0 ? "text-red-600" : "text-foreground"}`}>{fmtNum(r.saldoApos)} L</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground">Selecione um comboio para visualizar o extrato.</div>
+          )}
+        </div>
 
         {/* ── BOTÃO GRANDE "+ LANÇAR" ── */}
         <button
