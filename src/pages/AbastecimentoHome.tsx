@@ -137,7 +137,9 @@ export default function AbastecimentoHome() {
 
   // ── Modal de lançamento ──
   const [modal, setModal] = useState(false);
+  const [modalCarga, setModalCarga] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [salvandoCarga, setSalvandoCarga] = useState(false);
 
   // ── Dados de suporte ──
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
@@ -167,11 +169,18 @@ export default function AbastecimentoHome() {
   const [comboioFrota, setComboioFrota] = useState("");
   // Saldo persistente do comboio
   const [saldoComboio, setSaldoComboio] = useState<number>(0);  // vem do DB
-  const [reposicao, setReposicao] = useState<string>("");       // reposição neste turno
   const [buscandoSaldo, setBuscandoSaldo] = useState(false);
   const [fornecedor, setFornecedor] = useState("");
   const [observacao, setObservacao] = useState("");
   const [entradas, setEntradas] = useState<EntradaAbastecimento[]>([novaEntrada()]);
+
+  // ── Estado do modal Controle de Carga (reservatório) ──
+  const [cargaData, setCargaData] = useState(new Date().toISOString().split("T")[0]);
+  const [cargaHora, setCargaHora] = useState(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+  const [cargaComboioFrota, setCargaComboioFrota] = useState("");
+  const [cargaFornecedor, setCargaFornecedor] = useState("");
+  const [cargaLitros, setCargaLitros] = useState("");
+  const [cargaObservacao, setCargaObservacao] = useState("");
 
   // Para posto/shelbox/manual — lançamento simples
   const [simpFrota, setSimpFrota] = useState("");
@@ -252,7 +261,10 @@ export default function AbastecimentoHome() {
     if (!extratoComboioFrota && frotasComboio.length > 0) {
       setExtratoComboioFrota(frotasComboio[0].frota || "");
     }
-  }, [frotasComboio, extratoComboioFrota]);
+    if (!cargaComboioFrota && frotasComboio.length === 1) {
+      setCargaComboioFrota(frotasComboio[0].frota || "");
+    }
+  }, [frotasComboio, extratoComboioFrota, cargaComboioFrota]);
 
   useEffect(() => {
     if (!companyId || !extratoComboioFrota) {
@@ -283,7 +295,7 @@ export default function AbastecimentoHome() {
           .maybeSingle(),
         (supabase as any)
           .from("comboio_reposicoes")
-          .select("id, data, litros, fornecedor, created_at")
+          .select("id, data, hora, litros, fornecedor, created_at")
           .eq("company_id", companyId)
           .eq("comboio_fleet", frota)
           .order("data", { ascending: false })
@@ -305,9 +317,9 @@ export default function AbastecimentoHome() {
 
       const entradas = (reposicoesRes.data || []).map((r: any) => ({
         id: `repo-${r.id}`,
-        timestamp: eventTimestamp(r.data, null, r.created_at),
+        timestamp: eventTimestamp(r.data, r.hora, r.created_at),
         data: r.data || "",
-        hora: r.created_at ? new Date(r.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "",
+        hora: r.hora || (r.created_at ? new Date(r.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""),
         tipo: "entrada" as const,
         litros: Number(r.litros || 0),
         fornecedor: r.fornecedor || null,
@@ -367,8 +379,8 @@ export default function AbastecimentoHome() {
     () => entradas.reduce((s, e) => s + (Number(e.litros) || 0), 0),
     [entradas]
   );
-  // Saldo calculado: (saldo no DB) + (reposição deste turno) - (total abastecido agora)
-  const saldoAtualCalculado = saldoComboio + (Number(reposicao) || 0) - totalAbastecido;
+  // Saldo projetado durante o lançamento de abastecimento
+  const saldoAtualCalculado = saldoComboio - totalAbastecido;
   // Buscar saldo persistente do comboio quando frota mudar
   async function buscarSaldoComboio(frota: string) {
     if (!frota || !companyId) { setSaldoComboio(0); return; }
@@ -424,11 +436,73 @@ export default function AbastecimentoHome() {
     setMotoristaComboio(""); setLubrificador(""); setComboioFrota("");
     // auto-select se só um comboio
     if (frotasComboio.length === 1) setComboioFrota(frotasComboio[0].frota);
-    setSaldoComboio(0); setReposicao(""); setFornecedor(""); setObservacao("");
+    setSaldoComboio(0); setFornecedor(""); setObservacao("");
     setEntradas([novaEntrada()]);
     setSimpFrota(""); setSimpTipoEquip(""); setSimpHora(""); setSimpLitros("");
     setSimpMedicao(""); setSimpOgs(""); setSimpFornecedor("");
     setSimpLubrificado(false); setSimpAutorizadoPor("");
+  }
+
+  function resetModalCarga() {
+    setCargaData(new Date().toISOString().split("T")[0]);
+    setCargaHora(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+    setCargaComboioFrota(frotasComboio.length === 1 ? (frotasComboio[0].frota || "") : "");
+    setCargaFornecedor("");
+    setCargaLitros("");
+    setCargaObservacao("");
+  }
+
+  async function salvarControleCarga() {
+    if (!companyId) return;
+    const litrosNum = Number(cargaLitros);
+    if (!cargaComboioFrota || !litrosNum || litrosNum <= 0) return;
+
+    setSalvandoCarga(true);
+    try {
+      const { data: currentUser } = await supabase.auth.getUser();
+      const currentUserId = currentUser.user?.id;
+
+      const { data: saldoAtualDb } = await (supabase as any)
+        .from("comboio_saldo")
+        .select("saldo_atual")
+        .eq("company_id", companyId)
+        .eq("comboio_fleet", cargaComboioFrota)
+        .maybeSingle();
+
+      const saldoAtualNumero = Number(saldoAtualDb?.saldo_atual || 0);
+      const novoSaldo = saldoAtualNumero + litrosNum;
+
+      await (supabase as any).from("comboio_reposicoes").insert({
+        company_id: companyId,
+        comboio_fleet: cargaComboioFrota,
+        litros: litrosNum,
+        data: cargaData,
+        hora: cargaHora || null,
+        fornecedor: cargaFornecedor || null,
+        observacao: cargaObservacao || null,
+        created_by: currentUserId,
+      });
+
+      await (supabase as any).from("comboio_saldo").upsert(
+        { company_id: companyId, comboio_fleet: cargaComboioFrota, saldo_atual: novoSaldo, updated_by: currentUserId, updated_at: new Date().toISOString() },
+        { onConflict: "company_id,comboio_fleet" }
+      );
+
+      if (comboioFrota === cargaComboioFrota) {
+        setSaldoComboio(novoSaldo);
+      }
+      if (extratoComboioFrota === cargaComboioFrota) {
+        carregarExtratoReservatorio(cargaComboioFrota);
+      }
+
+      setModalCarga(false);
+      resetModalCarga();
+      buscarTudo();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSalvandoCarga(false);
+    }
   }
 
   function updateEntrada(idx: number, field: keyof EntradaAbastecimento, value: any) {
@@ -469,22 +543,15 @@ export default function AbastecimentoHome() {
             observacao: observacao || null,
           }));
 
-        const reposicaoNum = Number(reposicao) || 0;
-        const hasAbastecimento = rows.length > 0;
-        const hasReposicao = reposicaoNum > 0;
-
-        // Permite lançamento só de reposição do reservatório (sem abastecer equipamento)
-        if (!hasAbastecimento && !hasReposicao) {
+        if (rows.length === 0) {
           setSalvando(false);
           return;
         }
 
-        if (hasAbastecimento) {
-          await (supabase as any).from("abastecimentos").insert(rows);
-        }
+        await (supabase as any).from("abastecimentos").insert(rows);
 
-        // Atualizar saldo persistente do comboio mesmo quando houver apenas reposição
-        if (comboioFrota && companyId && (hasAbastecimento || hasReposicao)) {
+        // Atualizar saldo persistente do comboio após a saída para equipamentos
+        if (comboioFrota && companyId) {
           const novoSaldo = saldoAtualCalculado;
           const { data: currentUser } = await supabase.auth.getUser();
           const currentUserId = currentUser.user?.id;
@@ -493,18 +560,6 @@ export default function AbastecimentoHome() {
             { company_id: companyId, comboio_fleet: comboioFrota, saldo_atual: novoSaldo, updated_by: currentUserId, updated_at: new Date().toISOString() },
             { onConflict: "company_id,comboio_fleet" }
           );
-
-          // Registrar reposição se houve
-          if (hasReposicao) {
-            await (supabase as any).from("comboio_reposicoes").insert({
-              company_id: companyId,
-              comboio_fleet: comboioFrota,
-              litros: reposicaoNum,
-              data,
-              fornecedor: fornecedor || null,
-              created_by: currentUserId,
-            });
-          }
         }
       } else {
         if (!simpFrota || !simpLitros) return;
@@ -629,16 +684,28 @@ export default function AbastecimentoHome() {
           )}
         </div>
 
-        {/* ── BOTÃO GRANDE "+ LANÇAR" ── */}
-        <button
-          onClick={() => { resetForm(); setModal(true); }}
-          className="w-full bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white rounded-2xl p-6 shadow-md hover:shadow-lg transition-all border border-primary/50"
-        >
-          <div className="flex items-center justify-center gap-3">
-            <Plus className="w-8 h-8" />
-            <span className="font-display font-bold text-lg">+ Lançar Abastecimento</span>
-          </div>
-        </button>
+        {/* ── AÇÕES DE LANÇAMENTO ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onClick={() => { resetForm(); setModal(true); }}
+            className="w-full bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white rounded-2xl p-6 shadow-md hover:shadow-lg transition-all border border-primary/50"
+          >
+            <div className="flex items-center justify-center gap-3">
+              <Plus className="w-8 h-8" />
+              <span className="font-display font-bold text-lg">+ Lançar Abastecimento</span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => { resetModalCarga(); setModalCarga(true); }}
+            className="w-full bg-gradient-to-br from-blue-600 to-blue-500 hover:from-blue-600/90 hover:to-blue-500/90 text-white rounded-2xl p-6 shadow-md hover:shadow-lg transition-all border border-blue-500/60"
+          >
+            <div className="flex items-center justify-center gap-3">
+              <Fuel className="w-8 h-8" />
+              <span className="font-display font-bold text-lg">+ Controle de Carga</span>
+            </div>
+          </button>
+        </div>
 
         {/* ── MEUS LANÇAMENTOS ── */}
         {(() => {
@@ -785,10 +852,10 @@ export default function AbastecimentoHome() {
                   </div>
                 </div>
 
-                {/* Saldo Inicial + Fornecedor da Carga */}
+                {/* Saldo projetado do reservatório */}
                 <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
                   <h3 className="text-xs font-display font-extrabold text-primary uppercase tracking-wide flex items-center gap-2 border-b border-border pb-2">
-                    <Fuel className="w-4 h-4" /> CONTROLE DE CARGA
+                    <Fuel className="w-4 h-4" /> RESERVATÓRIO DO COMBOIO
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
@@ -798,7 +865,7 @@ export default function AbastecimentoHome() {
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <span className="rdo-label">Fornecedor da Carga</span>
+                      <span className="rdo-label">Fornecedor do Abastecimento</span>
                       <Select value={fornecedor} onValueChange={setFornecedor}>
                         <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
@@ -809,22 +876,9 @@ export default function AbastecimentoHome() {
                       </Select>
                     </div>
                   </div>
-                  {/* Reposição de combustível */}
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Reposição de Combustível (Litros)</span>
-                    <Input
-                      type="number"
-                      value={reposicao}
-                      onChange={e => setReposicao(e.target.value)}
-                      placeholder="0 — preencha somente ao abastecer o tanque do comboio"
-                      className="h-11 rounded-xl"
-                    />
-                  </div>
-                  {/* Resumo dinâmico */}
-                  {(saldoComboio > 0 || Number(reposicao) > 0 || totalAbastecido > 0) && (
+                  {(saldoComboio > 0 || totalAbastecido > 0) && (
                     <div className="text-xs text-muted-foreground space-y-0.5 bg-muted/40 rounded-xl px-3 py-2">
                       {saldoComboio > 0 && <div>📦 Saldo anterior: <span className="font-semibold text-foreground">{fmtNum(saldoComboio)} L</span></div>}
-                      {Number(reposicao) > 0 && <div>⛽ Reposição: <span className="font-semibold text-green-700">+{fmtNum(Number(reposicao))} L</span></div>}
                       {totalAbastecido > 0 && <div>🚜 Abastecido agora: <span className="font-semibold text-orange-600">−{fmtNum(totalAbastecido)} L</span></div>}
                     </div>
                   )}
@@ -962,6 +1016,77 @@ export default function AbastecimentoHome() {
             <Button onClick={salvar} disabled={salvando} className="w-full h-11 gap-2">
               {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               {salvando ? "Salvando..." : "Salvar Lançamento"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── MODAL CONTROLE DE CARGA (RESERVATÓRIO) ── */}
+      <Dialog open={modalCarga} onOpenChange={v => { if (!v) resetModalCarga(); setModalCarga(v); }}>
+        <DialogContent className="max-w-lg mx-2 rounded-2xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="font-display font-bold">Controle de Carga do Reservatório</DialogTitle></DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <span className="rdo-label">Data *</span>
+                <Input type="date" value={cargaData} onChange={e => setCargaData(e.target.value)} className="h-11 rounded-xl" />
+              </div>
+              <div className="space-y-1.5">
+                <span className="rdo-label">Hora</span>
+                <Input type="time" value={cargaHora} onChange={e => setCargaHora(e.target.value)} className="h-11 rounded-xl" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="rdo-label">Frota do Comboio *</span>
+              <Select value={cargaComboioFrota} onValueChange={setCargaComboioFrota}>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {frotasComboio.map((e: any) => (
+                    <SelectItem key={`carga-${e.id}`} value={e.frota}>{e.frota} — {e.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <span className="rdo-label">Litros carregados *</span>
+                <Input
+                  type="number"
+                  value={cargaLitros}
+                  onChange={e => setCargaLitros(e.target.value)}
+                  placeholder="Ex.: 5000"
+                  className="h-11 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <span className="rdo-label">Fornecedor</span>
+                <Select value={cargaFornecedor} onValueChange={setCargaFornecedor}>
+                  <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {fornecedoresList.map((f: string) => (
+                      <SelectItem key={`carga-forn-${f}`} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="rdo-label">Observação / Equipe responsável</span>
+              <Input
+                value={cargaObservacao}
+                onChange={e => setCargaObservacao(e.target.value)}
+                className="h-11 rounded-xl"
+                placeholder="Ex.: Equipe base Fremix, turno manhã"
+              />
+            </div>
+
+            <Button onClick={salvarControleCarga} disabled={salvandoCarga || !cargaComboioFrota || !(Number(cargaLitros) > 0)} className="w-full h-11 gap-2">
+              {salvandoCarga ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fuel className="w-4 h-4" />}
+              {salvandoCarga ? "Salvando carga..." : "Salvar Controle de Carga"}
             </Button>
           </div>
         </DialogContent>
