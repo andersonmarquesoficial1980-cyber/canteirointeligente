@@ -3,6 +3,7 @@ import type { NotaFiscalMassaEntry } from "@/components/rdo/SectionCauq";
 import type { EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import type { EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 import type { PVData } from "@/components/rdo/SectionPV";
+import type { InformacoesDmtData, SinalizacaoHorizontalData } from "@/components/rdo/SectionSinalizacaoDmt";
 
 
 interface HeaderData {
@@ -34,6 +35,8 @@ export function buildHtmlReport(
   canteiroData?: CanteiroReportData,
   responsavel?: string,
   pvData?: PVData,
+  sinalizacaoHorizontal?: SinalizacaoHorizontalData,
+  informacoesDmt?: InformacoesDmtData,
 ): string {
   const formatDate = (d: string) => {
     if (!d) return "";
@@ -121,14 +124,17 @@ th{background:#f3f4f6;font-weight:600}
       let totalArea = 0;
       let totalTon = 0;
       trechos.forEach(t => {
-        const c = parseFloat(t.comprimento_m) || 0;
-        const l = parseFloat(t.largura_m) || 0;
+        const c = parseFloat(String(t.comprimento_m || "0").replace(",", ".")) || 0;
+        const l = parseFloat(String(t.largura_m || "0").replace(",", ".")) || 0;
         const area = c * l;
         totalArea += area;
-        const ton = parseFloat(t.total_toneladas) || 0;
+        const espCm = parseFloat(String(t.espessura_m || "0").replace(",", ".")) || 0;
+        const dens = parseFloat(String(t.densidade || "0").replace(",", ".")) || 0;
+        const ton = area > 0 && espCm > 0 && dens > 0 ? area * (espCm / 100) * dens : 0;
         totalTon += ton;
-        const espM = t.espessura_m ? (parseFloat(t.espessura_m) / 100) : 0;
-        html += `<tr><td>${t.tipo_servico}</td><td>${t.sentido_faixa}</td><td>${t.estaca_inicial}</td><td>${t.estaca_final}</td><td>${fmtBR(c)}</td><td>${fmtBR(l)}</td><td>${fmtBR(area)}</td><td>${espM ? fmtBR(espM) : ""}</td><td>${fmtBR(ton)}</td></tr>`;
+        const espM = espCm > 0 ? espCm / 100 : 0;
+        const sentidoFaixa = [t.sentido, t.faixa].filter(Boolean).join(" - ");
+        html += `<tr><td>${t.tipo_servico}</td><td>${sentidoFaixa}</td><td>${t.estaca_inicial}</td><td>${t.estaca_final}</td><td>${fmtBR(c)}</td><td>${fmtBR(l)}</td><td>${fmtBR(area)}</td><td>${espM ? fmtBR(espM) : ""}</td><td>${fmtBR(ton)}</td></tr>`;
       });
       html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="6">TOTAL</td><td>${fmtBR(totalArea)}</td><td></td><td>${fmtBR(totalTon)}</td></tr></table>`;
 
@@ -141,6 +147,25 @@ th{background:#f3f4f6;font-weight:600}
         }
       });
     }
+  }
+
+  // Blocos adicionais de pavimentação
+  if (tipoRdo === "CAUQ" && sinalizacaoHorizontal && Object.values(sinalizacaoHorizontal).some(v => String(v || "").trim() !== "")) {
+    html += `<h2>🛣️ Sinalização Horizontal</h2>
+<table>
+<tr><th>Tipo</th><td>${sinalizacaoHorizontal.tipo || "—"}</td><th>Sentido</th><td>${sinalizacaoHorizontal.sentido || "—"}</td></tr>
+<tr><th>Faixa</th><td>${sinalizacaoHorizontal.faixa || "—"}</td><th>Qtd. Taxas</th><td>${sinalizacaoHorizontal.quantidade_taxas || "—"}</td></tr>
+<tr><th>Estaca Inicial</th><td>${sinalizacaoHorizontal.estaca_inicial || "—"}</td><th>Estaca Final</th><td>${sinalizacaoHorizontal.estaca_final || "—"}</td></tr>
+<tr><th>Quantidade</th><td>${sinalizacaoHorizontal.quantidade || "—"}</td><th>Comprimento (m)</th><td>${sinalizacaoHorizontal.comprimento_m || "—"}</td></tr>
+<tr><th>Largura (m)</th><td colspan="3">${sinalizacaoHorizontal.largura_m || "—"}</td></tr>
+</table>`;
+  }
+
+  if (tipoRdo === "CAUQ" && informacoesDmt && Object.values(informacoesDmt).some(v => String(v || "").trim() !== "")) {
+    html += `<h2>📍 Informações de DMT</h2>
+<table>
+<tr><th>DMT Usina (km)</th><td>${informacoesDmt.dmt_usina_km || "—"}</td><th>DMT Canteiro (km)</th><td>${informacoesDmt.dmt_canteiro_km || "—"}</td></tr>
+</table>`;
   }
 
   // Atividades de Canteiro

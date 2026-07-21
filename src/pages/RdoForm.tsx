@@ -25,6 +25,7 @@ import SectionEquipamentosPatio, { type EquipamentoPatioEntry } from "@/componen
 
 import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import SectionProducaoCauq, { type ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
+import SectionSinalizacaoDmt, { type InformacoesDmtData, type SinalizacaoHorizontalData } from "@/components/rdo/SectionSinalizacaoDmt";
 import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteiro";
 import { buildHtmlReport } from "@/lib/buildHtmlReport";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
@@ -138,6 +139,21 @@ export default function RdoForm() {
       comprimento_m: "", largura_m: "", espessura_m: "", densidade: "", observacoes: "",
     }],
     tonelagem_aplicada: "",
+  });
+  const [sinalizacaoHorizontal, setSinalizacaoHorizontal] = useState<SinalizacaoHorizontalData>({
+    tipo: "",
+    sentido: "",
+    faixa: "",
+    estaca_inicial: "",
+    estaca_final: "",
+    quantidade: "",
+    comprimento_m: "",
+    largura_m: "",
+    quantidade_taxas: "",
+  });
+  const [informacoesDmt, setInformacoesDmt] = useState<InformacoesDmtData>({
+    dmt_usina_km: "",
+    dmt_canteiro_km: "",
   });
 
   // Canteiro
@@ -282,13 +298,15 @@ export default function RdoForm() {
     const editId = searchParams.get("edit");
     if (!editId) return;
     const carregar = async () => {
-      const [{ data: rdo }, { data: efetivo }, { data: producao }, { data: equipamentos }, { data: nfRows }, { data: tercRows }] = await Promise.all([
+      const [{ data: rdo }, { data: efetivo }, { data: producao }, { data: equipamentos }, { data: nfRows }, { data: tercRows }, { data: sinalizacaoRows }, { data: dmtRows }] = await Promise.all([
         (supabase as any).from("rdo_diarios").select("*").eq("id", editId).maybeSingle(),
         (supabase as any).from("rdo_efetivo").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_producao").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_equipamentos").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_nf_massa").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_efetivo_terceiros").select("*").eq("rdo_id", editId),
+        (supabase as any).from("rdo_sinalizacao_horizontal").select("*").eq("rdo_id", editId).limit(1),
+        (supabase as any).from("rdo_informacoes_dmt").select("*").eq("rdo_id", editId).limit(1),
       ]);
       if (!rdo) return;
       setHeader(prev => ({
@@ -394,6 +412,29 @@ export default function RdoForm() {
           tipo_material_outro: "",
         })));
       }
+
+      if (sinalizacaoRows?.length) {
+        const s = sinalizacaoRows[0] as any;
+        setSinalizacaoHorizontal({
+          tipo: s.tipo || "",
+          sentido: s.sentido || "",
+          faixa: s.faixa || "",
+          estaca_inicial: s.estaca_inicial || "",
+          estaca_final: s.estaca_final || "",
+          quantidade: s.quantidade != null ? String(s.quantidade) : "",
+          comprimento_m: s.comprimento_m != null ? String(s.comprimento_m) : "",
+          largura_m: s.largura_m != null ? String(s.largura_m) : "",
+          quantidade_taxas: s.quantidade_taxas != null ? String(s.quantidade_taxas) : "",
+        });
+      }
+
+      if (dmtRows?.length) {
+        const d = dmtRows[0] as any;
+        setInformacoesDmt({
+          dmt_usina_km: d.dmt_usina_km != null ? String(d.dmt_usina_km) : "",
+          dmt_canteiro_km: d.dmt_canteiro_km != null ? String(d.dmt_canteiro_km) : "",
+        });
+      }
     };
     carregar();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -491,7 +532,7 @@ export default function RdoForm() {
         const l = parseFloat(String(t.largura_m).replace(",", ".")) || 0;
         const area = c * l;
         lines.push(``);
-        lines.push(`▸ ${t.tipo_servico || "—"} ${t.sentido_faixa || ""}`);
+        lines.push(`▸ ${t.tipo_servico || "—"} ${[t.sentido, t.faixa].filter(Boolean).join(" - ")}`);
         lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
         lines.push(`  ${fmtBR(c)} x ${fmtBR(l)} = ${fmtBR(area)} m²`);
         const espM = t.espessura_m ? (parseFloat(String(t.espessura_m).replace(",", ".")) / 100) : 0;
@@ -512,6 +553,28 @@ export default function RdoForm() {
       lines.push(`📊 *Resumo Geral:*`);
       lines.push(`  Área Total: ${fmtBR(totalArea)} m²`);
       lines.push(`  Toneladas Totais: ${fmtBR(totalTon)} Ton`);
+
+      const hasSinalizacao = Object.values(sinalizacaoHorizontal).some((v) => String(v || "").trim() !== "");
+      if (hasSinalizacao) {
+        lines.push("");
+        lines.push("🛣️ *Sinalização Horizontal:*");
+        lines.push(`  Tipo: ${sinalizacaoHorizontal.tipo || "—"}`);
+        lines.push(`  Sentido: ${sinalizacaoHorizontal.sentido || "—"}`);
+        lines.push(`  Faixa: ${sinalizacaoHorizontal.faixa || "—"}`);
+        lines.push(`  Estacas: ${sinalizacaoHorizontal.estaca_inicial || "—"} → ${sinalizacaoHorizontal.estaca_final || "—"}`);
+        lines.push(`  Quantidade: ${sinalizacaoHorizontal.quantidade || "—"}`);
+        lines.push(`  Comprimento: ${sinalizacaoHorizontal.comprimento_m || "—"} m`);
+        lines.push(`  Largura: ${sinalizacaoHorizontal.largura_m || "—"} m`);
+        lines.push(`  Qtd. Taxas: ${sinalizacaoHorizontal.quantidade_taxas || "—"}`);
+      }
+
+      const hasDmt = Object.values(informacoesDmt).some((v) => String(v || "").trim() !== "");
+      if (hasDmt) {
+        lines.push("");
+        lines.push("📍 *Informações de DMT:*");
+        lines.push(`  DMT Usina: ${informacoesDmt.dmt_usina_km || "—"} km`);
+        lines.push(`  DMT Canteiro: ${informacoesDmt.dmt_canteiro_km || "—"} km`);
+      }
     }
 
     if (tipoRdo === "PV") {
@@ -652,6 +715,8 @@ export default function RdoForm() {
           tipoServico,
           infraProducao,
           producaoCauq,
+          sinalizacaoHorizontal,
+          informacoesDmt,
           efetivo,
           globalEntrada,
           globalSaida,
@@ -688,6 +753,8 @@ export default function RdoForm() {
           (supabase as any).from("rdo_equipamentos").delete().eq("rdo_id", rdoId),
           (supabase as any).from("rdo_nf_massa").delete().eq("rdo_id", rdoId),
           (supabase as any).from("rdo_efetivo_terceiros").delete().eq("rdo_id", rdoId),
+          (supabase as any).from("rdo_sinalizacao_horizontal").delete().eq("rdo_id", rdoId),
+          (supabase as any).from("rdo_informacoes_dmt").delete().eq("rdo_id", rdoId),
         ]);
       } else {
         const { data: rdo, error: rdoError } = await supabase
@@ -776,6 +843,35 @@ export default function RdoForm() {
         if (trechoEntries.length > 0) {
           const { error } = await supabase.from("rdo_producao").insert(trechoEntries);
           if (error) throw error;
+        }
+
+        const hasSinalizacao = Object.values(sinalizacaoHorizontal).some((value) => String(value || "").trim() !== "");
+        if (hasSinalizacao) {
+          const { error: sinalizacaoError } = await (supabase as any).from("rdo_sinalizacao_horizontal").insert({
+            rdo_id: rdoId,
+            company_id: profile?.company_id || null,
+            tipo: sinalizacaoHorizontal.tipo || null,
+            sentido: sinalizacaoHorizontal.sentido || null,
+            faixa: sinalizacaoHorizontal.faixa || null,
+            estaca_inicial: sinalizacaoHorizontal.estaca_inicial || null,
+            estaca_final: sinalizacaoHorizontal.estaca_final || null,
+            quantidade: sinalizacaoHorizontal.quantidade ? parseFloat(sinalizacaoHorizontal.quantidade.replace(",", ".")) : null,
+            comprimento_m: sinalizacaoHorizontal.comprimento_m ? parseFloat(sinalizacaoHorizontal.comprimento_m.replace(",", ".")) : null,
+            largura_m: sinalizacaoHorizontal.largura_m ? parseFloat(sinalizacaoHorizontal.largura_m.replace(",", ".")) : null,
+            quantidade_taxas: sinalizacaoHorizontal.quantidade_taxas ? parseFloat(sinalizacaoHorizontal.quantidade_taxas.replace(",", ".")) : null,
+          });
+          if (sinalizacaoError) throw sinalizacaoError;
+        }
+
+        const hasDmt = Object.values(informacoesDmt).some((value) => String(value || "").trim() !== "");
+        if (hasDmt) {
+          const { error: dmtError } = await (supabase as any).from("rdo_informacoes_dmt").insert({
+            rdo_id: rdoId,
+            company_id: profile?.company_id || null,
+            dmt_usina_km: informacoesDmt.dmt_usina_km ? parseFloat(informacoesDmt.dmt_usina_km.replace(",", ".")) : null,
+            dmt_canteiro_km: informacoesDmt.dmt_canteiro_km ? parseFloat(informacoesDmt.dmt_canteiro_km.replace(",", ".")) : null,
+          });
+          if (dmtError) throw dmtError;
         }
       }
 
@@ -868,7 +964,22 @@ export default function RdoForm() {
       }
 
       // Build HTML report and send email
-      const htmlReport = buildHtmlReport(rdoId, header, tipoRdo, producaoCauq, nfMassa, efetivo, equipamentos, globalEntrada, globalSaida, { teveUsinagem, totalUsinado, atividadesCanteiro }, encarregado || preenchidoPor, tipoRdo === "PV" ? pvData : undefined);
+      const htmlReport = buildHtmlReport(
+        rdoId,
+        header,
+        tipoRdo,
+        producaoCauq,
+        nfMassa,
+        efetivo,
+        equipamentos,
+        globalEntrada,
+        globalSaida,
+        { teveUsinagem, totalUsinado, atividadesCanteiro },
+        encarregado || preenchidoPor,
+        tipoRdo === "PV" ? pvData : undefined,
+        tipoRdo === "CAUQ" ? sinalizacaoHorizontal : undefined,
+        tipoRdo === "CAUQ" ? informacoesDmt : undefined,
+      );
       let emailSent = false;
       try {
         // Sending email
@@ -1101,6 +1212,12 @@ export default function RdoForm() {
               <>
                 <SectionCauq entries={nfMassa} onChange={setNfMassa} tipoRdo="CAUQ" />
                 <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} tipoRdo="CAUQ" nfEntries={nfMassa} />
+                <SectionSinalizacaoDmt
+                  sinalizacao={sinalizacaoHorizontal}
+                  dmt={informacoesDmt}
+                  onChangeSinalizacao={setSinalizacaoHorizontal}
+                  onChangeDmt={setInformacoesDmt}
+                />
               </>
             )}
             {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
