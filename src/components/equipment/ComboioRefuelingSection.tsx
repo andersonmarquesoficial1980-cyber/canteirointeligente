@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Fuel, Droplets, Truck, FileDown, Clock } from "lucide-react";
+import { buildEquipmentTypeOptionsFromEquipments, listEquipmentFleetsByCategory } from "@/lib/equipmentTypeCatalog";
 
 export interface ComboioRefuelEntry {
   id: string;
@@ -30,19 +31,6 @@ export function createEmptyComboioRefuel(): ComboioRefuelEntry {
     isWashed: false,
   };
 }
-
-/* Mapeamento Tipo → Prefixos */
-const EQUIPMENT_TYPE_OPTIONS = [
-  { value: "Fresadora", label: "Fresadora", prefixes: ["FA"] },
-  { value: "Vibroacabadora", label: "Vibroacabadora", prefixes: ["VA"] },
-  { value: "Bobcat", label: "Bobcat", prefixes: ["BC"] },
-  { value: "Rolo Chapa/Liso", label: "Rolo Chapa/Liso", prefixes: ["CH", "RD"] },
-  { value: "Rolo Pneu", label: "Rolo Pneu", prefixes: ["PN"] },
-  { value: "Rolo Pé de Carneiro", label: "Rolo Pé de Carneiro", prefixes: ["PC"] },
-  { value: "Usina Móvel", label: "Usina Móvel", prefixes: ["KMA"] },
-  { value: "Caminhão", label: "Caminhão", prefixes: ["CA", "CM", "CC", "CP", "CE"] },
-  { value: "Apoio/Outros", label: "Apoio/Outros", prefixes: [] },
-] as const;
 
 interface Props {
   saldoInicial: string;
@@ -119,6 +107,10 @@ export default function ComboioRefuelingSection({
     ? fornecedoresDb.map((f: any) => f.nome)
     : COMBOIO_FORNECEDORES_FALLBACK;
   const ogsOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
+  const equipmentTypeOptions = useMemo(
+    () => buildEquipmentTypeOptionsFromEquipments(equipamentos as any[]).filter((opt) => opt.value !== "OUTROS"),
+    [equipamentos]
+  );
 
   const totalAbastecido = useMemo(
     () => entries.reduce((sum, e) => sum + (Number(e.litersFueled) || 0), 0),
@@ -190,13 +182,8 @@ export default function ComboioRefuelingSection({
 
         {entries.map((entry, idx) => {
           const meterLabel = entry.fleetFueled && isVehicleFleet(entry.fleetFueled) ? "KM" : "H";
-          const selectedType = EQUIPMENT_TYPE_OPTIONS.find((t) => t.value === entry.tipoEquipamento);
-          const filteredEquipamentos = selectedType
-            ? selectedType.prefixes.length > 0
-              ? equipamentos.filter((eq: any) =>
-                  selectedType.prefixes.some((p) => eq.frota?.toUpperCase().startsWith(p))
-                )
-              : equipamentos
+          const filteredEquipamentos = entry.tipoEquipamento
+            ? listEquipmentFleetsByCategory(equipamentos as any[], entry.tipoEquipamento)
             : [];
 
           return (
@@ -236,7 +223,7 @@ export default function ComboioRefuelingSection({
                       <SelectValue placeholder="Selecione o tipo..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {EQUIPMENT_TYPE_OPTIONS.map((opt) => (
+                      {equipmentTypeOptions.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
                         </SelectItem>

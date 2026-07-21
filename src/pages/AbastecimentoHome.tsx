@@ -10,34 +10,7 @@ import { ArrowLeft, Plus, Fuel, Loader2, Filter, Trash2, Clock, Truck, Droplets,
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
-
-// ── Tipos de equipamento (alinhado com cadastro do Painel) ──
-const EQUIPMENT_TYPE_OPTIONS = [
-  { value: "Caminhão",            label: "Caminhão",             tipoKeywords: ["CAMINHÃO"] },
-  { value: "Carretas/Cavalos",    label: "Carretas/Cavalos",     tipoKeywords: ["CAVALO MECÂNICO", "PRANCHA REBOQUE"] },
-  { value: "Veículos",            label: "Veículos",             tipoKeywords: ["MICROÔNIBUS", "VAN"] },
-  { value: "Vibroacabadora",      label: "Vibroacabadora",       tipoKeywords: ["VIBRO ACABADORA"] },
-  { value: "Rolo Compactador",    label: "Rolo Compactador",     tipoKeywords: ["ROLO CHAPA", "ROLO PNEU", "ROLO PÉ DE CARNEIRO"] },
-  { value: "Fresadora",           label: "Fresadora",            tipoKeywords: ["FRESADORA"] },
-  { value: "Bobcat",              label: "Bobcat",               tipoKeywords: ["BOBCAT"] },
-  { value: "Linha Amarela",       label: "Linha Amarela",        tipoKeywords: ["RETROESCAVADEIRA", "PÁ CARREGADEIRA", "ESCAVADEIRA HIDRÁULICA", "MINI ESCAVADEIRA", "MOTONIVELADORA", "TRATOR DE ESTEIRA"] },
-  { value: "Pequeno Porte",       label: "Pequeno Porte",        tipoKeywords: ["COMPRESSOR", "DENSÍMETRO", "GERADOR", "MISTURADOR DE ARGAMASSA", "PLACA VIBRATÓRIA", "ROMPEDOR ELÉTRICO", "ROMPEDOR PNEUMÁTICO", "SERRA CLIPPER", "TORRE DE ILUMINAÇÃO"] },
-  { value: "Usina Móvel",         label: "Usina Móvel",          tipoKeywords: ["USINA MÓVEL"] },
-  { value: "Sanitário e Apoio",   label: "Sanitário e Apoio",    tipoKeywords: ["BANHEIRO QUÍMICO", "CARRETINHA BANHEIRO"] },
-] as const;
-
-function normalizeTypeText(value: string) {
-  return (value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .trim();
-}
-
-function matchesEquipmentOption(option: (typeof EQUIPMENT_TYPE_OPTIONS)[number], equipmentTipo: string) {
-  const normalizedTipo = normalizeTypeText(equipmentTipo);
-  return option.tipoKeywords.some((keyword) => normalizedTipo.includes(normalizeTypeText(keyword)));
-}
+import { buildEquipmentTypeOptionsFromEquipments, listEquipmentFleetsByCategory } from "@/lib/equipmentTypeCatalog";
 
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO"];
 function isVehicleFleet(frota: string) {
@@ -207,7 +180,7 @@ export default function AbastecimentoHome() {
 
     const [abast, equips, ogsRes, cfgRes, opComboio, opLubri] = await Promise.all([
       supabase.from("abastecimentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }).limit(200),
-      (supabase as any).from("equipamentos").select("id, frota, nome, tipo").in("status", ["ativo", "Operando"]).order("frota"),
+      (supabase as any).from("equipamentos").select("id, frota, nome, tipo, categoria_rdo").in("status", ["ativo", "Operando"]).order("frota"),
       (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address"),
       (supabase as any).from("abastecimento_config").select("*").eq("company_id", cid).maybeSingle(),
       // Habilitados para Comboio e Lubrificador (join manual via funcionario_id)
@@ -245,6 +218,10 @@ export default function AbastecimentoHome() {
   }
 
   const ogsOptions = useMemo(() => buildOgsOptions(ogsData), [ogsData]);
+  const equipmentTypeOptions = useMemo(
+    () => buildEquipmentTypeOptionsFromEquipments(equipamentos as any[]).filter((opt) => opt.value !== "OUTROS"),
+    [equipamentos]
+  );
   const fornecedoresList = abastConfig.fornecedores_diesel.length > 0 ? abastConfig.fornecedores_diesel : ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
   const listMotoristas = motoristas;
   const listLubrificadores = lubrificadores;
@@ -255,19 +232,8 @@ export default function AbastecimentoHome() {
   );
 
   function getEquipsByTipo(tipo: string) {
-    const opt = EQUIPMENT_TYPE_OPTIONS.find(o => o.value === tipo);
-    if (!opt) return [];
-
-    const filtered = equipamentos.filter((eq: any) => matchesEquipmentOption(opt, eq.tipo || ""));
-
-    // Evita repetição de frota no select (há casos duplicados no cadastro)
-    const seen = new Set<string>();
-    return filtered.filter((eq: any) => {
-      const frota = String(eq.frota || "").trim().toUpperCase();
-      if (!frota || seen.has(frota)) return false;
-      seen.add(frota);
-      return true;
-    });
+    if (!tipo) return [];
+    return listEquipmentFleetsByCategory(equipamentos as any[], tipo);
   }
 
   const totalAbastecido = useMemo(
@@ -672,7 +638,7 @@ export default function AbastecimentoHome() {
                           <Select value={entry.tipoEquipamento} onValueChange={v => updateEntrada(idx, "tipoEquipamento", v)}>
                             <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue placeholder="Tipo *" /></SelectTrigger>
                             <SelectContent>
-                              {EQUIPMENT_TYPE_OPTIONS.map(opt => (
+                              {equipmentTypeOptions.map(opt => (
                                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                               ))}
                             </SelectContent>
@@ -743,7 +709,7 @@ export default function AbastecimentoHome() {
                     <Select value={simpTipoEquip} onValueChange={setSimpTipoEquip}>
                       <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                       <SelectContent>
-                        {EQUIPMENT_TYPE_OPTIONS.map(opt => (
+                        {equipmentTypeOptions.map(opt => (
                           <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                         ))}
                       </SelectContent>

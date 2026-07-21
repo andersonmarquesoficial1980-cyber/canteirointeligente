@@ -4,19 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Clock, Warehouse } from "lucide-react";
-
-/* Mapeamento Tipo → Prefixos (mesmo do Comboio) */
-const EQUIPMENT_TYPE_OPTIONS = [
-  { value: "Fresadora", label: "Fresadora", prefixes: ["FA"] },
-  { value: "Vibroacabadora", label: "Vibroacabadora", prefixes: ["VA"] },
-  { value: "Bobcat", label: "Bobcat", prefixes: ["BC"] },
-  { value: "Rolo Chapa/Liso", label: "Rolo Chapa/Liso", prefixes: ["CH", "RD"] },
-  { value: "Rolo Pneu", label: "Rolo Pneu", prefixes: ["PN"] },
-  { value: "Rolo Pé de Carneiro", label: "Rolo Pé de Carneiro", prefixes: ["PC"] },
-  { value: "Usina Móvel", label: "Usina Móvel", prefixes: ["KMA"] },
-  { value: "Caminhão", label: "Caminhão", prefixes: ["CA", "CM", "CC", "CP", "CE"] },
-  { value: "Apoio/Outros", label: "Apoio/Outros", prefixes: [] },
-] as const;
+import { buildEquipmentTypeOptionsFromEquipments, listEquipmentFleetsByCategory } from "@/lib/equipmentTypeCatalog";
 
 const BASE_PATIO_VALUE = "BASE / PÁTIO CENTRAL";
 const RETURN_REASONS = ["Manutenção / Oficina", "Término de Obra / Desmobilização"] as const;
@@ -131,10 +119,19 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
   const showReturnReason = PRODUCTION_EQUIPMENT_TYPES.some(t => equipmentType.toLowerCase().includes(t));
   const fleetOptions = useMemo(() => {
     return allFleets
-      .map((f: any) => ({ frota: f.fleet_number || f.frota, nome: f.nome || f.equipment_type || "" }))
+      .map((f: any) => ({
+        frota: f.fleet_number || f.frota,
+        nome: f.nome || f.equipment_type || "",
+        tipo: f.tipo || f.equipment_type || "",
+        categoria_rdo: f.categoria_rdo || null,
+      }))
       .filter((f) => f.frota)
       .sort((a, b) => a.frota.localeCompare(b.frota));
   }, [allFleets]);
+  const equipmentTypeOptions = useMemo(
+    () => buildEquipmentTypeOptionsFromEquipments(fleetOptions as any[]).filter((opt) => opt.value !== "OUTROS"),
+    [fleetOptions]
+  );
 
   /* Per-equipment-slot cascade state: track selected type for each of 3 slots */
   const [equipTypeSlots, setEquipTypeSlots] = useState<Record<string, string>>({});
@@ -142,12 +139,7 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
   const getFilteredFleets = (slotKey: string) => {
     const selectedType = equipTypeSlots[slotKey];
     if (!selectedType) return [];
-    const typeOpt = EQUIPMENT_TYPE_OPTIONS.find((t) => t.value === selectedType);
-    if (!typeOpt) return [];
-    if (typeOpt.prefixes.length === 0) return fleetOptions;
-    return fleetOptions.filter((f) =>
-      typeOpt.prefixes.some((p) => f.frota.toUpperCase().startsWith(p))
-    );
+    return listEquipmentFleetsByCategory(fleetOptions as any[], selectedType);
   };
   const ogsLocationOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
   const addEntry = () => {
@@ -490,7 +482,7 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                                  <SelectValue placeholder="Tipo..." />
                                </SelectTrigger>
                                <SelectContent>
-                                 {EQUIPMENT_TYPE_OPTIONS.map((opt) => (
+                                 {equipmentTypeOptions.map((opt) => (
                                    <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
                                  ))}
                                </SelectContent>
