@@ -11,18 +11,33 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
-// ── Tipos de equipamento com prefixos de frota ──
+// ── Tipos de equipamento (alinhado com cadastro do Painel) ──
 const EQUIPMENT_TYPE_OPTIONS = [
-  { value: "Fresadora",        label: "Fresadora",          prefixes: ["FA"] },
-  { value: "Vibroacabadora",   label: "Vibroacabadora",     prefixes: ["VA"] },
-  { value: "Bobcat",           label: "Bobcat",             prefixes: ["BC"] },
-  { value: "Rolo Chapa/Liso",  label: "Rolo Chapa/Liso",   prefixes: ["CH", "RD"] },
-  { value: "Rolo Pneu",        label: "Rolo Pneu",          prefixes: ["PN"] },
-  { value: "Rolo Pé de Carneiro", label: "Rolo Pé de Carneiro", prefixes: ["PC"] },
-  { value: "Usina Móvel",      label: "Usina Móvel",        prefixes: ["KMA"] },
-  { value: "Caminhão",         label: "Caminhão",           prefixes: ["CA", "CM", "CC", "CP", "CE", "CB"] },
-  { value: "Apoio/Outros",     label: "Apoio/Outros",       prefixes: [] },
+  { value: "Caminhão",            label: "Caminhão",             tipoKeywords: ["CAMINHÃO"] },
+  { value: "Carretas/Cavalos",    label: "Carretas/Cavalos",     tipoKeywords: ["CAVALO MECÂNICO", "PRANCHA REBOQUE"] },
+  { value: "Veículos",            label: "Veículos",             tipoKeywords: ["MICROÔNIBUS", "VAN"] },
+  { value: "Vibroacabadora",      label: "Vibroacabadora",       tipoKeywords: ["VIBRO ACABADORA"] },
+  { value: "Rolo Compactador",    label: "Rolo Compactador",     tipoKeywords: ["ROLO CHAPA", "ROLO PNEU", "ROLO PÉ DE CARNEIRO"] },
+  { value: "Fresadora",           label: "Fresadora",            tipoKeywords: ["FRESADORA"] },
+  { value: "Bobcat",              label: "Bobcat",               tipoKeywords: ["BOBCAT"] },
+  { value: "Linha Amarela",       label: "Linha Amarela",        tipoKeywords: ["RETROESCAVADEIRA", "PÁ CARREGADEIRA", "ESCAVADEIRA HIDRÁULICA", "MINI ESCAVADEIRA", "MOTONIVELADORA", "TRATOR DE ESTEIRA"] },
+  { value: "Pequeno Porte",       label: "Pequeno Porte",        tipoKeywords: ["COMPRESSOR", "DENSÍMETRO", "GERADOR", "MISTURADOR DE ARGAMASSA", "PLACA VIBRATÓRIA", "ROMPEDOR ELÉTRICO", "ROMPEDOR PNEUMÁTICO", "SERRA CLIPPER", "TORRE DE ILUMINAÇÃO"] },
+  { value: "Usina Móvel",         label: "Usina Móvel",          tipoKeywords: ["USINA MÓVEL"] },
+  { value: "Sanitário e Apoio",   label: "Sanitário e Apoio",    tipoKeywords: ["BANHEIRO QUÍMICO", "CARRETINHA BANHEIRO"] },
 ] as const;
+
+function normalizeTypeText(value: string) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+}
+
+function matchesEquipmentOption(option: (typeof EQUIPMENT_TYPE_OPTIONS)[number], equipmentTipo: string) {
+  const normalizedTipo = normalizeTypeText(equipmentTipo);
+  return option.tipoKeywords.some((keyword) => normalizedTipo.includes(normalizeTypeText(keyword)));
+}
 
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO"];
 function isVehicleFleet(frota: string) {
@@ -242,8 +257,17 @@ export default function AbastecimentoHome() {
   function getEquipsByTipo(tipo: string) {
     const opt = EQUIPMENT_TYPE_OPTIONS.find(o => o.value === tipo);
     if (!opt) return [];
-    if (opt.prefixes.length === 0) return equipamentos;
-    return equipamentos.filter((eq: any) => opt.prefixes.some(p => eq.frota?.toUpperCase().startsWith(p)));
+
+    const filtered = equipamentos.filter((eq: any) => matchesEquipmentOption(opt, eq.tipo || ""));
+
+    // Evita repetição de frota no select (há casos duplicados no cadastro)
+    const seen = new Set<string>();
+    return filtered.filter((eq: any) => {
+      const frota = String(eq.frota || "").trim().toUpperCase();
+      if (!frota || seen.has(frota)) return false;
+      seen.add(frota);
+      return true;
+    });
   }
 
   const totalAbastecido = useMemo(
