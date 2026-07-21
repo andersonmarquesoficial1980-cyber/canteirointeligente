@@ -19,6 +19,7 @@ select
   encode(digest('CHANGE_ME_SUPER_KEY_2026', 'sha256'), 'hex'),
   c.id,
   array[
+    'rdo-fremix',
     'rdo/summary',
     'rdo/details',
     'equipamentos/utilizacao',

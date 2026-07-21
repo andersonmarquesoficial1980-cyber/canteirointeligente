@@ -22,6 +22,7 @@ const MAX_PAGE_SIZE = 500;
 const MAX_RANGE_DAYS = 90;
 
 const REPORT_KEYS = new Set([
+  "rdo-fremix",
   "rdo/summary",
   "rdo/details",
   "equipamentos/utilizacao",
@@ -81,6 +82,177 @@ async function sha256Hex(input: string): Promise<string> {
 function safeNumber(value: unknown): number {
   const n = Number(value ?? 0);
   return Number.isFinite(n) ? n : 0;
+}
+
+async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: string, url: URL) {
+  const start = url.searchParams.get("start_date")!;
+  const end = url.searchParams.get("end_date")!;
+  const { page, pageSize, offset } = parsePage(url);
+
+  const [
+    medicoesResp,
+    nfResp,
+    rdoResp,
+  ] = await Promise.all([
+    sb
+      .from("terceiros_medicoes")
+      .select("id,obra_id,empresa_id,funcionario_id,servico_id,data_medicao,quantidade,status,observacoes,created_at", { count: "exact" })
+      .eq("company_id", companyId)
+      .gte("data_medicao", start)
+      .lte("data_medicao", end)
+      .order("data_medicao", { ascending: false })
+      .range(offset, offset + pageSize - 1),
+    sb
+      .from("rdo_nf_massa")
+      .select("id,rdo_id,nf,placa,usina,tonelagem,tipo_material,created_at", { count: "exact" })
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + pageSize - 1),
+    sb
+      .from("rdo_diarios")
+      .select("id,data,obra_nome,tipo_rdo,preenchido_por,encarregado", { count: "exact" })
+      .eq("company_id", companyId)
+      .gte("data", start)
+      .lte("data", end),
+  ]);
+
+  if (medicoesResp.error) throw new Error(medicoesResp.error.message);
+  if (nfResp.error) throw new Error(nfResp.error.message);
+  if (rdoResp.error) throw new Error(rdoResp.error.message);
+
+  const medicoes = medicoesResp.data || [];
+  const nfs = nfResp.data || [];
+  const rdos = rdoResp.data || [];
+
+  const obraIds = [...new Set(medicoes.map((m: any) => m.obra_id).filter(Boolean))];
+  const empresaIds = [...new Set(medicoes.map((m: any) => m.empresa_id).filter(Boolean))];
+  const funcionarioIds = [...new Set(medicoes.map((m: any) => m.funcionario_id).filter(Boolean))];
+  const servicoIds = [...new Set(medicoes.map((m: any) => m.servico_id).filter(Boolean))];
+
+  const [obrasResp, empresasResp, funcionariosResp, servicosResp] = await Promise.all([
+    obraIds.length
+      ? sb.from("ogs_reference").select("id,ogs_number,client_name,location_address").eq("company_id", companyId).in("id", obraIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    empresaIds.length
+      ? sb.from("empresas_parceiras").select("id,nome,razao_social,tipo").eq("company_id", companyId).in("id", empresaIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    funcionarioIds.length
+      ? sb.from("funcionarios_terceiros").select("id,nome,funcao").eq("company_id", companyId).in("id", funcionarioIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    servicoIds.length
+      ? sb.from("terceiros_servicos").select("id,tipo_servico,descricao,unidade,valor_unitario").in("id", servicoIds)
+      : Promise.resolve({ data: [], error: null } as any),
+  ]);
+
+  if (obrasResp.error) throw new Error(obrasResp.error.message);
+  if (empresasResp.error) throw new Error(empresasResp.error.message);
+  if (funcionariosResp.error) throw new Error(funcionariosResp.error.message);
+  if (servicosResp.error) throw new Error(servicosResp.error.message);
+
+  const obrasMap = new Map((obrasResp.data || []).map((o: any) => [o.id, o]));
+  const empresasMap = new Map((empresasResp.data || []).map((e: any) => [e.id, e]));
+  const funcionariosMap = new Map((funcionariosResp.data || []).map((f: any) => [f.id, f]));
+  const servicosMap = new Map((servicosResp.data || []).map((s: any) => [s.id, s]));
+
+  const rdoMap = new Map((rdos || []).map((r: any) => [r.id, r]));
+
+  const medicoesRows = medicoes.map((m: any) => {
+    const obra = obrasMap.get(m.obra_id);
+    const empresa = empresasMap.get(m.empresa_id);
+    const funcionario = funcionariosMap.get(m.funcionario_id);
+    const servico = servicosMap.get(m.servico_id);
+    const valorUnit = safeNumber(servico?.valor_unitario);
+    const quantidade = safeNumber(m.quantidade);
+    return {
+      id: m.id,
+      data_medicao: m.data_medicao,
+      status: m.status,
+      obra: obra?.ogs_number || null,
+      contratante: obra?.client_name || null,
+      local: obra?.location_address || null,
+      empresa_terceira: empresa?.nome || empresa?.razao_social || null,
+      funcionario: funcionario?.nome || null,
+      funcao: funcionario?.funcao || null,
+      tipo_servico: servico?.tipo_servico || null,
+      servico_descricao: servico?.descricao || null,
+      unidade: servico?.unidade || null,
+      quantidade,
+      valor_unitario: valorUnit,
+      valor_total_estimado: Number((quantidade * valorUnit).toFixed(2)),
+      observacoes: m.observacoes,
+      created_at: m.created_at,
+    };
+  });
+
+  const nfRows = nfs.map((n: any) => {
+    const rdo = rdoMap.get(n.rdo_id);
+    return {
+      id: n.id,
+      created_at: n.created_at,
+      data_rdo: rdo?.data || null,
+      obra_nome: rdo?.obra_nome || null,
+      tipo_rdo: rdo?.tipo_rdo || null,
+      apontador: rdo?.preenchido_por || rdo?.encarregado || null,
+      nf: n.nf,
+      placa: n.placa,
+      usina: n.usina,
+      tipo_material: n.tipo_material,
+      tonelagem: safeNumber(n.tonelagem),
+    };
+  });
+
+  const producaoResp = await sb
+    .from("rdo_producao")
+    .select("id,rdo_id,tipo_servico,sentido,sentido_faixa,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,tonelagem", { count: "exact" })
+    .eq("company_id", companyId)
+    .in("rdo_id", rdos.map((r: any) => r.id))
+    .range(offset, offset + pageSize - 1);
+
+  if (producaoResp.error) throw new Error(producaoResp.error.message);
+
+  const producaoRows = (producaoResp.data || []).map((p: any) => {
+    const rdo = rdoMap.get(p.rdo_id);
+    return {
+      id: p.id,
+      data_rdo: rdo?.data || null,
+      obra_nome: rdo?.obra_nome || null,
+      tipo_rdo: rdo?.tipo_rdo || null,
+      apontador: rdo?.preenchido_por || rdo?.encarregado || null,
+      tipo_servico: p.tipo_servico,
+      sentido_faixa: p.sentido_faixa || p.sentido,
+      comprimento_m: safeNumber(p.comprimento_m),
+      largura_m: safeNumber(p.largura_m),
+      espessura_cm: safeNumber(p.espessura_cm),
+      area_m2: safeNumber(p.area_m2),
+      volume_m3: safeNumber(p.volume_m3),
+      tonelagem: safeNumber(p.tonelagem),
+    };
+  });
+
+  return {
+    nome_api: "RDO-FREMIX",
+    modulo: "ADM Engenharia",
+    pagina: page,
+    page_size: pageSize,
+    periodo: { start_date: start, end_date: end },
+    secoes: {
+      medicoes_terceiros: {
+        total: medicoesResp.count ?? 0,
+        rows: medicoesRows,
+      },
+      notas_fiscais_massa: {
+        total: nfResp.count ?? 0,
+        total_tonelagem: Number(nfRows.reduce((s: number, r: any) => s + safeNumber(r.tonelagem), 0).toFixed(2)),
+        rows: nfRows,
+      },
+      producao_rdos: {
+        total: producaoResp.count ?? 0,
+        total_area_m2: Number(producaoRows.reduce((s: number, r: any) => s + safeNumber(r.area_m2), 0).toFixed(2)),
+        total_tonelagem: Number(producaoRows.reduce((s: number, r: any) => s + safeNumber(r.tonelagem), 0).toFixed(2)),
+        rows: producaoRows,
+      },
+    },
+  };
 }
 
 async function authenticate(
@@ -528,6 +700,9 @@ serve(async (req: Request) => {
     let result: any;
 
     switch (reportKey) {
+      case "rdo-fremix":
+        result = await handleRdoFremix(sb, companyId, url);
+        break;
       case "rdo/summary":
         result = await handleRdoSummary(sb, companyId, url);
         break;

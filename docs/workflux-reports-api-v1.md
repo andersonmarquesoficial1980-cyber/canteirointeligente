@@ -41,6 +41,16 @@ Regras:
 
 ## Endpoints v1
 
+## 0) RDO-FREMIX (ADM Engenharia)
+`report_key`: `rdo-fremix`
+
+API consolidada para o ADM da Engenharia com 3 blocos:
+- medições de terceiros (`terceiros_medicoes`)
+- notas fiscais de massa (`rdo_nf_massa`)
+- produções dos RDOs (`rdo_producao`)
+
+Retorno: objeto `secoes` com totais e linhas por bloco.
+
 ## 1) RDO Summary
 `report_key`: `rdo/summary`
 
