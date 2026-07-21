@@ -72,8 +72,11 @@ export default function EngRdoTecnicoDetalhe() {
       if (data) {
         setRdo(data);
         const { data: perfil } = await (supabase as any)
-          .from("profiles").select("nome").eq("user_id", data.engenheiro_id).single();
-        setEngNome(perfil?.nome || "—");
+          .from("profiles")
+          .select("nome_completo,nome")
+          .eq("user_id", data.engenheiro_id)
+          .single();
+        setEngNome(perfil?.nome_completo || perfil?.nome || "—");
       }
       setLoading(false);
     };
