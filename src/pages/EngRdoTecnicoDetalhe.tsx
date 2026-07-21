@@ -85,10 +85,22 @@ export default function EngRdoTecnicoDetalhe() {
   const handleDeletar = async () => {
     if (!rdo) return;
     setDeletando(true);
-    const { error } = await (supabase as any).from("rdo_engenheiro").delete().eq("id", rdo.id);
+    const { data: deletedRows, error } = await (supabase as any)
+      .from("rdo_engenheiro")
+      .delete()
+      .eq("id", rdo.id)
+      .select("id");
     setDeletando(false);
     if (error) {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (!deletedRows || deletedRows.length === 0) {
+      toast({
+        title: "Exclusão não permitida",
+        description: "Seu usuário não tem permissão para excluir este RDO.",
+        variant: "destructive",
+      });
       return;
     }
     toast({ title: "RDO excluído com sucesso" });
