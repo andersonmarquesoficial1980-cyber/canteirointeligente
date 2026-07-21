@@ -92,6 +92,13 @@ const VINCULO_LABELS: Record<string, string> = {
 const TIPO_INSUMO_OPTIONS = ["Diesel", "Emulsão", "Água", "Concreto", "Massa Asfáltica", "Insumos", "Outro"];
 const TIPO_USO_OPTIONS = ["Nota Fiscal", "Transporte", "Ambos"];
 const CATEGORIAS_EQUIP = ["FRESAGEM", "BOBCAT", "VIBROACABADORA", "ROLO COMPACTADOR", "VEÍCULOS", "LINHA AMARELA", "PEQUENO PORTE", "USINA MÓVEL"];
+const CATEGORIA_EQUIP_UI_LABELS: Record<string, string> = {
+  FRESAGEM: "FRESADORA",
+};
+
+function categoriaEquipLabel(categoria: string) {
+  return CATEGORIA_EQUIP_UI_LABELS[categoria] || categoria;
+}
 
 // Mapeia categorias do cadastro de equipamentos para categorias detalhadas (equipamento_tipos)
 const CATEGORIA_RDO_TO_TIPOS_KEYS: Record<string, string[]> = {
@@ -585,7 +592,7 @@ function MaquinasManager() {
   const opcoesTipoDetalhado = useMemo(() => {
     if (!filterCategoria) return [] as { value: string; label: string; count: number }[];
 
-    const categoriasDetalhadas = CATEGORIA_RDO_TO_TIPOS_KEYS[filterCategoria] || [];
+    const categoriasDetalhadas = CATEGORIA_RDO_TO_TIPOS_KEYS[filterCategoria] || CATEGORIA_RDO_TO_TIPOS_KEYS[normTxt(filterCategoria)] || [];
     const tiposDaCategoria = new Map<string, { label: string; icone?: string | null }>();
 
     categoriasDetalhadas.forEach(key => {
@@ -658,7 +665,7 @@ function MaquinasManager() {
           <Label className="text-xs text-muted-foreground">Categoria</Label>
           <Select value={categoria} onValueChange={setCategoria}>
             <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
-            <SelectContent>{CATEGORIAS_EQUIP.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            <SelectContent>{CATEGORIAS_EQUIP.map(c => <SelectItem key={c} value={c}>{categoriaEquipLabel(c)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div className="space-y-1">
@@ -699,7 +706,7 @@ function MaquinasManager() {
               className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
                 filterCategoria === c ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border"
               }`}>
-              {c}
+              {categoriaEquipLabel(c)}
             </button>
           ))}
         </div>
@@ -707,7 +714,7 @@ function MaquinasManager() {
         {filterCategoria && (
           <div className="pt-2 mt-1 border-t border-border/70 space-y-1.5">
             <p className="text-[11px] font-semibold text-muted-foreground">
-              Filtrar tipo dentro de {filterCategoria}:
+              Filtrar tipo dentro de {categoriaEquipLabel(filterCategoria)}:
             </p>
             <div className="flex flex-wrap gap-1.5">
               <button
@@ -782,7 +789,7 @@ function MaquinasManager() {
                   <Label className="text-xs text-muted-foreground">Categoria</Label>
                   <Select value={editCategoria} onValueChange={setEditCategoria}>
                     <SelectTrigger className="h-9 bg-secondary border-border text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>{CATEGORIAS_EQUIP.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    <SelectContent>{CATEGORIAS_EQUIP.map(c => <SelectItem key={c} value={c}>{categoriaEquipLabel(c)}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
@@ -801,7 +808,7 @@ function MaquinasManager() {
                   <div className="flex flex-wrap gap-1">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${m.condicao === 'TERCEIRO' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{m.condicao === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}</span>
                     {m.empresa_proprietaria && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.empresa_proprietaria}</span>}
-                    {(m.categoria_rdo || m.categoria) && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.categoria_rdo || m.categoria}</span>}
+                    {(m.categoria_rdo || m.categoria) && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{categoriaEquipLabel(m.categoria_rdo || m.categoria)}</span>}
                     {(m.vinculos?.length ? m.vinculos : [m.vinculo_rdo || "TODOS"]).map((v: string) => (
                       <span key={v} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{VINCULO_LABELS[v] ?? v}</span>
                     ))}
