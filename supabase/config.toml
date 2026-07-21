@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.create-user]
 verify_jwt = false
+
+[functions.reports-api-v1]
+verify_jwt = false
