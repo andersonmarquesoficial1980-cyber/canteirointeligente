@@ -90,6 +90,7 @@ const PREFIXO_USINA: Record<string, string> = {
   "JÚLIO E JÚLIO": "JUJ",
   "AUPAV": "AUP",
   "USICITY": "USI",
+  "USINAS SP": "USP",
   "USINAS SP PAVIMENTACAO E TECNOLOGIA LTDA": "USP",
   "USINAS SP PAVIMENTAÇÃO E TECNOLOGIA LTDA": "USP",
 };
