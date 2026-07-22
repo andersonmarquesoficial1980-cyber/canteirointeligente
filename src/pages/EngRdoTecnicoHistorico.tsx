@@ -76,9 +76,11 @@ export default function EngRdoTecnicoHistorico() {
       if (engIds.length > 0) {
         const { data: perfis } = await (supabase as any)
           .from("profiles")
-          .select("user_id, nome")
+          .select("user_id, nome_completo, email")
           .in("user_id", engIds);
-        (perfis || []).forEach((p: any) => { nomeMap[p.user_id] = p.nome; });
+        (perfis || []).forEach((p: any) => {
+          nomeMap[p.user_id] = p.nome_completo || p.email || "—";
+        });
       }
 
       setRdos((rdoData || []).map((r: any) => ({
