@@ -13,8 +13,24 @@ import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { buildEquipmentTypeOptionsFromEquipments, listEquipmentFleetsByCategory } from "@/lib/equipmentTypeCatalog";
 
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO", "BUS"];
+const MACARICO_TYPE_VALUE = "MACARICO";
+const MACARICO_FLEETS = ["CE01", "CE02", "CE03", "CE04", "CE16"];
+
 function isVehicleFleet(frota: string) {
   return VEHICLE_PREFIXES.some(p => frota.toUpperCase().startsWith(p));
+}
+
+function isMacaricoType(tipo: string) {
+  return String(tipo || "").trim().toUpperCase() === MACARICO_TYPE_VALUE;
+}
+
+function buildMacaricoFleetOptions() {
+  return MACARICO_FLEETS.map((frota) => ({
+    id: `macarico-${frota}`,
+    frota: `${frota} - MAÇARICO`,
+    nome: "MAÇARICO",
+    categoria_rdo: "VEÍCULOS",
+  }));
 }
 
 interface EntradaAbastecimento {
@@ -246,10 +262,13 @@ export default function AbastecimentoHome() {
   }
 
   const ogsOptions = useMemo(() => buildOgsOptions(ogsData), [ogsData]);
-  const equipmentTypeOptions = useMemo(
-    () => buildEquipmentTypeOptionsFromEquipments(equipamentos as any[]).filter((opt) => opt.value !== "OUTROS"),
-    [equipamentos]
-  );
+  const equipmentTypeOptions = useMemo(() => {
+    const dynamicOptions = buildEquipmentTypeOptionsFromEquipments(equipamentos as any[]).filter((opt) => opt.value !== "OUTROS");
+    const hasMacarico = dynamicOptions.some((opt) => isMacaricoType(opt.value));
+    return hasMacarico
+      ? dynamicOptions
+      : [...dynamicOptions, { value: MACARICO_TYPE_VALUE, label: "MAÇARICO" }];
+  }, [equipamentos]);
   const fornecedoresList = abastConfig.fornecedores_diesel.length > 0 ? abastConfig.fornecedores_diesel : ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
   const listMotoristas = motoristas;
   const listLubrificadores = lubrificadores;
@@ -376,6 +395,7 @@ export default function AbastecimentoHome() {
 
   function getEquipsByTipo(tipo: string) {
     if (!tipo) return [];
+    if (isMacaricoType(tipo)) return buildMacaricoFleetOptions();
     return listEquipmentFleetsByCategory(equipamentos as any[], tipo);
   }
 
