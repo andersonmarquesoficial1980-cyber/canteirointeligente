@@ -14,14 +14,34 @@ import { buildEquipmentTypeOptionsFromEquipments, listEquipmentFleetsByCategory 
 
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO", "BUS"];
 const MACARICO_TYPE_VALUE = "MACARICO";
+const GALAO_TYPE_VALUE = "GALAO";
+const VEICULOS_TYPE_VALUE = "VEICULOS";
 const MACARICO_FLEETS = ["CE01", "CE02", "CE03", "CE04", "CE16"];
+const COMBOIO_GRU_DESTINO = "COMBOIO GRU";
+const GALAO_LIMPEZA_DESTINO = "GALÃO LIMPEZA";
 
 function isVehicleFleet(frota: string) {
   return VEHICLE_PREFIXES.some(p => frota.toUpperCase().startsWith(p));
 }
 
+function normalizeTypeValue(v: string) {
+  return String(v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
 function isMacaricoType(tipo: string) {
-  return String(tipo || "").trim().toUpperCase() === MACARICO_TYPE_VALUE;
+  return normalizeTypeValue(tipo) === MACARICO_TYPE_VALUE;
+}
+
+function isGalaoType(tipo: string) {
+  return normalizeTypeValue(tipo) === GALAO_TYPE_VALUE;
+}
+
+function isVeiculosType(tipo: string) {
+  return normalizeTypeValue(tipo) === VEICULOS_TYPE_VALUE;
 }
 
 function buildMacaricoFleetOptions() {
@@ -31,6 +51,24 @@ function buildMacaricoFleetOptions() {
     nome: "MAÇARICO",
     categoria_rdo: "VEÍCULOS",
   }));
+}
+
+function buildExtraVehicleDestinations() {
+  return [{
+    id: "destino-comboio-gru",
+    frota: COMBOIO_GRU_DESTINO,
+    nome: COMBOIO_GRU_DESTINO,
+    categoria_rdo: "VEÍCULOS",
+  }];
+}
+
+function buildGalaoDestinations() {
+  return [{
+    id: "destino-galao-limpeza",
+    frota: GALAO_LIMPEZA_DESTINO,
+    nome: GALAO_LIMPEZA_DESTINO,
+    categoria_rdo: "GALÃO",
+  }];
 }
 
 interface EntradaAbastecimento {
@@ -264,10 +302,17 @@ export default function AbastecimentoHome() {
   const ogsOptions = useMemo(() => buildOgsOptions(ogsData), [ogsData]);
   const equipmentTypeOptions = useMemo(() => {
     const dynamicOptions = buildEquipmentTypeOptionsFromEquipments(equipamentos as any[]).filter((opt) => opt.value !== "OUTROS");
-    const hasMacarico = dynamicOptions.some((opt) => isMacaricoType(opt.value));
-    return hasMacarico
-      ? dynamicOptions
-      : [...dynamicOptions, { value: MACARICO_TYPE_VALUE, label: "MAÇARICO" }];
+    const ensuredOptions = [...dynamicOptions];
+
+    if (!ensuredOptions.some((opt) => isMacaricoType(opt.value))) {
+      ensuredOptions.push({ value: MACARICO_TYPE_VALUE, label: "MAÇARICO" });
+    }
+
+    if (!ensuredOptions.some((opt) => isGalaoType(opt.value))) {
+      ensuredOptions.push({ value: GALAO_TYPE_VALUE, label: "GALÃO" });
+    }
+
+    return ensuredOptions;
   }, [equipamentos]);
   const fornecedoresList = abastConfig.fornecedores_diesel.length > 0 ? abastConfig.fornecedores_diesel : ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
   const listMotoristas = motoristas;
@@ -395,8 +440,17 @@ export default function AbastecimentoHome() {
 
   function getEquipsByTipo(tipo: string) {
     if (!tipo) return [];
+
     if (isMacaricoType(tipo)) return buildMacaricoFleetOptions();
-    return listEquipmentFleetsByCategory(equipamentos as any[], tipo);
+    if (isGalaoType(tipo)) return buildGalaoDestinations();
+
+    const baseOptions = listEquipmentFleetsByCategory(equipamentos as any[], tipo);
+
+    if (isVeiculosType(tipo)) {
+      return [...buildExtraVehicleDestinations(), ...baseOptions];
+    }
+
+    return baseOptions;
   }
 
   function getFleetOptionLabel(equipment: any) {
