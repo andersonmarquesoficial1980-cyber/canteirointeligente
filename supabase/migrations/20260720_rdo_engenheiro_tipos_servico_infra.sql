@@ -17,9 +17,9 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO public.tipos_servico (nome, vinculo_rdo)
-SELECT 'APLICAÇÃO DE CAUQ-RIMA', 'CAUQ'
+SELECT 'APLICAÇÃO DE CAUQ-HIMA', 'CAUQ'
 WHERE NOT EXISTS (
-  SELECT 1 FROM public.tipos_servico WHERE nome = 'APLICAÇÃO DE CAUQ-RIMA' AND vinculo_rdo = 'CAUQ'
+  SELECT 1 FROM public.tipos_servico WHERE nome = 'APLICAÇÃO DE CAUQ-HIMA' AND vinculo_rdo = 'CAUQ'
 );
 
 INSERT INTO public.tipos_servico (nome, vinculo_rdo)
