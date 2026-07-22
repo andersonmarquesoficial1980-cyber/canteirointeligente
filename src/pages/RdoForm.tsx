@@ -1319,7 +1319,7 @@ export default function RdoForm() {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={saving || (!isPatioRdo && (!header.obra_nome || !header.turno))}
+              disabled={saving}
               className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl bg-header-gradient hover:opacity-90 transition-opacity"
             >
               <Send className="w-4 h-4" /> {saving ? "Enviando..." : "Enviar RDO"}
