@@ -84,6 +84,39 @@ function safeNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+const PREFIXO_USINA: Record<string, string> = {
+  "ELLENCO": "ELL",
+  "JULIO E JULIO": "JUJ",
+  "JÚLIO E JÚLIO": "JUJ",
+  "AUPAV": "AUP",
+  "USICITY": "USI",
+  "USINAS SP PAVIMENTACAO E TECNOLOGIA LTDA": "USP",
+  "USINAS SP PAVIMENTAÇÃO E TECNOLOGIA LTDA": "USP",
+};
+
+function gerarSiglaAuto(nome: string): string {
+  const limpo = nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]/g, "")
+    .toUpperCase();
+  return limpo.slice(0, 3);
+}
+
+function prefixoUsina(usina: string | null): string {
+  if (!usina) return "";
+  const key = usina.trim().toUpperCase();
+  return PREFIXO_USINA[key] || gerarSiglaAuto(key);
+}
+
+function nfComPrefixo(nf: string | null, usina: string | null): string | null {
+  if (!nf) return null;
+  const prefix = prefixoUsina(usina);
+  if (!prefix) return nf;
+  if (nf.includes("-")) return nf;
+  return `${prefix}-${nf}`;
+}
+
 async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: string, url: URL) {
   const start = url.searchParams.get("start_date")!;
   const end = url.searchParams.get("end_date")!;
@@ -217,7 +250,8 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       contratante: ogs?.client_name || null,
       local: ogs?.location_address || null,
       tipo_rdo: rdo?.tipo_rdo || null,
-      nf: n.nf,
+      nf_numero: n.nf,
+      nf: nfComPrefixo(n.nf, n.usina),
       placa: n.placa,
       usina: n.usina,
       tipo_material: n.tipo_material,

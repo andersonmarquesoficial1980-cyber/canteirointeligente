@@ -69,7 +69,8 @@ Campos da seção `notas_fiscais_massa.rows` (padrão integração WF_NotasFisca
 - `obra_nome` → OGS
 - `contratante` → Contratante
 - `local` → Local
-- `nf` → NF
+- `nf` → NF (com sigla/prefixo da usina, ex.: `ELL-042563`)
+- `nf_numero` → número bruto da NF sem prefixo (campo técnico)
 - `placa` → Placa
 - `usina` → Usina
 - `tipo_material` → Tipo Material
