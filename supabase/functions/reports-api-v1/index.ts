@@ -85,29 +85,34 @@ function safeNumber(value: unknown): number {
 }
 
 const PREFIXO_USINA: Record<string, string> = {
-  "ELLENCO": "ELL",
-  "JULIO E JULIO": "JUJ",
-  "JÚLIO E JÚLIO": "JUJ",
-  "AUPAV": "AUP",
-  "USICITY": "USI",
-  "USINAS SP": "USP",
-  "USINAS SP PAVIMENTACAO E TECNOLOGIA LTDA": "USP",
-  "USINAS SP PAVIMENTAÇÃO E TECNOLOGIA LTDA": "USP",
+  ELLENCO: "ELL",
+  JULIOEJULIO: "JUJ",
+  AUPAV: "AUP",
+  USICITY: "USI",
+  USINASSP: "USP",
+  USINASSPPAVIMENTACAOETECNOLOGIALTDA: "USP",
 };
 
-function gerarSiglaAuto(nome: string): string {
-  const limpo = nome
+function normalizarUsinaKey(nome: string): string {
+  return nome
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Z0-9]/g, "")
+    .replace(/[^A-Z0-9]/gi, "")
     .toUpperCase();
+}
+
+function gerarSiglaAuto(nome: string): string {
+  const limpo = normalizarUsinaKey(nome);
   return limpo.slice(0, 3);
 }
 
 function prefixoUsina(usina: string | null): string {
   if (!usina) return "";
-  const key = usina.trim().toUpperCase();
-  return PREFIXO_USINA[key] || gerarSiglaAuto(key);
+  const key = normalizarUsinaKey(usina);
+
+  if (key.startsWith("USINASSP")) return "USP"; // trava para variações do cadastro USINAS SP
+
+  return PREFIXO_USINA[key] || gerarSiglaAuto(usina);
 }
 
 function nfComPrefixo(nf: string | null, usina: string | null): string | null {

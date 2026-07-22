@@ -14,30 +14,33 @@ function fmtDate(d: string) {
 
 // Mapa de prefixos por usina — usinas específicas com siglas customizadas
 const PREFIXO_USINA: Record<string, string> = {
-  "ELLENCO": "ELL",
-  "JULIO E JULIO": "JUJ",
-  "JÚLIO E JÚLIO": "JUJ",
-  "AUPAV": "AUP",
-  "USICITY": "USI",
-  "USINAS SP": "USP",
-  "USINAS SP PAVIMENTACAO E TECNOLOGIA LTDA": "USP",
-  "USINAS SP PAVIMENTAÇÃO E TECNOLOGIA LTDA": "USP",
+  ELLENCO: "ELL",
+  JULIOEJULIO: "JUJ",
+  AUPAV: "AUP",
+  USICITY: "USI",
+  USINASSP: "USP",
+  USINASSPPAVIMENTACAOETECNOLOGIALTDA: "USP",
 };
+
+function normalizarUsinaKey(nome: string): string {
+  return nome
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .replace(/[^A-Z0-9]/gi, "") // só alfanumérico
+    .toUpperCase();
+}
 
 // Gera sigla automática a partir do nome da usina (primeiras 3 letras, sem acento)
 function gerarSiglaAuto(nome: string): string {
-  const limpo = nome
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove acentos
-    .replace(/[^A-Z0-9]/g, "")                        // só alfanumérico
-    .toUpperCase();
+  const limpo = normalizarUsinaKey(nome);
   return limpo.slice(0, 3);
 }
 
 function prefixoUsina(usina: string | null): string {
   if (!usina) return "";
-  const key = usina.trim().toUpperCase();
+  const key = normalizarUsinaKey(usina);
+  if (key.startsWith("USINASSP")) return "USP"; // trava para variações do cadastro USINAS SP
   // Primeiro tenta o mapa customizado, senão gera automaticamente
-  return PREFIXO_USINA[key] || gerarSiglaAuto(key);
+  return PREFIXO_USINA[key] || gerarSiglaAuto(usina);
 }
 
 // Retorna NF com prefixo da usina para exibição/exportação
