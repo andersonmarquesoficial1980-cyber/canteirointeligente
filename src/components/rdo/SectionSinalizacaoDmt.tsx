@@ -70,8 +70,9 @@ export default function SectionSinalizacaoDmt({
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="EIXO">Eixo</SelectItem>
-                <SelectItem value="BORDO">Bordo</SelectItem>
+                <SelectItem value="Eixo direito">Eixo direito</SelectItem>
+                <SelectItem value="Eixo seccionado">Eixo seccionado</SelectItem>
+                <SelectItem value="Bordo">Bordo</SelectItem>
               </SelectContent>
             </Select>
           </div>
