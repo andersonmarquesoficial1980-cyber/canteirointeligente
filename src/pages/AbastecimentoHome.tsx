@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { buildEquipmentTypeOptionsFromEquipments, listEquipmentFleetsByCategory } from "@/lib/equipmentTypeCatalog";
 
-const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO"];
+const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO", "BUS"];
 function isVehicleFleet(frota: string) {
   return VEHICLE_PREFIXES.some(p => frota.toUpperCase().startsWith(p));
 }
@@ -208,7 +208,7 @@ export default function AbastecimentoHome() {
 
     const [abast, equips, ogsRes, cfgRes, opComboio, opLubri] = await Promise.all([
       supabase.from("abastecimentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }).limit(200),
-      (supabase as any).from("equipamentos").select("id, frota, nome, tipo, categoria_rdo").in("status", ["ativo", "Operando"]).order("frota"),
+      (supabase as any).from("equipamentos").select("id, frota, nome, placa, tipo, categoria_rdo").in("status", ["ativo", "Operando"]).order("frota"),
       (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address"),
       (supabase as any).from("abastecimento_config").select("*").eq("company_id", cid).maybeSingle(),
       // Habilitados para Comboio e Lubrificador (join manual via funcionario_id)
@@ -377,6 +377,23 @@ export default function AbastecimentoHome() {
   function getEquipsByTipo(tipo: string) {
     if (!tipo) return [];
     return listEquipmentFleetsByCategory(equipamentos as any[], tipo);
+  }
+
+  function getFleetOptionLabel(equipment: any) {
+    const frota = String(equipment?.frota || "").trim();
+    const nome = String(equipment?.nome || "").trim();
+    const placa = String(equipment?.placa || "").trim();
+
+    if (!frota) return nome || placa || "-";
+
+    const isVehicle = isVehicleFleet(frota) || String(equipment?.categoria_rdo || "").toUpperCase() === "VEÍCULOS";
+
+    if (isVehicle) {
+      if (placa) return `${frota} — ${placa}`;
+      if (nome && nome.toUpperCase() !== frota.toUpperCase()) return `${frota} — ${nome}`;
+    }
+
+    return frota;
   }
 
   const totalAbastecido = useMemo(
@@ -913,7 +930,7 @@ export default function AbastecimentoHome() {
                             <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue placeholder="Frota *" /></SelectTrigger>
                             <SelectContent>
                               {equipsDoTipo.map((e: any) => (
-                                <SelectItem key={e.id} value={e.frota}>{e.frota}</SelectItem>
+                                <SelectItem key={e.id} value={e.frota}>{getFleetOptionLabel(e)}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -965,7 +982,7 @@ export default function AbastecimentoHome() {
                       <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                       <SelectContent>
                         {equipamentos.map((e: any) => (
-                          <SelectItem key={e.id} value={e.frota}>{e.frota}</SelectItem>
+                          <SelectItem key={e.id} value={e.frota}>{getFleetOptionLabel(e)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
