@@ -8,4 +8,4 @@ ALTER TABLE public.rdo_engenheiro
 COMMENT ON COLUMN public.rdo_engenheiro.bgtc_m3 IS 'Produção de aplicação de BGTC em m3';
 COMMENT ON COLUMN public.rdo_engenheiro.macadame_m3 IS 'Produção de aplicação de macadame em m3';
 COMMENT ON COLUMN public.rdo_engenheiro.cauq_rima_ton IS 'Produção de aplicação de CAUQ-RIMA em toneladas';
-COMMENT ON COLUMN public.rdo_engenheiro.bm25_ton IS 'Produção de aplicação de BM25 em toneladas';
+COMMENT ON COLUMN public.rdo_engenheiro.bm25_ton IS 'Produção de aplicação de BN25 em toneladas';

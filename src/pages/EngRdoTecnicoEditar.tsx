@@ -592,7 +592,7 @@ export default function EngRdoTecnicoEditar() {
                 { label: "BGTC (m³)", field: "bgtc_m3", requiredType: "APLICAÇÃO DE BGTC" },
                 { label: "Macadame (m³)", field: "macadame_m3", requiredType: "APLICAÇÃO DE MACADAME" },
                 { label: "CAUQ-RIMA (ton)", field: "cauq_rima_ton", requiredType: "APLICAÇÃO DE CAUQ-RIMA" },
-                { label: "BM25 (ton)", field: "bm25_ton", requiredType: "APLICAÇÃO DE BM25" },
+                { label: "BN25 (ton)", field: "bm25_ton", requiredType: "APLICAÇÃO DE BN25" },
                 { label: "Geogrelha (m²)", field: "geogrelha_m2", requiredType: "GEOGRELHA" },
                 { label: "EGL (ton)", field: "egl_ton", requiredType: "APLICAÇÃO DE EGL" },
                 { label: "RACHÃO (ton)", field: "rachao_ton", requiredType: "APLICAÇÃO DE RACHÃO" },

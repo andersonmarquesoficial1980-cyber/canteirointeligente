@@ -23,9 +23,9 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO public.tipos_servico (nome, vinculo_rdo)
-SELECT 'APLICAÇÃO DE BM25', 'CAUQ'
+SELECT 'APLICAÇÃO DE BN25', 'CAUQ'
 WHERE NOT EXISTS (
-  SELECT 1 FROM public.tipos_servico WHERE nome = 'APLICAÇÃO DE BM25' AND vinculo_rdo = 'CAUQ'
+  SELECT 1 FROM public.tipos_servico WHERE nome = 'APLICAÇÃO DE BN25' AND vinculo_rdo = 'CAUQ'
 );
 
 INSERT INTO public.tipos_servico (nome, vinculo_rdo)
