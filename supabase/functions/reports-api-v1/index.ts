@@ -120,13 +120,17 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   const rdoIds = rdos.map((r: any) => r.id);
 
   const obraIds = [...new Set(medicoes.map((m: any) => m.obra_id).filter(Boolean))];
+  const obraNumbersFromRdo = [...new Set(rdos.map((r: any) => r.obra_nome).filter(Boolean))];
   const empresaIds = [...new Set(medicoes.map((m: any) => m.empresa_id).filter(Boolean))];
   const funcionarioIds = [...new Set(medicoes.map((m: any) => m.funcionario_id).filter(Boolean))];
   const servicoIds = [...new Set(medicoes.map((m: any) => m.servico_id).filter(Boolean))];
 
-  const [obrasResp, empresasResp, funcionariosResp, servicosResp, nfResp, producaoResp] = await Promise.all([
+  const [obrasResp, obrasByNumberResp, empresasResp, funcionariosResp, servicosResp, nfResp, producaoResp] = await Promise.all([
     obraIds.length
       ? sb.from("ogs_reference").select("id,ogs_number,client_name,location_address").eq("company_id", companyId).in("id", obraIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    obraNumbersFromRdo.length
+      ? sb.from("ogs_reference").select("ogs_number,client_name,location_address").eq("company_id", companyId).in("ogs_number", obraNumbersFromRdo)
       : Promise.resolve({ data: [], error: null } as any),
     empresaIds.length
       ? sb.from("empresas_parceiras").select("id,nome,razao_social,tipo").eq("company_id", companyId).in("id", empresaIds)
@@ -141,7 +145,6 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       ? sb
           .from("rdo_nf_massa")
           .select("id,rdo_id,nf,placa,usina,tonelagem,tipo_material,created_at", { count: "exact" })
-          .eq("company_id", companyId)
           .in("rdo_id", rdoIds)
           .order("created_at", { ascending: false })
           .range(offset, offset + pageSize - 1)
@@ -158,6 +161,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   ]);
 
   if (obrasResp.error) throw new Error(obrasResp.error.message);
+  if (obrasByNumberResp.error) throw new Error(obrasByNumberResp.error.message);
   if (empresasResp.error) throw new Error(empresasResp.error.message);
   if (funcionariosResp.error) throw new Error(funcionariosResp.error.message);
   if (servicosResp.error) throw new Error(servicosResp.error.message);
@@ -165,6 +169,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   if (producaoResp.error) throw new Error(producaoResp.error.message);
 
   const obrasMap = new Map<string, any>((obrasResp.data || []).map((o: any) => [o.id, o]));
+  const obrasByNumberMap = new Map<string, any>((obrasByNumberResp.data || []).map((o: any) => [o.ogs_number, o]));
   const empresasMap = new Map<string, any>((empresasResp.data || []).map((e: any) => [e.id, e]));
   const funcionariosMap = new Map<string, any>((funcionariosResp.data || []).map((f: any) => [f.id, f]));
   const servicosMap = new Map<string, any>((servicosResp.data || []).map((s: any) => [s.id, s]));
@@ -200,13 +205,18 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
 
   const nfRows = (nfResp.data || []).map((n: any) => {
     const rdo = rdoMap.get(n.rdo_id);
+    const ogs = obrasByNumberMap.get(rdo?.obra_nome);
     return {
       id: n.id,
       created_at: n.created_at,
+      updated_at: n.created_at,
       data_rdo: rdo?.data || null,
-      obra_nome: rdo?.obra_nome || null,
-      tipo_rdo: rdo?.tipo_rdo || null,
       apontador: rdo?.preenchido_por || rdo?.encarregado || null,
+      encarregado: rdo?.encarregado || null,
+      obra_nome: rdo?.obra_nome || null,
+      contratante: ogs?.client_name || null,
+      local: ogs?.location_address || null,
+      tipo_rdo: rdo?.tipo_rdo || null,
       nf: n.nf,
       placa: n.placa,
       usina: n.usina,

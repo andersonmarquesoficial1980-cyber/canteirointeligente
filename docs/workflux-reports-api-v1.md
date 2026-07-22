@@ -54,6 +54,37 @@ Retorno: objeto `secoes` com totais e linhas por bloco.
 Filtros opcionais:
 - `tipo_rdo` (ex.: `CAUQ`, `INFRAESTRUTURA`) — quando omitido, retorna **todos** os tipos de RDO no período.
 
+Parâmetros suportados no endpoint `rdo-fremix`:
+- `company_id` (obrigatório)
+- `start_date` (obrigatório)
+- `end_date` (obrigatório)
+- `page` (opcional; default 1)
+- `page_size` (opcional; default 200; máximo 500)
+- `tipo_rdo` (opcional)
+
+Campos da seção `notas_fiscais_massa.rows` (padrão integração WF_NotasFiscais):
+- `data_rdo` → Data
+- `apontador` → Apontador
+- `encarregado` → Encarregado
+- `obra_nome` → OGS
+- `contratante` → Contratante
+- `local` → Local
+- `nf` → NF
+- `placa` → Placa
+- `usina` → Usina
+- `tipo_material` → Tipo Material
+- `tonelagem` → Tonelagem(t)
+
+Campos técnicos adicionais:
+- `id` (identificador único da nota)
+- `created_at`
+- `updated_at` (temporariamente espelhando `created_at` até existir coluna própria de atualização em `rdo_nf_massa`)
+- `tipo_rdo`
+
+Identificação incremental recomendada:
+- Chave primária de registro: `id`
+- Marcador temporal: `updated_at` (no estado atual é equivalente a `created_at`)
+
 ## 1) RDO Summary
 `report_key`: `rdo/summary`
 
