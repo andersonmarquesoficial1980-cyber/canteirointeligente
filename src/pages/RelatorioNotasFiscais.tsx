@@ -20,6 +20,8 @@ const PREFIXO_USINA: Record<string, string> = {
   USICITY: "USI",
   USINASSP: "USP",
   USINASSPPAVIMENTACAOETECNOLOGIALTDA: "USP",
+  SARGON: "SRG",
+  PEDRIX: "PDX",
 };
 
 function normalizarUsinaKey(nome: string): string {
@@ -39,6 +41,8 @@ function prefixoUsina(usina: string | null): string {
   if (!usina) return "";
   const key = normalizarUsinaKey(usina);
   if (key.startsWith("USINASSP")) return "USP"; // trava para variações do cadastro USINAS SP
+  if (key.startsWith("SARGON")) return "SRG"; // trava para variações do cadastro SARGON
+  if (key.startsWith("PEDRIX")) return "PDX"; // trava para variações do cadastro PEDRIX
   // Primeiro tenta o mapa customizado, senão gera automaticamente
   return PREFIXO_USINA[key] || gerarSiglaAuto(usina);
 }
