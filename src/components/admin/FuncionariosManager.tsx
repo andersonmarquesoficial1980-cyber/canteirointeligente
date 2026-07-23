@@ -21,6 +21,7 @@ interface Funcionario {
   responsavel: string;
   centro_custo: string;
   data_admissao: string;
+  data_demissao: string;
   data_nascimento: string;
   salario: string;
   cpf: string;
@@ -35,7 +36,7 @@ interface Funcionario {
 const EMPTY: Funcionario = {
   matricula: "", name: "", role: "", funcao_id: "", empresa_key: "FREMIX",
   empresa_nome: "FREMIX", equipe: "", responsavel: "",
-  centro_custo: "", data_admissao: "", data_nascimento: "", salario: "",
+  centro_custo: "", data_admissao: "", data_demissao: "", data_nascimento: "", salario: "",
   cpf: "", rg: "", telefone: "", email: "", status: "ativo", obs_geral: "",
 };
 
@@ -105,6 +106,7 @@ export default function FuncionariosManager() {
       responsavel: f.responsavel || "",
       centro_custo: f.centro_custo || "",
       data_admissao: f.data_admissao || "",
+      data_demissao: f.data_demissao || "",
       data_nascimento: f.data_nascimento || "",
       salario: f.salario?.toString() || "",
       cpf: f.cpf || "",
@@ -127,6 +129,10 @@ export default function FuncionariosManager() {
       toast({ title: "Nome e Função são obrigatórios", variant: "destructive" });
       return;
     }
+    if (form.status === "demitido" && !form.data_demissao) {
+      toast({ title: "Informe a data de demissão", variant: "destructive" });
+      return;
+    }
     setSaving(true);
 
     // Resolver empresa
@@ -146,6 +152,7 @@ export default function FuncionariosManager() {
       responsavel: form.responsavel.trim() || null,
       centro_custo: form.centro_custo.trim() || null,
       data_admissao: form.data_admissao || null,
+      data_demissao: form.status === "demitido" ? (form.data_demissao || null) : null,
       data_nascimento: form.data_nascimento || null,
       salario: form.salario ? parseFloat(form.salario) : null,
       cpf: form.cpf.trim() || null,
@@ -284,7 +291,11 @@ export default function FuncionariosManager() {
                 {renderField("Matrícula", "matricula", "text", "Opcional para PJ e terceiros")}
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Status</Label>
-                  <select value={form.status} onChange={e => set("status", e.target.value)}
+                  <select value={form.status} onChange={e => {
+                    const next = e.target.value;
+                    set("status", next);
+                    if (next !== "demitido") set("data_demissao", "");
+                  }}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm">
                     {STATUS_OPTS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
                   </select>
@@ -336,6 +347,7 @@ export default function FuncionariosManager() {
                   </select>
                 </div>
                 {renderField("Data de Admissão", "data_admissao", "date")}
+                {form.status === "demitido" && renderField("Data de Demissão *", "data_demissao", "date")}
                 {renderField("Data de Nascimento", "data_nascimento", "date")}
                 <div className="col-span-2">{renderField("Salário (R$)", "salario", "number", "2500.00")}</div>
               </div>

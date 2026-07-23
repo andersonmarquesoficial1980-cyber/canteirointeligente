@@ -723,6 +723,7 @@ export type Database = {
           company_id: string | null
           cpf: string | null
           data_admissao: string | null
+          data_demissao: string | null
           data_nascimento: string | null
           email: string | null
           equipe: string | null
@@ -745,6 +746,7 @@ export type Database = {
           company_id?: string | null
           cpf?: string | null
           data_admissao?: string | null
+          data_demissao?: string | null
           data_nascimento?: string | null
           email?: string | null
           equipe?: string | null
@@ -767,6 +769,7 @@ export type Database = {
           company_id?: string | null
           cpf?: string | null
           data_admissao?: string | null
+          data_demissao?: string | null
           data_nascimento?: string | null
           email?: string | null
           equipe?: string | null

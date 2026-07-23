@@ -24,6 +24,7 @@ interface Funcionario {
   equipe: string;
   responsavel: string;
   data_admissao: string;
+  data_demissao?: string | null;
   data_nascimento: string;
   salario: number | null;
   obs_geral: string | null;
@@ -259,6 +260,14 @@ export default function FichaFuncionario() {
 
   async function salvarEdicao() {
     if (!func) return;
+    const statusFinal = (form.status || func.status || "ativo") as string;
+    const dataDemissaoFinal = form.data_demissao ?? func.data_demissao ?? null;
+
+    if (statusFinal === "demitido" && !dataDemissaoFinal) {
+      toast({ title: "Informe a data de demissão", variant: "destructive" });
+      return;
+    }
+
     setSalvando(true);
     const { error } = await supabase.from("employees").update({
       name: (form.name || func.name).toUpperCase(),
@@ -268,11 +277,12 @@ export default function FichaFuncionario() {
       responsavel: form.responsavel || null,
       centro_custo: form.centro_custo || null,
       data_admissao: form.data_admissao || null,
+      data_demissao: statusFinal === "demitido" ? dataDemissaoFinal : null,
       data_nascimento: form.data_nascimento || null,
       salario: form.salario || null,
       cpf: form.cpf || null,
       rg: form.rg || null,
-      status: form.status || "ativo",
+      status: statusFinal,
       telefone: form.telefone || null,
       email: form.email || null,
       obs_geral: form.obs_geral || null,
@@ -543,6 +553,9 @@ export default function FichaFuncionario() {
               {[
                 { label: "Data de Admissão", field: "data_admissao" as const, display: fmtDate(func.data_admissao) },
                 { label: "Data de Nascimento", field: "data_nascimento" as const, display: `${fmtDate(func.data_nascimento)}${func.data_nascimento ? ` (${calcIdade(func.data_nascimento)})` : ""}` },
+                ...(((form.status || func.status) === "demitido" || func.data_demissao)
+                  ? [{ label: "Data de Demissão", field: "data_demissao" as const, display: fmtDate(func.data_demissao) }]
+                  : []),
               ].map(row => (
                 <div key={row.field} className="flex items-center gap-3 px-4 py-3">
                   <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -599,7 +612,14 @@ export default function FichaFuncionario() {
                 <div className="flex-1">
                   <p className="text-[10px] text-muted-foreground">Status</p>
                   {editando
-                    ? <select value={form.status || "ativo"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
+                    ? <select value={form.status || "ativo"} onChange={e => setForm(p => {
+                        const next = e.target.value;
+                        return {
+                          ...p,
+                          status: next,
+                          data_demissao: next === "demitido" ? p.data_demissao : null,
+                        };
+                      })}
                         className="text-sm bg-background border border-border rounded-lg px-2 py-1 mt-0.5 w-full">
                         {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                       </select>
