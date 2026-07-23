@@ -534,7 +534,7 @@ export default function MeusLancamentos() {
 
   useEffect(() => {
     carregar();
-  }, [tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim]);
+  }, [tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim, categorias]);
 
   const resumo = useMemo(() => {
     return `${lancamentos.length} lançamento${lancamentos.length === 1 ? "" : "s"}`;
