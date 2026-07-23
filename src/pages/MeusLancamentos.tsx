@@ -380,6 +380,31 @@ export default function MeusLancamentos() {
       return eq?.tipo || tipoRaw || null;
     };
 
+    const categoriaKeys = new Set(categorias.map((c) => c.key));
+    const tipoEquipamentoAtivo =
+      tipoEquipamento === "todos" || categoriaKeys.has(tipoEquipamento)
+        ? tipoEquipamento
+        : "todos";
+
+    if (tipoEquipamentoAtivo !== tipoEquipamento) {
+      setTipoEquipamento("todos");
+    }
+
+    const subtiposDaCategoriaAtiva =
+      tipoEquipamentoAtivo === "todos"
+        ? []
+        : (categorias.find((cat) => cat.key === tipoEquipamentoAtivo)?.tipos || []).map((t) => t.tipoValor);
+
+    const subtipoEquipamentoAtivo =
+      subtipoEquipamento === "todos" ||
+      subtiposDaCategoriaAtiva.some((s) => normTxt(s) === normTxt(subtipoEquipamento))
+        ? subtipoEquipamento
+        : "todos";
+
+    if (subtipoEquipamentoAtivo !== subtipoEquipamento) {
+      setSubtipoEquipamento("todos");
+    }
+
     const lancamentosEnriquecidos = ((rows || []) as Lancamento[]).map((r) => {
       const subtipo = resolveSubtipoByDiary(r.equipment_fleet, r.equipment_type);
       return {
@@ -392,8 +417,8 @@ export default function MeusLancamentos() {
       const categoriaKey = resolveCategoriaByDiary(r.equipment_fleet, r.equipment_type);
       const subtipo = resolveSubtipoByDiary(r.equipment_fleet, r.equipment_type);
 
-      if (tipoEquipamento !== "todos" && categoriaKey !== tipoEquipamento) return false;
-      if (subtipoEquipamento !== "todos" && normTxt(subtipo) !== normTxt(subtipoEquipamento)) return false;
+      if (tipoEquipamentoAtivo !== "todos" && categoriaKey !== tipoEquipamentoAtivo) return false;
+      if (subtipoEquipamentoAtivo !== "todos" && normTxt(subtipo) !== normTxt(subtipoEquipamentoAtivo)) return false;
       return true;
     });
 
@@ -465,24 +490,24 @@ export default function MeusLancamentos() {
     setTipos(tiposDisponiveis.map((t) => t.value));
 
     const subtiposDaCategoria =
-      tipoEquipamento === "todos"
+      tipoEquipamentoAtivo === "todos"
         ? []
-        : (categorias.find((cat) => cat.key === tipoEquipamento)?.tipos || [])
+        : (categorias.find((cat) => cat.key === tipoEquipamentoAtivo)?.tipos || [])
             .filter((t) => equipamentosAtivos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor)))
             .map((t) => t.tipoValor);
     setSubtipos(subtiposDaCategoria);
 
     const frotasFiltradas = equipamentosAtivos
       .filter((e) => {
-        if (tipoEquipamento === "todos") return false;
-        const cat = categorias.find((c) => c.key === tipoEquipamento);
+        if (tipoEquipamentoAtivo === "todos") return false;
+        const cat = categorias.find((c) => c.key === tipoEquipamentoAtivo);
         if (!cat) return false;
 
         const pertenceCategoria = cat.tipos.some((t) => normTxt(t.tipoValor) === normTxt(e.tipo));
         if (!pertenceCategoria) return false;
 
-        if (subtipoEquipamento === "todos") return false;
-        return normTxt(e.tipo) === normTxt(subtipoEquipamento);
+        if (subtipoEquipamentoAtivo === "todos") return false;
+        return normTxt(e.tipo) === normTxt(subtipoEquipamentoAtivo);
       })
       .map((e) => e.frota)
       .filter(Boolean) as string[];
