@@ -54,7 +54,7 @@ export default function VisualizarRdo() {
           supabase.from("rdo_efetivo").select("id,nome,funcao,matricula,entrada,saida,quantidade").eq("rdo_id", id).order("funcao", { ascending: true }),
           (supabase as any).from("rdo_efetivo_terceiros").select("empresa_nome,funcionario_nome").eq("rdo_id", id),
           (supabase as any).from("rdo_equipamentos").select("id,frota,categoria,sub_tipo,tipo,nome,patrimonio,empresa_dona").eq("rdo_id", id).order("frota", { ascending: true }),
-          (supabase as any).from("rdo_producao").select("id,tipo_servico,sentido_faixa,sentido,faixa,estaca_inicial,estaca_final,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,densidade,tonelagem").eq("rdo_id", id),
+          (supabase as any).from("rdo_producao").select("id,tipo_servico,sentido_faixa,sentido,faixa,estaca_inicial,estaca_final,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,densidade,tonelagem,is_retrabalho").eq("rdo_id", id),
           (supabase as any).from("rdo_nf_massa").select("id,nf,placa,usina,tonelagem,tipo_material").eq("rdo_id", id).order("nf", { ascending: true }),
         ]);
 
@@ -312,6 +312,7 @@ export default function VisualizarRdo() {
                       <tr className="bg-muted/40 text-muted-foreground">
                         <th className="text-left p-2 border border-border">Serviço</th>
                         <th className="text-left p-2 border border-border">Sentido/Faixa</th>
+                        {isInfra && <th className="text-center p-2 border border-border">Retrabalho</th>}
                         <th className="text-right p-2 border border-border">Comp(m)</th>
                         <th className="text-right p-2 border border-border">Larg(m)</th>
                         <th className="text-right p-2 border border-border">Área(m²)</th>
@@ -334,6 +335,7 @@ export default function VisualizarRdo() {
                         <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/10"}>
                           <td className="p-2 border border-border font-medium">{p.tipo_servico || "-"}</td>
                           <td className="p-2 border border-border text-muted-foreground">{p.sentido_faixa || p.sentido || "-"}</td>
+                          {isInfra && <td className="p-2 border border-border text-center font-semibold">{p.is_retrabalho ? "SIM" : "NÃO"}</td>}
                           <td className="p-2 border border-border text-right">{p.comprimento_m ?? "-"}</td>
                           <td className="p-2 border border-border text-right">{p.largura_m ?? "-"}</td>
                           <td className="p-2 border border-border text-right">{areaDisplay ?? "-"}</td>
@@ -345,7 +347,7 @@ export default function VisualizarRdo() {
                           );
                         })}
                       <tr className="bg-muted/40 font-bold">
-                        <td colSpan={isInfra ? 4 : 4} className="p-2 border border-border text-right">TOTAL</td>
+                        <td colSpan={isInfra ? 5 : 4} className="p-2 border border-border text-right">TOTAL</td>
                         <td className="p-2 border border-border text-right">{totalArea.toFixed(2)}</td>
                         <td colSpan={isInfra ? 2 : 4} className="p-2 border border-border" />
                       </tr>

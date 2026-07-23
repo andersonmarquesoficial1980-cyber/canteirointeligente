@@ -39,6 +39,7 @@ interface InfraRow {
   area_m2: number | null;
   espessura_cm: number | null;
   volume_m3: number | null;
+  is_retrabalho: boolean;
 }
 
 // ---------- EXPORTAR EXCEL (CSV) ----------
@@ -47,7 +48,7 @@ function exportarExcel(dataIni: string, dataFim: string, rows: InfraRow[]) {
   linhas.push(["Relatório de Produção de Infraestrutura"]);
   linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
   linhas.push([]);
-  linhas.push(["Data", "Apontador", "OGS", "Local", "Serviço", "Sentido/Faixa", "Comp(m)", "Larg(m)", "Área(m²)", "Esp(cm)", "Volume(m³)", "TOTAL Área(m²)"]);
+  linhas.push(["Data", "Apontador", "OGS", "Local", "Serviço", "Sentido/Faixa", "Retrabalho", "Comp(m)", "Larg(m)", "Área(m²)", "Esp(cm)", "Volume(m³)", "TOTAL Área(m²)"]);
 
   let totalArea = 0;
   rows.forEach(r => {
@@ -60,6 +61,7 @@ function exportarExcel(dataIni: string, dataFim: string, rows: InfraRow[]) {
       r.local || "-",
       r.tipo_servico || "-",
       r.sentido_faixa || "-",
+      r.is_retrabalho ? "SIM" : "NÃO",
       getComp(r) != null ? fmtNumCsv(getComp(r)!) : "-",
       r.largura_m != null ? fmtNumCsv(r.largura_m, 3) : "-",
       area != null ? fmtNumCsv(area) : "-",
@@ -69,7 +71,7 @@ function exportarExcel(dataIni: string, dataFim: string, rows: InfraRow[]) {
     ]);
   });
 
-  linhas.push(["", "", "", "", "", "", "", "TOTAL", fmtNumCsv(totalArea), "", "", fmtNumCsv(totalArea)]);
+  linhas.push(["", "", "", "", "", "", "", "", "TOTAL", fmtNumCsv(totalArea), "", "", fmtNumCsv(totalArea)]);
 
   const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -104,7 +106,7 @@ function exportarPdf(dataIni: string, dataFim: string, rows: InfraRow[], filtros
   <table>
     <tr>
       <th>Data</th><th>Apontador</th><th>OGS</th><th>Local</th>
-      <th>Serviço</th><th>Sentido/Faixa</th>
+      <th>Serviço</th><th>Sentido/Faixa</th><th>Retrabalho</th>
       <th class="num">Comp(m)</th><th class="num">Larg(m)</th>
       <th class="num">Área(m²)</th><th class="num">Esp(cm)</th>
       <th class="num">Volume(m³)</th><th class="num">TOTAL</th>
@@ -120,6 +122,7 @@ function exportarPdf(dataIni: string, dataFim: string, rows: InfraRow[], filtros
       <td>${r.local || "-"}</td>
       <td>${r.tipo_servico || "-"}</td>
       <td>${r.sentido_faixa || "-"}</td>
+      <td>${r.is_retrabalho ? "SIM" : "NÃO"}</td>
       <td class="num">${getComp(r) != null ? fmtNum(getComp(r)!) : "-"}</td>
       <td class="num">${r.largura_m != null ? fmtNum(r.largura_m, 3) : "-"}</td>
       <td class="num">${area != null ? fmtNum(area) : "-"}</td>
@@ -130,7 +133,7 @@ function exportarPdf(dataIni: string, dataFim: string, rows: InfraRow[], filtros
   });
 
   html += `<tr class="total">
-    <td colspan="8">TOTAL GERAL</td>
+    <td colspan="9">TOTAL GERAL</td>
     <td class="num">${fmtNum(totalArea)}</td>
     <td></td><td></td>
     <td class="num">${fmtNum(totalArea)}</td>
@@ -227,7 +230,7 @@ export default function RelatorioProducaoInfra() {
       // 3. Produção desses RDOs
       const { data: prods, error: prodErr } = await (supabase as any)
         .from("rdo_producao")
-        .select("id, rdo_id, tipo_servico, sentido, sentido_faixa, comprimento_m, largura_m, espessura_cm, area_m2, volume_m3")
+        .select("id, rdo_id, tipo_servico, sentido, sentido_faixa, comprimento_m, largura_m, espessura_cm, area_m2, volume_m3, is_retrabalho")
         .in("rdo_id", rdoIds);
       if (prodErr) throw prodErr;
 
@@ -247,6 +250,7 @@ export default function RelatorioProducaoInfra() {
           area_m2: p.area_m2 != null ? parseFloat(String(p.area_m2)) : null,
           espessura_cm: p.espessura_cm != null ? parseFloat(String(p.espessura_cm)) : null,
           volume_m3: p.volume_m3 != null ? parseFloat(String(p.volume_m3)) : null,
+          is_retrabalho: !!p.is_retrabalho,
         };
       });
 
@@ -394,6 +398,7 @@ export default function RelatorioProducaoInfra() {
                           <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Local</th>
                           <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Serviço</th>
                           <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Sentido/Faixa</th>
+                          <th className="text-center px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Retrabalho</th>
                           <th className="text-right px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Comp(m)</th>
                           <th className="text-right px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Larg(m)</th>
                           <th className="text-right px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Área(m²)</th>
@@ -414,6 +419,7 @@ export default function RelatorioProducaoInfra() {
                               <td className="px-3 py-2 border-b border-border/50 text-muted-foreground max-w-[160px] truncate" title={r.local || ""}>{r.local || "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 font-medium">{r.tipo_servico || "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-muted-foreground">{r.sentido_faixa || "-"}</td>
+                              <td className="px-3 py-2 border-b border-border/50 text-center font-semibold">{r.is_retrabalho ? "SIM" : "NÃO"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-right">{getComp(r) != null ? fmtNum(getComp(r)!) : "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-right">{r.largura_m != null ? fmtNum(r.largura_m, 3) : "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-right font-medium">{area != null ? fmtNum(area) : "-"}</td>
@@ -425,7 +431,7 @@ export default function RelatorioProducaoInfra() {
                         })}
                         {/* Linha de total */}
                         <tr className="bg-muted/50 font-bold">
-                          <td colSpan={8} className="px-3 py-2.5 text-right font-bold">TOTAL GERAL</td>
+                          <td colSpan={9} className="px-3 py-2.5 text-right font-bold">TOTAL GERAL</td>
                           <td className="px-3 py-2.5 text-right text-primary">{fmtNum(totalArea)}</td>
                           <td className="px-3 py-2.5"></td>
                           <td className="px-3 py-2.5"></td>

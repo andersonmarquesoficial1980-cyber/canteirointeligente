@@ -2712,6 +2712,7 @@ export type Database = {
           estaca_inicial: string | null
           faixa: string | null
           id: string
+          is_retrabalho: boolean
           km_final: number | null
           km_inicial: number | null
           largura_m: number | null
@@ -2734,6 +2735,7 @@ export type Database = {
           estaca_inicial?: string | null
           faixa?: string | null
           id?: string
+          is_retrabalho?: boolean
           km_final?: number | null
           km_inicial?: number | null
           largura_m?: number | null
@@ -2756,6 +2758,7 @@ export type Database = {
           estaca_inicial?: string | null
           faixa?: string | null
           id?: string
+          is_retrabalho?: boolean
           km_final?: number | null
           km_inicial?: number | null
           largura_m?: number | null

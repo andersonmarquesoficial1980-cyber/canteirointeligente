@@ -800,6 +800,7 @@ export default function RdoForm() {
               espessura_cm: esp,
               area_m2: area,
               volume_m3: volume,
+              is_retrabalho: !!p.is_retrabalho,
             };
           });
         if (entries.length > 0) {
