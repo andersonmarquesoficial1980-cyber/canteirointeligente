@@ -219,7 +219,7 @@ export default function FuncionariosManager() {
 
       <p className="text-xs text-muted-foreground">{filtered.length} funcionário(s)</p>
 
-      <div className="space-y-2 max-h-[500px] overflow-y-auto">
+      <div className="space-y-2">
         {filtered.map(f => (
           <div key={f.id} className="flex items-center justify-between bg-card border border-border rounded-xl px-3 py-2.5">
             <div>
