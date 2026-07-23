@@ -484,16 +484,15 @@ export default function MeusLancamentos() {
     const { data: ocorrRows } = await ocorrQuery;
     setOcorrencias(ocorrRows || []);
 
-    const tiposDisponiveis = categorias
-      .filter((cat) => cat.tipos.some((t) => equipamentosAtivos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor))))
-      .map((cat) => ({ value: cat.key, label: cat.label }));
+    // Tipos/Subtipos devem refletir a estrutura atual cadastrada em equipamento_tipos,
+    // independente de equipamentos ativos (evita sumir opções após reestruturação).
+    const tiposDisponiveis = categorias.map((cat) => ({ value: cat.key, label: cat.label }));
     setTipos(tiposDisponiveis.map((t) => t.value));
 
     const subtiposDaCategoria =
       tipoEquipamentoAtivo === "todos"
         ? []
         : (categorias.find((cat) => cat.key === tipoEquipamentoAtivo)?.tipos || [])
-            .filter((t) => equipamentosAtivos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor)))
             .map((t) => t.tipoValor);
     setSubtipos(subtiposDaCategoria);
 
