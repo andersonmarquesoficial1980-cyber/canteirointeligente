@@ -232,7 +232,7 @@ export default function FuncionariosManager() {
             <div>
               <p className="text-sm font-medium">{f.name}</p>
               <p className="text-xs text-muted-foreground">
-                {f.funcoes?.nome || f.role}{f.matricula ? ` · Mat. ${f.matricula}` : ""}{f.equipe ? ` · ${f.equipe}` : ""}{f.empresa_nome && f.empresa_nome !== "FREMIX" ? ` · ${f.empresa_nome}` : ""}
+                {f.funcoes?.nome || f.role}{f.matricula ? ` · Mat. ${f.matricula}` : ""}{f.equipe ? ` · ${f.equipe}` : ""}{f.status ? ` · Status: ${String(f.status).charAt(0).toUpperCase() + String(f.status).slice(1)}` : ""}{f.empresa_nome && f.empresa_nome !== "FREMIX" ? ` · ${f.empresa_nome}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">

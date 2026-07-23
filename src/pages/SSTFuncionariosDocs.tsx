@@ -40,6 +40,7 @@ interface Employee {
   name: string;
   matricula: string | null;
   role: string | null;
+  status: string | null;
   company_id: string | null;
 }
 
@@ -72,6 +73,22 @@ function isVencendoEm30(v: string | null) {
   return new Date(v) <= d30 && new Date(v) >= new Date();
 }
 
+function statusLabel(status?: string | null) {
+  const s = (status || "ativo").toLowerCase();
+  if (s === "ferias") return "Férias";
+  if (s === "afastado") return "Afastado";
+  if (s === "demitido") return "Demitido";
+  return "Ativo";
+}
+
+function statusChipStyle(status?: string | null) {
+  const s = (status || "ativo").toLowerCase();
+  if (s === "demitido") return { bg: "#fee2e2", text: "#b91c1c" };
+  if (s === "afastado") return { bg: "#ffedd5", text: "#c2410c" };
+  if (s === "ferias") return { bg: "#e0f2fe", text: "#0369a1" };
+  return { bg: "#dcfce7", text: "#166534" };
+}
+
 export default function SSTFuncionariosDocs() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -93,7 +110,7 @@ export default function SSTFuncionariosDocs() {
     setLoadingEmps(true);
     (supabase as any)
       .from("employees")
-      .select("id,name,matricula,role,company_id")
+      .select("id,name,matricula,role,status,company_id")
       .eq("company_id", COMPANY_ID)
       .order("name")
       .then(({ data }: any) => {
@@ -229,7 +246,9 @@ export default function SSTFuncionariosDocs() {
             {funcSelecionado ? funcSelecionado.name : "Documentos dos Funcionários"}
           </span>
           <span className="block text-[10px] text-primary-foreground/70">
-            {funcSelecionado ? (funcSelecionado.role ?? "") : "Base única — mesma da ficha do funcionário"}
+            {funcSelecionado
+              ? `${funcSelecionado.role ?? ""} · Status: ${statusLabel(funcSelecionado.status)}`
+              : "Base única — mesma da ficha do funcionário"}
           </span>
         </div>
         {funcSelecionado && (
@@ -311,7 +330,7 @@ export default function SSTFuncionariosDocs() {
                         {emp.name}
                       </p>
                       <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
-                        {emp.role ?? "—"} · Mat. {emp.matricula ?? "—"}
+                        {emp.role ?? "—"} · Mat. {emp.matricula ?? "—"} · Status: {statusLabel(emp.status)}
                       </p>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -343,10 +362,24 @@ export default function SSTFuncionariosDocs() {
                 <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" }}>Funcionário</p>
                 <p style={{ color: "white", fontSize: 15, fontWeight: 800, marginTop: 2 }}>{funcSelecionado.name}</p>
                 <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, marginTop: 1 }}>
-                  {funcSelecionado.role ?? "—"} · Mat. {funcSelecionado.matricula ?? "—"}
+                  {funcSelecionado.role ?? "—"} · Mat. {funcSelecionado.matricula ?? "—"} · Status: {statusLabel(funcSelecionado.status)}
                 </p>
               </div>
               <div style={{ textAlign: "right" }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    borderRadius: 999,
+                    padding: "2px 8px",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    marginBottom: 4,
+                    background: statusChipStyle(funcSelecionado.status).bg,
+                    color: statusChipStyle(funcSelecionado.status).text,
+                  }}
+                >
+                  {statusLabel(funcSelecionado.status)}
+                </span>
                 <p style={{ color: "#00C6FF", fontSize: 24, fontWeight: 900 }}>{documentos.length}</p>
                 <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 10 }}>documentos</p>
               </div>
