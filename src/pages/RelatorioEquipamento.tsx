@@ -77,6 +77,27 @@ type BitEntry = {
   status: string;
 };
 
+type KmaOperation = {
+  id: string;
+  diary_id: string;
+  operation_type: string | null;
+  cap_type: string | null;
+  cap_supplier: string | null;
+  cap_qty_ton: number | null;
+  cap_nf_number: string | null;
+  filer_type: string | null;
+  filer_supplier: string | null;
+  filer_qty_ton: number | null;
+  aggregates_supplier: string | null;
+  silo1_material: string | null;
+  silo1_qty: number | null;
+  silo2_material: string | null;
+  silo2_qty: number | null;
+  water_liters: number | null;
+  water_supplier: string | null;
+  total_volume_machined_ton: number | null;
+};
+
 const MONTHS = [
   { v: "01", l: "Janeiro" },
   { v: "02", l: "Fevereiro" },
@@ -200,6 +221,7 @@ export default function RelatorioEquipamento() {
   const [timeEntriesMap, setTimeEntriesMap] = useState<Record<string, TimeEntry[]>>({});
   const [areasDetailMap, setAreasDetailMap] = useState<Record<string, ProductionArea[]>>({});
   const [bitsMap, setBitsMap] = useState<Record<string, BitEntry[]>>({});
+  const [kmaOperationsMap, setKmaOperationsMap] = useState<Record<string, KmaOperation | null>>({});
 
   const fetchPeriodo = useCallback(async () => {
     if (!fleetParam) return;
@@ -226,6 +248,7 @@ export default function RelatorioEquipamento() {
       setTimeEntriesMap({});
       setAreasDetailMap({});
       setBitsMap({});
+      setKmaOperationsMap({});
       setSelectedDiaryId(null);
       setLoading(false);
       return;
@@ -240,6 +263,7 @@ export default function RelatorioEquipamento() {
       setTimeEntriesMap({});
       setAreasDetailMap({});
       setBitsMap({});
+      setKmaOperationsMap({});
       setSelectedDiaryId(null);
       setLoading(false);
       return;
@@ -249,7 +273,7 @@ export default function RelatorioEquipamento() {
     const userIds = Array.from(new Set(rows.map((d) => d.user_id).filter(Boolean))) as string[];
 
     // Busca tudo de uma vez — detalhes completos para todos os diários do período
-    const [areasRes, profilesRes, timeRes, prodDetailRes, bitsRes] = await Promise.all([
+    const [areasRes, profilesRes, timeRes, prodDetailRes, bitsRes, kmaRes] = await Promise.all([
       supabase.from("equipment_production_areas").select("diary_id,m2,m3").in("diary_id", diaryIds),
       userIds.length > 0
         ? supabase.from("profiles").select("user_id,nome_completo").in("user_id", userIds)
@@ -257,6 +281,7 @@ export default function RelatorioEquipamento() {
       supabase.from("equipment_time_entries").select("id,diary_id,start_time,end_time,activity,description,origin,destination").in("diary_id", diaryIds).order("start_time", { ascending: true }),
       supabase.from("equipment_production_areas").select("id,diary_id,length_m,width_m,thickness_cm,m2,m3").in("diary_id", diaryIds),
       supabase.from("bit_entries").select("id,diary_id,quantity,brand,horimeter,status").in("diary_id", diaryIds),
+      supabase.from("kma_operations").select("*").in("diary_id", diaryIds),
     ]);
 
     // Agrupa áreas (resumo)
@@ -308,11 +333,21 @@ export default function RelatorioEquipamento() {
       }
     });
 
+    // Mapa de operação KMA por diário (1 registro por diary)
+    const kmaByDiary: Record<string, KmaOperation | null> = {};
+    diaryIds.forEach(id => { kmaByDiary[id] = null; });
+    (kmaRes.data || []).forEach((k: any) => {
+      if (k?.diary_id && !kmaByDiary[k.diary_id]) {
+        kmaByDiary[k.diary_id] = k as KmaOperation;
+      }
+    });
+
     setAreasMap(groupedAreas);
     setProfilesMap(profileByUser);
     setTimeEntriesMap(timeByDiary);
     setAreasDetailMap(areasByDiary);
     setBitsMap(bitsByDiary);
+    setKmaOperationsMap(kmaByDiary);
 
     setSelectedDiaryId((prev) => {
       if (prev && rows.some((r) => r.id === prev)) return prev;
@@ -327,9 +362,10 @@ export default function RelatorioEquipamento() {
     const hasTimes = diaryId in timeEntriesMap;
     const hasAreas = diaryId in areasDetailMap;
     const hasBits = diaryId in bitsMap;
-    if (hasTimes && hasAreas && hasBits) return;
+    const hasKma = diaryId in kmaOperationsMap;
+    if (hasTimes && hasAreas && hasBits && hasKma) return;
 
-    const [timeRes, prodRes, bitsRes] = await Promise.all([
+    const [timeRes, prodRes, bitsRes, kmaRes] = await Promise.all([
       supabase
         .from("equipment_time_entries")
         .select("id,diary_id,start_time,end_time,activity,description,origin,destination")
@@ -343,11 +379,17 @@ export default function RelatorioEquipamento() {
         .from("bit_entries")
         .select("id,diary_id,quantity,brand,horimeter,status")
         .eq("diary_id", diaryId),
+      supabase
+        .from("kma_operations")
+        .select("*")
+        .eq("diary_id", diaryId)
+        .limit(1),
     ]);
 
     if (timeRes.error) console.error("Erro ao buscar apontamentos:", timeRes.error);
     if (prodRes.error) console.error("Erro ao buscar áreas de produção:", prodRes.error);
     if (bitsRes.error) console.error("Erro ao buscar bits:", bitsRes.error);
+    if (kmaRes.error) console.error("Erro ao buscar operação KMA:", kmaRes.error);
 
     setTimeEntriesMap((prev) => ({
       ...prev,
@@ -361,7 +403,11 @@ export default function RelatorioEquipamento() {
       ...prev,
       [diaryId]: (bitsRes.data || []) as BitEntry[],
     }));
-  }, [areasDetailMap, bitsMap, timeEntriesMap]);
+    setKmaOperationsMap((prev) => ({
+      ...prev,
+      [diaryId]: ((kmaRes.data || [])[0] as KmaOperation | undefined) ?? null,
+    }));
+  }, [areasDetailMap, bitsMap, kmaOperationsMap, timeEntriesMap]);
 
   useEffect(() => {
     fetchPeriodo();
@@ -377,6 +423,7 @@ export default function RelatorioEquipamento() {
   const selectedTimeEntries = selectedDiaryId ? (timeEntriesMap[selectedDiaryId] || []) : [];
   const selectedAreas = selectedDiaryId ? (areasDetailMap[selectedDiaryId] || []) : [];
   const selectedBits = selectedDiaryId ? (bitsMap[selectedDiaryId] || []) : [];
+  const selectedKmaOperation = selectedDiaryId ? (kmaOperationsMap[selectedDiaryId] || null) : null;
 
   const mesLabel = MONTHS.find((m) => m.v === mes)?.l || mes;
   const periodoLabel = modoPeriodo && urlIni && urlFim
@@ -416,6 +463,20 @@ export default function RelatorioEquipamento() {
     rows.push([marcador.label + " Inicial:", fmtNum(marcador.ini), marcador.label + " Final:", fmtNum(marcador.fim)]);
     rows.push(["Status:", selectedDiary.work_status || selectedDiary.status || "-", "Horas Trabalhadas:", fmtNum(getHoras(selectedDiary).toFixed(2))]);
     rows.push(["Observações:", selectedDiary.observations || "-"]);
+    if (selectedKmaOperation) {
+      rows.push([]);
+      rows.push(["OPERAÇÃO KMA"]);
+      rows.push(["Tipo de Operação:", selectedKmaOperation.operation_type || "-"]);
+      rows.push(["CAP", selectedKmaOperation.cap_type || "-", "Fornecedor", selectedKmaOperation.cap_supplier || "-"]);
+      rows.push(["Qtd CAP (ton)", selectedKmaOperation.cap_qty_ton ?? "-", "NF CAP", selectedKmaOperation.cap_nf_number || "-"]);
+      rows.push(["Filer", selectedKmaOperation.filer_type || "-", "Fornecedor", selectedKmaOperation.filer_supplier || "-"]);
+      rows.push(["Qtd Filer (ton)", selectedKmaOperation.filer_qty_ton ?? "-"]);
+      rows.push(["Fornecedor Agregados", selectedKmaOperation.aggregates_supplier || "-"]);
+      rows.push(["Silo 1", selectedKmaOperation.silo1_material || "-", "Qtd (ton)", selectedKmaOperation.silo1_qty ?? "-"]);
+      rows.push(["Silo 2", selectedKmaOperation.silo2_material || "-", "Qtd (ton)", selectedKmaOperation.silo2_qty ?? "-"]);
+      rows.push(["Água (L)", selectedKmaOperation.water_liters ?? "-", "Fornecedor Água", selectedKmaOperation.water_supplier || "-"]);
+      rows.push(["Volume Total Usinado (ton)", selectedKmaOperation.total_volume_machined_ton ?? "-"]);
+    }
     rows.push(["Lançado por:", lancadoPor]);
     rows.push([]);
 
@@ -547,6 +608,8 @@ export default function RelatorioEquipamento() {
                         <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Auxiliar</th>
                         <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">OGS</th>
                         <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Status</th>
+                        <th className="text-left py-2 pr-3 font-semibold text-muted-foreground">Tipo Operação</th>
+                        <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Vol. Usinado (ton)</th>
                         <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">{tableMeterLabel} Inicial</th>
                         <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">{tableMeterLabel} Final</th>
                         <th className="text-right py-2 pr-3 font-semibold text-muted-foreground">Horas</th>
@@ -561,6 +624,7 @@ export default function RelatorioEquipamento() {
                         const marcador = getMarcador(d);
                         const lancadoPor = (d.user_id && profilesMap[d.user_id]) || d.created_by || "-";
                         const aberto = selectedDiaryId === d.id;
+                        const kma = kmaOperationsMap[d.id] || null;
 
                         return (
                           <tr
@@ -574,6 +638,8 @@ export default function RelatorioEquipamento() {
                             <td className="py-2 pr-3">{d.operator_solo || "-"}</td>
                             <td className="py-2 pr-3">{d.ogs_number || "-"}</td>
                             <td className="py-2 pr-3">{d.work_status || d.status || "-"}</td>
+                            <td className="py-2 pr-3">{kma?.operation_type || "-"}</td>
+                            <td className="py-2 pr-3 text-right">{kma?.total_volume_machined_ton != null ? Number(kma.total_volume_machined_ton).toFixed(2) : "-"}</td>
                             <td className="py-2 pr-3 text-right">{marcador.ini ?? "-"}</td>
                             <td className="py-2 pr-3 text-right">{marcador.fim ?? "-"}</td>
                             <td className="py-2 pr-3 text-right font-medium">{getHoras(d).toFixed(2)}</td>
@@ -611,10 +677,40 @@ export default function RelatorioEquipamento() {
               </p>
               <p><strong>Status:</strong> {selectedDiary.work_status || selectedDiary.status || "-"}</p>
               <p className="md:col-span-2"><strong>Observações:</strong> {selectedDiary.observations || "-"}</p>
+              {selectedKmaOperation && (
+                <>
+                  <p><strong>Tipo de Operação:</strong> {selectedKmaOperation.operation_type || "-"}</p>
+                  <p><strong>Volume Total Usinado (ton):</strong> {selectedKmaOperation.total_volume_machined_ton ?? "-"}</p>
+                </>
+              )}
               <p className="md:col-span-2 rounded-lg bg-muted/40 p-2">
                 <strong>Lançado por:</strong> {(selectedDiary.user_id && profilesMap[selectedDiary.user_id]) || selectedDiary.created_by || "-"} em {fmtDateTime(selectedDiary.created_at)}
               </p>
             </div>
+
+            {selectedKmaOperation && (
+              <div>
+                <h4 className="font-semibold text-sm mb-2">Operação KMA</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                  <p><strong>CAP (Tipo):</strong> {selectedKmaOperation.cap_type || "-"}</p>
+                  <p><strong>CAP (Fornecedor):</strong> {selectedKmaOperation.cap_supplier || "-"}</p>
+                  <p><strong>CAP Qtd (ton):</strong> {selectedKmaOperation.cap_qty_ton ?? "-"}</p>
+                  <p><strong>CAP Nº NF:</strong> {selectedKmaOperation.cap_nf_number || "-"}</p>
+
+                  <p><strong>Filer (Tipo):</strong> {selectedKmaOperation.filer_type || "-"}</p>
+                  <p><strong>Filer (Fornecedor):</strong> {selectedKmaOperation.filer_supplier || "-"}</p>
+                  <p><strong>Filer Qtd (ton):</strong> {selectedKmaOperation.filer_qty_ton ?? "-"}</p>
+
+                  <p><strong>Fornecedor Agregados:</strong> {selectedKmaOperation.aggregates_supplier || "-"}</p>
+                  <p><strong>Silo 1:</strong> {selectedKmaOperation.silo1_material || "-"} {selectedKmaOperation.silo1_qty != null ? `(${selectedKmaOperation.silo1_qty} ton)` : ""}</p>
+                  <p><strong>Silo 2:</strong> {selectedKmaOperation.silo2_material || "-"} {selectedKmaOperation.silo2_qty != null ? `(${selectedKmaOperation.silo2_qty} ton)` : ""}</p>
+
+                  <p><strong>Água (Litros):</strong> {selectedKmaOperation.water_liters ?? "-"}</p>
+                  <p><strong>Água (Fornecedor):</strong> {selectedKmaOperation.water_supplier || "-"}</p>
+                  <p className="md:col-span-2"><strong>Volume Total Usinado (ton):</strong> {selectedKmaOperation.total_volume_machined_ton ?? "-"}</p>
+                </div>
+              </div>
+            )}
 
             <div>
               <h4 className="font-semibold text-sm mb-2">Apontamento de Horas</h4>

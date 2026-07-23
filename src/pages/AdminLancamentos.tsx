@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 
 interface Lancamento {
   id: string;
@@ -46,11 +47,25 @@ interface OperatorOption {
   perfil: string;
 }
 
+interface EquipamentoCadastro {
+  frota: string | null;
+  tipo: string | null;
+  categoria_rdo: string | null;
+}
+
 function fmtDate(value: string | null) {
   if (!value) return "-";
   const [y, m, d] = value.split("-");
   if (!y || !m || !d) return value;
   return `${d}/${m}/${y}`;
+}
+
+function normTxt(v: string | null | undefined) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
 }
 
 type FotoPerfilUrls = { frente?: string; lado_direito?: string; traseira?: string; lado_esquerdo?: string };
@@ -102,6 +117,7 @@ function FotosPerfilAdmin({ fotos }: { fotos: FotoPerfilUrls }) {
 
 export default function AdminLancamentos() {
   const navigate = useNavigate();
+  const { categorias } = useEquipamentoTipos();
 
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [canAccess, setCanAccess] = useState(false);
@@ -110,11 +126,14 @@ export default function AdminLancamentos() {
   const [loading, setLoading] = useState(true);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
+  const [subtipos, setSubtipos] = useState<string[]>([]);
   const [frotas, setFrotas] = useState<string[]>([]);
+  const [equipamentosCadastro, setEquipamentosCadastro] = useState<EquipamentoCadastro[]>([]);
   const [operadores, setOperadores] = useState<OperatorOption[]>([]);
 
   const [operadorId, setOperadorId] = useState("todos");
   const [tipoEquipamento, setTipoEquipamento] = useState("todos");
+  const [subtipoEquipamento, setSubtipoEquipamento] = useState("todos");
   const [frota, setFrota] = useState("todos");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
@@ -169,7 +188,7 @@ export default function AdminLancamentos() {
     const carregarFiltros = async () => {
       if (!canAccess) return;
 
-      const [opsRes, tiposRes, frotasRes] = await Promise.all([
+      const [opsRes, equipamentosRes] = await Promise.all([
         companyId
           ? supabase
               .from("profiles")
@@ -178,20 +197,19 @@ export default function AdminLancamentos() {
               .eq("status", "ativo")
               .order("nome_completo", { ascending: true })
           : Promise.resolve({ data: [], error: null }),
-        companyId
-          ? (supabase as any)
-              .from("equipment_diaries")
-              .select("equipment_type")
-              .eq("company_id", companyId)
-              .not("equipment_type", "is", null)
-          : (supabase as any)
-              .from("equipment_diaries")
-              .select("equipment_type")
-              .not("equipment_type", "is", null),
-        (supabase as any)
-          .from("equipamentos")
-          .select("frota,tipo")
-          .order("frota", { ascending: true }),
+        (() => {
+          let eqQuery = (supabase as any)
+            .from("equipamentos")
+            .select("frota,tipo,categoria_rdo")
+            .eq("status", "ativo")
+            .order("frota", { ascending: true });
+
+          if (companyId) {
+            eqQuery = eqQuery.eq("company_id", companyId);
+          }
+
+          return eqQuery;
+        })(),
       ]);
 
       const ops = ((opsRes.data || []) as any[])
@@ -206,18 +224,36 @@ export default function AdminLancamentos() {
         })) as OperatorOption[];
       setOperadores(ops);
 
-      const tiposUnicos = Array.from(
-        new Set(((tiposRes.data || []) as any[]).map((r) => r.equipment_type).filter(Boolean)),
-      ) as string[];
-      setTipos(tiposUnicos.sort((a, b) => a.localeCompare(b, "pt-BR")));
+      const equipamentosAtivos = (equipamentosRes.data || []) as EquipamentoCadastro[];
+      setEquipamentosCadastro(equipamentosAtivos);
 
-      const allFrotas = ((frotasRes.data || []) as any[]).filter(Boolean);
-      const filteredByTipo = tipoEquipamento === "todos"
-        ? allFrotas
-        : allFrotas.filter((m) => (m.tipo || "") === tipoEquipamento);
+      const tiposDisponiveis = categorias
+        .filter((cat) => cat.tipos.some((t) => equipamentosAtivos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor))))
+        .map((cat) => cat.key);
+      setTipos(tiposDisponiveis);
 
-      const frotaList = Array.from(new Set(filteredByTipo.map((m) => m.frota).filter(Boolean))) as string[];
-      setFrotas(frotaList.sort((a, b) => a.localeCompare(b, "pt-BR")));
+      const subtiposDaCategoria =
+        tipoEquipamento === "todos"
+          ? []
+          : (categorias.find((cat) => cat.key === tipoEquipamento)?.tipos || [])
+              .filter((t) => equipamentosAtivos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor)))
+              .map((t) => t.tipoValor);
+      setSubtipos(subtiposDaCategoria);
+
+      const frotasFiltradas = equipamentosAtivos
+        .filter((e) => {
+          if (tipoEquipamento === "todos" || subtipoEquipamento === "todos") return false;
+          return normTxt(e.tipo) === normTxt(subtipoEquipamento);
+        })
+        .map((e) => e.frota)
+        .filter(Boolean) as string[];
+
+      const frotaList = Array.from(new Set(frotasFiltradas)).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      setFrotas(frotaList);
+
+      if (subtipoEquipamento !== "todos" && !subtiposDaCategoria.some((s) => normTxt(s) === normTxt(subtipoEquipamento))) {
+        setSubtipoEquipamento("todos");
+      }
 
       if (frota !== "todos" && !frotaList.includes(frota)) {
         setFrota("todos");
@@ -225,7 +261,7 @@ export default function AdminLancamentos() {
     };
 
     carregarFiltros();
-  }, [canAccess, companyId, tipoEquipamento, frota]);
+  }, [canAccess, companyId, categorias, tipoEquipamento, subtipoEquipamento, frota]);
 
   useEffect(() => {
     const carregarLancamentos = async () => {
@@ -245,9 +281,6 @@ export default function AdminLancamentos() {
       if (operadorId !== "todos") {
         query = query.eq("user_id", operadorId);
       }
-      if (tipoEquipamento !== "todos") {
-        query = query.eq("equipment_type", tipoEquipamento);
-      }
       if (frota !== "todos") {
         query = query.eq("equipment_fleet", frota);
       }
@@ -259,12 +292,43 @@ export default function AdminLancamentos() {
       }
 
       const { data } = await query;
-      setLancamentos((data || []) as Lancamento[]);
+
+      const categoriaBySubtipoNorm = new Map<string, string>();
+      categorias.forEach((cat) => {
+        cat.tipos.forEach((t) => categoriaBySubtipoNorm.set(normTxt(t.tipoValor), cat.key));
+      });
+
+      const equipamentoByFrota = new Map<string, EquipamentoCadastro>();
+      equipamentosCadastro.forEach((e) => {
+        const key = normTxt(e.frota);
+        if (key) equipamentoByFrota.set(key, e);
+      });
+
+      const rows = ((data || []) as Lancamento[]).filter((row) => {
+        const eq = equipamentoByFrota.get(normTxt(row.equipment_fleet));
+        const subtipo = eq?.tipo || row.equipment_type;
+        const categoria = categoriaBySubtipoNorm.get(normTxt(subtipo));
+
+        if (tipoEquipamento !== "todos" && categoria !== tipoEquipamento) return false;
+        if (subtipoEquipamento !== "todos" && normTxt(subtipo) !== normTxt(subtipoEquipamento)) return false;
+        return true;
+      });
+
+      setLancamentos(rows);
       setLoading(false);
     };
 
     carregarLancamentos();
-  }, [canAccess, companyId, operadorId, tipoEquipamento, frota, dataInicio, dataFim]);
+  }, [canAccess, companyId, operadorId, tipoEquipamento, subtipoEquipamento, frota, dataInicio, dataFim, categorias, equipamentosCadastro]);
+
+  useEffect(() => {
+    setSubtipoEquipamento("todos");
+    setFrota("todos");
+  }, [tipoEquipamento]);
+
+  useEffect(() => {
+    setFrota("todos");
+  }, [subtipoEquipamento]);
 
   const abrirDetalhe = async (item: Lancamento) => {
     setSelecionado(item);
@@ -324,7 +388,7 @@ export default function AdminLancamentos() {
 
       <div className="max-w-4xl mx-auto p-4 space-y-4">
         <div className="rdo-card space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div className="space-y-1.5">
               <span className="rdo-label">Operador</span>
               <Select value={operadorId} onValueChange={setOperadorId}>
@@ -350,9 +414,33 @@ export default function AdminLancamentos() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  {tipos.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
+                  {tipos.map((tipoKey) => {
+                    const cat = categorias.find((c) => c.key === tipoKey);
+                    return (
+                      <SelectItem key={tipoKey} value={tipoKey}>
+                        {cat?.label || tipoKey}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="rdo-label">Subtipo</span>
+              <Select
+                value={subtipoEquipamento}
+                onValueChange={setSubtipoEquipamento}
+                disabled={tipoEquipamento === "todos" || subtipos.length === 0}
+              >
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {subtipos.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -361,7 +449,7 @@ export default function AdminLancamentos() {
 
             <div className="space-y-1.5">
               <span className="rdo-label">Frota</span>
-              <Select value={frota} onValueChange={setFrota}>
+              <Select value={frota} onValueChange={setFrota} disabled={subtipoEquipamento === "todos" || frotas.length === 0}>
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>

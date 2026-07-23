@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 
 // Ordena apontamentos respeitando turno noturno (virada de meia-noite)
 // Horários antes das 07:00 são tratados como continuação do dia anterior
@@ -31,6 +32,13 @@ const sortNocturnalEntries = (entries: any[]): any[] => {
   return [...entries].sort((a, b) => toMinutes(a.start_time) - toMinutes(b.start_time));
 };
 
+interface EquipamentoCadastro {
+  id: string;
+  frota: string | null;
+  tipo: string | null;
+  categoria_rdo: string | null;
+}
+
 interface Lancamento {
   id: string;
   created_at: string | null;
@@ -40,6 +48,7 @@ interface Lancamento {
   work_status: string | null;
   period: string | null;
   operator_name: string | null;
+  operator_solo?: string | null;
   ogs_number: string | null;
   client_name: string | null;
   location_address: string | null;
@@ -49,7 +58,28 @@ interface Lancamento {
   odometer_initial: number | null;
   odometer_final: number | null;
   fuel_liters: number | null;
+  fuel_type?: string | null;
+  fuel_meter?: number | null;
   status: string | null;
+}
+
+interface KmaOperationDetail {
+  operation_type: string | null;
+  cap_type: string | null;
+  cap_supplier: string | null;
+  cap_qty_ton: number | null;
+  cap_nf_number: string | null;
+  filer_type: string | null;
+  filer_supplier: string | null;
+  filer_qty_ton: number | null;
+  aggregates_supplier: string | null;
+  silo1_material: string | null;
+  silo1_qty: number | null;
+  silo2_material: string | null;
+  silo2_qty: number | null;
+  water_liters: number | null;
+  water_supplier: string | null;
+  total_volume_machined_ton: number | null;
 }
 
 function fmtDate(value: string | null) {
@@ -57,6 +87,41 @@ function fmtDate(value: string | null) {
   const [y, m, d] = value.split("-");
   if (!y || !m || !d) return value;
   return `${d}/${m}/${y}`;
+}
+
+function normalizarTipoEquipamento(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const v = raw.trim();
+  if (!v) return null;
+
+  const norm = v
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+
+  const aliases: Record<string, string> = {
+    CAMINHOES: "Caminhões",
+    COMBOIO: "Caminhões",
+    "CAMINHAO COMBOIO": "Caminhões",
+    VEICULO: "Veículo",
+    CARRETA: "Carreta",
+    RETRO: "Retro",
+    ROLO: "Rolo",
+    BOBCAT: "Bobcat",
+    FRESADORA: "Fresadora",
+    "USINA KMA": "Usina KMA",
+    VIBROACABADORA: "Vibroacabadora",
+  };
+
+  return aliases[norm] || v;
+}
+
+function normTxt(v: string | null | undefined): string {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
 }
 
 const FILTER_KEY = "meusLancamentos_filtros";
@@ -74,6 +139,7 @@ function restaurarFiltros(): Record<string, string> {
 
 export default function MeusLancamentos() {
   const navigate = useNavigate();
+  const { categorias } = useEquipamentoTipos();
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -85,11 +151,13 @@ export default function MeusLancamentos() {
   const [rascunhos, setRascunhos] = useState<Lancamento[]>([]);
   const [rascunhosRdo, setRascunhosRdo] = useState<any[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
+  const [subtipos, setSubtipos] = useState<string[]>([]);
   const [frotas, setFrotas] = useState<string[]>([]);
 
   // Inicializa filtros a partir do sessionStorage (preserva após edição)
   const filtrosSalvos = restaurarFiltros();
   const [tipoEquipamento, setTipoEquipamento] = useState(filtrosSalvos.tipoEquipamento || "todos");
+  const [subtipoEquipamento, setSubtipoEquipamento] = useState(filtrosSalvos.subtipoEquipamento || "todos");
   const [frotaSelecionada, setFrotaSelecionada] = useState(filtrosSalvos.frotaSelecionada || "todas");
   const [dataInicio, setDataInicio] = useState(filtrosSalvos.dataInicio || "");
   const [dataFim, setDataFim] = useState(filtrosSalvos.dataFim || "");
@@ -107,16 +175,17 @@ export default function MeusLancamentos() {
   })();
   const [aba, setAba] = useState<"equipamentos" | "rdos" | "ocorrencias">(abaInicial);
   const [selecionado, setSelecionado] = useState<Lancamento | null>(null);
-  const [detalheExtra, setDetalheExtra] = useState<{ areas: any[]; bits: any[]; times: any[]; horas: number | null }>({ areas: [], bits: [], times: [], horas: null });
+  const [detalheExtra, setDetalheExtra] = useState<{ areas: any[]; bits: any[]; times: any[]; horas: number | null; kmaOperation: KmaOperationDetail | null }>({ areas: [], bits: [], times: [], horas: null, kmaOperation: null });
 
   const abrirDetalhe = async (item: Lancamento) => {
     setSelecionado(item);
     setEditandoId(null);
-    setDetalheExtra({ areas: [], bits: [], times: [], horas: null });
-    const [{ data: areas }, { data: bits }, { data: times }] = await Promise.all([
+    setDetalheExtra({ areas: [], bits: [], times: [], horas: null, kmaOperation: null });
+    const [{ data: areas }, { data: bits }, { data: times }, { data: kmaOps }] = await Promise.all([
       supabase.from('equipment_production_areas').select('*').eq('diary_id', item.id),
       supabase.from('bit_entries').select('*').eq('diary_id', item.id),
       supabase.from('equipment_time_entries').select('*').eq('diary_id', item.id),
+      supabase.from('kma_operations').select('*').eq('diary_id', item.id).limit(1),
     ]);
     const PARADAS = ['Refeições', 'À Disposição', 'Manutenção'];
     let horasTotal = 0;
@@ -130,7 +199,13 @@ export default function MeusLancamentos() {
       }
     });
     const sortedTimes = sortNocturnalEntries(times || []);
-    setDetalheExtra({ areas: areas || [], bits: bits || [], times: sortedTimes, horas: horasTotal > 0 ? Math.round(horasTotal * 10) / 10 : null });
+    setDetalheExtra({
+      areas: areas || [],
+      bits: bits || [],
+      times: sortedTimes,
+      horas: horasTotal > 0 ? Math.round(horasTotal * 10) / 10 : null,
+      kmaOperation: ((kmaOps || [])[0] as KmaOperationDetail | undefined) ?? null,
+    });
   };
 
   const handleDeletar = async () => {
@@ -161,7 +236,7 @@ export default function MeusLancamentos() {
 
   const handleEditarLancamento = async (item: Lancamento) => {
     // Salva filtros ativos antes de sair para edição
-    salvarFiltros({ tipoEquipamento, frotaSelecionada, dataInicio, dataFim });
+    salvarFiltros({ tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim });
     setEditandoId(item.id);
     await new Promise((resolve) => setTimeout(resolve, 200));
     navigate(
@@ -245,9 +320,9 @@ export default function MeusLancamentos() {
       query = query.eq("user_id", user.id);
     }
 
-    if (tipoEquipamento !== "todos") {
-      query = query.eq("equipment_type", tipoEquipamento);
-    }
+    // ⚠️ Não filtrar tipo no SQL:
+    // o histórico pode ter valores legados (ex: "Comboio") que hoje devem aparecer em "Caminhões".
+    // O filtro por tipo é aplicado no cliente após normalização.
     if (frotaSelecionada !== "todas") {
       query = query.eq("equipment_fleet", frotaSelecionada);
     }
@@ -258,17 +333,71 @@ export default function MeusLancamentos() {
       query = query.lte("date", dataFim);
     }
 
-    const [{ data: rows }, { data: tiposRows }, { data: frotasRows }] = await Promise.all([
+    const [{ data: rows }, { data: equipamentosRows }] = await Promise.all([
       query,
-      isAdmin && companyId
-        ? (supabase as any).from("equipment_diaries").select("equipment_type").eq("company_id", companyId).not("equipment_type", "is", null)
-        : (supabase as any).from("equipment_diaries").select("equipment_type").eq("user_id", user.id).not("equipment_type", "is", null),
-      isAdmin && companyId
-        ? (supabase as any).from("equipment_diaries").select("equipment_fleet, equipment_type").eq("company_id", companyId).not("equipment_fleet", "is", null)
-        : (supabase as any).from("equipment_diaries").select("equipment_fleet, equipment_type").eq("user_id", user.id).not("equipment_fleet", "is", null),
+      (() => {
+        let eqQuery = (supabase as any)
+          .from("equipamentos")
+          .select("id, frota, tipo, categoria_rdo")
+          .eq("status", "ativo");
+
+        if (effectiveCompanyId) {
+          eqQuery = eqQuery.eq("company_id", effectiveCompanyId);
+        }
+
+        return eqQuery;
+      })(),
     ]);
 
-    setLancamentos((rows || []) as Lancamento[]);
+    const equipamentosAtivos = (equipamentosRows || []) as EquipamentoCadastro[];
+
+    const categoriaBySubtipoNorm = new Map<string, string>();
+    categorias.forEach((cat) => {
+      cat.tipos.forEach((t) => {
+        categoriaBySubtipoNorm.set(normTxt(t.tipoValor), cat.key);
+      });
+    });
+
+    const equipamentoByFrota = new Map<string, EquipamentoCadastro>();
+    equipamentosAtivos.forEach((e) => {
+      const key = normTxt(e.frota);
+      if (key) equipamentoByFrota.set(key, e);
+    });
+
+    const resolveCategoriaByDiary = (fleet: string | null | undefined, tipoRaw: string | null | undefined) => {
+      const eq = equipamentoByFrota.get(normTxt(fleet));
+      const subtipo = eq?.tipo || tipoRaw || "";
+      const catBySubtipo = categoriaBySubtipoNorm.get(normTxt(subtipo));
+      if (catBySubtipo) return catBySubtipo;
+
+      const tipoNormalizado = normalizarTipoEquipamento(tipoRaw);
+      const catByLabel = categorias.find((c) => normTxt(c.label) === normTxt(tipoNormalizado));
+      return catByLabel?.key || null;
+    };
+
+    const resolveSubtipoByDiary = (fleet: string | null | undefined, tipoRaw: string | null | undefined) => {
+      const eq = equipamentoByFrota.get(normTxt(fleet));
+      return eq?.tipo || tipoRaw || null;
+    };
+
+    const lancamentosEnriquecidos = ((rows || []) as Lancamento[]).map((r) => {
+      const subtipo = resolveSubtipoByDiary(r.equipment_fleet, r.equipment_type);
+      return {
+        ...r,
+        equipment_type: subtipo || normalizarTipoEquipamento(r.equipment_type),
+      };
+    });
+
+    const lancamentosFiltrados = lancamentosEnriquecidos.filter((r) => {
+      const categoriaKey = resolveCategoriaByDiary(r.equipment_fleet, r.equipment_type);
+      const subtipo = resolveSubtipoByDiary(r.equipment_fleet, r.equipment_type);
+
+      if (tipoEquipamento !== "todos" && categoriaKey !== tipoEquipamento) return false;
+      if (subtipoEquipamento !== "todos" && normTxt(subtipo) !== normTxt(subtipoEquipamento)) return false;
+      return true;
+    });
+
+    setLancamentos(lancamentosFiltrados);
 
     // Buscar rascunhos do próprio usuário (sempre pelo user_id, nunca pelo admin)
     const { data: rascunhosRows } = await (supabase as any)
@@ -277,7 +406,12 @@ export default function MeusLancamentos() {
       .eq("status", "rascunho")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    setRascunhos((rascunhosRows || []) as Lancamento[]);
+    setRascunhos(
+      ((rascunhosRows || []) as Lancamento[]).map((r) => ({
+        ...r,
+        equipment_type: normalizarTipoEquipamento(r.equipment_type),
+      })),
+    );
 
     // Buscar RDOs
     // rdo_diarios tem company_id — admin filtra direto por company_id
@@ -325,34 +459,58 @@ export default function MeusLancamentos() {
     const { data: ocorrRows } = await ocorrQuery;
     setOcorrencias(ocorrRows || []);
 
-    const tiposUnicos = Array.from(
-      new Set(((tiposRows || []) as any[]).map((r) => r.equipment_type).filter(Boolean)),
-    ) as string[];
-    setTipos(tiposUnicos.sort((a, b) => a.localeCompare(b)));
+    const tiposDisponiveis = categorias
+      .filter((cat) => cat.tipos.some((t) => equipamentosAtivos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor))))
+      .map((cat) => ({ value: cat.key, label: cat.label }));
+    setTipos(tiposDisponiveis.map((t) => t.value));
 
-    // Frotas filtradas pelo tipo selecionado
-    const frotasFiltradas = ((frotasRows || []) as any[])
-      .filter((r) => tipoEquipamento === "todos" || r.equipment_type === tipoEquipamento)
-      .map((r) => r.equipment_fleet)
-      .filter(Boolean);
-    const frotasUnicas = Array.from(new Set(frotasFiltradas)) as string[];
-    setFrotas(frotasUnicas.sort((a: string, b: string) => a.localeCompare(b)));
+    const subtiposDaCategoria =
+      tipoEquipamento === "todos"
+        ? []
+        : (categorias.find((cat) => cat.key === tipoEquipamento)?.tipos || [])
+            .filter((t) => equipamentosAtivos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor)))
+            .map((t) => t.tipoValor);
+    setSubtipos(subtiposDaCategoria);
+
+    const frotasFiltradas = equipamentosAtivos
+      .filter((e) => {
+        if (tipoEquipamento === "todos") return false;
+        const cat = categorias.find((c) => c.key === tipoEquipamento);
+        if (!cat) return false;
+
+        const pertenceCategoria = cat.tipos.some((t) => normTxt(t.tipoValor) === normTxt(e.tipo));
+        if (!pertenceCategoria) return false;
+
+        if (subtipoEquipamento === "todos") return false;
+        return normTxt(e.tipo) === normTxt(subtipoEquipamento);
+      })
+      .map((e) => e.frota)
+      .filter(Boolean) as string[];
+
+    const frotasUnicas = Array.from(new Set(frotasFiltradas));
+    setFrotas(frotasUnicas.sort((a: string, b: string) => a.localeCompare(b, "pt-BR")));
     setLoading(false);
   };
 
-  // Resetar frota ao mudar tipo
+  // Resetar subtipo e frota ao mudar tipo
   useEffect(() => {
+    setSubtipoEquipamento("todos");
     setFrotaSelecionada("todas");
   }, [tipoEquipamento]);
 
+  // Resetar frota ao mudar subtipo
+  useEffect(() => {
+    setFrotaSelecionada("todas");
+  }, [subtipoEquipamento]);
+
   // Persiste filtros no sessionStorage sempre que mudam
   useEffect(() => {
-    salvarFiltros({ tipoEquipamento, frotaSelecionada, dataInicio, dataFim });
-  }, [tipoEquipamento, frotaSelecionada, dataInicio, dataFim]);
+    salvarFiltros({ tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim });
+  }, [tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim]);
 
   useEffect(() => {
     carregar();
-  }, [tipoEquipamento, frotaSelecionada, dataInicio, dataFim]);
+  }, [tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim]);
 
   const resumo = useMemo(() => {
     return `${lancamentos.length} lançamento${lancamentos.length === 1 ? "" : "s"}`;
@@ -472,8 +630,30 @@ export default function MeusLancamentos() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  {tipos.map((t) => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  {tipos.map((tipoKey) => {
+                    const cat = categorias.find((c) => c.key === tipoKey);
+                    return (
+                      <SelectItem key={tipoKey} value={tipoKey}>{cat?.label || tipoKey}</SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="rdo-label">Subtipo</span>
+              <Select
+                value={subtipoEquipamento}
+                onValueChange={setSubtipoEquipamento}
+                disabled={tipoEquipamento === "todos" || subtipos.length === 0}
+              >
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {subtipos.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -484,7 +664,7 @@ export default function MeusLancamentos() {
               <Select
                 value={frotaSelecionada}
                 onValueChange={setFrotaSelecionada}
-                disabled={frotas.length === 0}
+                disabled={subtipoEquipamento === "todos" || frotas.length === 0}
               >
                 <SelectTrigger className="h-11 rounded-xl">
                   <SelectValue placeholder="Todas" />
@@ -708,6 +888,28 @@ export default function MeusLancamentos() {
                 </div>
                 <p className="text-sm pt-1"><span className="text-muted-foreground">Observações:</span> <strong>{selecionado.observations || "-"}</strong></p>
               </div>
+
+              {detalheExtra.kmaOperation && (
+                <div className="space-y-2 border-b border-border pb-3">
+                  <p className="text-xs font-semibold">Operação KMA</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                    <p><span className="text-muted-foreground">Tipo de Operação:</span> <strong>{detalheExtra.kmaOperation.operation_type || "-"}</strong></p>
+                    <p><span className="text-muted-foreground">Volume Total Usinado (ton):</span> <strong>{detalheExtra.kmaOperation.total_volume_machined_ton ?? "-"}</strong></p>
+                    <p><span className="text-muted-foreground">CAP Tipo:</span> <strong>{detalheExtra.kmaOperation.cap_type || "-"}</strong></p>
+                    <p><span className="text-muted-foreground">CAP Fornecedor:</span> <strong>{detalheExtra.kmaOperation.cap_supplier || "-"}</strong></p>
+                    <p><span className="text-muted-foreground">CAP Qtd (ton):</span> <strong>{detalheExtra.kmaOperation.cap_qty_ton ?? "-"}</strong></p>
+                    <p><span className="text-muted-foreground">CAP Nº NF:</span> <strong>{detalheExtra.kmaOperation.cap_nf_number || "-"}</strong></p>
+                    <p><span className="text-muted-foreground">Filer Tipo:</span> <strong>{detalheExtra.kmaOperation.filer_type || "-"}</strong></p>
+                    <p><span className="text-muted-foreground">Filer Fornecedor:</span> <strong>{detalheExtra.kmaOperation.filer_supplier || "-"}</strong></p>
+                    <p><span className="text-muted-foreground">Filer Qtd (ton):</span> <strong>{detalheExtra.kmaOperation.filer_qty_ton ?? "-"}</strong></p>
+                    <p><span className="text-muted-foreground">Fornecedor Agregados:</span> <strong>{detalheExtra.kmaOperation.aggregates_supplier || "-"}</strong></p>
+                    <p><span className="text-muted-foreground">Silo 1:</span> <strong>{detalheExtra.kmaOperation.silo1_material || "-"} {detalheExtra.kmaOperation.silo1_qty != null ? `(${detalheExtra.kmaOperation.silo1_qty} ton)` : ""}</strong></p>
+                    <p><span className="text-muted-foreground">Silo 2:</span> <strong>{detalheExtra.kmaOperation.silo2_material || "-"} {detalheExtra.kmaOperation.silo2_qty != null ? `(${detalheExtra.kmaOperation.silo2_qty} ton)` : ""}</strong></p>
+                    <p><span className="text-muted-foreground">Água (L):</span> <strong>{detalheExtra.kmaOperation.water_liters ?? "-"}</strong></p>
+                    <p><span className="text-muted-foreground">Água Fornecedor:</span> <strong>{detalheExtra.kmaOperation.water_supplier || "-"}</strong></p>
+                  </div>
+                </div>
+              )}
 
               {/* Apontamento de Horas */}
               {detalheExtra.times.length > 0 && (

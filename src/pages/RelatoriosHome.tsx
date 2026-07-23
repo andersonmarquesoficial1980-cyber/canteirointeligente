@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import AdvancedReports from "@/components/dashboard/AdvancedReports";
 
 const TIPOS_RELATORIO = [
@@ -29,8 +30,17 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
+function normTxt(v: string) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
 export default function RelatoriosHome() {
   const navigate = useNavigate();
+  const { categorias } = useEquipamentoTipos();
 
   // ── Persistência de filtros ─────────────────────────────────────────────
   const RKEY = "relatoriosHome_filtros";
@@ -62,6 +72,7 @@ export default function RelatoriosHome() {
   // Dados dinâmicos
   const [tiposEquip, setTiposEquip] = useState<string[]>([]);
   const [frotasPorTipo, setFrotasPorTipo] = useState<Record<string, string[]>>({});
+  const [equipamentosBase, setEquipamentosBase] = useState<Array<{ frota: string; tipo: string }>>([]);
   const [ogsList, setOgsList] = useState<{ ogs: string; cliente: string }[]>([]);
 
   const [relatoriosPermitidos, setRelatoriosPermitidos] = useState<string[] | null>(null);
@@ -84,23 +95,17 @@ export default function RelatoriosHome() {
   }, []);
 
   useEffect(() => {
-    // Carregar frotas da tabela equipamentos (fonte única)
+    // Carregar base de frotas/tipos da tabela equipamentos
     ;(supabase as any).from("equipamentos")
       .select("frota,tipo")
       .order("tipo,frota")
       .then(({ data }) => {
         if (!data) return;
-        const byType: Record<string, Set<string>> = {};
-        data.forEach(d => {
-          const t = d.tipo || "Outros";
-          if (!byType[t]) byType[t] = new Set();
-          byType[t].add(d.frota);
-        });
-        const tipos = Object.keys(byType).sort();
-        setTiposEquip(tipos);
-        const frotas: Record<string, string[]> = {};
-        tipos.forEach(t => { frotas[t] = Array.from(byType[t]).sort(); });
-        setFrotasPorTipo(frotas);
+        setEquipamentosBase(
+          (data as any[])
+            .filter((d) => d?.frota && d?.tipo)
+            .map((d) => ({ frota: String(d.frota), tipo: String(d.tipo) })),
+        );
       });
 
     // Carregar OGS
@@ -120,6 +125,53 @@ export default function RelatoriosHome() {
         setOgsList(list);
       });
   }, []);
+
+  // Padroniza tipos/subtipos exibidos com base em equipamento_tipos (Painel de Controle)
+  useEffect(() => {
+    if (!categorias.length || !equipamentosBase.length) {
+      setTiposEquip([]);
+      setFrotasPorTipo({});
+      return;
+    }
+
+    const bySubtype: Record<string, Set<string>> = {};
+
+    categorias.forEach((cat) => {
+      cat.tipos.forEach((t) => {
+        const frotasSet = new Set(
+          equipamentosBase
+            .filter((eq) => normTxt(eq.tipo) === normTxt(t.tipoValor) || normTxt(eq.tipo) === normTxt(t.label))
+            .map((eq) => eq.frota)
+            .filter(Boolean),
+        );
+
+        if (frotasSet.size > 0) {
+          bySubtype[t.label] = frotasSet;
+        }
+      });
+    });
+
+    const tipos = Object.keys(bySubtype).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    const frotas: Record<string, string[]> = {};
+    tipos.forEach((t) => {
+      frotas[t] = Array.from(bySubtype[t]).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    });
+
+    setTiposEquip(tipos);
+    setFrotasPorTipo(frotas);
+  }, [categorias, equipamentosBase]);
+
+  useEffect(() => {
+    if (tipoRel !== "equipamento") return;
+    if (!tipoEquip) return;
+    if (tiposEquip.includes(tipoEquip)) return;
+
+    setTipoEquip("");
+    if (step === "frota_ogs") {
+      setStep("subtipo");
+      salvar({ step: "subtipo", tipoEquip: "" });
+    }
+  }, [tipoRel, tipoEquip, tiposEquip, step]);
 
   function irParaRelatorio() {
     const ini = tipoPeriodo === "dia" ? dataDia : dataIni;
@@ -173,6 +225,18 @@ export default function RelatoriosHome() {
   }
 
   const frotas = tipoEquip ? (frotasPorTipo[tipoEquip] || []) : [];
+
+  const frotasCarretas = useMemo(() => {
+    const carretasCategoria = categorias.find((c) => c.key === "CARRETAS");
+    if (!carretasCategoria) return [] as string[];
+
+    const setFrotas = new Set<string>();
+    carretasCategoria.tipos.forEach((t) => {
+      (frotasPorTipo[t.label] || []).forEach((f) => setFrotas.add(f));
+    });
+
+    return Array.from(setFrotas).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [categorias, frotasPorTipo]);
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -322,7 +386,7 @@ export default function RelatoriosHome() {
                 <p className="text-xs text-muted-foreground">Ver transportes de todas as carretas no período</p>
               </div>
             </button>
-            {(frotasPorTipo["Carreta"] || []).map((f: string) => (
+            {frotasCarretas.map((f: string) => (
               <button key={f} onClick={() => { selecionarFrotaOgs(f); }}
                 className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3">
                 <span className="text-2xl">🚛</span>

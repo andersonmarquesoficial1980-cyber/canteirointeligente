@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
 import { Input } from "@/components/ui/input";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtNum as fmtNumLib, fmtNumCsv as fmtNumCsvLib } from "@/lib/fmt";
 
@@ -20,6 +21,12 @@ interface AbastecimentoRow {
   ogs: string | null;
   fornecedor: string | null;
   observacao: string | null;
+}
+
+interface EquipamentoCadastro {
+  frota: string;
+  tipo: string;
+  categoria_rdo?: string | null;
 }
 
 function fmtNumLib(value: number | null | undefined, decimals = 1): string {
@@ -44,6 +51,14 @@ function fmtDate(value: string | null) {
   const [y, m, d] = value.split("-");
   if (!y || !m || !d) return value;
   return `${d}/${m}/${y}`;
+}
+
+function normTxt(v: string | null | undefined) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
 }
 
 function exportarExcel(fleet: string, rows: AbastecimentoRow[], ini: string, fim: string) {
@@ -124,6 +139,7 @@ function exportarPdf(fleet: string, rows: AbastecimentoRow[], ini: string, fim: 
 export default function RelatorioAbastecimento() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { categorias } = useEquipamentoTipos();
 
   const iniParam = searchParams.get("ini") || "";
   const fimParam = searchParams.get("fim") || "";
@@ -136,14 +152,14 @@ export default function RelatorioAbastecimento() {
   const [dataIni, setDataIni] = useState(iniParam || primeiroDiaMes);
   const [dataFim, setDataFim] = useState(fimParam || today);
 
-  // Seleção tipo → frota (padrão do sistema)
+  // Seleção tipo → subtipo → frota (padrão do sistema)
   const [tipoEquip, setTipoEquip] = useState("__todos__");
+  const [subtipoEquip, setSubtipoEquip] = useState("__todos__");
   const [frotaSel, setFrotaSel] = useState("__todas__");
   const [ogsFiltro, setOgsFiltro] = useState("");
 
   // Dados auxiliares
-  const [tiposEquip, setTiposEquip] = useState<string[]>([]);
-  const [frotasPorTipo, setFrotasPorTipo] = useState<Record<string, string[]>>({});
+  const [equipamentos, setEquipamentos] = useState<EquipamentoCadastro[]>([]);
 
   // Resultados
   const [loading, setLoading] = useState(false);
@@ -153,38 +169,53 @@ export default function RelatorioAbastecimento() {
   const ini = tipoPeriodo === "dia" ? dataDia : dataIni;
   const fim = tipoPeriodo === "dia" ? dataDia : dataFim;
 
-  // Carregar tipos e frotas do banco
+  // Carregar equipamentos ativos do banco
   useEffect(() => {
     (supabase as any)
       .from("equipamentos")
-      .select("frota,tipo")
+      .select("frota,tipo,categoria_rdo")
       .in("status", ["ativo", "Operando"])
       .order("tipo")
       .order("frota")
-      .then(({ data }: { data: { frota: string; tipo: string }[] | null }) => {
-        if (!data) return;
-        const byType: Record<string, Set<string>> = {};
-        data.forEach(d => {
-          const t = d.tipo || "Outros";
-          if (!byType[t]) byType[t] = new Set();
-          byType[t].add(d.frota);
-        });
-        const tipos = Object.keys(byType).sort();
-        setTiposEquip(tipos);
-        const frotas: Record<string, string[]> = {};
-        tipos.forEach(t => { frotas[t] = Array.from(byType[t]).sort(); });
-        setFrotasPorTipo(frotas);
+      .then(({ data }: { data: EquipamentoCadastro[] | null }) => {
+        setEquipamentos(data || []);
       });
   }, []);
 
-  // Frotas disponíveis para o tipo selecionado
-  const frotasDisponiveis = tipoEquip === "__todos__"
-    ? Object.values(frotasPorTipo).flat().sort()
-    : (frotasPorTipo[tipoEquip] || []);
+  const categoriasDisponiveis = useMemo(() => {
+    return categorias.filter((cat) =>
+      cat.tipos.some((t) => equipamentos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor)))
+    );
+  }, [categorias, equipamentos]);
 
-  // Reset frota quando tipo muda
+  const subtiposDisponiveis = useMemo(() => {
+    if (tipoEquip === "__todos__") return [] as Array<{ value: string; label: string }>;
+    const cat = categorias.find((c) => c.key === tipoEquip);
+    if (!cat) return [] as Array<{ value: string; label: string }>;
+
+    return cat.tipos
+      .filter((t) => equipamentos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor)))
+      .map((t) => ({ value: t.tipoValor, label: t.label }));
+  }, [categorias, equipamentos, tipoEquip]);
+
+  const frotasDisponiveis = useMemo(() => {
+    if (subtipoEquip === "__todos__") return [] as string[];
+    return equipamentos
+      .filter((e) => normTxt(e.tipo) === normTxt(subtipoEquip))
+      .map((e) => e.frota)
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
+  }, [equipamentos, subtipoEquip]);
+
+  // Reset em cascata
   const handleTipoChange = (tipo: string) => {
     setTipoEquip(tipo);
+    setSubtipoEquip("__todos__");
+    setFrotaSel("__todas__");
+  };
+
+  const handleSubtipoChange = (subtipo: string) => {
+    setSubtipoEquip(subtipo);
     setFrotaSel("__todas__");
   };
 
@@ -201,9 +232,26 @@ export default function RelatorioAbastecimento() {
 
     if (frotaSel !== "__todas__") {
       query = query.eq("equipment_fleet", frotaSel);
+    } else if (subtipoEquip !== "__todos__") {
+      if (frotasDisponiveis.length === 0) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+      query = query.in("equipment_fleet", frotasDisponiveis);
     } else if (tipoEquip !== "__todos__") {
-      const frotas = frotasPorTipo[tipoEquip] || [];
-      if (frotas.length > 0) query = query.in("equipment_fleet", frotas);
+      const cat = categorias.find((c) => c.key === tipoEquip);
+      const frotasDaCategoria = (cat?.tipos || [])
+        .flatMap((t) => equipamentos.filter((e) => normTxt(e.tipo) === normTxt(t.tipoValor)).map((e) => e.frota))
+        .filter(Boolean) as string[];
+
+      const frotasUnicas = Array.from(new Set(frotasDaCategoria));
+      if (frotasUnicas.length === 0) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+      query = query.in("equipment_fleet", frotasUnicas);
     }
 
     if (ogsFiltro.trim()) {
@@ -217,9 +265,13 @@ export default function RelatorioAbastecimento() {
 
   const totalLitros = useMemo(() => rows.reduce((s, r) => s + (r.litros || 0), 0), [rows]);
 
-  const labelFrota = frotaSel !== "__todas__" ? frotaSel
-    : tipoEquip !== "__todos__" ? tipoEquip
-    : "Todas as Frotas";
+  const labelFrota = frotaSel !== "__todas__"
+    ? frotaSel
+    : subtipoEquip !== "__todos__"
+      ? subtipoEquip
+      : tipoEquip !== "__todos__"
+        ? (categorias.find((c) => c.key === tipoEquip)?.label || tipoEquip)
+        : "Todas as Frotas";
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -277,28 +329,42 @@ export default function RelatorioAbastecimento() {
               className="w-full h-11 rounded-xl border border-border bg-secondary px-3 text-sm"
             >
               <option value="__todos__">Todos os tipos</option>
-              {tiposEquip.map(t => <option key={t} value={t}>{t}</option>)}
+              {categoriasDisponiveis.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
             </select>
           </div>
 
-          {/* Frota — só aparece se há tipos carregados */}
-          {frotasDisponiveis.length > 0 && (
+          {/* Subtipo */}
+          {tipoEquip !== "__todos__" && (
             <div className="space-y-1">
-              <span className="text-xs text-muted-foreground font-medium">
-                Frota {tipoEquip !== "__todos__" ? `— ${tipoEquip}` : ""}
-              </span>
+              <span className="text-xs text-muted-foreground font-medium">Subtipo</span>
               <select
-                value={frotaSel}
-                onChange={e => setFrotaSel(e.target.value)}
+                value={subtipoEquip}
+                onChange={e => handleSubtipoChange(e.target.value)}
                 className="w-full h-11 rounded-xl border border-border bg-secondary px-3 text-sm"
               >
-                <option value="__todas__">
-                  {tipoEquip !== "__todos__" ? `Todas as ${tipoEquip}` : "Todas as frotas"}
-                </option>
-                {frotasDisponiveis.map(f => <option key={f} value={f}>{f}</option>)}
+                <option value="__todos__">Todos os subtipos</option>
+                {subtiposDisponiveis.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
           )}
+
+          {/* Frota */}
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground font-medium">
+              Frota {subtipoEquip !== "__todos__" ? `— ${subtipoEquip}` : tipoEquip !== "__todos__" ? "(selecione subtipo para refinar)" : ""}
+            </span>
+            <select
+              value={frotaSel}
+              onChange={e => setFrotaSel(e.target.value)}
+              className="w-full h-11 rounded-xl border border-border bg-secondary px-3 text-sm"
+              disabled={subtipoEquip === "__todos__" || frotasDisponiveis.length === 0}
+            >
+              <option value="__todas__">
+                {subtipoEquip !== "__todos__" ? `Todas as ${subtipoEquip}` : "Selecione subtipo primeiro"}
+              </option>
+              {frotasDisponiveis.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
 
           {/* Busca por OGS */}
           <div className="space-y-1">

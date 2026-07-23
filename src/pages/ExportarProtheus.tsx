@@ -1,16 +1,40 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Download, Loader2, FileSpreadsheet, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import * as XLSX from "xlsx";
 
-const EQUIPMENT_TYPES = [
-  "Fresadora", "Bobcat", "Rolo", "Vibroacabadora",
-  "Usina KMA", "Caminhões", "Comboio", "Veículo", "Retro", "Carreta",
-];
+function normalizeTxt(v: string) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+function toLegacyTipo(categoriaKey: string, subtipoLabel: string) {
+  const sub = normalizeTxt(subtipoLabel);
+  if (categoriaKey === "CAMINHOES") return "Caminhões";
+  if (categoriaKey === "CARRETAS") return "Carreta";
+  if (categoriaKey === "VEICULOS") return "Veículo";
+  if (categoriaKey === "USINAGEM") return "Usina KMA";
+  if (categoriaKey === "LINHA_AMARELA") return "Retro";
+  if (categoriaKey === "PEQUENO_PORTE") return "Comboio";
+  if (categoriaKey === "SANITARIO") return "Comboio";
+  if (categoriaKey === "PAVIMENTACAO") {
+    if (sub.includes("VIBRO")) return "Vibroacabadora";
+    return "Rolo";
+  }
+  if (categoriaKey === "FRESAGEM") {
+    if (sub.includes("BOBCAT")) return "Bobcat";
+    return "Fresadora";
+  }
+  return "Fresadora";
+}
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -91,7 +115,10 @@ function buildHeader(tipoEquip: string): string[] {
 
 export default function ExportarProtheus() {
   const navigate = useNavigate();
-  const [tipoEquip, setTipoEquip] = useState("");
+  const { categorias, loading: loadingTipos } = useEquipamentoTipos();
+
+  const [tipoEquip, setTipoEquip] = useState(""); // categoria key: CAMINHOES, CARRETAS...
+  const [subtipoEquip, setSubtipoEquip] = useState(""); // tipoValor: CAMINHÃO BASCULANTE...
   const [frota, setFrota] = useState("__todas__");
   const [frotas, setFrotas] = useState<string[]>([]);
   const [loadingFrotas, setLoadingFrotas] = useState(false);
@@ -104,22 +131,61 @@ export default function ExportarProtheus() {
   const [previewHeader, setPreviewHeader] = useState<string[] | null>(null);
   const [previewRows, setPreviewRows] = useState<any[][] | null>(null);
 
-  // ── Carrega frotas disponíveis ao escolher tipo de equipamento ──────────────
+  const categoriaSel = useMemo(
+    () => categorias.find((c) => c.key === tipoEquip) || null,
+    [categorias, tipoEquip],
+  );
+
+  const subtipos = useMemo(
+    () => (categoriaSel?.tipos || []).map((t) => ({ value: t.tipoValor, label: t.label })),
+    [categoriaSel],
+  );
+
+  const tipoEquipLabel = categoriaSel?.label || "";
+  const subtipoLabel = subtipos.find((s) => s.value === subtipoEquip)?.label || subtipoEquip;
+  const tipoExportBase = useMemo(() => toLegacyTipo(tipoEquip, subtipoLabel), [tipoEquip, subtipoLabel]);
+
+  // ── Reseta cascata ao trocar categoria ──────────────────────────────────────
   useEffect(() => {
-    if (!tipoEquip) { setFrotas([]); setFrota("__todas__"); return; }
+    setSubtipoEquip("");
+    setFrota("__todas__");
+    setFrotas([]);
+    setPreviewHeader(null);
+    setPreviewRows(null);
+    setTotal(null);
+  }, [tipoEquip]);
+
+  // ── Carrega frotas após escolher subtipo ────────────────────────────────────
+  useEffect(() => {
+    if (!subtipoEquip) {
+      setFrotas([]);
+      setFrota("__todas__");
+      return;
+    }
+
     setLoadingFrotas(true);
     setFrota("__todas__");
-    setPreviewHeader(null); setPreviewRows(null); setTotal(null);
-    supabase
-      .from("equipment_diaries")
-      .select("equipment_fleet")
-      .eq("equipment_type", tipoEquip)
-      .then(({ data }) => {
-        const unique = [...new Set((data ?? []).map((d: any) => d.equipment_fleet).filter(Boolean))].sort();
-        setFrotas(unique);
+    setPreviewHeader(null);
+    setPreviewRows(null);
+    setTotal(null);
+
+    const loadFrotas = async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("equipamentos")
+          .select("frota")
+          .eq("tipo", subtipoEquip)
+          .order("frota");
+
+        const unique = [...new Set((data ?? []).map((d: any) => d.frota).filter(Boolean))] as string[];
+        setFrotas(unique.sort((a, b) => a.localeCompare(b, "pt-BR")));
+      } finally {
         setLoadingFrotas(false);
-      });
-  }, [tipoEquip]);
+      }
+    };
+
+    loadFrotas();
+  }, [subtipoEquip]);
 
   const resetPreview = () => {
     setPreviewHeader(null); setPreviewRows(null); setTotal(null);
@@ -127,12 +193,24 @@ export default function ExportarProtheus() {
 
   // ── Função central de busca ──────────────────────────────────────────────────
   const fetchData = async () => {
+    if (!tipoEquip) {
+      throw new Error("Selecione o tipo de equipamento.");
+    }
+
+    if (!subtipoEquip) {
+      throw new Error("Selecione o subtipo antes de exportar.");
+    }
+
+    if (!frotas.length) {
+      throw new Error(`Nenhuma frota encontrada para o subtipo ${subtipoLabel}.`);
+    }
+
     let query = supabase
       .from("equipment_diaries")
       .select("*")
-      .eq("equipment_type", tipoEquip)
       .gte("date", dataInicio)
       .lte("date", dataFim)
+      .in("equipment_fleet", frotas)
       .order("date", { ascending: true });
 
     if (frota && frota !== "__todas__") {
@@ -144,7 +222,9 @@ export default function ExportarProtheus() {
     if (errDiarios) throw errDiarios;
     if (!diarios || diarios.length === 0) {
       const frotaLabel = frota && frota !== "__todas__" ? ` / Frota ${frota}` : "";
-      throw new Error(`Nenhum lançamento encontrado para ${tipoEquip}${frotaLabel} no período selecionado.`);
+      const tipoLabel = tipoEquipLabel ? ` (${tipoEquipLabel})` : "";
+      const subtipoInfo = subtipoLabel ? ` / ${subtipoLabel}` : "";
+      throw new Error(`Nenhum lançamento encontrado para${tipoLabel}${subtipoInfo}${frotaLabel} no período selecionado.`);
     }
 
     const diaryIds = diarios.map((d: any) => d.id);
@@ -217,9 +297,9 @@ export default function ExportarProtheus() {
       return "noturno";
     }
 
-    const comAuxiliar = TEM_AUXILIAR.includes(tipoEquip);
-    const comProducao = TEM_PRODUCAO.includes(tipoEquip);
-    const header = buildHeader(tipoEquip);
+    const comAuxiliar = TEM_AUXILIAR.includes(tipoExportBase);
+    const comProducao = TEM_PRODUCAO.includes(tipoExportBase);
+    const header = buildHeader(tipoExportBase);
 
     const dataRows = diarios.map((d: any) => {
       const times  = (timeMap[d.id] ?? []).slice(0, 10);
@@ -245,8 +325,8 @@ export default function ExportarProtheus() {
         d.location_address ?? "",
         d.work_status ?? "",
         turnoCorrigido,
-        USA_ODOMETRO.includes(tipoEquip) ? fmtNum(d.odometer_initial) : fmtNum(d.meter_initial),
-        USA_ODOMETRO.includes(tipoEquip) ? fmtNum(d.odometer_final) : fmtNum(d.meter_final),
+        USA_ODOMETRO.includes(tipoExportBase) ? fmtNum(d.odometer_initial) : fmtNum(d.meter_initial),
+        USA_ODOMETRO.includes(tipoExportBase) ? fmtNum(d.odometer_final) : fmtNum(d.meter_final),
       ];
 
       for (let i = 0; i < 10; i++) {
@@ -257,7 +337,7 @@ export default function ExportarProtheus() {
         row.push(t?.description ?? "");
       }
 
-      if (tipoEquip === "Fresadora") {
+      if (tipoExportBase === "Fresadora") {
         row.push(d.fresagem_type ?? "");
         row.push(bits ? "Sim" : "Não");
         row.push(bits?.status ?? "");
@@ -283,12 +363,12 @@ export default function ExportarProtheus() {
     return { header, rows: dataRows, total: diarios.length };
   };
 
-  const isFormValid = tipoEquip && dataInicio && dataFim && dataInicio <= dataFim;
+  const isFormValid = !!tipoEquip && !!subtipoEquip && dataInicio && dataFim && dataInicio <= dataFim;
 
   // ── Pré-visualizar ────────────────────────────────────────────────────────
   const handlePrevisualizar = async () => {
     if (!isFormValid) {
-      setErro("Selecione o tipo de equipamento e um período válido (data inicial ≤ data final).");
+      setErro("Selecione Tipo de Equipamento, Subtipo e um período válido (data inicial ≤ data final).");
       return;
     }
     setErro("");
@@ -311,7 +391,7 @@ export default function ExportarProtheus() {
   // ── Exportar XLSX ─────────────────────────────────────────────────────────
   const handleExportar = async () => {
     if (!isFormValid) {
-      setErro("Selecione o tipo de equipamento e um período válido.");
+      setErro("Selecione Tipo de Equipamento, Subtipo e um período válido.");
       return;
     }
     setErro("");
@@ -340,11 +420,13 @@ export default function ExportarProtheus() {
 
       ws["!cols"] = header.map(() => ({ wch: 20 }));
 
-      const nomeAba = tipoEquip.replace(/\s/g, "_").toUpperCase();
+      const nomeAba = (subtipoLabel || tipoEquipLabel || "EXPORT").replace(/\s/g, "_").toUpperCase();
       XLSX.utils.book_append_sheet(wb, ws, nomeAba);
 
       const frotaLabel = frota && frota !== "__todas__" ? `_${frota.replace(/\s/g,"_")}` : "";
-      const nomeArquivo = `WF_Protheus_${tipoEquip.replace(/\s/g,"_")}${frotaLabel}_${dataInicio}_a_${dataFim}.xlsx`;
+      const subtipoArquivo = subtipoLabel ? `_${subtipoLabel.replace(/\s/g, "_")}` : "";
+      const tipoArquivo = tipoEquipLabel ? `_${tipoEquipLabel.replace(/\s/g, "_")}` : "";
+      const nomeArquivo = `WF_Protheus${tipoArquivo}${subtipoArquivo}${frotaLabel}_${dataInicio}_a_${dataFim}.xlsx`;
       XLSX.writeFile(wb, nomeArquivo);
 
       setTotal(total);
@@ -379,21 +461,39 @@ export default function ExportarProtheus() {
             </div>
           </div>
 
-          {/* Tipo de Equipamento */}
+          {/* Tipo de Equipamento (Categoria padrão do Painel de Controle) */}
           <div className="space-y-1.5">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo de Equipamento</span>
             <Select value={tipoEquip} onValueChange={v => { setTipoEquip(v); resetPreview(); }}>
               <SelectTrigger className="h-12 bg-white border-border rounded-xl">
-                <SelectValue placeholder="Selecione o equipamento" />
+                <SelectValue placeholder={loadingTipos ? "Carregando tipos..." : "Selecione o tipo"} />
               </SelectTrigger>
               <SelectContent>
-                {EQUIPMENT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                {categorias.map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Frota — aparece só após escolher tipo */}
+          {/* Subtipo — obrigatório antes da Frota */}
           {tipoEquip && (
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Subtipo</span>
+              <Select value={subtipoEquip} onValueChange={v => { setSubtipoEquip(v); resetPreview(); }}>
+                <SelectTrigger className="h-12 bg-white border-border rounded-xl">
+                  <SelectValue placeholder="Selecione o subtipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subtipos.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {subtipoEquip && (
+                <p className="text-sm font-semibold text-blue-700">subtipo = {subtipoLabel.toLowerCase()}</p>
+              )}
+            </div>
+          )}
+
+          {/* Frota — só após escolher subtipo */}
+          {tipoEquip && subtipoEquip && (
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Frota</span>
               {loadingFrotas ? (
@@ -480,7 +580,9 @@ export default function ExportarProtheus() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-white shadow-sm shrink-0">
               <div>
                 <p className="font-display font-bold text-sm">
-                  Pré-visualização — {tipoEquip}{frota && frota !== "__todas__" ? ` / Frota ${frota}` : ""} · {periodoLabel}
+                  Pré-visualização — {tipoEquipLabel || "Tipo"}
+                  {subtipoLabel ? ` (${subtipoLabel})` : ""}
+                  {frota && frota !== "__todas__" ? ` / Frota ${frota}` : ""} · {periodoLabel}
                 </p>
                 <p className="text-xs text-muted-foreground">{total} lançamento{total !== 1 ? "s" : ""} encontrado{total !== 1 ? "s" : ""} · {previewHeader.length} colunas</p>
               </div>
@@ -542,11 +644,11 @@ export default function ExportarProtheus() {
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-800 space-y-2">
           <p className="font-semibold">ℹ️ Estrutura da planilha</p>
           <ul className="list-disc list-inside space-y-1 text-blue-700 text-xs">
-            <li>Colunas base: Data, Operador{TEM_AUXILIAR.includes(tipoEquip) ? ", Auxiliar" : ""}, Frota, OGS, etc.</li>
+            <li>Colunas base: Data, Operador{TEM_AUXILIAR.includes(tipoExportBase) ? ", Auxiliar" : ""}, Frota, OGS, etc.</li>
             <li>10 blocos fixos de Apontamento de Horas (Início/Término/Item/OBS)</li>
-            {tipoEquip === "Fresadora" && <li>Bits: Tipo Fresagem + Aplicou/Status/Qtd/Horímetro/Fornecedor</li>}
-            {TEM_PRODUCAO.includes(tipoEquip) && <li>25 blocos fixos de Produção (Comprimento/Largura/Espessura)</li>}
-            {!TEM_PRODUCAO.includes(tipoEquip) && tipoEquip && <li className="text-amber-600">Sem colunas de Produção para este equipamento</li>}
+            {tipoExportBase === "Fresadora" && <li>Bits: Tipo Fresagem + Aplicou/Status/Qtd/Horímetro/Fornecedor</li>}
+            {TEM_PRODUCAO.includes(tipoExportBase) && <li>25 blocos fixos de Produção (Comprimento/Largura/Espessura)</li>}
+            {!TEM_PRODUCAO.includes(tipoExportBase) && subtipoEquip && <li className="text-amber-600">Sem colunas de Produção para este equipamento</li>}
             <li>Observações Gerais</li>
           </ul>
         </div>

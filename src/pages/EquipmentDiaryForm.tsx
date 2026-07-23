@@ -10,6 +10,7 @@ import { offlineDb } from "@/lib/offlineDb";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -138,6 +139,14 @@ function toText(value: string | number | null | undefined): string {
   return String(value);
 }
 
+function normTxt(v: string) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
 function isRemoteUrl(value: string | null | undefined): boolean {
   return !!value && /^https?:\/\//i.test(value);
 }
@@ -164,6 +173,7 @@ export default function EquipmentDiaryForm() {
   const [searchParams] = useSearchParams();
   const { session } = useAuth();
   const { profile } = useUserProfile();
+  const { categorias } = useEquipamentoTipos();
   const { toast } = useToast();
   const isOnline = useOnlineStatus();
   const [saving, setSaving] = useState(false);
@@ -296,6 +306,94 @@ export default function EquipmentDiaryForm() {
   // KMA-specific
   const [operator2, setOperator2] = useState("");
   const [kmaOperation, setKmaOperation] = useState<KmaOperationData>(createEmptyKmaOperation());
+
+  const tiposByCategoria = useMemo(() => {
+    const map = new Map<string, string[]>();
+    categorias.forEach((c) => {
+      map.set(c.key, c.tipos.map((t) => t.label));
+    });
+    return map;
+  }, [categorias]);
+
+  const caminhaoTiposOptions = useMemo(() => {
+    const labels = tiposByCategoria.get("CAMINHOES") || [];
+    const found = new Set<string>();
+
+    labels.forEach((label) => {
+      const n = normTxt(label);
+      if (n.includes("BASCULANTE")) found.add("Basculante");
+      if (n.includes("CARROCERIA")) found.add("Carroceria");
+      if (n.includes("ESPARGIDOR")) found.add("Espargidor");
+      if (n.includes("PIPA")) found.add("Pipa");
+      if (n.includes("COMBOIO")) found.add("Comboio");
+    });
+
+    const ordered = ["Pipa", "Carroceria", "Espargidor", "Basculante", "Comboio"].filter((t) => found.has(t));
+    return ordered.length > 0 ? ordered : [...CAMINHAO_TIPOS];
+  }, [tiposByCategoria]);
+
+  const roloTypesOptions = useMemo(() => {
+    const labels = tiposByCategoria.get("PAVIMENTACAO") || [];
+    const found = new Set<string>();
+
+    labels.forEach((label) => {
+      const n = normTxt(label);
+      if (n.includes("ROLO CHAPA")) found.add("Rolo Chapa");
+      if (n.includes("ROLO PNEU")) found.add("Rolo Pneu");
+      if (n.includes("PE DE CARNEIRO") || n.includes("PÉ DE CARNEIRO")) found.add("Rolo Pé de Carneiro");
+    });
+
+    const ordered = ["Rolo Chapa", "Rolo Pneu", "Rolo Pé de Carneiro"].filter((t) => found.has(t));
+    return ordered.length > 0 ? ordered : [...ROLO_TYPES];
+  }, [tiposByCategoria]);
+
+  const veiculoTypesOptions = useMemo(() => {
+    const labels = tiposByCategoria.get("VEICULOS") || [];
+    const found = new Set<string>();
+
+    labels.forEach((label) => {
+      const n = normTxt(label);
+      if (n.includes("MICRO")) found.add("Micro-ônibus");
+      if (n.includes("VAN")) found.add("Van");
+    });
+
+    const ordered = ["Micro-ônibus", "Van"].filter((t) => found.has(t));
+    return ordered.length > 0 ? ordered : [...VEICULO_TYPES];
+  }, [tiposByCategoria]);
+
+  const linhaAmarelaTiposOptions = useMemo(() => {
+    const labels = tiposByCategoria.get("LINHA_AMARELA") || [];
+    if (labels.length > 0) return labels;
+    return [...LINHA_AMARELA_TIPOS];
+  }, [tiposByCategoria]);
+
+  useEffect(() => {
+    if (isCaminhoes && caminhaoTipo && !caminhaoTiposOptions.includes(caminhaoTipo)) {
+      setCaminhaoTipo("");
+      setSelectedFleet("");
+    }
+  }, [isCaminhoes, caminhaoTipo, caminhaoTiposOptions]);
+
+  useEffect(() => {
+    if (isRolo && roloType && !roloTypesOptions.includes(roloType)) {
+      setRoloType("");
+      setSelectedFleet("");
+    }
+  }, [isRolo, roloType, roloTypesOptions]);
+
+  useEffect(() => {
+    if (isVeiculo && veiculoType && !veiculoTypesOptions.includes(veiculoType)) {
+      setVeiculoType("");
+      setSelectedFleet("");
+    }
+  }, [isVeiculo, veiculoType, veiculoTypesOptions]);
+
+  useEffect(() => {
+    if (isRetro && attachmentType && !linhaAmarelaTiposOptions.includes(attachmentType)) {
+      setAttachmentType("");
+      setSelectedFleet("");
+    }
+  }, [isRetro, attachmentType, linhaAmarelaTiposOptions]);
 
   // OGS auto-fill — collect ALL rows for the selected OGS number
   const selectedOgsEntries = useMemo(() => {
@@ -1049,7 +1147,7 @@ export default function EquipmentDiaryForm() {
       return eq.filter(e =>
         hasVinculoTipo(e, linhaVinculo, isLinhaTipo) ||
         (linhaVinculo !== "LINHA_AMARELA" && hasVinculoTipo(e, "LINHA_AMARELA", isLinhaTipo))
-      ).filter(e => attachmentType ? e.tipo?.toLowerCase().includes(attachmentType.toLowerCase()) : true);
+      ).filter(e => attachmentType ? normTxt(e.tipo || "").includes(normTxt(attachmentType)) : true);
     }
     if (isVibro) {
       return eq.filter(e => hasVinculoTipo(e, "VIBRO", x =>
@@ -1610,7 +1708,7 @@ export default function EquipmentDiaryForm() {
               ticketUrl = urlData.publicUrl;
             }
           }
-          await supabase.from("kma_calibration_entries").insert({
+          const { error: kmaCalErr } = await supabase.from("kma_calibration_entries").insert({
             equipment_diary_id: diary.id,
             attempt_number: entry.tentativa,
             nominal_weight_usina: entry.pesoNominal ? Number(String(entry.pesoNominal).replace(",", ".")) : null,
@@ -1619,10 +1717,14 @@ export default function EquipmentDiaryForm() {
             adjustment_factor: entry.fator ? Number(String(entry.fator).replace(",", ".")) : null,
             ticket_photo_url: ticketUrl,
           });
+          if (kmaCalErr) {
+            console.error("[KMA] Erro ao salvar calibração:", kmaCalErr);
+            throw new Error(`Erro ao salvar calibração KMA: ${kmaCalErr.message}`);
+          }
         }
         // Save KMA operations
         if (isUsinaKma && diary && kmaOperation.operationType) {
-          await supabase.from("kma_operations").insert({
+          const { error: kmaOpErr } = await supabase.from("kma_operations").insert({
             diary_id: diary.id,
             operation_type: kmaOperation.operationType,
             cap_type: kmaOperation.capType || null,
@@ -1641,6 +1743,10 @@ export default function EquipmentDiaryForm() {
             aggregates_supplier: kmaOperation.aggregatesSupplier || null,
             total_volume_machined_ton: kmaOperation.totalVolumeMachinedTon ? Number(String(kmaOperation.totalVolumeMachinedTon).replace(",", ".")) : null,
           });
+          if (kmaOpErr) {
+            console.error("[KMA] Erro ao salvar operação:", kmaOpErr);
+            throw new Error(`Erro ao salvar operação KMA: ${kmaOpErr.message}`);
+          }
         }
       }
 
@@ -2183,7 +2289,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder="Selecione o tipo..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLO_TYPES.map((t) => (
+                  {roloTypesOptions.map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
                 </SelectContent>
@@ -2199,7 +2305,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder="Selecione o tipo..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {CAMINHAO_TIPOS.map((t) => (
+                  {caminhaoTiposOptions.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t === "Pipa" ? "💧 Pipa" : t === "Espargidor" ? "🛢️ Espargidor" : t === "Carroceria" ? "📦 Carroceria" : t === "Comboio" ? "⛽ Comboio" : "🚛 Basculante"}
                     </SelectItem>
@@ -2217,7 +2323,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder="Micro-ônibus ou Van..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {VEICULO_TYPES.map((t) => (
+                  {veiculoTypesOptions.map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
                 </SelectContent>
@@ -2233,7 +2339,7 @@ export default function EquipmentDiaryForm() {
                   <SelectValue placeholder="Selecione o tipo..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {LINHA_AMARELA_TIPOS.map((t) => (
+                  {linhaAmarelaTiposOptions.map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
                 </SelectContent>

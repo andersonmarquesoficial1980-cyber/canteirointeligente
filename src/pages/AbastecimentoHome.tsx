@@ -10,7 +10,7 @@ import { ArrowLeft, Plus, Fuel, Loader2, Filter, Trash2, Clock, Truck, Droplets,
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
-import { buildEquipmentTypeOptionsFromEquipments, listEquipmentFleetsByCategory } from "@/lib/equipmentTypeCatalog";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO", "BUS"];
 const MACARICO_TYPE_VALUE = "MACARICO";
@@ -75,6 +75,7 @@ interface EntradaAbastecimento {
   id: string;
   hora: string;
   tipoEquipamento: string;
+  subtipoEquipamento: string;
   frota: string;
   medicao: string;
   litros: string;
@@ -88,6 +89,7 @@ function novaEntrada(): EntradaAbastecimento {
     id: crypto.randomUUID(),
     hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
     tipoEquipamento: "",
+    subtipoEquipamento: "",
     frota: "",
     medicao: "",
     litros: "",
@@ -175,6 +177,7 @@ function buildOgsOptions(ogsData: any[]) {
 
 export default function AbastecimentoHome() {
   const navigate = useNavigate();
+  const { categorias } = useEquipamentoTipos();
 
   // ── Dados da tela principal ──
   const [abastecimentos, setAbastecimentos] = useState<AbastecimentoRow[]>([]);
@@ -241,6 +244,7 @@ export default function AbastecimentoHome() {
   // Para posto/shelbox/manual — lançamento simples
   const [simpFrota, setSimpFrota] = useState("");
   const [simpTipoEquip, setSimpTipoEquip] = useState("");
+  const [simpSubtipoEquip, setSimpSubtipoEquip] = useState("");
   const [simpHora, setSimpHora] = useState("");
   const [simpLitros, setSimpLitros] = useState("");
   const [simpMedicao, setSimpMedicao] = useState("");
@@ -301,8 +305,8 @@ export default function AbastecimentoHome() {
 
   const ogsOptions = useMemo(() => buildOgsOptions(ogsData), [ogsData]);
   const equipmentTypeOptions = useMemo(() => {
-    const dynamicOptions = buildEquipmentTypeOptionsFromEquipments(equipamentos as any[]).filter((opt) => opt.value !== "OUTROS");
-    const ensuredOptions = [...dynamicOptions];
+    const fromPainel = categorias.map((c) => ({ value: c.key, label: c.label }));
+    const ensuredOptions = [...fromPainel];
 
     if (!ensuredOptions.some((opt) => isMacaricoType(opt.value))) {
       ensuredOptions.push({ value: MACARICO_TYPE_VALUE, label: "MAÇARICO" });
@@ -313,7 +317,18 @@ export default function AbastecimentoHome() {
     }
 
     return ensuredOptions;
-  }, [equipamentos]);
+  }, [categorias]);
+
+  function getSubtiposByTipo(tipo: string) {
+    if (!tipo) return [] as Array<{ value: string; label: string }>;
+    if (isMacaricoType(tipo)) return [{ value: MACARICO_TYPE_VALUE, label: "MAÇARICO" }];
+    if (isGalaoType(tipo)) return [{ value: GALAO_TYPE_VALUE, label: "GALÃO" }];
+
+    const categoria = categorias.find((c) => c.key === tipo);
+    if (!categoria) return [] as Array<{ value: string; label: string }>;
+
+    return categoria.tipos.map((t) => ({ value: t.tipoValor, label: t.label }));
+  }
   const fornecedoresList = abastConfig.fornecedores_diesel.length > 0 ? abastConfig.fornecedores_diesel : ["Posto Fremix", "Shell", "Rimacris", "Petrobrás"];
   const listMotoristas = motoristas;
   const listLubrificadores = lubrificadores;
@@ -438,13 +453,17 @@ export default function AbastecimentoHome() {
     }
   }
 
-  function getEquipsByTipo(tipo: string) {
-    if (!tipo) return [];
+  function getEquipsByTipo(tipo: string, subtipo: string) {
+    if (!tipo || !subtipo) return [];
 
     if (isMacaricoType(tipo)) return buildMacaricoFleetOptions();
     if (isGalaoType(tipo)) return buildGalaoDestinations();
 
-    const baseOptions = listEquipmentFleetsByCategory(equipamentos as any[], tipo);
+    const subtipoNorm = normalizeTypeValue(subtipo);
+
+    const baseOptions = (equipamentos as any[])
+      .filter((e: any) => normalizeTypeValue(e?.tipo || "") === subtipoNorm)
+      .filter((e: any, idx: number, arr: any[]) => idx === arr.findIndex((x: any) => String(x?.frota || "").toUpperCase() === String(e?.frota || "").toUpperCase()));
 
     if (isVeiculosType(tipo)) {
       return [...buildExtraVehicleDestinations(), ...baseOptions];
@@ -533,7 +552,7 @@ export default function AbastecimentoHome() {
     if (frotasComboio.length === 1) setComboioFrota(frotasComboio[0].frota);
     setSaldoComboio(0); setFornecedor(""); setObservacao("");
     setEntradas([novaEntrada()]);
-    setSimpFrota(""); setSimpTipoEquip(""); setSimpHora(""); setSimpLitros("");
+    setSimpFrota(""); setSimpTipoEquip(""); setSimpSubtipoEquip(""); setSimpHora(""); setSimpLitros("");
     setSimpMedicao(""); setSimpOgs(""); setSimpFornecedor("");
     setSimpLubrificado(false); setSimpAutorizadoPor("");
   }
@@ -605,7 +624,9 @@ export default function AbastecimentoHome() {
   function updateEntrada(idx: number, field: keyof EntradaAbastecimento, value: any) {
     const updated = [...entradas];
     if (field === "tipoEquipamento") {
-      updated[idx] = { ...updated[idx], tipoEquipamento: value, frota: "" };
+      updated[idx] = { ...updated[idx], tipoEquipamento: value, subtipoEquipamento: "", frota: "" };
+    } else if (field === "subtipoEquipamento") {
+      updated[idx] = { ...updated[idx], subtipoEquipamento: value, frota: "" };
     } else {
       updated[idx] = { ...updated[idx], [field]: value };
     }
@@ -626,7 +647,7 @@ export default function AbastecimentoHome() {
             ...base,
             hora: e.hora || null,
             equipment_fleet: e.frota,
-            equipment_type: e.tipoEquipamento || null,
+            equipment_type: e.subtipoEquipamento || e.tipoEquipamento || null,
             litros: parseFloat(String(e.litros).replace(",", ".")),
             horimetro: !isVehicleFleet(e.frota) && e.medicao ? parseFloat(String(e.medicao).replace(",", ".")) : null,
             km_odometro: isVehicleFleet(e.frota) && e.medicao ? parseFloat(String(e.medicao).replace(",", ".")) : null,
@@ -664,7 +685,7 @@ export default function AbastecimentoHome() {
           ...base,
           hora: simpHora || null,
           equipment_fleet: simpFrota,
-          equipment_type: simpTipoEquip || null,
+          equipment_type: simpSubtipoEquip || simpTipoEquip || null,
           litros: parseFloat(String(simpLitros).replace(",", ".")),
           horimetro: simpMedicao ? parseFloat(String(simpMedicao).replace(",", ".")) : null,
           ogs: simpOgs || null,
@@ -988,10 +1009,11 @@ export default function AbastecimentoHome() {
                   </h3>
 
                   {entradas.map((entry, idx) => {
-                    const equipsDoTipo = getEquipsByTipo(entry.tipoEquipamento);
+                    const subtiposDoTipo = getSubtiposByTipo(entry.tipoEquipamento);
+                    const equipsDoTipo = getEquipsByTipo(entry.tipoEquipamento, entry.subtipoEquipamento);
                     return (
                       <div key={entry.id} className="bg-card border border-border rounded-2xl p-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2">
                           <Select value={entry.tipoEquipamento} onValueChange={v => updateEntrada(idx, "tipoEquipamento", v)}>
                             <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue placeholder="Tipo *" /></SelectTrigger>
                             <SelectContent>
@@ -1000,8 +1022,18 @@ export default function AbastecimentoHome() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <Select value={entry.frota} onValueChange={v => updateEntrada(idx, "frota", v)}>
-                            <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue placeholder="Frota *" /></SelectTrigger>
+
+                          <Select value={entry.subtipoEquipamento} onValueChange={v => updateEntrada(idx, "subtipoEquipamento", v)} disabled={!entry.tipoEquipamento}>
+                            <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue placeholder={entry.tipoEquipamento ? "Subtipo *" : "Selecione o tipo primeiro"} /></SelectTrigger>
+                            <SelectContent>
+                              {subtiposDoTipo.map(opt => (
+                                <SelectItem key={`${entry.id}-${opt.value}`} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Select value={entry.frota} onValueChange={v => updateEntrada(idx, "frota", v)} disabled={!entry.subtipoEquipamento}>
+                            <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue placeholder={entry.subtipoEquipamento ? "Frota *" : "Selecione o subtipo primeiro"} /></SelectTrigger>
                             <SelectContent>
                               {equipsDoTipo.map((e: any) => (
                                 <SelectItem key={e.id} value={e.frota}>{getFleetOptionLabel(e)}</SelectItem>
@@ -1049,25 +1081,36 @@ export default function AbastecimentoHome() {
             {/* ══ POSTO / SHELBOX / MANUAL ══ */}
             {fonte !== "comboio" && (
               <>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <div className="space-y-1.5">
-                    <span className="rdo-label">Frota *</span>
-                    <Select value={simpFrota} onValueChange={setSimpFrota}>
+                    <span className="rdo-label">Tipo *</span>
+                    <Select value={simpTipoEquip} onValueChange={v => { setSimpTipoEquip(v); setSimpSubtipoEquip(""); setSimpFrota(""); }}>
                       <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                       <SelectContent>
-                        {equipamentos.map((e: any) => (
-                          <SelectItem key={e.id} value={e.frota}>{getFleetOptionLabel(e)}</SelectItem>
+                        {equipmentTypeOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <span className="rdo-label">Tipo</span>
-                    <Select value={simpTipoEquip} onValueChange={setSimpTipoEquip}>
-                      <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <span className="rdo-label">Subtipo *</span>
+                    <Select value={simpSubtipoEquip} onValueChange={v => { setSimpSubtipoEquip(v); setSimpFrota(""); }} disabled={!simpTipoEquip}>
+                      <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder={simpTipoEquip ? "Selecione..." : "Selecione o tipo primeiro"} /></SelectTrigger>
                       <SelectContent>
-                        {equipmentTypeOptions.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        {getSubtiposByTipo(simpTipoEquip).map(opt => (
+                          <SelectItem key={`simp-${opt.value}`} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="rdo-label">Frota *</span>
+                    <Select value={simpFrota} onValueChange={setSimpFrota} disabled={!simpSubtipoEquip}>
+                      <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder={simpSubtipoEquip ? "Selecione..." : "Selecione o subtipo primeiro"} /></SelectTrigger>
+                      <SelectContent>
+                        {getEquipsByTipo(simpTipoEquip, simpSubtipoEquip).map((e: any) => (
+                          <SelectItem key={e.id} value={e.frota}>{getFleetOptionLabel(e)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

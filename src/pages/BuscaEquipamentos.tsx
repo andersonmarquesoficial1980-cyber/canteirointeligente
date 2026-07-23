@@ -4,12 +4,13 @@
  * Rota: /relatorios/busca-equipamentos
  * Filtros persistidos na URL para sobreviver ao navigate(-1)
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Search, Loader2, X, ChevronRight, Wrench, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -29,9 +30,23 @@ interface DiarioResult {
   period: string | null;
 }
 
+interface EquipResumo {
+  equipment_type: string | null;
+  equipment_fleet: string | null;
+}
+
+function normTxt(v: string | null | undefined) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
 export default function BuscaEquipamentos() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { categorias } = useEquipamentoTipos();
 
   const hoje = new Date().toISOString().split("T")[0];
   const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
@@ -40,7 +55,8 @@ export default function BuscaEquipamentos() {
   const ini = searchParams.get("ini") || mesAtras;
   const fim = searchParams.get("fim") || hoje;
   const ogs = searchParams.get("ogs") || "";
-  const tipoEquip = searchParams.get("tipo") || "";
+  const tipoEquip = searchParams.get("tipo") || ""; // categoria key
+  const subtipoEquip = searchParams.get("subtipo") || "";
   const frota = searchParams.get("frota") || "";
   const operador = searchParams.get("operador") || "";
   const buscou = searchParams.get("buscou") === "1";
@@ -57,34 +73,48 @@ export default function BuscaEquipamentos() {
   const [loading, setLoading] = useState(false);
 
   // Opções dinâmicas
-  const [tipos, setTipos] = useState<string[]>([]);
-  const [frotasPorTipo, setFrotasPorTipo] = useState<Record<string, string[]>>({});
+  const [equipamentosResumo, setEquipamentosResumo] = useState<EquipResumo[]>([]);
   const [operadores, setOperadores] = useState<string[]>([]);
 
-  // Frotas filtradas pelo tipo selecionado
-  const frotas = tipoEquip
-    ? (frotasPorTipo[tipoEquip] || [])
-    : [...new Set(Object.values(frotasPorTipo).flat())].sort();
+  const tipos = useMemo(() => {
+    return categorias
+      .filter((cat) => cat.tipos.some((t) => equipamentosResumo.some((r) => normTxt(r.equipment_type) === normTxt(t.tipoValor))))
+      .map((cat) => ({ value: cat.key, label: cat.label }));
+  }, [categorias, equipamentosResumo]);
+
+  const subtipos = useMemo(() => {
+    const categoria = categorias.find((cat) => cat.key === tipoEquip);
+    if (!categoria) return [] as Array<{ value: string; label: string }>;
+    return categoria.tipos
+      .filter((t) => equipamentosResumo.some((r) => normTxt(r.equipment_type) === normTxt(t.tipoValor)))
+      .map((t) => ({ value: t.tipoValor, label: t.label }));
+  }, [categorias, equipamentosResumo, tipoEquip]);
+
+  // Frotas filtradas pelo subtipo selecionado
+  const frotas = useMemo(() => {
+    if (!subtipoEquip) return [] as string[];
+    return [...new Set(
+      equipamentosResumo
+        .filter((r) => normTxt(r.equipment_type) === normTxt(subtipoEquip))
+        .map((r) => r.equipment_fleet)
+        .filter(Boolean) as string[]
+    )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [equipamentosResumo, subtipoEquip]);
 
   useEffect(() => {
     Promise.all([
-      (supabase as any).from("equipment_diaries").select("equipment_type, equipment_fleet").not("equipment_type", "is", null).not("equipment_fleet", "is", null),
-      (supabase as any).from("equipment_diaries").select("operator_name").not("operator_name", "is", null),
+      (supabase as any)
+        .from("equipment_diaries")
+        .select("equipment_type, equipment_fleet")
+        .not("equipment_type", "is", null)
+        .not("equipment_fleet", "is", null),
+      (supabase as any)
+        .from("equipment_diaries")
+        .select("operator_name")
+        .not("operator_name", "is", null),
     ]).then(([td, o]) => {
       if (td.data) {
-        const rows = td.data as any[];
-        const tiposUniq = [...new Set(rows.map((r: any) => r.equipment_type).filter(Boolean))].sort();
-        setTipos(tiposUniq);
-        const byTipo: Record<string, string[]> = {};
-        rows.forEach(r => {
-          const tipo = r.equipment_type as string;
-          const fl = r.equipment_fleet as string;
-          if (!tipo || !fl) return;
-          if (!byTipo[tipo]) byTipo[tipo] = [];
-          if (!byTipo[tipo].includes(fl)) byTipo[tipo].push(fl);
-        });
-        Object.keys(byTipo).forEach(k => byTipo[k].sort());
-        setFrotasPorTipo(byTipo);
+        setEquipamentosResumo(td.data as EquipResumo[]);
       }
       if (o.data) setOperadores([...new Set((o.data as any[]).map((r: any) => r.operator_name).filter(Boolean))].sort());
     });
@@ -103,14 +133,22 @@ export default function BuscaEquipamentos() {
       .limit(150);
 
     if (ogs.trim()) query = query.ilike("ogs_number", `%${ogs.trim()}%`);
-    if (tipoEquip) query = query.ilike("equipment_type", tipoEquip);
+    if (subtipoEquip) {
+      query = query.ilike("equipment_type", subtipoEquip);
+    } else if (tipoEquip) {
+      const categoria = categorias.find((cat) => cat.key === tipoEquip);
+      const subtiposCategoria = (categoria?.tipos || []).map((t) => t.tipoValor).filter(Boolean);
+      if (subtiposCategoria.length > 0) {
+        query = query.in("equipment_type", subtiposCategoria);
+      }
+    }
     if (frota.trim()) query = query.ilike("equipment_fleet", `%${frota.trim()}%`);
     if (operador.trim()) query = query.ilike("operator_name", `%${operador.trim()}%`);
 
     const { data, error } = await query;
     if (!error) setResultados(data || []);
     setLoading(false);
-  }, [ini, fim, ogs, tipoEquip, frota, operador]);
+  }, [ini, fim, ogs, tipoEquip, subtipoEquip, frota, operador, categorias]);
 
   // Rebusca automaticamente ao voltar se já havia buscado antes
   useEffect(() => {
@@ -180,6 +218,7 @@ export default function BuscaEquipamentos() {
                 setSearchParams(prev => {
                   const next = new URLSearchParams(prev);
                   if (e.target.value) next.set("tipo", e.target.value); else next.delete("tipo");
+                  next.delete("subtipo");
                   next.delete("frota");
                   return next;
                 }, { replace: true });
@@ -187,21 +226,43 @@ export default function BuscaEquipamentos() {
               className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
             >
               <option value="">Todos os tipos</option>
-              {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+              {tipos.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+
+          {/* Subtipo */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Subtipo</label>
+            <select
+              value={subtipoEquip}
+              onChange={e => {
+                setSearchParams(prev => {
+                  const next = new URLSearchParams(prev);
+                  if (e.target.value) next.set("subtipo", e.target.value); else next.delete("subtipo");
+                  next.delete("frota");
+                  return next;
+                }, { replace: true });
+              }}
+              disabled={!tipoEquip}
+              className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
+            >
+              <option value="">{tipoEquip ? "Todos os subtipos" : "Selecione o tipo primeiro"}</option>
+              {subtipos.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
 
           {/* Frota */}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              Frota {tipoEquip && <span className="text-primary">({tipoEquip})</span>}
+              Frota {subtipoEquip && <span className="text-primary">({subtipoEquip})</span>}
             </label>
             <select
               value={frota}
               onChange={e => setFiltro("frota", e.target.value)}
+              disabled={!subtipoEquip}
               className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
             >
-              <option value="">{frotas.length > 0 ? `Todas as frotas (${frotas.length})` : "Selecione o tipo primeiro"}</option>
+              <option value="">{subtipoEquip ? (frotas.length > 0 ? `Todas as frotas (${frotas.length})` : "Nenhuma frota para este subtipo") : "Selecione o subtipo primeiro"}</option>
               {frotas.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
           </div>

@@ -6,7 +6,7 @@
  * Registra quando um equipamento é transportado (carreta própria ou terceirizada).
  * Gera automaticamente o diário de equipamento do dia com work_status "Em Transporte".
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Truck, Plus, Loader2, CheckCircle2, ChevronRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 const CARRETAS_PROPRIAS = ["PR001", "PR007"];
@@ -56,8 +57,17 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
+function normTxt(v: string) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
 export default function TransporteEquipamentos() {
   const navigate = useNavigate();
+  const { categorias } = useEquipamentoTipos();
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [ogsList, setOgsList] = useState<OgsOption[]>([]);
   const [transportes, setTransportes] = useState<Transporte[]>([]);
@@ -66,6 +76,8 @@ export default function TransporteEquipamentos() {
   const [showForm, setShowForm] = useState(false);
 
   // Form state
+  const [tipoEquip, setTipoEquip] = useState("");
+  const [subtipoEquip, setSubtipoEquip] = useState("");
   const [equipSel, setEquipSel] = useState("");
   const [data, setData] = useState(new Date().toISOString().split("T")[0]);
   const [origemOgs, setOrigemOgs] = useState("");
@@ -100,9 +112,46 @@ export default function TransporteEquipamentos() {
     return found ? `OGS ${ogs} — ${found.client_name}` : `OGS ${ogs}`;
   }
 
+  const tiposDisponiveis = useMemo(
+    () => categorias.filter((c) => c.tipos.some((t) => equipamentos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor)))),
+    [categorias, equipamentos],
+  );
+
+  const subtiposDisponiveis = useMemo(() => {
+    const categoria = categorias.find((c) => c.key === tipoEquip);
+    if (!categoria) return [] as Array<{ value: string; label: string }>;
+
+    return categoria.tipos
+      .filter((t) => equipamentos.some((e) => normTxt(e.tipo) === normTxt(t.tipoValor)))
+      .map((t) => ({ value: t.tipoValor, label: t.label }));
+  }, [categorias, tipoEquip, equipamentos]);
+
+  const frotasDisponiveis = useMemo(() => {
+    if (!subtipoEquip) return [] as Equipamento[];
+    const subtipoNorm = normTxt(subtipoEquip);
+    return equipamentos
+      .filter((e) => normTxt(e.tipo) === subtipoNorm)
+      .sort((a, b) => a.frota.localeCompare(b.frota, "pt-BR"));
+  }, [equipamentos, subtipoEquip]);
+
+  useEffect(() => {
+    if (!tipoEquip) return;
+    if (tiposDisponiveis.some((t) => t.key === tipoEquip)) return;
+    setTipoEquip("");
+    setSubtipoEquip("");
+    setEquipSel("");
+  }, [tipoEquip, tiposDisponiveis]);
+
+  useEffect(() => {
+    if (!subtipoEquip) return;
+    if (subtiposDisponiveis.some((s) => s.value === subtipoEquip)) return;
+    setSubtipoEquip("");
+    setEquipSel("");
+  }, [subtipoEquip, subtiposDisponiveis]);
+
   async function handleSalvar() {
-    if (!equipSel || !origemOgs || !destinoOgs) {
-      toast.error("Preencha equipamento, origem e destino.");
+    if (!tipoEquip || !subtipoEquip || !equipSel || !origemOgs || !destinoOgs) {
+      toast.error("Preencha tipo, subtipo, equipamento, origem e destino.");
       return;
     }
     if (tipoTransportador === "TERCEIRO" && !transportadorNome.trim()) {
@@ -223,6 +272,8 @@ export default function TransporteEquipamentos() {
   }
 
   function resetForm() {
+    setTipoEquip("");
+    setSubtipoEquip("");
     setEquipSel(""); setData(new Date().toISOString().split("T")[0]);
     setOrigemOgs(""); setDestinoOgs("");
     setTipoTransportador("PROPRIO"); setTransportadorNome("");
@@ -266,15 +317,43 @@ export default function TransporteEquipamentos() {
               </button>
             </div>
 
-            {/* Equipamento */}
+            {/* Tipo → Subtipo → Equipamento */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipamento</Label>
-              <Select value={equipSel} onValueChange={setEquipSel}>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo de Equipamento</Label>
+              <Select value={tipoEquip} onValueChange={(v) => { setTipoEquip(v); setSubtipoEquip(""); setEquipSel(""); }}>
                 <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue placeholder="Selecione a frota..." />
+                  <SelectValue placeholder="Selecione o tipo..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {equipamentos.map(e => (
+                  {tiposDisponiveis.map((t) => (
+                    <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Subtipo</Label>
+              <Select value={subtipoEquip} onValueChange={(v) => { setSubtipoEquip(v); setEquipSel(""); }} disabled={!tipoEquip}>
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder={tipoEquip ? "Selecione o subtipo..." : "Selecione o tipo primeiro"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {subtiposDisponiveis.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipamento (Frota)</Label>
+              <Select value={equipSel} onValueChange={setEquipSel} disabled={!subtipoEquip}>
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder={subtipoEquip ? "Selecione a frota..." : "Selecione o subtipo primeiro"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {frotasDisponiveis.map(e => (
                     <SelectItem key={e.frota} value={e.frota}>
                       {e.frota} — {e.tipo} {e.nome ? `(${e.nome})` : ""}
                     </SelectItem>
