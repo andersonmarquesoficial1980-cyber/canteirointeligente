@@ -134,7 +134,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
           </div>
 
           <div className="space-y-1.5">
-            <span className="rdo-label">Tipo de Serviço</span>
+            <span className="rdo-label">Tipo de Serviço *</span>
             <Select value={trecho.tipo_servico} onValueChange={v => updateTrecho(trecho.id, "tipo_servico", v)}>
               <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent className="max-h-[250px]">
@@ -147,7 +147,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <span className="rdo-label">Sentido</span>
+              <span className="rdo-label">Sentido *</span>
               <Select value={trecho.sentido} onValueChange={v => updateTrecho(trecho.id, "sentido", v)}>
                 <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
@@ -157,18 +157,18 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
               </Select>
             </div>
             <div className="space-y-1.5">
-              <span className="rdo-label">Faixa</span>
+              <span className="rdo-label">Faixa *</span>
               <Input inputMode="numeric" value={trecho.faixa} onChange={e => updateTrecho(trecho.id, "faixa", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 1, 2, Acost." />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <span className="rdo-label">Estaca Inicial</span>
+              <span className="rdo-label">Estaca Inicial *</span>
               <Input inputMode="numeric" value={trecho.estaca_inicial} onChange={e => updateTrecho(trecho.id, "estaca_inicial", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
             <div className="space-y-1.5">
-              <span className="rdo-label">Estaca Final</span>
+              <span className="rdo-label">Estaca Final *</span>
               <Input inputMode="numeric" value={trecho.estaca_final} onChange={e => updateTrecho(trecho.id, "estaca_final", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
           </div>
@@ -193,11 +193,11 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <span className="rdo-label">Comp. (m)</span>
+              <span className="rdo-label">Comp. (m) *</span>
               <NumericInput value={trecho.comprimento_m} onChange={e => updateTrecho(trecho.id, "comprimento_m", e.target.value)} className={`h-11 bg-white border-border rounded-xl ${(() => { const ei = parseFloat(trecho.estaca_inicial)||0; const ef = parseFloat(trecho.estaca_final)||0; const c = toNum(trecho.comprimento_m); const ce = ei>0&&ef>0?Math.abs(ef-ei):null; return ce!==null&&c>0&&Math.abs(c-ce)>0.01?"border-amber-400 ring-1 ring-amber-400":""; })()}`} placeholder="0,0" />
             </div>
             <div className="space-y-1.5">
-              <span className="rdo-label">Larg. (m)</span>
+              <span className="rdo-label">Larg. (m) *</span>
               <NumericInput value={trecho.largura_m} onChange={e => updateTrecho(trecho.id, "largura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="0,0" />
             </div>
             <div className="space-y-1.5">
@@ -207,7 +207,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
           </div>
 
           <div className="space-y-1.5">
-            <span className="rdo-label">Espessura (cm)</span>
+            <span className="rdo-label">Espessura (cm) *</span>
             <NumericInput value={trecho.espessura_m} onChange={e => updateTrecho(trecho.id, "espessura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 5" />
           </div>
 
@@ -223,7 +223,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
               />
             </div>
             <div className="space-y-1.5">
-              <span className="rdo-label">Densidade (t/m³)</span>
+              <span className="rdo-label">Densidade (t/m³) *</span>
               <NumericInput
                 value={trecho.densidade}
                 onChange={e => updateTrecho(trecho.id, "densidade", e.target.value)}
@@ -243,7 +243,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
           </div>
 
           <div className="space-y-1.5">
-            <span className="rdo-label">Observações do Trecho</span>
+            <span className="rdo-label">Observações do Trecho *</span>
             <Textarea value={trecho.observacoes} onChange={e => updateTrecho(trecho.id, "observacoes", e.target.value)} className="min-h-[70px] bg-white border-border text-base rounded-xl" placeholder="Observações deste trecho..." />
           </div>
         </div>

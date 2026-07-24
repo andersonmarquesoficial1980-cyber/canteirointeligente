@@ -161,7 +161,7 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
       {/* Section Title */}
       <h2 className="font-display font-extrabold text-[2rem] leading-tight tracking-tight flex items-center gap-3" style={{ color: "hsl(220 70% 20%)" }}>
         <Users className="w-8 h-8" style={{ color: "hsl(215 100% 50%)" }} />
-        EQUIPE EM CAMPO
+        EQUIPE EM CAMPO *
       </h2>
 
       {/* Carregar por Equipe */}
@@ -260,7 +260,7 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
 
             {/* Função Select */}
             <div className="space-y-1.5">
-              <span className="rdo-label">Função</span>
+              <span className="rdo-label">Função *</span>
               {/* Se a função não existe no select da tabela funcionarios, mostrar como texto */}
               {entry.funcao && !funcoes.includes(entry.funcao) ? (
                 <div className="w-full h-12 bg-muted/30 border border-border text-base rounded-xl flex items-center px-3">
@@ -285,7 +285,7 @@ export default function StepEfetivo({ entries, onChange, globalEntrada, globalSa
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="rdo-label">
-                    Nomes {selectedCount > 0 && <span className="text-primary font-bold">({selectedCount})</span>}
+                    Nomes * {selectedCount > 0 && <span className="text-primary font-bold">({selectedCount})</span>}
                   </span>
                   {funcionariosFiltrados.length > 0 && (
                     <button

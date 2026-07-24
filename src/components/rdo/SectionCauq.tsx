@@ -120,11 +120,11 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <span className="rdo-label">Placa</span>
+              <span className="rdo-label">Placa *</span>
               <Input value={entry.placa} onChange={e => update(entry.id, "placa", e.target.value)} className="h-11 bg-white border-border rounded-xl uppercase" placeholder="ABC-1234" />
             </div>
             <div className="space-y-1.5">
-              <span className="rdo-label">Usina</span>
+              <span className="rdo-label">Usina *</span>
               <Select value={entry.usina} onValueChange={v => update(entry.id, "usina", v)}>
                 <SelectTrigger data-usina-trigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent className="max-h-[250px]">
@@ -135,16 +135,16 @@ export default function SectionCauq({ entries, onChange, tipoRdo }: Props) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <span className="rdo-label">Nº NF</span>
+              <span className="rdo-label">Nº NF *</span>
               <Input inputMode="numeric" value={entry.nf} onChange={e => update(entry.id, "nf", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
             <div className="space-y-1.5">
-              <span className="rdo-label">Tonelagem</span>
+              <span className="rdo-label">Tonelagem *</span>
               <Input inputMode="decimal" value={entry.tonelagem} onChange={e => update(entry.id, "tonelagem", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
             </div>
           </div>
           <div className="space-y-1.5">
-            <span className="rdo-label">Tipo Material</span>
+            <span className="rdo-label">Tipo Material *</span>
             <Select value={entry.tipo_material} onValueChange={v => {
               const updated = entries.map(e => e.id === entry.id ? { ...e, tipo_material: v, tipo_material_outro: v !== "Outro" ? "" : e.tipo_material_outro } : e);
               onChange(updated);

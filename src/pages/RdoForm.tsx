@@ -175,6 +175,7 @@ export default function RdoForm() {
   const [terceirizados, setTerceirizados] = useState<TerceirizadoEntry[]>([{
     id: crypto.randomUUID(), empresa_id: "", funcionario_ids: [],
   }]);
+  const [semEfetivoTerceirizado, setSemEfetivoTerceirizado] = useState(false);
   const { empresas: empresasTerceiras, funcionarios: funcionariosTerceiros, loading: loadingTerceiros } = useEmpresasTerceiras();
   const { getMembrosDoResponsavel, loading: loadingEquipes } = useEquipes();
   // Shared
@@ -197,6 +198,13 @@ export default function RdoForm() {
   const [draftId, setDraftId] = useState<string | null>(null); // ID do rascunho salvo — evita duplicatas
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
   const [copiandoDiaAnterior, setCopiandoDiaAnterior] = useState(false);
+
+  const handleToggleSemEfetivoTerceirizado = (checked: boolean) => {
+    setSemEfetivoTerceirizado(checked);
+    if (checked) {
+      setTerceirizados([{ id: crypto.randomUUID(), empresa_id: "", funcionario_ids: [] }]);
+    }
+  };
 
   const copiarDiaAnterior = async () => {
     if (!header.obra_nome || !header.data) return;
@@ -330,6 +338,7 @@ export default function RdoForm() {
       }
       // Efetivo Terceirizado (modo edição)
       if (tercRows?.length) {
+        setSemEfetivoTerceirizado(false);
         const grouped: Record<string, { empresa_id: string; funcionario_ids: string[] }> = {};
         (tercRows as any[]).forEach((t: any) => {
           if (!grouped[t.empresa_id]) {
@@ -343,6 +352,8 @@ export default function RdoForm() {
           funcionario_ids: g.funcionario_ids,
         }));
         if (restoredTerc.length > 0) setTerceirizados(restoredTerc);
+      } else {
+        setSemEfetivoTerceirizado(true);
       }
       // Produção CAUQ
       if (producao?.length) {
@@ -655,14 +666,25 @@ export default function RdoForm() {
 
   const handleSubmitInternal = async (showNavigate = true) => {
     const normalizedTurno = header.turno.trim().toLowerCase();
-    // Pátio Central: só precisa de data
-    if (isPatioRdo) {
-      if (!header.data) {
-        toast({ title: "Erro", description: "Preencha a Data.", variant: "destructive" });
-        return;
-      }
-    } else {
-      if (!header.obra_nome || !header.data || !normalizedTurno) {
+    const isBlank = (v?: string | null) => !String(v || "").trim();
+
+    if (!header.data) {
+      toast({ title: "Erro", description: "Preencha a Data.", variant: "destructive" });
+      return;
+    }
+
+    if (header.data > today) {
+      toast({
+        title: "⚠️ Data inválida",
+        description: "Não é permitido lançar RDO com data futura.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Pátio Central: só precisa de data válida
+    if (!isPatioRdo) {
+      if (!header.obra_nome || !normalizedTurno) {
         toast({ title: "Erro", description: "Preencha OGS, Data e Turno.", variant: "destructive" });
         return;
       }
@@ -670,17 +692,136 @@ export default function RdoForm() {
         toast({ title: "Erro", description: "Turno inválido. Use Diurno ou Noturno.", variant: "destructive" });
         return;
       }
+      if (isBlank(header.status_obra)) {
+        toast({ title: "Erro", description: "Selecione o Status da obra.", variant: "destructive" });
+        return;
+      }
+      if (isBlank(header.encarregado)) {
+        toast({ title: "Erro", description: "Preencha o Encarregado da obra.", variant: "destructive" });
+        return;
+      }
+      if (isBlank(header.engenheiro_responsavel)) {
+        toast({ title: "Erro", description: "Preencha o Engenheiro responsável.", variant: "destructive" });
+        return;
+      }
+
       // Efetivo obrigatório quando status é Trabalhou
       if (header.status_obra === "Trabalhou") {
-        const validEfetivo = efetivo.filter(e => e.funcao);
+        const validEfetivo = efetivo.filter(e => !isBlank(e.funcao) && !isBlank(e.nome));
         if (validEfetivo.length === 0) {
-          toast({ title: "⚠️ Efetivo obrigatório", description: "Adicione pelo menos 1 funcionário no efetivo antes de enviar.", variant: "destructive" });
+          toast({ title: "⚠️ Efetivo obrigatório", description: "Adicione pelo menos 1 função com nomes no efetivo antes de enviar.", variant: "destructive" });
           return;
         }
         // Equipamentos obrigatórios quando status é Trabalhou (exceto Patio)
         if (!isPatioRdo && equipamentos.length === 0) {
           toast({ title: "⚠️ Equipamentos obrigatórios", description: "Adicione pelo menos 1 equipamento no RDO antes de enviar.", variant: "destructive" });
           return;
+        }
+
+        if (tipoRdo === "CAUQ") {
+          const nfComConteudo = nfMassa.filter((n) =>
+            [n.placa, n.usina, n.nf, n.tonelagem, n.tipo_material, n.tipo_material_outro]
+              .some((v) => !isBlank(v))
+          );
+
+          if (nfComConteudo.length === 0) {
+            toast({
+              title: "⚠️ Notas Fiscais obrigatórias",
+              description: "Preencha ao menos 1 NF com Placa, Usina, Nº NF, Tonelagem e Tipo Material.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const nfIncompleta = nfComConteudo.find((n) =>
+            isBlank(n.placa) ||
+            isBlank(n.usina) ||
+            isBlank(n.nf) ||
+            isBlank(n.tonelagem) ||
+            isBlank(n.tipo_material) ||
+            (n.tipo_material === "Outro" && isBlank(n.tipo_material_outro))
+          );
+
+          if (nfIncompleta) {
+            toast({
+              title: "⚠️ NF incompleta",
+              description: "Todos os campos da NF sinalizados como obrigatórios devem ser preenchidos.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const trechosComConteudo = producaoCauq.trechos.filter((t) =>
+            [
+              t.tipo_servico,
+              t.sentido,
+              t.faixa,
+              t.estaca_inicial,
+              t.estaca_final,
+              t.comprimento_m,
+              t.largura_m,
+              t.espessura_m,
+              t.densidade,
+              t.observacoes,
+            ].some((v) => !isBlank(v))
+          );
+
+          if (trechosComConteudo.length === 0) {
+            toast({
+              title: "⚠️ Produção do dia obrigatória",
+              description: "Preencha ao menos 1 trecho completo na Produção do Dia (CAUQ).",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const trechoIncompleto = trechosComConteudo.find((t) =>
+            [
+              t.tipo_servico,
+              t.sentido,
+              t.faixa,
+              t.estaca_inicial,
+              t.estaca_final,
+              t.comprimento_m,
+              t.largura_m,
+              t.espessura_m,
+              t.densidade,
+              t.observacoes,
+            ].some((v) => isBlank(v))
+          );
+
+          if (trechoIncompleto) {
+            toast({
+              title: "⚠️ Trecho incompleto",
+              description: "Todos os campos preenchíveis da Produção do Dia (CAUQ) devem ser preenchidos.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const terceirizadosComConteudo = terceirizados.filter((t) => t.empresa_id || t.funcionario_ids.length > 0);
+
+          if (!semEfetivoTerceirizado && terceirizadosComConteudo.length === 0) {
+            toast({
+              title: "⚠️ Efetivo terceirizado obrigatório",
+              description: "Preencha o efetivo terceirizado ou marque a opção " + "'Sem efetivos terceirizados neste lançamento'" + ".",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const terceirizadoIncompleto = terceirizadosComConteudo.find(
+            (t) => isBlank(t.empresa_id) || t.funcionario_ids.length === 0,
+          );
+
+          if (terceirizadoIncompleto) {
+            toast({
+              title: "⚠️ Efetivo terceirizado incompleto",
+              description: "Selecione empresa e funcionários em cada card de efetivo terceirizado preenchido.",
+              variant: "destructive",
+            });
+            return;
+          }
         }
       }
     }
@@ -1254,6 +1395,8 @@ export default function RdoForm() {
                   <SectionEfetivoTerceirizado
                     entries={terceirizados}
                     onChange={setTerceirizados}
+                    semEfetivos={semEfetivoTerceirizado}
+                    onToggleSemEfetivos={handleToggleSemEfetivoTerceirizado}
                     empresas={empresasTerceiras}
                     funcionarios={funcionariosTerceiros}
                     loadingData={loadingTerceiros}

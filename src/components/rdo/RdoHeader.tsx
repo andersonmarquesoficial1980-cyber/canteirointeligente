@@ -39,6 +39,12 @@ function formatDateBR(dateStr: string): string {
 export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
   const { data: obras, isLoading } = useOgsReference();
 
+  const todaySaoPauloIso = useMemo(() => {
+    const br = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const [day, month, year] = br.split("/");
+    return `${year}-${month}-${day}`;
+  }, []);
+
   const uniqueOgs = useMemo(() => {
     if (!obras) return [];
     const seen = new Set<string>();
@@ -120,10 +126,11 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
       {/* Data + Turno */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <span className="rdo-label">Data</span>
+          <span className="rdo-label">Data *</span>
           <Input
             type="date"
             value={data.data}
+            max={todaySaoPauloIso}
             onChange={e => onChange("data", e.target.value)}
             className="h-12 text-base bg-white border-border rounded-xl"
           />
@@ -147,7 +154,7 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <span className="rdo-label flex items-center gap-1">
-            <Building2 className="w-3.5 h-3.5" /> OGS (Obra)
+            <Building2 className="w-3.5 h-3.5" /> OGS (Obra) *
           </span>
           <input
             type="text"
@@ -165,7 +172,7 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
         </div>
         <div className="space-y-1.5">
           <span className="rdo-label flex items-center gap-1">
-            <Activity className="w-3.5 h-3.5" /> Status
+            <Activity className="w-3.5 h-3.5" /> Status *
           </span>
           <Select value={data.status_obra} onValueChange={v => onChange("status_obra", v)}>
             <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
@@ -204,7 +211,7 @@ export default function RdoHeader({ data, onChange }: RdoHeaderProps) {
           />
         </div>
         <div className="space-y-1.5">
-          <span className="rdo-label">Engenheiro responsável</span>
+          <span className="rdo-label">Engenheiro responsável *</span>
           <ResponsavelInput
             mode="engenheiro"
             value={data.engenheiro_responsavel || ""}

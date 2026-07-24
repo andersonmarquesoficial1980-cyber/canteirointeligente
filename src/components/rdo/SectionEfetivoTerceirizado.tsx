@@ -13,6 +13,8 @@ export interface TerceirizadoEntry {
 interface Props {
   entries: TerceirizadoEntry[];
   onChange: (entries: TerceirizadoEntry[]) => void;
+  semEfetivos: boolean;
+  onToggleSemEfetivos: (checked: boolean) => void;
   empresas: EmpresaTerceira[];
   funcionarios: FuncionarioTerceiro[];
   loadingData: boolean;
@@ -21,6 +23,8 @@ interface Props {
 export default function SectionEfetivoTerceirizado({
   entries,
   onChange,
+  semEfetivos,
+  onToggleSemEfetivos,
   empresas,
   funcionarios,
   loadingData,
@@ -77,7 +81,7 @@ export default function SectionEfetivoTerceirizado({
         <div className="flex items-center justify-between">
           <h2 className="rdo-section-title">
             <HardHat className="w-5 h-5 text-amber-600" />
-            Efetivo Terceirizado
+            Efetivo Terceirizado *
           </h2>
           {totalPessoas > 0 && (
             <span className="text-xs font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700">
@@ -86,7 +90,15 @@ export default function SectionEfetivoTerceirizado({
           )}
         </div>
 
-        {empresas.length === 0 ? (
+        <label className="flex items-center gap-2 text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+          <Checkbox
+            checked={semEfetivos}
+            onCheckedChange={(checked) => onToggleSemEfetivos(!!checked)}
+          />
+          Sem efetivos terceirizados neste lançamento
+        </label>
+
+        {!semEfetivos && (empresas.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-2">
             Nenhuma empresa terceirizada cadastrada. Acesse o Painel de Controle para cadastrar.
           </p>
@@ -118,7 +130,7 @@ export default function SectionEfetivoTerceirizado({
 
                   {/* Empresa */}
                   <div className="space-y-1.5">
-                    <span className="rdo-label">Empresa</span>
+                    <span className="rdo-label">Empresa *</span>
                     <Select
                       value={entry.empresa_id}
                       onValueChange={(v) => updateEmpresa(entry.id, v)}
@@ -143,7 +155,7 @@ export default function SectionEfetivoTerceirizado({
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="rdo-label">
-                          Funcionários{" "}
+                          Funcionários *{" "}
                           {entry.funcionario_ids.length > 0 && (
                             <span className="text-amber-700 font-bold">
                               ({entry.funcionario_ids.length})
@@ -188,9 +200,9 @@ export default function SectionEfetivoTerceirizado({
               );
             })}
           </div>
-        )}
+        ))}
 
-        {empresas.length > 0 && (
+        {!semEfetivos && empresas.length > 0 && (
           <Button
             type="button"
             variant="outline"
