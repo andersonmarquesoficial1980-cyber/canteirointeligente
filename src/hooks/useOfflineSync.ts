@@ -383,22 +383,34 @@ async function syncPendingRdo(item: any) {
       if (error) throw error;
     }
 
-    const sinalizacao = payload.sinalizacaoHorizontal || {};
-    const hasSinalizacao = Object.values(sinalizacao).some((v) => String(v || "").trim() !== "");
-    if (hasSinalizacao) {
-      const { error } = await (supabase as any).from("rdo_sinalizacao_horizontal").insert({
+    const sinalizacoesPayload = Array.isArray(payload.sinalizacoesHorizontais)
+      ? payload.sinalizacoesHorizontais
+      : payload.sinalizacaoHorizontal
+        ? [payload.sinalizacaoHorizontal]
+        : [];
+
+    const sinalizacoesRows = (sinalizacoesPayload as any[])
+      .filter((s) => {
+        if (!s) return false;
+        const { id: _id, ...rest } = s;
+        return Object.values(rest).some((v) => String(v || "").trim() !== "");
+      })
+      .map((s: any) => ({
         rdo_id: rdoId,
         company_id: payload.rdoPayload?.company_id || null,
-        tipo: sinalizacao.tipo || null,
-        sentido: sinalizacao.sentido || null,
-        faixa: sinalizacao.faixa || null,
-        estaca_inicial: sinalizacao.estaca_inicial || null,
-        estaca_final: sinalizacao.estaca_final || null,
-        quantidade: sinalizacao.quantidade ? parseFloat(String(sinalizacao.quantidade).replace(",", ".")) : null,
-        comprimento_m: sinalizacao.comprimento_m ? parseFloat(String(sinalizacao.comprimento_m).replace(",", ".")) : null,
-        largura_m: sinalizacao.largura_m ? parseFloat(String(sinalizacao.largura_m).replace(",", ".")) : null,
-        quantidade_taxas: sinalizacao.quantidade_taxas ? parseFloat(String(sinalizacao.quantidade_taxas).replace(",", ".")) : null,
-      });
+        tipo: s.tipo || null,
+        sentido: s.sentido || null,
+        faixa: s.faixa || null,
+        estaca_inicial: s.estaca_inicial || null,
+        estaca_final: s.estaca_final || null,
+        quantidade: s.quantidade ? parseFloat(String(s.quantidade).replace(",", ".")) : null,
+        comprimento_m: s.comprimento_m ? parseFloat(String(s.comprimento_m).replace(",", ".")) : null,
+        largura_m: s.largura_m ? parseFloat(String(s.largura_m).replace(",", ".")) : null,
+        quantidade_taxas: s.quantidade_taxas ? parseFloat(String(s.quantidade_taxas).replace(",", ".")) : null,
+      }));
+
+    if (sinalizacoesRows.length > 0) {
+      const { error } = await (supabase as any).from("rdo_sinalizacao_horizontal").insert(sinalizacoesRows);
       if (error) throw error;
     }
 

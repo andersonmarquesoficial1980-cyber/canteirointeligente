@@ -25,7 +25,7 @@ import SectionEquipamentosPatio, { type EquipamentoPatioEntry } from "@/componen
 
 import StepEfetivo, { type EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import SectionProducaoCauq, { type ProducaoCauqData } from "@/components/rdo/SectionProducaoCauq";
-import SectionSinalizacaoDmt, { type InformacoesDmtData, type SinalizacaoHorizontalData } from "@/components/rdo/SectionSinalizacaoDmt";
+import SectionSinalizacaoDmt, { emptySinalizacaoHorizontal, type InformacoesDmtData, type SinalizacaoHorizontalData } from "@/components/rdo/SectionSinalizacaoDmt";
 import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteiro";
 import { buildHtmlReport } from "@/lib/buildHtmlReport";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
@@ -140,17 +140,9 @@ export default function RdoForm() {
     }],
     tonelagem_aplicada: "",
   });
-  const [sinalizacaoHorizontal, setSinalizacaoHorizontal] = useState<SinalizacaoHorizontalData>({
-    tipo: "",
-    sentido: "",
-    faixa: "",
-    estaca_inicial: "",
-    estaca_final: "",
-    quantidade: "",
-    comprimento_m: "",
-    largura_m: "",
-    quantidade_taxas: "",
-  });
+  const [sinalizacoesHorizontais, setSinalizacoesHorizontais] = useState<SinalizacaoHorizontalData[]>([
+    emptySinalizacaoHorizontal(),
+  ]);
   const [informacoesDmt, setInformacoesDmt] = useState<InformacoesDmtData>({
     dmt_usina_km: "",
     dmt_canteiro_km: "",
@@ -305,7 +297,7 @@ export default function RdoForm() {
         (supabase as any).from("rdo_equipamentos").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_nf_massa").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_efetivo_terceiros").select("*").eq("rdo_id", editId),
-        (supabase as any).from("rdo_sinalizacao_horizontal").select("*").eq("rdo_id", editId).limit(1),
+        (supabase as any).from("rdo_sinalizacao_horizontal").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_informacoes_dmt").select("*").eq("rdo_id", editId).limit(1),
       ]);
       if (!rdo) return;
@@ -414,8 +406,8 @@ export default function RdoForm() {
       }
 
       if (sinalizacaoRows?.length) {
-        const s = sinalizacaoRows[0] as any;
-        setSinalizacaoHorizontal({
+        setSinalizacoesHorizontais((sinalizacaoRows as any[]).map((s: any) => ({
+          id: s.id || crypto.randomUUID(),
           tipo: s.tipo || "",
           sentido: s.sentido || "",
           faixa: s.faixa || "",
@@ -425,7 +417,7 @@ export default function RdoForm() {
           comprimento_m: s.comprimento_m != null ? String(s.comprimento_m) : "",
           largura_m: s.largura_m != null ? String(s.largura_m) : "",
           quantidade_taxas: s.quantidade_taxas != null ? String(s.quantidade_taxas) : "",
-        });
+        })));
       }
 
       if (dmtRows?.length) {
@@ -554,23 +546,28 @@ export default function RdoForm() {
       lines.push(`  Área Total: ${fmtBR(totalArea)} m²`);
       lines.push(`  Toneladas Totais: ${fmtBR(totalTon)} Ton`);
 
-      const hasSinalizacao = Object.values(sinalizacaoHorizontal).some((v) => String(v || "").trim() !== "");
-      if (hasSinalizacao) {
+      const sinalizacoesPreenchidas = sinalizacoesHorizontais.filter((s) => {
+        const { id: _id, ...rest } = s;
+        return Object.values(rest).some((v) => String(v || "").trim() !== "");
+      });
+      if (sinalizacoesPreenchidas.length > 0) {
         lines.push("");
         lines.push("🛣️ *Sinalização Horizontal:*");
-        lines.push(`  Tipo: ${sinalizacaoHorizontal.tipo || "—"}`);
-        lines.push(`  Sentido: ${sinalizacaoHorizontal.sentido || "—"}`);
-        lines.push(`  Faixa: ${sinalizacaoHorizontal.faixa || "—"}`);
-        lines.push(`  Estacas: ${sinalizacaoHorizontal.estaca_inicial || "—"} → ${sinalizacaoHorizontal.estaca_final || "—"}`);
-        lines.push(`  Quantidade: ${sinalizacaoHorizontal.quantidade || "—"}`);
-        lines.push(`  Comprimento: ${sinalizacaoHorizontal.comprimento_m || "—"} m`);
-        lines.push(`  Largura: ${sinalizacaoHorizontal.largura_m || "—"} m`);
-        lines.push(`  Área: ${(() => {
-          const c = parseFloat(String(sinalizacaoHorizontal.comprimento_m || "0").replace(",", ".")) || 0;
-          const l = parseFloat(String(sinalizacaoHorizontal.largura_m || "0").replace(",", ".")) || 0;
-          return c > 0 && l > 0 ? fmtBR(c * l) : "—";
-        })()} m²`);
-        lines.push(`  Qtd. Taxas: ${sinalizacaoHorizontal.quantidade_taxas || "—"}`);
+        sinalizacoesPreenchidas.forEach((sinalizacao, idx) => {
+          lines.push(`  ${idx + 1}) Tipo: ${sinalizacao.tipo || "—"}`);
+          lines.push(`     Sentido: ${sinalizacao.sentido || "—"}`);
+          lines.push(`     Faixa: ${sinalizacao.faixa || "—"}`);
+          lines.push(`     Estacas: ${sinalizacao.estaca_inicial || "—"} → ${sinalizacao.estaca_final || "—"}`);
+          lines.push(`     Quantidade: ${sinalizacao.quantidade || "—"}`);
+          lines.push(`     Comprimento: ${sinalizacao.comprimento_m || "—"} m`);
+          lines.push(`     Largura: ${sinalizacao.largura_m || "—"} m`);
+          lines.push(`     Área: ${(() => {
+            const c = parseFloat(String(sinalizacao.comprimento_m || "0").replace(",", ".")) || 0;
+            const l = parseFloat(String(sinalizacao.largura_m || "0").replace(",", ".")) || 0;
+            return c > 0 && l > 0 ? fmtBR(c * l) : "—";
+          })()} m²`);
+          lines.push(`     Qtd. Taxas: ${sinalizacao.quantidade_taxas || "—"}`);
+        });
       }
 
       const hasDmt = Object.values(informacoesDmt).some((v) => String(v || "").trim() !== "");
@@ -720,7 +717,7 @@ export default function RdoForm() {
           tipoServico,
           infraProducao,
           producaoCauq,
-          sinalizacaoHorizontal,
+          sinalizacoesHorizontais,
           informacoesDmt,
           efetivo,
           globalEntrada,
@@ -851,21 +848,27 @@ export default function RdoForm() {
           if (error) throw error;
         }
 
-        const hasSinalizacao = Object.values(sinalizacaoHorizontal).some((value) => String(value || "").trim() !== "");
-        if (hasSinalizacao) {
-          const { error: sinalizacaoError } = await (supabase as any).from("rdo_sinalizacao_horizontal").insert({
+        const sinalizacoesRows = sinalizacoesHorizontais
+          .filter((s) => {
+            const { id: _id, ...rest } = s;
+            return Object.values(rest).some((value) => String(value || "").trim() !== "");
+          })
+          .map((s) => ({
             rdo_id: rdoId,
             company_id: profile?.company_id || null,
-            tipo: sinalizacaoHorizontal.tipo || null,
-            sentido: sinalizacaoHorizontal.sentido || null,
-            faixa: sinalizacaoHorizontal.faixa || null,
-            estaca_inicial: sinalizacaoHorizontal.estaca_inicial || null,
-            estaca_final: sinalizacaoHorizontal.estaca_final || null,
-            quantidade: sinalizacaoHorizontal.quantidade ? parseFloat(sinalizacaoHorizontal.quantidade.replace(",", ".")) : null,
-            comprimento_m: sinalizacaoHorizontal.comprimento_m ? parseFloat(sinalizacaoHorizontal.comprimento_m.replace(",", ".")) : null,
-            largura_m: sinalizacaoHorizontal.largura_m ? parseFloat(sinalizacaoHorizontal.largura_m.replace(",", ".")) : null,
-            quantidade_taxas: sinalizacaoHorizontal.quantidade_taxas ? parseFloat(sinalizacaoHorizontal.quantidade_taxas.replace(",", ".")) : null,
-          });
+            tipo: s.tipo || null,
+            sentido: s.sentido || null,
+            faixa: s.faixa || null,
+            estaca_inicial: s.estaca_inicial || null,
+            estaca_final: s.estaca_final || null,
+            quantidade: s.quantidade ? parseFloat(s.quantidade.replace(",", ".")) : null,
+            comprimento_m: s.comprimento_m ? parseFloat(s.comprimento_m.replace(",", ".")) : null,
+            largura_m: s.largura_m ? parseFloat(s.largura_m.replace(",", ".")) : null,
+            quantidade_taxas: s.quantidade_taxas ? parseFloat(s.quantidade_taxas.replace(",", ".")) : null,
+          }));
+
+        if (sinalizacoesRows.length > 0) {
+          const { error: sinalizacaoError } = await (supabase as any).from("rdo_sinalizacao_horizontal").insert(sinalizacoesRows);
           if (sinalizacaoError) throw sinalizacaoError;
         }
 
@@ -983,7 +986,7 @@ export default function RdoForm() {
         { teveUsinagem, totalUsinado, atividadesCanteiro },
         encarregado || preenchidoPor,
         tipoRdo === "PV" ? pvData : undefined,
-        tipoRdo === "CAUQ" ? sinalizacaoHorizontal : undefined,
+        tipoRdo === "CAUQ" ? sinalizacoesHorizontais : undefined,
         tipoRdo === "CAUQ" ? informacoesDmt : undefined,
       );
       let emailSent = false;
@@ -1219,9 +1222,9 @@ export default function RdoForm() {
                 <SectionCauq entries={nfMassa} onChange={setNfMassa} tipoRdo="CAUQ" />
                 <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} tipoRdo="CAUQ" nfEntries={nfMassa} />
                 <SectionSinalizacaoDmt
-                  sinalizacao={sinalizacaoHorizontal}
+                  sinalizacoes={sinalizacoesHorizontais}
                   dmt={informacoesDmt}
-                  onChangeSinalizacao={setSinalizacaoHorizontal}
+                  onChangeSinalizacoes={setSinalizacoesHorizontais}
                   onChangeDmt={setInformacoesDmt}
                 />
               </>
