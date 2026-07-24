@@ -80,13 +80,13 @@ function tipoMarcado(perms: Perms, tipo: { value: string; aliases?: readonly str
 const MODULOS = [
   { key: "modulo_obras", label: "WF Obras" },
   { key: "modulo_equipamentos", label: "WF Equipamentos" },
-  { key: "modulo_rh", label: "WF RH" },
+  // WF RH foi unificado em Gestão de Pessoas (mantemos a coluna no banco por legado, sem exibir no painel)
   { key: "modulo_carreteiros", label: "WF Carreteiros" },
   { key: "modulo_programador", label: "WF Programador" },
   { key: "modulo_demandas", label: "WF Transporte & Logística" },
   { key: "modulo_manutencao", label: "WF Manutenção" },
   { key: "modulo_abastecimento", label: "WF Abastecimento" },
-  { key: "modulo_documentos", label: "WF Documentos" },
+  // WF Documentos foi migrado para SST > Integração (mantemos a coluna no banco por legado, sem exibir no painel)
   { key: "modulo_relatorios", label: "WF Relatórios" },
   { key: "modulo_gestao_frotas", label: "WF Gestão de Frotas" },
   { key: "modulo_gestao_pessoas", label: "WF Gestão de Pessoas" },
@@ -95,7 +95,7 @@ const MODULOS = [
   { key: "modulo_sst", label: "WF Segurança do Trabalho" },
   { key: "modulo_engenharia", label: "WF Engenharia" },
   { key: "modulo_encarregado", label: "WF Encarregado" },
-  { key: "modulo_dashboard", label: "WF Dashboard" },
+  // WF Dashboard não existe mais como módulo independente (mantemos a coluna no banco por legado, sem exibir no painel)
   { key: "is_admin", label: "Painel de Controle" },
 ];
 
