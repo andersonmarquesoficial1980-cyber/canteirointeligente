@@ -51,6 +51,67 @@ function fmtNum(val: any): string {
   return String(val).replace(".", ",");
 }
 
+function isBlank(v: any): boolean {
+  return v === null || v === undefined || String(v).trim() === "";
+}
+
+function toNumberSafe(v: any): number {
+  if (v === null || v === undefined || v === "") return 0;
+  const n = Number(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function validateKmaDiary(diary: any, kmaOp: any) {
+  const erros: string[] = [];
+  const alertas: string[] = [];
+
+  if (!kmaOp) {
+    erros.push("Sem registro em kma_operations");
+  } else {
+    const operacao = String(kmaOp.operation_type || "").trim();
+    if (!operacao) {
+      erros.push("Tipo de operação KMA não informado");
+    }
+
+    const isUsinagem = normalizeTxt(operacao) === "USINAGEM";
+
+    if (isUsinagem && toNumberSafe(kmaOp.total_volume_machined_ton) <= 0) {
+      erros.push("Volume usinado não informado");
+    }
+
+    if (isUsinagem) {
+      if (isBlank(kmaOp.cap_type) || isBlank(kmaOp.cap_supplier) || toNumberSafe(kmaOp.cap_qty_ton) <= 0) {
+        alertas.push("CAP incompleto");
+      }
+      if (isBlank(kmaOp.filer_type) || isBlank(kmaOp.filer_supplier) || toNumberSafe(kmaOp.filer_qty_ton) <= 0) {
+        alertas.push("Filer incompleto");
+      }
+      if (isBlank(kmaOp.silo1_material) || toNumberSafe(kmaOp.silo1_qty) <= 0) {
+        alertas.push("Silo 1 incompleto");
+      }
+      if (isBlank(kmaOp.silo2_material) || toNumberSafe(kmaOp.silo2_qty) <= 0) {
+        alertas.push("Silo 2 incompleto");
+      }
+      if (toNumberSafe(kmaOp.water_liters) <= 0 || isBlank(kmaOp.water_supplier)) {
+        alertas.push("Água incompleta");
+      }
+    }
+  }
+
+  const status = erros.length > 0 ? "ERRO" : alertas.length > 0 ? "ALERTA" : "OK";
+  const pendencias = [...erros, ...alertas];
+
+  return {
+    diaryId: diary.id,
+    data: diary.date,
+    frota: diary.equipment_fleet,
+    ogs: diary.ogs_number || "",
+    operacao: kmaOp?.operation_type || "",
+    status,
+    pendencias,
+  };
+}
+
 // Equipamentos com Auxiliar
 const TEM_AUXILIAR = ["Fresadora", "Usina KMA"];
 // Equipamentos com coluna de Produção (Comp/Larg/Esp)
@@ -126,6 +187,8 @@ function buildHeader(tipoEquip: string): string[] {
     h.push("ÁGUA (L)");
     h.push("ÁGUA FORNECEDOR");
     h.push("VOLUME USINADO (TON)");
+    h.push("STATUS VALIDAÇÃO KMA");
+    h.push("PENDÊNCIAS KMA");
   }
 
   h.push("OBSERVAÇÕES GERAIS");
@@ -146,10 +209,13 @@ export default function ExportarProtheus() {
   const [dataFim, setDataFim] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [loadingValidation, setLoadingValidation] = useState(false);
   const [erro, setErro] = useState("");
   const [total, setTotal] = useState<number | null>(null);
   const [previewHeader, setPreviewHeader] = useState<string[] | null>(null);
   const [previewRows, setPreviewRows] = useState<any[][] | null>(null);
+  const [kmaValidationRows, setKmaValidationRows] = useState<any[] | null>(null);
+  const [kmaValidationSummary, setKmaValidationSummary] = useState<{ total: number; ok: number; alerta: number; erro: number } | null>(null);
 
   const categoriaSel = useMemo(
     () => categorias.find((c) => c.key === tipoEquip) || null,
@@ -172,6 +238,8 @@ export default function ExportarProtheus() {
     setFrotas([]);
     setPreviewHeader(null);
     setPreviewRows(null);
+    setKmaValidationRows(null);
+    setKmaValidationSummary(null);
     setTotal(null);
   }, [tipoEquip]);
 
@@ -187,6 +255,8 @@ export default function ExportarProtheus() {
     setFrota("__todas__");
     setPreviewHeader(null);
     setPreviewRows(null);
+    setKmaValidationRows(null);
+    setKmaValidationSummary(null);
     setTotal(null);
 
     const loadFrotas = async () => {
@@ -208,7 +278,11 @@ export default function ExportarProtheus() {
   }, [subtipoEquip]);
 
   const resetPreview = () => {
-    setPreviewHeader(null); setPreviewRows(null); setTotal(null);
+    setPreviewHeader(null);
+    setPreviewRows(null);
+    setKmaValidationRows(null);
+    setKmaValidationSummary(null);
+    setTotal(null);
   };
 
   // ── Função central de busca ──────────────────────────────────────────────────
@@ -336,6 +410,7 @@ export default function ExportarProtheus() {
       const bits   = (bitsMap[d.id] ?? [])[0];
       const prods  = (prodMap[d.id] ?? []).slice(0, 25);
       const kmaOp  = kmaMap[d.id] ?? null;
+      const kmaValidation = tipoExportBase === "Usina KMA" ? validateKmaDiary(d, kmaOp) : null;
       const turnoCorrigido = inferirTurno(timeMap[d.id] ?? [], d.period ?? "");
 
       const createdAtBR = d.created_at
@@ -404,13 +479,26 @@ export default function ExportarProtheus() {
         row.push(fmtNum(kmaOp?.water_liters));
         row.push(kmaOp?.water_supplier ?? "");
         row.push(fmtNum(kmaOp?.total_volume_machined_ton));
+        row.push(kmaValidation?.status ?? "");
+        row.push((kmaValidation?.pendencias || []).join(" | "));
       }
 
       row.push(d.observations ?? "");
       return row;
     });
 
-    return { header, rows: dataRows, total: diarios.length };
+    const kmaValidationRows = tipoExportBase === "Usina KMA"
+      ? diarios.map((d: any) => validateKmaDiary(d, kmaMap[d.id] ?? null))
+      : [];
+
+    const kmaValidationSummary = {
+      total: kmaValidationRows.length,
+      ok: kmaValidationRows.filter((r: any) => r.status === "OK").length,
+      alerta: kmaValidationRows.filter((r: any) => r.status === "ALERTA").length,
+      erro: kmaValidationRows.filter((r: any) => r.status === "ERRO").length,
+    };
+
+    return { header, rows: dataRows, total: diarios.length, kmaValidationRows, kmaValidationSummary };
   };
 
   const isFormValid = !!tipoEquip && !!subtipoEquip && dataInicio && dataFim && dataInicio <= dataFim;
@@ -425,16 +513,48 @@ export default function ExportarProtheus() {
     setLoadingPreview(true);
     setPreviewHeader(null);
     setPreviewRows(null);
+    setKmaValidationRows(null);
+    setKmaValidationSummary(null);
     setTotal(null);
     try {
-      const { header, rows, total } = await fetchData();
+      const { header, rows, total, kmaValidationRows, kmaValidationSummary } = await fetchData();
       setPreviewHeader(header);
       setPreviewRows(rows);
+      setKmaValidationRows(kmaValidationRows || null);
+      setKmaValidationSummary(kmaValidationSummary || null);
       setTotal(total);
     } catch (e: any) {
       setErro(e?.message ?? String(e));
     } finally {
       setLoadingPreview(false);
+    }
+  };
+
+  const handleValidarKma = async () => {
+    if (!isFormValid) {
+      setErro("Selecione Tipo de Equipamento, Subtipo e um período válido.");
+      return;
+    }
+    if (tipoExportBase !== "Usina KMA") {
+      setErro("A validação pré-exportação é disponível apenas para Usina KMA.");
+      return;
+    }
+
+    setErro("");
+    setLoadingValidation(true);
+    setPreviewHeader(null);
+    setPreviewRows(null);
+    setTotal(null);
+
+    try {
+      const { total, kmaValidationRows, kmaValidationSummary } = await fetchData();
+      setKmaValidationRows(kmaValidationRows || null);
+      setKmaValidationSummary(kmaValidationSummary || null);
+      setTotal(total);
+    } catch (e: any) {
+      setErro(e?.message ?? String(e));
+    } finally {
+      setLoadingValidation(false);
     }
   };
 
@@ -449,7 +569,7 @@ export default function ExportarProtheus() {
     setTotal(null);
 
     try {
-      const { header, rows: dataRows, total } = await fetchData();
+      const { header, rows: dataRows, total, kmaValidationRows, kmaValidationSummary } = await fetchData();
 
       const wb = XLSX.utils.book_new();
       const wsData = [header, ...dataRows];
@@ -479,6 +599,8 @@ export default function ExportarProtheus() {
       const nomeArquivo = `WF_Protheus${tipoArquivo}${subtipoArquivo}${frotaLabel}_${dataInicio}_a_${dataFim}.xlsx`;
       XLSX.writeFile(wb, nomeArquivo);
 
+      setKmaValidationRows(kmaValidationRows || null);
+      setKmaValidationSummary(kmaValidationSummary || null);
       setTotal(total);
     } catch (e: any) {
       setErro("Erro ao exportar: " + (e?.message ?? String(e)));
@@ -600,7 +722,7 @@ export default function ExportarProtheus() {
           <div className="flex gap-2">
             <Button
               onClick={handlePrevisualizar}
-              disabled={loadingPreview || loading || !isFormValid}
+              disabled={loadingPreview || loading || loadingValidation || !isFormValid}
               variant="outline"
               className="flex-1 h-12 gap-2 text-base font-display font-bold rounded-xl border-blue-600 text-blue-600 hover:bg-blue-50"
             >
@@ -612,7 +734,7 @@ export default function ExportarProtheus() {
             </Button>
             <Button
               onClick={handleExportar}
-              disabled={loading || loadingPreview || !isFormValid}
+              disabled={loading || loadingPreview || loadingValidation || !isFormValid}
               className="flex-1 h-12 gap-2 text-base font-display font-bold rounded-xl"
             >
               {loading ? (
@@ -622,6 +744,56 @@ export default function ExportarProtheus() {
               )}
             </Button>
           </div>
+
+          {tipoExportBase === "Usina KMA" && (
+            <Button
+              onClick={handleValidarKma}
+              disabled={loading || loadingPreview || loadingValidation || !isFormValid}
+              variant="outline"
+              className="w-full h-11 text-sm font-display font-bold rounded-xl border-amber-500 text-amber-700 hover:bg-amber-50"
+            >
+              {loadingValidation ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Validando dados KMA...</>
+              ) : (
+                <>Validar dados KMA antes da exportação</>
+              )}
+            </Button>
+          )}
+
+          {tipoExportBase === "Usina KMA" && kmaValidationSummary && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+              <p className="text-sm font-semibold text-amber-800">Validação pré-exportação KMA</p>
+              <p className="text-xs text-amber-700">
+                Total: <strong>{kmaValidationSummary.total}</strong> · OK: <strong>{kmaValidationSummary.ok}</strong> · Alertas: <strong>{kmaValidationSummary.alerta}</strong> · Erros: <strong>{kmaValidationSummary.erro}</strong>
+              </p>
+              {(kmaValidationRows || []).some((r: any) => r.status !== "OK") ? (
+                <div className="max-h-52 overflow-auto rounded-lg border border-amber-200 bg-white">
+                  <table className="w-full text-[11px]">
+                    <thead className="sticky top-0 bg-amber-100">
+                      <tr>
+                        <th className="px-2 py-1 text-left">Data</th>
+                        <th className="px-2 py-1 text-left">Frota</th>
+                        <th className="px-2 py-1 text-left">Status</th>
+                        <th className="px-2 py-1 text-left">Pendências</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(kmaValidationRows || []).filter((r: any) => r.status !== "OK").map((r: any) => (
+                        <tr key={r.diaryId} className="border-t border-amber-100">
+                          <td className="px-2 py-1">{fmtDate(r.data)}</td>
+                          <td className="px-2 py-1">{r.frota}</td>
+                          <td className="px-2 py-1 font-semibold">{r.status}</td>
+                          <td className="px-2 py-1">{(r.pendencias || []).join(" | ")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-xs text-green-700">✅ Nenhuma pendência encontrada para os diários KMA do período.</p>
+              )}
+            </div>
+          )}
         </div>
 
         {previewHeader && previewRows && (
@@ -698,7 +870,7 @@ export default function ExportarProtheus() {
             <li>10 blocos fixos de Apontamento de Horas (Início/Término/Item/OBS)</li>
             {tipoExportBase === "Fresadora" && <li>Bits: Tipo Fresagem + Aplicou/Status/Qtd/Horímetro/Fornecedor</li>}
             {TEM_PRODUCAO.includes(tipoExportBase) && <li>25 blocos fixos de Produção (Comprimento/Largura/Espessura)</li>}
-            {tipoExportBase === "Usina KMA" && <li>Colunas adicionais KMA: Operação, CAP, Filer, Silos, Água e Volume Usinado</li>}
+            {tipoExportBase === "Usina KMA" && <li>Colunas adicionais KMA: Operação, CAP, Filer, Silos, Água, Volume Usinado, Status de Validação e Pendências</li>}
             {!TEM_PRODUCAO.includes(tipoExportBase) && subtipoEquip && <li className="text-amber-600">Sem colunas de Produção para este equipamento</li>}
             <li>Observações Gerais</li>
           </ul>
