@@ -76,6 +76,11 @@ export default function SectionSinalizacaoDmt({
 
   return (
     <div className="px-4 space-y-4">
+      <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+        <span className="font-semibold text-foreground">Resumo:</span>{" "}
+        {sinalizacoes.length} {sinalizacoes.length === 1 ? "sinalização lançada" : "sinalizações lançadas"}
+      </div>
+
       <div className="space-y-3">
         {sinalizacoes.map((sinalizacao, idx) => {
           const comp = toNumber(sinalizacao.comprimento_m);
