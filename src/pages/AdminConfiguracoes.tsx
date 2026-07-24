@@ -1937,7 +1937,7 @@ function OgsManager() {
 
 // Truck Registry Manager
 function TruckRegistryManager() {
-  const { items, loading, add, remove, update } = useCrudTable("truck_registry");
+  const { items, loading, add, remove, update, reload } = useCrudTable("truck_registry");
   const { toast } = useToast();
   const [placa, setPlaca] = useState("");
   const [modelo, setModelo] = useState("");
@@ -1952,6 +1952,65 @@ function TruckRegistryManager() {
   const [editFornecedor, setEditFornecedor] = useState("");
   const [editCapacidade, setEditCapacidade] = useState("");
   const [editVinculos, setEditVinculos] = useState<string[]>(["TODOS"]);
+  const [fleetBasculantes, setFleetBasculantes] = useState<any[]>([]);
+  const [loadingFleetBasculantes, setLoadingFleetBasculantes] = useState(false);
+  const [importingFleetBasculantes, setImportingFleetBasculantes] = useState(false);
+
+  const normPlate = (value: string) => (value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+  const extractPlateFromEquipment = (eq: any) => {
+    const direct = normPlate(eq?.placa || "");
+    if (direct) return direct;
+
+    const nome = String(eq?.nome || "").toUpperCase();
+    const mercosulNoFinal = nome.match(/([A-Z]{3}[0-9][A-Z0-9][0-9]{2}|[A-Z]{3}[0-9]{4})[^A-Z0-9]*$/);
+    if (mercosulNoFinal?.[1]) return normPlate(mercosulNoFinal[1]);
+
+    const qualquerMercosul = nome.match(/([A-Z]{3}[0-9][A-Z0-9][0-9]{2}|[A-Z]{3}[0-9]{4})/);
+    return normPlate(qualquerMercosul?.[1] || "");
+  };
+
+  const loadFleetBasculantes = async () => {
+    setLoadingFleetBasculantes(true);
+    const { data, error } = await (supabase as any)
+      .from("equipamentos")
+      .select("id, frota, placa, nome, tipo, condicao, empresa_proprietaria, vinculo_rdo, vinculos");
+
+    if (error) {
+      toast({ title: "Erro ao buscar frota de basculantes", description: error.message, variant: "destructive" });
+      setLoadingFleetBasculantes(false);
+      return;
+    }
+
+    const rows = (data || [])
+      .filter((eq: any) => {
+        const tipoNorm = normTxt(eq?.tipo || "");
+        const vinculos: string[] = Array.isArray(eq?.vinculos) ? eq.vinculos : [];
+        const hasBasculanteVinculo = eq?.vinculo_rdo === "CAMINHAO_BASCULANTE" || vinculos.includes("CAMINHAO_BASCULANTE");
+        const isBasculante = tipoNorm.includes("BASCULANTE") || hasBasculanteVinculo;
+        return isBasculante;
+      })
+      .map((eq: any) => ({
+        ...eq,
+        extracted_placa: extractPlateFromEquipment(eq),
+      }))
+      .filter((eq: any) => !!eq.extracted_placa);
+
+    setFleetBasculantes(rows);
+    setLoadingFleetBasculantes(false);
+  };
+
+  useEffect(() => {
+    loadFleetBasculantes();
+  }, []);
+
+  const truckRegistryPlates = useMemo(() => {
+    return new Set((items || []).map((truck: any) => normPlate(truck?.placa || "")).filter(Boolean));
+  }, [items]);
+
+  const basculantesFrotaFaltantes = useMemo(() => {
+    return (fleetBasculantes || []).filter((eq: any) => !truckRegistryPlates.has(normPlate(eq?.extracted_placa || "")));
+  }, [fleetBasculantes, truckRegistryPlates]);
 
   const toggleVinculo = (v: string, current: string[], set: (x: string[]) => void) => {
     if (v === "TODOS") { set(["TODOS"]); return; }
@@ -2006,6 +2065,41 @@ function TruckRegistryManager() {
     if (ok) setEditingId(null);
   };
 
+  const importBasculantesProprios = async () => {
+    if (!basculantesFrotaFaltantes.length) {
+      toast({ title: "Tudo certo", description: "Nenhum caminhão basculante pendente para importar." });
+      return;
+    }
+
+    setImportingFleetBasculantes(true);
+
+    const payload = basculantesFrotaFaltantes.map((eq: any) => ({
+      placa: String(eq.extracted_placa || "").trim().toUpperCase(),
+      modelo: eq.frota || null,
+      cor: null,
+      fornecedor: eq.empresa_proprietaria || "FREMIX",
+      // A tabela permite default 0; após importar, o admin ajusta com a capacidade real de cada caminhão.
+      capacidade_m3: 0,
+      vinculos: ["CAMINHAO_BASCULANTE", "RDO"],
+    }));
+
+    const { error } = await supabase.from("truck_registry").insert(payload as any);
+    setImportingFleetBasculantes(false);
+
+    if (error) {
+      toast({ title: "Erro ao importar basculantes", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    await reload();
+    await loadFleetBasculantes();
+
+    toast({
+      title: "✅ Basculantes importados",
+      description: `${payload.length} caminhão(ões) adicionados em Frota (Carreteiros). Ajuste a capacidade (m³) dos importados antes do uso no WF Carreteiros.`,
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
@@ -2039,6 +2133,47 @@ function TruckRegistryManager() {
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Caminhão</Button>
       </div>
+
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Sincronizar basculantes da Frota</p>
+            <p className="text-xs text-muted-foreground">
+              Puxa os caminhões da tela <strong>Frota (Equipamentos)</strong> (tipo Caminhão Basculante, próprios e terceiros) para aparecerem também no <strong>WF Carreteiros</strong>.
+            </p>
+          </div>
+          <Button
+            onClick={importBasculantesProprios}
+            disabled={loadingFleetBasculantes || importingFleetBasculantes || basculantesFrotaFaltantes.length === 0}
+            className="h-9 gap-2 shrink-0"
+            variant={basculantesFrotaFaltantes.length ? "default" : "outline"}
+          >
+            {importingFleetBasculantes ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4" />}
+            Importar ({basculantesFrotaFaltantes.length})
+          </Button>
+        </div>
+
+        <div className="text-xs text-muted-foreground">
+          {loadingFleetBasculantes
+            ? "Carregando frota de basculantes..."
+            : `Basculantes encontrados: ${fleetBasculantes.length} • Já no Carreteiros: ${fleetBasculantes.length - basculantesFrotaFaltantes.length} • Pendentes: ${basculantesFrotaFaltantes.length}`}
+        </div>
+
+        {basculantesFrotaFaltantes.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {basculantesFrotaFaltantes.map((eq: any) => (
+              <span key={eq.id} className="text-[11px] px-2 py-1 rounded-full bg-primary/10 text-primary font-semibold border border-primary/20">
+                {eq.extracted_placa} {eq.frota ? `• ${eq.frota}` : ""}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+          ⚠️ Os caminhões importados entram com capacidade 0 m³. Edite cada um e informe a capacidade real antes de lançar saída.
+        </p>
+      </div>
+
       <div className="space-y-2">
         {loading ? (
           <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)}</div>
