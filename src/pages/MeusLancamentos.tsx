@@ -110,6 +110,7 @@ function normalizarTipoEquipamento(raw: string | null | undefined): string | nul
     BOBCAT: "Bobcat",
     FRESADORA: "Fresadora",
     "USINA KMA": "Usina KMA",
+    "USINA MOVEL": "Usina KMA",
     VIBROACABADORA: "Vibroacabadora",
   };
 

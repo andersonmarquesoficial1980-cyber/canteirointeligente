@@ -188,9 +188,14 @@ export default function EquipmentDiaryForm() {
   const isEditMode = !!editId;
 
   const equipmentType = searchParams.get("tipo") || "Fresadora";
+  const equipmentTypeNorm = normTxt(equipmentType);
   const isFresadora = equipmentType === "Fresadora";
   const isBobcat = equipmentType === "Bobcat";
-  const isUsinaKma = equipmentType === "Usina KMA";
+  const isUsinaKma =
+    equipmentTypeNorm === "USINA KMA" ||
+    equipmentTypeNorm === "USINA MOVEL" ||
+    equipmentTypeNorm.includes("KMA") ||
+    equipmentTypeNorm.includes("USINA");
   const isRetro = equipmentType === "Retro";
   const isRolo = equipmentType === "Rolo";
   const isVibro = equipmentType === "Vibroacabadora";
@@ -1723,7 +1728,25 @@ export default function EquipmentDiaryForm() {
           }
         }
         // Save KMA operations
-        if (isUsinaKma && diary && kmaOperation.operationType) {
+        const hasKmaOperationData = Boolean(
+          kmaOperation.operationType ||
+          kmaOperation.capType ||
+          kmaOperation.capSupplier ||
+          kmaOperation.capQtyTon ||
+          kmaOperation.capNfNumber ||
+          kmaOperation.filerType ||
+          kmaOperation.filerSupplier ||
+          kmaOperation.filerQtyTon ||
+          kmaOperation.silo1Material ||
+          kmaOperation.silo1Qty ||
+          kmaOperation.silo2Material ||
+          kmaOperation.silo2Qty ||
+          kmaOperation.waterLiters ||
+          kmaOperation.waterSupplier ||
+          kmaOperation.aggregatesSupplier ||
+          kmaOperation.totalVolumeMachinedTon
+        );
+        if (isUsinaKma && diary && hasKmaOperationData) {
           const { error: kmaOpErr } = await supabase.from("kma_operations").insert({
             company_id: effectiveCompanyId,
             diary_id: diary.id,
@@ -2998,16 +3021,16 @@ export default function EquipmentDiaryForm() {
                     </div>
                   </div>
                 </div>
-
-                {/* Volume Usinado */}
-                <div className="border border-primary/30 rounded-lg p-3 bg-primary/5">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-display font-extrabold text-primary uppercase tracking-wide">📊 Volume Total Usinado (ton)</span>
-                    <NumericInput value={kmaOperation.totalVolumeMachinedTon} onChange={(e) => setKmaOperation({ ...kmaOperation, totalVolumeMachinedTon: e.target.value })} placeholder="0" className="bg-secondary border-border" />
-                  </div>
-                </div>
               </div>
             )}
+
+            {/* Volume Usinado (sempre visível para Usina KMA) */}
+            <div className="border border-primary/30 rounded-lg p-3 bg-primary/5 mt-3">
+              <div className="space-y-1">
+                <span className="text-[10px] font-display font-extrabold text-primary uppercase tracking-wide">📊 Volume Total Usinado (ton)</span>
+                <NumericInput value={kmaOperation.totalVolumeMachinedTon} onChange={(e) => setKmaOperation({ ...kmaOperation, totalVolumeMachinedTon: e.target.value })} placeholder="0" className="bg-secondary border-border" />
+              </div>
+            </div>
           </Section>
         )}
 

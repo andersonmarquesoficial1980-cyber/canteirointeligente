@@ -185,7 +185,25 @@ async function syncPendingDiary(item: any) {
     }
 
     const kmaOperation = payload.kmaOperation;
-    if (kmaOperation?.operationType) {
+    const hasKmaOperationData = Boolean(
+      kmaOperation?.operationType ||
+      kmaOperation?.capType ||
+      kmaOperation?.capSupplier ||
+      kmaOperation?.capQtyTon ||
+      kmaOperation?.capNfNumber ||
+      kmaOperation?.filerType ||
+      kmaOperation?.filerSupplier ||
+      kmaOperation?.filerQtyTon ||
+      kmaOperation?.silo1Material ||
+      kmaOperation?.silo1Qty ||
+      kmaOperation?.silo2Material ||
+      kmaOperation?.silo2Qty ||
+      kmaOperation?.waterLiters ||
+      kmaOperation?.waterSupplier ||
+      kmaOperation?.aggregatesSupplier ||
+      kmaOperation?.totalVolumeMachinedTon
+    );
+    if (hasKmaOperationData) {
       const { error } = await supabase.from("kma_operations").insert({
         company_id: companyId,
         diary_id: diaryId,
