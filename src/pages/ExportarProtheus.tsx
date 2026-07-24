@@ -108,6 +108,11 @@ function buildHeader(tipoEquip: string): string[] {
     }
   }
 
+  // KMA: volume total usinado consolidado do dia
+  if (tipoEquip === "Usina KMA") {
+    h.push("VOLUME USINADO (TON)");
+  }
+
   h.push("OBSERVAÇÕES GERAIS");
 
   return h;
@@ -233,10 +238,12 @@ export default function ExportarProtheus() {
       { data: timeEntries },
       { data: bitsEntries },
       { data: prodAreas },
+      { data: kmaOps },
     ] = await Promise.all([
       supabase.from("equipment_time_entries").select("*").in("diary_id", diaryIds).order("start_time", { ascending: true }).limit(10000),
       supabase.from("bit_entries").select("*").in("diary_id", diaryIds).limit(10000),
       supabase.from("equipment_production_areas").select("*").in("diary_id", diaryIds).limit(10000),
+      supabase.from("kma_operations").select("diary_id,total_volume_machined_ton").in("diary_id", diaryIds).limit(10000),
     ]);
 
     const createdByIds = [...new Set((diarios ?? []).map((d: any) => d.created_by).filter(Boolean))];
@@ -254,6 +261,7 @@ export default function ExportarProtheus() {
     const timeMap: Record<string, any[]> = {};
     const bitsMap: Record<string, any[]> = {};
     const prodMap: Record<string, any[]> = {};
+    const kmaMap: Record<string, any> = {};
 
     function sortTimeEntries(entries: any[]): any[] {
       return [...entries].sort((a, b) => {
@@ -287,6 +295,9 @@ export default function ExportarProtheus() {
       if (!prodMap[p.diary_id]) prodMap[p.diary_id] = [];
       prodMap[p.diary_id].push(p);
     });
+    (kmaOps ?? []).forEach((k: any) => {
+      if (k?.diary_id && !kmaMap[k.diary_id]) kmaMap[k.diary_id] = k;
+    });
 
     function inferirTurno(times: any[], periodOriginal: string): string {
       const primeiro = times[0]?.start_time;
@@ -305,6 +316,7 @@ export default function ExportarProtheus() {
       const times  = (timeMap[d.id] ?? []).slice(0, 10);
       const bits   = (bitsMap[d.id] ?? [])[0];
       const prods  = (prodMap[d.id] ?? []).slice(0, 25);
+      const kmaOp  = kmaMap[d.id] ?? null;
       const turnoCorrigido = inferirTurno(timeMap[d.id] ?? [], d.period ?? "");
 
       const createdAtBR = d.created_at
@@ -354,6 +366,10 @@ export default function ExportarProtheus() {
           row.push(fmtNum(p?.width_m));
           row.push(fmtNum(p?.thickness_cm));
         }
+      }
+
+      if (tipoExportBase === "Usina KMA") {
+        row.push(fmtNum(kmaOp?.total_volume_machined_ton));
       }
 
       row.push(d.observations ?? "");
@@ -648,6 +664,7 @@ export default function ExportarProtheus() {
             <li>10 blocos fixos de Apontamento de Horas (Início/Término/Item/OBS)</li>
             {tipoExportBase === "Fresadora" && <li>Bits: Tipo Fresagem + Aplicou/Status/Qtd/Horímetro/Fornecedor</li>}
             {TEM_PRODUCAO.includes(tipoExportBase) && <li>25 blocos fixos de Produção (Comprimento/Largura/Espessura)</li>}
+            {tipoExportBase === "Usina KMA" && <li>Coluna adicional: Volume Usinado (ton)</li>}
             {!TEM_PRODUCAO.includes(tipoExportBase) && subtipoEquip && <li className="text-amber-600">Sem colunas de Produção para este equipamento</li>}
             <li>Observações Gerais</li>
           </ul>
