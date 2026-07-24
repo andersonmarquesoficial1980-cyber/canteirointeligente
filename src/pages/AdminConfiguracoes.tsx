@@ -1974,7 +1974,7 @@ function TruckRegistryManager() {
     setLoadingFleetBasculantes(true);
     const { data, error } = await (supabase as any)
       .from("equipamentos")
-      .select("id, frota, placa, nome, tipo, condicao, empresa_proprietaria, vinculo_rdo, vinculos");
+      .select("id, company_id, frota, placa, nome, tipo, condicao, empresa_proprietaria, vinculo_rdo, vinculos");
 
     if (error) {
       toast({ title: "Erro ao buscar frota de basculantes", description: error.message, variant: "destructive" });
@@ -2073,11 +2073,24 @@ function TruckRegistryManager() {
 
     setImportingFleetBasculantes(true);
 
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+    let userCompanyId: string | null = null;
+    if (userId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      userCompanyId = (profile as any)?.company_id || null;
+    }
+
     const payload = basculantesFrotaFaltantes.map((eq: any) => ({
       placa: String(eq.extracted_placa || "").trim().toUpperCase(),
       modelo: eq.frota || null,
       cor: null,
       fornecedor: eq.empresa_proprietaria || "FREMIX",
+      company_id: eq.company_id || userCompanyId,
       // A tabela permite default 0; após importar, o admin ajusta com a capacidade real de cada caminhão.
       capacidade_m3: 0,
       vinculos: ["CAMINHAO_BASCULANTE", "RDO"],
