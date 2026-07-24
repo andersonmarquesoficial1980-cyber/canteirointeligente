@@ -135,7 +135,10 @@ export default function EquipmentHome() {
       ]);
 
       if (!permsRes.data?.is_admin && permsRes.data?.equipamentos_permitidos?.length > 0) {
-        setEquipamentosPermitidos(permsRes.data.equipamentos_permitidos);
+        const normalizados = permsRes.data.equipamentos_permitidos.map((tipo: string) =>
+          tipo === "Linha Amarela" ? "Retro" : tipo
+        );
+        setEquipamentosPermitidos(normalizados);
       }
       if (profileRes.data?.id) setProfileId(profileRes.data.id);
     });

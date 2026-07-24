@@ -56,9 +56,26 @@ const TIPOS_RELATORIO_PERM = [
 ];
 
 const TIPOS_EQUIPAMENTO = [
-  "Fresadora", "Bobcat", "Rolo", "Vibroacabadora", "Usina KMA",
-  "Caminhões", "Comboio", "Veículo", "Retro", "Carreta",
-];
+  { value: "Fresadora", label: "Fresadora" },
+  { value: "Bobcat", label: "Bobcat" },
+  { value: "Rolo", label: "Rolo Compactador" },
+  { value: "Vibroacabadora", label: "Vibroacabadora" },
+  { value: "Usina KMA", label: "Usina Móvel KMA" },
+  { value: "Caminhões", label: "Caminhões" },
+  { value: "Veículo", label: "Veículo de Transporte" },
+  // mantém chave legada "Retro" no banco para não quebrar permissões/histórico já existentes
+  { value: "Retro", label: "Linha Amarela", aliases: ["Linha Amarela"] },
+  { value: "Carreta", label: "Carreta" },
+] as const;
+
+function normalizarTiposPermitidos(tipos: string[] = []) {
+  return tipos.map((t) => (t === "Linha Amarela" ? "Retro" : t));
+}
+
+function tipoMarcado(perms: Perms, tipo: { value: string; aliases?: readonly string[] }) {
+  const atuais = normalizarTiposPermitidos(perms.equipamentos_permitidos || []);
+  return atuais.includes(tipo.value) || (tipo.aliases || []).some((alias) => atuais.includes(alias));
+}
 
 const MODULOS = [
   { key: "modulo_obras", label: "WF Obras" },
@@ -423,19 +440,22 @@ export default function PermissoesManager() {
                             <div className="mt-1 ml-2 space-y-1">
                               <p className="text-[10px] text-muted-foreground font-semibold pl-1">Tipos permitidos (vazio = todos):</p>
                               <div className="grid grid-cols-1 gap-0.5">
-                                {TIPOS_EQUIPAMENTO.map(t => (
-                                  <label key={t} className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-lg hover:bg-muted/50">
+                                {TIPOS_EQUIPAMENTO.map(tipo => (
+                                  <label key={tipo.value} className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-lg hover:bg-muted/50">
                                     <input
                                       type="checkbox"
-                                      checked={(perms.equipamentos_permitidos || []).includes(t)}
+                                      checked={tipoMarcado(perms, tipo)}
                                       onChange={e => {
-                                        const atual = perms.equipamentos_permitidos || [];
-                                        const novo = e.target.checked ? [...atual, t] : atual.filter(x => x !== t);
+                                        const atualNormalizado = normalizarTiposPermitidos(perms.equipamentos_permitidos || []);
+                                        const semAliases = atualNormalizado.filter(x => x !== tipo.value && !(tipo.aliases || []).includes(x));
+                                        const novo = e.target.checked
+                                          ? [...semAliases, tipo.value]
+                                          : semAliases;
                                         setPermsMap(prev => ({ ...prev, [u.id]: { ...prev[u.id], equipamentos_permitidos: novo } }));
                                       }}
                                       className="w-3 h-3 accent-primary"
                                     />
-                                    <span className="text-[10px]">{t}</span>
+                                    <span className="text-[10px]">{tipo.label}</span>
                                   </label>
                                 ))}
                               </div>
