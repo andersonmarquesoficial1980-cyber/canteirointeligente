@@ -110,6 +110,7 @@ async function syncPendingDiary(item: any) {
   if (diaryError) throw diaryError;
 
   const diaryId = diary.id;
+  const companyId = diaryPayload.company_id || null;
   const timeEntries = (payload.timeEntries || []) as any[];
   const validTimeEntries = timeEntries.filter((t) => t.startTime && t.activity);
   if (validTimeEntries.length > 0) {
@@ -170,6 +171,7 @@ async function syncPendingDiary(item: any) {
     const validKma = ((payload.kmaEntries || []) as any[]).filter((e) => e.pesoNominal || e.pesoReal);
     if (validKma.length > 0) {
       const rows = validKma.map((entry) => ({
+        company_id: companyId,
         equipment_diary_id: diaryId,
         attempt_number: entry.tentativa,
         nominal_weight_usina: entry.pesoNominal ? Number(entry.pesoNominal) : null,
@@ -185,6 +187,7 @@ async function syncPendingDiary(item: any) {
     const kmaOperation = payload.kmaOperation;
     if (kmaOperation?.operationType) {
       const { error } = await supabase.from("kma_operations").insert({
+        company_id: companyId,
         diary_id: diaryId,
         operation_type: kmaOperation.operationType,
         cap_type: kmaOperation.capType || null,

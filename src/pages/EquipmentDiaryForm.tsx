@@ -503,7 +503,7 @@ export default function EquipmentDiaryForm() {
       if (!isOnline) {
         try {
           const cached = await offlineDb.cachedEquipamentos.toArray();
-          return (cached || []).filter((e: any) => e && ["ativo", "Operando"].includes(e.status));
+          return (cached || []).filter((e: any) => !!e);
         } catch (e) {
           return [];
         }
@@ -511,7 +511,6 @@ export default function EquipmentDiaryForm() {
       const { data, error } = await (supabase as any)
         .from("equipamentos")
         .select("*")
-        .in("status", ["ativo", "Operando"])
         .order("frota");
       if (error) throw error;
       return (data || []) as any[];
@@ -1709,6 +1708,7 @@ export default function EquipmentDiaryForm() {
             }
           }
           const { error: kmaCalErr } = await supabase.from("kma_calibration_entries").insert({
+            company_id: effectiveCompanyId,
             equipment_diary_id: diary.id,
             attempt_number: entry.tentativa,
             nominal_weight_usina: entry.pesoNominal ? Number(String(entry.pesoNominal).replace(",", ".")) : null,
@@ -1725,6 +1725,7 @@ export default function EquipmentDiaryForm() {
         // Save KMA operations
         if (isUsinaKma && diary && kmaOperation.operationType) {
           const { error: kmaOpErr } = await supabase.from("kma_operations").insert({
+            company_id: effectiveCompanyId,
             diary_id: diary.id,
             operation_type: kmaOperation.operationType,
             cap_type: kmaOperation.capType || null,
