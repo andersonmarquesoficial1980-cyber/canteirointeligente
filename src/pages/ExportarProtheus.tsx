@@ -115,7 +115,7 @@ function validateKmaDiary(diary: any, kmaOp: any) {
 // Equipamentos com Auxiliar
 const TEM_AUXILIAR = ["Fresadora", "Usina KMA"];
 // Equipamentos com coluna de Produção (Comp/Larg/Esp)
-const TEM_PRODUCAO = ["Fresadora", "Usina KMA"];
+const TEM_PRODUCAO = ["Fresadora"];
 // Equipamentos que usam Odômetro (km) em vez de Horímetro (h)
 const USA_ODOMETRO = ["Caminhões", "Veículo", "Comboio", "Carreta"];
 
@@ -160,7 +160,7 @@ function buildHeader(tipoEquip: string): string[] {
     h.push("FORNECEDOR BITS");
   }
 
-  // 25 blocos de produção fixos (só Fresadora e KMA)
+  // 25 blocos de produção fixos (somente Fresadora)
   if (comProducao) {
     for (let i = 1; i <= 25; i++) {
       h.push(`COMPRIMENTO ${pad(i)} (m)`);
@@ -169,26 +169,24 @@ function buildHeader(tipoEquip: string): string[] {
     }
   }
 
-  // KMA: materiais e volume usinado consolidados do dia
+  // KMA: materiais e volume usinado no formato Protheus
   if (tipoEquip === "Usina KMA") {
-    h.push("TIPO OPERAÇÃO KMA");
-    h.push("CAP TIPO");
-    h.push("CAP FORNECEDOR");
-    h.push("CAP QTD (TON)");
-    h.push("CAP Nº NF");
-    h.push("FILER TIPO");
-    h.push("FILER FORNECEDOR");
-    h.push("FILER QTD (TON)");
-    h.push("AGREGADOS FORNECEDOR");
-    h.push("SILO 1 MATERIAL");
-    h.push("SILO 1 QTD (TON)");
-    h.push("SILO 2 MATERIAL");
-    h.push("SILO 2 QTD (TON)");
-    h.push("ÁGUA (L)");
-    h.push("ÁGUA FORNECEDOR");
-    h.push("VOLUME USINADO (TON)");
-    h.push("STATUS VALIDAÇÃO KMA");
-    h.push("PENDÊNCIAS KMA");
+    h.push("Tipo de CAP");
+    h.push("Fornecedor de CAP");
+    h.push("Quantidade CAP (ton)");
+    h.push("Nota Fiscal CAP");
+    h.push("Tipo de Filer");
+    h.push("Outro tipo de Filer");
+    h.push("Fornecedor de Filer");
+    h.push("Quantidade de Filer (ton)");
+    h.push("Material SILO 01");
+    h.push("Quantidade de SILO 01");
+    h.push("Material SILO 02");
+    h.push("Quantidade de SILO 02");
+    h.push("Fornecedor de Agregados");
+    h.push("Quantidade de água em litros (KMA)");
+    h.push("Fornecedor de água (KMA)");
+    h.push("QUANTIDADE EM TONELADAS");
   }
 
   h.push("OBSERVAÇÕES GERAIS");
@@ -410,7 +408,6 @@ export default function ExportarProtheus() {
       const bits   = (bitsMap[d.id] ?? [])[0];
       const prods  = (prodMap[d.id] ?? []).slice(0, 25);
       const kmaOp  = kmaMap[d.id] ?? null;
-      const kmaValidation = tipoExportBase === "Usina KMA" ? validateKmaDiary(d, kmaOp) : null;
       const turnoCorrigido = inferirTurno(timeMap[d.id] ?? [], d.period ?? "");
 
       const createdAtBR = d.created_at
@@ -463,24 +460,22 @@ export default function ExportarProtheus() {
       }
 
       if (tipoExportBase === "Usina KMA") {
-        row.push(kmaOp?.operation_type ?? "");
         row.push(kmaOp?.cap_type ?? "");
         row.push(kmaOp?.cap_supplier ?? "");
         row.push(fmtNum(kmaOp?.cap_qty_ton));
         row.push(kmaOp?.cap_nf_number ?? "");
         row.push(kmaOp?.filer_type ?? "");
+        row.push(""); // Outro tipo de Filer (sem campo dedicado no Workflux)
         row.push(kmaOp?.filer_supplier ?? "");
         row.push(fmtNum(kmaOp?.filer_qty_ton));
-        row.push(kmaOp?.aggregates_supplier ?? "");
         row.push(kmaOp?.silo1_material ?? "");
         row.push(fmtNum(kmaOp?.silo1_qty));
         row.push(kmaOp?.silo2_material ?? "");
         row.push(fmtNum(kmaOp?.silo2_qty));
+        row.push(kmaOp?.aggregates_supplier ?? "");
         row.push(fmtNum(kmaOp?.water_liters));
         row.push(kmaOp?.water_supplier ?? "");
         row.push(fmtNum(kmaOp?.total_volume_machined_ton));
-        row.push(kmaValidation?.status ?? "");
-        row.push((kmaValidation?.pendencias || []).join(" | "));
       }
 
       row.push(d.observations ?? "");
@@ -870,7 +865,7 @@ export default function ExportarProtheus() {
             <li>10 blocos fixos de Apontamento de Horas (Início/Término/Item/OBS)</li>
             {tipoExportBase === "Fresadora" && <li>Bits: Tipo Fresagem + Aplicou/Status/Qtd/Horímetro/Fornecedor</li>}
             {TEM_PRODUCAO.includes(tipoExportBase) && <li>25 blocos fixos de Produção (Comprimento/Largura/Espessura)</li>}
-            {tipoExportBase === "Usina KMA" && <li>Colunas adicionais KMA: Operação, CAP, Filer, Silos, Água, Volume Usinado, Status de Validação e Pendências</li>}
+            {tipoExportBase === "Usina KMA" && <li>Colunas adicionais KMA: CAP, Filer, Silos, Água e Quantidade em Toneladas</li>}
             {!TEM_PRODUCAO.includes(tipoExportBase) && subtipoEquip && <li className="text-amber-600">Sem colunas de Produção para este equipamento</li>}
             <li>Observações Gerais</li>
           </ul>
