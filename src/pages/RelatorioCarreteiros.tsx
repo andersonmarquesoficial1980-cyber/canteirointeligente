@@ -1,5 +1,5 @@
 /**
- * WF Carreteiros — Relatório de Fechamento Mensal
+ * WF Carreteiros — Relatório por Período
  * Rota: /relatorios/carreteiros
  */
 import { useState, useEffect, useMemo } from "react";
@@ -29,18 +29,26 @@ function calcDuracao(saida: string | null, chegada: string | null) {
   return `${h}h${m.toString().padStart(2, "0")}`;
 }
 
-const MONTHS = [
-  { v: "01", l: "Janeiro" }, { v: "02", l: "Fevereiro" }, { v: "03", l: "Março" },
-  { v: "04", l: "Abril" }, { v: "05", l: "Maio" }, { v: "06", l: "Junho" },
-  { v: "07", l: "Julho" }, { v: "08", l: "Agosto" }, { v: "09", l: "Setembro" },
-  { v: "10", l: "Outubro" }, { v: "11", l: "Novembro" }, { v: "12", l: "Dezembro" },
-];
+function formatDateInput(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatPeriodoLabel(inicio: string, fim: string) {
+  if (!inicio || !fim) return "Período não definido";
+  const inicioBR = new Date(`${inicio}T00:00:00`).toLocaleDateString("pt-BR");
+  const fimBR = new Date(`${fim}T00:00:00`).toLocaleDateString("pt-BR");
+  return inicio === fim ? inicioBR : `${inicioBR} até ${fimBR}`;
+}
 
 export default function RelatorioCarreteiros() {
   const navigate = useNavigate();
   const hoje = new Date();
-  const [mes, setMes] = useState(String(hoje.getMonth() + 1).padStart(2, "0"));
-  const [ano, setAno] = useState(String(hoje.getFullYear()));
+  const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const [dataInicio, setDataInicio] = useState(formatDateInput(primeiroDiaMes));
+  const [dataFim, setDataFim] = useState(formatDateInput(hoje));
   const [placa, setPlaca] = useState("");
   const [placas, setPlacas] = useState<string[]>([]);
   const [trips, setTrips] = useState<any[]>([]);
@@ -59,6 +67,7 @@ export default function RelatorioCarreteiros() {
   }, []);
   const [loading, setLoading] = useState(false);
   const [buscou, setBuscou] = useState(false);
+  const [filtroErro, setFiltroErro] = useState("");
 
   // Carregar placas disponíveis
   useEffect(() => {
@@ -71,17 +80,29 @@ export default function RelatorioCarreteiros() {
   }, []);
 
   const buscar = async () => {
+    if (!dataInicio || !dataFim) {
+      setFiltroErro("Preencha data inicial e data final.");
+      setTrips([]);
+      setBuscou(true);
+      return;
+    }
+
+    if (dataInicio > dataFim) {
+      setFiltroErro("A data inicial não pode ser maior que a data final.");
+      setTrips([]);
+      setBuscou(true);
+      return;
+    }
+
+    setFiltroErro("");
     setLoading(true);
     setBuscou(true);
-    const ini = `${ano}-${mes}-01`;
-    const lastDay = new Date(Number(ano), Number(mes), 0).getDate();
-    const fim = `${ano}-${mes}-${String(lastDay).padStart(2, "0")}`;
 
     let query = (supabase as any)
       .from("trucker_trips")
       .select("*")
-      .gte("date", ini)
-      .lte("date", fim)
+      .gte("date", dataInicio)
+      .lte("date", dataFim)
       .order("date", { ascending: false })
       .order("truck_plate");
 
@@ -121,13 +142,14 @@ export default function RelatorioCarreteiros() {
   const totalViagens = resumoPorPlaca.reduce((s, [, v]) => s + v.viagens, 0);
   const totalM3 = resumoPorPlaca.reduce((s, [, v]) => s + v.m3, 0);
 
+  const periodoLabel = formatPeriodoLabel(dataInicio, dataFim);
+
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
-    const mesLabel = MONTHS.find(m => m.v === mes)?.l || mes;
 
     // Aba 1: Resumo por placa
     const resumoRows: any[][] = [
-      [`FECHAMENTO CARRETEIROS — ${mesLabel}/${ano}`],
+      [`RELATÓRIO CARRETEIROS — ${periodoLabel}`],
       [],
       ["Placa", "Viagens", "m³ Total", "Dias Trabalhados", "OGS", "Materiais"],
       ...resumoPorPlaca.map(([p, v]) => [
@@ -177,10 +199,10 @@ export default function RelatorioCarreteiros() {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(incompRows), "Incompletas");
     }
 
-    XLSX.writeFile(wb, `WF_Carreteiros_${mesLabel}_${ano}.xlsx`);
+    const inicioSafe = (dataInicio || "inicio").replace(/-/g, "");
+    const fimSafe = (dataFim || "fim").replace(/-/g, "");
+    XLSX.writeFile(wb, `WF_Carreteiros_${inicioSafe}_${fimSafe}.xlsx`);
   }
-
-  const mesLabel = MONTHS.find(m => m.v === mes)?.l || mes;
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -191,7 +213,7 @@ export default function RelatorioCarreteiros() {
         <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-bold text-sm text-primary-foreground">Relatório Carreteiros</span>
-          <span className="block text-[10px] text-primary-foreground/70">Fechamento mensal de viagens</span>
+          <span className="block text-[10px] text-primary-foreground/70">Relatório por período de viagens</span>
         </div>
         {buscou && trips.length > 0 && (
           <ExportButton size="sm" onClick={exportarExcel} className="bg-green-600 hover:bg-green-700 text-white border-0 gap-1">
@@ -204,22 +226,26 @@ export default function RelatorioCarreteiros() {
         {/* Filtros */}
         <div className="rdo-card space-y-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filtros</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Mês</label>
-              <select value={mes} onChange={e => setMes(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none">
-                {MONTHS.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
-              </select>
+              <label className="text-xs text-muted-foreground">Data inicial</label>
+              <input
+                type="date"
+                value={dataInicio}
+                onChange={e => setDataInicio(e.target.value)}
+                className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
+              />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Ano</label>
-              <select value={ano} onChange={e => setAno(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none">
-                {["2025", "2026", "2027"].map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
+              <label className="text-xs text-muted-foreground">Data final</label>
+              <input
+                type="date"
+                value={dataFim}
+                onChange={e => setDataFim(e.target.value)}
+                className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none"
+              />
             </div>
-            <div className="space-y-1 sm:col-span-2">
+            <div className="space-y-1 lg:col-span-2">
               <label className="text-xs text-muted-foreground">Placa (opcional)</label>
               <select value={placa} onChange={e => setPlaca(e.target.value)}
                 className="w-full h-10 px-3 text-sm rounded-xl border border-border bg-background outline-none">
@@ -228,6 +254,50 @@ export default function RelatorioCarreteiros() {
               </select>
             </div>
           </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const hojeTxt = formatDateInput(new Date());
+                setDataInicio(hojeTxt);
+                setDataFim(hojeTxt);
+              }}
+            >
+              1 dia (hoje)
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const h = new Date();
+                const seteDiasAtras = new Date(h.getFullYear(), h.getMonth(), h.getDate() - 6);
+                setDataInicio(formatDateInput(seteDiasAtras));
+                setDataFim(formatDateInput(h));
+              }}
+            >
+              Últimos 7 dias
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const h = new Date();
+                setDataInicio(formatDateInput(new Date(h.getFullYear(), h.getMonth(), 1)));
+                setDataFim(formatDateInput(h));
+              }}
+            >
+              Mês atual
+            </Button>
+          </div>
+          {filtroErro && (
+            <p className="text-xs text-red-600 font-medium">{filtroErro}</p>
+          )}
+
           <Button onClick={buscar} disabled={loading} className="gap-2">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             {loading ? "Buscando..." : "Gerar Relatório"}
@@ -261,7 +331,7 @@ export default function RelatorioCarreteiros() {
             {trips.length === 0 ? (
               <div className="rdo-card py-10 text-center">
                 <Truck className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Nenhuma viagem encontrada para {mesLabel}/{ano}.</p>
+                <p className="text-sm text-muted-foreground">Nenhuma viagem encontrada para {periodoLabel}.</p>
               </div>
             ) : (
               <>
@@ -269,7 +339,7 @@ export default function RelatorioCarreteiros() {
                 <div className="rdo-card">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
-                      <p className="font-display font-bold text-base">{mesLabel}/{ano}</p>
+                      <p className="font-display font-bold text-base">{periodoLabel}</p>
                       <p className="text-xs text-muted-foreground">{placa || "Todas as placas"}</p>
                     </div>
                     <div className="flex gap-6 text-center">
