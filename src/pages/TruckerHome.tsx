@@ -19,6 +19,7 @@ import { ResponsavelInput } from "@/components/rdo/ResponsavelInput";
 const LOAD_OPTIONS = ["CHEIO", "MEIA CARGA", "VAZIO"] as const;
 
 type LoadStatus = typeof LOAD_OPTIONS[number];
+type LoadStatusInput = "" | LoadStatus;
 
 function localDateISO() {
   const now = new Date();
@@ -36,7 +37,7 @@ function DepartureForm() {
   const [quantity, setQuantity] = useState("");
   const [originOgs, setOriginOgs] = useState("");
   const [encarregadoObra, setEncarregadoObra] = useState("");
-  const [departureLoadStatus, setDepartureLoadStatus] = useState<LoadStatus>("CHEIO");
+  const [departureLoadStatus, setDepartureLoadStatus] = useState<LoadStatusInput>("");
   const [destination, setDestination] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -78,8 +79,8 @@ function DepartureForm() {
   };
 
   const handleSubmit = async () => {
-    if (!placa || !material || !quantity || !destination) {
-      toast.error("Preencha todos os campos obrigatórios.");
+    if (!placa || !material || !quantity || !destination || !departureLoadStatus) {
+      toast.error("Preencha todos os campos obrigatórios, incluindo Situação na Saída.");
       return;
     }
 
@@ -132,7 +133,7 @@ function DepartureForm() {
       setQuantity("");
       setOriginOgs("");
       setEncarregadoObra("");
-      setDepartureLoadStatus("CHEIO");
+      setDepartureLoadStatus("");
       setDestination("");
     }
   };

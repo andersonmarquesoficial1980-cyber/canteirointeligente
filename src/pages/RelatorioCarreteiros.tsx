@@ -66,6 +66,7 @@ export default function RelatorioCarreteiros() {
   const [placas, setPlacas] = useState<string[]>([]);
   const [trips, setTrips] = useState<any[]>([]);
   const [ogsMap, setOgsMap] = useState<Record<string, string>>({});
+  const [capacidadeMap, setCapacidadeMap] = useState<Record<string, number>>({});
   const [apontadoresMap, setApontadoresMap] = useState<Record<string, string>>({});
 
   // Carregar mapa UUID -> OGS (obra)
@@ -80,6 +81,20 @@ export default function RelatorioCarreteiros() {
             map[o.id] = `${ogsNum}${cliente}`;
           });
           setOgsMap(map);
+        }
+      });
+  }, []);
+
+  // Carregar mapa placa -> capacidade
+  useEffect(() => {
+    supabase.from("truck_registry").select("placa,capacidade_m3")
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, number> = {};
+          (data as any[]).forEach((t: any) => {
+            if (t?.placa) map[t.placa] = Number(t.capacidade_m3) || 0;
+          });
+          setCapacidadeMap(map);
         }
       });
   }, []);
@@ -215,6 +230,32 @@ export default function RelatorioCarreteiros() {
     return ogsMap[originOgsId] || originOgsId;
   };
 
+  const inferirSituacaoSaida = (trip: any): string => {
+    const valorAtual = (trip?.departure_load_status || "").toString().trim();
+    if (valorAtual) return valorAtual;
+
+    const qtd = Number(trip?.quantity) || 0;
+    if (qtd === 0) return "VAZIO";
+
+    const cap = Number(capacidadeMap[trip?.truck_plate || ""]) || 0;
+    if (cap > 0) {
+      const tolerancia = 0.05;
+      if (Math.abs(qtd - cap) <= tolerancia) return "CHEIO";
+      if (Math.abs(qtd - cap / 2) <= tolerancia) return "MEIA CARGA";
+    }
+
+    // fallback para históricos sem capacidade cadastrada
+    if (qtd > 0) return "CHEIO";
+
+    return "-";
+  };
+
+  const inferirSituacaoChegada = (trip: any): string => {
+    const valorAtual = (trip?.arrival_load_status || "").toString().trim();
+    if (valorAtual) return valorAtual;
+    return "-";
+  };
+
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
 
@@ -244,8 +285,8 @@ export default function RelatorioCarreteiros() {
         t.truck_plate || "-",
         t.material_type || "-",
         Number(t.quantity) || 0,
-        t.departure_load_status || "-",
-        t.arrival_load_status || "-",
+        inferirSituacaoSaida(t),
+        inferirSituacaoChegada(t),
         nomeOgsObra(t.origin_ogs_id),
         t.encarregado || "-",
         t.destination_id || "-",
@@ -539,13 +580,13 @@ export default function RelatorioCarreteiros() {
                             <td className="py-2 pr-3">{t.material_type || "-"}</td>
                             <td className="py-2 pr-3 text-right">{Number(t.quantity).toFixed(2)}</td>
                             <td className="py-2 pr-3">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${loadStatusBadgeClasses(t.departure_load_status)}`}>
-                                {t.departure_load_status || "-"}
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${loadStatusBadgeClasses(inferirSituacaoSaida(t))}`}>
+                                {inferirSituacaoSaida(t)}
                               </span>
                             </td>
                             <td className="py-2 pr-3">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${loadStatusBadgeClasses(t.arrival_load_status)}`}>
-                                {t.arrival_load_status || "-"}
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${loadStatusBadgeClasses(inferirSituacaoChegada(t))}`}>
+                                {inferirSituacaoChegada(t)}
                               </span>
                             </td>
                             <td className="py-2 pr-3 text-muted-foreground">{nomeOgsObra(t.origin_ogs_id)}</td>
