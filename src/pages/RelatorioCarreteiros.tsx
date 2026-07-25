@@ -46,6 +46,14 @@ function formatPeriodoLabel(inicio: string, fim: string) {
   return inicio === fim ? inicioBR : `${inicioBR} até ${fimBR}`;
 }
 
+function loadStatusBadgeClasses(status: string | null | undefined) {
+  const v = (status || "").toUpperCase().trim();
+  if (v === "CHEIO") return "bg-green-100 text-green-700 border border-green-200";
+  if (v === "MEIA CARGA") return "bg-amber-100 text-amber-700 border border-amber-200";
+  if (v === "VAZIO") return "bg-slate-100 text-slate-700 border border-slate-200";
+  return "bg-muted text-muted-foreground border border-border";
+}
+
 export default function RelatorioCarreteiros() {
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
@@ -518,8 +526,16 @@ export default function RelatorioCarreteiros() {
                             <td className="py-2 pr-3 font-medium">{t.truck_plate || "-"}</td>
                             <td className="py-2 pr-3">{t.material_type || "-"}</td>
                             <td className="py-2 pr-3 text-right">{Number(t.quantity).toFixed(2)}</td>
-                            <td className="py-2 pr-3 text-muted-foreground">{t.departure_load_status || "-"}</td>
-                            <td className="py-2 pr-3 text-muted-foreground">{t.arrival_load_status || "-"}</td>
+                            <td className="py-2 pr-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${loadStatusBadgeClasses(t.departure_load_status)}`}>
+                                {t.departure_load_status || "-"}
+                              </span>
+                            </td>
+                            <td className="py-2 pr-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${loadStatusBadgeClasses(t.arrival_load_status)}`}>
+                                {t.arrival_load_status || "-"}
+                              </span>
+                            </td>
                             <td className="py-2 pr-3 text-muted-foreground">{t.origin_ogs_id ? (ogsMap[t.origin_ogs_id] || t.origin_ogs_id) : "-"}</td>
                             <td className="py-2 pr-3">{t.destination_id || "-"}</td>
                             <td className="py-2 pr-3 text-muted-foreground">{nomeApontador(t.departure_user_id)}</td>
