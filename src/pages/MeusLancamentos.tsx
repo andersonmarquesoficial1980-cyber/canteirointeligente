@@ -262,7 +262,7 @@ export default function MeusLancamentos() {
     // Verificar perfil do usuário — admin vê todos os lançamentos da empresa
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("perfil, role, company_id")
+      .select("perfil, role, company_id, nome_completo")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -303,6 +303,36 @@ export default function MeusLancamentos() {
 
     const isAdminUser = isAdminByProfile;
     const effectiveCompanyId = companyId || roleCompanyId;
+    const profileFullName = ((profileData as any)?.nome_completo || "").trim();
+
+    // Nome canônico do encarregado/responsável na base (employees.name), para casar com rdo_diarios.encarregado/responsavel
+    let nomeCanonicoEncarregado: string | null = null;
+    const nameParts = profileFullName
+      .split(/\s+/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 2);
+
+    if (effectiveCompanyId && nameParts.length >= 2) {
+      const primeiro = nameParts[0];
+      const ultimo = nameParts[nameParts.length - 1];
+      const { data: emp } = await (supabase as any)
+        .from("employees")
+        .select("name")
+        .eq("company_id", effectiveCompanyId)
+        .ilike("name", `%${primeiro}%`)
+        .ilike("name", `%${ultimo}%`)
+        .maybeSingle();
+      nomeCanonicoEncarregado = (emp?.name || "").trim() || null;
+    }
+
+    const nomesResponsavel = Array.from(
+      new Set(
+        [profileFullName, nomeCanonicoEncarregado]
+          .map((n) => (n || "").trim())
+          .filter(Boolean),
+      ),
+    );
+
     setIsAdmin(isAdminUser || permEquipViewAll || permRdoViewAll);
     const isAdmin = isAdminUser || permEquipViewAll || permRdoViewAll;
 
@@ -440,27 +470,50 @@ export default function MeusLancamentos() {
     );
 
     // Buscar RDOs
-    // rdo_diarios tem company_id — admin filtra direto por company_id
-    // NOTA: coluna "status" não existe na tabela — filtro de rascunho removido
-    let rdoQuery = (supabase as any)
-      .from("rdo_diarios")
-      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,company_id,status_validacao")
-      .order("data", { ascending: false })
-      .order("created_at", { ascending: false });
+    // Regra: usuário comum vê os próprios RDOs + RDOs em que ele é encarregado/responsável.
+    // Admin/RDO view_all continua vendo todos da empresa.
+    const buildRdoBaseQuery = () => {
+      let q = (supabase as any)
+        .from("rdo_diarios")
+        .select("id,data,obra_nome,tipo_rdo,responsavel,encarregado,turno,clima,user_id,company_id,status_validacao,created_at")
+        .order("data", { ascending: false })
+        .order("created_at", { ascending: false });
 
-    if (isAdmin && companyId) {
-      rdoQuery = rdoQuery.eq("company_id", companyId);
-    } else if (permRdoViewAll && effectiveCompanyId) {
-      // RDO_Admin com permissão view_all: vê todos os RDOs da empresa
-      rdoQuery = rdoQuery.eq("company_id", effectiveCompanyId);
+      if (effectiveCompanyId) q = q.eq("company_id", effectiveCompanyId);
+      if (dataInicio) q = q.gte("data", dataInicio);
+      if (dataFim) q = q.lte("data", dataFim);
+      return q;
+    };
+
+    if ((isAdmin && companyId) || (permRdoViewAll && effectiveCompanyId)) {
+      // RDO_Admin/Administrador com view_all: vê todos os RDOs da empresa
+      const { data: rdoRows } = await buildRdoBaseQuery();
+      setRdos(rdoRows || []);
     } else {
-      rdoQuery = rdoQuery.eq("user_id", user.id);
-    }
+      const consultasRdo: Promise<any>[] = [buildRdoBaseQuery().eq("user_id", user.id)];
 
-    if (dataInicio) rdoQuery = rdoQuery.gte("data", dataInicio);
-    if (dataFim) rdoQuery = rdoQuery.lte("data", dataFim);
-    const { data: rdoRows } = await rdoQuery;
-    setRdos(rdoRows || []);
+      nomesResponsavel.forEach((nome) => {
+        consultasRdo.push(buildRdoBaseQuery().ilike("encarregado", nome));
+        consultasRdo.push(buildRdoBaseQuery().ilike("responsavel", nome));
+      });
+
+      const resultadosRdo = await Promise.all(consultasRdo);
+      const mergedById = new Map<string, any>();
+      resultadosRdo.forEach((res) => {
+        const linhas = res?.data || [];
+        linhas.forEach((row: any) => {
+          if (row?.id && !mergedById.has(row.id)) mergedById.set(row.id, row);
+        });
+      });
+
+      const rdoRows = Array.from(mergedById.values()).sort((a: any, b: any) => {
+        const dtA = `${a?.data || ""}|${a?.created_at || ""}`;
+        const dtB = `${b?.data || ""}|${b?.created_at || ""}`;
+        return dtB.localeCompare(dtA);
+      });
+
+      setRdos(rdoRows);
+    }
 
     // Buscar rascunhos de RDO do próprio usuário
     // NOTA: coluna "status" não existe — rascunhos são identificados por status_validacao = 'rascunho'
