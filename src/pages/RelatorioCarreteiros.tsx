@@ -4,12 +4,15 @@
  */
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, FileSpreadsheet, Search, Loader2, AlertTriangle, MapPin, Truck } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Search, Loader2, AlertTriangle, MapPin, Truck, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
 import * as XLSX from "xlsx";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useCanDelete } from "@/hooks/useCanDelete";
+import { toast } from "sonner";
 
 function fmtDate(d: string | null) {
   if (!d) return "-";
@@ -45,6 +48,8 @@ function formatPeriodoLabel(inicio: string, fim: string) {
 
 export default function RelatorioCarreteiros() {
   const navigate = useNavigate();
+  const { isAdmin } = useIsAdmin();
+  const { canDelete } = useCanDelete();
   const hoje = new Date();
   const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   const [dataInicio, setDataInicio] = useState(formatDateInput(primeiroDiaMes));
@@ -68,6 +73,7 @@ export default function RelatorioCarreteiros() {
   const [loading, setLoading] = useState(false);
   const [buscou, setBuscou] = useState(false);
   const [filtroErro, setFiltroErro] = useState("");
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   // Carregar placas disponíveis
   useEffect(() => {
@@ -111,6 +117,25 @@ export default function RelatorioCarreteiros() {
     const { data } = await query;
     setTrips(data || []);
     setLoading(false);
+  };
+
+  const excluirViagem = async (id: string) => {
+    if (!(isAdmin && canDelete)) return;
+
+    const confirmar = window.confirm("Excluir este lançamento de viagem? Essa ação não pode ser desfeita.");
+    if (!confirmar) return;
+
+    setExcluindoId(id);
+    const { error } = await supabase.from("trucker_trips").delete().eq("id", id);
+    setExcluindoId(null);
+
+    if (error) {
+      toast.error("Erro ao excluir viagem: " + error.message);
+      return;
+    }
+
+    setTrips(prev => prev.filter((t: any) => t.id !== id));
+    toast.success("Viagem excluída.");
   };
 
   // Viagens incompletas (saída sem chegada há mais de 4h)
@@ -446,6 +471,7 @@ export default function RelatorioCarreteiros() {
                           <th className="text-left py-2 pr-3">Chegada</th>
                           <th className="text-right py-2 pr-3">Duração</th>
                           <th className="text-left py-2">GPS</th>
+                          {isAdmin && canDelete && <th className="text-right py-2 pl-2">Ações</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -467,6 +493,22 @@ export default function RelatorioCarreteiros() {
                                 </a>
                               ) : <span className="text-muted-foreground">—</span>}
                             </td>
+                            {isAdmin && canDelete && (
+                              <td className="py-2 pl-2 text-right">
+                                <button
+                                  onClick={() => excluirViagem(t.id)}
+                                  disabled={excluindoId === t.id}
+                                  className="inline-flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                                  title="Excluir lançamento"
+                                >
+                                  {excluindoId === t.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
