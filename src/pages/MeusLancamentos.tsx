@@ -125,6 +125,12 @@ function normTxt(v: string | null | undefined): string {
     .toUpperCase();
 }
 
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 const FILTER_KEY = "meusLancamentos_filtros";
 
 function salvarFiltros(filtros: Record<string, string>) {
@@ -336,50 +342,195 @@ export default function MeusLancamentos() {
     setIsAdmin(isAdminUser || permEquipViewAll || permRdoViewAll);
     const isAdmin = isAdminUser || permEquipViewAll || permRdoViewAll;
 
-    let query = (supabase as any)
-      .from("equipment_diaries")
-      .select("*")
-      .neq("status", "rascunho")
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false });
+    const equipamentosPromise = (() => {
+      let eqQuery = (supabase as any)
+        .from("equipamentos")
+        .select("id, frota, tipo, categoria_rdo")
+        .eq("status", "ativo");
 
-    // Operador: filtra pelos próprios lançamentos
-    // Admin: filtra por empresa
-    if (isAdmin && companyId) {
-      query = query.eq("company_id", companyId);
+      if (effectiveCompanyId) {
+        eqQuery = eqQuery.eq("company_id", effectiveCompanyId);
+      }
+
+      return eqQuery;
+    })();
+
+    const buildEquipBaseQuery = () => {
+      let q = (supabase as any)
+        .from("equipment_diaries")
+        .select("*")
+        .neq("status", "rascunho")
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      if (effectiveCompanyId) q = q.eq("company_id", effectiveCompanyId);
+      if (frotaSelecionada !== "todas") q = q.eq("equipment_fleet", frotaSelecionada);
+      if (dataInicio) q = q.gte("date", dataInicio);
+      if (dataFim) q = q.lte("date", dataFim);
+      return q;
+    };
+
+    let rows: Lancamento[] = [];
+
+    if ((isAdmin && companyId) || (permEquipViewAll && effectiveCompanyId)) {
+      const { data } = await buildEquipBaseQuery();
+      rows = (data || []) as Lancamento[];
     } else {
-      query = query.eq("user_id", user.id);
-    }
+      // Próprios lançamentos
+      const ownPromise = buildEquipBaseQuery().eq("user_id", user.id);
 
-    // ⚠️ Não filtrar tipo no SQL:
-    // o histórico pode ter valores legados (ex: "Comboio") que hoje devem aparecer em "Caminhões".
-    // O filtro por tipo é aplicado no cliente após normalização.
-    if (frotaSelecionada !== "todas") {
-      query = query.eq("equipment_fleet", frotaSelecionada);
-    }
-    if (dataInicio) {
-      query = query.gte("date", dataInicio);
-    }
-    if (dataFim) {
-      query = query.lte("date", dataFim);
-    }
+      // + lançamentos vinculados aos RDOs onde o usuário é encarregado/responsável
+      const buildResponsavelRdoQuery = () => {
+        let q = (supabase as any)
+          .from("rdo_diarios")
+          .select("id,data,obra_nome")
+          .order("data", { ascending: false });
 
-    const [{ data: rows }, { data: equipamentosRows }] = await Promise.all([
-      query,
-      (() => {
-        let eqQuery = (supabase as any)
-          .from("equipamentos")
-          .select("id, frota, tipo, categoria_rdo")
-          .eq("status", "ativo");
+        if (effectiveCompanyId) q = q.eq("company_id", effectiveCompanyId);
+        if (dataInicio) q = q.gte("data", dataInicio);
+        if (dataFim) q = q.lte("data", dataFim);
+        return q;
+      };
 
-        if (effectiveCompanyId) {
-          eqQuery = eqQuery.eq("company_id", effectiveCompanyId);
+      const consultasRdoResp: Promise<any>[] = [];
+      nomesResponsavel.forEach((nome) => {
+        consultasRdoResp.push(buildResponsavelRdoQuery().ilike("encarregado", nome));
+        consultasRdoResp.push(buildResponsavelRdoQuery().ilike("responsavel", nome));
+      });
+
+      const [ownResult, ...rdoRespResults] = await Promise.all([ownPromise, ...consultasRdoResp]);
+
+      const rdoById = new Map<string, { id: string; data: string | null; obra_nome: string | null }>();
+      rdoRespResults.forEach((res) => {
+        (res?.data || []).forEach((r: any) => {
+          if (r?.id && !rdoById.has(r.id)) rdoById.set(r.id, r);
+        });
+      });
+
+      const linkedRows: Lancamento[] = [];
+      const rdosResp = Array.from(rdoById.values());
+
+      if (rdosResp.length > 0 && effectiveCompanyId) {
+        const rdoIds = rdosResp.map((r) => r.id);
+        const fleetDayKeys = new Set<string>();
+        const rdoWithEquipSet = new Set<string>();
+
+        // Fonte principal: rdo_equipamentos
+        for (const ids of chunkArray(rdoIds, 150)) {
+          const { data: eqRows } = await (supabase as any)
+            .from("rdo_equipamentos")
+            .select("rdo_id,frota")
+            .eq("company_id", effectiveCompanyId)
+            .in("rdo_id", ids);
+
+          (eqRows || []).forEach((eq: any) => {
+            const rdo = rdoById.get(eq?.rdo_id);
+            if (!rdo?.data || !eq?.frota) return;
+            fleetDayKeys.add(`${rdo.data}|${normTxt(eq.frota)}`);
+            rdoWithEquipSet.add(eq.rdo_id);
+          });
         }
 
-        return eqQuery;
-      })(),
-    ]);
+        // Fallback legado: RDO sem linhas em rdo_equipamentos
+        const rdosSemEquip = rdosResp.filter((r) => !rdoWithEquipSet.has(r.id));
+        if (rdosSemEquip.length > 0) {
+          const ogsSet = new Set<string>();
+          const dateSet = new Set<string>();
+          const keyDataOgs = new Set<string>();
 
+          rdosSemEquip.forEach((r) => {
+            const data = (r.data || "").trim();
+            const ogs = (r.obra_nome || "").trim();
+            if (!data || !ogs) return;
+            ogsSet.add(ogs);
+            dateSet.add(data);
+            keyDataOgs.add(`${data}|${normTxt(ogs)}`);
+          });
+
+          const ogsList = Array.from(ogsSet);
+          const dateList = Array.from(dateSet).sort();
+          if (ogsList.length > 0 && dateList.length > 0) {
+            const minDate = dateList[0];
+            const maxDate = dateList[dateList.length - 1];
+
+            for (const ogsChunk of chunkArray(ogsList, 80)) {
+              let fbQuery = (supabase as any)
+                .from("equipment_diaries")
+                .select("date,equipment_fleet,ogs_number")
+                .eq("company_id", effectiveCompanyId)
+                .gte("date", minDate)
+                .lte("date", maxDate)
+                .in("ogs_number", ogsChunk)
+                .range(0, 4999);
+
+              if (frotaSelecionada !== "todas") fbQuery = fbQuery.eq("equipment_fleet", frotaSelecionada);
+
+              const { data: fbRows } = await fbQuery;
+              (fbRows || []).forEach((ed: any) => {
+                const data = (ed?.date || "").trim();
+                const ogs = (ed?.ogs_number || "").trim();
+                const frota = (ed?.equipment_fleet || "").trim();
+                if (!data || !ogs || !frota) return;
+                if (!keyDataOgs.has(`${data}|${normTxt(ogs)}`)) return;
+                fleetDayKeys.add(`${data}|${normTxt(frota)}`);
+              });
+            }
+          }
+        }
+
+        if (fleetDayKeys.size > 0) {
+          const dateSet = new Set<string>();
+          const fleetSet = new Set<string>();
+          fleetDayKeys.forEach((k) => {
+            const [d, f] = k.split("|");
+            if (d) dateSet.add(d);
+            if (f) fleetSet.add(f);
+          });
+
+          const dates = Array.from(dateSet).sort();
+          const minDate = dates[0];
+          const maxDate = dates[dates.length - 1];
+          const fleetNormSet = new Set(Array.from(fleetSet));
+
+          let linkedQuery = (supabase as any)
+            .from("equipment_diaries")
+            .select("*")
+            .neq("status", "rascunho")
+            .eq("company_id", effectiveCompanyId)
+            .gte("date", minDate)
+            .lte("date", maxDate)
+            .order("date", { ascending: false })
+            .order("created_at", { ascending: false })
+            .range(0, 4999);
+
+          if (frotaSelecionada !== "todas") linkedQuery = linkedQuery.eq("equipment_fleet", frotaSelecionada);
+
+          const { data: linkedBase } = await linkedQuery;
+          (linkedBase || []).forEach((d: any) => {
+            const key = `${d?.date || ""}|${normTxt(d?.equipment_fleet)}`;
+            if (!fleetNormSet.has(normTxt(d?.equipment_fleet))) return;
+            if (!fleetDayKeys.has(key)) return;
+            linkedRows.push(d as Lancamento);
+          });
+        }
+      }
+
+      const merged = new Map<string, Lancamento>();
+      ((ownResult?.data || []) as Lancamento[]).forEach((r) => {
+        if (r?.id) merged.set(r.id, r);
+      });
+      linkedRows.forEach((r) => {
+        if (r?.id && !merged.has(r.id)) merged.set(r.id, r);
+      });
+
+      rows = Array.from(merged.values()).sort((a: any, b: any) => {
+        const dtA = `${a?.date || ""}|${a?.created_at || ""}`;
+        const dtB = `${b?.date || ""}|${b?.created_at || ""}`;
+        return dtB.localeCompare(dtA);
+      });
+    }
+
+    const { data: equipamentosRows } = await equipamentosPromise;
     const equipamentosAtivos = (equipamentosRows || []) as EquipamentoCadastro[];
 
     const categoriaBySubtipoNorm = new Map<string, string>();
