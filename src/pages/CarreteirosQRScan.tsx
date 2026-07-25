@@ -52,6 +52,22 @@ export default function CarreteirosQRScan() {
   const [arrivalLoadStatus, setArrivalLoadStatus] = useState<""|"CHEIO"|"MEIA CARGA"|"VAZIO">("");
   const [materiais, setMateriais] = useState<string[]>([]);
 
+  const captureGeoNow = async (): Promise<string | null> => {
+    if (geo) return geo;
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000, enableHighAccuracy: true })
+      );
+      const valor = `${pos.coords.latitude.toFixed(6)},${pos.coords.longitude.toFixed(6)}`;
+      setGeo(valor);
+      setGeoStatus("ok");
+      return valor;
+    } catch {
+      setGeoStatus("erro");
+      return null;
+    }
+  };
+
   useEffect(() => {
     supabase.from("insumos_materiais").select("nome").eq("ativo", true).order("nome")
       .then(({ data }) => { if (data) setMateriais((data as any[]).map(m => m.nome)); });
@@ -105,6 +121,7 @@ export default function CarreteirosQRScan() {
       : 0;
 
     const { data: { user } } = await supabase.auth.getUser();
+    const geoAtSubmit = await captureGeoNow();
 
     // Usar fetch com service key para evitar problema de RLS sem autenticação
     const payload = {
@@ -116,7 +133,7 @@ export default function CarreteirosQRScan() {
       departure_load_status: toLoadStatus(quantidadeTipo),
       departure_user_id: user?.id || null,
       departure_time: new Date().toISOString(),
-      departure_geo: geo,
+      departure_geo: geoAtSubmit,
       status: "EM TRÂNSITO",
       date: localDateISO(),
       company_id: COMPANY_ID,
@@ -143,9 +160,10 @@ export default function CarreteirosQRScan() {
     setSubmitting(true); setErro(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const geoAtSubmit = await captureGeoNow();
       const { error: updateError } = await (supabase as any)
         .from("trucker_trips")
-        .update({ arrival_time: new Date().toISOString(), arrival_geo: geo, arrival_user_id: user?.id || null, arrival_load_status: arrivalLoadStatus, status: "CONCLUÍDO" })
+        .update({ arrival_time: new Date().toISOString(), arrival_geo: geoAtSubmit, arrival_user_id: user?.id || null, arrival_load_status: arrivalLoadStatus, status: "CONCLUÍDO" })
         .eq("id", tripAberta.id);
       setSubmitting(false);
       if (updateError) { setErro("Erro: " + updateError.message.slice(0, 100)); }

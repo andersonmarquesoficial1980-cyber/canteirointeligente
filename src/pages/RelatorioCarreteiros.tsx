@@ -68,13 +68,17 @@ export default function RelatorioCarreteiros() {
   const [ogsMap, setOgsMap] = useState<Record<string, string>>({});
   const [apontadoresMap, setApontadoresMap] = useState<Record<string, string>>({});
 
-  // Carregar mapa UUID -> ogs_number
+  // Carregar mapa UUID -> OGS (obra)
   useEffect(() => {
-    supabase.from("ogs_reference").select("id,ogs_number")
+    supabase.from("ogs_reference").select("id,ogs_number,client_name,location_address")
       .then(({ data }) => {
         if (data) {
           const map: Record<string,string> = {};
-          (data as any[]).forEach(o => { map[o.id] = o.ogs_number; });
+          (data as any[]).forEach((o: any) => {
+            const ogsNum = o.ogs_number || "OGS";
+            const cliente = o.client_name ? ` — ${o.client_name}` : "";
+            map[o.id] = `${ogsNum}${cliente}`;
+          });
           setOgsMap(map);
         }
       });
@@ -206,6 +210,11 @@ export default function RelatorioCarreteiros() {
     return apontadoresMap[userId] || userId;
   };
 
+  const nomeOgsObra = (originOgsId: string | null | undefined) => {
+    if (!originOgsId) return "-";
+    return ogsMap[originOgsId] || originOgsId;
+  };
+
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
 
@@ -229,7 +238,7 @@ export default function RelatorioCarreteiros() {
 
     // Aba 2: Detalhe de todas as viagens
     const detalheRows: any[][] = [
-      ["Data", "Placa", "Material", "Qtd (m³)", "Situação Saída", "Situação Chegada", "OGS Origem", "Destino", "Apontador Origem", "Apontador Destino", "Saída", "Chegada", "Duração", "Status", "GPS Saída", "GPS Chegada"],
+      ["Data", "Placa", "Material", "Qtd (m³)", "Situação Saída", "Situação Chegada", "OGS (Obra)", "Encarregado", "Destino", "Apontador Origem", "Apontador Destino", "Saída", "Chegada", "Duração", "Status", "GPS Saída", "GPS Chegada"],
       ...trips.map(t => [
         fmtDate(t.date),
         t.truck_plate || "-",
@@ -237,7 +246,8 @@ export default function RelatorioCarreteiros() {
         Number(t.quantity) || 0,
         t.departure_load_status || "-",
         t.arrival_load_status || "-",
-        (t.origin_ogs_id ? (ogsMap[t.origin_ogs_id] || t.origin_ogs_id) : "-"),
+        nomeOgsObra(t.origin_ogs_id),
+        t.encarregado || "-",
         t.destination_id || "-",
         nomeApontador(t.departure_user_id),
         nomeApontador(t.arrival_user_id),
@@ -499,7 +509,7 @@ export default function RelatorioCarreteiros() {
                 <div className="rdo-card space-y-3">
                   <p className="text-sm font-semibold">Detalhe das Viagens</p>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs min-w-[980px]">
+                    <table className="w-full text-xs min-w-[1280px]">
                       <thead>
                         <tr className="border-b border-border text-muted-foreground">
                           <th className="text-left py-2 pr-3">Data</th>
@@ -508,14 +518,16 @@ export default function RelatorioCarreteiros() {
                           <th className="text-right py-2 pr-3">m³</th>
                           <th className="text-left py-2 pr-3">Sit. Saída</th>
                           <th className="text-left py-2 pr-3">Sit. Chegada</th>
-                          <th className="text-left py-2 pr-3">OGS</th>
+                          <th className="text-left py-2 pr-3">OGS (Obra)</th>
+                          <th className="text-left py-2 pr-3">Encarregado</th>
                           <th className="text-left py-2 pr-3">Destino</th>
                           <th className="text-left py-2 pr-3">Apontador Origem</th>
                           <th className="text-left py-2 pr-3">Apontador Destino</th>
                           <th className="text-left py-2 pr-3">Saída</th>
                           <th className="text-left py-2 pr-3">Chegada</th>
                           <th className="text-right py-2 pr-3">Duração</th>
-                          <th className="text-left py-2">GPS</th>
+                          <th className="text-left py-2 pr-3">GPS Saída</th>
+                          <th className="text-left py-2">GPS Chegada</th>
                           {isAdmin && canDelete && <th className="text-right py-2 pl-2">Ações</th>}
                         </tr>
                       </thead>
@@ -536,17 +548,27 @@ export default function RelatorioCarreteiros() {
                                 {t.arrival_load_status || "-"}
                               </span>
                             </td>
-                            <td className="py-2 pr-3 text-muted-foreground">{t.origin_ogs_id ? (ogsMap[t.origin_ogs_id] || t.origin_ogs_id) : "-"}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{nomeOgsObra(t.origin_ogs_id)}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{t.encarregado || "-"}</td>
                             <td className="py-2 pr-3">{t.destination_id || "-"}</td>
                             <td className="py-2 pr-3 text-muted-foreground">{nomeApontador(t.departure_user_id)}</td>
                             <td className="py-2 pr-3 text-muted-foreground">{nomeApontador(t.arrival_user_id)}</td>
                             <td className="py-2 pr-3">{t.departure_time ? new Date(t.departure_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "-"}</td>
                             <td className="py-2 pr-3">{t.arrival_time ? new Date(t.arrival_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : <span className="text-amber-500 font-medium">Em trânsito</span>}</td>
                             <td className="py-2 pr-3 text-right">{calcDuracao(t.departure_time, t.arrival_time)}</td>
-                            <td className="py-2">
+                            <td className="py-2 pr-3">
                               {t.departure_geo ? (
-                                <a href={`https://maps.google.com/?q=${t.departure_geo}`} target="_blank" rel="noopener noreferrer">
-                                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                                <a href={`https://maps.google.com/?q=${t.departure_geo}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                                  <MapPin className="w-3.5 h-3.5" />
+                                  <span>Mapa</span>
+                                </a>
+                              ) : <span className="text-muted-foreground">—</span>}
+                            </td>
+                            <td className="py-2">
+                              {t.arrival_geo ? (
+                                <a href={`https://maps.google.com/?q=${t.arrival_geo}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                                  <MapPin className="w-3.5 h-3.5" />
+                                  <span>Mapa</span>
                                 </a>
                               ) : <span className="text-muted-foreground">—</span>}
                             </td>
