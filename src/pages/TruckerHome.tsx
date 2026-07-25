@@ -16,6 +16,10 @@ import { ResponsavelInput } from "@/components/rdo/ResponsavelInput";
 
 // Materials are now loaded dynamically from insumos_materiais
 
+const LOAD_OPTIONS = ["CHEIO", "MEIA CARGA", "VAZIO"] as const;
+
+type LoadStatus = typeof LOAD_OPTIONS[number];
+
 function DepartureForm() {
   const queryClient = useQueryClient();
   const { data: ogsData } = useOgsReference();
@@ -24,6 +28,7 @@ function DepartureForm() {
   const [quantity, setQuantity] = useState("");
   const [originOgs, setOriginOgs] = useState("");
   const [encarregadoObra, setEncarregadoObra] = useState("");
+  const [departureLoadStatus, setDepartureLoadStatus] = useState<LoadStatus>("CHEIO");
   const [destination, setDestination] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -98,6 +103,7 @@ function DepartureForm() {
       origin_ogs_id: originOgs || null,
       destination_id: destination,
       encarregado: encarregadoObra?.trim() || null,
+      departure_load_status: departureLoadStatus,
       departure_user_id: userId,
       departure_time: new Date().toISOString(),
       departure_geo: geoStr,
@@ -118,6 +124,7 @@ function DepartureForm() {
       setQuantity("");
       setOriginOgs("");
       setEncarregadoObra("");
+      setDepartureLoadStatus("CHEIO");
       setDestination("");
     }
   };
@@ -217,6 +224,19 @@ function DepartureForm() {
             />
           </div>
 
+          {/* Situação da carga na saída */}
+          <div className="space-y-1.5">
+            <Label>Situação na Saída *</Label>
+            <Select value={departureLoadStatus} onValueChange={(v) => setDepartureLoadStatus(v as LoadStatus)}>
+              <SelectTrigger><SelectValue placeholder="Selecione a situação" /></SelectTrigger>
+              <SelectContent>
+                {LOAD_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Destino */}
           <div className="space-y-1.5">
             <Label>Destino *</Label>
@@ -242,6 +262,7 @@ function DepartureForm() {
 
 function ArrivalList() {
   const queryClient = useQueryClient();
+  const [arrivalLoadById, setArrivalLoadById] = useState<Record<string, LoadStatus>>({});
 
   const { data: trips, isLoading } = useQuery({
     queryKey: ["trucker_in_transit"],
@@ -258,6 +279,12 @@ function ArrivalList() {
   });
 
   const confirmArrival = async (id: string) => {
+    const arrivalLoadStatus = arrivalLoadById[id];
+    if (!arrivalLoadStatus) {
+      toast.error("Selecione a situação de chegada: Cheio, Meia Carga ou Vazio.");
+      return;
+    }
+
     let geoStr: string | null = null;
     let gpsFailed = false;
     try {
@@ -277,6 +304,7 @@ function ArrivalList() {
         arrival_time: new Date().toISOString(),
         arrival_geo: geoStr,
         arrival_user_id: user?.id || null,
+        arrival_load_status: arrivalLoadStatus,
         status: "CONCLUÍDO",
       } as any)
       .eq("id", id);
@@ -320,6 +348,24 @@ function ArrivalList() {
               <div><span className="text-muted-foreground">Qtd:</span> <span className="font-medium">{trip.quantity} m³</span></div>
               <div><span className="text-muted-foreground">Destino:</span> <span className="font-medium">{trip.destination_id}</span></div>
               <div><span className="text-muted-foreground">Saída:</span> <span className="font-medium">{trip.departure_time ? new Date(trip.departure_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—"}</span></div>
+              <div className="col-span-2"><span className="text-muted-foreground">Situação na saída:</span> <span className="font-medium">{trip.departure_load_status || "-"}</span></div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Situação na chegada *</Label>
+              <Select
+                value={arrivalLoadById[trip.id] || ""}
+                onValueChange={(v) => setArrivalLoadById(prev => ({ ...prev, [trip.id]: v as LoadStatus }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione: Cheio, Meia Carga ou Vazio" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LOAD_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={() => confirmArrival(trip.id)} className="w-full h-14 text-base font-bold bg-green-600 hover:bg-green-700 text-white">
               <CheckCircle2 className="mr-2 h-6 w-6" /> Confirmar Recebimento

@@ -12,6 +12,12 @@ import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
+const toLoadStatus = (tipo: "maxima"|"meia"|"vazio"): "CHEIO" | "MEIA CARGA" | "VAZIO" => {
+  if (tipo === "meia") return "MEIA CARGA";
+  if (tipo === "vazio") return "VAZIO";
+  return "CHEIO";
+};
+
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
@@ -35,6 +41,7 @@ export default function CarreteirosQRScan() {
   const [quantidadeTipo, setQuantidadeTipo] = useState<"maxima"|"meia"|"vazio">("maxima");
   const [originOgs, setOriginOgs] = useState("");
   const [destination, setDestination] = useState("Canteiro");
+  const [arrivalLoadStatus, setArrivalLoadStatus] = useState<""|"CHEIO"|"MEIA CARGA"|"VAZIO">("");
   const [materiais, setMateriais] = useState<string[]>([]);
 
   useEffect(() => {
@@ -98,6 +105,7 @@ export default function CarreteirosQRScan() {
       quantity: qtd,
       origin_ogs_id: originOgs || null,
       destination_id: destination,
+      departure_load_status: toLoadStatus(quantidadeTipo),
       departure_user_id: user?.id || null,
       departure_time: new Date().toISOString(),
       departure_geo: geo,
@@ -123,12 +131,13 @@ export default function CarreteirosQRScan() {
 
   async function lancarChegada() {
     if (!tripAberta) return;
+    if (!arrivalLoadStatus) { setErro("Selecione como o caminhão chegou: Cheio, Meia Carga ou Vazio."); return; }
     setSubmitting(true); setErro(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { error: updateError } = await (supabase as any)
         .from("trucker_trips")
-        .update({ arrival_time: new Date().toISOString(), arrival_geo: geo, arrival_user_id: user?.id || null, status: "CONCLUÍDO" })
+        .update({ arrival_time: new Date().toISOString(), arrival_geo: geo, arrival_user_id: user?.id || null, arrival_load_status: arrivalLoadStatus, status: "CONCLUÍDO" })
         .eq("id", tripAberta.id);
       setSubmitting(false);
       if (updateError) { setErro("Erro: " + updateError.message.slice(0, 100)); }
@@ -216,6 +225,37 @@ export default function CarreteirosQRScan() {
             <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 16 }}>
               Saída às {fmtTime(tripAberta.departure_time)} · {tripAberta.material_type} · {tripAberta.quantity} m³
             </p>
+            <div style={{ marginBottom: 12, fontSize: 12, color: "#64748b" }}>
+              <strong>Situação na saída:</strong> {tripAberta.departure_load_status || "-"}
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 6 }}>
+                SITUAÇÃO NA CHEGADA *
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["CHEIO", "MEIA CARGA", "VAZIO"] as const).map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setArrivalLoadStatus(opt)}
+                    style={{
+                      flex: 1,
+                      padding: "8px 4px",
+                      borderRadius: 10,
+                      border: `2px solid ${arrivalLoadStatus===opt ? "#16a34a" : "#e5e7eb"}`,
+                      background: arrivalLoadStatus===opt ? "#ecfdf3" : "white",
+                      color: arrivalLoadStatus===opt ? "#166534" : "#6b7280",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      lineHeight: 1.3
+                    }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
             {erro && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 10 }}>{erro}</p>}
             <button onClick={lancarChegada} disabled={submitting}
               style={{ width: "100%", height: 50, borderRadius: 14, background: submitting ? "#9ca3af" : "#16a34a", color: "white", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>

@@ -221,12 +221,14 @@ export default function RelatorioCarreteiros() {
 
     // Aba 2: Detalhe de todas as viagens
     const detalheRows: any[][] = [
-      ["Data", "Placa", "Material", "Qtd (m³)", "OGS Origem", "Destino", "Apontador Origem", "Apontador Destino", "Saída", "Chegada", "Duração", "Status", "GPS Saída", "GPS Chegada"],
+      ["Data", "Placa", "Material", "Qtd (m³)", "Situação Saída", "Situação Chegada", "OGS Origem", "Destino", "Apontador Origem", "Apontador Destino", "Saída", "Chegada", "Duração", "Status", "GPS Saída", "GPS Chegada"],
       ...trips.map(t => [
         fmtDate(t.date),
         t.truck_plate || "-",
         t.material_type || "-",
         Number(t.quantity) || 0,
+        t.departure_load_status || "-",
+        t.arrival_load_status || "-",
         (t.origin_ogs_id ? (ogsMap[t.origin_ogs_id] || t.origin_ogs_id) : "-"),
         t.destination_id || "-",
         nomeApontador(t.departure_user_id),
@@ -496,6 +498,8 @@ export default function RelatorioCarreteiros() {
                           <th className="text-left py-2 pr-3">Placa</th>
                           <th className="text-left py-2 pr-3">Material</th>
                           <th className="text-right py-2 pr-3">m³</th>
+                          <th className="text-left py-2 pr-3">Sit. Saída</th>
+                          <th className="text-left py-2 pr-3">Sit. Chegada</th>
                           <th className="text-left py-2 pr-3">OGS</th>
                           <th className="text-left py-2 pr-3">Destino</th>
                           <th className="text-left py-2 pr-3">Apontador Origem</th>
@@ -514,6 +518,8 @@ export default function RelatorioCarreteiros() {
                             <td className="py-2 pr-3 font-medium">{t.truck_plate || "-"}</td>
                             <td className="py-2 pr-3">{t.material_type || "-"}</td>
                             <td className="py-2 pr-3 text-right">{Number(t.quantity).toFixed(2)}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{t.departure_load_status || "-"}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{t.arrival_load_status || "-"}</td>
                             <td className="py-2 pr-3 text-muted-foreground">{t.origin_ogs_id ? (ogsMap[t.origin_ogs_id] || t.origin_ogs_id) : "-"}</td>
                             <td className="py-2 pr-3">{t.destination_id || "-"}</td>
                             <td className="py-2 pr-3 text-muted-foreground">{nomeApontador(t.departure_user_id)}</td>

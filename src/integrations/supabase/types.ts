@@ -3211,12 +3211,14 @@ export type Database = {
       trucker_trips: {
         Row: {
           arrival_geo: string | null
+          arrival_load_status: string | null
           arrival_time: string | null
           arrival_user_id: string | null
           company_id: string | null
           created_at: string | null
           date: string | null
           departure_geo: string | null
+          departure_load_status: string | null
           departure_time: string | null
           departure_user_id: string | null
           destination_id: string | null
@@ -3230,12 +3232,14 @@ export type Database = {
         }
         Insert: {
           arrival_geo?: string | null
+          arrival_load_status?: string | null
           arrival_time?: string | null
           arrival_user_id?: string | null
           company_id?: string | null
           created_at?: string | null
           date?: string | null
           departure_geo?: string | null
+          departure_load_status?: string | null
           departure_time?: string | null
           departure_user_id?: string | null
           destination_id?: string | null
@@ -3249,12 +3253,14 @@ export type Database = {
         }
         Update: {
           arrival_geo?: string | null
+          arrival_load_status?: string | null
           arrival_time?: string | null
           arrival_user_id?: string | null
           company_id?: string | null
           created_at?: string | null
           date?: string | null
           departure_geo?: string | null
+          departure_load_status?: string | null
           departure_time?: string | null
           departure_user_id?: string | null
           destination_id?: string | null
