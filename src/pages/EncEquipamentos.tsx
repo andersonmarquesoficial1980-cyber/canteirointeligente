@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, HardHat, Loader2 } from "lucide-react";
+
+type PeriodPreset = "hoje" | "7d" | "15d" | "30d" | "90d" | "all" | "custom";
 
 interface DiarioEquip {
   id: string;
@@ -36,15 +38,54 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+function toIsoDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function daysAgoIso(days: number): string {
+  const now = new Date();
+  now.setHours(12, 0, 0, 0);
+  const d = new Date(now);
+  d.setDate(d.getDate() - days);
+  return toIsoDate(d);
+}
+
+function todayIso(): string {
+  return toIsoDate(new Date());
+}
+
 export default function EncEquipamentos() {
   const navigate = useNavigate();
   const [diarios, setDiarios] = useState<DiarioEquip[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("30d");
+  const [dataInicioCustom, setDataInicioCustom] = useState(daysAgoIso(29));
+  const [dataFimCustom, setDataFimCustom] = useState(todayIso());
+
+  const { dataInicio, dataFim } = useMemo(() => {
+    if (periodPreset === "all") return { dataInicio: "", dataFim: "" };
+    if (periodPreset === "custom") return { dataInicio: dataInicioCustom || "", dataFim: dataFimCustom || "" };
+    if (periodPreset === "hoje") {
+      const t = todayIso();
+      return { dataInicio: t, dataFim: t };
+    }
+    if (periodPreset === "7d") return { dataInicio: daysAgoIso(6), dataFim: todayIso() };
+    if (periodPreset === "15d") return { dataInicio: daysAgoIso(14), dataFim: todayIso() };
+    if (periodPreset === "90d") return { dataInicio: daysAgoIso(89), dataFim: todayIso() };
+    return { dataInicio: daysAgoIso(29), dataFim: todayIso() }; // 30d default
+  }, [periodPreset, dataInicioCustom, dataFimCustom]);
+
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        setDiarios([]);
         setLoading(false);
         return;
       }
@@ -56,6 +97,7 @@ export default function EncEquipamentos() {
         .maybeSingle();
 
       if (!prof?.company_id) {
+        setDiarios([]);
         setLoading(false);
         return;
       }
@@ -89,27 +131,35 @@ export default function EncEquipamentos() {
         ),
       );
 
-      // 1) Buscar RDOs onde o usuário é encarregado/responsável
+      // 1) Buscar RDOs onde o usuário é encarregado/responsável (com período)
       const rdoQueries: Promise<any>[] = [];
       nomesResponsavel.forEach((nome) => {
-        rdoQueries.push(
-          (supabase as any)
-            .from("rdo_diarios")
-            .select("id,data,obra_nome,encarregado,responsavel")
-            .eq("company_id", prof.company_id)
-            .ilike("encarregado", nome)
-            .order("data", { ascending: false })
-            .range(0, 4999),
-        );
-        rdoQueries.push(
-          (supabase as any)
-            .from("rdo_diarios")
-            .select("id,data,obra_nome,encarregado,responsavel")
-            .eq("company_id", prof.company_id)
-            .ilike("responsavel", nome)
-            .order("data", { ascending: false })
-            .range(0, 4999),
-        );
+        let qEnc = (supabase as any)
+          .from("rdo_diarios")
+          .select("id,data,obra_nome,encarregado,responsavel")
+          .eq("company_id", prof.company_id)
+          .ilike("encarregado", nome)
+          .order("data", { ascending: false })
+          .range(0, 4999);
+
+        let qResp = (supabase as any)
+          .from("rdo_diarios")
+          .select("id,data,obra_nome,encarregado,responsavel")
+          .eq("company_id", prof.company_id)
+          .ilike("responsavel", nome)
+          .order("data", { ascending: false })
+          .range(0, 4999);
+
+        if (dataInicio) {
+          qEnc = qEnc.gte("data", dataInicio);
+          qResp = qResp.gte("data", dataInicio);
+        }
+        if (dataFim) {
+          qEnc = qEnc.lte("data", dataFim);
+          qResp = qResp.lte("data", dataFim);
+        }
+
+        rdoQueries.push(qEnc, qResp);
       });
 
       if (rdoQueries.length === 0) {
@@ -135,7 +185,6 @@ export default function EncEquipamentos() {
 
       const rdoIds = rdos.map((r) => r.id);
       const rdoByKey = new Map<string, RdoBase[]>();
-      const rdoSetById = new Set<string>(rdoIds);
 
       // 2) Buscar equipamentos lançados no RDO (fonte principal)
       const rdoEquipamentosRows: any[] = [];
@@ -252,7 +301,7 @@ export default function EncEquipamentos() {
       const maxDate = dates[dates.length - 1];
 
       const diaryRows: any[] = [];
-      const fleetNormList = Array.from(frotaSet);
+      const fleetNormSet = new Set(Array.from(frotaSet));
 
       // Para evitar depender de função SQL, busca por data/company e filtra frota em memória
       const { data: allByDate } = await (supabase as any)
@@ -267,7 +316,7 @@ export default function EncEquipamentos() {
 
       (allByDate || []).forEach((d: any) => {
         const frotaNorm = normTxt(d?.equipment_fleet);
-        if (!fleetNormList.includes(frotaNorm)) return;
+        if (!fleetNormSet.has(frotaNorm)) return;
         const key = `${d?.date || ""}|${frotaNorm}`;
         if (!fleetDayKeys.has(key)) return;
         diaryRows.push(d);
@@ -308,7 +357,7 @@ export default function EncEquipamentos() {
     };
 
     load();
-  }, []);
+  }, [dataFim, dataInicio]);
 
   return (
     <>
@@ -325,6 +374,53 @@ export default function EncEquipamentos() {
             <h1 className="text-lg font-bold text-foreground">Equipamentos da Equipe</h1>
             <p className="text-xs text-muted-foreground">Diários das suas obras</p>
           </div>
+        </div>
+
+        {/* Filtro de período */}
+        <div className="p-3 rounded-xl bg-white border border-border shadow-sm space-y-2">
+          <label className="text-xs font-semibold text-muted-foreground">Período</label>
+          <select
+            value={periodPreset}
+            onChange={(e) => setPeriodPreset(e.target.value as PeriodPreset)}
+            className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm"
+          >
+            <option value="hoje">Hoje</option>
+            <option value="7d">Últimos 7 dias</option>
+            <option value="15d">Últimos 15 dias</option>
+            <option value="30d">Últimos 30 dias</option>
+            <option value="90d">Últimos 90 dias</option>
+            <option value="all">Todo histórico</option>
+            <option value="custom">Personalizado</option>
+          </select>
+
+          {periodPreset === "custom" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">De</label>
+                <input
+                  type="date"
+                  value={dataInicioCustom}
+                  onChange={(e) => setDataInicioCustom(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">Até</label>
+                <input
+                  type="date"
+                  value={dataFimCustom}
+                  onChange={(e) => setDataFimCustom(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm"
+                />
+              </div>
+            </div>
+          )}
+
+          <p className="text-[11px] text-muted-foreground">
+            {dataInicio && dataFim
+              ? `Mostrando de ${new Date(dataInicio + "T12:00:00").toLocaleDateString("pt-BR")} até ${new Date(dataFim + "T12:00:00").toLocaleDateString("pt-BR")}`
+              : "Mostrando todo o histórico disponível"}
+          </p>
         </div>
 
         {loading ? (
