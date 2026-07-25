@@ -84,6 +84,7 @@ function DepartureForm() {
 
     // Buscar company_id do usuário logado
     const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || null;
     let companyId: string | null = null;
     if (user) {
       const { data: prof } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
@@ -97,6 +98,7 @@ function DepartureForm() {
       origin_ogs_id: originOgs || null,
       destination_id: destination,
       encarregado: encarregadoObra?.trim() || null,
+      departure_user_id: userId,
       departure_time: new Date().toISOString(),
       departure_geo: geoStr,
       status: "EM TRÂNSITO",
@@ -267,13 +269,16 @@ function ArrivalList() {
       gpsFailed = true;
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+
     const { error } = await supabase
       .from("trucker_trips")
       .update({
         arrival_time: new Date().toISOString(),
         arrival_geo: geoStr,
+        arrival_user_id: user?.id || null,
         status: "CONCLUÍDO",
-      })
+      } as any)
       .eq("id", id);
 
     if (error) {

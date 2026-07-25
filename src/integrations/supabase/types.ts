@@ -3212,11 +3212,15 @@ export type Database = {
         Row: {
           arrival_geo: string | null
           arrival_time: string | null
+          arrival_user_id: string | null
+          company_id: string | null
           created_at: string | null
           date: string | null
           departure_geo: string | null
           departure_time: string | null
+          departure_user_id: string | null
           destination_id: string | null
+          encarregado: string | null
           id: string
           material_type: string | null
           origin_ogs_id: string | null
@@ -3227,11 +3231,15 @@ export type Database = {
         Insert: {
           arrival_geo?: string | null
           arrival_time?: string | null
+          arrival_user_id?: string | null
+          company_id?: string | null
           created_at?: string | null
           date?: string | null
           departure_geo?: string | null
           departure_time?: string | null
+          departure_user_id?: string | null
           destination_id?: string | null
+          encarregado?: string | null
           id?: string
           material_type?: string | null
           origin_ogs_id?: string | null
@@ -3242,11 +3250,15 @@ export type Database = {
         Update: {
           arrival_geo?: string | null
           arrival_time?: string | null
+          arrival_user_id?: string | null
+          company_id?: string | null
           created_at?: string | null
           date?: string | null
           departure_geo?: string | null
           departure_time?: string | null
+          departure_user_id?: string | null
           destination_id?: string | null
+          encarregado?: string | null
           id?: string
           material_type?: string | null
           origin_ogs_id?: string | null

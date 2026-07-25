@@ -89,6 +89,8 @@ export default function CarreteirosQRScan() {
       : quantidadeTipo === "meia" ? cap / 2
       : 0;
 
+    const { data: { user } } = await supabase.auth.getUser();
+
     // Usar fetch com service key para evitar problema de RLS sem autenticação
     const payload = {
       truck_plate: truck.placa,
@@ -96,6 +98,7 @@ export default function CarreteirosQRScan() {
       quantity: qtd,
       origin_ogs_id: originOgs || null,
       destination_id: destination,
+      departure_user_id: user?.id || null,
       departure_time: new Date().toISOString(),
       departure_geo: geo,
       status: "EM TRÂNSITO",
@@ -103,7 +106,7 @@ export default function CarreteirosQRScan() {
       company_id: COMPANY_ID,
     };
     try {
-      const { error: insertError } = await supabase
+      const { error: insertError } = await (supabase as any)
         .from("trucker_trips")
         .insert(payload);
       setSubmitting(false);
@@ -122,9 +125,10 @@ export default function CarreteirosQRScan() {
     if (!tripAberta) return;
     setSubmitting(true); setErro(null);
     try {
-      const { error: updateError } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: updateError } = await (supabase as any)
         .from("trucker_trips")
-        .update({ arrival_time: new Date().toISOString(), arrival_geo: geo, status: "CONCLUÍDO" })
+        .update({ arrival_time: new Date().toISOString(), arrival_geo: geo, arrival_user_id: user?.id || null, status: "CONCLUÍDO" })
         .eq("id", tripAberta.id);
       setSubmitting(false);
       if (updateError) { setErro("Erro: " + updateError.message.slice(0, 100)); }

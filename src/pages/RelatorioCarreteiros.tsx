@@ -58,6 +58,7 @@ export default function RelatorioCarreteiros() {
   const [placas, setPlacas] = useState<string[]>([]);
   const [trips, setTrips] = useState<any[]>([]);
   const [ogsMap, setOgsMap] = useState<Record<string, string>>({});
+  const [apontadoresMap, setApontadoresMap] = useState<Record<string, string>>({});
 
   // Carregar mapa UUID -> ogs_number
   useEffect(() => {
@@ -115,7 +116,30 @@ export default function RelatorioCarreteiros() {
     if (placa) query = query.eq("truck_plate", placa);
 
     const { data } = await query;
-    setTrips(data || []);
+    const lista = data || [];
+    setTrips(lista);
+
+    const userIds = [...new Set(
+      lista
+        .flatMap((t: any) => [t.departure_user_id, t.arrival_user_id])
+        .filter(Boolean)
+    )] as string[];
+
+    if (userIds.length > 0) {
+      const { data: perfis } = await (supabase as any)
+        .from("profiles")
+        .select("user_id,nome_completo,email")
+        .in("user_id", userIds);
+
+      const map: Record<string, string> = {};
+      (perfis || []).forEach((p: any) => {
+        map[p.user_id] = p.nome_completo || p.email || p.user_id;
+      });
+      setApontadoresMap(map);
+    } else {
+      setApontadoresMap({});
+    }
+
     setLoading(false);
   };
 
@@ -162,12 +186,17 @@ export default function RelatorioCarreteiros() {
       map[p].materiais[mat] = (map[p].materiais[mat] || 0) + 1;
     });
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
-  }, [trips]);
+  }, [trips, ogsMap]);
 
   const totalViagens = resumoPorPlaca.reduce((s, [, v]) => s + v.viagens, 0);
   const totalM3 = resumoPorPlaca.reduce((s, [, v]) => s + v.m3, 0);
 
   const periodoLabel = formatPeriodoLabel(dataInicio, dataFim);
+
+  const nomeApontador = (userId: string | null | undefined) => {
+    if (!userId) return "-";
+    return apontadoresMap[userId] || userId;
+  };
 
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
@@ -192,7 +221,7 @@ export default function RelatorioCarreteiros() {
 
     // Aba 2: Detalhe de todas as viagens
     const detalheRows: any[][] = [
-      ["Data", "Placa", "Material", "Qtd (m³)", "OGS Origem", "Destino", "Saída", "Chegada", "Duração", "Status", "GPS Saída", "GPS Chegada"],
+      ["Data", "Placa", "Material", "Qtd (m³)", "OGS Origem", "Destino", "Apontador Origem", "Apontador Destino", "Saída", "Chegada", "Duração", "Status", "GPS Saída", "GPS Chegada"],
       ...trips.map(t => [
         fmtDate(t.date),
         t.truck_plate || "-",
@@ -200,6 +229,8 @@ export default function RelatorioCarreteiros() {
         Number(t.quantity) || 0,
         (t.origin_ogs_id ? (ogsMap[t.origin_ogs_id] || t.origin_ogs_id) : "-"),
         t.destination_id || "-",
+        nomeApontador(t.departure_user_id),
+        nomeApontador(t.arrival_user_id),
         fmtDateTime(t.departure_time),
         fmtDateTime(t.arrival_time),
         calcDuracao(t.departure_time, t.arrival_time),
@@ -458,7 +489,7 @@ export default function RelatorioCarreteiros() {
                 <div className="rdo-card space-y-3">
                   <p className="text-sm font-semibold">Detalhe das Viagens</p>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs min-w-[700px]">
+                    <table className="w-full text-xs min-w-[980px]">
                       <thead>
                         <tr className="border-b border-border text-muted-foreground">
                           <th className="text-left py-2 pr-3">Data</th>
@@ -467,6 +498,8 @@ export default function RelatorioCarreteiros() {
                           <th className="text-right py-2 pr-3">m³</th>
                           <th className="text-left py-2 pr-3">OGS</th>
                           <th className="text-left py-2 pr-3">Destino</th>
+                          <th className="text-left py-2 pr-3">Apontador Origem</th>
+                          <th className="text-left py-2 pr-3">Apontador Destino</th>
                           <th className="text-left py-2 pr-3">Saída</th>
                           <th className="text-left py-2 pr-3">Chegada</th>
                           <th className="text-right py-2 pr-3">Duração</th>
@@ -483,6 +516,8 @@ export default function RelatorioCarreteiros() {
                             <td className="py-2 pr-3 text-right">{Number(t.quantity).toFixed(2)}</td>
                             <td className="py-2 pr-3 text-muted-foreground">{t.origin_ogs_id ? (ogsMap[t.origin_ogs_id] || t.origin_ogs_id) : "-"}</td>
                             <td className="py-2 pr-3">{t.destination_id || "-"}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{nomeApontador(t.departure_user_id)}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{nomeApontador(t.arrival_user_id)}</td>
                             <td className="py-2 pr-3">{t.departure_time ? new Date(t.departure_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "-"}</td>
                             <td className="py-2 pr-3">{t.arrival_time ? new Date(t.arrival_time).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : <span className="text-amber-500 font-medium">Em trânsito</span>}</td>
                             <td className="py-2 pr-3 text-right">{calcDuracao(t.departure_time, t.arrival_time)}</td>
