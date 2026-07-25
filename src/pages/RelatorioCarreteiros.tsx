@@ -274,12 +274,39 @@ export default function RelatorioCarreteiros() {
               size="sm"
               onClick={() => {
                 const h = new Date();
+                const ontem = new Date(h.getFullYear(), h.getMonth(), h.getDate() - 1);
+                const ontemTxt = formatDateInput(ontem);
+                setDataInicio(ontemTxt);
+                setDataFim(ontemTxt);
+              }}
+            >
+              Ontem
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const h = new Date();
                 const seteDiasAtras = new Date(h.getFullYear(), h.getMonth(), h.getDate() - 6);
                 setDataInicio(formatDateInput(seteDiasAtras));
                 setDataFim(formatDateInput(h));
               }}
             >
               Últimos 7 dias
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const h = new Date();
+                const trintaDiasAtras = new Date(h.getFullYear(), h.getMonth(), h.getDate() - 29);
+                setDataInicio(formatDateInput(trintaDiasAtras));
+                setDataFim(formatDateInput(h));
+              }}
+            >
+              Últimos 30 dias
             </Button>
             <Button
               type="button"
