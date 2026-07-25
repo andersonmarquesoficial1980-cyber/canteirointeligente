@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { toast } from "sonner";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { ResponsavelInput } from "@/components/rdo/ResponsavelInput";
 
 // Materials are now loaded dynamically from insumos_materiais
 
@@ -22,6 +23,7 @@ function DepartureForm() {
   const [material, setMaterial] = useState("");
   const [quantity, setQuantity] = useState("");
   const [originOgs, setOriginOgs] = useState("");
+  const [encarregadoObra, setEncarregadoObra] = useState("");
   const [destination, setDestination] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -94,12 +96,13 @@ function DepartureForm() {
       quantity: parseFloat(String(quantity).replace(",", ".")),
       origin_ogs_id: originOgs || null,
       destination_id: destination,
+      encarregado: encarregadoObra?.trim() || null,
       departure_time: new Date().toISOString(),
       departure_geo: geoStr,
       status: "EM TRÂNSITO",
       date: new Date().toISOString().split("T")[0],
       company_id: companyId,
-    });
+    } as any);
 
     setSubmitting(false);
     if (error) {
@@ -112,6 +115,7 @@ function DepartureForm() {
       setMaterial("");
       setQuantity("");
       setOriginOgs("");
+      setEncarregadoObra("");
       setDestination("");
     }
   };
@@ -198,6 +202,17 @@ function DepartureForm() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Encarregado da Obra */}
+          <div className="space-y-1.5">
+            <Label>Encarregado da Obra</Label>
+            <ResponsavelInput
+              value={encarregadoObra}
+              onChange={setEncarregadoObra}
+              placeholder="Selecione ou digite o encarregado"
+              mode="encarregado"
+            />
           </div>
 
           {/* Destino */}
