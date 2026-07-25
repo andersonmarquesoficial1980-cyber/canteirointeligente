@@ -804,22 +804,6 @@ export default function EquipmentDiaryForm() {
     }
   };
 
-  // Pranchas vêm de equipamentos (tipo CARRETA CM) — fonte única
-  const { data: trailerFleets = [] } = useQuery({
-    queryKey: ["trailer_fleets_from_equipamentos"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("equipamentos")
-        .select("id, frota, nome")
-        .eq("tipo", "CARRETA CM")
-        .eq("ativo", true)
-        .order("frota");
-      if (error) throw error;
-      return (data || []).map((e: any) => ({ id: e.id, fleet_number: e.frota, nome: e.nome }));
-    },
-    enabled: isCarreta,
-  });
-
   // equipment_fleets removido — tabela descontinuada, fonte é equipamentos
 
   useEffect(() => {
@@ -1225,9 +1209,24 @@ export default function EquipmentDiaryForm() {
       ));
     }
     if (isCarreta) {
-      return eq.filter(e => hasVinculoTipo(e, "CARRETA", x =>
-        x.tipo?.toLowerCase().includes("carreta") || x.frota?.startsWith("CM")
-      ));
+      return eq.filter((e: any) => {
+        const tipo = normTxt(e?.tipo || "");
+        const frota = normTxt(e?.frota || "");
+        const vinculos = Array.isArray(e?.vinculos)
+          ? e.vinculos.map((v: any) => normTxt(String(v)))
+          : [];
+
+        const isCavaloOuPrancha =
+          tipo.includes("CARRETA") ||
+          tipo.includes("CAVALO") ||
+          tipo.includes("PRANCHA") ||
+          tipo.includes("REBOQUE") ||
+          frota.startsWith("CM") ||
+          frota.startsWith("PR");
+
+        const hasVinculoCarreta = vinculos.some((v: string) => v.includes("CARRETA"));
+        return isCavaloOuPrancha || hasVinculoCarreta;
+      });
     }
     if (isVeiculo) {
       const veicVinculo = veiculoType === "Van" ? "VEICULO_VAN"
@@ -1253,6 +1252,24 @@ export default function EquipmentDiaryForm() {
   }, [equipamentos, equipmentType, isFresadora, isBobcat, isRetro, isVibro, isRolo, isUsinaKma,
       isPipa, isEspargidor, isCarroceria, isComboio, isCarreta, isVeiculo,
       attachmentType, roloType, veiculoType]);
+
+  const carretaCavalos = useMemo(() => {
+    if (!isCarreta) return [];
+    return (filteredFleetForType || []).filter((e: any) => {
+      const tipo = normTxt(e?.tipo || "");
+      const frota = normTxt(e?.frota || "");
+      return frota.startsWith("CM") || tipo.includes("CAVALO");
+    });
+  }, [filteredFleetForType, isCarreta]);
+
+  const carretaPranchas = useMemo(() => {
+    if (!isCarreta) return [];
+    return (filteredFleetForType || []).filter((e: any) => {
+      const tipo = normTxt(e?.tipo || "");
+      const frota = normTxt(e?.frota || "");
+      return frota.startsWith("PR") || tipo.includes("PRANCHA") || tipo.includes("REBOQUE");
+    });
+  }, [filteredFleetForType, isCarreta]);
 
   // staticFleetList e useStaticFleet removidos — fonte única agora é filteredFleetForType
 
@@ -2384,10 +2401,10 @@ export default function EquipmentDiaryForm() {
               ) : (
                 <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : filteredFleetForType.length === 0 ? "Nenhuma frota cadastrada" : "Selecione..."} />
+                    <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : (isCarreta ? carretaCavalos.length === 0 : filteredFleetForType.length === 0) ? "Nenhuma frota cadastrada" : "Selecione..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {filteredFleetForType.filter((eq: any) => eq && eq.frota).map((eq: any) => (
+                    {(isCarreta ? carretaCavalos : filteredFleetForType).filter((eq: any) => eq && eq.frota).map((eq: any) => (
                       <SelectItem key={eq.id} value={eq.frota}>
                         {eq.frota} — {eq.nome}
                       </SelectItem>
@@ -2406,11 +2423,11 @@ export default function EquipmentDiaryForm() {
             <Field label="Prancha">
               <Select value={prancha} onValueChange={setPrancha}>
                 <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Selecione a prancha..." />
+                  <SelectValue placeholder={carretaPranchas.length === 0 ? "Nenhuma prancha cadastrada" : "Selecione a prancha..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {trailerFleets.filter((t: any) => t.fleet_number).map((t: any) => (
-                    <SelectItem key={t.id} value={t.fleet_number}>{t.fleet_number}</SelectItem>
+                  {carretaPranchas.filter((t: any) => t.frota).map((t: any) => (
+                    <SelectItem key={t.id} value={t.frota}>{t.frota} — {t.nome}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
