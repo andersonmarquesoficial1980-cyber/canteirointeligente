@@ -20,6 +20,14 @@ const LOAD_OPTIONS = ["CHEIO", "MEIA CARGA", "VAZIO"] as const;
 
 type LoadStatus = typeof LOAD_OPTIONS[number];
 
+function localDateISO() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function DepartureForm() {
   const queryClient = useQueryClient();
   const { data: ogsData } = useOgsReference();
@@ -108,7 +116,7 @@ function DepartureForm() {
       departure_time: new Date().toISOString(),
       departure_geo: geoStr,
       status: "EM TRÂNSITO",
-      date: new Date().toISOString().split("T")[0],
+      date: localDateISO(),
       company_id: companyId,
     } as any);
 

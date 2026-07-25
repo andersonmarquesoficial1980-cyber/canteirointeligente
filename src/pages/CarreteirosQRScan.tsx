@@ -12,6 +12,14 @@ import { LogoHomeButton } from "@/components/LogoHomeButton";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
+function localDateISO() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 const toLoadStatus = (tipo: "maxima"|"meia"|"vazio"): "CHEIO" | "MEIA CARGA" | "VAZIO" => {
   if (tipo === "meia") return "MEIA CARGA";
   if (tipo === "vazio") return "VAZIO";
@@ -110,7 +118,7 @@ export default function CarreteirosQRScan() {
       departure_time: new Date().toISOString(),
       departure_geo: geo,
       status: "EM TRÂNSITO",
-      date: new Date().toISOString().split("T")[0],
+      date: localDateISO(),
       company_id: COMPANY_ID,
     };
     try {
