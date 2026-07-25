@@ -96,6 +96,12 @@ function DepartureForm() {
       gpsFailed = true;
     }
 
+    if (!geoStr) {
+      setSubmitting(false);
+      toast.error("Não foi possível capturar a localização de saída. Ative o GPS/permissão e tente novamente.");
+      return;
+    }
+
     // Buscar company_id do usuário logado
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || null;
