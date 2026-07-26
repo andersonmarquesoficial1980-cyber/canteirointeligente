@@ -1,5 +1,5 @@
 // WF Programador — Gestão de equipes, funcionários e equipamentos
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, Wrench, UserPlus, RefreshCw, Calendar, CalendarDays, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,8 @@ const STATUS_EQUIP = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE"];
 const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 
 interface Equipe { id: string; nome: string; responsavel: string | null; }
-interface Funcionario { id: string; name: string; matricula: string | null; role: string | null; }
-interface Frota { id: string; frota: string; tipo: string; }
+interface Funcionario { id: string; name: string; matricula: string | null; role: string | null; equipe: string | null; }
+interface Frota { id: string; frota: string; tipo: string; setor: string | null; }
 interface Ogs { ogs_number: string; client_name: string; location_address: string; }
 
 type Aba = "equipes" | "funcionarios" | "equipamentos";
@@ -84,9 +84,9 @@ export default function ProgramadorHome() {
   useEffect(() => {
     (supabase as any).from("ci_equipes").select("*").eq("ativa", true).order("nome")
       .then(({ data }: any) => { if (data) setEquipes(data); });
-    supabase.from("employees").select("id, name, matricula, role").order("name")
+    supabase.from("employees").select("id, name, matricula, role, equipe").order("name")
       .then(({ data }) => { if (data) setFuncionarios(data as Funcionario[]); });
-    (supabase as any).from("equipamentos").select("id, frota, tipo").order("tipo").order("frota")
+    (supabase as any).from("equipamentos").select("id, frota, tipo, setor").order("tipo").order("frota")
       .then(({ data }: any) => { if (data) setFrota(data); });
     (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address")
       .then(({ data }: any) => { if (data) setOgsList(sortOgsData(data)); });
@@ -109,6 +109,28 @@ export default function ProgramadorHome() {
     setFuncNome(f?.name ?? "");
     setFuncMatricula(f?.matricula ?? "");
     setFuncFuncao(f?.role ?? "");
+    setFuncEquipeOrig(f?.equipe ?? "");
+  };
+
+  const handleEquipSelect = (frotaCod: string) => {
+    setEquipFrota(frotaCod);
+    const eq = frota.find((f) => f.frota === frotaCod);
+    if (eq?.setor) setEquipEquipeOrig(eq.setor);
+  };
+
+  const equipesAtivas = useMemo(
+    () => [...new Set((equipes || []).map((e) => (e.nome || "").trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [equipes]
+  );
+
+  const equipeOptionsComFallback = (valorAtual?: string) => {
+    const lista = [...equipesAtivas];
+    const legado = (valorAtual || "").trim();
+    if (legado && !lista.some((n) => n.toLowerCase() === legado.toLowerCase())) {
+      lista.push(legado);
+    }
+    return [...new Set(lista)].sort((a, b) => a.localeCompare(b, "pt-BR"));
   };
 
   const equipeResponsavel = (nome: string) => equipes.find(e => e.nome === nome)?.responsavel ?? null;
@@ -267,7 +289,7 @@ export default function ProgramadorHome() {
                 <Label>Equipe *</Label>
                 <Select value={progEquipe} onValueChange={setProgEquipe}>
                   <SelectTrigger><SelectValue placeholder="Selecione a equipe" /></SelectTrigger>
-                  <SelectContent>{equipes.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)}</SelectContent>
+                  <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                 </Select>
                 {progEquipe && equipeResponsavel(progEquipe) && (
                   <p className="text-xs text-muted-foreground pl-1">Responsável: {equipeResponsavel(progEquipe)}</p>
@@ -369,7 +391,7 @@ export default function ProgramadorHome() {
                     <Label>Equipe *</Label>
                     <Select value={novaEquipe} onValueChange={setNovaEquipe}>
                       <SelectTrigger><SelectValue placeholder="Selecione a equipe" /></SelectTrigger>
-                      <SelectContent>{equipes.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)}</SelectContent>
+                      <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
@@ -413,14 +435,14 @@ export default function ProgramadorHome() {
                         <Label>De</Label>
                         <Select value={funcEquipeOrig} onValueChange={setFuncEquipeOrig}>
                           <SelectTrigger><SelectValue placeholder="Equipe atual" /></SelectTrigger>
-                          <SelectContent>{equipes.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)}</SelectContent>
+                          <SelectContent>{equipeOptionsComFallback(funcEquipeOrig).map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
                         <Label>Para</Label>
                         <Select value={funcEquipeDest} onValueChange={setFuncEquipeDest}>
                           <SelectTrigger><SelectValue placeholder="Nova equipe" /></SelectTrigger>
-                          <SelectContent>{equipes.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)}</SelectContent>
+                          <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     </div>
@@ -471,7 +493,7 @@ export default function ProgramadorHome() {
 
               <div className="space-y-1.5">
                 <Label>Equipamento (Frota) *</Label>
-                <Select value={equipFrota} onValueChange={setEquipFrota}>
+                <Select value={equipFrota} onValueChange={handleEquipSelect}>
                   <SelectTrigger><SelectValue placeholder="Selecione o equipamento" /></SelectTrigger>
                   <SelectContent>
                     {frota.map(f => <SelectItem key={f.id} value={f.frota}>{f.frota} — {f.tipo}</SelectItem>)}
@@ -495,14 +517,14 @@ export default function ProgramadorHome() {
                     <Label>De</Label>
                     <Select value={equipEquipeOrig} onValueChange={setEquipEquipeOrig}>
                       <SelectTrigger><SelectValue placeholder="Equipe atual" /></SelectTrigger>
-                      <SelectContent>{equipes.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)}</SelectContent>
+                      <SelectContent>{equipeOptionsComFallback(equipEquipeOrig).map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Para</Label>
                     <Select value={equipEquipeDest} onValueChange={setEquipEquipeDest}>
                       <SelectTrigger><SelectValue placeholder="Nova equipe" /></SelectTrigger>
-                      <SelectContent>{equipes.map(e => <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>)}</SelectContent>
+                      <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>

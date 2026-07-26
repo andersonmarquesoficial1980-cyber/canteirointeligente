@@ -1,6 +1,6 @@
 // ProgramacaoNoturna — Programador cria OS Noturna
 // Compartilha via WhatsApp nativo (wa.me), sem número integrado
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,6 +106,19 @@ export default function ProgramacaoNoturna() {
   const [formEquipsDesig, setFormEquipsDesig] = useState<string[]>([]);
   const [formObs, setFormObs]               = useState("");
   const [formEquipSel, setFormEquipSel]     = useState("");
+
+  const equipesProgramacao = useMemo(() => {
+    const base = (equipes || [])
+      .map((e) => ({ id: e.id, nome: (e.nome || "").trim(), responsavel: e.responsavel }))
+      .filter((e) => e.nome.startsWith("CBUQ") || e.nome.startsWith("GRU"));
+
+    const atual = (formEquipe || "").trim();
+    if (atual && !base.some((e) => e.nome.toLowerCase() === atual.toLowerCase())) {
+      base.push({ id: `legacy-${atual}`, nome: atual, responsavel: null });
+    }
+
+    return base.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [equipes, formEquipe]);
 
   useEffect(() => {
     const load = async () => {
@@ -267,7 +280,7 @@ export default function ProgramacaoNoturna() {
               <Select value={formEquipe} onValueChange={setFormEquipe}>
                 <SelectTrigger className="text-sm"><SelectValue placeholder="Selecione a equipe..." /></SelectTrigger>
                 <SelectContent>
-                  {equipes.filter(e => e.nome.startsWith("CBUQ") || e.nome.startsWith("GRU")).map(e => (
+                  {equipesProgramacao.map(e => (
                     <SelectItem key={e.id} value={e.nome}>
                       {e.nome}{e.responsavel ? ` — ${e.responsavel}` : ""}
                     </SelectItem>
