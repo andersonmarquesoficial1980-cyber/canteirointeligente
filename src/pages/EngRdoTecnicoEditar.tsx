@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +72,15 @@ export default function EngRdoTecnicoEditar() {
   const set = (field: string, value: any) => setForm(f => ({ ...f, [field]: value }));
   const toNum = (v: string) => v === "" ? null : Number(v.replace(",", "."));
   const numToStr = (v: number | null) => v == null ? "" : String(v);
+
+  const opcoesEquipe = useMemo(() => {
+    const lista = [...equipes];
+    const atual = (form.equipe || "").trim();
+    if (atual && !lista.some((e) => e.toLowerCase() === atual.toLowerCase())) {
+      lista.push(atual);
+    }
+    return [...new Set(lista)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [equipes, form.equipe]);
 
   useEffect(() => {
     if (!id) return;
@@ -484,7 +493,7 @@ export default function EngRdoTecnicoEditar() {
                 <label className={labelCls}>Equipe</label>
                 <select value={form.equipe} onChange={e => set("equipe", e.target.value)} className={inputCls}>
                   <option value="">Selecione a equipe...</option>
-                  {equipes.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                  {opcoesEquipe.map(eq => <option key={eq} value={eq}>{eq}</option>)}
                 </select>
               </div>
               <div className="relative">
