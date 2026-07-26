@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Edit2, Save, UserCheck, History, FileText, Loader2, Gauge, Lock, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useEquipes } from "@/hooks/useEquipes";
 
 type MedidorAtual = {
   valor: number;
@@ -51,6 +52,20 @@ export default function GestaoFrotasVeiculo() {
   const [motivoTroca, setMotivoTroca] = useState("");
   const [trocandoCondutor, setTrocandoCondutor] = useState(false);
   const [medidorAtual, setMedidorAtual] = useState<MedidorAtual>(null);
+  const { equipesData, loading: carregandoEquipes } = useEquipes();
+
+  const opcoesEquipe = useMemo(() => {
+    const nomes = (equipesData || [])
+      .map((eq) => (eq?.nome || "").trim())
+      .filter(Boolean);
+
+    const atual = (veiculo?.setor || "").trim();
+    if (atual && !nomes.some((n) => n.toLowerCase() === atual.toLowerCase())) {
+      nomes.push(atual);
+    }
+
+    return [...new Set(nomes)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [equipesData, veiculo?.setor]);
 
   useEffect(() => { if (id) buscarDados(); }, [id]);
 
@@ -338,12 +353,22 @@ export default function GestaoFrotasVeiculo() {
           <div className="space-y-1.5">
             <span className="rdo-label">Equipe / Setor</span>
             {editando ? (
-              <Input
-                value={veiculo.setor || ""}
-                onChange={e => setVeiculo((v: any) => ({ ...v, setor: e.target.value }))}
-                placeholder="Ex: CBUQ01 - AELSON"
-                className="h-10 rounded-xl"
-              />
+              <Select
+                value={veiculo.setor || "__sem_equipe"}
+                onValueChange={(valor) => setVeiculo((v: any) => ({ ...v, setor: valor === "__sem_equipe" ? null : valor }))}
+              >
+                <SelectTrigger className="h-10 rounded-xl">
+                  <SelectValue placeholder={carregandoEquipes ? "Carregando equipes..." : "Selecione a equipe"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__sem_equipe">Sem equipe</SelectItem>
+                  {opcoesEquipe.map((nomeEquipe) => (
+                    <SelectItem key={nomeEquipe} value={nomeEquipe}>
+                      {nomeEquipe}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : (
               <p className="text-sm font-medium">{veiculo.setor || "—"}</p>
             )}

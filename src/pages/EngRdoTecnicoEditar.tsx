@@ -142,7 +142,11 @@ export default function EngRdoTecnicoEditar() {
       }
 
       // Equipes e usinas
-      const { data: eqs } = await (supabase as any).from("ci_equipes").select("nome").order("nome");
+      const { data: eqs } = await (supabase as any)
+        .from("ci_equipes")
+        .select("nome")
+        .eq("ativa", true)
+        .order("nome");
       setEquipes((eqs || []).map((e: any) => e.nome));
       const { data: us } = await (supabase as any).from("usinas").select("nome").order("nome");
       setUsinas((us || []).map((u: any) => u.nome));
