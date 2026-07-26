@@ -127,11 +127,6 @@ export default function CarreteirosQRScan() {
 
     const { data: { user } } = await supabase.auth.getUser();
     const geoAtSubmit = await captureGeoNow();
-    if (!geoAtSubmit) {
-      setSubmitting(false);
-      setErro("Não foi possível capturar o GPS da saída. Ative a localização e tente novamente.");
-      return;
-    }
 
     // Usar fetch com service key para evitar problema de RLS sem autenticação
     const payload = {
