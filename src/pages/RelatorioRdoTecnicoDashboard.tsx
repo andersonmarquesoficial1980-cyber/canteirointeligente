@@ -127,6 +127,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [filtroStatus, setFiltroStatus] = useState("");
   const [filtroOgs, setFiltroOgs] = useState("");
   const [filtroEng, setFiltroEng] = useState("");
+  const [filtroEquipe, setFiltroEquipe] = useState("");
   const [busca, setBusca] = useState("");
 
   const [tab, setTab] = useState<AssuntoTab>("geral");
@@ -134,6 +135,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [rows, setRows] = useState<RdoTecnicoRow[]>([]);
   const [ogsOptions, setOgsOptions] = useState<FiltroOption[]>([]);
   const [engMap, setEngMap] = useState<Record<string, string>>({});
+  const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
 
   const companyId = profile?.company_id;
 
@@ -164,6 +166,13 @@ export default function RelatorioRdoTecnicoDashboard() {
       const lista = ((rdoData || []) as RdoTecnicoRow[]);
       setRows(lista);
 
+      const { data: eqsCad } = await (supabase as any)
+        .from("ci_equipes")
+        .select("nome")
+        .eq("ativa", true)
+        .order("nome");
+      setEquipesCadastro((eqsCad || []).map((e: any) => (e.nome || "").trim()).filter(Boolean));
+
       const ogsUniques = [...new Set(lista.map(r => r.ogs_number).filter(Boolean) as string[])];
       setOgsOptions(ogsUniques.sort((a, b) => Number(b) - Number(a)).map(o => ({ value: o, label: `OGS ${o}` })));
 
@@ -187,6 +196,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       setRows([]);
       setOgsOptions([]);
       setEngMap({});
+      setEquipesCadastro([]);
     }
     setLoading(false);
   };
@@ -195,6 +205,17 @@ export default function RelatorioRdoTecnicoDashboard() {
     if (companyId) buscarDados();
   }, [companyId]);
 
+  const equipesFiltro = useMemo(() => {
+    const doHistorico = rows.map((r) => (r.equipe || "").trim()).filter(Boolean);
+    const base = [...equipesCadastro, ...doHistorico];
+
+    if (filtroEquipe && !base.some((e) => e.toLowerCase() === filtroEquipe.toLowerCase())) {
+      base.push(filtroEquipe);
+    }
+
+    return [...new Set(base)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [rows, equipesCadastro, filtroEquipe]);
+
   const linhasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
 
@@ -202,6 +223,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       if (filtroStatus && r.status !== filtroStatus) return false;
       if (filtroOgs && r.ogs_number !== filtroOgs) return false;
       if (filtroEng && r.engenheiro_id !== filtroEng) return false;
+      if (filtroEquipe && (r.equipe || "") !== filtroEquipe) return false;
 
       if (!q) return true;
 
@@ -222,7 +244,7 @@ export default function RelatorioRdoTecnicoDashboard() {
 
       return texto.includes(q);
     });
-  }, [rows, filtroStatus, filtroOgs, filtroEng, busca, engMap]);
+  }, [rows, filtroStatus, filtroOgs, filtroEng, filtroEquipe, busca, engMap]);
 
   const kpis = useMemo(() => {
     const total = linhasFiltradas.length;
@@ -449,7 +471,7 @@ export default function RelatorioRdoTecnicoDashboard() {
 
       <main className="max-w-[1500px] mx-auto p-4 space-y-4 pb-10">
         <div className="rounded-2xl border bg-white p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
             <div>
               <label className="text-xs text-muted-foreground font-semibold">De</label>
               <input type="date" value={dataIni} onChange={(e) => setDataIni(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm" />
@@ -478,6 +500,13 @@ export default function RelatorioRdoTecnicoDashboard() {
               <select value={filtroEng} onChange={(e) => setFiltroEng(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm bg-white">
                 <option value="">Todos</option>
                 {engenheiroOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground font-semibold">Equipe</label>
+              <select value={filtroEquipe} onChange={(e) => setFiltroEquipe(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm bg-white">
+                <option value="">Todas</option>
+                {equipesFiltro.map((eq) => <option key={eq} value={eq}>{eq}</option>)}
               </select>
             </div>
             <div>
