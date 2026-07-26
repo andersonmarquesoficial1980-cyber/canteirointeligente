@@ -4,7 +4,7 @@
  * Rota: /relatorios/busca-rdo
  */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Search, FileText, ChevronRight, Loader2, X, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,20 +34,23 @@ interface RdoResult {
 
 export default function BuscaRdo() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const goBack = useSmartBack("/relatorios");
 
   const hoje = new Date().toISOString().split("T")[0];
   const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
 
-  const [ogs, setOgs] = useState("");
-  const [ini, setIni] = useState(mesAtras);
-  const [fim, setFim] = useState(hoje);
-  const [encarregado, setEncarregado] = useState("");
-  const [apontador, setApontador] = useState("");
+  const [ogs, setOgs] = useState(searchParams.get("ogs") || "");
+  const [ini, setIni] = useState(searchParams.get("ini") || mesAtras);
+  const [fim, setFim] = useState(searchParams.get("fim") || hoje);
+  const [encarregado, setEncarregado] = useState(searchParams.get("encarregado") || "");
+  const [apontador, setApontador] = useState(searchParams.get("apontador") || "");
 
   const [resultados, setResultados] = useState<RdoResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [buscou, setBuscou] = useState(false);
+  const [buscou, setBuscou] = useState(searchParams.get("run") === "1");
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
 
   // Sugestões de encarregados e apontadores
   const [encarregados, setEncarregados] = useState<string[]>([]);
@@ -74,6 +77,15 @@ export default function BuscaRdo() {
     setLoading(true);
     setBuscou(true);
 
+    const params = new URLSearchParams();
+    params.set("ini", ini);
+    params.set("fim", fim);
+    params.set("run", "1");
+    if (ogs.trim()) params.set("ogs", ogs.trim());
+    if (encarregado.trim()) params.set("encarregado", encarregado.trim());
+    if (apontador.trim()) params.set("apontador", apontador.trim());
+    setSearchParams(params, { replace: true });
+
     let query = (supabase as any)
       .from("rdo_diarios")
       .select("id, obra_nome, data, tipo_rdo, encarregado, preenchido_por, responsavel, turno, clima, status_validacao, validado_encarregado, nao_aprovado_encarregado")
@@ -94,10 +106,19 @@ export default function BuscaRdo() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    if (searchParams.get("run") === "1") {
+      void buscar();
+    }
+    // Executa apenas no carregamento inicial para restaurar contexto
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const limpar = () => {
     setOgs(""); setEncarregado(""); setApontador("");
     setIni(mesAtras); setFim(hoje);
     setResultados([]); setBuscou(false);
+    setSearchParams(new URLSearchParams(), { replace: true });
   };
 
   // Agrupar por OGS para facilitar exportação
@@ -217,7 +238,7 @@ export default function BuscaRdo() {
                         const datas = rdos.map(r => r.data || "").filter(Boolean).sort();
                         const dataMin = datas[0];
                         const dataMax = datas[datas.length - 1];
-                        navigate(`/relatorios/rdo/${ogsNum}?ini=${dataMin}&fim=${dataMax}`);
+                        navigate(`/relatorios/rdo/${ogsNum}?ini=${dataMin}&fim=${dataMax}&returnTo=${returnTo}`);
                       }}
                       className="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
                     >
@@ -235,7 +256,7 @@ export default function BuscaRdo() {
                       {rdos.map(r => (
                         <button
                           key={r.id}
-                          onClick={() => navigate(`/relatorios/rdo/${ogsNum}?ini=${r.data}&fim=${r.data}`)}
+                          onClick={() => navigate(`/relatorios/rdo/${ogsNum}?ini=${r.data}&fim=${r.data}&returnTo=${returnTo}`)}
                           className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors text-left"
                         >
                           <div className="flex-1 min-w-0">
