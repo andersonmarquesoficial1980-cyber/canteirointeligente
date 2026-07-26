@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Calendar, Loader2, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -146,6 +147,9 @@ function restaurarFiltros(): Record<string, string> {
 
 export default function MeusLancamentos() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const goBack = useSmartBack("/");
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
   const { categorias } = useEquipamentoTipos();
   const [loading, setLoading] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -749,7 +753,7 @@ export default function MeusLancamentos() {
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
         <button
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -945,7 +949,7 @@ export default function MeusLancamentos() {
                   <div key={rdo.id} className="rdo-card hover:shadow-md transition-all">
                     <div className="flex items-start justify-between gap-3">
                       <button className="flex-1 text-left space-y-1"
-                        onClick={() => navigate(`/visualizar-rdo/${rdo.id}`)}>
+                        onClick={() => navigate(`/visualizar-rdo/${rdo.id}?returnTo=${returnTo}`)}>
                         <p className="text-sm font-display font-bold text-primary">OGS {rdo.obra_nome} • {fmtRdoDate}</p>
                         <p className="text-xs text-muted-foreground">Tipo: {rdo.tipo_rdo || '-'} • Responsável: {rdo.responsavel || '-'}</p>
                         <p className="text-xs text-muted-foreground">Turno: {rdo.turno || '-'} • Clima: {rdo.clima || '-'}</p>

@@ -2,6 +2,7 @@
 // Compartilha via WhatsApp nativo (wa.me), sem número integrado
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ function montarTextoWA(prog: Programacao): string {
 
 export default function ProgramacaoNoturna() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/programador");
   const { toast } = useToast();
 
   const [equipes, setEquipes]           = useState<Equipe[]>([]);
@@ -219,7 +221,7 @@ export default function ProgramacaoNoturna() {
 
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-border px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button onClick={() => navigate(-1)} className="p-1">
+        <button onClick={goBack} className="p-1">
           <ArrowLeft className="w-5 h-5 text-muted-foreground" />
         </button>
         <div className="flex-1">

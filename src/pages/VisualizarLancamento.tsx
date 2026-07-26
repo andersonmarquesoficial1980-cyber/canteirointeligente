@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Loader2, Printer, FileSpreadsheet, ZoomIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -234,7 +235,7 @@ function FotosPerfilSection({ fotos }: { fotos: FotoPerfilUrls }) {
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function VisualizarLancamento() {
-  const navigate = useNavigate();
+  const goBack = useSmartBack("/meus-lancamentos");
   const { id } = useParams<{ id: string }>();
   const { data: ogsData = [] } = useOgsReference();
 
@@ -334,7 +335,7 @@ export default function VisualizarLancamento() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg print:hidden">
-        <button onClick={() => navigate("/meus-lancamentos")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <LogoHomeButton className="h-10 object-contain" />
@@ -403,7 +404,7 @@ export default function VisualizarLancamento() {
               />
             </div>
 
-            <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>← Voltar</Button>
+            <Button variant="outline" className="w-full" onClick={goBack}>← Voltar</Button>
           </>
         ) : (
           /* ── OUTROS EQUIPAMENTOS: visualização padrão ── */
@@ -543,7 +544,7 @@ export default function VisualizarLancamento() {
               </div>
             </div>
 
-            <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>← Voltar</Button>
+            <Button variant="outline" className="w-full" onClick={goBack}>← Voltar</Button>
           </>
         )}
       </main>

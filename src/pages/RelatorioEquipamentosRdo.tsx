@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
@@ -121,6 +122,7 @@ function exportarPdf(filterType: FilterType, filterValue: string, dataIni: strin
 
 export default function RelatorioEquipamentosRdo() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/relatorios");
   const { profile } = useUserProfile();
   const { categorias } = useEquipamentoTipos();
   
@@ -538,7 +540,7 @@ export default function RelatorioEquipamentosRdo() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("/relatorios")}
+            onClick={goBack}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>

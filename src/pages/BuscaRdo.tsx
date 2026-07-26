@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Search, FileText, ChevronRight, Loader2, X, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ interface RdoResult {
 
 export default function BuscaRdo() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/relatorios");
 
   const hoje = new Date().toISOString().split("T")[0];
   const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
@@ -109,7 +111,7 @@ export default function BuscaRdo() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/relatorios")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Bell, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 
 export default function Perfil() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/");
   const { toast } = useToast();
   const { profile } = useUserProfile();
   const [loading, setLoading] = useState(true);
@@ -100,7 +102,7 @@ export default function Perfil() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 max-w-2xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <Button variant="ghost" size="icon" onClick={goBack}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>

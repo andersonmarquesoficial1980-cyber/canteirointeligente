@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { ArrowLeft, Bus, Plus, Minus, Pencil, Trash2, Save, X, Search, DollarSign, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
+import { useSmartBack } from "@/hooks/useSmartBack";
 interface Tarifa {
   id: string;
   tipo_transporte: string;
@@ -328,6 +328,7 @@ function CalculadoraTab({
 // ─── Main Page ───
 export default function ValeTransporte() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/rh");
   const { profile } = useUserProfile();
   const [tarifas, setTarifas] = useState<Tarifa[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -371,7 +372,7 @@ export default function ValeTransporte() {
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <Button variant="ghost" size="icon" onClick={goBack}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">

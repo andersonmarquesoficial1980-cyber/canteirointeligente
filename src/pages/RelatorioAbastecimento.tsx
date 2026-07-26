@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Loader2, FileSpreadsheet, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
@@ -138,6 +139,7 @@ function exportarPdf(fleet: string, rows: AbastecimentoRow[], ini: string, fim: 
 
 export default function RelatorioAbastecimento() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/relatorios");
   const [searchParams] = useSearchParams();
   const { categorias } = useEquipamentoTipos();
 
@@ -276,7 +278,7 @@ export default function RelatorioAbastecimento() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/relatorios")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <LogoHomeButton className="h-10 object-contain" />

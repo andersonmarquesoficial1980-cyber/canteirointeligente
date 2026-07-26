@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import {
   ArrowLeft,
   Activity,
@@ -114,6 +115,7 @@ function csvEscape(val: unknown) {
 
 export default function RelatorioRdoTecnicoDashboard() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/relatorios");
   const { profile } = useUserProfile();
 
   const hoje = new Date();
@@ -433,7 +435,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg sticky top-0 z-20">
-        <button onClick={() => navigate("/relatorios")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">

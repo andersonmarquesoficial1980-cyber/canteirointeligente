@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +50,7 @@ function formatDateBRShort(dateValue: string): string {
 
 export default function RdoForm() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/obras");
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -1312,7 +1314,7 @@ export default function RdoForm() {
 
         {tipoRdo && !isPatioRdo && shouldBlockByDeadline ? (
           <div className="px-4">
-            <PrazoExpiradoCard date={header.data} prazoLabel={prazoLabel} onBack={() => navigate(-1)} />
+            <PrazoExpiradoCard date={header.data} prazoLabel={prazoLabel} onBack={goBack} />
           </div>
         ) : (
           <>

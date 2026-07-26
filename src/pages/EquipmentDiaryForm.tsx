@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -170,6 +171,7 @@ function formatDateBRShort(dateValue: string): string {
 
 export default function EquipmentDiaryForm() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/meus-lancamentos");
   const [searchParams] = useSearchParams();
   const { session } = useAuth();
   const { profile } = useUserProfile();
@@ -1470,7 +1472,7 @@ export default function EquipmentDiaryForm() {
         title: "Lançamento salvo offline ✅",
         description: "Será sincronizado quando a internet voltar.",
       });
-      navigate(-1);
+      goBack();
       return;
     }
 
@@ -2598,7 +2600,7 @@ export default function EquipmentDiaryForm() {
           <PrazoExpiradoCard
             date={date}
             prazoLabel={prazoLabel}
-            onBack={() => navigate(-1)}
+            onBack={goBack}
           />
         ) : (
           <>

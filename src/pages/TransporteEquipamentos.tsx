@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Truck, Plus, Loader2, CheckCircle2, ChevronRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ function normTxt(v: string) {
 
 export default function TransporteEquipamentos() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/encarregado/equipamentos");
   const { categorias } = useEquipamentoTipos();
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [ogsList, setOgsList] = useState<OgsOption[]>([]);
@@ -287,7 +289,7 @@ export default function TransporteEquipamentos() {
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg sticky top-0 z-10">
-        <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

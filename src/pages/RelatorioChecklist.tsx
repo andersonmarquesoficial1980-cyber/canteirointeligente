@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Download, CheckCircle2, AlertTriangle, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ interface ChecklistReport {
 
 export default function RelatorioChecklist() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/relatorios");
   const [reports, setReports] = useState<ChecklistReport[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ChecklistReport | null>(null);
@@ -248,7 +250,7 @@ export default function RelatorioChecklist() {
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
         <button
-          onClick={() => selectedReport ? setSelectedReport(null) : navigate("/relatorios")}
+          onClick={() => selectedReport ? setSelectedReport(null) : goBack()}
           className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"
         >
           <ArrowLeft className="w-5 h-5" />

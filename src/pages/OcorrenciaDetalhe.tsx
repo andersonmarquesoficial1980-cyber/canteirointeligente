@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,7 @@ function fmtDateTime(d: string) {
 export default function OcorrenciaDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useSmartBack("/manutencao/ocorrencias");
   const { toast } = useToast();
 
   const [ocorr, setOcorr] = useState<any>(null);
@@ -178,7 +180,7 @@ export default function OcorrenciaDetalhe() {
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-4 pt-12 pb-5">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="hover:bg-white/15 p-2 rounded-lg">
+          <button onClick={goBack} className="hover:bg-white/15 p-2 rounded-lg">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">

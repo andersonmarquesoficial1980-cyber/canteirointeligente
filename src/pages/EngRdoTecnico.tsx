@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +10,7 @@ interface Ogs { id: string; ogs_number: string; client_name: string }
 
 export default function EngRdoTecnico() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/engenharia");
   const { toast } = useToast();
   const { data: tiposServicoDB } = useTiposServico("CAUQ");
   const tiposServico = tiposServicoDB?.map(s => s.nome) ?? [];
@@ -288,7 +290,7 @@ export default function EngRdoTecnico() {
       <div className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-32">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-muted">
+          <button onClick={goBack} className="p-2 rounded-lg hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>

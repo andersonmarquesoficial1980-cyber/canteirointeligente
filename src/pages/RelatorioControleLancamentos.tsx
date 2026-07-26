@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import {
   ArrowLeft, Search, Download, Users, Wrench,
   ChevronDown, ChevronUp, CheckCircle2, Clock,
@@ -133,6 +134,7 @@ function CalCell({ rows, onClick }: { rows: DiarioRow[]; onClick: () => void }) 
 
 export default function RelatorioControleLancamentos() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/relatorios");
   const { profile } = useUserProfile();
   const companyId = profile?.company_id;
 
@@ -331,7 +333,7 @@ export default function RelatorioControleLancamentos() {
         {/* HEADER */}
         <div className="bg-gradient-to-r from-slate-800 to-slate-700 text-white shadow-lg no-print">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
-            <button onClick={() => navigate("/relatorios")} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+            <button onClick={goBack} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
               <ArrowLeft size={20} />
             </button>
             <div className="flex-1">

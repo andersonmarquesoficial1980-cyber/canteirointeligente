@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Loader2, HardHat, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ function expandNomes(nome: string | null): string[] {
 }
 
 export default function VisualizarRdo() {
-  const navigate = useNavigate();
+  const goBack = useSmartBack("/relatorios");
   const { id } = useParams<{ id: string }>();
 
   const [loading, setLoading] = useState(true);
@@ -140,7 +141,7 @@ export default function VisualizarRdo() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <LogoHomeButton className="h-10 object-contain" />
@@ -417,7 +418,7 @@ export default function VisualizarRdo() {
               </div>
             </div>
 
-            <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>
+            <Button variant="outline" className="w-full" onClick={goBack}>
               ← Voltar
             </Button>
           </>

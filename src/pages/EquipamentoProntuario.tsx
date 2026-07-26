@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ function diasParaVencer(d: string) {
 export default function EquipamentoProntuario() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useSmartBack("/equipamentos");
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -184,7 +186,7 @@ export default function EquipamentoProntuario() {
       {/* Header */}
       <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground px-4 pt-12 pb-6">
         <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate(-1)} className="hover:bg-white/15 p-2 rounded-lg">
+          <button onClick={goBack} className="hover:bg-white/15 p-2 rounded-lg">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">

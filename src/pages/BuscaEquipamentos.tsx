@@ -5,7 +5,8 @@
  * Filtros persistidos na URL para sobreviver ao navigate(-1)
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Search, Loader2, X, ChevronRight, Wrench, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,9 @@ function normTxt(v: string | null | undefined) {
 
 export default function BuscaEquipamentos() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const goBack = useSmartBack("/relatorios");
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
   const [searchParams, setSearchParams] = useSearchParams();
   const { categorias } = useEquipamentoTipos();
 
@@ -180,7 +184,7 @@ export default function BuscaEquipamentos() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate(-1)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
@@ -355,7 +359,7 @@ export default function BuscaEquipamentos() {
                     return (
                       <button
                         key={r.id}
-                        onClick={() => navigate(`/visualizar-lancamento/${r.id}`)}
+                        onClick={() => navigate(`/visualizar-lancamento/${r.id}?returnTo=${returnTo}`)}
                         className="w-full rdo-card flex items-center gap-3 hover:shadow-md transition-all text-left"
                       >
                         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">

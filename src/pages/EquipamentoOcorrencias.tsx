@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,7 @@ function fmtDateTime(d: string) {
 
 export default function EquipamentoOcorrencias() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/manutencao");
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -146,7 +148,7 @@ export default function EquipamentoOcorrencias() {
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-4 pt-12 pb-5">
         <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate(-1)} className="hover:bg-white/15 p-2 rounded-lg">
+          <button onClick={goBack} className="hover:bg-white/15 p-2 rounded-lg">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ function exportarPdf(filterType: FilterType, filterLabel: string, dataIni: strin
 
 export default function RelatorioFuncionario() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/relatorios");
   const { profile } = useUserProfile();
 
   const [filterType, setFilterType] = useState<FilterType>("funcao");
@@ -367,7 +369,7 @@ export default function RelatorioFuncionario() {
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/relatorios")}>
+          <Button variant="ghost" size="icon" onClick={goBack}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <User className="h-5 w-5 text-primary" />

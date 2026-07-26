@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, ClipboardCheck, Clock, ChevronRight, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 
@@ -18,6 +19,7 @@ interface RdoPendente {
 
 export default function EngValidacoes() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/engenharia");
   const [rdos, setRdos] = useState<RdoPendente[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -100,7 +102,7 @@ export default function EngValidacoes() {
   return (
     <div className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-24">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-muted">
+        <button onClick={goBack} className="p-2 rounded-lg hover:bg-muted">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">

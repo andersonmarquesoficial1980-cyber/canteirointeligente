@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,7 @@ function fmtDateTime(value: string | null) {
 
 export default function RelatorioManutencao() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/relatorios");
   const { fleet = "" } = useParams<{ fleet: string }>();
   const [searchParams] = useSearchParams();
 
@@ -63,7 +65,7 @@ export default function RelatorioManutencao() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/relatorios")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <LogoHomeButton className="h-10 object-contain" />

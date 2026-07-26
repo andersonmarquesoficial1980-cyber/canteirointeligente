@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, FileDown, FileSpreadsheet, Loader2, Pencil, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -53,6 +54,7 @@ interface Rdo {
 export default function EngRdoTecnicoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useSmartBack("/engenharia/rdo-tecnico/historico");
   const { toast } = useToast();
   const { isAdmin } = useIsAdmin();
   const [rdo, setRdo] = useState<Rdo | null>(null);
@@ -243,7 +245,7 @@ export default function EngRdoTecnicoDetalhe() {
       <div className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-24 print-page">
         {/* Header */}
         <div className="flex items-center gap-3 no-print">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-muted">
+          <button onClick={goBack} className="p-2 rounded-lg hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Building2, Users, ChevronRight, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,7 @@ function isVencido(d: string | null) {
 
 export default function SSTObrasVisualizacao() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/sst/integracao");
   const [obras, setObras] = useState<Obra[]>([]);
   const [obraSelecionada, setObraSelecionada] = useState<Obra | null>(null);
   const [funcIntegracoes, setFuncIntegracoes] = useState<FuncIntegracao[]>([]);
@@ -130,7 +132,7 @@ export default function SSTObrasVisualizacao() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => obraSelecionada ? setObraSelecionada(null) : navigate(-1)}
+        <button onClick={() => obraSelecionada ? setObraSelecionada(null) : goBack()}
           className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>

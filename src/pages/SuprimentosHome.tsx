@@ -1,16 +1,18 @@
 import React from "react";
 import { CalculadoraFrete } from "@/components/suprimentos/CalculadoraFrete";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function SuprimentosHome() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/");
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b px-4 py-3 flex items-center gap-4 sticky top-0 z-10">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
+        <Button variant="ghost" size="icon" onClick={goBack} className="shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
