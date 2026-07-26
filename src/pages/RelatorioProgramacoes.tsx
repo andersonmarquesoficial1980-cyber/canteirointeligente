@@ -45,6 +45,10 @@ interface DiarioResumo {
   work_status: string | null;
 }
 
+interface EquipeCadastro {
+  nome: string;
+}
+
 // ───── helpers ───────────────────────────────────────────────────────────────
 function fmtDate(d: string) {
   if (!d) return "";
@@ -83,7 +87,8 @@ export default function RelatorioProgramacoes() {
   // dados
   const [programacoes, setProgramacoes] = useState<Programacao[]>([]);
   const [diarios, setDiarios] = useState<DiarioResumo[]>([]);
-  const [equipes, setEquipes] = useState<string[]>([]);
+  const [equipesHistorico, setEquipesHistorico] = useState<string[]>([]);
+  const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
@@ -116,9 +121,19 @@ export default function RelatorioProgramacoes() {
       const lista: Programacao[] = progs || [];
       setProgramacoes(lista);
 
-      // equipes únicas para filtro
-      const eqs = [...new Set(lista.map((p: Programacao) => p.equipe))].sort();
-      setEquipes(eqs);
+      // equipes únicas do histórico no período
+      const eqs = [...new Set(lista.map((p: Programacao) => (p.equipe || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+      setEquipesHistorico(eqs);
+
+      // catálogo oficial de equipes ativas (Painel de Controle)
+      const { data: eqsCad } = await (supabase as any)
+        .from("ci_equipes")
+        .select("nome")
+        .eq("ativa", true)
+        .order("nome");
+      setEquipesCadastro(((eqsCad || []) as EquipeCadastro[])
+        .map((e) => (e.nome || "").trim())
+        .filter(Boolean));
 
       // OGSs programadas nesse período (para cruzar com diários)
       const ogsList = lista.map((p: Programacao) => p.ogs).filter(Boolean);
@@ -184,6 +199,18 @@ export default function RelatorioProgramacoes() {
       return true;
     });
   }, [programacoes, filtroEquipe, filtroStatus, filtroTipo, busca]);
+
+  const equipesFiltro = useMemo(() => {
+    const base = [...equipesCadastro, ...equipesHistorico]
+      .map((e) => (e || "").trim())
+      .filter(Boolean);
+
+    if (filtroEquipe !== "__todas__" && !base.some((e) => e.toLowerCase() === filtroEquipe.toLowerCase())) {
+      base.push(filtroEquipe);
+    }
+
+    return [...new Set(base)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [equipesCadastro, equipesHistorico, filtroEquipe]);
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -296,7 +323,7 @@ export default function RelatorioProgramacoes() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__todas__">Todas as equipes</SelectItem>
-              {equipes.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+              {equipesFiltro.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
             </SelectContent>
           </Select>
 
