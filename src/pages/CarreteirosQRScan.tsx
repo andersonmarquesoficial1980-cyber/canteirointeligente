@@ -116,6 +116,11 @@ export default function CarreteirosQRScan() {
     setSubmitting(true); setErro(null);
     // Calcular quantidade baseado no tipo selecionado
     const cap = truck?.capacidade_m3 || 0;
+    if (quantidadeTipo !== "vazio" && (!Number.isFinite(cap) || cap <= 0)) {
+      setSubmitting(false);
+      setErro("Capacidade do caminhão está zerada. Ajuste a capacidade no Painel de Controle antes de lançar como CHEIO/MEIA CARGA.");
+      return;
+    }
     const qtd = quantidadeTipo === "maxima" ? cap
       : quantidadeTipo === "meia" ? cap / 2
       : 0;

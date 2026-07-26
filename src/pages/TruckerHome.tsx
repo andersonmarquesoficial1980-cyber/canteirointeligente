@@ -84,6 +84,12 @@ function DepartureForm() {
       return;
     }
 
+    const qtyNum = parseFloat(String(quantity).replace(",", "."));
+    if (departureLoadStatus !== "VAZIO" && (!Number.isFinite(qtyNum) || qtyNum <= 0)) {
+      toast.error("Capacidade do caminhão está zerada. Ajuste a capacidade no Painel de Controle antes de lançar como CHEIO/MEIA CARGA.");
+      return;
+    }
+
     setSubmitting(true);
     let geoStr: string | null = null;
     let gpsFailed = false;
