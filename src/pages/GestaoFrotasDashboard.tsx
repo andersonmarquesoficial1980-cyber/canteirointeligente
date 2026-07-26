@@ -601,7 +601,7 @@ export default function GestaoFrotasDashboard() {
     return (
       <aside style={{ width: SIDEBAR_W, flexShrink: 0, background: "#1e293b", display: "flex", flexDirection: "column", overflowY: "auto" }}>
         <div style={{ padding: "14px 12px 10px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          {[{ key: "tipo", label: "Por Tipo", icon: "⚙️" }, { key: "equipe", label: "Por Equipe", icon: "👥" }].map(m => (
+          {[{ key: "tipo", label: "Por Tipo", icon: "⚙️" }, { key: "equipe", label: "Por Equipe/Setor", icon: "👥" }].map(m => (
             <button key={m.key} onClick={() => trocarModo(m.key as "tipo" | "equipe")}
               style={{ width: "100%", padding: "9px 12px", borderRadius: 10, marginBottom: 6, background: modoVis === m.key ? "#0055AA" : "rgba(255,255,255,0.06)", border: "none", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8, color: modoVis === m.key ? "white" : "rgba(255,255,255,0.55)", fontWeight: modoVis === m.key ? 700 : 500, fontSize: 13, boxShadow: modoVis === m.key ? "0 3px 12px rgba(0,85,170,0.4)" : "none", transition: "all 0.15s" }}>
               <span>{m.icon}</span> {m.label}
@@ -678,7 +678,7 @@ export default function GestaoFrotasDashboard() {
         </div>
         <div style={{ position: "relative", marginBottom: 12 }}>
           <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#9ca3af" }} />
-          <input placeholder="Buscar frota, placa, tipo, equipe, empresa..." value={busca} onChange={e => setBusca(e.target.value)}
+          <input placeholder="Buscar frota, placa, tipo, equipe/setor, empresa..." value={busca} onChange={e => setBusca(e.target.value)}
             style={{ width: "100%", paddingLeft: 36, paddingRight: 12, height: 38, borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }} />
         </div>
         {loading ? <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af", fontSize: 15 }}>Carregando...</div> : <TabelaEquipamentos items={listaFiltrada} />}

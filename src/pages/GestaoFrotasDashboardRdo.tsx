@@ -595,7 +595,7 @@ export default function GestaoFrotasDashboardRdo() {
           <div style={{ padding: "14px 12px 10px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
             {[
               { key: "tipo",   label: "Por Tipo",  icon: "⚙️" },
-              { key: "equipe", label: "Por Equipe", icon: "👥" },
+              { key: "equipe", label: "Por Equipe/Setor", icon: "👥" },
             ].map(m => (
               <button key={m.key} onClick={() => trocarModo(m.key as ModoVis)}
                 style={{
@@ -720,7 +720,7 @@ export default function GestaoFrotasDashboardRdo() {
           <div style={{ position: "relative", marginBottom: 12 }}>
             <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#9ca3af" }} />
             <input
-              placeholder="Buscar frota, tipo, equipe, encarregado, OGS, local..."
+              placeholder="Buscar frota, tipo, equipe/setor, encarregado, OGS, local..."
               value={busca}
               onChange={e => setBusca(e.target.value)}
               style={{

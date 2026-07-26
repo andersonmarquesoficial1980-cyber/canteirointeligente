@@ -511,7 +511,7 @@ export default function RelatorioRdoTecnicoDashboard() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground font-semibold">Busca rápida</label>
-              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="OGS, equipe, tipo, motivo..." className="w-full h-10 rounded-xl border px-3 text-sm" />
+              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="OGS, equipe/setor, tipo, motivo..." className="w-full h-10 rounded-xl border px-3 text-sm" />
             </div>
           </div>
 

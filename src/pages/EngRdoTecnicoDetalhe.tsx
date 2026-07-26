@@ -322,7 +322,7 @@ export default function EngRdoTecnicoDetalhe() {
           <Row label="OGS / Obra" value={rdo.ogs_number} />
           <Row label="Data" value={fmtData(rdo.data)} />
           <Row label="Engenheiro" value={engNome} />
-          <Row label="Equipe" value={rdo.equipe} />
+          <Row label="Equipe / Setor" value={rdo.equipe} />
           <Row label="Localização / Rua" value={rdo.localizacao} />
           <Row label="Houve Produção" value={rdo.houve_producao ? "Sim" : "Não"} />
           {!rdo.houve_producao && (
