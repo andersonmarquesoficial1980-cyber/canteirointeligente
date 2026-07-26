@@ -603,7 +603,11 @@ export default function RelatorioCarreteiros() {
                                   <MapPin className="w-3.5 h-3.5" />
                                   <span>Mapa</span>
                                 </a>
-                              ) : <span className="text-muted-foreground">—</span>}
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                                  Sem GPS na saída
+                                </span>
+                              )}
                             </td>
                             <td className="py-2">
                               {t.arrival_geo ? (
