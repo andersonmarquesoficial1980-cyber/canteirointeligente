@@ -489,7 +489,7 @@ export default function EngRdoTecnico() {
               <h2 className="text-sm font-bold text-foreground">Produção</h2>
 
               <div>
-                <label className={labelCls}>Equipe</label>
+                <label className={labelCls}>Equipe / Setor</label>
                 <select value={form.equipe} onChange={e => set("equipe", e.target.value)} className={inputCls}>
                   <option value="">Selecione a equipe...</option>
                   {opcoesEquipe.map(eq => <option key={eq} value={eq}>{eq}</option>)}

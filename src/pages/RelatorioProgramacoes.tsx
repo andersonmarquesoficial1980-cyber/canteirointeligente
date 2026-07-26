@@ -319,7 +319,7 @@ export default function RelatorioProgramacoes() {
         <div className="grid grid-cols-3 gap-3">
           <Select value={filtroEquipe} onValueChange={setFiltroEquipe}>
             <SelectTrigger className="h-9 text-xs">
-              <SelectValue placeholder="Equipe" />
+              <SelectValue placeholder="Equipe / Setor" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__todas__">Todas as equipes</SelectItem>

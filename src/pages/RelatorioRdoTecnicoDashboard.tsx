@@ -405,7 +405,7 @@ export default function RelatorioRdoTecnicoDashboard() {
                   <th className="px-3 py-2">Data</th>
                   <th className="px-3 py-2">OGS</th>
                   <th className="px-3 py-2">Engenheiro</th>
-                  <th className="px-3 py-2">Equipe</th>
+                  <th className="px-3 py-2">Equipe / Setor</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Detalhes do assunto</th>
                 </tr>
@@ -503,7 +503,7 @@ export default function RelatorioRdoTecnicoDashboard() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground font-semibold">Equipe</label>
+              <label className="text-xs text-muted-foreground font-semibold">Equipe / Setor</label>
               <select value={filtroEquipe} onChange={(e) => setFiltroEquipe(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm bg-white">
                 <option value="">Todas</option>
                 {equipesFiltro.map((eq) => <option key={eq} value={eq}>{eq}</option>)}

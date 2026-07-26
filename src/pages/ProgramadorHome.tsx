@@ -288,7 +288,7 @@ export default function ProgramadorHome() {
               <div className="space-y-1.5">
                 <Label>Equipe *</Label>
                 <Select value={progEquipe} onValueChange={setProgEquipe}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a equipe" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione a equipe/setor" /></SelectTrigger>
                   <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                 </Select>
                 {progEquipe && equipeResponsavel(progEquipe) && (
@@ -390,7 +390,7 @@ export default function ProgramadorHome() {
                   <div className="space-y-1.5">
                     <Label>Equipe *</Label>
                     <Select value={novaEquipe} onValueChange={setNovaEquipe}>
-                      <SelectTrigger><SelectValue placeholder="Selecione a equipe" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Selecione a equipe/setor" /></SelectTrigger>
                       <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
@@ -434,14 +434,14 @@ export default function ProgramadorHome() {
                       <div className="space-y-1.5">
                         <Label>De</Label>
                         <Select value={funcEquipeOrig} onValueChange={setFuncEquipeOrig}>
-                          <SelectTrigger><SelectValue placeholder="Equipe atual" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Equipe/Setor atual" /></SelectTrigger>
                           <SelectContent>{equipeOptionsComFallback(funcEquipeOrig).map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
                         <Label>Para</Label>
                         <Select value={funcEquipeDest} onValueChange={setFuncEquipeDest}>
-                          <SelectTrigger><SelectValue placeholder="Nova equipe" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Nova equipe/setor" /></SelectTrigger>
                           <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
@@ -516,14 +516,14 @@ export default function ProgramadorHome() {
                   <div className="space-y-1.5">
                     <Label>De</Label>
                     <Select value={equipEquipeOrig} onValueChange={setEquipEquipeOrig}>
-                      <SelectTrigger><SelectValue placeholder="Equipe atual" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Equipe/Setor atual" /></SelectTrigger>
                       <SelectContent>{equipeOptionsComFallback(equipEquipeOrig).map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Para</Label>
                     <Select value={equipEquipeDest} onValueChange={setEquipEquipeDest}>
-                      <SelectTrigger><SelectValue placeholder="Nova equipe" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Nova equipe/setor" /></SelectTrigger>
                       <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>

@@ -278,7 +278,7 @@ export default function ProgramacaoNoturna() {
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipe *</Label>
               <Select value={formEquipe} onValueChange={setFormEquipe}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="Selecione a equipe..." /></SelectTrigger>
+                <SelectTrigger className="text-sm"><SelectValue placeholder="Selecione a equipe/setor..." /></SelectTrigger>
                 <SelectContent>
                   {equipesProgramacao.map(e => (
                     <SelectItem key={e.id} value={e.nome}>
