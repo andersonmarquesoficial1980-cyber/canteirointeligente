@@ -28,6 +28,13 @@ interface Forma {
 
 function formatBRL(v: number) { if (!v) return "—"; return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
 function fmtDate(d: string) { if (!d) return ""; const [y, m, day] = d.split("-"); return `${day}/${m}/${y}`; }
+function normTxt(v: string) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
 
 function getStatusNorm(e: Equip): "operacional" | "manutencao" | "inativo" | "disposicao" {
   const s = (e.status || "").toLowerCase().replace(/[_\s]/g, "");
@@ -207,6 +214,7 @@ const SIDEBAR_W = 220;
 export default function GestaoFrotasDashboard() {
   const navigate = useNavigate();
   const [todos, setTodos]           = useState<Equip[]>([]);
+  const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [loading, setLoading]       = useState(true);
   const [modoVis, setModoVis]       = useState<"tipo" | "equipe">("tipo");
   const [chipSel, setChipSel]       = useState("todos");
@@ -245,8 +253,17 @@ export default function GestaoFrotasDashboard() {
 
   // Dados
   useEffect(() => {
-    (supabase as any).from("equipamentos").select("*").order("tipo,frota").then(({ data }: any) => {
-      if (data) setTodos(data);
+    Promise.all([
+      (supabase as any).from("equipamentos").select("*").order("tipo,frota"),
+      (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"),
+    ]).then(([equipRes, equipesRes]: any) => {
+      if (equipRes?.data) setTodos(equipRes.data);
+      if (equipesRes?.data) {
+        const nomes = (equipesRes.data as any[])
+          .map((e) => (e?.nome || "").trim())
+          .filter(Boolean);
+        setEquipesCadastro(nomes);
+      }
       setLoading(false);
     });
   }, []);
@@ -513,10 +530,28 @@ export default function GestaoFrotasDashboard() {
     return chips;
   }, [todos]);
 
-  const chipsDeEquipe = useMemo(() =>
-    [...new Set(todos.map(e => e.setor).filter(Boolean))].sort()
-      .map(eq => ({ key: eq, label: eq, count: todos.filter(e => e.setor === eq).length })),
-  [todos]);
+  const equipesCanonMap = useMemo(() => {
+    const map = new Map<string, string>();
+    equipesCadastro.forEach((nome) => {
+      const limpo = (nome || "").trim();
+      if (limpo) map.set(normTxt(limpo), limpo);
+    });
+    return map;
+  }, [equipesCadastro]);
+
+  const chipsDeEquipe = useMemo(() => {
+    const counts = new Map<string, number>();
+    todos.forEach((e) => {
+      const bruto = (e.setor || "").trim();
+      if (!bruto) return;
+      const canon = equipesCanonMap.get(normTxt(bruto)) || bruto;
+      counts.set(canon, (counts.get(canon) || 0) + 1);
+    });
+
+    return [...counts.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
+      .map(([eq, count]) => ({ key: eq, label: eq, count }));
+  }, [todos, equipesCanonMap]);
 
   const listaFiltrada = useMemo(() => {
     let lista = todos;
@@ -526,7 +561,15 @@ export default function GestaoFrotasDashboard() {
         lista = grupo
           ? (subChipSel !== "todos" ? lista.filter(e => (e.tipo || "").toUpperCase() === subChipSel.toUpperCase()) : lista.filter(e => grupo.tipos.some(t => t.toUpperCase() === (e.tipo || "").toUpperCase())))
           : lista.filter(e => (e.tipo || "").toUpperCase() === chipSel.toUpperCase());
-      } else { lista = lista.filter(e => e.setor === chipSel); }
+      } else {
+        const alvo = normTxt(chipSel);
+        lista = lista.filter(e => {
+          const bruto = (e.setor || "").trim();
+          if (!bruto) return false;
+          const canon = equipesCanonMap.get(normTxt(bruto)) || bruto;
+          return normTxt(canon) === alvo;
+        });
+      }
     }
     if (filtroStatus === "manutencao")   lista = lista.filter(e => getStatusNorm(e) === "manutencao");
     else if (filtroStatus === "operacional") lista = lista.filter(e => getStatusNorm(e) === "operacional");
@@ -537,7 +580,7 @@ export default function GestaoFrotasDashboard() {
       lista = lista.filter(e => [e.frota, e.placa, e.tipo, e.nome, e.setor, e.condutor_atual, e.empresa_proprietaria, e.locadora].some(f => f?.toLowerCase().includes(b)));
     }
     return lista;
-  }, [todos, chipSel, subChipSel, modoVis, filtroStatus, busca]);
+  }, [todos, chipSel, subChipSel, modoVis, filtroStatus, busca, equipesCanonMap]);
 
   const kpiSel = useMemo(() => {
     const t = listaFiltrada.filter(isTerceiro);
@@ -573,7 +616,12 @@ export default function GestaoFrotasDashboard() {
               <SideChip label={c.label} count={c.count} ativo={chipSel === c.key && subChipSel === "todos"}
                 manut={modoVis === "tipo"
                   ? (() => { const g = GRUPOS_CHIP.find(g => g.key === c.key); return todos.filter(e => getStatusNorm(e) === "manutencao" && (g ? g.tipos.some(t => t.toUpperCase() === (e.tipo||"").toUpperCase()) : (e.tipo||"").toUpperCase() === c.key.toUpperCase())).length; })()
-                  : todos.filter(e => e.setor === c.key && getStatusNorm(e) === "manutencao").length}
+                  : todos.filter(e => {
+                    const bruto = (e.setor || "").trim();
+                    if (!bruto) return false;
+                    const canon = equipesCanonMap.get(normTxt(bruto)) || bruto;
+                    return normTxt(canon) === normTxt(c.key) && getStatusNorm(e) === "manutencao";
+                  }).length}
                 onClick={() => { setChipSel(c.key); setSubChipSel("todos"); }}
               />
               {modoVis === "tipo" && chipSel === c.key && (() => {

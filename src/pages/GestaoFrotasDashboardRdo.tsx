@@ -8,6 +8,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 interface RdoRow {
   frota: string;
   tipo: string;
+  equipe: string | null;
   encarregado: string | null;
   ogs: string | null;
   contratante: string | null;
@@ -64,6 +65,14 @@ function fimSemanaPassada() {
 function inicioMes() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function normTxt(v: string) {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
 }
 
 // Grupos de tipo (mesmo padrão do dashboard de frotas)
@@ -251,6 +260,7 @@ export default function GestaoFrotasDashboardRdo() {
   // Dados
   const [allRows, setAllRows] = useState<RdoRow[]>([]);
   const [equipSemRdo, setEquipSemRdo] = useState<EquipSemRdo[]>([]);
+  const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastFetch, setLastFetch] = useState("");
 
@@ -272,6 +282,13 @@ export default function GestaoFrotasDashboardRdo() {
     setLoading(true);
 
     try {
+      const { data: eqsCad } = await (supabase as any)
+        .from("ci_equipes")
+        .select("nome")
+        .eq("ativa", true)
+        .order("nome");
+      setEquipesCadastro((eqsCad || []).map((e: any) => (e.nome || "").trim()).filter(Boolean));
+
       // 1. RDOs do período
       const { data: rdos } = await (supabase as any)
         .from("rdo_diarios")
@@ -299,7 +316,7 @@ export default function GestaoFrotasDashboardRdo() {
       const frotaNames = [...new Set(equips.map((e: any) => e.frota).filter(Boolean))];
       const { data: maquinas } = await (supabase as any)
         .from("equipamentos")
-        .select("frota, tipo, empresa_proprietaria, condicao")
+        .select("frota, tipo, setor, empresa_proprietaria, condicao")
         .in("frota", frotaNames);
 
       const maqMap: Record<string, any> = {};
@@ -327,6 +344,7 @@ export default function GestaoFrotasDashboardRdo() {
         return {
           frota: e.frota,
           tipo: maq?.tipo || "—",
+          equipe: maq?.setor || null,
           encarregado: rdo.encarregado || null,
           ogs: rdo.obra_nome || null,
           contratante: ogs?.client_name || null,
@@ -396,11 +414,34 @@ export default function GestaoFrotasDashboardRdo() {
     return chips;
   }, [baseRows]);
 
+  const equipeCanonMap = useMemo(() => {
+    const map = new Map<string, string>();
+    equipesCadastro.forEach((nome) => {
+      const limpo = (nome || "").trim();
+      if (limpo) map.set(normTxt(limpo), limpo);
+    });
+    return map;
+  }, [equipesCadastro]);
+
+  const equipeDisplay = (valor?: string | null) => {
+    const limpo = (valor || "").trim();
+    if (!limpo) return "";
+    return equipeCanonMap.get(normTxt(limpo)) || limpo;
+  };
+
   // ── Chips de equipe ──────────────────────────────────────────────────────────
   const chipsDeEquipe = useMemo(() => {
-    return [...new Set(baseRows.map(r => r.encarregado).filter(Boolean))].sort()
-      .map(eq => ({ key: eq!, label: eq!, count: baseRows.filter(r => r.encarregado === eq).length }));
-  }, [baseRows]);
+    const counts = new Map<string, number>();
+    baseRows.forEach((r) => {
+      const eq = equipeDisplay(r.equipe);
+      if (!eq) return;
+      counts.set(eq, (counts.get(eq) || 0) + 1);
+    });
+
+    return [...counts.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
+      .map(([eq, count]) => ({ key: eq, label: eq, count }));
+  }, [baseRows, equipeCanonMap]);
 
   // ── Lista filtrada ───────────────────────────────────────────────────────────
   const listaFiltrada = useMemo(() => {
@@ -416,19 +457,19 @@ export default function GestaoFrotasDashboardRdo() {
           lista = lista.filter(r => (r.tipo || "").toUpperCase() === chipSel.toUpperCase());
         }
       } else {
-        lista = lista.filter(r => r.encarregado === chipSel);
+        lista = lista.filter(r => equipeDisplay(r.equipe) === chipSel);
       }
     }
 
     if (busca.trim()) {
       const b = busca.toLowerCase();
       lista = lista.filter(r =>
-        [r.frota, r.tipo, r.encarregado, r.ogs, r.contratante, r.local, r.empresa]
+        [r.frota, r.tipo, r.equipe, r.encarregado, r.ogs, r.contratante, r.local, r.empresa]
           .some(f => f?.toLowerCase().includes(b))
       );
     }
     return lista;
-  }, [baseRows, chipSel, subChipSel, modoVis, busca]);
+  }, [baseRows, chipSel, subChipSel, modoVis, busca, equipeCanonMap]);
 
   const chips = modoVis === "tipo" ? chipsDoTipo : chipsDeEquipe;
 
@@ -442,7 +483,7 @@ export default function GestaoFrotasDashboardRdo() {
 
   // KPIs
   const frotasUnicas = new Set(listaFiltrada.map(r => r.frota)).size;
-  const encarregadosUnicos = new Set(listaFiltrada.map(r => r.encarregado).filter(Boolean)).size;
+  const equipesUnicas = new Set(listaFiltrada.map(r => equipeDisplay(r.equipe)).filter(Boolean)).size;
   const ogsUnicas = new Set(listaFiltrada.map(r => r.ogs).filter(Boolean)).size;
 
   const PERIODOS = [
@@ -471,7 +512,7 @@ export default function GestaoFrotasDashboardRdo() {
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {[
               { v: frotasUnicas,       label: "frotas",       cor: "#93c5fd" },
-              { v: encarregadosUnicos, label: "equipes",      cor: "#86efac" },
+              { v: equipesUnicas,      label: "equipes",      cor: "#86efac" },
               { v: ogsUnicas,          label: "obras/OGS",    cor: "#fcd34d" },
             ].map(k => (
               <div key={k.label} style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
@@ -679,7 +720,7 @@ export default function GestaoFrotasDashboardRdo() {
           <div style={{ position: "relative", marginBottom: 12 }}>
             <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#9ca3af" }} />
             <input
-              placeholder="Buscar frota, tipo, encarregado, OGS, local..."
+              placeholder="Buscar frota, tipo, equipe, encarregado, OGS, local..."
               value={busca}
               onChange={e => setBusca(e.target.value)}
               style={{
