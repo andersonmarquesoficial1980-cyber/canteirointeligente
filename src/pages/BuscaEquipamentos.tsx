@@ -108,17 +108,21 @@ export default function BuscaEquipamentos() {
   useEffect(() => {
     Promise.all([
       (supabase as any)
-        .from("equipment_diaries")
-        .select("equipment_type, equipment_fleet")
-        .not("equipment_type", "is", null)
-        .not("equipment_fleet", "is", null),
+        .from("equipamentos")
+        .select("tipo, frota")
+        .not("tipo", "is", null)
+        .not("frota", "is", null),
       (supabase as any)
         .from("equipment_diaries")
         .select("operator_name")
         .not("operator_name", "is", null),
     ]).then(([td, o]) => {
       if (td.data) {
-        setEquipamentosResumo(td.data as EquipResumo[]);
+        const resumo = (td.data as any[]).map((r) => ({
+          equipment_type: r.tipo,
+          equipment_fleet: r.frota,
+        })) as EquipResumo[];
+        setEquipamentosResumo(resumo);
       }
       if (o.data) setOperadores([...new Set((o.data as any[]).map((r: any) => r.operator_name).filter(Boolean))].sort());
     });
