@@ -1,6 +1,6 @@
 // WF Programador — Gestão de equipes, funcionários e equipamentos
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Users, Wrench, UserPlus, RefreshCw, Calendar, CalendarDays, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const STATUS_FUNC = ["TRABALHOU", "AFASTADO", "DISPOSIÇÃO", "FÉRIAS", "FALTA"];
 const STATUS_EQUIP = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE"];
@@ -28,6 +29,10 @@ type ModoEquip = "status" | "transferencia";
 
 export default function ProgramadorHome() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { toast } = useToast();
   const [aba, setAba] = useState<Aba>("equipes");
   const [saving, setSaving] = useState(false);
@@ -215,7 +220,7 @@ export default function ProgramadorHome() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+          <button onClick={() => navigate(rotaVoltar)} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <LogoHomeButton className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
@@ -224,7 +229,7 @@ export default function ProgramadorHome() {
             <p className="text-xs text-white/70">Equipes · Funcionários · Equipamentos</p>
           </div>
           <button
-            onClick={() => navigate("/programador/programacao-noturna")}
+            onClick={() => navigate(`/programador/programacao-noturna${origemQuery}`)}
             className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors"
           >
             <CalendarDays className="w-3.5 h-3.5" /> Obras
@@ -257,7 +262,7 @@ export default function ProgramadorHome() {
 
             {/* Card destaque: Programação de Obras */}
             <button
-              onClick={() => navigate("/programador/programacao-noturna")}
+              onClick={() => navigate(`/programador/programacao-noturna${origemQuery}`)}
               className="w-full flex items-center gap-3 p-4 rounded-2xl bg-primary text-primary-foreground shadow-md active:scale-95 transition-transform"
             >
               <CalendarDays className="w-6 h-6 shrink-0" />

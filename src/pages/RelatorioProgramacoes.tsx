@@ -16,6 +16,7 @@ import {
   ArrowLeft, BarChart3, CheckCircle2, XCircle, Clock, AlertCircle,
   Download, RefreshCw, TrendingUp, Hammer, CalendarRange, Search,
 } from "lucide-react";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 // ───── types ─────────────────────────────────────────────────────────────────
 interface Programacao {
@@ -75,6 +76,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
 // ───── componente ─────────────────────────────────────────────────────────────
 export default function RelatorioProgramacoes() {
   const navigate = useNavigate();
+  const rotaVoltar = useOrigemBack("/programador/programacao-noturna", { "gestao-frotas": "/gestao-frotas" });
 
   // filtros
   const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
@@ -282,7 +284,7 @@ export default function RelatorioProgramacoes() {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/programador/programacao-noturna")}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(rotaVoltar)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="flex-1">

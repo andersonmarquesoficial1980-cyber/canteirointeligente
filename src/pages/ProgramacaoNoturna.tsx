@@ -1,8 +1,8 @@
 // ProgramacaoNoturna — Programador cria OS Noturna
 // Compartilha via WhatsApp nativo (wa.me), sem número integrado
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useSmartBack } from "@/hooks/useSmartBack";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -81,7 +81,10 @@ function montarTextoWA(prog: Programacao): string {
 
 export default function ProgramacaoNoturna() {
   const navigate = useNavigate();
-  const goBack = useSmartBack("/programador");
+  const [searchParams] = useSearchParams();
+  const goBack = useOrigemBack("/programador", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { toast } = useToast();
 
   const [equipes, setEquipes]           = useState<Equipe[]>([]);
@@ -242,7 +245,7 @@ export default function ProgramacaoNoturna() {
           <p className="text-xs text-muted-foreground">Planejamento de equipes e equipamentos</p>
         </div>
         <button
-          onClick={() => navigate("/programador/relatorio-programacoes")}
+          onClick={() => navigate(`/programador/relatorio-programacoes${origemQuery}`)}
           className="flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-xl text-muted-foreground hover:bg-muted"
           title="Relatório"
         >
