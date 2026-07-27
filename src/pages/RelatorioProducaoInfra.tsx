@@ -34,7 +34,13 @@ interface InfraRow {
   obra_nome: string;
   local: string | null;
   tipo_servico: string | null;
+  sentido: string | null;
+  faixa: string | null;
   sentido_faixa: string | null;
+  estaca_inicial: string | null;
+  estaca_final: string | null;
+  km_inicial: number | null;
+  km_final: number | null;
   comprimento_m: number | null;
   largura_m: number | null;
   area_m2: number | null;
@@ -43,16 +49,54 @@ interface InfraRow {
   is_retrabalho: boolean;
 }
 
+function splitSentidoFaixa(r: InfraRow) {
+  const sentido = String(r.sentido || "").trim();
+  const faixa = String(r.faixa || "").trim();
+
+  if (sentido || faixa) {
+    return {
+      sentido: sentido || "-",
+      faixa: faixa || "-",
+    };
+  }
+
+  const combinado = String(r.sentido_faixa || "").trim();
+  if (!combinado) return { sentido: "-", faixa: "-" };
+
+  if (combinado.includes(" - ")) {
+    const [s, ...resto] = combinado.split(" - ");
+    return {
+      sentido: (s || "").trim() || "-",
+      faixa: resto.join(" - ").trim() || "-",
+    };
+  }
+
+  return { sentido: combinado, faixa: "-" };
+}
+
+function getEstacaInicial(r: InfraRow): string {
+  if (r.estaca_inicial && String(r.estaca_inicial).trim()) return String(r.estaca_inicial).trim();
+  if (r.km_inicial != null && !Number.isNaN(r.km_inicial)) return String(r.km_inicial);
+  return "-";
+}
+
+function getEstacaFinal(r: InfraRow): string {
+  if (r.estaca_final && String(r.estaca_final).trim()) return String(r.estaca_final).trim();
+  if (r.km_final != null && !Number.isNaN(r.km_final)) return String(r.km_final);
+  return "-";
+}
+
 // ---------- EXPORTAR EXCEL (CSV) ----------
 function exportarExcel(dataIni: string, dataFim: string, rows: InfraRow[]) {
   const linhas: string[][] = [];
   linhas.push(["Relatório de Produção de Infraestrutura"]);
   linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
   linhas.push([]);
-  linhas.push(["Data", "Apontador", "OGS", "Local", "Serviço", "Sentido/Faixa", "Retrabalho", "Comp(m)", "Larg(m)", "Área(m²)", "Esp(cm)", "Volume(m³)", "TOTAL Área(m²)"]);
+  linhas.push(["Data", "Apontador", "OGS", "Local", "Serviço", "Sentido", "Faixa", "Estaca Inicial", "Estaca Final", "Retrabalho", "Comp(m)", "Larg(m)", "Área(m²)", "Esp(cm)", "Volume(m³)", "TOTAL Área(m²)"]);
 
   let totalArea = 0;
   rows.forEach(r => {
+    const { sentido, faixa } = splitSentidoFaixa(r);
     const area = getArea(r);
     totalArea += area ?? 0;
     linhas.push([
@@ -61,7 +105,10 @@ function exportarExcel(dataIni: string, dataFim: string, rows: InfraRow[]) {
       r.obra_nome || "-",
       r.local || "-",
       r.tipo_servico || "-",
-      r.sentido_faixa || "-",
+      sentido,
+      faixa,
+      getEstacaInicial(r),
+      getEstacaFinal(r),
       r.is_retrabalho ? "SIM" : "NÃO",
       getComp(r) != null ? fmtNumCsv(getComp(r)!) : "-",
       r.largura_m != null ? fmtNumCsv(r.largura_m, 3) : "-",
@@ -72,7 +119,7 @@ function exportarExcel(dataIni: string, dataFim: string, rows: InfraRow[]) {
     ]);
   });
 
-  linhas.push(["", "", "", "", "", "", "", "", "TOTAL", fmtNumCsv(totalArea), "", "", fmtNumCsv(totalArea)]);
+  linhas.push(["", "", "", "", "", "", "", "", "", "", "", "", "TOTAL", fmtNumCsv(totalArea), "", fmtNumCsv(totalArea)]);
 
   const csv = "\uFEFF" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -107,13 +154,14 @@ function exportarPdf(dataIni: string, dataFim: string, rows: InfraRow[], filtros
   <table>
     <tr>
       <th>Data</th><th>Apontador</th><th>OGS</th><th>Local</th>
-      <th>Serviço</th><th>Sentido/Faixa</th><th>Retrabalho</th>
+      <th>Serviço</th><th>Sentido</th><th>Faixa</th><th>Estaca Inicial</th><th>Estaca Final</th><th>Retrabalho</th>
       <th class="num">Comp(m)</th><th class="num">Larg(m)</th>
       <th class="num">Área(m²)</th><th class="num">Esp(cm)</th>
       <th class="num">Volume(m³)</th><th class="num">TOTAL</th>
     </tr>`;
 
   rows.forEach(r => {
+    const { sentido, faixa } = splitSentidoFaixa(r);
     const area = getArea(r);
     const vol = getVol(r);
     html += `<tr>
@@ -122,7 +170,10 @@ function exportarPdf(dataIni: string, dataFim: string, rows: InfraRow[], filtros
       <td>${r.obra_nome || "-"}</td>
       <td>${r.local || "-"}</td>
       <td>${r.tipo_servico || "-"}</td>
-      <td>${r.sentido_faixa || "-"}</td>
+      <td>${sentido}</td>
+      <td>${faixa}</td>
+      <td>${getEstacaInicial(r)}</td>
+      <td>${getEstacaFinal(r)}</td>
       <td>${r.is_retrabalho ? "SIM" : "NÃO"}</td>
       <td class="num">${getComp(r) != null ? fmtNum(getComp(r)!) : "-"}</td>
       <td class="num">${r.largura_m != null ? fmtNum(r.largura_m, 3) : "-"}</td>
@@ -134,7 +185,7 @@ function exportarPdf(dataIni: string, dataFim: string, rows: InfraRow[], filtros
   });
 
   html += `<tr class="total">
-    <td colspan="9">TOTAL GERAL</td>
+    <td colspan="12">TOTAL GERAL</td>
     <td class="num">${fmtNum(totalArea)}</td>
     <td></td><td></td>
     <td class="num">${fmtNum(totalArea)}</td>
@@ -232,7 +283,7 @@ export default function RelatorioProducaoInfra() {
       // 3. Produção desses RDOs
       const { data: prods, error: prodErr } = await (supabase as any)
         .from("rdo_producao")
-        .select("id, rdo_id, tipo_servico, sentido, sentido_faixa, comprimento_m, largura_m, espessura_cm, area_m2, volume_m3, is_retrabalho")
+        .select("id, rdo_id, tipo_servico, sentido, faixa, sentido_faixa, estaca_inicial, estaca_final, km_inicial, km_final, comprimento_m, largura_m, espessura_cm, area_m2, volume_m3, is_retrabalho")
         .in("rdo_id", rdoIds);
       if (prodErr) throw prodErr;
 
@@ -246,7 +297,13 @@ export default function RelatorioProducaoInfra() {
           obra_nome: rdo?.obra_nome || "",
           local: ogsRef?.location_address || null,
           tipo_servico: p.tipo_servico || null,
+          sentido: p.sentido || null,
+          faixa: p.faixa || null,
           sentido_faixa: p.sentido_faixa || p.sentido || null,
+          estaca_inicial: p.estaca_inicial || null,
+          estaca_final: p.estaca_final || null,
+          km_inicial: p.km_inicial != null ? parseFloat(String(p.km_inicial)) : null,
+          km_final: p.km_final != null ? parseFloat(String(p.km_final)) : null,
           comprimento_m: p.comprimento_m != null ? parseFloat(String(p.comprimento_m)) : null,
           largura_m: p.largura_m != null ? parseFloat(String(p.largura_m)) : null,
           area_m2: p.area_m2 != null ? parseFloat(String(p.area_m2)) : null,
@@ -399,7 +456,10 @@ export default function RelatorioProducaoInfra() {
                           <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">OGS</th>
                           <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Local</th>
                           <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Serviço</th>
-                          <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Sentido/Faixa</th>
+                          <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Sentido</th>
+                          <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Faixa</th>
+                          <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Estaca Inicial</th>
+                          <th className="text-left px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Estaca Final</th>
                           <th className="text-center px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Retrabalho</th>
                           <th className="text-right px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Comp(m)</th>
                           <th className="text-right px-3 py-2.5 border-b border-border font-semibold whitespace-nowrap">Larg(m)</th>
@@ -411,6 +471,7 @@ export default function RelatorioProducaoInfra() {
                       </thead>
                       <tbody>
                         {rows.map((r, i) => {
+                          const { sentido, faixa } = splitSentidoFaixa(r);
                           const area = getArea(r);
                           const vol = getVol(r);
                           return (
@@ -420,7 +481,10 @@ export default function RelatorioProducaoInfra() {
                               <td className="px-3 py-2 border-b border-border/50 font-medium">{r.obra_nome || "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-muted-foreground max-w-[160px] truncate" title={r.local || ""}>{r.local || "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 font-medium">{r.tipo_servico || "-"}</td>
-                              <td className="px-3 py-2 border-b border-border/50 text-muted-foreground">{r.sentido_faixa || "-"}</td>
+                              <td className="px-3 py-2 border-b border-border/50 text-muted-foreground">{sentido}</td>
+                              <td className="px-3 py-2 border-b border-border/50 text-muted-foreground">{faixa}</td>
+                              <td className="px-3 py-2 border-b border-border/50 text-muted-foreground">{getEstacaInicial(r)}</td>
+                              <td className="px-3 py-2 border-b border-border/50 text-muted-foreground">{getEstacaFinal(r)}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-center font-semibold">{r.is_retrabalho ? "SIM" : "NÃO"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-right">{getComp(r) != null ? fmtNum(getComp(r)!) : "-"}</td>
                               <td className="px-3 py-2 border-b border-border/50 text-right">{r.largura_m != null ? fmtNum(r.largura_m, 3) : "-"}</td>
@@ -433,7 +497,7 @@ export default function RelatorioProducaoInfra() {
                         })}
                         {/* Linha de total */}
                         <tr className="bg-muted/50 font-bold">
-                          <td colSpan={9} className="px-3 py-2.5 text-right font-bold">TOTAL GERAL</td>
+                          <td colSpan={12} className="px-3 py-2.5 text-right font-bold">TOTAL GERAL</td>
                           <td className="px-3 py-2.5 text-right text-primary">{fmtNum(totalArea)}</td>
                           <td className="px-3 py-2.5"></td>
                           <td className="px-3 py-2.5"></td>
