@@ -94,6 +94,7 @@ import RelatorioCarreteiros from "./pages/RelatorioCarreteiros";
 import RelatorioFuncionario from "./pages/RelatorioFuncionario";
 import RelatorioEquipamentosRdo from "./pages/RelatorioEquipamentosRdo";
 import RelatorioNotasFiscais from "./pages/RelatorioNotasFiscais";
+import RelatorioNotasFiscaisConcreto from "./pages/RelatorioNotasFiscaisConcreto";
 import RelatorioProducaoInfra from "./pages/RelatorioProducaoInfra";
 import RelatorioProducaoPavimentacao from "./pages/RelatorioProducaoPavimentacao";
 import RelatorioChecklist from "./pages/RelatorioChecklist";
@@ -496,6 +497,7 @@ function AppRoutes() {
         <Route path="/relatorios/funcionario" element={<RequireModule moduleId="relatorios"><RelatorioFuncionario /></RequireModule>} />
         <Route path="/relatorios/equipamentos-rdo" element={<RequireModule moduleId="relatorios"><RelatorioEquipamentosRdo /></RequireModule>} />
         <Route path="/relatorios/notas-fiscais" element={<RequireModule moduleId="relatorios"><RelatorioNotasFiscais /></RequireModule>} />
+        <Route path="/relatorios/notas-fiscais-concreto" element={<RequireModule moduleId="relatorios"><RelatorioNotasFiscaisConcreto /></RequireModule>} />
         <Route path="/relatorios/producao-infra" element={<RequireModule moduleId="relatorios"><RelatorioProducaoInfra /></RequireModule>} />
         <Route path="/relatorios/producao-pavimentacao" element={<RequireModule moduleId="relatorios"><RelatorioProducaoPavimentacao /></RequireModule>} />
         <Route path="/relatorios/checklist" element={<RequireModule moduleId="relatorios"><RelatorioChecklist /></RequireModule>} />

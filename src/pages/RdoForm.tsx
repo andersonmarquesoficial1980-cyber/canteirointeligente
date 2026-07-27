@@ -300,12 +300,13 @@ export default function RdoForm() {
     const editId = searchParams.get("edit");
     if (!editId) return;
     const carregar = async () => {
-      const [{ data: rdo }, { data: efetivo }, { data: producao }, { data: equipamentos }, { data: nfRows }, { data: tercRows }, { data: sinalizacaoRows }, { data: dmtRows }] = await Promise.all([
+      const [{ data: rdo }, { data: efetivo }, { data: producao }, { data: equipamentos }, { data: nfRows }, { data: nfConcretoRows }, { data: tercRows }, { data: sinalizacaoRows }, { data: dmtRows }] = await Promise.all([
         (supabase as any).from("rdo_diarios").select("*").eq("id", editId).maybeSingle(),
         (supabase as any).from("rdo_efetivo").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_producao").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_equipamentos").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_nf_massa").select("*").eq("rdo_id", editId),
+        (supabase as any).from("rdo_nf_concreto").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_efetivo_terceiros").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_sinalizacao_horizontal").select("*").eq("rdo_id", editId),
         (supabase as any).from("rdo_informacoes_dmt").select("*").eq("rdo_id", editId).limit(1),
@@ -415,6 +416,18 @@ export default function RdoForm() {
           tonelagem: String(n.tonelagem || ""),
           tipo_material: n.tipo_material || "",
           tipo_material_outro: "",
+        })));
+      }
+
+      // NF Concreto
+      if (nfConcretoRows?.length) {
+        setNfConcreto(nfConcretoRows.map((n: any) => ({
+          id: n.id || crypto.randomUUID(),
+          nf: n.nf || "",
+          quantidade_m3: n.quantidade_m3 != null ? String(n.quantidade_m3) : "",
+          tipo_concreto: n.tipo_concreto || "",
+          fornecedor: n.fornecedor || "",
+          foto_url: n.foto_url || "",
         })));
       }
 
@@ -855,6 +868,7 @@ export default function RdoForm() {
           tipoRdo,
           tipoServico,
           infraProducao,
+          nfConcreto,
           producaoCauq,
           sinalizacoesHorizontais,
           informacoesDmt,
@@ -894,6 +908,7 @@ export default function RdoForm() {
           "rdo_producao",
           "rdo_equipamentos",
           "rdo_nf_massa",
+          "rdo_nf_concreto",
           "rdo_efetivo_terceiros",
           "rdo_sinalizacao_horizontal",
           "rdo_informacoes_dmt",
@@ -1075,6 +1090,7 @@ export default function RdoForm() {
         .filter(n => n.nf || n.placa || n.tonelagem)
         .map(n => ({
           rdo_id: rdoId,
+          company_id: profile?.company_id || null,
           nf: n.nf || null,
           placa: n.placa || null,
           usina: n.usina || null,
@@ -1084,6 +1100,26 @@ export default function RdoForm() {
       if (nfEntries.length > 0) {
         const { error } = await (supabase as any).from("rdo_nf_massa").insert(nfEntries);
         if (error) console.warn("NF Massa RDO:", error.message);
+      }
+
+      // NF de Concreto (Infra)
+      if (tipoRdo === "INFRAESTRUTURA") {
+        const nfConcretoEntries = nfConcreto
+          .filter(n => n.nf || n.quantidade_m3 || n.tipo_concreto || n.fornecedor || n.foto_url)
+          .map(n => ({
+            rdo_id: rdoId,
+            company_id: profile?.company_id || null,
+            nf: n.nf || null,
+            quantidade_m3: n.quantidade_m3 ? parseFloat(String(n.quantidade_m3).replace(",", ".")) : null,
+            tipo_concreto: n.tipo_concreto || null,
+            fornecedor: n.fornecedor || null,
+            foto_url: n.foto_url || null,
+          }));
+
+        if (nfConcretoEntries.length > 0) {
+          const { error } = await (supabase as any).from("rdo_nf_concreto").insert(nfConcretoEntries);
+          if (error) console.warn("NF Concreto RDO:", error.message);
+        }
       }
 
       // Efetivo

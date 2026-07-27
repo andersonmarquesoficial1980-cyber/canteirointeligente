@@ -376,6 +376,23 @@ async function syncPendingRdo(item: any) {
       const { error } = await supabase.from("rdo_producao").insert(entries);
       if (error) throw error;
     }
+
+    const nfConcretoEntries = ((payload.nfConcreto || []) as any[])
+      .filter((n) => n.nf || n.quantidade_m3 || n.tipo_concreto || n.fornecedor || n.foto_url)
+      .map((n) => ({
+        rdo_id: rdoId,
+        company_id: payload.rdoPayload?.company_id || null,
+        nf: n.nf || null,
+        quantidade_m3: n.quantidade_m3 ? parseFloat(String(n.quantidade_m3).replace(",", ".")) : null,
+        tipo_concreto: n.tipo_concreto || null,
+        fornecedor: n.fornecedor || null,
+        foto_url: n.foto_url || null,
+      }));
+
+    if (nfConcretoEntries.length > 0) {
+      const { error } = await (supabase as any).from("rdo_nf_concreto").insert(nfConcretoEntries);
+      if (error) throw error;
+    }
   }
 
   if (payload.tipoRdo === "CAUQ") {

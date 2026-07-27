@@ -2660,6 +2660,57 @@ export type Database = {
           },
         ]
       }
+      rdo_nf_concreto: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          fornecedor: string | null
+          foto_url: string | null
+          id: string
+          nf: string | null
+          quantidade_m3: number | null
+          rdo_id: string | null
+          tipo_concreto: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          fornecedor?: string | null
+          foto_url?: string | null
+          id?: string
+          nf?: string | null
+          quantidade_m3?: number | null
+          rdo_id?: string | null
+          tipo_concreto?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          fornecedor?: string | null
+          foto_url?: string | null
+          id?: string
+          nf?: string | null
+          quantidade_m3?: number | null
+          rdo_id?: string | null
+          tipo_concreto?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rdo_nf_concreto_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rdo_nf_concreto_rdo_id_fkey"
+            columns: ["rdo_id"]
+            isOneToOne: false
+            referencedRelation: "rdo_diarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rdo_nf_massa: {
         Row: {
           company_id: string | null
