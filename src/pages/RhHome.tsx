@@ -1,8 +1,9 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Bus, MapPin, LogOut, Camera, ClipboardList, MessageSquare, CheckSquare, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const RH_SECTIONS = [
   {
@@ -57,11 +58,15 @@ const RH_SECTIONS = [
 ];
 export default function RhHome() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
@@ -89,7 +94,7 @@ export default function RhHome() {
             <Card
               key={section.id}
               className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => navigate(section.route)}
+              onClick={() => navigate(`${section.route}${origemQuery}`)}
             >
               <CardContent className="p-5 flex items-center gap-4">
                 <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 shrink-0">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Search, ChevronRight, Wrench,
   User, Bus, MapPin, Camera, ClipboardList, ChevronDown, ChevronUp,
@@ -10,6 +10,7 @@ import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 interface Funcionario {
   id: string;
@@ -339,6 +340,10 @@ type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "centro_custo" | "ani
 
 export default function GestaoPessoasDashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { isAdmin } = useIsAdmin();
   const [todos, setTodos] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
@@ -372,7 +377,7 @@ export default function GestaoPessoasDashboard() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
@@ -398,7 +403,7 @@ export default function GestaoPessoasDashboard() {
           return (
             <button
               key={item.rota}
-              onClick={() => navigate(item.rota)}
+              onClick={() => navigate(`${item.rota}${origemQuery}`)}
               className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors text-left w-full"
             >
               <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${item.cor}`}>

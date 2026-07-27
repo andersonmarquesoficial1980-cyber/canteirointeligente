@@ -3,13 +3,14 @@
  * Abas: Todos | Por Função | Por Equipe | Por Responsável | Centro de Custo | Aniversariantes
  */
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, User, X
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 interface Funcionario {
   id: string;
@@ -106,6 +107,10 @@ type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "centro_custo" | "ani
 
 export default function GestaoPessoasEquipe() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/gestao-pessoas", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { isAdmin } = useIsAdmin();
   const [todos, setTodos] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
@@ -153,7 +158,7 @@ export default function GestaoPessoasEquipe() {
       )
     : todos;
 
-  const irFuncionario = (id: string) => navigate(`/gestao-pessoas/${id}`);
+  const irFuncionario = (id: string) => navigate(`/gestao-pessoas/${id}${origemQuery}`);
 
   const ABAS: { id: Aba; label: string; emoji: string; count?: number }[] = [
     { id: "lista",           label: "Todos",           emoji: "👤", count: todos.length },
@@ -170,7 +175,7 @@ export default function GestaoPessoasEquipe() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/gestao-pessoas")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
