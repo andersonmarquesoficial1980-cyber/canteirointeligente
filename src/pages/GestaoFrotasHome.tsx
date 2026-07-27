@@ -8,6 +8,7 @@ import { ArrowLeft, Plus, Car, Wrench, FileText, Fuel, Search, ChevronRight, Bar
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
+import { useToast } from "@/hooks/use-toast";
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -57,6 +58,7 @@ function carregarFiltrosIniciais(): FiltrosGF {
 export default function GestaoFrotasHome() {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
+  const { toast } = useToast();
   const { categorias, loading: loadingTipos } = useEquipamentoTipos();
   const [todos, setTodos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,19 +237,83 @@ export default function GestaoFrotasHome() {
   }
 
   async function alterarEquipeNoCard(veiculoId: string, novaEquipe: string) {
-    const setor = novaEquipe === "__sem_equipe" ? null : novaEquipe;
+    const setorNovo = novaEquipe === "__sem_equipe" ? null : novaEquipe;
+    const veiculoAtual = todos.find((v) => v.id === veiculoId);
+    const setorAnterior = veiculoAtual?.setor || null;
+
+    if ((setorAnterior || null) === (setorNovo || null)) return;
+
     setUpdatingEquipeId(veiculoId);
 
-    const { error } = await (supabase as any)
-      .from("equipamentos")
-      .update({ setor })
-      .eq("id", veiculoId);
+    try {
+      const { error: errorUpdate } = await (supabase as any)
+        .from("equipamentos")
+        .update({ setor: setorNovo, updated_at: new Date().toISOString() })
+        .eq("id", veiculoId);
 
-    if (!error) {
-      setTodos((prev) => prev.map((v) => (v.id === veiculoId ? { ...v, setor } : v)));
+      if (errorUpdate) {
+        toast({
+          title: "Erro ao atualizar equipe",
+          description: errorUpdate.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setTodos((prev) => prev.map((v) => (v.id === veiculoId ? { ...v, setor: setorNovo } : v)));
+
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+      const userNome =
+        (user?.user_metadata?.name as string | undefined) ||
+        (user?.user_metadata?.full_name as string | undefined) ||
+        user?.email ||
+        "Usuário";
+
+      const { error: errorAudit } = await (supabase as any)
+        .from("audit_log")
+        .insert({
+          acao: "ALTERACAO_EQUIPE_RAPIDA",
+          tabela: "equipamentos",
+          registro_id: veiculoId,
+          company_id: veiculoAtual?.company_id || null,
+          user_id: user?.id || null,
+          user_nome: userNome,
+          dados_antes: {
+            campo: "setor",
+            valor: setorAnterior,
+            frota: veiculoAtual?.frota || veiculoAtual?.placa || null,
+          },
+          dados_depois: {
+            campo: "setor",
+            valor: setorNovo,
+            frota: veiculoAtual?.frota || veiculoAtual?.placa || null,
+            origem: "gestao_frotas_home_card",
+          },
+        });
+
+      if (errorAudit) {
+        toast({
+          title: "Equipe alterada com alerta",
+          description: `Mudança aplicada, mas falhou auditoria: ${errorAudit.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Equipe atualizada",
+        description: `${veiculoAtual?.frota || veiculoAtual?.placa || "Equipamento"}: ${setorAnterior || "Sem equipe"} → ${setorNovo || "Sem equipe"}`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Erro inesperado",
+        description: err?.message || "Não foi possível alterar a equipe agora.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingEquipeId(null);
     }
-
-    setUpdatingEquipeId(null);
   }
 
   // Lista de equipamentos filtrada (tipo/subtipo/frota/equipe)
