@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, Wrench, ChevronRight, AlertTriangle, Clock, CheckCircle, Loader2, Tv, HardHat, CheckCircle2, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 import NovaOSModal from "@/components/manutencao/NovaOSModal";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
@@ -62,6 +63,10 @@ function fmtDate(d: string) {
 
 export default function ManutencaoHome() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const isAdmin = useIsAdmin();
   const [osList, setOsList] = useState<OS[]>([]);
   const [progsPendentes, setProgsPendentes] = useState<ProgPendente[]>([]);
@@ -128,17 +133,17 @@ export default function ManutencaoHome() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={() => navigate(rotaVoltar)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">WF Manutenção</span>
           <span className="block text-[11px] text-primary-foreground/80">Ordens de Serviço</span>
         </div>
-        <Button size="sm" variant="outline" onClick={() => navigate("/manutencao/ocorrencias")} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
+        <Button size="sm" variant="outline" onClick={() => navigate(`/manutencao/ocorrencias${origemQuery}`)} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
           <AlertTriangle className="w-4 h-4" /> Ocorrências
         </Button>
-        <Button size="sm" variant="outline" onClick={() => navigate("/manutencao/fila")} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
+        <Button size="sm" variant="outline" onClick={() => navigate(`/manutencao/fila${origemQuery}`)} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
           <Tv className="w-4 h-4" /> Fila de Manutenção
         </Button>
         <Button size="sm" onClick={() => setModalNovaOS(true)} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1">
@@ -276,7 +281,7 @@ export default function ManutencaoHome() {
             return (
               <button
                 key={os.id}
-                onClick={() => navigate(`/manutencao/os/${os.id}`)}
+                onClick={() => navigate(`/manutencao/os/${os.id}${origemQuery}`)}
                 className="w-full text-left rdo-card hover:shadow-md transition-all"
               >
                 <div className="flex items-start justify-between gap-2">
