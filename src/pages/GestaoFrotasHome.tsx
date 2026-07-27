@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
-import { ArrowLeft, Plus, Car, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio, History, RefreshCw, Link2 } from "lucide-react";
+import { ArrowLeft, Car, Wrench, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
 
@@ -94,14 +93,12 @@ function carregarFiltrosIniciais(): FiltrosGF {
 
 export default function GestaoFrotasHome() {
   const navigate = useNavigate();
-  const isAdmin = useIsAdmin();
   const { toast } = useToast();
   const { categorias, loading: loadingTipos } = useEquipamentoTipos();
   const [todos, setTodos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [medidoresMap, setMedidoresMap] = useState<Record<string, any>>({});
-  const [aba, setAba] = useState<"frotas" | "documentos" | "consumo">("frotas");
-  const [docsVencendo, setDocsVencendo] = useState<any[]>([]);
+  const [aba, setAba] = useState<"frotas" | "consumo">("frotas");
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [historicoTrocaEquipe, setHistoricoTrocaEquipe] = useState<any[]>([]);
   const [loadingHistoricoTrocaEquipe, setLoadingHistoricoTrocaEquipe] = useState(false);
@@ -151,23 +148,6 @@ export default function GestaoFrotasHome() {
   useEffect(() => {
     setAuditVisibleCount(AUDIT_PAGE_SIZE);
   }, [filtroAuditEquipe, filtroAuditUsuario, filtroAuditPeriodo, filtroAuditFrota]);
-
-  useEffect(() => {
-    (supabase as any).from("manutencao_documentos")
-      .select("*").not("data_vencimento", "is", null)
-      .then(({ data }: any) => {
-        if (!data) return;
-        const agora = new Date();
-        const vencendo = data
-          .map((d: any) => ({
-            ...d,
-            dias_restantes: Math.ceil((new Date(d.data_vencimento).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)),
-          }))
-          .filter((d: any) => d.dias_restantes <= 30)
-          .sort((a: any, b: any) => a.dias_restantes - b.dias_restantes);
-        setDocsVencendo(vencendo);
-      });
-  }, []);
 
   useEffect(() => {
     if (aba !== "consumo") return;
@@ -843,17 +823,6 @@ export default function GestaoFrotasHome() {
           <Wrench className="w-4 h-4" /> Frotas
         </button>
         <button
-          onClick={() => setAba("documentos")}
-          className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${aba === "documentos" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}
-        >
-          <FileText className="w-4 h-4" /> Documentos
-          {docsVencendo.length > 0 && (
-            <span className="bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
-              {docsVencendo.length}
-            </span>
-          )}
-        </button>
-        <button
           onClick={() => setAba("consumo")}
           className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${aba === "consumo" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}
         >
@@ -1187,138 +1156,29 @@ export default function GestaoFrotasHome() {
         </div>
       )}
 
-      {/* ABA DOCUMENTOS */}
-      {aba === "documentos" && (
-        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
-          {docsVencendo.length > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-              <p className="text-sm font-bold text-orange-700 mb-2">⚠️ {docsVencendo.length} documento{docsVencendo.length !== 1 ? "s" : ""} vencendo em breve</p>
-              {docsVencendo.slice(0, 3).map((d, i) => (
-                <p key={i} className="text-xs text-orange-600">
-                  {d.equipment_fleet} — {d.tipo_documento}: {d.dias_restantes <= 0 ? "⛔ VENCIDO" : `${d.dias_restantes} dias`}
-                </p>
-              ))}
-            </div>
-          )}
-          {isAdmin && (
-            <Button onClick={() => navigate("/manutencao/documentos?origem=gestao-frotas")} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
-              <Plus className="w-4 h-4" /> Adicionar Documento
-            </Button>
-          )}
-          <Button onClick={() => navigate("/manutencao/documentos?origem=gestao-frotas")} variant="outline" className="w-full h-11 gap-2 rounded-xl font-semibold">
-            <FileText className="w-4 h-4" /> Ver Todos os Documentos
-          </Button>
-        </div>
-      )}
-
       {/* ABA CONSUMO DE DIESEL */}
       {aba === "consumo" && (
-        <div className="max-w-4xl mx-auto px-4 py-4 space-y-3">
+        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
           <div className="rdo-card space-y-3">
             <div className="flex items-center gap-2">
               <Fuel className="w-4 h-4 text-primary" />
-              <p className="text-sm font-semibold">Painel de Consumo de Diesel</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="ml-auto h-8 px-2 text-xs"
-                onClick={exportarConsumoCsv}
-                disabled={consumoLoading || consumoPorFrotaOrdenado.length === 0}
-              >
-                <FileText className="w-3.5 h-3.5 mr-1" />
-                Exportar CSV
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 px-2 text-xs"
-                onClick={() => carregarConsumo(consumoPeriodo)}
-                disabled={consumoLoading}
-              >
-                {consumoLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
-                Atualizar
-              </Button>
+              <p className="text-sm font-semibold">Consumo de Diesel</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <div className="rounded-xl border bg-slate-50 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">Litros no período</p>
-                <p className="text-lg font-bold text-primary">{formatLitros(resumoConsumo.totalLitros)} L</p>
-              </div>
-              <div className="rounded-xl border bg-slate-50 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">Lançamentos</p>
-                <p className="text-lg font-bold">{resumoConsumo.totalLancamentos}</p>
-              </div>
-              <div className="rounded-xl border bg-slate-50 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">Frotas com abastecimento</p>
-                <p className="text-lg font-bold">{resumoConsumo.frotasUnicas}</p>
-              </div>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              O painel consolidado foi migrado para <strong>WF Relatórios → Abastecimento</strong>.
+            </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2">
-              <Select value={consumoPeriodo} onValueChange={(v) => setConsumoPeriodo(v as ConsumoPeriodo)}>
-                <SelectTrigger className="h-9 rounded-lg text-xs">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Input
-                value={consumoBusca}
-                onChange={(e) => setConsumoBusca(e.target.value)}
-                placeholder="Buscar por frota, tipo ou OGS"
-                className="h-9 rounded-lg text-xs"
-              />
-            </div>
-
-            {consumoPorFonte.length > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto pb-1">
-                {consumoPorFonte.map((item) => (
-                  <span key={item.fonte} className="whitespace-nowrap inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
-                    {labelFonte(item.fonte)}: <strong className="ml-1">{formatLitros(item.litros)} L</strong>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {consumoLoading ? (
-              <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
-            ) : consumoPorFrotaOrdenado.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Nenhum abastecimento encontrado para o período/filtro selecionado.
-              </div>
-            ) : (
-              <div className="border rounded-xl overflow-hidden">
-                <div className="grid grid-cols-[92px_1fr_84px_78px_84px] gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wide bg-muted/40">
-                  <button type="button" onClick={() => alternarOrdenacaoConsumo("frota")} className="text-left hover:text-primary transition-colors">Frota {marcadorOrdenacao("frota")}</button>
-                  <button type="button" onClick={() => alternarOrdenacaoConsumo("tipo")} className="text-left hover:text-primary transition-colors">Tipo {marcadorOrdenacao("tipo")}</button>
-                  <button type="button" onClick={() => alternarOrdenacaoConsumo("litros")} className="text-right hover:text-primary transition-colors">Litros {marcadorOrdenacao("litros")}</button>
-                  <button type="button" onClick={() => alternarOrdenacaoConsumo("lancamentos")} className="text-right hover:text-primary transition-colors">Lanç. {marcadorOrdenacao("lancamentos")}</button>
-                  <button type="button" onClick={() => alternarOrdenacaoConsumo("ultimaData")} className="text-right hover:text-primary transition-colors">Último {marcadorOrdenacao("ultimaData")}</button>
-                </div>
-                <div className="max-h-80 overflow-y-auto divide-y">
-                  {consumoPorFrotaOrdenado.slice(0, 60).map((item) => (
-                    <div key={item.frota} className="grid grid-cols-[92px_1fr_84px_78px_84px] gap-2 px-3 py-2 text-xs items-center">
-                      <span className="font-semibold truncate" title={item.frota}>{item.frota}</span>
-                      <span className="truncate text-muted-foreground" title={item.tipo}>{item.tipo || "-"}</span>
-                      <span className="text-right font-semibold text-primary">{formatLitros(item.litros)}</span>
-                      <span className="text-right">{item.lancamentos}</span>
-                      <span className="text-right text-muted-foreground">{fmtDate(item.ultimaData)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
-              Dados consolidados a partir dos lançamentos do abastecimento, exibidos aqui no WF Gestão de Frotas.
-            </div>
+            <Button
+              onClick={() => {
+                const hoje = new Date().toISOString().split("T")[0];
+                const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
+                navigate(`/relatorios/abastecimento/TODAS?ini=${inicioMes}&fim=${hoje}&origem=gestao-frotas`);
+              }}
+              className="w-full h-11 gap-2 rounded-xl font-display font-bold"
+            >
+              <Fuel className="w-4 h-4" /> Abrir painel em WF Relatórios
+            </Button>
           </div>
         </div>
       )}
