@@ -243,7 +243,7 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
           </div>
 
           <div className="space-y-1.5">
-            <span className="rdo-label">Observações do Trecho *</span>
+            <span className="rdo-label">Observações do Trecho</span>
             <Textarea value={trecho.observacoes} onChange={e => updateTrecho(trecho.id, "observacoes", e.target.value)} className="min-h-[70px] bg-white border-border text-base rounded-xl" placeholder="Observações deste trecho..." />
           </div>
         </div>

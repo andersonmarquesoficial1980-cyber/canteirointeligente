@@ -763,7 +763,6 @@ export default function RdoForm() {
             { key: "largura_m", label: "Larg. (m)" },
             { key: "espessura_m", label: "Espessura (cm)" },
             { key: "densidade", label: "Densidade (t/m³)" },
-            { key: "observacoes", label: "Observações do Trecho" },
           ];
 
           const trechoTemConteudo = (t: typeof producaoCauq.trechos[number]) =>
