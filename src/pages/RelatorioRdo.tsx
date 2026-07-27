@@ -756,6 +756,10 @@ export default function RelatorioRdo() {
   const rdosParaExportar = selecionados.size > 0
     ? rdoList.filter(r => selecionados.has(r.id))
     : rdoList;
+  const exportandoSelecionados = selecionados.size > 0;
+  const escopoExportacaoLabel = exportandoSelecionados
+    ? `Selecionados (${rdosParaExportar.length})`
+    : `Todos (${rdosParaExportar.length})`;
 
   // Excluir RDO (salva na lixeira por 30 dias antes de excluir)
   const excluirRdo = async (id: string) => {
@@ -836,12 +840,17 @@ export default function RelatorioRdo() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2 text-xs">
                     <FileDown className="w-3.5 h-3.5" />
-                    Exportar {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+                    Exportar {escopoExportacaoLabel}
                     <ChevronDown className="w-3.5 h-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuContent align="start" className="w-72">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground font-medium">
+                    Escopo atual: {escopoExportacaoLabel}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
                   <DropdownMenuLabel>Consolidado (arquivo único)</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
                     <Printer className="w-3.5 h-3.5 mr-2" /> PDF consolidado
