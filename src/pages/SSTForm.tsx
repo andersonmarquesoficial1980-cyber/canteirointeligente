@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Save, Camera, Trash2, ChevronDown, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
 import jsPDF from "jspdf";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
@@ -253,6 +254,10 @@ const CHECKLIST_SEG = [
 
 export default function SSTForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/sst", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { id } = useParams();
   const isNew = !id || id === "nova";
   const [saving, setSaving] = useState(false);
@@ -329,7 +334,7 @@ export default function SSTForm() {
       ({ error } = await supabase.from("sst_inspections").update(payload).eq("id", id));
     }
     setSaving(false);
-    if (!error) navigate("/sst");
+    if (!error) navigate(`/sst${origemQuery}`);
     else alert("Erro ao salvar: " + error.message);
   }
 
@@ -449,7 +454,7 @@ export default function SSTForm() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/sst")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
@@ -90,6 +91,7 @@ function isVencido(d: string | null) {
 
 export default function SSTObrasIntegracao() {
   const navigate = useNavigate();
+  const rotaVoltarIntegracao = useOrigemBack("/sst/integracao", { "gestao-frotas": "/gestao-frotas" });
   const { toast } = useToast();
   const [obras, setObras] = useState<Obra[]>([]);
   const [obraSelecionada, setObraSelecionada] = useState<Obra | null>(null);
@@ -342,7 +344,7 @@ export default function SSTObrasIntegracao() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
         <button
-          onClick={() => obraSelecionada ? setObraSelecionada(null) : navigate("/sst/integracao")}
+          onClick={() => obraSelecionada ? setObraSelecionada(null) : navigate(rotaVoltarIntegracao)}
           className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>

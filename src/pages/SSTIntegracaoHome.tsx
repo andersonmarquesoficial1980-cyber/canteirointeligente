@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, FolderOpen, Brain, Building2 } from "lucide-react";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const SECOES = [
   {
@@ -32,11 +33,15 @@ const SECOES = [
 
 export default function SSTIntegracaoHome() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/sst", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/sst")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
@@ -68,7 +73,7 @@ export default function SSTIntegracaoHome() {
           return (
             <button
               key={s.id}
-              onClick={() => navigate(s.rota)}
+              onClick={() => navigate(`${s.rota}${origemQuery}`)}
               style={{
                 display: "flex",
                 alignItems: "center",

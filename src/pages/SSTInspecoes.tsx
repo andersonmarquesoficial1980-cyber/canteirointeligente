@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, ClipboardCheck, Calendar, User, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
@@ -35,6 +36,10 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function SSTInspecoes() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/sst", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [inspecoes, setInspecoes] = useState<Inspecao[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,7 +59,7 @@ export default function SSTInspecoes() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/sst")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
@@ -62,7 +67,7 @@ export default function SSTInspecoes() {
           <span className="block font-display font-bold text-sm">Inspeções SST</span>
           <span className="block text-[10px] text-primary-foreground/70">{total} inspeções</span>
         </div>
-        <button onClick={() => navigate("/sst/nova")}
+        <button onClick={() => navigate(`/sst/nova${origemQuery}`)}
           className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 transition rounded-lg px-3 py-1.5 text-xs font-bold">
           <Plus size={14} /> Nova
         </button>
@@ -91,7 +96,7 @@ export default function SSTInspecoes() {
           <div style={{ textAlign: "center", padding: "60px 16px" }}>
             <ClipboardCheck size={48} color="#d1d5db" style={{ margin: "0 auto 12px" }} />
             <p style={{ color: "#6b7280", fontSize: 14, fontWeight: 600 }}>Nenhuma inspeção registrada</p>
-            <button onClick={() => navigate("/sst/nova")}
+            <button onClick={() => navigate(`/sst/nova${origemQuery}`)}
               style={{ marginTop: 16, background: "#0055AA", color: "white", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
               Registrar primeira inspeção
             </button>
@@ -99,7 +104,7 @@ export default function SSTInspecoes() {
         ) : (
           <div style={{ background: "white", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
             {inspecoes.map((ins, i) => (
-              <div key={ins.id} onClick={() => navigate(`/sst/${ins.id}`)}
+              <div key={ins.id} onClick={() => navigate(`/sst/${ins.id}${origemQuery}`)}
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: i < inspecoes.length - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", background: i % 2 === 0 ? "white" : "#fafbfc" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "#f0f7ff"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? "white" : "#fafbfc"; }}>
