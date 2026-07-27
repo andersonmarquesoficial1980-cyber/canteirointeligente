@@ -14,6 +14,18 @@ function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function formatLitros(v: number) {
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function labelFonte(fonte: string) {
+  const key = (fonte || "manual").toLowerCase();
+  if (key === "comboio") return "Comboio";
+  if (key === "posto") return "Posto";
+  if (key === "shelbox") return "Shelbox";
+  return "Manual";
+}
+
 function fmtDate(d: string) {
   if (!d) return "";
   const [y, m, day] = d.split("-");
@@ -39,6 +51,21 @@ type FiltrosGF = {
   equipe: string;
   frota: string;
 };
+
+type ConsumoPeriodo = "7d" | "30d" | "90d";
+
+type ConsumoRow = {
+  id: string;
+  equipment_fleet: string | null;
+  equipment_type: string | null;
+  litros: number | null;
+  data: string | null;
+  fonte: string | null;
+  ogs: string | null;
+};
+
+type ConsumoSortBy = "frota" | "tipo" | "litros" | "lancamentos" | "ultimaData";
+type ConsumoSortDir = "asc" | "desc";
 
 function carregarFiltrosIniciais(): FiltrosGF {
   const defaults: FiltrosGF = {
@@ -84,6 +111,13 @@ export default function GestaoFrotasHome() {
   const [filtroAuditFrota, setFiltroAuditFrota] = useState<string>("");
   const [auditVisibleCount, setAuditVisibleCount] = useState<number>(AUDIT_PAGE_SIZE);
   const [mostrarHistoricoAuditoria, setMostrarHistoricoAuditoria] = useState(false);
+
+  const [consumoRows, setConsumoRows] = useState<ConsumoRow[]>([]);
+  const [consumoLoading, setConsumoLoading] = useState(false);
+  const [consumoPeriodo, setConsumoPeriodo] = useState<ConsumoPeriodo>("30d");
+  const [consumoBusca, setConsumoBusca] = useState("");
+  const [consumoSortBy, setConsumoSortBy] = useState<ConsumoSortBy>("litros");
+  const [consumoSortDir, setConsumoSortDir] = useState<ConsumoSortDir>("desc");
 
   const filtrosIniciais = useMemo(() => carregarFiltrosIniciais(), []);
 
@@ -136,6 +170,11 @@ export default function GestaoFrotasHome() {
   }, []);
 
   useEffect(() => {
+    if (aba !== "consumo") return;
+    carregarConsumo(consumoPeriodo);
+  }, [aba, consumoPeriodo]);
+
+  useEffect(() => {
     try {
       sessionStorage.setItem(
         GF_FILTROS_KEY,
@@ -158,6 +197,40 @@ export default function GestaoFrotasHome() {
       buscarMedidores(data);
     }
     setLoading(false);
+  }
+
+  function inicioPorPeriodoConsumo(periodo: ConsumoPeriodo) {
+    const hoje = new Date();
+    const dias = periodo === "7d" ? 7 : periodo === "30d" ? 30 : 90;
+    const inicio = new Date(hoje.getTime() - dias * 24 * 60 * 60 * 1000);
+    return inicio.toISOString().slice(0, 10);
+  }
+
+  async function carregarConsumo(periodo: ConsumoPeriodo) {
+    setConsumoLoading(true);
+    try {
+      const dataInicio = inicioPorPeriodoConsumo(periodo);
+      const { data, error } = await (supabase as any)
+        .from("abastecimentos")
+        .select("id, equipment_fleet, equipment_type, litros, data, fonte, ogs")
+        .gte("data", dataInicio)
+        .order("data", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(5000);
+
+      if (error) {
+        toast({
+          title: "Falha ao carregar consumo",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setConsumoRows((data || []) as ConsumoRow[]);
+    } finally {
+      setConsumoLoading(false);
+    }
   }
 
   async function carregarEquipesCadastro() {
@@ -619,6 +692,133 @@ export default function GestaoFrotasHome() {
     });
   }
 
+  const consumoFiltrado = useMemo(() => {
+    const q = consumoBusca.trim().toLowerCase();
+    if (!q) return consumoRows;
+
+    return consumoRows.filter((row) => {
+      const alvo = `${row.equipment_fleet || ""} ${row.equipment_type || ""} ${row.ogs || ""}`.toLowerCase();
+      return alvo.includes(q);
+    });
+  }, [consumoRows, consumoBusca]);
+
+  const resumoConsumo = useMemo(() => {
+    const totalLitros = consumoFiltrado.reduce((acc, row) => acc + (Number(row.litros) || 0), 0);
+    const totalLancamentos = consumoFiltrado.length;
+    const frotasUnicas = new Set(consumoFiltrado.map((row) => row.equipment_fleet).filter(Boolean)).size;
+    return { totalLitros, totalLancamentos, frotasUnicas };
+  }, [consumoFiltrado]);
+
+  const consumoPorFonte = useMemo(() => {
+    const map = new Map<string, { fonte: string; litros: number; lancamentos: number }>();
+    consumoFiltrado.forEach((row) => {
+      const fonte = (row.fonte || "manual").toLowerCase();
+      const atual = map.get(fonte) || { fonte, litros: 0, lancamentos: 0 };
+      atual.litros += Number(row.litros) || 0;
+      atual.lancamentos += 1;
+      map.set(fonte, atual);
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.litros - a.litros);
+  }, [consumoFiltrado]);
+
+  const consumoPorFrota = useMemo(() => {
+    const map = new Map<string, { frota: string; tipo: string; litros: number; lancamentos: number; ultimaData: string }>();
+
+    consumoFiltrado.forEach((row) => {
+      const frota = (row.equipment_fleet || "Sem Frota").trim() || "Sem Frota";
+      const atual = map.get(frota) || {
+        frota,
+        tipo: row.equipment_type || "-",
+        litros: 0,
+        lancamentos: 0,
+        ultimaData: row.data || "",
+      };
+
+      atual.litros += Number(row.litros) || 0;
+      atual.lancamentos += 1;
+      if ((row.data || "") > atual.ultimaData) atual.ultimaData = row.data || "";
+      if (!atual.tipo || atual.tipo === "-") atual.tipo = row.equipment_type || "-";
+
+      map.set(frota, atual);
+    });
+
+    return Array.from(map.values());
+  }, [consumoFiltrado]);
+
+  const consumoPorFrotaOrdenado = useMemo(() => {
+    const rows = [...consumoPorFrota];
+    const dir = consumoSortDir === "asc" ? 1 : -1;
+
+    rows.sort((a, b) => {
+      if (consumoSortBy === "frota") return a.frota.localeCompare(b.frota, "pt-BR", { sensitivity: "base", numeric: true }) * dir;
+      if (consumoSortBy === "tipo") return (a.tipo || "").localeCompare((b.tipo || ""), "pt-BR", { sensitivity: "base", numeric: true }) * dir;
+      if (consumoSortBy === "litros") return (a.litros - b.litros) * dir;
+      if (consumoSortBy === "lancamentos") return (a.lancamentos - b.lancamentos) * dir;
+      return (a.ultimaData || "").localeCompare(b.ultimaData || "") * dir;
+    });
+
+    return rows;
+  }, [consumoPorFrota, consumoSortBy, consumoSortDir]);
+
+  function alternarOrdenacaoConsumo(coluna: ConsumoSortBy) {
+    if (consumoSortBy === coluna) {
+      setConsumoSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setConsumoSortBy(coluna);
+    setConsumoSortDir(coluna === "frota" || coluna === "tipo" || coluna === "ultimaData" ? "asc" : "desc");
+  }
+
+  function marcadorOrdenacao(coluna: ConsumoSortBy) {
+    if (consumoSortBy !== coluna) return "";
+    return consumoSortDir === "asc" ? "↑" : "↓";
+  }
+
+  function labelPeriodoConsumo() {
+    if (consumoPeriodo === "7d") return "7d";
+    if (consumoPeriodo === "30d") return "30d";
+    return "90d";
+  }
+
+  function exportarConsumoCsv() {
+    if (consumoPorFrotaOrdenado.length === 0) {
+      toast({
+        title: "Sem dados para exportar",
+        description: "Ajuste os filtros do consumo e tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const header = ["Frota", "Tipo", "Litros", "Lancamentos", "UltimaData"].join(";");
+    const linhas = consumoPorFrotaOrdenado.map((item) => [
+      esc(item.frota),
+      esc(item.tipo || "-"),
+      esc(formatLitros(item.litros)),
+      esc(item.lancamentos),
+      esc(fmtDate(item.ultimaData) || "-"),
+    ].join(";"));
+
+    const csv = [header, ...linhas].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `consumo-frotas-${labelPeriodoConsumo()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "CSV exportado",
+      description: `${consumoPorFrotaOrdenado.length} frotas exportadas.`,
+    });
+  }
+
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -1013,10 +1213,113 @@ export default function GestaoFrotasHome() {
 
       {/* ABA CONSUMO DE DIESEL */}
       {aba === "consumo" && (
-        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
-          <Button onClick={() => navigate("/abastecimento?origem=gestao-frotas")} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
-            <Fuel className="w-4 h-4" /> Consumo de Diesel
-          </Button>
+        <div className="max-w-4xl mx-auto px-4 py-4 space-y-3">
+          <div className="rdo-card space-y-3">
+            <div className="flex items-center gap-2">
+              <Fuel className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold">Painel de Consumo de Diesel</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-auto h-8 px-2 text-xs"
+                onClick={exportarConsumoCsv}
+                disabled={consumoLoading || consumoPorFrotaOrdenado.length === 0}
+              >
+                <FileText className="w-3.5 h-3.5 mr-1" />
+                Exportar CSV
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => carregarConsumo(consumoPeriodo)}
+                disabled={consumoLoading}
+              >
+                {consumoLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
+                Atualizar
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="rounded-xl border bg-slate-50 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">Litros no período</p>
+                <p className="text-lg font-bold text-primary">{formatLitros(resumoConsumo.totalLitros)} L</p>
+              </div>
+              <div className="rounded-xl border bg-slate-50 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">Lançamentos</p>
+                <p className="text-lg font-bold">{resumoConsumo.totalLancamentos}</p>
+              </div>
+              <div className="rounded-xl border bg-slate-50 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">Frotas com abastecimento</p>
+                <p className="text-lg font-bold">{resumoConsumo.frotasUnicas}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2">
+              <Select value={consumoPeriodo} onValueChange={(v) => setConsumoPeriodo(v as ConsumoPeriodo)}>
+                <SelectTrigger className="h-9 rounded-lg text-xs">
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Input
+                value={consumoBusca}
+                onChange={(e) => setConsumoBusca(e.target.value)}
+                placeholder="Buscar por frota, tipo ou OGS"
+                className="h-9 rounded-lg text-xs"
+              />
+            </div>
+
+            {consumoPorFonte.length > 0 && (
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {consumoPorFonte.map((item) => (
+                  <span key={item.fonte} className="whitespace-nowrap inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+                    {labelFonte(item.fonte)}: <strong className="ml-1">{formatLitros(item.litros)} L</strong>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {consumoLoading ? (
+              <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
+            ) : consumoPorFrotaOrdenado.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                Nenhum abastecimento encontrado para o período/filtro selecionado.
+              </div>
+            ) : (
+              <div className="border rounded-xl overflow-hidden">
+                <div className="grid grid-cols-[92px_1fr_84px_78px_84px] gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wide bg-muted/40">
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("frota")} className="text-left hover:text-primary transition-colors">Frota {marcadorOrdenacao("frota")}</button>
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("tipo")} className="text-left hover:text-primary transition-colors">Tipo {marcadorOrdenacao("tipo")}</button>
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("litros")} className="text-right hover:text-primary transition-colors">Litros {marcadorOrdenacao("litros")}</button>
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("lancamentos")} className="text-right hover:text-primary transition-colors">Lanç. {marcadorOrdenacao("lancamentos")}</button>
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("ultimaData")} className="text-right hover:text-primary transition-colors">Último {marcadorOrdenacao("ultimaData")}</button>
+                </div>
+                <div className="max-h-80 overflow-y-auto divide-y">
+                  {consumoPorFrotaOrdenado.slice(0, 60).map((item) => (
+                    <div key={item.frota} className="grid grid-cols-[92px_1fr_84px_78px_84px] gap-2 px-3 py-2 text-xs items-center">
+                      <span className="font-semibold truncate" title={item.frota}>{item.frota}</span>
+                      <span className="truncate text-muted-foreground" title={item.tipo}>{item.tipo || "-"}</span>
+                      <span className="text-right font-semibold text-primary">{formatLitros(item.litros)}</span>
+                      <span className="text-right">{item.lancamentos}</span>
+                      <span className="text-right text-muted-foreground">{fmtDate(item.ultimaData)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
+              Dados consolidados a partir dos lançamentos do abastecimento, exibidos aqui no WF Gestão de Frotas.
+            </div>
+          </div>
         </div>
       )}
     </div>
