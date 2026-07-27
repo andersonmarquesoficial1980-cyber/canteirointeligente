@@ -717,7 +717,8 @@ export default function RdoForm() {
         toast({ title: "Erro", description: "Preencha o Encarregado da obra.", variant: "destructive" });
         return;
       }
-      if (isBlank(header.engenheiro_responsavel)) {
+      const infraSemEngObrigatorio = ["INFRAESTRUTURA", "INFRA"].includes(tipoRdo || "");
+      if (!infraSemEngObrigatorio && isBlank(header.engenheiro_responsavel)) {
         toast({ title: "Erro", description: "Preencha o Engenheiro responsável.", variant: "destructive" });
         return;
       }
@@ -1338,7 +1339,11 @@ export default function RdoForm() {
         {/* PASSO 2: Informações Gerais — oculto no Pátio Central e enquanto tipo não escolhido */}
         {tipoRdo && !isPatioRdo && (
           <div className="px-4">
-            <RdoHeader data={header} onChange={handleHeaderChange} />
+            <RdoHeader
+              data={header}
+              onChange={handleHeaderChange}
+              engenheiroObrigatorio={!(["INFRAESTRUTURA", "INFRA"].includes(tipoRdo || ""))}
+            />
           </div>
         )}
 
