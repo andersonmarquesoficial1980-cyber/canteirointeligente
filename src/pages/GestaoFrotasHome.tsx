@@ -83,6 +83,7 @@ export default function GestaoFrotasHome() {
   const [filtroAuditPeriodo, setFiltroAuditPeriodo] = useState<string>("30d");
   const [filtroAuditFrota, setFiltroAuditFrota] = useState<string>("");
   const [auditVisibleCount, setAuditVisibleCount] = useState<number>(AUDIT_PAGE_SIZE);
+  const [mostrarHistoricoAuditoria, setMostrarHistoricoAuditoria] = useState(false);
 
   const filtrosIniciais = useMemo(() => carregarFiltrosIniciais(), []);
 
@@ -699,9 +700,24 @@ export default function GestaoFrotasHome() {
           </button>
 
           <div className="rdo-card space-y-2">
-            <div className="flex items-center gap-2">
-              <History className="w-4 h-4 text-primary" />
-              <p className="text-sm font-semibold">Histórico de movimentação (filtros)</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-primary" />
+                <p className="text-sm font-semibold">Histórico de movimentação (filtros)</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => {
+                  const proximo = !mostrarHistoricoAuditoria;
+                  setMostrarHistoricoAuditoria(proximo);
+                  if (proximo) carregarHistoricoTrocaEquipe({ silencioso: false });
+                }}
+              >
+                {mostrarHistoricoAuditoria ? "Ocultar histórico" : "Mostrar histórico"}
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -746,7 +762,42 @@ export default function GestaoFrotasHome() {
               />
             </div>
 
-            <p className="text-[11px] text-muted-foreground">A lista de movimentações está oculta nesta visualização. Use apenas os filtros.</p>
+            {!mostrarHistoricoAuditoria ? (
+              <p className="text-[11px] text-muted-foreground">A lista de movimentações está oculta. Use “Mostrar histórico” quando precisar auditar.</p>
+            ) : loadingHistoricoTrocaEquipe ? (
+              <div className="py-4 flex justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              </div>
+            ) : historicoTrocaEquipeFiltrado.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhuma alteração encontrada para os filtros selecionados.</p>
+            ) : (
+              <div className="space-y-2">
+                {historicoTrocaEquipePaginado.map((item) => (
+                  <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
+                    <p className="text-xs text-slate-800">
+                      <strong>{item.frota}</strong>: {item.equipe_antes || "Sem equipe"} → {item.equipe_depois || "Sem equipe"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {item.user_nome || "Usuário"} • {fmtDateTime(item.created_at) || "Sem data"}
+                    </p>
+                  </div>
+                ))}
+
+                {aindaTemMaisHistorico && (
+                  <div className="pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-8 text-xs rounded-lg"
+                      onClick={() => setAuditVisibleCount((prev) => prev + AUDIT_PAGE_SIZE)}
+                    >
+                      Ver mais ({historicoTrocaEquipeFiltrado.length - historicoTrocaEquipePaginado.length} restantes)
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="rdo-card space-y-3">
