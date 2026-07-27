@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, Wrench, TriangleAlert } from "lucide-react";
 import ReportarProblemaModal from "@/components/manutencao/ReportarProblemaModal";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const VALIDATION_START_DATE = "2026-07-17";
 
@@ -24,6 +25,10 @@ interface MinhaOgs {
 
 export default function EncHome() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [rdosPendentes, setRdosPendentes] = useState<RdoPendente[]>([]);
   const [minhasOgs, setMinhasOgs] = useState<MinhaOgs[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +107,7 @@ export default function EncHome() {
         <ProgramacoesDoDia />
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-2 rounded-lg hover:bg-muted">
+          <button onClick={() => navigate(rotaVoltar)} className="p-2 rounded-lg hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -117,7 +122,7 @@ export default function EncHome() {
         {/* Ações rápidas */}
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => navigate("/encarregado/validacoes")}
+            onClick={() => navigate(`/encarregado/validacoes${origemQuery}`)}
             className="flex flex-col items-start gap-2 p-4 rounded-2xl bg-primary text-white shadow-sm active:scale-95 transition-transform relative"
           >
             <ClipboardCheck className="w-5 h-5" />
@@ -130,7 +135,7 @@ export default function EncHome() {
             )}
           </button>
           <button
-            onClick={() => navigate("/encarregado/equipamentos")}
+            onClick={() => navigate(`/encarregado/equipamentos${origemQuery}`)}
             className="flex flex-col items-start gap-2 p-4 rounded-2xl bg-white border border-border shadow-sm active:scale-95 transition-transform"
           >
             <Wrench className="w-5 h-5 text-primary" />
@@ -160,7 +165,7 @@ export default function EncHome() {
               {rdosPendentes.map(rdo => (
                 <button
                   key={rdo.id}
-                  onClick={() => navigate(`/encarregado/validar/${rdo.id}`)}
+                  onClick={() => navigate(`/encarregado/validar/${rdo.id}${origemQuery}`)}
                   className="w-full flex items-center justify-between p-3 rounded-xl bg-white border border-amber-200 shadow-sm active:scale-95 transition-transform text-left"
                 >
                   <div className="space-y-0.5">

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, History } from "lucide-react";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const VALIDATION_START_DATE = "2026-07-17";
 
@@ -24,6 +25,10 @@ interface MinhaOgs {
 
 export default function EngHome() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [rdosPendentes, setRdosPendentes] = useState<RdoPendente[]>([]);
   const [minhasOgs, setMinhasOgs] = useState<MinhaOgs[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +138,7 @@ export default function EngHome() {
         <ProgramacoesDoDia />
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-2 rounded-lg hover:bg-muted">
+          <button onClick={() => navigate(rotaVoltar)} className="p-2 rounded-lg hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -148,7 +153,7 @@ export default function EngHome() {
         {/* Ações rápidas */}
         <div className={`grid gap-3 ${canViewValidacoes ? "grid-cols-2" : "grid-cols-1"}`}>
           <button
-            onClick={() => navigate("/engenharia/rdo-tecnico")}
+            onClick={() => navigate(`/engenharia/rdo-tecnico${origemQuery}`)}
             className="flex flex-col items-start gap-2 p-4 rounded-2xl bg-primary text-white shadow-sm active:scale-95 transition-transform"
           >
             <ClipboardList className="w-5 h-5" />
@@ -157,7 +162,7 @@ export default function EngHome() {
           </button>
           {canViewValidacoes && (
             <button
-              onClick={() => navigate("/engenharia/validacoes")}
+              onClick={() => navigate(`/engenharia/validacoes${origemQuery}`)}
               className="flex flex-col items-start gap-2 p-4 rounded-2xl bg-white border border-border shadow-sm active:scale-95 transition-transform relative"
             >
               <ClipboardCheck className="w-5 h-5 text-primary" />
@@ -174,7 +179,7 @@ export default function EngHome() {
 
         {/* Histórico RDO Técnico */}
         <button
-          onClick={() => navigate("/engenharia/rdo-tecnico/historico")}
+          onClick={() => navigate(`/engenharia/rdo-tecnico/historico${origemQuery}`)}
           className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white border border-border shadow-sm active:scale-95 transition-transform"
         >
           <History className="w-5 h-5 text-primary" />
@@ -196,7 +201,7 @@ export default function EngHome() {
               {rdosPendentes.map(rdo => (
                 <button
                   key={rdo.id}
-                  onClick={() => navigate(`/engenharia/validar/${rdo.id}`)}
+                  onClick={() => navigate(`/engenharia/validar/${rdo.id}${origemQuery}`)}
                   className="w-full flex items-center justify-between p-3 rounded-xl bg-white border border-amber-200 shadow-sm active:scale-95 transition-transform text-left"
                 >
                   <div className="space-y-0.5">
