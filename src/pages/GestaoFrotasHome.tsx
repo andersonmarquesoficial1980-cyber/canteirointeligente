@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
-import { ArrowLeft, Plus, Car, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio, History, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus, Car, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio, History, RefreshCw, Link2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
@@ -30,6 +30,7 @@ function fmtDateTime(d: string | null | undefined) {
 }
 
 const GF_FILTROS_KEY = "gestao-frotas-home:filtros-v10.3";
+const AUDIT_PAGE_SIZE = 10;
 
 type FiltrosGF = {
   categoria: string;
@@ -79,6 +80,8 @@ export default function GestaoFrotasHome() {
   const [filtroAuditEquipe, setFiltroAuditEquipe] = useState<string>("todas");
   const [filtroAuditUsuario, setFiltroAuditUsuario] = useState<string>("todos");
   const [filtroAuditPeriodo, setFiltroAuditPeriodo] = useState<string>("30d");
+  const [filtroAuditFrota, setFiltroAuditFrota] = useState<string>("");
+  const [auditVisibleCount, setAuditVisibleCount] = useState<number>(AUDIT_PAGE_SIZE);
 
   const filtrosIniciais = useMemo(() => carregarFiltrosIniciais(), []);
 
@@ -93,7 +96,24 @@ export default function GestaoFrotasHome() {
   useEffect(() => {
     buscarTodos();
     carregarHistoricoTrocaEquipe({ silencioso: true });
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const equipeUrl = params.get("auditEquipe");
+      const usuarioUrl = params.get("auditUsuario");
+      const periodoUrl = params.get("auditPeriodo");
+      const frotaUrl = params.get("auditFrota");
+
+      if (equipeUrl) setFiltroAuditEquipe(equipeUrl);
+      if (usuarioUrl) setFiltroAuditUsuario(usuarioUrl);
+      if (periodoUrl && ["7d", "30d", "90d", "todos"].includes(periodoUrl)) setFiltroAuditPeriodo(periodoUrl);
+      if (frotaUrl) setFiltroAuditFrota(frotaUrl);
+    } catch {}
   }, []);
+
+  useEffect(() => {
+    setAuditVisibleCount(AUDIT_PAGE_SIZE);
+  }, [filtroAuditEquipe, filtroAuditUsuario, filtroAuditPeriodo, filtroAuditFrota]);
 
   useEffect(() => {
     (supabase as any).from("manutencao_documentos")
@@ -174,7 +194,7 @@ export default function GestaoFrotasHome() {
       .eq("acao", "ALTERACAO_EQUIPE_RAPIDA")
       .eq("tabela", "equipamentos")
       .order("created_at", { ascending: false })
-      .limit(12);
+      .limit(300);
 
     if (error) {
       if (!silencioso) {
@@ -470,6 +490,12 @@ export default function GestaoFrotasHome() {
       if (filtroAuditUsuario !== "todos" && h.user_nome !== filtroAuditUsuario) return false;
       if (filtroAuditEquipe !== "todas" && h.equipe_antes !== filtroAuditEquipe && h.equipe_depois !== filtroAuditEquipe) return false;
 
+      if (filtroAuditFrota.trim()) {
+        const q = filtroAuditFrota.trim().toLowerCase();
+        const alvo = `${h.frota || ""} ${h.registro_id || ""}`.toLowerCase();
+        if (!alvo.includes(q)) return false;
+      }
+
       if (dataCorte && h.created_at) {
         const dataMov = new Date(h.created_at);
         if (!Number.isNaN(dataMov.getTime()) && dataMov < dataCorte) return false;
@@ -477,7 +503,50 @@ export default function GestaoFrotasHome() {
 
       return true;
     });
-  }, [historicoTrocaEquipeNormalizado, filtroAuditUsuario, filtroAuditEquipe, filtroAuditPeriodo]);
+  }, [historicoTrocaEquipeNormalizado, filtroAuditUsuario, filtroAuditEquipe, filtroAuditPeriodo, filtroAuditFrota]);
+
+  const historicoTrocaEquipePaginado = useMemo(() => {
+    return historicoTrocaEquipeFiltrado.slice(0, auditVisibleCount);
+  }, [historicoTrocaEquipeFiltrado, auditVisibleCount]);
+
+  const aindaTemMaisHistorico = historicoTrocaEquipePaginado.length < historicoTrocaEquipeFiltrado.length;
+
+  function copiarLinkFiltrosAuditoria() {
+    try {
+      const url = new URL(window.location.href);
+      const params = url.searchParams;
+
+      if (filtroAuditEquipe !== "todas") params.set("auditEquipe", filtroAuditEquipe); else params.delete("auditEquipe");
+      if (filtroAuditUsuario !== "todos") params.set("auditUsuario", filtroAuditUsuario); else params.delete("auditUsuario");
+      if (filtroAuditPeriodo !== "30d") params.set("auditPeriodo", filtroAuditPeriodo); else params.delete("auditPeriodo");
+      if (filtroAuditFrota.trim()) params.set("auditFrota", filtroAuditFrota.trim()); else params.delete("auditFrota");
+
+      url.search = params.toString();
+      const link = url.toString();
+
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(link);
+      } else {
+        const aux = document.createElement("textarea");
+        aux.value = link;
+        document.body.appendChild(aux);
+        aux.select();
+        document.execCommand("copy");
+        document.body.removeChild(aux);
+      }
+
+      toast({
+        title: "Link copiado",
+        description: "Link com os filtros da auditoria copiado para a área de transferência.",
+      });
+    } catch {
+      toast({
+        title: "Falha ao copiar link",
+        description: "Não foi possível copiar o link agora.",
+        variant: "destructive",
+      });
+    }
+  }
 
   function exportarHistoricoTrocaEquipeCsv() {
     if (historicoTrocaEquipeFiltrado.length === 0) {
@@ -489,7 +558,7 @@ export default function GestaoFrotasHome() {
       return;
     }
 
-    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const header = ["DataHora", "Usuario", "Frota", "EquipeAnterior", "EquipeNova", "RegistroID"].join(";");
     const linhas = historicoTrocaEquipeFiltrado.map((h) =>
       [
@@ -605,7 +674,17 @@ export default function GestaoFrotasHome() {
                 <History className="w-4 h-4 text-primary" />
                 <p className="text-sm font-semibold">Últimas alterações de equipe</p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={copiarLinkFiltrosAuditoria}
+                >
+                  <Link2 className="w-3.5 h-3.5 mr-1" />
+                  Copiar link
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -662,6 +741,16 @@ export default function GestaoFrotasHome() {
               </Select>
             </div>
 
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                value={filtroAuditFrota}
+                onChange={(e) => setFiltroAuditFrota(e.target.value)}
+                placeholder="Filtrar histórico por frota/placa"
+                className="h-8 rounded-lg text-xs pl-8"
+              />
+            </div>
+
             <p className="text-[11px] text-muted-foreground">{historicoTrocaEquipeFiltrado.length} registro(s) no filtro</p>
 
             {loadingHistoricoTrocaEquipe ? (
@@ -672,7 +761,7 @@ export default function GestaoFrotasHome() {
               <p className="text-xs text-muted-foreground">Nenhuma alteração encontrada para os filtros selecionados.</p>
             ) : (
               <div className="space-y-2">
-                {historicoTrocaEquipeFiltrado.map((item) => (
+                {historicoTrocaEquipePaginado.map((item) => (
                   <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
                     <p className="text-xs text-slate-800">
                       <strong>{item.frota}</strong>: {item.equipe_antes || "Sem equipe"} → {item.equipe_depois || "Sem equipe"}
@@ -682,6 +771,20 @@ export default function GestaoFrotasHome() {
                     </p>
                   </div>
                 ))}
+
+                {aindaTemMaisHistorico && (
+                  <div className="pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-8 text-xs rounded-lg"
+                      onClick={() => setAuditVisibleCount((prev) => prev + AUDIT_PAGE_SIZE)}
+                    >
+                      Ver mais ({historicoTrocaEquipeFiltrado.length - historicoTrocaEquipePaginado.length} restantes)
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
