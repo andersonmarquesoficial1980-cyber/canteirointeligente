@@ -2703,6 +2703,7 @@ export type Database = {
         Row: {
           company_id: string | null
           created_at: string | null
+          equipamento: string | null
           fornecedor: string | null
           foto_url: string | null
           id: string
@@ -2714,6 +2715,7 @@ export type Database = {
         Insert: {
           company_id?: string | null
           created_at?: string | null
+          equipamento?: string | null
           fornecedor?: string | null
           foto_url?: string | null
           id?: string
@@ -2725,6 +2727,7 @@ export type Database = {
         Update: {
           company_id?: string | null
           created_at?: string | null
+          equipamento?: string | null
           fornecedor?: string | null
           foto_url?: string | null
           id?: string

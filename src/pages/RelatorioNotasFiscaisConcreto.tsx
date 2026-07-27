@@ -31,6 +31,7 @@ interface NfConcretoRow {
   contratante: string | null;
   local: string | null;
   nf: string | null;
+  equipamento: string | null;
   tipo_concreto: string | null;
   fornecedor: string | null;
   quantidade_m3: number | null;
@@ -41,7 +42,7 @@ function exportarExcel(dataIni: string, dataFim: string, rows: NfConcretoRow[]) 
   linhas.push(["Relatório de Notas Fiscais de Concreto"]);
   linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
   linhas.push([]);
-  linhas.push(["Data", "Apontador", "Encarregado", "Empreiteiro", "OGS", "Contratante", "Local", "NF", "Tipo de Concreto", "Fornecedor", "Quantidade (m³)"]);
+  linhas.push(["Data", "Apontador", "Encarregado", "Empreiteiro", "OGS", "Contratante", "Local", "NF", "Equipamento", "Tipo de Concreto", "Fornecedor", "Quantidade (m³)"]);
 
   rows.forEach((r) => {
     linhas.push([
@@ -53,6 +54,7 @@ function exportarExcel(dataIni: string, dataFim: string, rows: NfConcretoRow[]) 
       r.contratante || "-",
       r.local || "-",
       r.nf || "-",
+      r.equipamento || "-",
       r.tipo_concreto || "-",
       r.fornecedor || "-",
       r.quantidade_m3 != null ? fmtNumCsv(r.quantidade_m3) : "-",
@@ -60,7 +62,7 @@ function exportarExcel(dataIni: string, dataFim: string, rows: NfConcretoRow[]) 
   });
 
   const total = rows.reduce((s, r) => s + (r.quantidade_m3 || 0), 0);
-  linhas.push(["", "", "", "", "", "", "", "", "", "TOTAL", fmtNumCsv(total)]);
+  linhas.push(["", "", "", "", "", "", "", "", "", "", "TOTAL", fmtNumCsv(total)]);
 
   const csv = "\uFEFF" + linhas.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -89,7 +91,7 @@ function exportarPdf(dataIni: string, dataFim: string, rows: NfConcretoRow[]) {
   <h1>🏛️ Relatório de Notas Fiscais de Concreto</h1>
   <p class="period"><strong>Período:</strong> ${fmtDate(dataIni)} a ${fmtDate(dataFim)}</p>
   <table>
-    <tr><th>Data</th><th>Apontador</th><th>Encarregado</th><th>Empreiteiro</th><th>OGS</th><th>Contratante</th><th>Local</th><th>NF</th><th>Tipo de Concreto</th><th>Fornecedor</th><th>Quantidade (m³)</th></tr>`;
+    <tr><th>Data</th><th>Apontador</th><th>Encarregado</th><th>Empreiteiro</th><th>OGS</th><th>Contratante</th><th>Local</th><th>NF</th><th>Equipamento</th><th>Tipo de Concreto</th><th>Fornecedor</th><th>Quantidade (m³)</th></tr>`;
 
   rows.forEach((r) => {
     html += `<tr>
@@ -101,6 +103,7 @@ function exportarPdf(dataIni: string, dataFim: string, rows: NfConcretoRow[]) {
       <td>${r.contratante || "-"}</td>
       <td>${r.local || "-"}</td>
       <td>${r.nf || "-"}</td>
+      <td>${r.equipamento || "-"}</td>
       <td>${r.tipo_concreto || "-"}</td>
       <td>${r.fornecedor || "-"}</td>
       <td>${r.quantidade_m3 != null ? fmtNum(r.quantidade_m3) : "-"}</td>
@@ -108,7 +111,7 @@ function exportarPdf(dataIni: string, dataFim: string, rows: NfConcretoRow[]) {
   });
 
   html += `<tr class="total">
-    <td colspan="10">TOTAL</td>
+    <td colspan="11">TOTAL</td>
     <td>${fmtNum(total)} m³</td>
   </tr>`;
   html += `</table></body></html>`;
@@ -182,7 +185,7 @@ export default function RelatorioNotasFiscaisConcreto() {
 
       const { data: nfs, error: nfErr } = await (supabase as any)
         .from("rdo_nf_concreto")
-        .select("rdo_id, nf, quantidade_m3, tipo_concreto, fornecedor")
+        .select("rdo_id, nf, equipamento, quantidade_m3, tipo_concreto, fornecedor")
         .in("rdo_id", rdoIds);
 
       if (nfErr) throw nfErr;
@@ -201,6 +204,7 @@ export default function RelatorioNotasFiscaisConcreto() {
           contratante: ogsRef?.client_name || null,
           local: ogsRef?.location_address || null,
           nf: n.nf || null,
+          equipamento: n.equipamento || null,
           tipo_concreto: n.tipo_concreto || null,
           fornecedor: n.fornecedor || null,
           quantidade_m3: n.quantidade_m3 != null ? parseFloat(String(n.quantidade_m3)) : null,
@@ -290,6 +294,7 @@ export default function RelatorioNotasFiscaisConcreto() {
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Contratante</th>
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Local</th>
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">NF</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Equipamento</th>
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Tipo Concreto</th>
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Fornecedor</th>
                         <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground">m³</th>
@@ -306,13 +311,14 @@ export default function RelatorioNotasFiscaisConcreto() {
                           <td className="px-3 py-2 text-xs">{r.contratante || "-"}</td>
                           <td className="px-3 py-2 text-xs">{r.local || "-"}</td>
                           <td className="px-3 py-2 font-bold">{r.nf || "-"}</td>
+                          <td className="px-3 py-2 text-xs">{r.equipamento || "-"}</td>
                           <td className="px-3 py-2 text-xs">{r.tipo_concreto || "-"}</td>
                           <td className="px-3 py-2 text-xs">{r.fornecedor || "-"}</td>
                           <td className="px-3 py-2 text-right font-semibold">{fmtNum(r.quantidade_m3)}</td>
                         </tr>
                       ))}
                       <tr className="bg-primary/5 border-t border-border">
-                        <td colSpan={10} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
+                        <td colSpan={11} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
                         <td className="px-3 py-2 text-right font-bold text-primary">{fmtNum(totalM3)} m³</td>
                       </tr>
                     </tbody>

@@ -54,6 +54,7 @@ def main():
         qtd = (r.get("quantidade_m3") or "").strip()
         tipo = (r.get("tipo_concreto") or "").strip()
         fornecedor = (r.get("fornecedor") or "").strip()
+        equipamento = (r.get("equipamento") or "").strip()
 
         if empreiteiro:
             stmts.append(
@@ -65,15 +66,19 @@ def main():
             if not nf:
                 raise ValueError(f"Linha {i}: nf obrigatório quando há dados de concreto")
             qtd_sql = sql_num(qtd)
+
             stmts.append(
-                "insert into public.rdo_nf_concreto (rdo_id, company_id, nf, quantidade_m3, tipo_concreto, fornecedor, foto_url) "
-                f"select {sql_text(rdo_id)}, '{COMPANY_ID}', {sql_text(nf)}, {qtd_sql}, {sql_text(tipo)}, {sql_text(fornecedor)}, null "
+                "update public.rdo_nf_concreto set "
+                f"quantidade_m3 = {qtd_sql}, tipo_concreto = {sql_text(tipo)}, fornecedor = {sql_text(fornecedor)}, equipamento = {sql_text(equipamento)} "
+                f"where rdo_id = {sql_text(rdo_id)} and coalesce(nf,'') = coalesce({sql_text(nf)},'');"
+            )
+
+            stmts.append(
+                "insert into public.rdo_nf_concreto (rdo_id, company_id, nf, quantidade_m3, tipo_concreto, fornecedor, equipamento, foto_url) "
+                f"select {sql_text(rdo_id)}, '{COMPANY_ID}', {sql_text(nf)}, {qtd_sql}, {sql_text(tipo)}, {sql_text(fornecedor)}, {sql_text(equipamento)}, null "
                 "where not exists ("
                 "select 1 from public.rdo_nf_concreto x "
-                f"where x.rdo_id = {sql_text(rdo_id)} and coalesce(x.nf,'') = coalesce({sql_text(nf)},'') "
-                f"and coalesce(x.tipo_concreto,'') = coalesce({sql_text(tipo)},'') "
-                f"and coalesce(x.fornecedor,'') = coalesce({sql_text(fornecedor)},'') "
-                f"and coalesce(x.quantidade_m3,-1) = coalesce({qtd_sql},-1)"
+                f"where x.rdo_id = {sql_text(rdo_id)} and coalesce(x.nf,'') = coalesce({sql_text(nf)},'')"
                 ");"
             )
             insert_count += 1

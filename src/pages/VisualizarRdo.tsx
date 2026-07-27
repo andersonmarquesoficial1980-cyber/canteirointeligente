@@ -59,7 +59,7 @@ export default function VisualizarRdo() {
           (supabase as any).from("rdo_equipamentos").select("id,frota,categoria,sub_tipo,tipo,nome,patrimonio,empresa_dona").eq("rdo_id", id).order("frota", { ascending: true }),
           (supabase as any).from("rdo_producao").select("id,tipo_servico,sentido_faixa,sentido,faixa,estaca_inicial,estaca_final,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,densidade,tonelagem,is_retrabalho").eq("rdo_id", id),
           (supabase as any).from("rdo_nf_massa").select("id,nf,placa,usina,tonelagem,tipo_material").eq("rdo_id", id).order("nf", { ascending: true }),
-          (supabase as any).from("rdo_nf_concreto").select("id,nf,quantidade_m3,tipo_concreto,fornecedor,foto_url").eq("rdo_id", id).order("nf", { ascending: true }),
+          (supabase as any).from("rdo_nf_concreto").select("id,nf,equipamento,quantidade_m3,tipo_concreto,fornecedor,foto_url").eq("rdo_id", id).order("nf", { ascending: true }),
         ]);
 
         if (rdoError) throw rdoError;
@@ -316,6 +316,7 @@ export default function VisualizarRdo() {
                     <thead>
                       <tr className="bg-muted/40 text-muted-foreground">
                         <th className="text-left p-2 border border-border">NF</th>
+                        <th className="text-left p-2 border border-border">Equipamento</th>
                         <th className="text-right p-2 border border-border">Quantidade (m³)</th>
                         <th className="text-left p-2 border border-border">Tipo Concreto</th>
                         <th className="text-left p-2 border border-border">Fornecedor</th>
@@ -325,13 +326,14 @@ export default function VisualizarRdo() {
                       {nfConcreto.map((n, i) => (
                         <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/10"}>
                           <td className="p-2 border border-border font-medium">{n.nf || "-"}</td>
+                          <td className="p-2 border border-border text-muted-foreground">{n.equipamento || "-"}</td>
                           <td className="p-2 border border-border text-right">{n.quantidade_m3 ?? "-"}</td>
                           <td className="p-2 border border-border text-muted-foreground">{n.tipo_concreto || "-"}</td>
                           <td className="p-2 border border-border text-muted-foreground">{n.fornecedor || "-"}</td>
                         </tr>
                       ))}
                       <tr className="bg-muted/40 font-bold">
-                        <td colSpan={1} className="p-2 border border-border text-right">TOTAL</td>
+                        <td colSpan={2} className="p-2 border border-border text-right">TOTAL</td>
                         <td className="p-2 border border-border text-right">{totalM3Concreto.toFixed(2)}</td>
                         <td className="p-2 border border-border" colSpan={2} />
                       </tr>
