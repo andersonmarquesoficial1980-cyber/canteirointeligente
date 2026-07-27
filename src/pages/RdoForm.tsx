@@ -1121,7 +1121,7 @@ export default function RdoForm() {
 
         if (nfConcretoEntries.length > 0) {
           const { error } = await (supabase as any).from("rdo_nf_concreto").insert(nfConcretoEntries);
-          if (error) console.warn("NF Concreto RDO:", error.message);
+          if (error) throw new Error(`Falha ao salvar NFs de concreto: ${error.message}`);
         }
       }
 
