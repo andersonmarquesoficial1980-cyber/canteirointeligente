@@ -2427,14 +2427,27 @@ export type Database = {
           created_at: string | null
           data: string | null
           encarregado: string | null
+          empreiteiro: string | null
           engenheiro_responsavel: string | null
           id: string
+          motivo_cancelamento: string | null
+          motivo_rejeicao_enc: string | null
+          motivo_rejeicao_eng: string | null
+          nao_aprovado_encarregado: boolean | null
           obra_nome: string
+          observacoes_gerais: string | null
+          ogs_id: string | null
           preenchido_por: string | null
           responsavel: string | null
+          status_validacao: string | null
           tipo_rdo: string | null
           turno: string | null
           user_id: string | null
+          validado_em: string | null
+          validado_encarregado: boolean | null
+          validado_encarregado_em: string | null
+          validado_encarregado_por: string | null
+          validado_por: string | null
         }
         Insert: {
           clima?: string | null
@@ -2442,14 +2455,27 @@ export type Database = {
           created_at?: string | null
           data?: string | null
           encarregado?: string | null
+          empreiteiro?: string | null
           engenheiro_responsavel?: string | null
           id?: string
+          motivo_cancelamento?: string | null
+          motivo_rejeicao_enc?: string | null
+          motivo_rejeicao_eng?: string | null
+          nao_aprovado_encarregado?: boolean | null
           obra_nome: string
+          observacoes_gerais?: string | null
+          ogs_id?: string | null
           preenchido_por?: string | null
           responsavel?: string | null
+          status_validacao?: string | null
           tipo_rdo?: string | null
           turno?: string | null
           user_id?: string | null
+          validado_em?: string | null
+          validado_encarregado?: boolean | null
+          validado_encarregado_em?: string | null
+          validado_encarregado_por?: string | null
+          validado_por?: string | null
         }
         Update: {
           clima?: string | null
@@ -2457,14 +2483,27 @@ export type Database = {
           created_at?: string | null
           data?: string | null
           encarregado?: string | null
+          empreiteiro?: string | null
           engenheiro_responsavel?: string | null
           id?: string
+          motivo_cancelamento?: string | null
+          motivo_rejeicao_enc?: string | null
+          motivo_rejeicao_eng?: string | null
+          nao_aprovado_encarregado?: boolean | null
           obra_nome?: string
+          observacoes_gerais?: string | null
+          ogs_id?: string | null
           preenchido_por?: string | null
           responsavel?: string | null
+          status_validacao?: string | null
           tipo_rdo?: string | null
           turno?: string | null
           user_id?: string | null
+          validado_em?: string | null
+          validado_encarregado?: boolean | null
+          validado_encarregado_em?: string | null
+          validado_encarregado_por?: string | null
+          validado_por?: string | null
         }
         Relationships: []
       }

@@ -324,6 +324,7 @@ export default function RdoForm() {
         preenchido_por: (rdo as any).preenchido_por || rdo.responsavel || "",
       }));
       setObservacoesGerais((rdo as any).observacoes_gerais || "");
+      setEmpreiteiro((rdo as any).empreiteiro || "");
       if (rdo.tipo_rdo) setTipoRdo(rdo.tipo_rdo);
       // Efetivo
       if (efetivo?.length) {
@@ -495,6 +496,7 @@ export default function RdoForm() {
         responsavel: encarregado || preenchidoPor,
         preenchido_por: preenchidoPor,
         encarregado: encarregado || null,
+        empreiteiro: empreiteiro || null,
         engenheiro_responsavel: engenheiroResponsavel || null,
         observacoes_gerais: observacoesGerais || null,
         user_id: user.id,
@@ -854,6 +856,7 @@ export default function RdoForm() {
       responsavel: encarregado || preenchidoPor, // legado — compat
       preenchido_por: preenchidoPor,
       encarregado: encarregado || null,
+      empreiteiro: empreiteiro || null,
       engenheiro_responsavel: engenheiroResponsavel || null,
       observacoes_gerais: observacoesGerais || null,
       user_id: user.id,

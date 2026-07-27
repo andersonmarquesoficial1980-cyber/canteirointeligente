@@ -26,6 +26,7 @@ interface NfConcretoRow {
   data: string;
   apontador: string | null;
   encarregado: string | null;
+  empreiteiro: string | null;
   obra_nome: string;
   contratante: string | null;
   local: string | null;
@@ -40,13 +41,14 @@ function exportarExcel(dataIni: string, dataFim: string, rows: NfConcretoRow[]) 
   linhas.push(["Relatório de Notas Fiscais de Concreto"]);
   linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
   linhas.push([]);
-  linhas.push(["Data", "Apontador", "Encarregado", "OGS", "Contratante", "Local", "NF", "Tipo de Concreto", "Fornecedor", "Quantidade (m³)"]);
+  linhas.push(["Data", "Apontador", "Encarregado", "Empreiteiro", "OGS", "Contratante", "Local", "NF", "Tipo de Concreto", "Fornecedor", "Quantidade (m³)"]);
 
   rows.forEach((r) => {
     linhas.push([
       fmtDate(r.data),
       r.apontador || "-",
       r.encarregado || "-",
+      r.empreiteiro || "-",
       r.obra_nome || "-",
       r.contratante || "-",
       r.local || "-",
@@ -58,7 +60,7 @@ function exportarExcel(dataIni: string, dataFim: string, rows: NfConcretoRow[]) 
   });
 
   const total = rows.reduce((s, r) => s + (r.quantidade_m3 || 0), 0);
-  linhas.push(["", "", "", "", "", "", "", "", "TOTAL", fmtNumCsv(total)]);
+  linhas.push(["", "", "", "", "", "", "", "", "", "TOTAL", fmtNumCsv(total)]);
 
   const csv = "\uFEFF" + linhas.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -87,13 +89,14 @@ function exportarPdf(dataIni: string, dataFim: string, rows: NfConcretoRow[]) {
   <h1>🏛️ Relatório de Notas Fiscais de Concreto</h1>
   <p class="period"><strong>Período:</strong> ${fmtDate(dataIni)} a ${fmtDate(dataFim)}</p>
   <table>
-    <tr><th>Data</th><th>Apontador</th><th>Encarregado</th><th>OGS</th><th>Contratante</th><th>Local</th><th>NF</th><th>Tipo de Concreto</th><th>Fornecedor</th><th>Quantidade (m³)</th></tr>`;
+    <tr><th>Data</th><th>Apontador</th><th>Encarregado</th><th>Empreiteiro</th><th>OGS</th><th>Contratante</th><th>Local</th><th>NF</th><th>Tipo de Concreto</th><th>Fornecedor</th><th>Quantidade (m³)</th></tr>`;
 
   rows.forEach((r) => {
     html += `<tr>
       <td>${fmtDate(r.data)}</td>
       <td>${r.apontador || "-"}</td>
       <td>${r.encarregado || "-"}</td>
+      <td>${r.empreiteiro || "-"}</td>
       <td>${r.obra_nome || "-"}</td>
       <td>${r.contratante || "-"}</td>
       <td>${r.local || "-"}</td>
@@ -105,7 +108,7 @@ function exportarPdf(dataIni: string, dataFim: string, rows: NfConcretoRow[]) {
   });
 
   html += `<tr class="total">
-    <td colspan="9">TOTAL</td>
+    <td colspan="10">TOTAL</td>
     <td>${fmtNum(total)} m³</td>
   </tr>`;
   html += `</table></body></html>`;
@@ -137,7 +140,7 @@ export default function RelatorioNotasFiscaisConcreto() {
     try {
       let rdoQuery = (supabase as any)
         .from("rdo_diarios")
-        .select("id, obra_nome, data, encarregado, preenchido_por, tipo_rdo")
+        .select("id, obra_nome, data, encarregado, empreiteiro, preenchido_por, tipo_rdo")
         .eq("company_id", profile.company_id)
         .gte("data", dataIni)
         .lte("data", dataFim)
@@ -193,6 +196,7 @@ export default function RelatorioNotasFiscaisConcreto() {
           data: rdo?.data || "",
           apontador,
           encarregado: rdo?.encarregado || null,
+          empreiteiro: rdo?.empreiteiro || null,
           obra_nome: rdo?.obra_nome || "",
           contratante: ogsRef?.client_name || null,
           local: ogsRef?.location_address || null,
@@ -281,6 +285,7 @@ export default function RelatorioNotasFiscaisConcreto() {
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Data</th>
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Apontador</th>
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Encarregado</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Empreiteiro</th>
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">OGS</th>
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Contratante</th>
                         <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Local</th>
@@ -296,6 +301,7 @@ export default function RelatorioNotasFiscaisConcreto() {
                           <td className="px-3 py-2 font-medium">{fmtDate(r.data)}</td>
                           <td className="px-3 py-2 text-sm text-muted-foreground">{r.apontador || "-"}</td>
                           <td className="px-3 py-2 text-sm text-muted-foreground">{r.encarregado || "-"}</td>
+                          <td className="px-3 py-2 text-sm text-muted-foreground">{r.empreiteiro || "-"}</td>
                           <td className="px-3 py-2 text-primary font-semibold text-xs">{r.obra_nome || "-"}</td>
                           <td className="px-3 py-2 text-xs">{r.contratante || "-"}</td>
                           <td className="px-3 py-2 text-xs">{r.local || "-"}</td>
@@ -306,7 +312,7 @@ export default function RelatorioNotasFiscaisConcreto() {
                         </tr>
                       ))}
                       <tr className="bg-primary/5 border-t border-border">
-                        <td colSpan={9} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
+                        <td colSpan={10} className="px-3 py-2 font-bold text-sm text-right">TOTAL</td>
                         <td className="px-3 py-2 text-right font-bold text-primary">{fmtNum(totalM3)} m³</td>
                       </tr>
                     </tbody>
