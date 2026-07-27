@@ -3,12 +3,20 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, ChevronDown, ChevronUp, Loader2, FileDown, FileSpreadsheet, Printer, Trash2, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ExportButton } from "@/components/ui/export-button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { fmtNum, fmtNumCsv, toNum as toNumLib } from "@/lib/fmt";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useCanDelete } from "@/hooks/useCanDelete";
+import { useCanExport } from "@/hooks/useCanExport";
 import { toast } from "@/hooks/use-toast";
 import { registrarAuditoria } from "@/lib/audit";
 import jsPDF from "jspdf";
@@ -608,6 +616,7 @@ export default function RelatorioRdo() {
 
   const { isAdmin } = useIsAdmin();
   const { canDelete } = useCanDelete();
+  const { canExport, loading: loadingCanExport } = useCanExport();
   const [loading, setLoading] = useState(true);
   const [rdoList, setRdoList] = useState<RdoItem[]>([]);
   const [efetivoByRdoId, setEfetivoByRdoId] = useState<Record<string, EfetivoItem[]>>({});
@@ -822,59 +831,56 @@ export default function RelatorioRdo() {
                   : <><Square className="w-3.5 h-3.5" /> Selecionar todos</>}
               </Button>
             )}
-            <ExportButton
-              variant="outline"
-              size="sm"
-              className="gap-2 text-xs"
-              onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Exportar PDF consolidado {selecionados.size > 0 ? `(${selecionados.size})` : ""}
-            </ExportButton>
+            {canExport && !loadingCanExport && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 text-xs">
+                    <FileDown className="w-3.5 h-3.5" />
+                    Exportar {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
 
-            <ExportButton
-              variant="outline"
-              size="sm"
-              className="gap-2 text-xs"
-              onClick={async () => {
-                try {
-                  await exportarPdfSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
-                  toast({ title: "✅ ZIP PDF gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
-                } catch (e: any) {
-                  toast({ title: "Erro ao exportar PDF separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
-                }
-              }}
-            >
-              <FileDown className="w-3.5 h-3.5" />
-              PDF separados (ZIP) {selecionados.size > 0 ? `(${selecionados.size})` : ""}
-            </ExportButton>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuLabel>Consolidado (arquivo único)</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
+                    <Printer className="w-3.5 h-3.5 mr-2" /> PDF consolidado
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}>
+                    <FileSpreadsheet className="w-3.5 h-3.5 mr-2" /> Excel consolidado
+                  </DropdownMenuItem>
 
-            <ExportButton
-              variant="outline"
-              size="sm"
-              className="gap-2 text-xs"
-              onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              Exportar Excel consolidado {selecionados.size > 0 ? `(${selecionados.size})` : ""}
-            </ExportButton>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Separado por RDO (ZIP)</DropdownMenuLabel>
 
-            <ExportButton
-              variant="outline"
-              size="sm"
-              className="gap-2 text-xs"
-              onClick={async () => {
-                try {
-                  await exportarExcelSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
-                  toast({ title: "✅ ZIP CSV gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
-                } catch (e: any) {
-                  toast({ title: "Erro ao exportar Excel separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
-                }
-              }}
-            >
-              <FileDown className="w-3.5 h-3.5" />
-              Excel separados (ZIP) {selecionados.size > 0 ? `(${selecionados.size})` : ""}
-            </ExportButton>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      try {
+                        await exportarPdfSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
+                        toast({ title: "✅ ZIP PDF gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
+                      } catch (e: any) {
+                        toast({ title: "Erro ao exportar PDF separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
+                      }
+                    }}
+                  >
+                    <FileDown className="w-3.5 h-3.5 mr-2" /> PDF separados (ZIP)
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      try {
+                        await exportarExcelSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
+                        toast({ title: "✅ ZIP CSV gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
+                      } catch (e: any) {
+                        toast({ title: "Erro ao exportar Excel separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
+                      }
+                    }}
+                  >
+                    <FileDown className="w-3.5 h-3.5 mr-2" /> Excel separados (ZIP)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         )}
 
