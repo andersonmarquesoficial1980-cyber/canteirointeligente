@@ -19,6 +19,41 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
+const GF_FILTROS_KEY = "gestao-frotas-home:filtros-v10.3";
+
+type FiltrosGF = {
+  categoria: string;
+  tipo: string;
+  subtipo: string;
+  equipe: string;
+  frota: string;
+};
+
+function carregarFiltrosIniciais(): FiltrosGF {
+  const defaults: FiltrosGF = {
+    categoria: "todos",
+    tipo: "todos",
+    subtipo: "todos",
+    equipe: "todas",
+    frota: "",
+  };
+
+  try {
+    const bruto = sessionStorage.getItem(GF_FILTROS_KEY);
+    if (!bruto) return defaults;
+    const parsed = JSON.parse(bruto);
+    return {
+      categoria: typeof parsed?.categoria === "string" ? parsed.categoria : defaults.categoria,
+      tipo: typeof parsed?.tipo === "string" ? parsed.tipo : defaults.tipo,
+      subtipo: typeof parsed?.subtipo === "string" ? parsed.subtipo : defaults.subtipo,
+      equipe: typeof parsed?.equipe === "string" ? parsed.equipe : defaults.equipe,
+      frota: typeof parsed?.frota === "string" ? parsed.frota : defaults.frota,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
 export default function GestaoFrotasHome() {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
@@ -29,12 +64,14 @@ export default function GestaoFrotasHome() {
   const [aba, setAba] = useState<"frotas" | "documentos" | "consumo">("frotas");
   const [docsVencendo, setDocsVencendo] = useState<any[]>([]);
 
-  // Filtros da nova visualização (fase 10.2)
-  const [filtroCategoria, setFiltroCategoria] = useState<string>("todos");
-  const [filtroTipo, setFiltroTipo] = useState<string>("todos");
-  const [filtroSubtipo, setFiltroSubtipo] = useState<string>("todos");
-  const [filtroEquipe, setFiltroEquipe] = useState<string>("todas");
-  const [filtroFrota, setFiltroFrota] = useState<string>("");
+  const filtrosIniciais = useMemo(() => carregarFiltrosIniciais(), []);
+
+  // Filtros da nova visualização (fase 10.3)
+  const [filtroCategoria, setFiltroCategoria] = useState<string>(filtrosIniciais.categoria);
+  const [filtroTipo, setFiltroTipo] = useState<string>(filtrosIniciais.tipo);
+  const [filtroSubtipo, setFiltroSubtipo] = useState<string>(filtrosIniciais.subtipo);
+  const [filtroEquipe, setFiltroEquipe] = useState<string>(filtrosIniciais.equipe);
+  const [filtroFrota, setFiltroFrota] = useState<string>(filtrosIniciais.frota);
 
   useEffect(() => { buscarTodos(); }, []);
 
@@ -54,6 +91,21 @@ export default function GestaoFrotasHome() {
         setDocsVencendo(vencendo);
       });
   }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        GF_FILTROS_KEY,
+        JSON.stringify({
+          categoria: filtroCategoria,
+          tipo: filtroTipo,
+          subtipo: filtroSubtipo,
+          equipe: filtroEquipe,
+          frota: filtroFrota,
+        })
+      );
+    } catch {}
+  }, [filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota]);
 
   async function buscarTodos() {
     setLoading(true);
@@ -153,9 +205,37 @@ export default function GestaoFrotasHome() {
     return Array.from(new Set(todos.map((v) => (v.setor || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [todos]);
 
+  // Higieniza filtros persistidos quando opções deixam de existir
+  useEffect(() => {
+    if (filtroTipo !== "todos" && !tiposDisponiveis.includes(filtroTipo)) {
+      setFiltroTipo("todos");
+      setFiltroSubtipo("todos");
+    }
+  }, [filtroTipo, tiposDisponiveis]);
+
+  useEffect(() => {
+    if (filtroSubtipo !== "todos" && !subtiposDisponiveis.includes(filtroSubtipo)) {
+      setFiltroSubtipo("todos");
+    }
+  }, [filtroSubtipo, subtiposDisponiveis]);
+
+  useEffect(() => {
+    if (filtroEquipe !== "todas" && !equipesDisponiveis.includes(filtroEquipe)) {
+      setFiltroEquipe("todas");
+    }
+  }, [filtroEquipe, equipesDisponiveis]);
+
+  function limparFiltros() {
+    setFiltroCategoria("todos");
+    setFiltroTipo("todos");
+    setFiltroSubtipo("todos");
+    setFiltroEquipe("todas");
+    setFiltroFrota("");
+  }
+
   // Lista de equipamentos filtrada (tipo/subtipo/frota/equipe)
   const listaFiltrada = useMemo(() => {
-    return todos.filter((v) => {
+    const filtrados = todos.filter((v) => {
       const tipo = (v.tipo || "").toUpperCase();
       const frotaOuPlaca = `${v.frota || ""} ${v.placa || ""}`.toLowerCase();
       const equipe = (v.setor || "").trim();
@@ -171,6 +251,18 @@ export default function GestaoFrotasHome() {
       }
 
       return true;
+    });
+
+    // Ordem padrão: Equipe/Setor -> Frota (ou Placa)
+    return filtrados.sort((a, b) => {
+      const equipeA = (a.setor || "").trim();
+      const equipeB = (b.setor || "").trim();
+      const cmpEquipe = equipeA.localeCompare(equipeB, "pt-BR", { sensitivity: "base" });
+      if (cmpEquipe !== 0) return cmpEquipe;
+
+      const frotaA = (a.frota || a.placa || "").trim();
+      const frotaB = (b.frota || b.placa || "").trim();
+      return frotaA.localeCompare(frotaB, "pt-BR", { sensitivity: "base", numeric: true });
     });
   }, [todos, tipoMetaMap, filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota]);
 
@@ -313,6 +405,12 @@ export default function GestaoFrotasHome() {
                 onChange={(e) => setFiltroFrota(e.target.value)}
                 className="pl-9 h-10 rounded-xl"
               />
+            </div>
+
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={limparFiltros}>
+                Limpar filtros
+              </Button>
             </div>
           </div>
 
