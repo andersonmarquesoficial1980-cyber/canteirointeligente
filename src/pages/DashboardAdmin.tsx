@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +9,7 @@ import {
   ChevronRight, Filter, BarChart3
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -362,11 +363,15 @@ function AbastecimentoDia() {
 // ─── PÁGINA PRINCIPAL ──────────────────────────────────────────────────────────
 export default function DashboardAdmin() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={() => navigate(rotaVoltar)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
@@ -391,7 +396,7 @@ export default function DashboardAdmin() {
           ].map(item => {
             const Icon = item.icon;
             return (
-              <button key={item.route} onClick={() => navigate(item.route)} className={`flex items-center gap-2 p-3 rounded-xl border font-semibold text-sm ${item.color} transition-all hover:shadow-sm`}>
+              <button key={item.route} onClick={() => navigate(`${item.route}${origemQuery}`)} className={`flex items-center gap-2 p-3 rounded-xl border font-semibold text-sm ${item.color} transition-all hover:shadow-sm`}>
                 <Icon className="w-4 h-4" />
                 {item.label}
               </button>

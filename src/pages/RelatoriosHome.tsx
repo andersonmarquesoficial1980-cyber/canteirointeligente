@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import AdvancedReports from "@/components/dashboard/AdvancedReports";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const TIPOS_RELATORIO = [
   { id: "equipamento", label: "Equipamentos", emoji: "🚜", desc: "Diário, consumo, manutenção, produção" },
@@ -40,6 +41,11 @@ function normTxt(v: string) {
 
 export default function RelatoriosHome() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `&origem=${encodeURIComponent(origem)}` : "";
+  const origemQueryPrefix = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { categorias } = useEquipamentoTipos();
 
   // ── Persistência de filtros ─────────────────────────────────────────────
@@ -181,15 +187,15 @@ export default function RelatoriosHome() {
     salvar({ step: "periodo", tipoRel, tipoEquip, frotaOgs, tipoPeriodo, dataDia, dataIni, dataFim });
 
     if (tipoRel === "equipamento") {
-      navigate(`/relatorio-equipamento/${encodeURIComponent(frotaOgs)}?ini=${ini}&fim=${fim}`);
+      navigate(`/relatorio-equipamento/${encodeURIComponent(frotaOgs)}?ini=${ini}&fim=${fim}${origemQuery}`);
     } else if (tipoRel === "transportes") {
-      navigate(`/relatorios/transportes?frota=${encodeURIComponent(frotaOgs)}&ini=${ini}&fim=${fim}`);
+      navigate(`/relatorios/transportes?frota=${encodeURIComponent(frotaOgs)}&ini=${ini}&fim=${fim}${origemQuery}`);
     } else if (tipoRel === "rdo") {
-      navigate(`/relatorios/rdo/${frotaOgs}?ini=${ini}&fim=${fim}`);
+      navigate(`/relatorios/rdo/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}`);
     } else if (tipoRel === "abastecimento") {
-      navigate(`/relatorios/abastecimento/${frotaOgs}?ini=${ini}&fim=${fim}`);
+      navigate(`/relatorios/abastecimento/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}`);
     } else if (tipoRel === "manutencao") {
-      navigate(`/relatorios/manutencao/${frotaOgs}?ini=${ini}&fim=${fim}`);
+      navigate(`/relatorios/manutencao/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}`);
     }
   }
 
@@ -242,7 +248,7 @@ export default function RelatoriosHome() {
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
         <button
-          onClick={step === "tipo" ? () => navigate("/") : voltar}
+          onClick={step === "tipo" ? () => navigate(rotaVoltar) : voltar}
           className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -271,7 +277,7 @@ export default function RelatoriosHome() {
         {/* Busca avançada contextual */}
         {step === "subtipo" && tipoRel === "rdo" && (
           <button
-            onClick={() => navigate("/relatorios/busca-rdo")}
+            onClick={() => navigate(`/relatorios/busca-rdo${origemQueryPrefix}`)}
             className="w-full flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors text-left"
           >
             <Search className="w-4 h-4 text-primary shrink-0" />
@@ -285,7 +291,7 @@ export default function RelatoriosHome() {
         {step === "subtipo" && tipoRel === "equipamento" && (
           <>
             <button
-              onClick={() => navigate("/equipamentos/exportar-protheus")}
+              onClick={() => navigate(`/equipamentos/exportar-protheus${origemQueryPrefix}`)}
               className="w-full flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 hover:bg-blue-100 transition-colors text-left"
             >
               <span className="text-xl">📊</span>
@@ -296,7 +302,7 @@ export default function RelatoriosHome() {
               <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
             </button>
             <button
-              onClick={() => navigate("/relatorios/busca-equipamentos")}
+              onClick={() => navigate(`/relatorios/busca-equipamentos${origemQueryPrefix}`)}
               className="w-full flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors text-left"
             >
               <Search className="w-4 h-4 text-primary shrink-0" />
@@ -320,19 +326,19 @@ export default function RelatoriosHome() {
               <button
                 key={t.id}
                 onClick={() => {
-                  if (t.id === "carreteiros") { navigate("/relatorios/carreteiros"); return; }
-                  if (t.id === "checklist") { navigate("/relatorios/checklist"); return; }
-                  if (t.id === "funcionario") { navigate("/relatorios/funcionario"); return; }
-                  if (t.id === "equipamentos_rdo") { navigate("/relatorios/equipamentos-rdo"); return; }
-                  if (t.id === "notas_fiscais") { navigate("/relatorios/notas-fiscais"); return; }
-                  if (t.id === "producao_infra") { navigate("/relatorios/producao-infra"); return; }
-                  if (t.id === "producao_pavimentacao") { navigate("/relatorios/producao-pavimentacao"); return; }
-                  if (t.id === "controle_lancamentos") { navigate("/relatorios/controle-lancamentos"); return; }
-                  if (t.id === "rdo_tecnico_dashboard") { navigate("/relatorios/rdo-tecnico-dashboard"); return; }
+                  if (t.id === "carreteiros") { navigate(`/relatorios/carreteiros${origemQueryPrefix}`); return; }
+                  if (t.id === "checklist") { navigate(`/relatorios/checklist${origemQueryPrefix}`); return; }
+                  if (t.id === "funcionario") { navigate(`/relatorios/funcionario${origemQueryPrefix}`); return; }
+                  if (t.id === "equipamentos_rdo") { navigate(`/relatorios/equipamentos-rdo${origemQueryPrefix}`); return; }
+                  if (t.id === "notas_fiscais") { navigate(`/relatorios/notas-fiscais${origemQueryPrefix}`); return; }
+                  if (t.id === "producao_infra") { navigate(`/relatorios/producao-infra${origemQueryPrefix}`); return; }
+                  if (t.id === "producao_pavimentacao") { navigate(`/relatorios/producao-pavimentacao${origemQueryPrefix}`); return; }
+                  if (t.id === "controle_lancamentos") { navigate(`/relatorios/controle-lancamentos${origemQueryPrefix}`); return; }
+                  if (t.id === "rdo_tecnico_dashboard") { navigate(`/relatorios/rdo-tecnico-dashboard${origemQueryPrefix}`); return; }
                   if (t.id === "abastecimento") {
                     const hoje = new Date().toISOString().split("T")[0];
                     const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
-                    navigate(`/relatorios/abastecimento/TODAS?ini=${ini}&fim=${hoje}`);
+                    navigate(`/relatorios/abastecimento/TODAS?ini=${ini}&fim=${hoje}${origemQuery}`);
                     return;
                   }
                   selecionarTipo(t.id);

@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 // Todos os "tipos" que usam a tabela equipment_type_operators
 // Os primeiros são para operadores do diário; "Mecânico" é para WF Manutenção
@@ -36,6 +37,7 @@ interface Link { id: string; equipment_type: string; funcionario_id: string; com
 
 export default function OperadoresHabilitados() {
   const navigate = useNavigate();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [searchByType, setSearchByType] = useState<Record<string, string>>({});
@@ -187,7 +189,7 @@ export default function OperadoresHabilitados() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-40 bg-header-gradient text-primary-foreground px-4 py-3 shadow-lg">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition"><ArrowLeft className="h-5 w-5" /></button>
+          <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition"><ArrowLeft className="h-5 w-5" /></button>
           <LogoHomeButton className="h-9 object-contain" />
           <div className="flex-1">
             <h1 className="font-display font-extrabold text-base leading-tight flex items-center gap-2">
