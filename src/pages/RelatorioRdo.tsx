@@ -11,6 +11,9 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useCanDelete } from "@/hooks/useCanDelete";
 import { toast } from "@/hooks/use-toast";
 import { registrarAuditoria } from "@/lib/audit";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import JSZip from "jszip";
 
 interface RdoItem {
   id: string;
@@ -93,6 +96,254 @@ function expandEfetivo(ef: EfetivoItem): { nome: string; matricula: string }[] {
 // Mantém compat com código legado
 function expandNomes(ef: EfetivoItem): string[] {
   return expandEfetivo(ef).map(e => e.nome);
+}
+
+function sanitizeFilename(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+function dataRdoParaArquivo(data: string | null, fallbackIndex: number) {
+  if (!data) return `sem_data_${fallbackIndex + 1}`;
+  return data;
+}
+
+function montarPessoas(efetivo: EfetivoItem[]) {
+  const pessoas: { nome: string; matricula: string; funcao: string; entrada: string; saida: string }[] = [];
+
+  efetivo.forEach((ef) => {
+    const expanded = expandEfetivo(ef);
+    if (expanded.length > 0) {
+      expanded.forEach((p) => {
+        pessoas.push({
+          nome: p.nome,
+          matricula: p.matricula,
+          funcao: ef.funcao || "-",
+          entrada: ef.entrada || "-",
+          saida: ef.saida || "-",
+        });
+      });
+      return;
+    }
+
+    pessoas.push({
+      nome: "-",
+      matricula: "-",
+      funcao: ef.funcao || "-",
+      entrada: ef.entrada || "-",
+      saida: ef.saida || "-",
+    });
+  });
+
+  return pessoas;
+}
+
+function buildCsvRdo(
+  ogs: string,
+  rdo: RdoItem,
+  efetivoByRdoId: Record<string, EfetivoItem[]>,
+  producaoByRdoId: Record<string, ProducaoItem[]>,
+  equipByRdoId: Record<string, EquipamentoItem[]>,
+  nfByRdoId: Record<string, NfMassaItem[]>,
+  clienteNome: string,
+) {
+  const linhas: string[][] = [];
+  linhas.push([`RDO — OGS ${ogs} — ${fmtDate(rdo.data)}`]);
+  linhas.push([`Cliente: ${clienteNome || "-"}`, "", `Responsável: ${rdo.responsavel || "-"}`]);
+  linhas.push([`Tipo: ${rdo.tipo_rdo || "-"}`, `Turno: ${rdo.turno || "-"}`, `Clima: ${rdo.clima || "-"}`]);
+  linhas.push([]);
+
+  const efetivo = efetivoByRdoId[rdo.id] || [];
+  const pessoas = montarPessoas(efetivo);
+  if (pessoas.length > 0) {
+    linhas.push([`EFETIVO (${pessoas.length})`]);
+    linhas.push(["#", "Nome", "Matrícula", "Função", "Entrada", "Saída"]);
+    pessoas.forEach((p, i) => linhas.push([String(i + 1), p.nome, p.matricula, p.funcao, p.entrada, p.saida]));
+    linhas.push([]);
+  }
+
+  const equipamentos = equipByRdoId[rdo.id] || [];
+  if (equipamentos.length > 0) {
+    linhas.push([`EQUIPAMENTOS (${equipamentos.length})`]);
+    linhas.push(["Frota", "Equipamento", "Modelo/Placa", "Empresa"]);
+    equipamentos.forEach((e) => linhas.push([e.frota || "-", e.sub_tipo || e.tipo || e.categoria || "-", e.nome || e.patrimonio || "-", e.empresa_dona || "-"]));
+    linhas.push([]);
+  }
+
+  const nfMassa = nfByRdoId[rdo.id] || [];
+  if (nfMassa.length > 0) {
+    const totalTon = nfMassa.reduce((s, n) => s + (n.tonelagem || 0), 0);
+    linhas.push(["NOTAS FISCAIS DE MASSA"]);
+    linhas.push(["NF", "Placa", "Usina/Fornecedor", "Tonelagem", "Material"]);
+    nfMassa.forEach((n) => linhas.push([n.nf || "-", n.placa || "-", n.usina || "-", n.tonelagem != null ? String(n.tonelagem) : "-", n.tipo_material || "-"]));
+    linhas.push(["TOTAL", "", "", fmtNumCsv(totalTon, 2), ""]);
+    linhas.push([]);
+  }
+
+  const producao = producaoByRdoId[rdo.id] || [];
+  if (producao.length > 0) {
+    const totalArea = producao.reduce((s, p) => s + (parseFloat(String(p.area_m2 || 0)) || 0), 0);
+    const totalTon = producao.reduce((s, p) => s + (parseFloat(String(p.tonelagem || 0)) || 0), 0);
+    linhas.push(["PRODUÇÃO DO DIA"]);
+    linhas.push(["Serviço", "Sentido/Faixa", "Est. Ini", "Est. Fim", "Comp (m)", "Larg (m)", "Área (m²)", "Esp (m)", "Ton"]);
+    producao.forEach((p) => linhas.push([
+      p.tipo_servico || "-",
+      p.sentido_faixa || p.sentido || "-",
+      p.estaca_inicial || p.km_inicial || "-",
+      p.estaca_final || p.km_final || "-",
+      String(p.comprimento_m || "-"),
+      String(p.largura_m || "-"),
+      p.area_m2 ? fmtNumCsv(toNumLib(p.area_m2), 2) : "-",
+      String(p.espessura_cm || "-"),
+      p.tonelagem != null ? fmtNumCsv(toNumLib(p.tonelagem), 2) : "-",
+    ]));
+    linhas.push(["TOTAL", "", "", "", "", "", fmtNumCsv(totalArea, 2), "", fmtNumCsv(totalTon, 2)]);
+    linhas.push([]);
+  }
+
+  return "\uFEFF" + linhas.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+}
+
+function gerarPdfRdoBlob(
+  ogs: string,
+  rdo: RdoItem,
+  efetivoByRdoId: Record<string, EfetivoItem[]>,
+  producaoByRdoId: Record<string, ProducaoItem[]>,
+  clienteNome: string,
+  equipByRdoId: Record<string, EquipamentoItem[]>,
+  nfByRdoId: Record<string, NfMassaItem[]>,
+) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+
+  const efetivo = efetivoByRdoId[rdo.id] || [];
+  const pessoas = montarPessoas(efetivo);
+  const producao = producaoByRdoId[rdo.id] || [];
+  const equipamentos = equipByRdoId[rdo.id] || [];
+  const nfMassa = nfByRdoId[rdo.id] || [];
+
+  const encRdo = (rdo as any).encarregado || rdo.responsavel || "-";
+  const preenchidoRdo = (rdo as any).preenchido_por || "-";
+
+  let y = 14;
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(26, 86, 219);
+  doc.text("RDO - Relatório Diário de Obra", 14, y);
+
+  y += 7;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(40, 40, 40);
+  doc.text(`Data: ${fmtDate(rdo.data)}   |   OGS: ${ogs}`, 14, y);
+  y += 4.5;
+  doc.text(`Cliente: ${clienteNome || "-"}`, 14, y);
+  y += 4.5;
+  doc.text(`Tipo: ${rdo.tipo_rdo || "-"}   |   Turno: ${rdo.turno || "-"}   |   Clima: ${rdo.clima || "-"}`, 14, y);
+  y += 4.5;
+  doc.text(`Encarregado: ${encRdo}`, 14, y);
+  y += 4.5;
+  doc.text(`Preenchido por: ${preenchidoRdo}`, 14, y);
+  y += 6;
+
+  if (pessoas.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      head: [["#", "Nome", "Matrícula", "Função", "Entrada", "Saída"]],
+      body: pessoas.map((p, i) => [String(i + 1), p.nome, p.matricula, p.funcao, p.entrada, p.saida]),
+      theme: "grid",
+      margin: { left: 14, right: 14 },
+      headStyles: { fillColor: [26, 86, 219], textColor: [255, 255, 255], fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 2 },
+    });
+    y = ((doc as any).lastAutoTable?.finalY || y) + 5;
+  }
+
+  if (equipamentos.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      head: [["Frota", "Equipamento", "Modelo/Placa", "Empresa"]],
+      body: equipamentos.map((e) => [e.frota || "-", e.sub_tipo || e.tipo || e.categoria || "-", e.nome || e.patrimonio || "-", e.empresa_dona || "-"]),
+      theme: "grid",
+      margin: { left: 14, right: 14 },
+      headStyles: { fillColor: [55, 65, 81], textColor: [255, 255, 255], fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 2 },
+    });
+    y = ((doc as any).lastAutoTable?.finalY || y) + 5;
+  }
+
+  if (nfMassa.length > 0) {
+    const totalTon = nfMassa.reduce((s, n) => s + (n.tonelagem || 0), 0);
+    autoTable(doc, {
+      startY: y,
+      head: [["NF", "Placa", "Usina/Fornecedor", "Tonelagem", "Material"]],
+      body: [
+        ...nfMassa.map((n) => [n.nf || "-", n.placa || "-", n.usina || "-", n.tonelagem != null ? fmtNum(n.tonelagem, 2) : "-", n.tipo_material || "-"]),
+        ["TOTAL", "", "", fmtNum(totalTon, 2), ""],
+      ],
+      theme: "grid",
+      margin: { left: 14, right: 14 },
+      headStyles: { fillColor: [75, 85, 99], textColor: [255, 255, 255], fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.row.index === nfMassa.length) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [243, 244, 246];
+        }
+      },
+    });
+    y = ((doc as any).lastAutoTable?.finalY || y) + 5;
+  }
+
+  if (producao.length > 0) {
+    const totalArea = producao.reduce((s, p) => s + (parseFloat(String(p.area_m2 || 0)) || 0), 0);
+    const totalTonProd = producao.reduce((s, p) => s + (parseFloat(String(p.tonelagem || 0)) || 0), 0);
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Serviço", "Sentido/Faixa", "Est.Ini", "Est.Fim", "Comp", "Larg", "Área", "Esp(cm)", "Vol(m³)", "Dens.", "Ton"]],
+      body: [
+        ...producao.map((p) => [
+          p.tipo_servico || "-",
+          p.sentido_faixa || p.sentido || "-",
+          p.estaca_inicial || p.km_inicial || "-",
+          p.estaca_final || p.km_final || "-",
+          p.comprimento_m || "-",
+          p.largura_m || "-",
+          p.area_m2 ? fmtNum(toNumLib(p.area_m2), 2) : "-",
+          p.espessura_cm || "-",
+          p.volume_m3 ? fmtNum(toNumLib(p.volume_m3), 2) : "-",
+          p.densidade ? fmtNum(toNumLib(p.densidade), 2) : "-",
+          p.tonelagem != null ? fmtNum(toNumLib(p.tonelagem), 2) : "-",
+        ]),
+        ["TOTAL", "", "", "", "", "", fmtNum(totalArea, 2), "", "", "", fmtNum(totalTonProd, 2)],
+      ],
+      theme: "grid",
+      margin: { left: 10, right: 10 },
+      headStyles: { fillColor: [17, 94, 89], textColor: [255, 255, 255], fontSize: 7 },
+      styles: { fontSize: 7, cellPadding: 1.6 },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.row.index === producao.length) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [236, 253, 245];
+        }
+      },
+    });
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i += 1) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Página ${i}/${pageCount}`, pageW - 14, 290, { align: "right" });
+  }
+
+  return doc.output("blob");
 }
 
 // Exportar Excel (CSV com BOM UTF-8)
@@ -184,6 +435,61 @@ function exportarExcel(
   const a = document.createElement("a");
   a.href = url;
   a.download = `WF_RDO_OGS${ogs}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportarExcelSeparadoZip(
+  ogs: string,
+  rdoList: RdoItem[],
+  efetivoByRdoId: Record<string, EfetivoItem[]>,
+  producaoByRdoId: Record<string, ProducaoItem[]>,
+  equipByRdoId: Record<string, EquipamentoItem[]>,
+  nfByRdoId: Record<string, NfMassaItem[]>,
+  clienteNome: string,
+) {
+  const zip = new JSZip();
+
+  rdoList.forEach((rdo, idx) => {
+    const csv = buildCsvRdo(ogs, rdo, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
+    const encarregado = sanitizeFilename((rdo as any).encarregado || rdo.responsavel || "sem_encarregado");
+    const data = dataRdoParaArquivo(rdo.data, idx);
+    zip.file(`RDO_${sanitizeFilename(ogs)}_${data}_${encarregado}.csv`, csv);
+  });
+
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `WF_RDO_OGS${sanitizeFilename(ogs)}_SEPARADOS_CSV.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportarPdfSeparadoZip(
+  ogs: string,
+  rdoList: RdoItem[],
+  efetivoByRdoId: Record<string, EfetivoItem[]>,
+  producaoByRdoId: Record<string, ProducaoItem[]>,
+  clienteNome: string,
+  equipByRdoId: Record<string, EquipamentoItem[]>,
+  nfByRdoId: Record<string, NfMassaItem[]>,
+) {
+  const zip = new JSZip();
+
+  for (let idx = 0; idx < rdoList.length; idx += 1) {
+    const rdo = rdoList[idx];
+    const pdfBlob = gerarPdfRdoBlob(ogs, rdo, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
+    const encarregado = sanitizeFilename((rdo as any).encarregado || rdo.responsavel || "sem_encarregado");
+    const data = dataRdoParaArquivo(rdo.data, idx);
+    zip.file(`RDO_${sanitizeFilename(ogs)}_${data}_${encarregado}.pdf`, pdfBlob);
+  }
+
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `WF_RDO_OGS${sanitizeFilename(ogs)}_SEPARADOS_PDF.zip`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -516,15 +822,58 @@ export default function RelatorioRdo() {
                   : <><Square className="w-3.5 h-3.5" /> Selecionar todos</>}
               </Button>
             )}
-            <ExportButton variant="outline" size="sm" className="gap-2 text-xs"
-              onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
+            <ExportButton
+              variant="outline"
+              size="sm"
+              className="gap-2 text-xs"
+              onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}
+            >
               <Printer className="w-3.5 h-3.5" />
-              Exportar PDF {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+              Exportar PDF consolidado {selecionados.size > 0 ? `(${selecionados.size})` : ""}
             </ExportButton>
-            <ExportButton variant="outline" size="sm" className="gap-2 text-xs"
-              onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}>
+
+            <ExportButton
+              variant="outline"
+              size="sm"
+              className="gap-2 text-xs"
+              onClick={async () => {
+                try {
+                  await exportarPdfSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
+                  toast({ title: "✅ ZIP PDF gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
+                } catch (e: any) {
+                  toast({ title: "Erro ao exportar PDF separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
+                }
+              }}
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              PDF separados (ZIP) {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+            </ExportButton>
+
+            <ExportButton
+              variant="outline"
+              size="sm"
+              className="gap-2 text-xs"
+              onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}
+            >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              Exportar Excel {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+              Exportar Excel consolidado {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+            </ExportButton>
+
+            <ExportButton
+              variant="outline"
+              size="sm"
+              className="gap-2 text-xs"
+              onClick={async () => {
+                try {
+                  await exportarExcelSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
+                  toast({ title: "✅ ZIP CSV gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
+                } catch (e: any) {
+                  toast({ title: "Erro ao exportar Excel separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
+                }
+              }}
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              Excel separados (ZIP) {selecionados.size > 0 ? `(${selecionados.size})` : ""}
             </ExportButton>
           </div>
         )}
