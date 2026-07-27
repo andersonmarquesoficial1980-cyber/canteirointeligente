@@ -75,6 +75,7 @@ export default function GestaoFrotasHome() {
   const [medidoresMap, setMedidoresMap] = useState<Record<string, any>>({});
   const [aba, setAba] = useState<"frotas" | "documentos" | "consumo">("frotas");
   const [docsVencendo, setDocsVencendo] = useState<any[]>([]);
+  const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [historicoTrocaEquipe, setHistoricoTrocaEquipe] = useState<any[]>([]);
   const [loadingHistoricoTrocaEquipe, setLoadingHistoricoTrocaEquipe] = useState(false);
   const [filtroAuditEquipe, setFiltroAuditEquipe] = useState<string>("todas");
@@ -95,6 +96,7 @@ export default function GestaoFrotasHome() {
 
   useEffect(() => {
     buscarTodos();
+    carregarEquipesCadastro();
     carregarHistoricoTrocaEquipe({ silencioso: true });
 
     try {
@@ -155,6 +157,22 @@ export default function GestaoFrotasHome() {
       buscarMedidores(data);
     }
     setLoading(false);
+  }
+
+  async function carregarEquipesCadastro() {
+    const { data, error } = await (supabase as any)
+      .from("ci_equipes")
+      .select("nome, ativa")
+      .eq("ativa", true)
+      .order("nome");
+
+    if (error) return;
+
+    const nomes = (data || [])
+      .map((e: any) => (e?.nome || "").trim())
+      .filter(Boolean);
+
+    setEquipesCadastro(nomes);
   }
 
   async function buscarMedidores(veiculos: any[]) {
@@ -270,8 +288,20 @@ export default function GestaoFrotasHome() {
   }, [filtroTipo, tiposDisponiveis, tipoMetaMap]);
 
   const equipesDisponiveis = useMemo(() => {
-    return Array.from(new Set(todos.map((v) => (v.setor || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [todos]);
+    const map = new Map<string, string>();
+
+    const adicionar = (valor: string) => {
+      const limpo = (valor || "").trim();
+      if (!limpo) return;
+      const chave = limpo.toLocaleLowerCase("pt-BR");
+      if (!map.has(chave)) map.set(chave, limpo);
+    };
+
+    todos.forEach((v) => adicionar(v.setor || ""));
+    equipesCadastro.forEach((nome) => adicionar(nome));
+
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+  }, [todos, equipesCadastro]);
 
   // Higieniza filtros persistidos quando opções deixam de existir
   useEffect(() => {
