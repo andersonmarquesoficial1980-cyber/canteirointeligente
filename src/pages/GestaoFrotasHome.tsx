@@ -699,44 +699,9 @@ export default function GestaoFrotasHome() {
           </button>
 
           <div className="rdo-card space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-primary" />
-                <p className="text-sm font-semibold">Últimas alterações de equipe</p>
-              </div>
-              <div className="flex items-center gap-1 flex-wrap justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2 text-xs"
-                  onClick={copiarLinkFiltrosAuditoria}
-                >
-                  <Link2 className="w-3.5 h-3.5 mr-1" />
-                  Copiar link
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2 text-xs"
-                  onClick={exportarHistoricoTrocaEquipeCsv}
-                  disabled={historicoTrocaEquipeFiltrado.length === 0}
-                >
-                  Exportar CSV
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 text-xs"
-                  onClick={() => carregarHistoricoTrocaEquipe({ silencioso: false })}
-                  disabled={loadingHistoricoTrocaEquipe}
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loadingHistoricoTrocaEquipe ? "animate-spin" : ""}`} />
-                  Atualizar
-                </Button>
-              </div>
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold">Histórico de movimentação (filtros)</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -781,42 +746,7 @@ export default function GestaoFrotasHome() {
               />
             </div>
 
-            <p className="text-[11px] text-muted-foreground">{historicoTrocaEquipeFiltrado.length} registro(s) no filtro</p>
-
-            {loadingHistoricoTrocaEquipe ? (
-              <div className="py-4 flex justify-center">
-                <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              </div>
-            ) : historicoTrocaEquipeFiltrado.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhuma alteração encontrada para os filtros selecionados.</p>
-            ) : (
-              <div className="space-y-2">
-                {historicoTrocaEquipePaginado.map((item) => (
-                  <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
-                    <p className="text-xs text-slate-800">
-                      <strong>{item.frota}</strong>: {item.equipe_antes || "Sem equipe"} → {item.equipe_depois || "Sem equipe"}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {item.user_nome || "Usuário"} • {fmtDateTime(item.created_at) || "Sem data"}
-                    </p>
-                  </div>
-                ))}
-
-                {aindaTemMaisHistorico && (
-                  <div className="pt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full h-8 text-xs rounded-lg"
-                      onClick={() => setAuditVisibleCount((prev) => prev + AUDIT_PAGE_SIZE)}
-                    >
-                      Ver mais ({historicoTrocaEquipeFiltrado.length - historicoTrocaEquipePaginado.length} restantes)
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
+            <p className="text-[11px] text-muted-foreground">A lista de movimentações está oculta nesta visualização. Use apenas os filtros.</p>
           </div>
 
           <div className="rdo-card space-y-3">
