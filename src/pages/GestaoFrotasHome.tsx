@@ -72,6 +72,7 @@ export default function GestaoFrotasHome() {
   const [filtroSubtipo, setFiltroSubtipo] = useState<string>(filtrosIniciais.subtipo);
   const [filtroEquipe, setFiltroEquipe] = useState<string>(filtrosIniciais.equipe);
   const [filtroFrota, setFiltroFrota] = useState<string>(filtrosIniciais.frota);
+  const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
 
   useEffect(() => { buscarTodos(); }, []);
 
@@ -233,6 +234,22 @@ export default function GestaoFrotasHome() {
     setFiltroFrota("");
   }
 
+  async function alterarEquipeNoCard(veiculoId: string, novaEquipe: string) {
+    const setor = novaEquipe === "__sem_equipe" ? null : novaEquipe;
+    setUpdatingEquipeId(veiculoId);
+
+    const { error } = await (supabase as any)
+      .from("equipamentos")
+      .update({ setor })
+      .eq("id", veiculoId);
+
+    if (!error) {
+      setTodos((prev) => prev.map((v) => (v.id === veiculoId ? { ...v, setor } : v)));
+    }
+
+    setUpdatingEquipeId(null);
+  }
+
   // Lista de equipamentos filtrada (tipo/subtipo/frota/equipe)
   const listaFiltrada = useMemo(() => {
     const filtrados = todos.filter((v) => {
@@ -265,6 +282,31 @@ export default function GestaoFrotasHome() {
       return frotaA.localeCompare(frotaB, "pt-BR", { sensitivity: "base", numeric: true });
     });
   }, [todos, tipoMetaMap, filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota]);
+
+  const filtrosAtivos = useMemo(() => {
+    const chips: string[] = [];
+    if (filtroCategoria !== "todos") {
+      const cat = categoriasComCount.find((c) => c.key === filtroCategoria);
+      chips.push(`Categoria: ${cat?.label || filtroCategoria}`);
+    }
+    if (filtroTipo !== "todos") chips.push(`Tipo: ${filtroTipo}`);
+    if (filtroSubtipo !== "todos") chips.push(`Subtipo: ${filtroSubtipo}`);
+    if (filtroEquipe !== "todas") chips.push(`Equipe: ${filtroEquipe}`);
+    if (filtroFrota.trim()) chips.push(`Frota: ${filtroFrota.trim()}`);
+    return chips;
+  }, [filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota, categoriasComCount]);
+
+  const contagemPorEquipe = useMemo(() => {
+    const map = new Map<string, number>();
+    listaFiltrada.forEach((v) => {
+      const equipe = (v.setor || "").trim() || "Sem equipe";
+      map.set(equipe, (map.get(equipe) || 0) + 1);
+    });
+
+    return Array.from(map.entries())
+      .map(([equipe, total]) => ({ equipe, total }))
+      .sort((a, b) => a.equipe.localeCompare(b.equipe, "pt-BR", { sensitivity: "base" }));
+  }, [listaFiltrada]);
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -414,68 +456,121 @@ export default function GestaoFrotasHome() {
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground px-1">{listaFiltrada.length} resultado{listaFiltrada.length !== 1 ? "s" : ""} — toque para abrir e editar a ficha</p>
+          <p className="text-xs text-muted-foreground px-1">{listaFiltrada.length} resultado{listaFiltrada.length !== 1 ? "s" : ""} — toque no card para abrir ficha completa</p>
+
+          {filtrosAtivos.length > 0 && (
+            <div className="px-1 flex flex-wrap gap-1.5">
+              {filtrosAtivos.map((chip) => (
+                <span key={chip} className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+                  {chip}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {contagemPorEquipe.length > 0 && (
+            <div className="px-1">
+              <p className="text-[11px] text-muted-foreground mb-1">Contagem por equipe (resultado atual):</p>
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {contagemPorEquipe.map((item) => (
+                  <span key={item.equipe} className="whitespace-nowrap inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+                    {item.equipe}: <strong className="ml-1">{item.total}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {(loading || loadingTipos) ? (
             <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
-          ) : listaFiltrada.map(v => (
-            <button key={v.id} onClick={() => navigate(`/gestao-frotas/veiculo/${v.id}`)} className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'bg-blue-50' : 'bg-green-50'}`}>
-                <Car className={`w-5 h-5 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'text-blue-600' : 'text-green-600'}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-display font-bold text-sm">{v.frota || v.placa}</span>
-                  {v.placa && v.placa !== v.frota && <span className="text-xs text-muted-foreground">{v.placa}</span>}
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                    (v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-green-100 text-green-700'
-                  }`}>
-                    {(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}
-                  </span>
-                  {v.status && v.status !== 'ativo' && (
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                      v.status === 'em_manutencao' ? 'bg-orange-100 text-orange-700' :
-                      v.status === 'inativo'       ? 'bg-red-100 text-red-600' :
-                      v.status === 'disposicao'    ? 'bg-gray-100 text-gray-600' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {v.status === 'em_manutencao' ? '🔧 Manutenção' :
-                        v.status === 'inativo'       ? '🚫 Inativo' :
-                        v.status === 'disposicao'    ? '📦 Disposição' : v.status}
-                    </span>
-                  )}
-                  {v.locadora && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
-                      {v.locadora}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground truncate">{v.nome || v.modelo_completo}</p>
-                <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                  {v.tipo && <span>🏷️ {v.tipo}</span>}
-                  {v.setor && <span>🏢 {v.setor}</span>}
-                  {v.condutor_atual && <span>👤 {v.condutor_atual}</span>}
-                  {v.valor_mensal > 0 && <span className="text-orange-600 font-semibold">{formatBRL(v.valor_mensal)}/mês</span>}
-                </div>
-                {(() => {
-                  const frotaBase = v.frota || v.placa;
-                  const med = medidoresMap[frotaBase];
-                  if (!med) return null;
-                  return (
-                    <div className="flex items-center gap-1 mt-1">
-                      <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                        {med.tipo === "odômetro" ? "📍" : "⏱"} {med.tipo === "odômetro" ? `${med.valor.toLocaleString("pt-BR")} km` : `${med.valor.toLocaleString("pt-BR")} h`}
+          ) : listaFiltrada.map(v => {
+            const opcoesEquipe = v.setor && !equipesDisponiveis.includes(v.setor)
+              ? [v.setor, ...equipesDisponiveis]
+              : equipesDisponiveis;
+
+            return (
+              <div key={v.id} className="w-full rdo-card hover:shadow-md transition-all space-y-2">
+                <button onClick={() => navigate(`/gestao-frotas/veiculo/${v.id}`)} className="w-full text-left flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'bg-blue-50' : 'bg-green-50'}`}>
+                    <Car className={`w-5 h-5 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'text-blue-600' : 'text-green-600'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-display font-bold text-sm">{v.frota || v.placa}</span>
+                      {v.placa && v.placa !== v.frota && <span className="text-xs text-muted-foreground">{v.placa}</span>}
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                        (v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">em {fmtDate(med.data)}</span>
+                      {v.status && v.status !== 'ativo' && (
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          v.status === 'em_manutencao' ? 'bg-orange-100 text-orange-700' :
+                          v.status === 'inativo'       ? 'bg-red-100 text-red-600' :
+                          v.status === 'disposicao'    ? 'bg-gray-100 text-gray-600' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {v.status === 'em_manutencao' ? '🔧 Manutenção' :
+                            v.status === 'inativo'       ? '🚫 Inativo' :
+                            v.status === 'disposicao'    ? '📦 Disposição' : v.status}
+                        </span>
+                      )}
+                      {v.locadora && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
+                          {v.locadora}
+                        </span>
+                      )}
                     </div>
-                  );
-                })()}
+                    <p className="text-xs text-muted-foreground truncate">{v.nome || v.modelo_completo}</p>
+                    <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                      {v.tipo && <span>🏷️ {v.tipo}</span>}
+                      {v.setor && <span>🏢 {v.setor}</span>}
+                      {v.condutor_atual && <span>👤 {v.condutor_atual}</span>}
+                      {v.valor_mensal > 0 && <span className="text-orange-600 font-semibold">{formatBRL(v.valor_mensal)}/mês</span>}
+                    </div>
+                    {(() => {
+                      const frotaBase = v.frota || v.placa;
+                      const med = medidoresMap[frotaBase];
+                      if (!med) return null;
+                      return (
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                            {med.tipo === "odômetro" ? "📍" : "⏱"} {med.tipo === "odômetro" ? `${med.valor.toLocaleString("pt-BR")} km` : `${med.valor.toLocaleString("pt-BR")} h`}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">em {fmtDate(med.data)}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
+                </button>
+
+                <div className="pt-1 border-t border-slate-100" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground whitespace-nowrap">Editar equipe:</span>
+                    <Select
+                      value={v.setor || "__sem_equipe"}
+                      onValueChange={(valor) => alterarEquipeNoCard(v.id, valor)}
+                      disabled={updatingEquipeId === v.id}
+                    >
+                      <SelectTrigger className="h-8 rounded-lg text-xs">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__sem_equipe">Sem equipe</SelectItem>
+                        {opcoesEquipe.map((eq) => (
+                          <SelectItem key={`${v.id}-${eq}`} value={eq}>{eq}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {updatingEquipeId === v.id && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
+                  </div>
+                </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
-            </button>
-          ))}
+            );
+          })}
         </div>
       )}
 
