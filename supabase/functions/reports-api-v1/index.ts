@@ -281,22 +281,43 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   const nfConcretoRows = (nfConcretoResp.data || []).map((n: any) => {
     const rdo = rdoMap.get(n.rdo_id);
     const ogs = obrasByNumberMap.get(rdo?.obra_nome);
+    const dataRdo = rdo?.data || null;
+    const nfNumero = n.nf || null;
+    const tipoConcreto = n.tipo_concreto || null;
+    const fornecedor = n.fornecedor || null;
+    const volumeM3 = safeNumber(n.quantidade_m3);
+    const placaBetoneira = n.equipamento || null;
+    const obraOgs = rdo?.obra_nome || null;
+    const localAplicacao = ogs?.location_address || null;
+
     return {
       id: n.id,
       created_at: n.created_at,
       updated_at: n.created_at,
-      data_rdo: rdo?.data || null,
+
+      // payload atual
+      data_rdo: dataRdo,
       apontador: rdo?.preenchido_por || rdo?.encarregado || null,
       encarregado: rdo?.encarregado || null,
-      obra_nome: rdo?.obra_nome || null,
+      obra_nome: obraOgs,
       contratante: ogs?.client_name || null,
-      local: ogs?.location_address || null,
+      local: localAplicacao,
       tipo_rdo: rdo?.tipo_rdo || null,
-      nf: n.nf,
-      tipo_concreto: n.tipo_concreto || null,
-      fornecedor: n.fornecedor || null,
-      equipamento: n.equipamento || null,
-      quantidade_m3: safeNumber(n.quantidade_m3),
+      nf: nfNumero,
+      tipo_concreto: tipoConcreto,
+      fornecedor,
+      equipamento: placaBetoneira,
+      quantidade_m3: volumeM3,
+
+      // aliases pedidos pela engenharia
+      data: dataRdo,
+      numero_nf: nfNumero,
+      concreteira: fornecedor,
+      fck: tipoConcreto,
+      volume_m3: volumeM3,
+      placa_betoneira: placaBetoneira,
+      obra_ogs: obraOgs,
+      local_aplicacao: localAplicacao,
     };
   });
 
