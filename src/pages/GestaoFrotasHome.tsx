@@ -76,6 +76,9 @@ export default function GestaoFrotasHome() {
   const [docsVencendo, setDocsVencendo] = useState<any[]>([]);
   const [historicoTrocaEquipe, setHistoricoTrocaEquipe] = useState<any[]>([]);
   const [loadingHistoricoTrocaEquipe, setLoadingHistoricoTrocaEquipe] = useState(false);
+  const [filtroAuditEquipe, setFiltroAuditEquipe] = useState<string>("todas");
+  const [filtroAuditUsuario, setFiltroAuditUsuario] = useState<string>("todos");
+  const [filtroAuditPeriodo, setFiltroAuditPeriodo] = useState<string>("30d");
 
   const filtrosIniciais = useMemo(() => carregarFiltrosIniciais(), []);
 
@@ -418,6 +421,105 @@ export default function GestaoFrotasHome() {
       .sort((a, b) => a.equipe.localeCompare(b.equipe, "pt-BR", { sensitivity: "base" }));
   }, [listaFiltrada]);
 
+  const historicoTrocaEquipeNormalizado = useMemo(() => {
+    return historicoTrocaEquipe.map((item) => {
+      const antes = (item?.dados_antes as any)?.valor || null;
+      const depois = (item?.dados_depois as any)?.valor || null;
+      const frota =
+        (item?.dados_depois as any)?.frota ||
+        (item?.dados_antes as any)?.frota ||
+        item?.registro_id ||
+        "Equipamento";
+
+      return {
+        id: item?.id,
+        created_at: item?.created_at || null,
+        user_nome: item?.user_nome || "Usuário",
+        registro_id: item?.registro_id || null,
+        frota,
+        equipe_antes: antes,
+        equipe_depois: depois,
+      };
+    });
+  }, [historicoTrocaEquipe]);
+
+  const opcoesEquipeAuditoria = useMemo(() => {
+    const set = new Set<string>();
+    historicoTrocaEquipeNormalizado.forEach((h) => {
+      if (h.equipe_antes) set.add(h.equipe_antes);
+      if (h.equipe_depois) set.add(h.equipe_depois);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+  }, [historicoTrocaEquipeNormalizado]);
+
+  const opcoesUsuarioAuditoria = useMemo(() => {
+    return Array.from(new Set(historicoTrocaEquipeNormalizado.map((h) => h.user_nome).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "pt-BR", { sensitivity: "base" })
+    );
+  }, [historicoTrocaEquipeNormalizado]);
+
+  const historicoTrocaEquipeFiltrado = useMemo(() => {
+    const agora = new Date();
+    let dataCorte: Date | null = null;
+
+    if (filtroAuditPeriodo === "7d") dataCorte = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
+    if (filtroAuditPeriodo === "30d") dataCorte = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000);
+    if (filtroAuditPeriodo === "90d") dataCorte = new Date(agora.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+    return historicoTrocaEquipeNormalizado.filter((h) => {
+      if (filtroAuditUsuario !== "todos" && h.user_nome !== filtroAuditUsuario) return false;
+      if (filtroAuditEquipe !== "todas" && h.equipe_antes !== filtroAuditEquipe && h.equipe_depois !== filtroAuditEquipe) return false;
+
+      if (dataCorte && h.created_at) {
+        const dataMov = new Date(h.created_at);
+        if (!Number.isNaN(dataMov.getTime()) && dataMov < dataCorte) return false;
+      }
+
+      return true;
+    });
+  }, [historicoTrocaEquipeNormalizado, filtroAuditUsuario, filtroAuditEquipe, filtroAuditPeriodo]);
+
+  function exportarHistoricoTrocaEquipeCsv() {
+    if (historicoTrocaEquipeFiltrado.length === 0) {
+      toast({
+        title: "Sem dados para exportar",
+        description: "Ajuste os filtros do histórico e tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const header = ["DataHora", "Usuario", "Frota", "EquipeAnterior", "EquipeNova", "RegistroID"].join(";");
+    const linhas = historicoTrocaEquipeFiltrado.map((h) =>
+      [
+        esc(fmtDateTime(h.created_at)),
+        esc(h.user_nome || ""),
+        esc(h.frota || ""),
+        esc(h.equipe_antes || "Sem equipe"),
+        esc(h.equipe_depois || "Sem equipe"),
+        esc(h.registro_id || ""),
+      ].join(";")
+    );
+
+    const csv = [header, ...linhas].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `historico-troca-equipe-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "CSV exportado",
+      description: `${historicoTrocaEquipeFiltrado.length} movimentação(ões) exportadas.`,
+    });
+  }
+
+
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
@@ -503,47 +605,83 @@ export default function GestaoFrotasHome() {
                 <History className="w-4 h-4 text-primary" />
                 <p className="text-sm font-semibold">Últimas alterações de equipe</p>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs"
-                onClick={() => carregarHistoricoTrocaEquipe({ silencioso: false })}
-                disabled={loadingHistoricoTrocaEquipe}
-              >
-                <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loadingHistoricoTrocaEquipe ? "animate-spin" : ""}`} />
-                Atualizar
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={exportarHistoricoTrocaEquipeCsv}
+                  disabled={historicoTrocaEquipeFiltrado.length === 0}
+                >
+                  Exportar CSV
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={() => carregarHistoricoTrocaEquipe({ silencioso: false })}
+                  disabled={loadingHistoricoTrocaEquipe}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loadingHistoricoTrocaEquipe ? "animate-spin" : ""}`} />
+                  Atualizar
+                </Button>
+              </div>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Select value={filtroAuditEquipe} onValueChange={setFiltroAuditEquipe}>
+                <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue placeholder="Equipe" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas equipes</SelectItem>
+                  {opcoesEquipeAuditoria.map((eq) => (
+                    <SelectItem key={eq} value={eq}>{eq}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={filtroAuditUsuario} onValueChange={setFiltroAuditUsuario}>
+                <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue placeholder="Usuário" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos usuários</SelectItem>
+                  {opcoesUsuarioAuditoria.map((u) => (
+                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={filtroAuditPeriodo} onValueChange={setFiltroAuditPeriodo}>
+                <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue placeholder="Período" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
+                  <SelectItem value="todos">Todo período</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">{historicoTrocaEquipeFiltrado.length} registro(s) no filtro</p>
 
             {loadingHistoricoTrocaEquipe ? (
               <div className="py-4 flex justify-center">
                 <Loader2 className="w-5 h-5 animate-spin text-primary" />
               </div>
-            ) : historicoTrocaEquipe.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhuma alteração registrada ainda.</p>
+            ) : historicoTrocaEquipeFiltrado.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhuma alteração encontrada para os filtros selecionados.</p>
             ) : (
               <div className="space-y-2">
-                {historicoTrocaEquipe.map((item) => {
-                  const antes = (item?.dados_antes as any)?.valor || null;
-                  const depois = (item?.dados_depois as any)?.valor || null;
-                  const frota =
-                    (item?.dados_depois as any)?.frota ||
-                    (item?.dados_antes as any)?.frota ||
-                    item?.registro_id ||
-                    "Equipamento";
-
-                  return (
-                    <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
-                      <p className="text-xs text-slate-800">
-                        <strong>{frota}</strong>: {antes || "Sem equipe"} → {depois || "Sem equipe"}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {item?.user_nome || "Usuário"} • {fmtDateTime(item?.created_at) || "Sem data"}
-                      </p>
-                    </div>
-                  );
-                })}
+                {historicoTrocaEquipeFiltrado.map((item) => (
+                  <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
+                    <p className="text-xs text-slate-800">
+                      <strong>{item.frota}</strong>: {item.equipe_antes || "Sem equipe"} → {item.equipe_depois || "Sem equipe"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {item.user_nome || "Usuário"} • {fmtDateTime(item.created_at) || "Sem data"}
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
           </div>
