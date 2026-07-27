@@ -518,6 +518,70 @@ export default function RelatorioAbastecimento() {
           </div>
         )}
 
+        {/* Painel consolidado por frota */}
+        {!loading && (
+          <div className="rdo-card space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Painel de Consumo por Frota</span>
+              <ExportButton
+                variant="outline"
+                size="sm"
+                className="ml-auto gap-2 text-xs"
+                onClick={exportarPainelConsumoCsv}
+                disabled={consumoPorFrotaOrdenado.length === 0}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" /> CSV Painel
+              </ExportButton>
+            </div>
+
+            <Input
+              value={consumoBusca}
+              onChange={(e) => setConsumoBusca(e.target.value)}
+              placeholder="Filtrar painel por frota, tipo ou OGS"
+              className="h-10 rounded-xl"
+            />
+
+            {consumoPorFonte.length > 0 && (
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {consumoPorFonte.map((item) => (
+                  <span key={item.fonte} className="whitespace-nowrap inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+                    {labelFonte(item.fonte)}: <strong className="ml-1">{formatLitros(item.litros)} L</strong>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {consumoPorFrotaOrdenado.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
+                {buscado
+                  ? "Nenhuma frota encontrada para os filtros deste painel."
+                  : "Clique em Buscar para carregar o painel de consumo."}
+              </div>
+            ) : (
+              <div className="border rounded-xl overflow-hidden">
+                <div className="grid grid-cols-[92px_1fr_84px_78px_84px] gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wide bg-muted/40">
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("frota")} className="text-left hover:text-primary transition-colors">Frota {marcadorOrdenacao("frota")}</button>
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("tipo")} className="text-left hover:text-primary transition-colors">Tipo {marcadorOrdenacao("tipo")}</button>
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("litros")} className="text-right hover:text-primary transition-colors">Litros {marcadorOrdenacao("litros")}</button>
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("lancamentos")} className="text-right hover:text-primary transition-colors">Lanç. {marcadorOrdenacao("lancamentos")}</button>
+                  <button type="button" onClick={() => alternarOrdenacaoConsumo("ultimaData")} className="text-right hover:text-primary transition-colors">Último {marcadorOrdenacao("ultimaData")}</button>
+                </div>
+                <div className="max-h-72 overflow-y-auto divide-y">
+                  {consumoPorFrotaOrdenado.slice(0, 80).map((item) => (
+                    <div key={item.frota} className="grid grid-cols-[92px_1fr_84px_78px_84px] gap-2 px-3 py-2 text-xs items-center">
+                      <span className="font-semibold truncate" title={item.frota}>{item.frota}</span>
+                      <span className="truncate text-muted-foreground" title={item.tipo}>{item.tipo || "-"}</span>
+                      <span className="text-right font-semibold text-primary">{formatLitros(item.litros)}</span>
+                      <span className="text-right">{item.lancamentos}</span>
+                      <span className="text-right text-muted-foreground">{fmtDate(item.ultimaData)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Resultados */}
         {loading ? (
           <div className="rdo-card py-10 flex justify-center">
@@ -537,65 +601,6 @@ export default function RelatorioAbastecimento() {
             <div className="rdo-card bg-primary/5 border-primary/20 flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{rows.length} abastecimento{rows.length !== 1 ? "s" : ""}</span>
               <span className="text-sm font-bold text-primary">Total: {fmtNumLib(totalLitros)} L</span>
-            </div>
-
-            {/* Painel consolidado por frota */}
-            <div className="rdo-card space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold">Painel de Consumo por Frota</span>
-                <ExportButton
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto gap-2 text-xs"
-                  onClick={exportarPainelConsumoCsv}
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" /> CSV Painel
-                </ExportButton>
-              </div>
-
-              <Input
-                value={consumoBusca}
-                onChange={(e) => setConsumoBusca(e.target.value)}
-                placeholder="Filtrar painel por frota, tipo ou OGS"
-                className="h-10 rounded-xl"
-              />
-
-              {consumoPorFonte.length > 0 && (
-                <div className="flex gap-1.5 overflow-x-auto pb-1">
-                  {consumoPorFonte.map((item) => (
-                    <span key={item.fonte} className="whitespace-nowrap inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
-                      {labelFonte(item.fonte)}: <strong className="ml-1">{formatLitros(item.litros)} L</strong>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {consumoPorFrotaOrdenado.length === 0 ? (
-                <div className="rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-                  Nenhuma frota encontrada para os filtros deste painel.
-                </div>
-              ) : (
-                <div className="border rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-[92px_1fr_84px_78px_84px] gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wide bg-muted/40">
-                    <button type="button" onClick={() => alternarOrdenacaoConsumo("frota")} className="text-left hover:text-primary transition-colors">Frota {marcadorOrdenacao("frota")}</button>
-                    <button type="button" onClick={() => alternarOrdenacaoConsumo("tipo")} className="text-left hover:text-primary transition-colors">Tipo {marcadorOrdenacao("tipo")}</button>
-                    <button type="button" onClick={() => alternarOrdenacaoConsumo("litros")} className="text-right hover:text-primary transition-colors">Litros {marcadorOrdenacao("litros")}</button>
-                    <button type="button" onClick={() => alternarOrdenacaoConsumo("lancamentos")} className="text-right hover:text-primary transition-colors">Lanç. {marcadorOrdenacao("lancamentos")}</button>
-                    <button type="button" onClick={() => alternarOrdenacaoConsumo("ultimaData")} className="text-right hover:text-primary transition-colors">Último {marcadorOrdenacao("ultimaData")}</button>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto divide-y">
-                    {consumoPorFrotaOrdenado.slice(0, 80).map((item) => (
-                      <div key={item.frota} className="grid grid-cols-[92px_1fr_84px_78px_84px] gap-2 px-3 py-2 text-xs items-center">
-                        <span className="font-semibold truncate" title={item.frota}>{item.frota}</span>
-                        <span className="truncate text-muted-foreground" title={item.tipo}>{item.tipo || "-"}</span>
-                        <span className="text-right font-semibold text-primary">{formatLitros(item.litros)}</span>
-                        <span className="text-right">{item.lancamentos}</span>
-                        <span className="text-right text-muted-foreground">{fmtDate(item.ultimaData)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Tabela compacta */}
