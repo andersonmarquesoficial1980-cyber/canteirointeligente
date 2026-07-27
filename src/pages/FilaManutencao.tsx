@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 import { ArrowLeft, RefreshCw, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +16,7 @@ function horasAbertas(createdAt: string) {
 
 export default function FilaManutencao() {
   const navigate = useNavigate();
+  const rotaVoltar = useOrigemBack("/manutencao", { "gestao-frotas": "/gestao-frotas" });
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [demandas, setDemandas] = useState<Demanda[]>([]);
@@ -113,7 +115,7 @@ export default function FilaManutencao() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-40 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-6 py-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/manutencao")} className="text-zinc-300 hover:text-white p-2 rounded-lg hover:bg-zinc-800 transition-colors">
+          <button onClick={() => navigate(rotaVoltar)} className="text-zinc-300 hover:text-white p-2 rounded-lg hover:bg-zinc-800 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <Wrench className="w-8 h-8 text-yellow-400" />
