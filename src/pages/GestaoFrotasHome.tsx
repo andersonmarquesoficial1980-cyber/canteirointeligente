@@ -4,21 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Car, Truck, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio } from "lucide-react";
+import { ArrowLeft, Plus, Car, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { useEquipamentoTipos, EquipCategoria } from "@/hooks/useEquipamentoTipos";
-
-// Categorias que agrupam múltiplos tipos (exibem subtipo ao clicar)
-const CATEGORIAS_GRUPO = ["CAMINHOES", "CARRETAS", "VEICULOS"];
-
-// Ícone por categoria
-function iconePorCategoria(cat: string): any {
-  if (cat === "CAMINHOES" || cat === "CARRETAS") return Truck;
-  if (cat === "VEICULOS") return Car;
-  return Wrench;
-}
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -40,27 +29,12 @@ export default function GestaoFrotasHome() {
   const [aba, setAba] = useState<"frotas" | "documentos" | "consumo">("frotas");
   const [docsVencendo, setDocsVencendo] = useState<any[]>([]);
 
-  // Cascata: categoria → subtipo → lista — com persistência de filtros
-  const GFKEY = "gestaoFrotasHome_filtros";
-  function gfSalvar(patch: Record<string, any>) {
-    try {
-      const cur = JSON.parse(sessionStorage.getItem(GFKEY) || "{}");
-      sessionStorage.setItem(GFKEY, JSON.stringify({ ...cur, ...patch }));
-    } catch {}
-  }
-  function gfRestaurar(): Record<string, any> {
-    try { return JSON.parse(sessionStorage.getItem(GFKEY) || "{}"); } catch { return {}; }
-  }
-  const gfSaved = gfRestaurar();
-
-  const [step, setStep] = useState<"tipo" | "subtipo" | "lista">(
-    (gfSaved.step as any) || "tipo"
-  );
-  const [catSel, setCatSel] = useState<EquipCategoria | null>(
-    gfSaved.catSel || null
-  );
-  const [subtipoSel, setSubtipoSel] = useState("");
-  const [busca, setBusca] = useState("");
+  // Filtros da nova visualização (fase 10.2)
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("todos");
+  const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+  const [filtroSubtipo, setFiltroSubtipo] = useState<string>("todos");
+  const [filtroEquipe, setFiltroEquipe] = useState<string>("todas");
+  const [filtroFrota, setFiltroFrota] = useState<string>("");
 
   useEffect(() => { buscarTodos(); }, []);
 
@@ -118,62 +92,98 @@ export default function GestaoFrotasHome() {
     setMedidoresMap(map);
   }
 
-  const isGrupo = catSel ? CATEGORIAS_GRUPO.includes(catSel.key) : false;
-
-  function voltar() {
-    if (step === "lista") {
-      if (isGrupo) {
-        setStep("subtipo"); setBusca("");
-        gfSalvar({ step: "subtipo" });
-      } else {
-        setStep("tipo"); setCatSel(null); setBusca("");
-        gfSalvar({ step: "tipo", catSel: null });
-      }
-    } else if (step === "subtipo") {
-      setStep("tipo"); setCatSel(null);
-      gfSalvar({ step: "tipo", catSel: null });
-    }
-  }
-
-  // Lista de equipamentos filtrada
-  const listaFiltrada = useMemo(() => {
-    if (!catSel) return [];
-    return todos.filter(v => {
-      const tipoEquip = (v.tipo || "").toUpperCase();
-      const tiposNaCat = catSel.tipos.map(t => t.tipoValor.toUpperCase());
-      if (!tiposNaCat.includes(tipoEquip)) return false;
-      if (subtipoSel && tipoEquip !== subtipoSel.toUpperCase()) return false;
-      if (busca) {
-        const b = busca.toLowerCase();
-        return [v.placa, v.frota, v.nome, v.modelo_completo, v.condutor_atual, v.setor, v.locadora, v.empresa_proprietaria].some((f: any) => f?.toLowerCase().includes(b));
-      }
-      return true;
+  // Mapa de tipo -> metadados (categoria/subtipo)
+  const tipoMetaMap = useMemo(() => {
+    const map = new Map<string, { categoria: string; subtipo: string }>();
+    categorias.forEach((cat) => {
+      cat.tipos.forEach((t) => {
+        map.set((t.tipoValor || "").toUpperCase(), {
+          categoria: cat.key,
+          subtipo: t.subtipo || "",
+        });
+      });
     });
-  }, [todos, catSel, subtipoSel, busca]);
+    return map;
+  }, [categorias]);
 
   // Categorias com contagem real
   const categoriasComCount = useMemo(() => {
-    return categorias.map(cat => {
-      const tiposNaCat = cat.tipos.map(t => t.tipoValor.toUpperCase());
-      const count = todos.filter(v => tiposNaCat.includes((v.tipo || "").toUpperCase())).length;
-      return { ...cat, count };
-    }).filter(c => c.count > 0);
+    return categorias
+      .map((cat) => {
+        const tiposNaCat = cat.tipos.map((t) => t.tipoValor.toUpperCase());
+        const count = todos.filter((v) => tiposNaCat.includes((v.tipo || "").toUpperCase())).length;
+        return { ...cat, count };
+      })
+      .filter((c) => c.count > 0);
   }, [categorias, todos]);
 
-  const catSelLabel = catSel?.label ?? "";
+  const tiposDisponiveis = useMemo(() => {
+    if (filtroCategoria === "todos") {
+      const unicos = Array.from(new Set(todos.map((v) => (v.tipo || "").trim()).filter(Boolean)));
+      return unicos.sort((a, b) => a.localeCompare(b, "pt-BR"));
+    }
+
+    const cat = categorias.find((c) => c.key === filtroCategoria);
+    if (!cat) return [];
+
+    const tiposDaCategoria = cat.tipos.map((t) => t.tipoValor.toUpperCase());
+    return Array.from(
+      new Set(
+        todos
+          .filter((v) => tiposDaCategoria.includes((v.tipo || "").toUpperCase()))
+          .map((v) => (v.tipo || "").trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [filtroCategoria, categorias, todos]);
+
+  const subtiposDisponiveis = useMemo(() => {
+    const tiposBase = filtroTipo !== "todos" ? [filtroTipo.toUpperCase()] : tiposDisponiveis.map((t) => t.toUpperCase());
+    const subtipos = new Set<string>();
+
+    tiposBase.forEach((tipo) => {
+      const meta = tipoMetaMap.get(tipo);
+      if (meta?.subtipo) subtipos.add(meta.subtipo);
+    });
+
+    return Array.from(subtipos).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [filtroTipo, tiposDisponiveis, tipoMetaMap]);
+
+  const equipesDisponiveis = useMemo(() => {
+    return Array.from(new Set(todos.map((v) => (v.setor || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [todos]);
+
+  // Lista de equipamentos filtrada (tipo/subtipo/frota/equipe)
+  const listaFiltrada = useMemo(() => {
+    return todos.filter((v) => {
+      const tipo = (v.tipo || "").toUpperCase();
+      const frotaOuPlaca = `${v.frota || ""} ${v.placa || ""}`.toLowerCase();
+      const equipe = (v.setor || "").trim();
+      const meta = tipoMetaMap.get(tipo);
+
+      if (filtroCategoria !== "todos" && meta?.categoria !== filtroCategoria) return false;
+      if (filtroTipo !== "todos" && tipo !== filtroTipo.toUpperCase()) return false;
+      if (filtroSubtipo !== "todos" && (meta?.subtipo || "") !== filtroSubtipo) return false;
+      if (filtroEquipe !== "todas" && equipe !== filtroEquipe) return false;
+      if (filtroFrota.trim()) {
+        const q = filtroFrota.trim().toLowerCase();
+        if (!frotaOuPlaca.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [todos, tipoMetaMap, filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota]);
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={step === "tipo" ? () => navigate("/") : voltar} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={() => navigate("/")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">WF Gestão de Frotas</span>
           <span className="block text-[11px] text-primary-foreground/80">
-            {step === "tipo" && `${todos.length} equipamentos cadastrados`}
-            {step === "subtipo" && catSelLabel}
-            {step === "lista" && `${subtipoSel || catSelLabel} — ${listaFiltrada.length} itens`}
+            {todos.length} equipamentos cadastrados • {listaFiltrada.length} no filtro
           </span>
         </div>
       </header>
@@ -206,189 +216,169 @@ export default function GestaoFrotasHome() {
       </div>
 
       {aba === "frotas" && (
-      <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+          <ProgramacoesDoDia />
 
-        {/* Programações do dia */}
-        {step === "tipo" && <ProgramacoesDoDia />}
+          {/* Dashboards auxiliares */}
+          <button onClick={() => navigate("/gestao-frotas/dashboard")} className="w-full rdo-card border-l-4 border-l-blue-400 hover:shadow-md transition-all flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <BarChart3 className="w-5 h-5 text-blue-500" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-display font-bold text-sm">Dashboard por Equipe / Tipo</p>
+              <p className="text-xs text-muted-foreground">Visão detalhada com tabelas para apresentação</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
 
-        {/* PASSO 1: Tipo */}
-        {step === "tipo" && (
-          <>
-            {/* Dashboard detalhado por equipe/tipo */}
-            <button onClick={() => navigate("/gestao-frotas/dashboard")} className="w-full rdo-card border-l-4 border-l-blue-400 hover:shadow-md transition-all flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-                <BarChart3 className="w-5 h-5 text-blue-500" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-display font-bold text-sm">Dashboard por Equipe / Tipo</p>
-                <p className="text-xs text-muted-foreground">Visão detalhada com tabelas para apresentação</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            </button>
+          <button onClick={() => navigate("/gestao-frotas/dashboard-rdo")} className="w-full rdo-card border-l-4 border-l-green-400 hover:shadow-md transition-all flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+              <MapPin className="w-5 h-5 text-green-500" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-display font-bold text-sm">Localização das Frotas (RDO)</p>
+              <p className="text-xs text-muted-foreground">Onde cada equipamento estava — via apontamento</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
 
-            {/* Dashboard de localização via RDO */}
-            <button onClick={() => navigate("/gestao-frotas/dashboard-rdo")} className="w-full rdo-card border-l-4 border-l-green-400 hover:shadow-md transition-all flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
-                <MapPin className="w-5 h-5 text-green-500" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-display font-bold text-sm">Localização das Frotas (RDO)</p>
-                <p className="text-xs text-muted-foreground">Onde cada equipamento estava — via apontamento</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            </button>
+          <button onClick={() => navigate("/gestao-frotas/rastreamento")} className="w-full rdo-card border-l-4 border-l-orange-400 hover:shadow-md transition-all flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
+              <Radio className="w-5 h-5 text-orange-500" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-display font-bold text-sm">Rastreamento em Tempo Real</p>
+              <p className="text-xs text-muted-foreground">Onde está cada equipamento hoje — diário + transporte + pátio auto</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
 
-            {/* Rastreamento unificado — nova frente */}
-            <button onClick={() => navigate("/gestao-frotas/rastreamento")} className="w-full rdo-card border-l-4 border-l-orange-400 hover:shadow-md transition-all flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
-                <Radio className="w-5 h-5 text-orange-500" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-display font-bold text-sm">Rastreamento em Tempo Real</p>
-                <p className="text-xs text-muted-foreground">Onde está cada equipamento hoje — diário + transporte + pátio auto</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            </button>
+          <div className="rdo-card space-y-3">
+            <p className="text-xs text-muted-foreground font-semibold">Filtros rápidos (Tipo / Subtipo / Frota / Equipe)</p>
 
-            <p className="text-xs text-muted-foreground font-semibold px-1 pt-2">Selecione o tipo de equipamento:</p>
-            {(loading || loadingTipos) ? (
-              <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
-            ) : categoriasComCount.map(cat => {
-              const Icon = iconePorCategoria(cat.key);
-              const ehGrupo = CATEGORIAS_GRUPO.includes(cat.key);
-              return (
-                <button key={cat.key} onClick={() => {
-                  setCatSel(cat);
-                  setSubtipoSel("");
-                  setBusca("");
-                  const novoStep = ehGrupo ? "subtipo" : "lista";
-                  gfSalvar({ catSel: cat, subtipoSel: "", step: novoStep });
-                  if (ehGrupo) setStep("subtipo");
-                  else setStep("lista");
-                }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-display font-bold text-sm">{cat.label}</p>
-                    <p className="text-xs text-muted-foreground">{cat.count} equipamento{cat.count !== 1 ? "s" : ""}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-                </button>
-              );
-            })}
-          </>
-        )}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Select value={filtroCategoria} onValueChange={(valor) => {
+                setFiltroCategoria(valor);
+                setFiltroTipo("todos");
+                setFiltroSubtipo("todos");
+              }}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas as categorias</SelectItem>
+                  {categoriasComCount.map((cat) => (
+                    <SelectItem key={cat.key} value={cat.key}>{cat.label} ({cat.count})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-        {/* PASSO 2: Subtipo (apenas para categorias agrupadas: Caminhões, Carretas, Veículos) */}
-        {step === "subtipo" && catSel && isGrupo && (
-          <>
-            <p className="text-xs text-muted-foreground font-semibold px-1">Selecione o tipo de {catSelLabel}:</p>
-            {/* Ver todos do grupo */}
-            <button onClick={() => { setSubtipoSel(""); setStep("lista"); gfSalvar({ subtipoSel: "", step: "lista" }); }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-lg">📋</div>
-              <div className="flex-1 text-left">
-                <p className="font-display font-bold text-sm">Todos</p>
-                <p className="text-xs text-muted-foreground">
-                  {todos.filter(v => catSel.tipos.map(t => t.tipoValor.toUpperCase()).includes((v.tipo || "").toUpperCase())).length} equipamentos
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            </button>
-            {catSel.tipos.map(sub => {
-              const count = todos.filter(v => (v.tipo || "").toUpperCase() === sub.tipoValor.toUpperCase()).length;
-              if (count === 0) return null;
-              const Icon = iconePorCategoria(catSel.key);
-              return (
-                <button key={sub.subtipo} onClick={() => { setSubtipoSel(sub.tipoValor); setStep("lista"); gfSalvar({ subtipoSel: sub.tipoValor, step: "lista" }); }} className="w-full rdo-card hover:shadow-md transition-all flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    {sub.icone ? <span className="text-lg">{sub.icone}</span> : <Icon className="w-5 h-5 text-primary" />}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-display font-bold text-sm">{sub.label}</p>
-                    <p className="text-xs text-muted-foreground">{count} equipamento{count !== 1 ? "s" : ""}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-                </button>
-              );
-            })}
-          </>
-        )}
+              <Select value={filtroTipo} onValueChange={(valor) => {
+                setFiltroTipo(valor);
+                setFiltroSubtipo("todos");
+              }}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os tipos</SelectItem>
+                  {tiposDisponiveis.map((tipo) => (
+                    <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-        {/* PASSO 3: Lista */}
-        {step === "lista" && (
-          <>
+              <Select value={filtroSubtipo} onValueChange={setFiltroSubtipo}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Subtipo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os subtipos</SelectItem>
+                  {subtiposDisponiveis.map((subtipo) => (
+                    <SelectItem key={subtipo} value={subtipo}>{subtipo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={filtroEquipe} onValueChange={setFiltroEquipe}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as equipes</SelectItem>
+                  {equipesDisponiveis.map((eq) => (
+                    <SelectItem key={eq} value={eq}>{eq}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Buscar placa, modelo, condutor..." value={busca} onChange={e => setBusca(e.target.value)} className="pl-9 h-10 rounded-xl" />
+              <Input
+                placeholder="Pesquisar por frota ou placa"
+                value={filtroFrota}
+                onChange={(e) => setFiltroFrota(e.target.value)}
+                className="pl-9 h-10 rounded-xl"
+              />
             </div>
-            <p className="text-xs text-muted-foreground px-1">{listaFiltrada.length} resultado{listaFiltrada.length !== 1 ? "s" : ""}</p>
-            {loading ? (
-              <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
-            ) : listaFiltrada.map(v => (
-              <button key={v.id} onClick={() => navigate(`/gestao-frotas/veiculo/${v.id}`)} className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'bg-blue-50' : 'bg-green-50'}`}>
-                  <Car className={`w-5 h-5 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'text-blue-600' : 'text-green-600'}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-display font-bold text-sm">{v.frota || v.placa}</span>
-                    {v.placa && v.placa !== v.frota && <span className="text-xs text-muted-foreground">{v.placa}</span>}
-                    {/* Tag Condição: PRÓPRIO ou TERCEIRO */}
+          </div>
+
+          <p className="text-xs text-muted-foreground px-1">{listaFiltrada.length} resultado{listaFiltrada.length !== 1 ? "s" : ""} — toque para abrir e editar a ficha</p>
+
+          {(loading || loadingTipos) ? (
+            <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
+          ) : listaFiltrada.map(v => (
+            <button key={v.id} onClick={() => navigate(`/gestao-frotas/veiculo/${v.id}`)} className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'bg-blue-50' : 'bg-green-50'}`}>
+                <Car className={`w-5 h-5 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'text-blue-600' : 'text-green-600'}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-display font-bold text-sm">{v.frota || v.placa}</span>
+                  {v.placa && v.placa !== v.frota && <span className="text-xs text-muted-foreground">{v.placa}</span>}
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                    (v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-green-100 text-green-700'
+                  }`}>
+                    {(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}
+                  </span>
+                  {v.status && v.status !== 'ativo' && (
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                      (v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-green-100 text-green-700'
+                      v.status === 'em_manutencao' ? 'bg-orange-100 text-orange-700' :
+                      v.status === 'inativo'       ? 'bg-red-100 text-red-600' :
+                      v.status === 'disposicao'    ? 'bg-gray-100 text-gray-600' :
+                      'bg-yellow-100 text-yellow-700'
                     }`}>
-                      {(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}
+                      {v.status === 'em_manutencao' ? '🔧 Manutenção' :
+                        v.status === 'inativo'       ? '🚫 Inativo' :
+                        v.status === 'disposicao'    ? '📦 Disposição' : v.status}
                     </span>
-                    {/* Tag Status (só aparece quando não está ativo) */}
-                    {v.status && v.status !== 'ativo' && (
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                        v.status === 'em_manutencao' ? 'bg-orange-100 text-orange-700' :
-                        v.status === 'inativo'       ? 'bg-red-100 text-red-600' :
-                        v.status === 'disposicao'    ? 'bg-gray-100 text-gray-600' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {v.status === 'em_manutencao' ? '🔧 Manutenção' :
-                         v.status === 'inativo'       ? '🚫 Inativo' :
-                         v.status === 'disposicao'    ? '📦 Disposição' : v.status}
-                      </span>
-                    )}
-                    {/* Tag Empresa */}
-                    {v.locadora && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
-                        {v.locadora}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">{v.nome || v.modelo_completo}</p>
-                  <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                    {v.setor && <span>🏢 {v.setor}</span>}
-                    {v.condutor_atual && <span>👤 {v.condutor_atual}</span>}
-                    {v.valor_mensal > 0 && <span className="text-orange-600 font-semibold">{formatBRL(v.valor_mensal)}/mês</span>}
-                  </div>
-                  {/* Horímetro / Odômetro */}
-                  {(() => {
-                    const frotaBase = v.frota || v.placa;
-                    const med = medidoresMap[frotaBase];
-                    if (!med) return null;
-                    return (
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                          {med.tipo === "odômetro" ? "📍" : "⏱"} {med.tipo === "odômetro" ? `${med.valor.toLocaleString("pt-BR")} km` : `${med.valor.toLocaleString("pt-BR")} h`}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">em {fmtDate(med.data)}</span>
-                      </div>
-                    );
-                  })()}
+                  )}
+                  {v.locadora && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
+                      {v.locadora}
+                    </span>
+                  )}
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
-              </button>
-            ))}
-          </>
-        )}
-      </div>
+                <p className="text-xs text-muted-foreground truncate">{v.nome || v.modelo_completo}</p>
+                <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                  {v.tipo && <span>🏷️ {v.tipo}</span>}
+                  {v.setor && <span>🏢 {v.setor}</span>}
+                  {v.condutor_atual && <span>👤 {v.condutor_atual}</span>}
+                  {v.valor_mensal > 0 && <span className="text-orange-600 font-semibold">{formatBRL(v.valor_mensal)}/mês</span>}
+                </div>
+                {(() => {
+                  const frotaBase = v.frota || v.placa;
+                  const med = medidoresMap[frotaBase];
+                  if (!med) return null;
+                  return (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                        {med.tipo === "odômetro" ? "📍" : "⏱"} {med.tipo === "odômetro" ? `${med.valor.toLocaleString("pt-BR")} km` : `${med.valor.toLocaleString("pt-BR")} h`}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">em {fmtDate(med.data)}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
+            </button>
+          ))}
+        </div>
       )}
 
       {/* ABA DOCUMENTOS */}
