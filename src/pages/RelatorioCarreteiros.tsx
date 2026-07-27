@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSmartBack } from "@/hooks/useSmartBack";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 import { ArrowLeft, FileSpreadsheet, Search, Loader2, AlertTriangle, MapPin, Truck, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ function loadStatusBadgeClasses(status: string | null | undefined) {
 
 export default function RelatorioCarreteiros() {
   const navigate = useNavigate();
-  const goBack = useSmartBack("/relatorios");
+  const goBack = useOrigemBack("/relatorios", { "gestao-frotas": "/gestao-frotas" });
   const { isAdmin } = useIsAdmin();
   const { canDelete } = useCanDelete();
   const hoje = new Date();

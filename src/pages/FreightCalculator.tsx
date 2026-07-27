@@ -16,6 +16,7 @@ import {
   Save, Loader2, Trash2, History, Truck
 } from "lucide-react";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 declare global {
   interface Window {
@@ -458,11 +459,12 @@ function HistoryTab() {
 // ─── Main Page ───
 export default function FreightCalculator() {
   const navigate = useNavigate();
+  const rotaVoltar = useOrigemBack("/carreteiros", { "gestao-frotas": "/gestao-frotas" });
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/carreteiros")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

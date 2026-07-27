@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Truck, MapPin, Send, CheckCircle2, Clock, Loader2, LogOut, QrCode } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { useOgsReference } from "@/hooks/useOgsReference";
 import { toast } from "sonner";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { ResponsavelInput } from "@/components/rdo/ResponsavelInput";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 // Materials are now loaded dynamically from insumos_materiais
 
@@ -394,11 +395,15 @@ function ArrivalList() {
 
 export default function TruckerHome() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
@@ -406,7 +411,7 @@ export default function TruckerHome() {
           <h1 className="font-display font-bold text-base leading-tight">WF Carreteiros</h1>
           <p className="text-[10px] text-primary-foreground/70">Logística de Materiais</p>
         </div>
-        <button onClick={() => navigate("/carreteiros/qrcodes")}
+        <button onClick={() => navigate(`/carreteiros/qrcodes${origemQuery}`)}
           className="p-1.5 rounded-lg hover:bg-white/10 transition" title="Gerar QR Codes">
           <QrCode className="h-5 w-5" />
         </button>

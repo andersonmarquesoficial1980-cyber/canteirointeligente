@@ -3,11 +3,12 @@
  * Gera QR Codes para impressão — um por caminhão.
  */
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Printer, Search, Truck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 const BASE_URL = "https://app.workflux.com.br";
@@ -22,6 +23,10 @@ interface TruckReg {
 
 export default function CarreteirosQRPrint() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rotaVoltar = useOrigemBack("/carreteiros", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [trucks, setTrucks] = useState<TruckReg[]>([]);
   const [filtro, setFiltro] = useState("");
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
@@ -63,7 +68,7 @@ export default function CarreteirosQRPrint() {
     <div className="min-h-screen bg-background">
       {/* Header — não aparece na impressão */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md print:hidden">
-        <button onClick={() => navigate("/carreteiros")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <img src={logoCi} alt="CI" className="h-7 object-contain" />
@@ -134,7 +139,7 @@ export default function CarreteirosQRPrint() {
               <img src={logoCi} alt="" style={{ height: 36, marginBottom: 4 }} />
               {/* QR Code grande */}
               <QRCodeSVG
-                value={`${BASE_URL}/carreteiros/scan/${t.id}`}
+                value={`${BASE_URL}/carreteiros/scan/${t.id}${origemQuery}`}
                 size={260}
                 bgColor="white"
                 fgColor="#0A0F2C"
