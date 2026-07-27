@@ -168,7 +168,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   const funcionarioIds = [...new Set(medicoes.map((m: any) => m.funcionario_id).filter(Boolean))];
   const servicoIds = [...new Set(medicoes.map((m: any) => m.servico_id).filter(Boolean))];
 
-  const [obrasResp, obrasByNumberResp, empresasResp, funcionariosResp, servicosResp, nfResp, producaoResp] = await Promise.all([
+  const [obrasResp, obrasByNumberResp, empresasResp, funcionariosResp, servicosResp, nfResp, nfConcretoResp, producaoResp] = await Promise.all([
     obraIds.length
       ? sb.from("ogs_reference").select("id,ogs_number,client_name,location_address").eq("company_id", companyId).in("id", obraIds)
       : Promise.resolve({ data: [], error: null } as any),
@@ -194,6 +194,14 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       : Promise.resolve({ data: [], error: null, count: 0 } as any),
     rdoIds.length
       ? sb
+          .from("rdo_nf_concreto")
+          .select("id,rdo_id,nf,quantidade_m3,tipo_concreto,fornecedor,equipamento,created_at", { count: "exact" })
+          .in("rdo_id", rdoIds)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + pageSize - 1)
+      : Promise.resolve({ data: [], error: null, count: 0 } as any),
+    rdoIds.length
+      ? sb
           .from("rdo_producao")
           .select("id,rdo_id,tipo_servico,sentido,sentido_faixa,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,tonelagem", { count: "exact" })
           .eq("company_id", companyId)
@@ -209,6 +217,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   if (funcionariosResp.error) throw new Error(funcionariosResp.error.message);
   if (servicosResp.error) throw new Error(servicosResp.error.message);
   if (nfResp.error) throw new Error(nfResp.error.message);
+  if (nfConcretoResp.error) throw new Error(nfConcretoResp.error.message);
   if (producaoResp.error) throw new Error(producaoResp.error.message);
 
   const obrasMap = new Map<string, any>((obrasResp.data || []).map((o: any) => [o.id, o]));
@@ -269,6 +278,28 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     };
   });
 
+  const nfConcretoRows = (nfConcretoResp.data || []).map((n: any) => {
+    const rdo = rdoMap.get(n.rdo_id);
+    const ogs = obrasByNumberMap.get(rdo?.obra_nome);
+    return {
+      id: n.id,
+      created_at: n.created_at,
+      updated_at: n.created_at,
+      data_rdo: rdo?.data || null,
+      apontador: rdo?.preenchido_por || rdo?.encarregado || null,
+      encarregado: rdo?.encarregado || null,
+      obra_nome: rdo?.obra_nome || null,
+      contratante: ogs?.client_name || null,
+      local: ogs?.location_address || null,
+      tipo_rdo: rdo?.tipo_rdo || null,
+      nf: n.nf,
+      tipo_concreto: n.tipo_concreto || null,
+      fornecedor: n.fornecedor || null,
+      equipamento: n.equipamento || null,
+      quantidade_m3: safeNumber(n.quantidade_m3),
+    };
+  });
+
   const producaoRows = (producaoResp.data || []).map((p: any) => {
     const rdo = rdoMap.get(p.rdo_id);
     return {
@@ -304,6 +335,11 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
         total: nfResp.count ?? 0,
         total_tonelagem: Number(nfRows.reduce((s: number, r: any) => s + safeNumber(r.tonelagem), 0).toFixed(2)),
         rows: nfRows,
+      },
+      notas_fiscais_concreto: {
+        total: nfConcretoResp.count ?? 0,
+        total_m3: Number(nfConcretoRows.reduce((s: number, r: any) => s + safeNumber(r.quantidade_m3), 0).toFixed(2)),
+        rows: nfConcretoRows,
       },
       producao_rdos: {
         total: producaoResp.count ?? 0,
