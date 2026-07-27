@@ -753,20 +753,23 @@ export default function RdoForm() {
             return;
           }
 
-          const trechosComConteudo = producaoCauq.trechos.filter((t) =>
-            [
-              t.tipo_servico,
-              t.sentido,
-              t.faixa,
-              t.estaca_inicial,
-              t.estaca_final,
-              t.comprimento_m,
-              t.largura_m,
-              t.espessura_m,
-              t.densidade,
-              t.observacoes,
-            ].some((v) => !isBlank(v))
-          );
+          const camposObrigatoriosTrecho: Array<{ key: keyof typeof producaoCauq.trechos[number]; label: string }> = [
+            { key: "tipo_servico", label: "Tipo de Serviço" },
+            { key: "sentido", label: "Sentido" },
+            { key: "faixa", label: "Faixa" },
+            { key: "estaca_inicial", label: "Estaca Inicial" },
+            { key: "estaca_final", label: "Estaca Final" },
+            { key: "comprimento_m", label: "Comp. (m)" },
+            { key: "largura_m", label: "Larg. (m)" },
+            { key: "espessura_m", label: "Espessura (cm)" },
+            { key: "densidade", label: "Densidade (t/m³)" },
+            { key: "observacoes", label: "Observações do Trecho" },
+          ];
+
+          const trechoTemConteudo = (t: typeof producaoCauq.trechos[number]) =>
+            camposObrigatoriosTrecho.some((c) => !isBlank(String(t[c.key] ?? "")));
+
+          const trechosComConteudo = producaoCauq.trechos.filter(trechoTemConteudo);
 
           if (trechosComConteudo.length === 0) {
             toast({
@@ -777,25 +780,19 @@ export default function RdoForm() {
             return;
           }
 
-          const trechoIncompleto = trechosComConteudo.find((t) =>
-            [
-              t.tipo_servico,
-              t.sentido,
-              t.faixa,
-              t.estaca_inicial,
-              t.estaca_final,
-              t.comprimento_m,
-              t.largura_m,
-              t.espessura_m,
-              t.densidade,
-              t.observacoes,
-            ].some((v) => isBlank(v))
-          );
+          const trechoIncompleto = producaoCauq.trechos
+            .map((t, idx) => {
+              const faltantes = camposObrigatoriosTrecho
+                .filter((c) => isBlank(String(t[c.key] ?? "")))
+                .map((c) => c.label);
+              return { t, idx, faltantes };
+            })
+            .find(({ t, faltantes }) => trechoTemConteudo(t) && faltantes.length > 0);
 
           if (trechoIncompleto) {
             toast({
-              title: "⚠️ Trecho incompleto",
-              description: "Todos os campos preenchíveis da Produção do Dia (CAUQ) devem ser preenchidos.",
+              title: `⚠️ Trecho ${trechoIncompleto.idx + 1} incompleto`,
+              description: `Faltando: ${trechoIncompleto.faltantes.join(", ")}.`,
               variant: "destructive",
             });
             return;
@@ -891,16 +888,32 @@ export default function RdoForm() {
           .from("rdo_diarios").update(rdoPayload).eq("id", editId);
         if (updError) throw updError;
         rdoId = editId;
+
         // Limpar dados filhos antes de reinserir
-        await Promise.all([
-          (supabase as any).from("rdo_efetivo").delete().eq("rdo_id", rdoId),
-          (supabase as any).from("rdo_producao").delete().eq("rdo_id", rdoId),
-          (supabase as any).from("rdo_equipamentos").delete().eq("rdo_id", rdoId),
-          (supabase as any).from("rdo_nf_massa").delete().eq("rdo_id", rdoId),
-          (supabase as any).from("rdo_efetivo_terceiros").delete().eq("rdo_id", rdoId),
-          (supabase as any).from("rdo_sinalizacao_horizontal").delete().eq("rdo_id", rdoId),
-          (supabase as any).from("rdo_informacoes_dmt").delete().eq("rdo_id", rdoId),
-        ]);
+        const deleteTables = [
+          "rdo_efetivo",
+          "rdo_producao",
+          "rdo_equipamentos",
+          "rdo_nf_massa",
+          "rdo_efetivo_terceiros",
+          "rdo_sinalizacao_horizontal",
+          "rdo_informacoes_dmt",
+        ] as const;
+
+        const deleteResults = await Promise.all(
+          deleteTables.map(async (table) => {
+            const { error } = await (supabase as any).from(table).delete().eq("rdo_id", rdoId);
+            return { table, error };
+          })
+        );
+
+        const deleteErrors = deleteResults.filter((r) => r.error);
+        if (deleteErrors.length > 0) {
+          const detalhe = deleteErrors
+            .map((e) => `${e.table}: ${e.error?.message || "erro desconhecido"}`)
+            .join(" | ");
+          throw new Error(`Falha ao limpar dados antigos do RDO antes de salvar. ${detalhe}`);
+        }
       } else {
         const { data: rdo, error: rdoError } = await supabase
           .from("rdo_diarios")
