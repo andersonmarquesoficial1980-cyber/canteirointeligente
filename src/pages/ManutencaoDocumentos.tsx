@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ArrowLeft, Plus, Upload, FileText, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const TIPOS_DOC = ["CRLV", "Licença Especial", "Nota Fiscal", "Seguro", "Tacógrafo", "AVCB", "Outro"];
 
@@ -36,8 +37,8 @@ function diasRestantes(d: string): number {
 
 export default function ManutencaoDocumentos() {
   const navigate = useNavigate();
-  const location = useLocation();
   const isAdmin = useIsAdmin();
+  const rotaVoltar = useOrigemBack("/manutencao", { "gestao-frotas": "/gestao-frotas" });
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -91,9 +92,6 @@ export default function ManutencaoDocumentos() {
   }
 
   const f = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
-
-  const origem = new URLSearchParams(location.search).get("origem");
-  const rotaVoltar = origem === "gestao-frotas" ? "/gestao-frotas" : "/manutencao";
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">

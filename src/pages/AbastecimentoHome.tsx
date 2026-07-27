@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { fmtNum } from "@/lib/fmt";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
+import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO", "BUS"];
 const MACARICO_TYPE_VALUE = "MACARICO";
@@ -177,7 +178,7 @@ function buildOgsOptions(ogsData: any[]) {
 
 export default function AbastecimentoHome() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
   const { categorias } = useEquipamentoTipos();
 
   // ── Dados da tela principal ──
@@ -722,9 +723,6 @@ export default function AbastecimentoHome() {
     if (!porEquipamento[key]) porEquipamento[key] = [];
     porEquipamento[key].push(a);
   });
-
-  const origem = new URLSearchParams(location.search).get("origem");
-  const rotaVoltar = origem === "gestao-frotas" ? "/gestao-frotas" : "/";
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
