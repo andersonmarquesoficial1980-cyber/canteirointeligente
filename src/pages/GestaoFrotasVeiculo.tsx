@@ -424,7 +424,7 @@ export default function GestaoFrotasVeiculo() {
             <h3 className="font-display font-bold text-sm flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" /> Documentos ({documentos.length})
             </h3>
-            <button onClick={() => navigate("/manutencao/documentos")} className="text-xs text-primary underline">Ver todos</button>
+            <button onClick={() => navigate("/manutencao/documentos?origem=gestao-frotas")} className="text-xs text-primary underline">Ver todos</button>
           </div>
           {documentos.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">Nenhum documento cadastrado para este veículo.</p>

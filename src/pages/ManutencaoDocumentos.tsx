@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -36,6 +36,7 @@ function diasRestantes(d: string): number {
 
 export default function ManutencaoDocumentos() {
   const navigate = useNavigate();
+  const location = useLocation();
   const isAdmin = useIsAdmin();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,10 +92,13 @@ export default function ManutencaoDocumentos() {
 
   const f = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
+  const origem = new URLSearchParams(location.search).get("origem");
+  const rotaVoltar = origem === "gestao-frotas" ? "/gestao-frotas" : "/manutencao";
+
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/manutencao")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"><ArrowLeft className="w-5 h-5" /></button>
+        <button onClick={() => navigate(rotaVoltar)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"><ArrowLeft className="w-5 h-5" /></button>
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Documentos de Veículos</span>
           <span className="block text-[11px] text-primary-foreground/80">CRLV, Licenças, NFs</span>
