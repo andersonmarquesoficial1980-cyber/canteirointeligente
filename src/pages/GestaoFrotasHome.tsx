@@ -1014,7 +1014,7 @@ export default function GestaoFrotasHome() {
       {/* ABA CONSUMO DE DIESEL */}
       {aba === "consumo" && (
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
-          <Button onClick={() => navigate("/manutencao/consumo")} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
+          <Button onClick={() => navigate("/abastecimento?origem=gestao-frotas")} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
             <Fuel className="w-4 h-4" /> Consumo de Diesel
           </Button>
         </div>
