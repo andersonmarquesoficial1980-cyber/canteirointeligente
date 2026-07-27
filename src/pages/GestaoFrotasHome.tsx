@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
-import { ArrowLeft, Plus, Car, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio } from "lucide-react";
+import { ArrowLeft, Plus, Car, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio, History, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
@@ -18,6 +18,15 @@ function fmtDate(d: string) {
   if (!d) return "";
   const [y, m, day] = d.split("-");
   return `${day}/${m}/${y}`;
+}
+
+function fmtDateTime(d: string | null | undefined) {
+  if (!d) return "";
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return "";
+  const data = dt.toLocaleDateString("pt-BR");
+  const hora = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${data} ${hora}`;
 }
 
 const GF_FILTROS_KEY = "gestao-frotas-home:filtros-v10.3";
@@ -65,6 +74,8 @@ export default function GestaoFrotasHome() {
   const [medidoresMap, setMedidoresMap] = useState<Record<string, any>>({});
   const [aba, setAba] = useState<"frotas" | "documentos" | "consumo">("frotas");
   const [docsVencendo, setDocsVencendo] = useState<any[]>([]);
+  const [historicoTrocaEquipe, setHistoricoTrocaEquipe] = useState<any[]>([]);
+  const [loadingHistoricoTrocaEquipe, setLoadingHistoricoTrocaEquipe] = useState(false);
 
   const filtrosIniciais = useMemo(() => carregarFiltrosIniciais(), []);
 
@@ -76,7 +87,10 @@ export default function GestaoFrotasHome() {
   const [filtroFrota, setFiltroFrota] = useState<string>(filtrosIniciais.frota);
   const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
 
-  useEffect(() => { buscarTodos(); }, []);
+  useEffect(() => {
+    buscarTodos();
+    carregarHistoricoTrocaEquipe({ silencioso: true });
+  }, []);
 
   useEffect(() => {
     (supabase as any).from("manutencao_documentos")
@@ -145,6 +159,34 @@ export default function GestaoFrotasHome() {
       if (!map[frota] || a.data > map[frota].data) map[frota] = { valor: Number(valor), tipo: temKm ? "odômetro" : "horímetro", data: a.data };
     });
     setMedidoresMap(map);
+  }
+
+  async function carregarHistoricoTrocaEquipe(options?: { silencioso?: boolean }) {
+    const silencioso = options?.silencioso ?? true;
+    setLoadingHistoricoTrocaEquipe(true);
+
+    const { data, error } = await (supabase as any)
+      .from("audit_log")
+      .select("id, created_at, user_nome, registro_id, dados_antes, dados_depois")
+      .eq("acao", "ALTERACAO_EQUIPE_RAPIDA")
+      .eq("tabela", "equipamentos")
+      .order("created_at", { ascending: false })
+      .limit(12);
+
+    if (error) {
+      if (!silencioso) {
+        toast({
+          title: "Falha ao carregar histórico",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+      setLoadingHistoricoTrocaEquipe(false);
+      return;
+    }
+
+    setHistoricoTrocaEquipe(data || []);
+    setLoadingHistoricoTrocaEquipe(false);
   }
 
   // Mapa de tipo -> metadados (categoria/subtipo)
@@ -301,6 +343,8 @@ export default function GestaoFrotasHome() {
         return;
       }
 
+      await carregarHistoricoTrocaEquipe({ silencioso: true });
+
       toast({
         title: "Equipe atualizada",
         description: `${veiculoAtual?.frota || veiculoAtual?.placa || "Equipamento"}: ${setorAnterior || "Sem equipe"} → ${setorNovo || "Sem equipe"}`,
@@ -452,6 +496,57 @@ export default function GestaoFrotasHome() {
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
+
+          <div className="rdo-card space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-primary" />
+                <p className="text-sm font-semibold">Últimas alterações de equipe</p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => carregarHistoricoTrocaEquipe({ silencioso: false })}
+                disabled={loadingHistoricoTrocaEquipe}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loadingHistoricoTrocaEquipe ? "animate-spin" : ""}`} />
+                Atualizar
+              </Button>
+            </div>
+
+            {loadingHistoricoTrocaEquipe ? (
+              <div className="py-4 flex justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              </div>
+            ) : historicoTrocaEquipe.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhuma alteração registrada ainda.</p>
+            ) : (
+              <div className="space-y-2">
+                {historicoTrocaEquipe.map((item) => {
+                  const antes = (item?.dados_antes as any)?.valor || null;
+                  const depois = (item?.dados_depois as any)?.valor || null;
+                  const frota =
+                    (item?.dados_depois as any)?.frota ||
+                    (item?.dados_antes as any)?.frota ||
+                    item?.registro_id ||
+                    "Equipamento";
+
+                  return (
+                    <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
+                      <p className="text-xs text-slate-800">
+                        <strong>{frota}</strong>: {antes || "Sem equipe"} → {depois || "Sem equipe"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {item?.user_nome || "Usuário"} • {fmtDateTime(item?.created_at) || "Sem data"}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <div className="rdo-card space-y-3">
             <p className="text-xs text-muted-foreground font-semibold">Filtros rápidos (Tipo / Subtipo / Frota / Equipe)</p>
