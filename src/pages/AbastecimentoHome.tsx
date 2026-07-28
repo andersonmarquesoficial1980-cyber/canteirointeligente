@@ -262,8 +262,18 @@ export default function AbastecimentoHome() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setUserId(user.id);
-    const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).maybeSingle();
-    const cid = (profile as any)?.company_id || null;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("company_id, perfil, role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const profileAny = profile as any;
+    const cid = profileAny?.company_id || null;
+    const roleNorm = String(profileAny?.role || "").toLowerCase();
+    const perfilNorm = String(profileAny?.perfil || "").toLowerCase();
+    const isAdminByProfile = perfilNorm === "administrador" || roleNorm === "admin" || roleNorm === "superadmin";
+
     setCompanyId(cid);
 
     const [abast, equips, ogsRes, cfgRes, opComboio, opLubri] = await Promise.all([
@@ -293,14 +303,33 @@ export default function AbastecimentoHome() {
       const { data: nomes } = await (supabase as any).from("employees").select("name").in("id", idsLubri).order("name");
       if (nomes) setLubrificadores(nomes.map((r: any) => r.name).filter(Boolean));
     }
-    // Checar se usuário é fuel_admin
-    const { data: fuelAdminCheck } = await (supabase as any)
+    // Checar se usuário pode gerenciar Abastecimento (admin de perfil, role Fuel/Super ou permissão explícita)
+    const { data: roleAssignments } = await (supabase as any)
       .from("user_admin_roles")
-      .select("id, admin_roles(name)")
+      .select("role_id, admin_roles(name)")
       .eq("user_id", user.id)
       .eq("is_active", true);
-    const fuelAdminNames = (fuelAdminCheck || []).map((r: any) => r.admin_roles?.name?.toLowerCase() || "");
-    setIsFuelAdmin(fuelAdminNames.some((n: string) => n.includes("fuel") || n.includes("abastec")));
+
+    const roleIds = (roleAssignments || []).map((r: any) => r.role_id).filter(Boolean);
+    const roleNames = (roleAssignments || []).map((r: any) => String(r.admin_roles?.name || "").toLowerCase());
+
+    const rolePerms = roleIds.length > 0
+      ? await (supabase as any)
+          .from("admin_permissions")
+          .select("resource, action")
+          .in("role_id", roleIds)
+      : { data: [] as any[] };
+
+    const hasFuelRole = roleNames.some((n: string) => n.includes("fuel") || n.includes("abastec") || n.includes("super"));
+    const hasFuelPermission = (rolePerms.data || []).some((p: any) => {
+      const resource = String(p.resource || "").toLowerCase();
+      const action = String(p.action || "").toLowerCase();
+      const isFuelResource = resource === "abastecimentos" || resource === "all";
+      const isAllowedAction = ["view_all", "manage", "view", "edit", "delete", "create"].includes(action);
+      return isFuelResource && isAllowedAction;
+    });
+
+    setIsFuelAdmin(isAdminByProfile || hasFuelRole || hasFuelPermission);
 
     setLoading(false);
   }
