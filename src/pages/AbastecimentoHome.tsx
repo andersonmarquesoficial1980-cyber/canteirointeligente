@@ -210,6 +210,11 @@ export default function AbastecimentoHome() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isFuelAdmin, setIsFuelAdmin] = useState(false);
 
+  // Filtro de visualização em Meus/Todos os Lançamentos (oculto por padrão)
+  const [lancFiltroDia, setLancFiltroDia] = useState("");
+  const [lancFiltroInicio, setLancFiltroInicio] = useState("");
+  const [lancFiltroFim, setLancFiltroFim] = useState("");
+
   // ── Modal edição ──
   const [editingRow, setEditingRow] = useState<AbastecimentoRow | null>(null);
   const [editLitros, setEditLitros] = useState("");
@@ -277,7 +282,7 @@ export default function AbastecimentoHome() {
     setCompanyId(cid);
 
     const [abast, equips, ogsRes, cfgRes, opComboio, opLubri] = await Promise.all([
-      supabase.from("abastecimentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }).limit(200),
+      supabase.from("abastecimentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }).limit(3000),
       (supabase as any).from("equipamentos").select("id, frota, nome, placa, tipo, categoria_rdo").in("status", ["ativo", "Operando"]).order("frota"),
       (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address"),
       (supabase as any).from("abastecimento_config").select("*").eq("company_id", cid).maybeSingle(),
@@ -856,69 +861,149 @@ export default function AbastecimentoHome() {
           </button>
         </div>
 
-        {/* ── MEUS LANÇAMENTOS ── */}
+        {/* ── MEUS/TODOS LANÇAMENTOS (COM FILTRO DE PERÍODO) ── */}
         {(() => {
-           const meusLancamentos = isFuelAdmin
-             ? abastecimentos
-             : abastecimentos.filter(a => a.created_by === userId);
+          const meusLancamentos = isFuelAdmin
+            ? abastecimentos
+            : abastecimentos.filter(a => a.created_by === userId);
+
           if (meusLancamentos.length === 0) return null;
+
+          const hasFiltro = !!lancFiltroDia || !!lancFiltroInicio || !!lancFiltroFim;
+          const lancamentosFiltrados = meusLancamentos.filter((a) => {
+            if (!hasFiltro) return false; // oculto por padrão até escolher dia/período
+            if (lancFiltroDia) return a.data === lancFiltroDia;
+            if (lancFiltroInicio && a.data < lancFiltroInicio) return false;
+            if (lancFiltroFim && a.data > lancFiltroFim) return false;
+            return true;
+          });
+
           return (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Droplets className="w-4 h-4 text-primary" />
-                 <span className="text-sm font-display font-extrabold text-foreground uppercase tracking-wide">{isFuelAdmin ? "Todos os Lançamentos" : "Meus Lançamentos"}</span>
-                <span className="ml-auto text-xs text-muted-foreground">{meusLancamentos.length} registro{meusLancamentos.length !== 1 ? "s" : ""}</span>
+                <span className="text-sm font-display font-extrabold text-foreground uppercase tracking-wide">{isFuelAdmin ? "Todos os Lançamentos" : "Meus Lançamentos"}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{lancamentosFiltrados.length} registro{lancamentosFiltrados.length !== 1 ? "s" : ""}</span>
               </div>
-              <div className="space-y-2">
-                {meusLancamentos.slice(0, 10).map(a => {
-                  const cfg = FONTE_CONFIG[a.fonte] || FONTE_CONFIG.manual;
-                  const medicao = a.horimetro ? `${fmtNum(a.horimetro)} h` : a.km_odometro ? `${fmtNum(a.km_odometro)} km` : null;
-                   const podeEditarExcluir = isFuelAdmin || a.created_by === userId;
-                  return (
-                    <div key={a.id} className="bg-card border rounded-2xl p-3 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${cfg.color}`}>{cfg.emoji} {cfg.label}</span>
-                        <span className="text-xs text-muted-foreground ml-auto">{fmtDate(a.data)}{a.hora ? ` · ${a.hora}` : ""}</span>
-                         {podeEditarExcluir && (
-                           <div className="flex gap-1 ml-1">
-                             <button
-                               onClick={() => abrirEdicao(a)}
-                               className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors"
-                               title="Editar"
-                             >
-                               <Pencil className="w-3.5 h-3.5" />
-                             </button>
-                             <button
-                               onClick={() => excluirLancamento(a.id)}
-                               className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
-                               title="Excluir"
-                             >
-                               <Trash2 className="w-3.5 h-3.5" />
-                             </button>
-                           </div>
-                         )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Truck className="w-4 h-4 text-primary shrink-0" />
-                        <span className="text-sm font-bold">{a.equipment_fleet}</span>
-                        {a.equipment_type && <span className="text-xs text-muted-foreground">({a.equipment_type})</span>}
-                        <span className="ml-auto text-sm font-bold text-primary">{fmtNum(a.litros)} L</span>
-                      </div>
-                      {(a.ogs || medicao || a.comboio_fleet) && (
-                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                          {a.comboio_fleet && <span>🚛 {a.comboio_fleet}</span>}
-                          {a.ogs && <span>OGS: {a.ogs}</span>}
-                          {medicao && <span>⏱ {medicao}</span>}
+
+              <div className="bg-muted/30 border rounded-2xl p-3 space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filtro de visualização</div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <div className="space-y-1">
+                    <span className="text-[11px] text-muted-foreground">Dia específico</span>
+                    <Input
+                      type="date"
+                      value={lancFiltroDia}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setLancFiltroDia(v);
+                        if (v) {
+                          setLancFiltroInicio("");
+                          setLancFiltroFim("");
+                        }
+                      }}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[11px] text-muted-foreground">Período - início</span>
+                    <Input
+                      type="date"
+                      value={lancFiltroInicio}
+                      onChange={(e) => {
+                        setLancFiltroInicio(e.target.value);
+                        if (e.target.value) setLancFiltroDia("");
+                      }}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[11px] text-muted-foreground">Período - fim</span>
+                    <Input
+                      type="date"
+                      value={lancFiltroFim}
+                      onChange={(e) => {
+                        setLancFiltroFim(e.target.value);
+                        if (e.target.value) setLancFiltroDia("");
+                      }}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 rounded-xl w-full"
+                      onClick={() => {
+                        setLancFiltroDia("");
+                        setLancFiltroInicio("");
+                        setLancFiltroFim("");
+                      }}
+                    >
+                      Limpar filtro
+                    </Button>
+                  </div>
+                </div>
+                {!hasFiltro && (
+                  <div className="text-xs text-muted-foreground">Lançamentos ocultos por padrão. Selecione um dia específico ou período para visualizar.</div>
+                )}
+              </div>
+
+              {hasFiltro && (
+                <div className="space-y-2">
+                  {lancamentosFiltrados.length === 0 && (
+                    <div className="text-xs text-muted-foreground bg-card border rounded-xl p-3">Nenhum lançamento encontrado para o filtro selecionado.</div>
+                  )}
+                  {lancamentosFiltrados.map(a => {
+                    const cfg = FONTE_CONFIG[a.fonte] || FONTE_CONFIG.manual;
+                    const medicao = a.horimetro ? `${fmtNum(a.horimetro)} h` : a.km_odometro ? `${fmtNum(a.km_odometro)} km` : null;
+                    const podeEditarExcluir = isFuelAdmin || a.created_by === userId;
+                    return (
+                      <div key={a.id} className="bg-card border rounded-2xl p-3 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${cfg.color}`}>{cfg.emoji} {cfg.label}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">{fmtDate(a.data)}{a.hora ? ` · ${a.hora}` : ""}</span>
+                          {podeEditarExcluir && (
+                            <div className="flex gap-1 ml-1">
+                              <button
+                                onClick={() => abrirEdicao(a)}
+                                className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors"
+                                title="Editar"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => excluirLancamento(a.id)}
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      <div className="flex gap-3 text-xs">
-                        {a.lubrificado && <span className="text-green-600 font-medium">✓ Lubrificado</span>}
-                        {a.lavado && <span className="text-blue-600 font-medium">✓ Lavado</span>}
+                        <div className="flex items-center gap-3">
+                          <Truck className="w-4 h-4 text-primary shrink-0" />
+                          <span className="text-sm font-bold">{a.equipment_fleet}</span>
+                          {a.equipment_type && <span className="text-xs text-muted-foreground">({a.equipment_type})</span>}
+                          <span className="ml-auto text-sm font-bold text-primary">{fmtNum(a.litros)} L</span>
+                        </div>
+                        {(a.ogs || medicao || a.comboio_fleet) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                            {a.comboio_fleet && <span>🚛 {a.comboio_fleet}</span>}
+                            {a.ogs && <span>OGS: {a.ogs}</span>}
+                            {medicao && <span>⏱ {medicao}</span>}
+                          </div>
+                        )}
+                        <div className="flex gap-3 text-xs">
+                          {a.lubrificado && <span className="text-green-600 font-medium">✓ Lubrificado</span>}
+                          {a.lavado && <span className="text-blue-600 font-medium">✓ Lavado</span>}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })()}
