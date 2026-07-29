@@ -58,6 +58,10 @@ const VINCULO_LABELS: Record<string, string> = {
   BOBCAT: "Bobcat",
   VIBRO: "Vibroacabadora",
   KMA: "Usina Móvel KMA",
+  KMA_CAP: "KMA • CAP",
+  KMA_FILER: "KMA • Filer",
+  KMA_SILO: "KMA • Silos",
+  KMA_AGUA: "KMA • Água",
   ROLO_CHAPA: "🚧 Rolo Chapa",
   ROLO_PNEU: "🚧 Rolo Pneu",
   ROLO_PE_CARNEIRO: "🚧 Rolo Pé de Carneiro",
@@ -2314,7 +2318,18 @@ function MateriaisUnificadoManager() {
   );
 }
 
-const MATERIAL_VINCULO_OPTIONS = ["CAUQ", "PAVIMENTACAO", "CANTEIRO", "INFRA", "TODOS"];
+const MATERIAL_VINCULO_OPTIONS = [
+  "CAUQ",
+  "PAVIMENTACAO",
+  "CANTEIRO",
+  "INFRA",
+  "KMA_CAP",
+  "KMA_FILER",
+  "KMA_SILO",
+  "KMA_AGUA",
+  "KMA",
+  "TODOS",
+];
 const FORNECEDOR_VINCULO_OPTIONS = ["CAUQ", "PAVIMENTACAO", "CANTEIRO", "INFRA", "COMBOIO", "ESPARGIDOR", "PIPA", "KMA", "TODOS"];
 
 function MaterialManager() {

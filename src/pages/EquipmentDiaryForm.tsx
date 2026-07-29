@@ -48,10 +48,13 @@ const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Em T
 // Frotas removidas do hardcode — agora vêm de maquinas_frota (Painel de Controle)
 
 const KMA_OPERATION_TYPES = ["Usinagem", "Limpeza", "Manutenção"] as const;
-const CAP_TYPES = ["CAP 50/70", "CAP 30/45", "AMP 55/75", "AMP 60/85"];
-const FILER_TYPES = ["Calcário", "Cal Hidratada", "Cimento Portland"];
-const SILO_MATERIALS = ["Brita 0", "Brita 1", "Pedrisco", "Pó de Pedra", "Areia", "RAP"];
-const AGUA_FORNECEDORES = ["CLIENTE", "PRÓPRIO"];
+
+// Fallbacks legados (segurança): se não houver cadastro no Painel,
+// KMA continua operando com as opções antigas sem quebrar fluxo.
+const CAP_TYPES_FALLBACK = ["CAP 50/70", "CAP 30/45", "AMP 55/75", "AMP 60/85"];
+const FILER_TYPES_FALLBACK = ["Calcário", "Cal Hidratada", "Cimento Portland"];
+const SILO_MATERIALS_FALLBACK = ["Brita 0", "Brita 1", "Pedrisco", "Pó de Pedra", "Areia", "RAP"];
+const AGUA_FORNECEDORES_FALLBACK = ["CLIENTE", "PRÓPRIO"];
 
 interface KmaOperationData {
   operationType: string;
@@ -617,6 +620,57 @@ export default function EquipmentDiaryForm() {
       return (data || []) as any[];
     },
   });
+
+  // Materiais KMA (centralizados no Painel de Controle > Materiais)
+  const { data: materiaisKmaDb = [] } = useQuery({
+    queryKey: ["materiais_kma_operacao"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("materiais")
+        .select("nome, vinculo_rdo, tipo_uso")
+        .or("vinculo_rdo.eq.KMA,vinculo_rdo.eq.KMA_CAP,vinculo_rdo.eq.KMA_FILER,vinculo_rdo.eq.KMA_SILO,vinculo_rdo.eq.KMA_AGUA,vinculo_rdo.eq.TODOS")
+        .order("nome");
+
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+
+  const normalizeKey = (v: string) =>
+    String(v || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toUpperCase();
+
+  const kmaMaterialOptions = useMemo(() => {
+    const byScope = (acceptedScopes: string[], fallback: string[]) => {
+      const accepted = new Set(acceptedScopes.map((s) => normalizeKey(s)));
+      const out = new Set<string>();
+
+      for (const row of materiaisKmaDb) {
+        const nome = String((row as any)?.nome || "").trim();
+        if (!nome) continue;
+        const scope = normalizeKey((row as any)?.vinculo_rdo || "TODOS");
+        if (!accepted.has(scope)) continue;
+        out.add(nome);
+      }
+
+      return out.size > 0 ? Array.from(out) : fallback;
+    };
+
+    return {
+      cap: byScope(["KMA_CAP", "KMA", "TODOS"], CAP_TYPES_FALLBACK),
+      filer: byScope(["KMA_FILER", "KMA", "TODOS"], FILER_TYPES_FALLBACK),
+      silo: byScope(["KMA_SILO", "KMA", "TODOS"], SILO_MATERIALS_FALLBACK),
+      agua: byScope(["KMA_AGUA", "KMA", "TODOS"], AGUA_FORNECEDORES_FALLBACK),
+    };
+  }, [materiaisKmaDb]);
+
+  const withCurrentOption = (options: string[], currentValue: string) => {
+    if (!currentValue) return options;
+    return options.includes(currentValue) ? options : [currentValue, ...options];
+  };
 
   // ── SINCRONIZAÇÃO AUTOMÁTICA DE COMBUSTÍVEL (Comboio → Equipamento) ──
   useEffect(() => {
@@ -2920,7 +2974,7 @@ export default function EquipmentDiaryForm() {
                           <SelectValue placeholder="Tipo..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {CAP_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          {withCurrentOption(kmaMaterialOptions.cap, kmaOperation.capType).map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -2955,7 +3009,7 @@ export default function EquipmentDiaryForm() {
                           <SelectValue placeholder="Tipo..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {FILER_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          {withCurrentOption(kmaMaterialOptions.filer, kmaOperation.filerType).map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -2991,7 +3045,7 @@ export default function EquipmentDiaryForm() {
                           <SelectValue placeholder="Material..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {SILO_MATERIALS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                          {withCurrentOption(kmaMaterialOptions.silo, kmaOperation.silo1Material).map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -3008,7 +3062,7 @@ export default function EquipmentDiaryForm() {
                           <SelectValue placeholder="Material..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {SILO_MATERIALS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                          {withCurrentOption(kmaMaterialOptions.silo, kmaOperation.silo2Material).map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -3034,7 +3088,7 @@ export default function EquipmentDiaryForm() {
                            <SelectValue placeholder="Selecione..." />
                          </SelectTrigger>
                          <SelectContent>
-                           {AGUA_FORNECEDORES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                           {withCurrentOption(kmaMaterialOptions.agua, kmaOperation.waterSupplier).map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                          </SelectContent>
                        </Select>
                     </div>
