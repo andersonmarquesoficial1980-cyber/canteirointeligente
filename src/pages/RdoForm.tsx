@@ -713,12 +713,13 @@ export default function RdoForm() {
         toast({ title: "Erro", description: "Selecione o Status da obra.", variant: "destructive" });
         return;
       }
-      if (isBlank(header.encarregado)) {
+      const tipoSemResponsaveisObrigatorios = ["CANTEIRO", "PATIO"].includes(tipoRdo || "");
+      if (!tipoSemResponsaveisObrigatorios && isBlank(header.encarregado)) {
         toast({ title: "Erro", description: "Preencha o Encarregado da obra.", variant: "destructive" });
         return;
       }
       const infraSemEngObrigatorio = ["INFRAESTRUTURA", "INFRA"].includes(tipoRdo || "");
-      if (!infraSemEngObrigatorio && isBlank(header.engenheiro_responsavel)) {
+      if (!tipoSemResponsaveisObrigatorios && !infraSemEngObrigatorio && isBlank(header.engenheiro_responsavel)) {
         toast({ title: "Erro", description: "Preencha o Engenheiro responsável.", variant: "destructive" });
         return;
       }
@@ -1342,7 +1343,8 @@ export default function RdoForm() {
             <RdoHeader
               data={header}
               onChange={handleHeaderChange}
-              engenheiroObrigatorio={!(["INFRAESTRUTURA", "INFRA"].includes(tipoRdo || ""))}
+              encarregadoObrigatorio={!(["CANTEIRO", "PATIO"].includes(tipoRdo || ""))}
+              engenheiroObrigatorio={!(["INFRAESTRUTURA", "INFRA", "CANTEIRO", "PATIO"].includes(tipoRdo || ""))}
             />
           </div>
         )}

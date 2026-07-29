@@ -21,6 +21,7 @@ interface RdoHeaderProps {
     preenchido_por?: string; // readonly — vem do perfil logado
   };
   onChange: (field: string, value: string) => void;
+  encarregadoObrigatorio?: boolean;
   engenheiroObrigatorio?: boolean;
 }
 
@@ -37,7 +38,12 @@ function formatDateBR(dateStr: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export default function RdoHeader({ data, onChange, engenheiroObrigatorio = true }: RdoHeaderProps) {
+export default function RdoHeader({
+  data,
+  onChange,
+  encarregadoObrigatorio = true,
+  engenheiroObrigatorio = true,
+}: RdoHeaderProps) {
   const { data: obras, isLoading } = useOgsReference();
 
   const todaySaoPauloIso = useMemo(() => {
@@ -204,7 +210,7 @@ export default function RdoHeader({ data, onChange, engenheiroObrigatorio = true
           </div>
         </div>
         <div className="space-y-1.5">
-          <span className="rdo-label">Encarregado da obra *</span>
+          <span className="rdo-label">Encarregado da obra {encarregadoObrigatorio ? "*" : "(opcional)"}</span>
           <ResponsavelInput
             value={data.encarregado || ""}
             onChange={v => onChange("encarregado", v)}
