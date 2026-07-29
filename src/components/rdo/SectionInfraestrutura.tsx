@@ -23,6 +23,8 @@ interface Props {
   onChangeEmpreiteiro: (v: string) => void;
   onChangeProducao: (entries: InfraProducaoEntry[]) => void;
   tipoRdo: string;
+  semProducao: boolean;
+  onToggleSemProducao: (checked: boolean) => void;
 }
 
 const TIPOS_SEM_PRODUCAO = ["DEMOLIÇÃO", "REPARO", "LIMPEZA"];
@@ -32,7 +34,15 @@ const emptyEntry = (): InfraProducaoEntry => ({
   comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false,
 });
 
-export default function SectionInfraestrutura({ empreiteiro, producao, onChangeEmpreiteiro, onChangeProducao, tipoRdo }: Props) {
+export default function SectionInfraestrutura({
+  empreiteiro,
+  producao,
+  onChangeEmpreiteiro,
+  onChangeProducao,
+  tipoRdo,
+  semProducao,
+  onToggleSemProducao,
+}: Props) {
   const { data: empreiteiros } = useEmpreiteiros(tipoRdo);
   const { data: servicos } = useTiposServico(tipoRdo);
 
@@ -70,115 +80,134 @@ export default function SectionInfraestrutura({ empreiteiro, producao, onChangeE
 
       <h3 className="text-sm font-display font-bold pt-1" style={{ color: "hsl(220 70% 30%)" }}>Produção</h3>
 
-      {producao.map((entry, idx) => {
-        const comp = parseFloat(entry.comprimento_m) || 0;
-        const larg = parseFloat(entry.largura_m) || 0;
-        const esp = parseFloat(entry.espessura_cm) || 0;
-        const area = comp * larg;
-        const volume = area * (esp / 100);
+      <div className="rdo-card flex items-center justify-between gap-3">
+        <label htmlFor="sem-producao-infra" className="text-sm font-semibold text-primary cursor-pointer">
+          Sem Produção neste dia
+        </label>
+        <Checkbox
+          id="sem-producao-infra"
+          checked={semProducao}
+          onCheckedChange={(checked) => onToggleSemProducao(Boolean(checked))}
+        />
+      </div>
 
-        // Alerta de estaca vs comprimento
-        const estIni = parseFloat(entry.estaca_inicial) || 0;
-        const estFin = parseFloat(entry.estaca_final) || 0;
-        const compEsperado = estIni > 0 && estFin > 0 ? Math.abs(estFin - estIni) : null;
-        const divergenciaEstaca = compEsperado !== null && comp > 0 && Math.abs(comp - compEsperado) > 0.01;
-        return (
-          <div key={entry.id} className="rdo-card space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-display font-bold text-primary">Trecho {idx + 1}</span>
-              {producao.length > 1 && (
-                <button onClick={() => onChangeProducao(producao.filter(e => e.id !== entry.id))} className="text-destructive p-1 hover:bg-destructive/10 rounded-lg transition-colors">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            {/* Tipo de Serviço por trecho */}
-            <div className="space-y-1.5">
-              <span className="rdo-label">Tipo de Serviço</span>
-              <Select value={entry.tipo_servico} onValueChange={v => update(entry.id, "tipo_servico", v)}>
-                <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {tiposServico.length > 0
-                    ? tiposServico.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)
-                    : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado</p>}
-                </SelectContent>
-              </Select>
-            </div>
+      {semProducao ? (
+        <div className="rdo-card border-l-4 border-l-amber-400 bg-amber-50/60">
+          <p className="text-sm font-medium text-amber-900">Sem Produção marcado. O preenchimento de produção foi desobrigado para este RDO.</p>
+        </div>
+      ) : (
+        <>
+          {producao.map((entry, idx) => {
+            const comp = parseFloat(entry.comprimento_m) || 0;
+            const larg = parseFloat(entry.largura_m) || 0;
+            const esp = parseFloat(entry.espessura_cm) || 0;
+            const area = comp * larg;
+            const volume = area * (esp / 100);
 
-            {/* Campos de produção — ocultos para DEMOLIÇÃO, REPARO, LIMPEZA */}
-            {!TIPOS_SEM_PRODUCAO.includes(entry.tipo_servico) && (
-              <>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Sentido *</span>
-                    <Select value={entry.sentido} onValueChange={(v) => update(entry.id, "sentido", v)}>
-                      <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CRESCENTE">CRESCENTE</SelectItem>
-                        <SelectItem value="DECRESCENTE">DECRESCENTE</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Estaca Ini.</span>
-                    <Input inputMode="numeric" value={entry.estaca_inicial} onChange={e => update(entry.id, "estaca_inicial", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Estaca Fin.</span>
-                    <Input inputMode="numeric" value={entry.estaca_final} onChange={e => update(entry.id, "estaca_final", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Comp (m)</span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      value={entry.comprimento_m}
-                      onChange={e => update(entry.id, "comprimento_m", e.target.value)}
-                      className={`h-11 bg-white border-border rounded-xl ${divergenciaEstaca ? "border-amber-400 ring-1 ring-amber-400" : ""}`}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Larg (m)</span>
-                    <Input type="number" inputMode="decimal" value={entry.largura_m} onChange={e => update(entry.id, "largura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <span className="rdo-label">Esp (cm)</span>
-                    <Input type="number" inputMode="decimal" value={entry.espessura_cm} onChange={e => update(entry.id, "espessura_cm", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
-                  </div>
-                </div>
-
-                {/* Alerta divergência estaca x comprimento */}
-                {divergenciaEstaca && compEsperado !== null && (
-                  <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-300 px-3 py-2">
-                    <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
-                    <p className="text-xs text-amber-800 font-medium">
-                      Comprimento informado ({comp} m) difere do esperado pelas estacas ({compEsperado} m).
-                      Verifique se o valor está correto.
-                    </p>
-                  </div>
-                )}
-
+            // Alerta de estaca vs comprimento
+            const estIni = parseFloat(entry.estaca_inicial) || 0;
+            const estFin = parseFloat(entry.estaca_final) || 0;
+            const compEsperado = estIni > 0 && estFin > 0 ? Math.abs(estFin - estIni) : null;
+            const divergenciaEstaca = compEsperado !== null && comp > 0 && Math.abs(comp - compEsperado) > 0.01;
+            return (
+              <div key={entry.id} className="rdo-card space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Checkbox checked={entry.is_retrabalho} onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)} />
-                    <span className="text-xs text-muted-foreground">É Retrabalho?</span>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5">
-                    {area > 0 && <span className="text-sm font-bold text-primary">Área: {area.toFixed(2)} m²</span>}
-                    {volume > 0 && <span className="text-sm font-bold" style={{ color: "hsl(215 100% 40%)" }}>Volume: {volume.toFixed(3)} m³</span>}
-                  </div>
+                  <span className="text-sm font-display font-bold text-primary">Trecho {idx + 1}</span>
+                  {producao.length > 1 && (
+                    <button onClick={() => onChangeProducao(producao.filter(e => e.id !== entry.id))} className="text-destructive p-1 hover:bg-destructive/10 rounded-lg transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-              </>
-            )}
-          </div>
-        );
-      })}
+                {/* Tipo de Serviço por trecho */}
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Tipo de Serviço</span>
+                  <Select value={entry.tipo_servico} onValueChange={v => update(entry.id, "tipo_servico", v)}>
+                    <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {tiposServico.length > 0
+                        ? tiposServico.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)
+                        : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado</p>}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-      <Button size="sm" onClick={() => onChangeProducao([...producao, emptyEntry()])} className="w-full h-12 gap-2 text-base rounded-xl font-display font-bold">
-        <Plus className="w-5 h-5" /> Adicionar Trecho
-      </Button>
+                {/* Campos de produção — ocultos para DEMOLIÇÃO, REPARO, LIMPEZA */}
+                {!TIPOS_SEM_PRODUCAO.includes(entry.tipo_servico) && (
+                  <>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <span className="rdo-label">Sentido *</span>
+                        <Select value={entry.sentido} onValueChange={(v) => update(entry.id, "sentido", v)}>
+                          <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CRESCENTE">CRESCENTE</SelectItem>
+                            <SelectItem value="DECRESCENTE">DECRESCENTE</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="rdo-label">Estaca Ini.</span>
+                        <Input inputMode="numeric" value={entry.estaca_inicial} onChange={e => update(entry.id, "estaca_inicial", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="rdo-label">Estaca Fin.</span>
+                        <Input inputMode="numeric" value={entry.estaca_final} onChange={e => update(entry.id, "estaca_final", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <span className="rdo-label">Comp (m)</span>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          value={entry.comprimento_m}
+                          onChange={e => update(entry.id, "comprimento_m", e.target.value)}
+                          className={`h-11 bg-white border-border rounded-xl ${divergenciaEstaca ? "border-amber-400 ring-1 ring-amber-400" : ""}`}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="rdo-label">Larg (m)</span>
+                        <Input type="number" inputMode="decimal" value={entry.largura_m} onChange={e => update(entry.id, "largura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="rdo-label">Esp (cm)</span>
+                        <Input type="number" inputMode="decimal" value={entry.espessura_cm} onChange={e => update(entry.id, "espessura_cm", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+                      </div>
+                    </div>
+
+                    {/* Alerta divergência estaca x comprimento */}
+                    {divergenciaEstaca && compEsperado !== null && (
+                      <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-300 px-3 py-2">
+                        <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
+                        <p className="text-xs text-amber-800 font-medium">
+                          Comprimento informado ({comp} m) difere do esperado pelas estacas ({compEsperado} m).
+                          Verifique se o valor está correto.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={entry.is_retrabalho} onCheckedChange={v => update(entry.id, "is_retrabalho", !!v)} />
+                        <span className="text-xs text-muted-foreground">É Retrabalho?</span>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5">
+                        {area > 0 && <span className="text-sm font-bold text-primary">Área: {area.toFixed(2)} m²</span>}
+                        {volume > 0 && <span className="text-sm font-bold" style={{ color: "hsl(215 100% 40%)" }}>Volume: {volume.toFixed(3)} m³</span>}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+
+          <Button size="sm" onClick={() => onChangeProducao([...producao, emptyEntry()])} className="w-full h-12 gap-2 text-base rounded-xl font-display font-bold">
+            <Plus className="w-5 h-5" /> Adicionar Trecho
+          </Button>
+        </>
+      )}
     </div>
   );
 }

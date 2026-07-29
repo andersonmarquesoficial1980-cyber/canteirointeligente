@@ -37,6 +37,7 @@ export function buildHtmlReport(
   pvData?: PVData,
   sinalizacoesHorizontais?: SinalizacaoHorizontalData[],
   informacoesDmt?: InformacoesDmtData,
+  flags?: { semNota?: boolean; semProducao?: boolean },
 ): string {
   const formatDate = (d: string) => {
     if (!d) return "";
@@ -102,50 +103,58 @@ th{background:#f3f4f6;font-weight:600}
 
   // Notas Fiscais de Massa (before Produção)
   if (tipoRdo === "CAUQ") {
-    const filledNf = nfMassa.filter(n => n.nf || n.tonelagem);
-    if (filledNf.length > 0) {
-      html += `<h2>📄 Notas Fiscais de Massa</h2>
+    if (flags?.semNota) {
+      html += `<h2>📄 Notas Fiscais de Massa</h2><p><strong>Sem Nota neste dia.</strong></p>`;
+    } else {
+      const filledNf = nfMassa.filter(n => n.nf || n.tonelagem);
+      if (filledNf.length > 0) {
+        html += `<h2>📄 Notas Fiscais de Massa</h2>
 <table><tr><th>NF</th><th>Placa</th><th>Usina</th><th>Tonelagem</th><th>Material</th></tr>`;
-      filledNf.forEach(n => {
-        const ton = parseFloat(n.tonelagem) || 0;
-        html += `<tr><td>${n.nf}</td><td>${n.placa}</td><td>${n.usina}</td><td>${fmtBR(ton)}</td><td>${n.tipo_material === "Outro" ? n.tipo_material_outro : n.tipo_material}</td></tr>`;
-      });
-      const totalNf = filledNf.reduce((s, n) => s + (parseFloat(n.tonelagem) || 0), 0);
-      html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="3">TOTAL</td><td>${fmtBR(totalNf)}</td><td></td></tr></table>`;
+        filledNf.forEach(n => {
+          const ton = parseFloat(n.tonelagem) || 0;
+          html += `<tr><td>${n.nf}</td><td>${n.placa}</td><td>${n.usina}</td><td>${fmtBR(ton)}</td><td>${n.tipo_material === "Outro" ? n.tipo_material_outro : n.tipo_material}</td></tr>`;
+        });
+        const totalNf = filledNf.reduce((s, n) => s + (parseFloat(n.tonelagem) || 0), 0);
+        html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="3">TOTAL</td><td>${fmtBR(totalNf)}</td><td></td></tr></table>`;
+      }
     }
   }
 
   // Produção CAUQ
-  if (tipoRdo === "CAUQ" && producaoCauq.trechos.length > 0) {
-    const trechos = producaoCauq.trechos.filter(t => t.tipo_servico || t.comprimento_m);
-    if (trechos.length > 0) {
-      html += `<h2>📐 Produção do Dia (CAUQ)</h2>
+  if (tipoRdo === "CAUQ") {
+    if (flags?.semProducao) {
+      html += `<h2>📐 Produção do Dia (CAUQ)</h2><p><strong>Sem Produção neste dia.</strong></p>`;
+    } else if (producaoCauq.trechos.length > 0) {
+      const trechos = producaoCauq.trechos.filter(t => t.tipo_servico || t.comprimento_m);
+      if (trechos.length > 0) {
+        html += `<h2>📐 Produção do Dia (CAUQ)</h2>
 <table><tr><th>Serviço</th><th>Sentido/Faixa</th><th>Est. Inicial</th><th>Est. Final</th><th>Comp.(m)</th><th>Larg.(m)</th><th>Área(m²)</th><th>Esp.(m)</th><th>Ton</th></tr>`;
-      let totalArea = 0;
-      let totalTon = 0;
-      trechos.forEach(t => {
-        const c = parseFloat(String(t.comprimento_m || "0").replace(",", ".")) || 0;
-        const l = parseFloat(String(t.largura_m || "0").replace(",", ".")) || 0;
-        const area = c * l;
-        totalArea += area;
-        const espCm = parseFloat(String(t.espessura_m || "0").replace(",", ".")) || 0;
-        const dens = parseFloat(String(t.densidade || "0").replace(",", ".")) || 0;
-        const ton = area > 0 && espCm > 0 && dens > 0 ? area * (espCm / 100) * dens : 0;
-        totalTon += ton;
-        const espM = espCm > 0 ? espCm / 100 : 0;
-        const sentidoFaixa = [t.sentido, t.faixa].filter(Boolean).join(" - ");
-        html += `<tr><td>${t.tipo_servico}</td><td>${sentidoFaixa}</td><td>${t.estaca_inicial}</td><td>${t.estaca_final}</td><td>${fmtBR(c)}</td><td>${fmtBR(l)}</td><td>${fmtBR(area)}</td><td>${espM ? fmtBR(espM) : ""}</td><td>${fmtBR(ton)}</td></tr>`;
-      });
-      html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="6">TOTAL</td><td>${fmtBR(totalArea)}</td><td></td><td>${fmtBR(totalTon)}</td></tr></table>`;
+        let totalArea = 0;
+        let totalTon = 0;
+        trechos.forEach(t => {
+          const c = parseFloat(String(t.comprimento_m || "0").replace(",", ".")) || 0;
+          const l = parseFloat(String(t.largura_m || "0").replace(",", ".")) || 0;
+          const area = c * l;
+          totalArea += area;
+          const espCm = parseFloat(String(t.espessura_m || "0").replace(",", ".")) || 0;
+          const dens = parseFloat(String(t.densidade || "0").replace(",", ".")) || 0;
+          const ton = area > 0 && espCm > 0 && dens > 0 ? area * (espCm / 100) * dens : 0;
+          totalTon += ton;
+          const espM = espCm > 0 ? espCm / 100 : 0;
+          const sentidoFaixa = [t.sentido, t.faixa].filter(Boolean).join(" - ");
+          html += `<tr><td>${t.tipo_servico}</td><td>${sentidoFaixa}</td><td>${t.estaca_inicial}</td><td>${t.estaca_final}</td><td>${fmtBR(c)}</td><td>${fmtBR(l)}</td><td>${fmtBR(area)}</td><td>${espM ? fmtBR(espM) : ""}</td><td>${fmtBR(ton)}</td></tr>`;
+        });
+        html += `<tr style="font-weight:bold;background:#e5edff"><td colspan="6">TOTAL</td><td>${fmtBR(totalArea)}</td><td></td><td>${fmtBR(totalTon)}</td></tr></table>`;
 
-      trechos.forEach(t => {
-        if (t.observacoes) {
-          html += `<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;margin:12px 0;border-radius:0 8px 8px 0">
+        trechos.forEach(t => {
+          if (t.observacoes) {
+            html += `<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;margin:12px 0;border-radius:0 8px 8px 0">
 <strong>📝 Observações do Trecho (${t.tipo_servico}):</strong><br>
 <span style="white-space:pre-wrap">${t.observacoes}</span>
 </div>`;
-        }
-      });
+          }
+        });
+      }
     }
   }
 

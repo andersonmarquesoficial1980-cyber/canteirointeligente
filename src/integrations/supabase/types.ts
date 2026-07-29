@@ -2445,6 +2445,8 @@ export type Database = {
           ogs_id: string | null
           preenchido_por: string | null
           responsavel: string | null
+          sem_nota: boolean | null
+          sem_producao: boolean | null
           status_validacao: string | null
           tipo_rdo: string | null
           turno: string | null
@@ -2473,6 +2475,8 @@ export type Database = {
           ogs_id?: string | null
           preenchido_por?: string | null
           responsavel?: string | null
+          sem_nota?: boolean | null
+          sem_producao?: boolean | null
           status_validacao?: string | null
           tipo_rdo?: string | null
           turno?: string | null
@@ -2501,6 +2505,8 @@ export type Database = {
           ogs_id?: string | null
           preenchido_por?: string | null
           responsavel?: string | null
+          sem_nota?: boolean | null
+          sem_producao?: boolean | null
           status_validacao?: string | null
           tipo_rdo?: string | null
           turno?: string | null

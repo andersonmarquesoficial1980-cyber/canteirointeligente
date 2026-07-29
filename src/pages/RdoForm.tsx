@@ -117,6 +117,8 @@ export default function RdoForm() {
   // Tipo RDO
   const [tipoRdo, setTipoRdo] = useState("");
   const isPatioRdo = tipoRdo === "PATIO";
+  const [semNota, setSemNota] = useState(false);
+  const [semProducao, setSemProducao] = useState(false);
 
   // Infraestrutura
   const [empreiteiro, setEmpreiteiro] = useState("");
@@ -207,6 +209,45 @@ export default function RdoForm() {
     setSemEfetivoTerceirizado(checked);
     if (checked) {
       setTerceirizados([{ id: crypto.randomUUID(), empresa_id: "", funcionario_ids: [] }]);
+    }
+  };
+
+  const handleToggleSemNota = (checked: boolean) => {
+    setSemNota(checked);
+    if (!checked) return;
+
+    if (tipoRdo === "CAUQ") {
+      setNfMassa([{ id: crypto.randomUUID(), placa: "", usina: "", nf: "", tonelagem: "", tipo_material: "", tipo_material_outro: "" }]);
+    }
+
+    if (tipoRdo === "INFRAESTRUTURA") {
+      setNfConcreto([{ id: crypto.randomUUID(), nf: "", quantidade_m3: "", tipo_concreto: "", fornecedor: "", foto_url: "" }]);
+    }
+
+    if (tipoRdo === "CANTEIRO") {
+      setNfInsumos([{ id: crypto.randomUUID(), nf: "", fornecedor: "", material: "", quantidade: "" }]);
+    }
+  };
+
+  const handleToggleSemProducao = (checked: boolean) => {
+    setSemProducao(checked);
+    if (!checked) return;
+
+    if (tipoRdo === "CAUQ") {
+      setProducaoCauq({
+        trechos: [{
+          id: crypto.randomUUID(), tipo_servico: "", sentido: "", faixa: "", estaca_inicial: "", estaca_final: "",
+          comprimento_m: "", largura_m: "", espessura_m: "", densidade: "", observacoes: "",
+        }],
+        tonelagem_aplicada: "",
+      });
+    }
+
+    if (tipoRdo === "INFRAESTRUTURA") {
+      setInfraProducao([{
+        id: crypto.randomUUID(), tipo_servico: "", sentido: "", estaca_inicial: "", estaca_final: "",
+        comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false,
+      }]);
     }
   };
 
@@ -328,6 +369,8 @@ export default function RdoForm() {
       setObservacoesGerais((rdo as any).observacoes_gerais || "");
       setEmpreiteiro((rdo as any).empreiteiro || "");
       if (rdo.tipo_rdo) setTipoRdo(rdo.tipo_rdo);
+      setSemNota(Boolean((rdo as any).sem_nota));
+      setSemProducao(Boolean((rdo as any).sem_producao));
       // Efetivo
       if (efetivo?.length) {
         setEfetivo(efetivo.map((e: any) => ({
@@ -501,6 +544,8 @@ export default function RdoForm() {
         empreiteiro: empreiteiro || null,
         engenheiro_responsavel: engenheiroResponsavel || null,
         observacoes_gerais: observacoesGerais || null,
+        sem_nota: semNota,
+        sem_producao: semProducao,
         user_id: user.id,
         company_id: profile?.company_id || null,
         status_validacao: "rascunho",
@@ -529,7 +574,7 @@ export default function RdoForm() {
     } finally {
       setSavingDraft(false);
     }
-  }, [header, profile, motivoCancelamento, observacoesGerais, draftId, searchParams, setSearchParams, toast]);
+  }, [header, profile, motivoCancelamento, observacoesGerais, semNota, semProducao, draftId, searchParams, setSearchParams, toast]);
 
   const formatDateBR = (d: string) => {
     if (!d) return "";
@@ -545,67 +590,77 @@ export default function RdoForm() {
     lines.push(`🏗️ OGS: ${header.obra_nome} - Cliente: ${header.cliente}`);
     lines.push(`📍 Local: ${header.local}`);
 
-    if (tipoRdo === "CAUQ" && producaoCauq.trechos.length > 0) {
-      lines.push(``);
-      lines.push(`📐 *Atividades Executadas:*`);
-      producaoCauq.trechos.forEach((t) => {
-        if (!t.tipo_servico && !t.comprimento_m) return;
-        const c = parseFloat(String(t.comprimento_m).replace(",", ".")) || 0;
-        const l = parseFloat(String(t.largura_m).replace(",", ".")) || 0;
-        const area = c * l;
-        lines.push(``);
-        lines.push(`▸ ${t.tipo_servico || "—"} ${[t.sentido, t.faixa].filter(Boolean).join(" - ")}`);
-        lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
-        lines.push(`  ${fmtBR(c)} x ${fmtBR(l)} = ${fmtBR(area)} m²`);
-        const espM = t.espessura_m ? (parseFloat(String(t.espessura_m).replace(",", ".")) / 100) : 0;
-        lines.push(`  Espessura: ${espM ? fmtBR(espM) : "—"} m`);
-        if (t.observacoes) {
-          lines.push(`  Obs: ${t.observacoes}`);
-        }
-      });
-
-      const totalArea = producaoCauq.trechos.reduce((s, t) => {
-        const c = parseFloat(String(t.comprimento_m).replace(",", ".")) || 0;
-        const l = parseFloat(String(t.largura_m).replace(",", ".")) || 0;
-        return s + c * l;
-      }, 0);
-      const totalTon = parseFloat(String(producaoCauq.tonelagem_aplicada || "0").replace(",", ".")) || 0;
-
-      lines.push(``);
-      lines.push(`📊 *Resumo Geral:*`);
-      lines.push(`  Área Total: ${fmtBR(totalArea)} m²`);
-      lines.push(`  Toneladas Totais: ${fmtBR(totalTon)} Ton`);
-
-      const sinalizacoesPreenchidas = sinalizacoesHorizontais.filter((s) => {
-        const { id: _id, ...rest } = s;
-        return Object.values(rest).some((v) => String(v || "").trim() !== "");
-      });
-      if (sinalizacoesPreenchidas.length > 0) {
+    if (tipoRdo === "CAUQ") {
+      if (semNota) {
         lines.push("");
-        lines.push("🛣️ *Sinalização Horizontal:*");
-        sinalizacoesPreenchidas.forEach((sinalizacao, idx) => {
-          lines.push(`  ${idx + 1}) Tipo: ${sinalizacao.tipo || "—"}`);
-          lines.push(`     Sentido: ${sinalizacao.sentido || "—"}`);
-          lines.push(`     Faixa: ${sinalizacao.faixa || "—"}`);
-          lines.push(`     Estacas: ${sinalizacao.estaca_inicial || "—"} → ${sinalizacao.estaca_final || "—"}`);
-          lines.push(`     Quantidade: ${sinalizacao.quantidade || "—"}`);
-          lines.push(`     Comprimento: ${sinalizacao.comprimento_m || "—"} m`);
-          lines.push(`     Largura: ${sinalizacao.largura_m || "—"} m`);
-          lines.push(`     Área: ${(() => {
-            const c = parseFloat(String(sinalizacao.comprimento_m || "0").replace(",", ".")) || 0;
-            const l = parseFloat(String(sinalizacao.largura_m || "0").replace(",", ".")) || 0;
-            return c > 0 && l > 0 ? fmtBR(c * l) : "—";
-          })()} m²`);
-          lines.push(`     Qtd. Taxas: ${sinalizacao.quantidade_taxas || "—"}`);
-        });
+        lines.push("📄 NF Massa: *Sem Nota neste dia*");
       }
 
-      const hasDmt = Object.values(informacoesDmt).some((v) => String(v || "").trim() !== "");
-      if (hasDmt) {
+      if (semProducao) {
         lines.push("");
-        lines.push("📍 *Informações de DMT:*");
-        lines.push(`  DMT Usina: ${informacoesDmt.dmt_usina_km || "—"} km`);
-        lines.push(`  DMT Canteiro: ${informacoesDmt.dmt_canteiro_km || "—"} km`);
+        lines.push("📐 Produção do Dia: *Sem Produção neste dia*");
+      } else if (producaoCauq.trechos.length > 0) {
+        lines.push("");
+        lines.push("📐 *Atividades Executadas:*");
+        producaoCauq.trechos.forEach((t) => {
+          if (!t.tipo_servico && !t.comprimento_m) return;
+          const c = parseFloat(String(t.comprimento_m).replace(",", ".")) || 0;
+          const l = parseFloat(String(t.largura_m).replace(",", ".")) || 0;
+          const area = c * l;
+          lines.push("");
+          lines.push(`▸ ${t.tipo_servico || "—"} ${[t.sentido, t.faixa].filter(Boolean).join(" - ")}`);
+          lines.push(`  Est. ${t.estaca_inicial || "—"} a ${t.estaca_final || "—"}`);
+          lines.push(`  ${fmtBR(c)} x ${fmtBR(l)} = ${fmtBR(area)} m²`);
+          const espM = t.espessura_m ? (parseFloat(String(t.espessura_m).replace(",", ".")) / 100) : 0;
+          lines.push(`  Espessura: ${espM ? fmtBR(espM) : "—"} m`);
+          if (t.observacoes) {
+            lines.push(`  Obs: ${t.observacoes}`);
+          }
+        });
+
+        const totalArea = producaoCauq.trechos.reduce((s, t) => {
+          const c = parseFloat(String(t.comprimento_m).replace(",", ".")) || 0;
+          const l = parseFloat(String(t.largura_m).replace(",", ".")) || 0;
+          return s + c * l;
+        }, 0);
+        const totalTon = parseFloat(String(producaoCauq.tonelagem_aplicada || "0").replace(",", ".")) || 0;
+
+        lines.push("");
+        lines.push("📊 *Resumo Geral:*");
+        lines.push(`  Área Total: ${fmtBR(totalArea)} m²`);
+        lines.push(`  Toneladas Totais: ${fmtBR(totalTon)} Ton`);
+
+        const sinalizacoesPreenchidas = sinalizacoesHorizontais.filter((s) => {
+          const { id: _id, ...rest } = s;
+          return Object.values(rest).some((v) => String(v || "").trim() !== "");
+        });
+        if (sinalizacoesPreenchidas.length > 0) {
+          lines.push("");
+          lines.push("🛣️ *Sinalização Horizontal:*");
+          sinalizacoesPreenchidas.forEach((sinalizacao, idx) => {
+            lines.push(`  ${idx + 1}) Tipo: ${sinalizacao.tipo || "—"}`);
+            lines.push(`     Sentido: ${sinalizacao.sentido || "—"}`);
+            lines.push(`     Faixa: ${sinalizacao.faixa || "—"}`);
+            lines.push(`     Estacas: ${sinalizacao.estaca_inicial || "—"} → ${sinalizacao.estaca_final || "—"}`);
+            lines.push(`     Quantidade: ${sinalizacao.quantidade || "—"}`);
+            lines.push(`     Comprimento: ${sinalizacao.comprimento_m || "—"} m`);
+            lines.push(`     Largura: ${sinalizacao.largura_m || "—"} m`);
+            lines.push(`     Área: ${(() => {
+              const c = parseFloat(String(sinalizacao.comprimento_m || "0").replace(",", ".")) || 0;
+              const l = parseFloat(String(sinalizacao.largura_m || "0").replace(",", ".")) || 0;
+              return c > 0 && l > 0 ? fmtBR(c * l) : "—";
+            })()} m²`);
+            lines.push(`     Qtd. Taxas: ${sinalizacao.quantidade_taxas || "—"}`);
+          });
+        }
+
+        const hasDmt = Object.values(informacoesDmt).some((v) => String(v || "").trim() !== "");
+        if (hasDmt) {
+          lines.push("");
+          lines.push("📍 *Informações de DMT:*");
+          lines.push(`  DMT Usina: ${informacoesDmt.dmt_usina_km || "—"} km`);
+          lines.push(`  DMT Canteiro: ${informacoesDmt.dmt_canteiro_km || "—"} km`);
+        }
       }
     }
 
@@ -740,36 +795,38 @@ export default function RdoForm() {
         }
 
         if (tipoRdo === "CAUQ") {
-          const nfComConteudo = nfMassa.filter((n) =>
-            [n.placa, n.usina, n.nf, n.tonelagem, n.tipo_material, n.tipo_material_outro]
-              .some((v) => !isBlank(v))
-          );
+          if (!semNota) {
+            const nfComConteudo = nfMassa.filter((n) =>
+              [n.placa, n.usina, n.nf, n.tonelagem, n.tipo_material, n.tipo_material_outro]
+                .some((v) => !isBlank(v))
+            );
 
-          if (nfComConteudo.length === 0) {
-            toast({
-              title: "⚠️ Notas Fiscais obrigatórias",
-              description: "Preencha ao menos 1 NF com Placa, Usina, Nº NF, Tonelagem e Tipo Material.",
-              variant: "destructive",
-            });
-            return;
-          }
+            if (nfComConteudo.length === 0) {
+              toast({
+                title: "⚠️ Notas Fiscais obrigatórias",
+                description: "Preencha ao menos 1 NF com Placa, Usina, Nº NF, Tonelagem e Tipo Material, ou marque 'Sem Nota neste dia'.",
+                variant: "destructive",
+              });
+              return;
+            }
 
-          const nfIncompleta = nfComConteudo.find((n) =>
-            isBlank(n.placa) ||
-            isBlank(n.usina) ||
-            isBlank(n.nf) ||
-            isBlank(n.tonelagem) ||
-            isBlank(n.tipo_material) ||
-            (n.tipo_material === "Outro" && isBlank(n.tipo_material_outro))
-          );
+            const nfIncompleta = nfComConteudo.find((n) =>
+              isBlank(n.placa) ||
+              isBlank(n.usina) ||
+              isBlank(n.nf) ||
+              isBlank(n.tonelagem) ||
+              isBlank(n.tipo_material) ||
+              (n.tipo_material === "Outro" && isBlank(n.tipo_material_outro))
+            );
 
-          if (nfIncompleta) {
-            toast({
-              title: "⚠️ NF incompleta",
-              description: "Todos os campos da NF sinalizados como obrigatórios devem ser preenchidos.",
-              variant: "destructive",
-            });
-            return;
+            if (nfIncompleta) {
+              toast({
+                title: "⚠️ NF incompleta",
+                description: "Todos os campos da NF sinalizados como obrigatórios devem ser preenchidos.",
+                variant: "destructive",
+              });
+              return;
+            }
           }
 
           const camposObrigatoriosTrecho: Array<{ key: keyof typeof producaoCauq.trechos[number]; label: string }> = [
@@ -787,33 +844,35 @@ export default function RdoForm() {
           const trechoTemConteudo = (t: typeof producaoCauq.trechos[number]) =>
             camposObrigatoriosTrecho.some((c) => !isBlank(String(t[c.key] ?? "")));
 
-          const trechosComConteudo = producaoCauq.trechos.filter(trechoTemConteudo);
+          if (!semProducao) {
+            const trechosComConteudo = producaoCauq.trechos.filter(trechoTemConteudo);
 
-          if (trechosComConteudo.length === 0) {
-            toast({
-              title: "⚠️ Produção do dia obrigatória",
-              description: "Preencha ao menos 1 trecho completo na Produção do Dia (CAUQ).",
-              variant: "destructive",
-            });
-            return;
-          }
+            if (trechosComConteudo.length === 0) {
+              toast({
+                title: "⚠️ Produção do dia obrigatória",
+                description: "Preencha ao menos 1 trecho completo na Produção do Dia (CAUQ), ou marque 'Sem Produção neste dia'.",
+                variant: "destructive",
+              });
+              return;
+            }
 
-          const trechoIncompleto = producaoCauq.trechos
-            .map((t, idx) => {
-              const faltantes = camposObrigatoriosTrecho
-                .filter((c) => isBlank(String(t[c.key] ?? "")))
-                .map((c) => c.label);
-              return { t, idx, faltantes };
-            })
-            .find(({ t, faltantes }) => trechoTemConteudo(t) && faltantes.length > 0);
+            const trechoIncompleto = producaoCauq.trechos
+              .map((t, idx) => {
+                const faltantes = camposObrigatoriosTrecho
+                  .filter((c) => isBlank(String(t[c.key] ?? "")))
+                  .map((c) => c.label);
+                return { t, idx, faltantes };
+              })
+              .find(({ t, faltantes }) => trechoTemConteudo(t) && faltantes.length > 0);
 
-          if (trechoIncompleto) {
-            toast({
-              title: `⚠️ Trecho ${trechoIncompleto.idx + 1} incompleto`,
-              description: `Faltando: ${trechoIncompleto.faltantes.join(", ")}.`,
-              variant: "destructive",
-            });
-            return;
+            if (trechoIncompleto) {
+              toast({
+                title: `⚠️ Trecho ${trechoIncompleto.idx + 1} incompleto`,
+                description: `Faltando: ${trechoIncompleto.faltantes.join(", ")}.`,
+                variant: "destructive",
+              });
+              return;
+            }
           }
 
           const terceirizadosComConteudo = terceirizados.filter((t) => t.empresa_id || t.funcionario_ids.length > 0);
@@ -863,6 +922,8 @@ export default function RdoForm() {
       empreiteiro: empreiteiro || null,
       engenheiro_responsavel: engenheiroResponsavel || null,
       observacoes_gerais: observacoesGerais || null,
+      sem_nota: semNota,
+      sem_producao: semProducao,
       user_id: user.id,
       tipo_rdo: tipoRdo || null,
       company_id: profile?.company_id || null,
@@ -946,7 +1007,7 @@ export default function RdoForm() {
       }
 
       // Produção (infra)
-      if (tipoRdo === "INFRAESTRUTURA") {
+      if (tipoRdo === "INFRAESTRUTURA" && !semProducao) {
         const entries = infraProducao
           .filter(p =>
             p.tipo_servico || p.sentido || p.estaca_inicial || p.estaca_final ||
@@ -984,7 +1045,7 @@ export default function RdoForm() {
       }
 
       // Produção CAUQ
-      if (tipoRdo === "CAUQ") {
+      if (tipoRdo === "CAUQ" && !semProducao) {
         const trechoEntries = producaoCauq.trechos
           .filter(t =>
             t.tipo_servico || t.sentido || t.faixa || t.estaca_inicial || t.estaca_final ||
@@ -1093,7 +1154,9 @@ export default function RdoForm() {
       }
 
       // NF de Massa
-      const nfEntries = nfMassa
+      const nfEntries = semNota
+        ? []
+        : nfMassa
         .filter(n => n.nf || n.placa || n.tonelagem)
         .map(n => ({
           rdo_id: rdoId,
@@ -1186,6 +1249,7 @@ export default function RdoForm() {
         tipoRdo === "PV" ? pvData : undefined,
         tipoRdo === "CAUQ" ? sinalizacoesHorizontais : undefined,
         tipoRdo === "CAUQ" ? informacoesDmt : undefined,
+        { semNota, semProducao },
       );
       let emailSent = false;
       try {
@@ -1329,6 +1393,10 @@ export default function RdoForm() {
         {/* PASSO 1: Tipo de RDO — sempre primeiro */}
         <div className="px-4">
           <RdoTipoSelector value={tipoRdo} onChange={v => {
+            if (v !== tipoRdo) {
+              setSemNota(false);
+              setSemProducao(false);
+            }
             setTipoRdo(v);
             if (v === "PATIO") handleHeaderChange("obra_nome", "BASE / PÁTIO CENTRAL");
           }} />
@@ -1415,6 +1483,8 @@ export default function RdoForm() {
                   onChangeEmpreiteiro={setEmpreiteiro}
                   onChangeProducao={setInfraProducao}
                   tipoRdo="INFRA"
+                  semProducao={semProducao}
+                  onToggleSemProducao={handleToggleSemProducao}
                 />
                 <SectionNfConcreto entries={nfConcreto} onChange={setNfConcreto} />
               </>
@@ -1422,8 +1492,21 @@ export default function RdoForm() {
 
             {tipoRdo === "CAUQ" && (
               <>
-                <SectionCauq entries={nfMassa} onChange={setNfMassa} tipoRdo="CAUQ" />
-                <SectionProducaoCauq data={producaoCauq} onChange={setProducaoCauq} tipoRdo="CAUQ" nfEntries={nfMassa} />
+                <SectionCauq
+                  entries={nfMassa}
+                  onChange={setNfMassa}
+                  tipoRdo="CAUQ"
+                  semNota={semNota}
+                  onToggleSemNota={handleToggleSemNota}
+                />
+                <SectionProducaoCauq
+                  data={producaoCauq}
+                  onChange={setProducaoCauq}
+                  tipoRdo="CAUQ"
+                  nfEntries={nfMassa}
+                  semProducao={semProducao}
+                  onToggleSemProducao={handleToggleSemProducao}
+                />
                 <SectionSinalizacaoDmt
                   sinalizacoes={sinalizacoesHorizontais}
                   dmt={informacoesDmt}

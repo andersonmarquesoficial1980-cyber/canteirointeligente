@@ -3,6 +3,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Ruler } from "lucide-react";
 import { useTiposServico } from "@/hooks/useFilteredData";
 
@@ -29,6 +30,8 @@ interface Props {
   data: ProducaoCauqData;
   onChange: (data: ProducaoCauqData) => void;
   tipoRdo: string;
+  semProducao: boolean;
+  onToggleSemProducao: (checked: boolean) => void;
 }
 
 const emptyTrecho = (): TrechoCauqEntry => ({
@@ -37,7 +40,14 @@ const emptyTrecho = (): TrechoCauqEntry => ({
   comprimento_m: "", largura_m: "", espessura_m: "", densidade: "", observacoes: "",
 });
 
-export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries }: Props & { nfEntries?: { tonelagem: string }[] }) {
+export default function SectionProducaoCauq({
+  data,
+  onChange,
+  tipoRdo,
+  semProducao,
+  onToggleSemProducao,
+  nfEntries,
+}: Props & { nfEntries?: { tonelagem: string }[] }) {
   const { data: servicosData } = useTiposServico(tipoRdo);
   const servicos = (servicosData?.map(s => String(s.nome || "").trim()) ?? []).filter(Boolean);
 
@@ -122,155 +132,174 @@ export default function SectionProducaoCauq({ data, onChange, tipoRdo, nfEntries
         Produção do Dia (CAUQ)
       </h2>
 
-      {data.trechos.map((trecho, idx) => (
-        <div key={trecho.id} className="rdo-card space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-display font-bold text-primary">Trecho {idx + 1}</span>
-            {data.trechos.length > 1 && (
-              <button onClick={() => removeTrecho(trecho.id)} className="text-destructive p-1 hover:bg-destructive/10 rounded-lg transition-colors">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="rdo-label">Tipo de Serviço *</span>
-            <Select value={trecho.tipo_servico} onValueChange={v => updateTrecho(trecho.id, "tipo_servico", v)}>
-              <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent className="max-h-[250px]">
-                {servicos.length > 0
-                  ? servicos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)
-                  : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <span className="rdo-label">Sentido *</span>
-              <Select value={trecho.sentido} onValueChange={v => updateTrecho(trecho.id, "sentido", v)}>
-                <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CRESCENTE">CRESCENTE</SelectItem>
-                  <SelectItem value="DECRESCENTE">DECRESCENTE</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Faixa *</span>
-              <Input inputMode="numeric" value={trecho.faixa} onChange={e => updateTrecho(trecho.id, "faixa", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 1, 2, Acost." />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <span className="rdo-label">Estaca Inicial *</span>
-              <Input inputMode="numeric" value={trecho.estaca_inicial} onChange={e => updateTrecho(trecho.id, "estaca_inicial", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Estaca Final *</span>
-              <Input inputMode="numeric" value={trecho.estaca_final} onChange={e => updateTrecho(trecho.id, "estaca_final", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
-            </div>
-          </div>
-
-          {/* Alerta divergência estaca x comprimento */}
-          {(() => {
-            const estIni = parseFloat(trecho.estaca_inicial) || 0;
-            const estFin = parseFloat(trecho.estaca_final) || 0;
-            const comp = toNum(trecho.comprimento_m);
-            const compEsperado = estIni > 0 && estFin > 0 ? Math.abs(estFin - estIni) : null;
-            const diverge = compEsperado !== null && comp > 0 && Math.abs(comp - compEsperado) > 0.01;
-            if (!diverge || compEsperado === null) return null;
-            return (
-              <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-300 px-3 py-2">
-                <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
-                <p className="text-xs text-amber-800 font-medium">
-                  Comprimento informado ({comp} m) difere do esperado pelas estacas ({compEsperado} m). Verifique se o valor está correto.
-                </p>
-              </div>
-            );
-          })()}
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <span className="rdo-label">Comp. (m) *</span>
-              <NumericInput value={trecho.comprimento_m} onChange={e => updateTrecho(trecho.id, "comprimento_m", e.target.value)} className={`h-11 bg-white border-border rounded-xl ${(() => { const ei = parseFloat(trecho.estaca_inicial)||0; const ef = parseFloat(trecho.estaca_final)||0; const c = toNum(trecho.comprimento_m); const ce = ei>0&&ef>0?Math.abs(ef-ei):null; return ce!==null&&c>0&&Math.abs(c-ce)>0.01?"border-amber-400 ring-1 ring-amber-400":""; })()}`} placeholder="0,0" />
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Larg. (m) *</span>
-              <NumericInput value={trecho.largura_m} onChange={e => updateTrecho(trecho.id, "largura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="0,0" />
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Área (m²)</span>
-              <Input value={calcArea(trecho)} readOnly className="h-11 bg-muted/50 border-border rounded-xl text-muted-foreground cursor-not-allowed" />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="rdo-label">Espessura (cm) *</span>
-            <NumericInput value={trecho.espessura_m} onChange={e => updateTrecho(trecho.id, "espessura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 5" />
-          </div>
-
-          {/* Volume + Densidade + Tonelagem */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <span className="rdo-label">Volume (m³)</span>
-              <Input
-                value={calcVolume(trecho) ? calcVolume(trecho).replace(".", ",") : ""}
-                readOnly
-                className="h-11 bg-muted/50 border-border rounded-xl text-muted-foreground cursor-not-allowed"
-                placeholder="Auto"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Densidade (t/m³) *</span>
-              <NumericInput
-                value={trecho.densidade}
-                onChange={e => updateTrecho(trecho.id, "densidade", e.target.value)}
-                className="h-11 bg-white border-border rounded-xl"
-                placeholder="Ex: 2,34"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <span className="rdo-label">Ton. Calc.</span>
-              <Input
-                value={calcTon(trecho) ? calcTon(trecho).replace(".", ",") : ""}
-                readOnly
-                className="h-11 bg-primary/10 border-primary/30 rounded-xl text-primary font-semibold cursor-not-allowed"
-                placeholder="Auto"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="rdo-label">Observações do Trecho</span>
-            <Textarea value={trecho.observacoes} onChange={e => updateTrecho(trecho.id, "observacoes", e.target.value)} className="min-h-[70px] bg-white border-border text-base rounded-xl" placeholder="Observações deste trecho..." />
-          </div>
-        </div>
-      ))}
-
-      <Button size="sm" onClick={addTrecho} className="w-full h-12 gap-2 text-base rounded-xl font-display font-bold">
-        <Plus className="w-5 h-5" /> Adicionar Trecho
-      </Button>
-
-      {/* Tonelagem */}
-      <div className="rdo-card space-y-3 border-l-4 border-l-blue-500">
-        <h3 className="text-sm font-display font-bold text-blue-700">Tonelagem</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <span className="rdo-label">Total via NF (auto)</span>
-            <div className="h-11 bg-muted/50 border border-border rounded-xl flex items-center px-3 text-base font-bold text-primary">
-              {totalNF > 0 ? `${totalNF.toFixed(2).replace(".", ",")} t` : "—"}
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <span className="rdo-label">Total calculado (trechos)</span>
-            <div className="h-11 bg-primary/10 border border-primary/30 rounded-xl flex items-center px-3 text-base font-bold text-primary">
-              {totalTonCalculado > 0 ? `${totalTonCalculado.toFixed(2).replace(".", ",")} t` : "—"}
-            </div>
-          </div>
-        </div>
+      <div className="rdo-card flex items-center justify-between gap-3">
+        <label htmlFor="sem-producao-cauq" className="text-sm font-semibold text-primary cursor-pointer">
+          Sem Produção neste dia
+        </label>
+        <Checkbox
+          id="sem-producao-cauq"
+          checked={semProducao}
+          onCheckedChange={(checked) => onToggleSemProducao(Boolean(checked))}
+        />
       </div>
+
+      {semProducao ? (
+        <div className="rdo-card border-l-4 border-l-amber-400 bg-amber-50/60">
+          <p className="text-sm font-medium text-amber-900">Sem Produção marcado. O preenchimento de produção foi desobrigado para este RDO.</p>
+        </div>
+      ) : (
+        <>
+          {data.trechos.map((trecho, idx) => (
+            <div key={trecho.id} className="rdo-card space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-display font-bold text-primary">Trecho {idx + 1}</span>
+                {data.trechos.length > 1 && (
+                  <button onClick={() => removeTrecho(trecho.id)} className="text-destructive p-1 hover:bg-destructive/10 rounded-lg transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="rdo-label">Tipo de Serviço *</span>
+                <Select value={trecho.tipo_servico} onValueChange={v => updateTrecho(trecho.id, "tipo_servico", v)}>
+                  <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent className="max-h-[250px]">
+                    {servicos.length > 0
+                      ? servicos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)
+                      : <p className="text-xs text-muted-foreground p-3 text-center">Nenhum item cadastrado para este tipo de RDO</p>}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Sentido *</span>
+                  <Select value={trecho.sentido} onValueChange={v => updateTrecho(trecho.id, "sentido", v)}>
+                    <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CRESCENTE">CRESCENTE</SelectItem>
+                      <SelectItem value="DECRESCENTE">DECRESCENTE</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Faixa *</span>
+                  <Input inputMode="numeric" value={trecho.faixa} onChange={e => updateTrecho(trecho.id, "faixa", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 1, 2, Acost." />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Estaca Inicial *</span>
+                  <Input inputMode="numeric" value={trecho.estaca_inicial} onChange={e => updateTrecho(trecho.id, "estaca_inicial", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Estaca Final *</span>
+                  <Input inputMode="numeric" value={trecho.estaca_final} onChange={e => updateTrecho(trecho.id, "estaca_final", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+                </div>
+              </div>
+
+              {/* Alerta divergência estaca x comprimento */}
+              {(() => {
+                const estIni = parseFloat(trecho.estaca_inicial) || 0;
+                const estFin = parseFloat(trecho.estaca_final) || 0;
+                const comp = toNum(trecho.comprimento_m);
+                const compEsperado = estIni > 0 && estFin > 0 ? Math.abs(estFin - estIni) : null;
+                const diverge = compEsperado !== null && comp > 0 && Math.abs(comp - compEsperado) > 0.01;
+                if (!diverge || compEsperado === null) return null;
+                return (
+                  <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-300 px-3 py-2">
+                    <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
+                    <p className="text-xs text-amber-800 font-medium">
+                      Comprimento informado ({comp} m) difere do esperado pelas estacas ({compEsperado} m). Verifique se o valor está correto.
+                    </p>
+                  </div>
+                );
+              })()}
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Comp. (m) *</span>
+                  <NumericInput value={trecho.comprimento_m} onChange={e => updateTrecho(trecho.id, "comprimento_m", e.target.value)} className={`h-11 bg-white border-border rounded-xl ${(() => { const ei = parseFloat(trecho.estaca_inicial)||0; const ef = parseFloat(trecho.estaca_final)||0; const c = toNum(trecho.comprimento_m); const ce = ei>0&&ef>0?Math.abs(ef-ei):null; return ce!==null&&c>0&&Math.abs(c-ce)>0.01?"border-amber-400 ring-1 ring-amber-400":""; })()}`} placeholder="0,0" />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Larg. (m) *</span>
+                  <NumericInput value={trecho.largura_m} onChange={e => updateTrecho(trecho.id, "largura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="0,0" />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Área (m²)</span>
+                  <Input value={calcArea(trecho)} readOnly className="h-11 bg-muted/50 border-border rounded-xl text-muted-foreground cursor-not-allowed" />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="rdo-label">Espessura (cm) *</span>
+                <NumericInput value={trecho.espessura_m} onChange={e => updateTrecho(trecho.id, "espessura_m", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Ex: 5" />
+              </div>
+
+              {/* Volume + Densidade + Tonelagem */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Volume (m³)</span>
+                  <Input
+                    value={calcVolume(trecho) ? calcVolume(trecho).replace(".", ",") : ""}
+                    readOnly
+                    className="h-11 bg-muted/50 border-border rounded-xl text-muted-foreground cursor-not-allowed"
+                    placeholder="Auto"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Densidade (t/m³) *</span>
+                  <NumericInput
+                    value={trecho.densidade}
+                    onChange={e => updateTrecho(trecho.id, "densidade", e.target.value)}
+                    className="h-11 bg-white border-border rounded-xl"
+                    placeholder="Ex: 2,34"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="rdo-label">Ton. Calc.</span>
+                  <Input
+                    value={calcTon(trecho) ? calcTon(trecho).replace(".", ",") : ""}
+                    readOnly
+                    className="h-11 bg-primary/10 border-primary/30 rounded-xl text-primary font-semibold cursor-not-allowed"
+                    placeholder="Auto"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="rdo-label">Observações do Trecho</span>
+                <Textarea value={trecho.observacoes} onChange={e => updateTrecho(trecho.id, "observacoes", e.target.value)} className="min-h-[70px] bg-white border-border text-base rounded-xl" placeholder="Observações deste trecho..." />
+              </div>
+            </div>
+          ))}
+
+          <Button size="sm" onClick={addTrecho} className="w-full h-12 gap-2 text-base rounded-xl font-display font-bold">
+            <Plus className="w-5 h-5" /> Adicionar Trecho
+          </Button>
+
+          {/* Tonelagem */}
+          <div className="rdo-card space-y-3 border-l-4 border-l-blue-500">
+            <h3 className="text-sm font-display font-bold text-blue-700">Tonelagem</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <span className="rdo-label">Total via NF (auto)</span>
+                <div className="h-11 bg-muted/50 border border-border rounded-xl flex items-center px-3 text-base font-bold text-primary">
+                  {totalNF > 0 ? `${totalNF.toFixed(2).replace(".", ",")} t` : "—"}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <span className="rdo-label">Total calculado (trechos)</span>
+                <div className="h-11 bg-primary/10 border border-primary/30 rounded-xl flex items-center px-3 text-base font-bold text-primary">
+                  {totalTonCalculado > 0 ? `${totalTonCalculado.toFixed(2).replace(".", ",")} t` : "—"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
