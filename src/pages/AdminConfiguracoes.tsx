@@ -2477,7 +2477,7 @@ function DestinosManager() {
 // Transporte: visão unificada com cadastro central (materiais)
 function InsumosMaterialManager() {
   const { items: materiais, add, remove, update } = useCrudTable("materiais");
-  const { items: insumosLegado, loading: loadingLegado } = useCrudTable("insumos_materiais");
+  const { items: insumosLegado, loading: loadingLegado, reload: reloadLegado } = useCrudTable("insumos_materiais");
   const { toast } = useToast();
 
   const [nome, setNome] = useState("");
@@ -2495,6 +2495,21 @@ function InsumosMaterialManager() {
     const centralNames = new Set(transporteCentral.map((m: any) => normTxt(m?.nome || "")));
     return (insumosLegado || []).filter((i: any) => !centralNames.has(normTxt(i?.nome || "")));
   }, [insumosLegado, transporteCentral]);
+
+  const legadoCoberto = useMemo(() => {
+    const centralNames = new Set(transporteCentral.map((m: any) => normTxt(m?.nome || "")));
+    return (insumosLegado || []).filter((i: any) => centralNames.has(normTxt(i?.nome || "")));
+  }, [insumosLegado, transporteCentral]);
+
+  const legadoCobertoAtivo = useMemo(
+    () => legadoCoberto.filter((i: any) => i?.ativo !== false),
+    [legadoCoberto]
+  );
+
+  const legadoCobertoInativo = useMemo(
+    () => legadoCoberto.filter((i: any) => i?.ativo === false),
+    [legadoCoberto]
+  );
 
   const diagnosticoMigracao = useMemo(() => {
     const centralNames = new Set((transporteCentral || []).map((m: any) => normTxt(m?.nome || "")));
@@ -2608,6 +2623,48 @@ function InsumosMaterialManager() {
     if (ok) toast({ title: "Material migrado", description: `${nomeFmt} foi centralizado em Materiais.` });
   };
 
+  const desativarLegadoCoberto = async () => {
+    const ids = legadoCobertoAtivo.map((i: any) => i.id).filter(Boolean);
+    if (ids.length === 0) {
+      toast({ title: "Nada para desativar", description: "Não há itens legados ativos já cobertos pelo cadastro central." });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("insumos_materiais" as any)
+      .update({ ativo: false } as any)
+      .in("id", ids as any);
+
+    if (error) {
+      toast({ title: "Erro", description: `Falha ao desativar legado coberto: ${error.message}`, variant: "destructive" });
+      return;
+    }
+
+    await reloadLegado();
+    toast({ title: "Fase 4 aplicada", description: `${ids.length} item(ns) legados cobertos foram desativados com segurança.` });
+  };
+
+  const reativarLegadoCoberto = async () => {
+    const ids = legadoCobertoInativo.map((i: any) => i.id).filter(Boolean);
+    if (ids.length === 0) {
+      toast({ title: "Nada para reativar", description: "Não há itens legados cobertos inativos." });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("insumos_materiais" as any)
+      .update({ ativo: true } as any)
+      .in("id", ids as any);
+
+    if (error) {
+      toast({ title: "Erro", description: `Falha ao reativar legado coberto: ${error.message}`, variant: "destructive" });
+      return;
+    }
+
+    await reloadLegado();
+    toast({ title: "Rollback disponível", description: `${ids.length} item(ns) legados cobertos foram reativados.` });
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
@@ -2668,6 +2725,46 @@ function InsumosMaterialManager() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">🧹 Higienização de Legado (Fase 4)</p>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+            Cobertos pelo Central: {legadoCoberto.length}
+          </span>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Ação segura: desativa no legado apenas itens que já existem no cadastro central. O fluxo continua funcionando pela fonte central.
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Cobertos (total)</p>
+            <p className="text-sm font-bold">{legadoCoberto.length}</p>
+          </div>
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Cobertos ativos</p>
+            <p className="text-sm font-bold text-amber-700">{legadoCobertoAtivo.length}</p>
+          </div>
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Cobertos inativos</p>
+            <p className="text-sm font-bold text-emerald-700">{legadoCobertoInativo.length}</p>
+          </div>
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Pendentes migração</p>
+            <p className="text-sm font-bold">{legadoSomente.length}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={desativarLegadoCoberto}>
+            Desativar legado coberto
+          </Button>
+          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={reativarLegadoCoberto}>
+            Reativar legado coberto
+          </Button>
         </div>
       </div>
 
