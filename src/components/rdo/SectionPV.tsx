@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Camera, Plus, Trash2, HardHat, Wrench, ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { compressImage } from "@/lib/imageCompression";
+import { useMateriais } from "@/hooks/useFilteredData";
 
 export interface PVData {
   cliente: string;
@@ -42,12 +43,26 @@ interface SectionPVProps {
 const CLIENTES_PV = ["PMSP", "SABESP", "COPASA"];
 const BOBCATS_PV = ["BC76", "BC80"];
 const FC_OPTIONS = ["FC001", "FC002", "FC003", "FC004", "FC005"];
-const MATERIAIS_PV = ["Massa Asfáltica (CBUQ)", "Concreto", "Argamassa", "Brita", "Areia", "Outro"];
+const MATERIAIS_PV_FALLBACK = ["Massa Asfáltica (CBUQ)", "Concreto", "Argamassa", "Brita", "Areia", "Outro"];
 
 export default function SectionPV({ data, onChange }: SectionPVProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
   const [activePhotoType, setActivePhotoType] = useState<"antes" | "durante" | "depois">("antes");
+
+  const { data: materiaisData } = useMateriais("PV", "Nota Fiscal");
+
+  const materiaisPvOptions = useMemo(() => {
+    const fromDb = (materiaisData?.map((m: any) => String(m?.nome || "").trim()) ?? []).filter(Boolean);
+    const unique = Array.from(new Set(fromDb));
+    if (unique.length === 0) return MATERIAIS_PV_FALLBACK;
+    return unique.includes("Outro") ? unique : [...unique, "Outro"];
+  }, [materiaisData]);
+
+  const withCurrentOption = (options: string[], currentValue: string) => {
+    if (!currentValue) return options;
+    return options.includes(currentValue) ? options : [currentValue, ...options];
+  };
 
   const update = (field: keyof PVData, value: any) => {
     onChange({ ...data, [field]: value });
@@ -216,7 +231,7 @@ export default function SectionPV({ data, onChange }: SectionPVProps) {
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  {MATERIAIS_PV.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  {withCurrentOption(materiaisPvOptions, mat.material).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

@@ -62,6 +62,7 @@ const VINCULO_LABELS: Record<string, string> = {
   KMA_FILER: "KMA • Filer",
   KMA_SILO: "KMA • Silos",
   KMA_AGUA: "KMA • Água",
+  PV: "Poço de Visita (PV)",
   ROLO_CHAPA: "🚧 Rolo Chapa",
   ROLO_PNEU: "🚧 Rolo Pneu",
   ROLO_PE_CARNEIRO: "🚧 Rolo Pé de Carneiro",
@@ -2327,6 +2328,7 @@ const MATERIAL_VINCULO_OPTIONS = [
   "KMA_FILER",
   "KMA_SILO",
   "KMA_AGUA",
+  "PV",
   "KMA",
   "TODOS",
 ];
