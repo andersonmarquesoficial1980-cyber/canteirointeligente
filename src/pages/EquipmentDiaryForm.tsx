@@ -627,8 +627,8 @@ export default function EquipmentDiaryForm() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("materiais")
-        .select("nome, vinculo_rdo, tipo_uso")
-        .or("vinculo_rdo.eq.KMA,vinculo_rdo.eq.KMA_CAP,vinculo_rdo.eq.KMA_FILER,vinculo_rdo.eq.KMA_SILO,vinculo_rdo.eq.KMA_AGUA,vinculo_rdo.eq.TODOS")
+        .select("nome, vinculo_rdo, vinculos, tipo_uso, tipos_uso")
+        .or("vinculo_rdo.eq.KMA,vinculo_rdo.eq.KMA_CAP,vinculo_rdo.eq.KMA_FILER,vinculo_rdo.eq.KMA_SILO,vinculo_rdo.eq.KMA_AGUA,vinculo_rdo.eq.TODOS,vinculos.cs.{KMA},vinculos.cs.{KMA_CAP},vinculos.cs.{KMA_FILER},vinculos.cs.{KMA_SILO},vinculos.cs.{KMA_AGUA},vinculos.cs.{TODOS}")
         .order("nome");
 
       if (error) throw error;
@@ -644,26 +644,47 @@ export default function EquipmentDiaryForm() {
       .toUpperCase();
 
   const kmaMaterialOptions = useMemo(() => {
-    const byScope = (acceptedScopes: string[], fallback: string[]) => {
-      const accepted = new Set(acceptedScopes.map((s) => normalizeKey(s)));
-      const out = new Set<string>();
-
-      for (const row of materiaisKmaDb) {
-        const nome = String((row as any)?.nome || "").trim();
-        if (!nome) continue;
-        const scope = normalizeKey((row as any)?.vinculo_rdo || "TODOS");
-        if (!accepted.has(scope)) continue;
-        out.add(nome);
-      }
-
-      return out.size > 0 ? Array.from(out) : fallback;
+    const buckets = {
+      cap: new Set<string>(),
+      filer: new Set<string>(),
+      silo: new Set<string>(),
+      agua: new Set<string>(),
     };
 
+    const mapVinculoToBuckets: Record<string, Array<keyof typeof buckets>> = {
+      KMA_CAP: ["cap"],
+      KMA_FILER: ["filer"],
+      KMA_SILO: ["silo"],
+      KMA_AGUA: ["agua"],
+      KMA: ["cap", "filer", "silo", "agua"],
+      TODOS: ["cap", "filer", "silo", "agua"],
+    };
+
+    for (const row of materiaisKmaDb as any[]) {
+      const nome = String(row?.nome || "").trim();
+      if (!nome) continue;
+
+      const scopes = Array.isArray(row?.vinculos) && row.vinculos.length > 0
+        ? row.vinculos.map((v: string) => normalizeKey(v))
+        : [normalizeKey(row?.vinculo_rdo || "TODOS")];
+
+      const uniqueScopes = Array.from(new Set(scopes));
+      const rowBuckets = new Set<keyof typeof buckets>();
+
+      for (const scope of uniqueScopes) {
+        const mapped = mapVinculoToBuckets[scope];
+        if (!mapped) continue;
+        mapped.forEach((b) => rowBuckets.add(b));
+      }
+
+      rowBuckets.forEach((b) => buckets[b].add(nome));
+    }
+
     return {
-      cap: byScope(["KMA_CAP", "KMA", "TODOS"], CAP_TYPES_FALLBACK),
-      filer: byScope(["KMA_FILER", "KMA", "TODOS"], FILER_TYPES_FALLBACK),
-      silo: byScope(["KMA_SILO", "KMA", "TODOS"], SILO_MATERIALS_FALLBACK),
-      agua: byScope(["KMA_AGUA", "KMA", "TODOS"], AGUA_FORNECEDORES_FALLBACK),
+      cap: buckets.cap.size > 0 ? Array.from(buckets.cap) : CAP_TYPES_FALLBACK,
+      filer: buckets.filer.size > 0 ? Array.from(buckets.filer) : FILER_TYPES_FALLBACK,
+      silo: buckets.silo.size > 0 ? Array.from(buckets.silo) : SILO_MATERIALS_FALLBACK,
+      agua: buckets.agua.size > 0 ? Array.from(buckets.agua) : AGUA_FORNECEDORES_FALLBACK,
     };
   }, [materiaisKmaDb]);
 
