@@ -119,8 +119,8 @@ export default function CarreteirosQRScan() {
     async function loadMateriaisTransporte() {
       const matResp = await supabase
         .from("materiais")
-        .select("nome,tipo_uso")
-        .or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos")
+        .select("nome,tipo_uso,tipos_uso")
+        .or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos,tipos_uso.cs.{Transporte},tipos_uso.cs.{Ambos}")
         .order("nome");
 
       const legacyResp = legacyFallbackEnabled

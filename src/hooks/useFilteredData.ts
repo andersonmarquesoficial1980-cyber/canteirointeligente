@@ -5,7 +5,9 @@ interface FilteredItem {
   id: string;
   nome: string;
   vinculo_rdo: string;
+  vinculos?: string[] | null;
   tipo_uso?: string;
+  tipos_uso?: string[] | null;
 }
 
 // CAUQ e PAVIMENTACAO são equivalentes (legado x novo)
@@ -17,7 +19,8 @@ const VINCULO_ALIAS: Record<string, string[]> = {
 };
 
 // Tabelas que têm a coluna vinculos[] (array multi-vínculo)
-const TABELAS_COM_VINCULOS_ARRAY = ["fornecedores"];
+const TABELAS_COM_VINCULOS_ARRAY = ["fornecedores", "materiais"];
+const TABELAS_COM_TIPOS_USO_ARRAY = ["materiais"];
 
 function useFilteredTable(tableName: string, tipoRdo: string, tipoUso?: string) {
   return useQuery({
@@ -36,7 +39,13 @@ function useFilteredTable(tableName: string, tipoRdo: string, tipoUso?: string) 
         .order("nome");
 
       if (tipoUso && tableName === "materiais") {
-        query = query.or(`tipo_uso.eq.${tipoUso},tipo_uso.eq.Ambos`);
+        const legacyTipoUsoFilter = `tipo_uso.eq.${tipoUso},tipo_uso.eq.Ambos`;
+        const arrayTipoUsoFilter = `tipos_uso.cs.{${tipoUso}},tipos_uso.cs.{Ambos}`;
+        query = query.or(
+          TABELAS_COM_TIPOS_USO_ARRAY.includes(tableName)
+            ? `${legacyTipoUsoFilter},${arrayTipoUsoFilter}`
+            : legacyTipoUsoFilter
+        );
       }
 
       const { data, error } = await query;

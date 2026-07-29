@@ -81,8 +81,8 @@ function DepartureForm() {
     queryFn: async () => {
       const materiaisResp = await supabase
         .from("materiais")
-        .select("id,nome,tipo_uso")
-        .or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos")
+        .select("id,nome,tipo_uso,tipos_uso")
+        .or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos,tipos_uso.cs.{Transporte},tipos_uso.cs.{Ambos}")
         .order("nome");
 
       const insumosResp = legacyFallbackEnabled

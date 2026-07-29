@@ -2381,28 +2381,47 @@ function MaterialManager() {
     }
   };
 
+  const normalizeVinculosSelection = (selected: string[]) => {
+    const unique = Array.from(new Set((selected || []).map((v) => String(v || "").trim()).filter(Boolean)));
+    if (unique.includes("TODOS")) return ["TODOS"];
+    return unique.length ? unique : ["TODOS"];
+  };
+
+  const normalizeTiposUsoSelection = (selected: string[]) => {
+    const unique = Array.from(new Set((selected || []).map((v) => String(v || "").trim()).filter(Boolean)));
+    if (unique.includes("Ambos")) return ["Ambos"];
+    return unique.length ? unique : ["Nota Fiscal"];
+  };
+
   const deriveVinculoPersist = (selected: string[]) => {
-    if (selected.includes("TODOS")) return "TODOS";
-    if (selected.length > 1) return "TODOS";
-    return selected[0] || "TODOS";
+    const normalized = normalizeVinculosSelection(selected);
+    if (normalized.includes("TODOS")) return "TODOS";
+    if (normalized.length > 1) return "TODOS";
+    return normalized[0] || "TODOS";
   };
 
   const deriveTipoUsoPersist = (selected: string[]) => {
-    if (selected.includes("Ambos")) return "Ambos";
-    const base = selected.filter((v) => v !== "Ambos");
-    if (base.length >= 2) return "Ambos";
-    return base[0] || "Nota Fiscal";
+    const normalized = normalizeTiposUsoSelection(selected);
+    if (normalized.includes("Ambos")) return "Ambos";
+    if (normalized.includes("Nota Fiscal") && normalized.includes("Transporte")) return "Ambos";
+    return normalized[0] || "Nota Fiscal";
   };
 
-  const toVinculosState = (value: string | null | undefined) => {
-    const v = String(value || "TODOS");
-    return [v];
+  const toVinculosState = (item: any) => {
+    if (Array.isArray(item?.vinculos) && item.vinculos.length) {
+      return normalizeVinculosSelection(item.vinculos as string[]);
+    }
+    const v = String(item?.vinculo_rdo || "TODOS");
+    return normalizeVinculosSelection([v]);
   };
 
-  const toTipoUsoState = (value: string | null | undefined) => {
-    const v = String(value || "Nota Fiscal");
-    if (v === "Ambos") return ["Nota Fiscal", "Transporte"];
-    return [v];
+  const toTipoUsoState = (item: any) => {
+    if (Array.isArray(item?.tipos_uso) && item.tipos_uso.length) {
+      return normalizeTiposUsoSelection(item.tipos_uso as string[]);
+    }
+    const v = String(item?.tipo_uso || "Nota Fiscal");
+    if (v === "Ambos") return ["Ambos"];
+    return normalizeTiposUsoSelection([v]);
   };
 
   const PillGroup = ({
@@ -2455,7 +2474,9 @@ function MaterialManager() {
 
     const ok = await add({
       nome: nome.trim(),
+      vinculos: normalizeVinculosSelection(vinculos),
       vinculo_rdo: deriveVinculoPersist(vinculos),
+      tipos_uso: normalizeTiposUsoSelection(tiposUso),
       tipo_uso: deriveTipoUsoPersist(tiposUso),
     });
     if (ok) {
@@ -2468,8 +2489,8 @@ function MaterialManager() {
   const startEdit = (item: any) => {
     setEditingId(item.id);
     setEditNome(item.nome || "");
-    setEditVinculos(toVinculosState(item.vinculo_rdo));
-    setEditTiposUso(toTipoUsoState(item.tipo_uso));
+    setEditVinculos(toVinculosState(item));
+    setEditTiposUso(toTipoUsoState(item));
   };
 
   const saveEdit = async (id: string) => {
@@ -2490,7 +2511,9 @@ function MaterialManager() {
 
     const ok = await update(id, {
       nome: editNome.trim(),
+      vinculos: normalizeVinculosSelection(editVinculos),
       vinculo_rdo: deriveVinculoPersist(editVinculos),
+      tipos_uso: normalizeTiposUsoSelection(editTiposUso),
       tipo_uso: deriveTipoUsoPersist(editTiposUso),
     });
     if (ok) setEditingId(null);
@@ -2559,8 +2582,16 @@ function MaterialManager() {
                 <div className="space-y-1.5 flex-1 min-w-0 pr-2">
                   <p className="font-medium text-sm text-foreground">{item.nome}</p>
                   <div className="flex flex-wrap gap-1">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{VINCULO_LABELS[item.vinculo_rdo] ?? item.vinculo_rdo}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.tipo_uso || "Nota Fiscal"}</span>
+                    {toVinculosState(item).map((v: string) => (
+                      <span key={`v-${item.id}-${v}`} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                        {VINCULO_LABELS[v] ?? v}
+                      </span>
+                    ))}
+                    {toTipoUsoState(item).map((t: string) => (
+                      <span key={`t-${item.id}-${t}`} className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                        {t}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -2624,7 +2655,12 @@ function InsumosMaterialManager() {
   const [legacyModeState, setLegacyModeState] = useState(() => getLegacyModeState());
 
   const transporteCentral = useMemo(
-    () => (materiais || []).filter((m: any) => ["Transporte", "Ambos"].includes(String(m?.tipo_uso || ""))),
+    () =>
+      (materiais || []).filter((m: any) => {
+        const tipoUsoLegacy = String(m?.tipo_uso || "");
+        const tiposUsoArray = Array.isArray(m?.tipos_uso) ? (m.tipos_uso as string[]) : [];
+        return ["Transporte", "Ambos"].includes(tipoUsoLegacy) || tiposUsoArray.includes("Transporte") || tiposUsoArray.includes("Ambos");
+      }),
     [materiais]
   );
 

@@ -2042,7 +2042,9 @@ export type Database = {
           id: string
           nome: string
           tipo_uso: string
+          tipos_uso: string[] | null
           vinculo_rdo: string
+          vinculos: string[] | null
         }
         Insert: {
           company_id?: string | null
@@ -2050,7 +2052,9 @@ export type Database = {
           id?: string
           nome: string
           tipo_uso?: string
+          tipos_uso?: string[] | null
           vinculo_rdo?: string
+          vinculos?: string[] | null
         }
         Update: {
           company_id?: string | null
@@ -2058,7 +2062,9 @@ export type Database = {
           id?: string
           nome?: string
           tipo_uso?: string
+          tipos_uso?: string[] | null
           vinculo_rdo?: string
+          vinculos?: string[] | null
         }
         Relationships: [
           {
@@ -3311,6 +3317,8 @@ export type Database = {
           created_at: string | null
           date: string | null
           departure_geo: string | null
+          departure_gps_issue_notes: string | null
+          departure_gps_issue_reason: string | null
           departure_load_status: string | null
           departure_time: string | null
           departure_user_id: string | null
@@ -3332,6 +3340,8 @@ export type Database = {
           created_at?: string | null
           date?: string | null
           departure_geo?: string | null
+          departure_gps_issue_notes?: string | null
+          departure_gps_issue_reason?: string | null
           departure_load_status?: string | null
           departure_time?: string | null
           departure_user_id?: string | null
@@ -3353,6 +3363,8 @@ export type Database = {
           created_at?: string | null
           date?: string | null
           departure_geo?: string | null
+          departure_gps_issue_notes?: string | null
+          departure_gps_issue_reason?: string | null
           departure_load_status?: string | null
           departure_time?: string | null
           departure_user_id?: string | null
