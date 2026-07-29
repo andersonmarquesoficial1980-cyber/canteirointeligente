@@ -69,11 +69,6 @@ export default function CarreteirosQRScan() {
   };
 
   useEffect(() => {
-    supabase.from("insumos_materiais").select("nome").eq("ativo", true).order("nome")
-      .then(({ data }) => { if (data) setMateriais((data as any[]).map(m => m.nome)); });
-  }, []);
-
-  useEffect(() => {
     if (!truckId) return;
     async function load() {
       // Buscar caminhão
@@ -103,6 +98,33 @@ export default function CarreteirosQRScan() {
       () => setGeoStatus("erro"),
       { timeout: 8000, enableHighAccuracy: true }
     );
+  }, []);
+
+  // Materiais de Transporte: união de insumos_materiais + materiais(tipo_uso Transporte/Ambos)
+  useEffect(() => {
+    async function loadMateriaisTransporte() {
+      const [{ data: insumosData }, { data: materiaisData, error: matErr }] = await Promise.all([
+        supabase.from("insumos_materiais").select("nome").eq("ativo", true).order("nome"),
+        supabase.from("materiais").select("nome,tipo_uso").or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos").order("nome"),
+      ]);
+
+      const merged = new Set<string>();
+      (insumosData || []).forEach((m: any) => {
+        const nome = String(m?.nome || "").trim();
+        if (nome) merged.add(nome);
+      });
+
+      if (!matErr) {
+        (materiaisData || []).forEach((m: any) => {
+          const nome = String(m?.nome || "").trim();
+          if (nome) merged.add(nome);
+        });
+      }
+
+      setMateriais(Array.from(merged).sort((a, b) => a.localeCompare(b, "pt-BR")));
+    }
+
+    loadMateriaisTransporte();
   }, []);
 
   const ogsExpandido = (ogsData || []).flatMap((o: any) => {

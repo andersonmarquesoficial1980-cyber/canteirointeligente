@@ -63,9 +63,39 @@ function DepartureForm() {
   const { data: insumos, isLoading: loadingInsumos } = useQuery({
     queryKey: ["insumos_materiais_list"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("insumos_materiais").select("*").eq("ativo", true).order("nome");
-      if (error) throw error;
-      return data || [];
+      const [{ data: insumosBase, error: insumosError }, materiaisResp] = await Promise.all([
+        supabase.from("insumos_materiais").select("*").eq("ativo", true).order("nome"),
+        supabase
+          .from("materiais")
+          .select("id,nome,tipo_uso")
+          .or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos")
+          .order("nome"),
+      ]);
+
+      if (insumosError) throw insumosError;
+
+      const merged = new Map<string, any>();
+      (insumosBase || []).forEach((m: any) => {
+        const key = String(m?.nome || "").trim().toUpperCase();
+        if (!key) return;
+        merged.set(key, m);
+      });
+
+      if (!materiaisResp.error) {
+        (materiaisResp.data || []).forEach((m: any) => {
+          const nome = String(m?.nome || "").trim();
+          const key = nome.toUpperCase();
+          if (!nome || merged.has(key)) return;
+          merged.set(key, {
+            id: `materiais-${m.id}`,
+            nome,
+            unidade_medida: "m³",
+            ativo: true,
+          });
+        });
+      }
+
+      return Array.from(merged.values()).sort((a: any, b: any) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));
     },
   });
 
