@@ -2848,6 +2848,24 @@ function InsumosMaterialManager() {
               Reativar fallback (rollback)
             </Button>
           </div>
+
+          <div className="rounded-lg border border-border bg-background p-2.5">
+            <p className="text-xs font-semibold text-foreground mb-1">Checklist de Encerramento Definitivo (Fase 8)</p>
+            <div className="space-y-1 text-[11px]">
+              <p className={relatorioCorteFinal.pendentes === 0 ? "text-emerald-700" : "text-amber-700"}>
+                {relatorioCorteFinal.pendentes === 0 ? "✅" : "⏳"} Sem pendências no legado
+              </p>
+              <p className={relatorioCorteFinal.cobertosAtivos === 0 ? "text-emerald-700" : "text-amber-700"}>
+                {relatorioCorteFinal.cobertosAtivos === 0 ? "✅" : "⏳"} Legado coberto totalmente inativado
+              </p>
+              <p className={!legacyFallbackEnabled ? "text-emerald-700" : "text-amber-700"}>
+                {!legacyFallbackEnabled ? "✅" : "⏳"} Feature flag em modo corte definitivo
+              </p>
+              <p className={!legacyFallbackEnabled && !rollbackAllowed ? "text-emerald-700" : "text-amber-700"}>
+                {!legacyFallbackEnabled && !rollbackAllowed ? "✅" : "⏳"} Janela de rollback encerrada
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

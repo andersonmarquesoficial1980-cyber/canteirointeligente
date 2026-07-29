@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { ResponsavelInput } from "@/components/rdo/ResponsavelInput";
 import { useOrigemBack } from "@/hooks/useOrigemBack";
-import { isLegacyFallbackEnabled } from "@/lib/materialsFeatureFlags";
+import { getLegacyModeState, isLegacyFallbackEnabled } from "@/lib/materialsFeatureFlags";
 
 // Materials are now loaded dynamically from insumos_materiais
 
@@ -74,6 +74,7 @@ function DepartureForm() {
   });
 
   const legacyFallbackEnabled = isLegacyFallbackEnabled();
+  const legacyModeState = getLegacyModeState();
 
   const { data: insumos, isLoading: loadingInsumos } = useQuery({
     queryKey: ["insumos_materiais_list", legacyFallbackEnabled],
@@ -115,6 +116,8 @@ function DepartureForm() {
     },
   });
 
+  const hasMaterialsAvailable = (insumos?.length || 0) > 0;
+
   const handlePlacaChange = (val: string) => {
     setPlaca(val);
     const truck = trucks?.find((t) => t.placa === val);
@@ -126,6 +129,11 @@ function DepartureForm() {
   };
 
   const handleSubmit = async () => {
+    if (!hasMaterialsAvailable) {
+      toast.error("Nenhum material disponível. Cadastre no Painel > Materiais antes de lançar saída.");
+      return;
+    }
+
     if (!placa || !material || !quantity || !destination || !departureLoadStatus) {
       toast.error("Preencha todos os campos obrigatórios, incluindo Situação na Saída.");
       return;
@@ -234,6 +242,22 @@ function DepartureForm() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className={`rounded-lg border p-2.5 ${legacyFallbackEnabled ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
+            <p className={`text-xs font-semibold ${legacyFallbackEnabled ? "text-amber-800" : "text-emerald-800"}`}>
+              {legacyFallbackEnabled ? "Modo ativo: Compatibilidade (Central + Legado)" : "Modo ativo: Corte definitivo (Somente Central)"}
+            </p>
+            {!legacyFallbackEnabled && legacyModeState.rollbackUntil && (
+              <p className="text-[11px] text-emerald-700 mt-1">Janela de rollback até {new Date(legacyModeState.rollbackUntil).toLocaleString("pt-BR")}</p>
+            )}
+          </div>
+
+          {!loadingInsumos && !hasMaterialsAvailable && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-2.5">
+              <p className="text-xs font-semibold text-red-700">Trava de segurança: sem materiais disponíveis para lançamento</p>
+              <p className="text-[11px] text-red-700">Cadastre material em Painel &gt; Materiais para liberar o envio.</p>
+            </div>
+          )}
+
           {/* Placa */}
           <div className="space-y-1.5">
             <Label>Placa do Caminhão *</Label>
@@ -252,14 +276,18 @@ function DepartureForm() {
           {/* Material */}
           <div className="space-y-1.5">
             <Label>Material *</Label>
-            <Select value={material} onValueChange={(val) => {
-              setMaterial(val);
-              // Auto-suggest unit based on material
-              const found = insumos?.find((i) => i.nome === val);
-              if (found) {
-                // Update quantity label hint (unit)
-              }
-            }}>
+            <Select
+              value={material}
+              onValueChange={(val) => {
+                setMaterial(val);
+                // Auto-suggest unit based on material
+                const found = insumos?.find((i) => i.nome === val);
+                if (found) {
+                  // Update quantity label hint (unit)
+                }
+              }}
+              disabled={!hasMaterialsAvailable}
+            >
               <SelectTrigger><SelectValue placeholder={loadingInsumos ? "Carregando..." : "Selecione o material"} /></SelectTrigger>
               <SelectContent>
                 {(insumos || []).map((m: any) => (
@@ -362,7 +390,7 @@ function DepartureForm() {
             </div>
           )}
 
-          <Button onClick={handleSubmit} disabled={submitting} className="w-full h-12 text-base font-bold mt-2">
+          <Button onClick={handleSubmit} disabled={submitting || !hasMaterialsAvailable} className="w-full h-12 text-base font-bold mt-2">
             {submitting ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <MapPin className="mr-2 h-5 w-5" />}
             Lançar Saída
           </Button>

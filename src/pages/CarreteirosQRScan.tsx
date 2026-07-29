@@ -9,7 +9,7 @@ import { Truck, MapPin, Send, CheckCircle2, Loader2, AlertTriangle } from "lucid
 import { supabase } from "@/integrations/supabase/client";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
-import { isLegacyFallbackEnabled } from "@/lib/materialsFeatureFlags";
+import { getLegacyModeState, isLegacyFallbackEnabled } from "@/lib/materialsFeatureFlags";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 const GPS_REASON_OPTIONS = [
@@ -60,6 +60,8 @@ export default function CarreteirosQRScan() {
   const [destination, setDestination] = useState("Canteiro");
   const [arrivalLoadStatus, setArrivalLoadStatus] = useState<""|"CHEIO"|"MEIA CARGA"|"VAZIO">("");
   const [materiais, setMateriais] = useState<string[]>([]);
+  const legacyFallbackEnabled = isLegacyFallbackEnabled();
+  const legacyModeState = getLegacyModeState();
   const [gpsIssueReason, setGpsIssueReason] = useState<"" | GpsReason>("");
   const [gpsIssueNotes, setGpsIssueNotes] = useState("");
   const [gpsJustificationRequired, setGpsJustificationRequired] = useState(false);
@@ -115,8 +117,6 @@ export default function CarreteirosQRScan() {
   // Materiais de Transporte: usa central e, quando habilitado, também legado
   useEffect(() => {
     async function loadMateriaisTransporte() {
-      const legacyFallbackEnabled = isLegacyFallbackEnabled();
-
       const matResp = await supabase
         .from("materiais")
         .select("nome,tipo_uso")
@@ -144,7 +144,9 @@ export default function CarreteirosQRScan() {
     }
 
     loadMateriaisTransporte();
-  }, []);
+  }, [legacyFallbackEnabled]);
+
+  const hasMaterialsAvailable = materiais.length > 0;
 
   const ogsExpandido = (ogsData || []).flatMap((o: any) => {
     const addrs = (o.location_address || "").split(";").map((a: string) => a.trim()).filter(Boolean);
@@ -153,6 +155,7 @@ export default function CarreteirosQRScan() {
   });
 
   async function lancarSaida() {
+    if (!hasMaterialsAvailable) { setErro("Nenhum material disponível. Cadastre no Painel > Materiais antes de lançar saída."); return; }
     if (!material || !destination) { setErro("Selecione o Material e o Destino."); return; }
     setSubmitting(true); setErro(null);
     // Calcular quantidade baseado no tipo selecionado
@@ -293,6 +296,32 @@ export default function CarreteirosQRScan() {
       </div>
 
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 16px" }}>
+        <div
+          style={{
+            marginBottom: 12,
+            borderRadius: 12,
+            padding: "10px 12px",
+            border: legacyFallbackEnabled ? "1px solid #fcd34d" : "1px solid #86efac",
+            background: legacyFallbackEnabled ? "#fffbeb" : "#f0fdf4",
+          }}
+        >
+          <p style={{ fontSize: 12, fontWeight: 800, color: legacyFallbackEnabled ? "#92400e" : "#166534" }}>
+            {legacyFallbackEnabled ? "Modo ativo: Compatibilidade (Central + Legado)" : "Modo ativo: Corte definitivo (Somente Central)"}
+          </p>
+          {!legacyFallbackEnabled && legacyModeState.rollbackUntil && (
+            <p style={{ fontSize: 11, color: "#166534", marginTop: 4 }}>
+              Janela de rollback até {new Date(legacyModeState.rollbackUntil).toLocaleString("pt-BR")}
+            </p>
+          )}
+        </div>
+
+        {!hasMaterialsAvailable && (
+          <div style={{ marginBottom: 12, border: "1px solid #fecaca", background: "#fef2f2", borderRadius: 12, padding: "10px 12px" }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: "#b91c1c" }}>Trava de segurança: sem materiais disponíveis</p>
+            <p style={{ fontSize: 11, color: "#b91c1c", marginTop: 4 }}>Cadastre materiais no painel para liberar lançamentos.</p>
+          </div>
+        )}
+
         {/* Info do caminhão */}
         <div style={{ background: "white", borderRadius: 16, padding: 16, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ width: 52, height: 52, borderRadius: 12, background: "linear-gradient(135deg,#0055AA,#00C6FF)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -364,7 +393,7 @@ export default function CarreteirosQRScan() {
 
             <div style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>MATERIAL *</label>
-              <select style={{ ...inp, background: "white" }} value={material} onChange={e => setMaterial(e.target.value)}>
+              <select style={{ ...inp, background: hasMaterialsAvailable ? "white" : "#f3f4f6" }} value={material} onChange={e => setMaterial(e.target.value)} disabled={!hasMaterialsAvailable}>
                 <option value="">Selecione o material...</option>
                 {materiais.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
@@ -439,8 +468,8 @@ export default function CarreteirosQRScan() {
               </div>
             )}
 
-            <button onClick={lancarSaida} disabled={submitting}
-              style={{ width: "100%", height: 50, borderRadius: 14, background: submitting ? "#9ca3af" : "#0055AA", color: "white", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <button onClick={lancarSaida} disabled={submitting || !hasMaterialsAvailable}
+              style={{ width: "100%", height: 50, borderRadius: 14, background: (submitting || !hasMaterialsAvailable) ? "#9ca3af" : "#0055AA", color: "white", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
               {submitting ? "Registrando..." : "Lançar Saída"}
             </button>
