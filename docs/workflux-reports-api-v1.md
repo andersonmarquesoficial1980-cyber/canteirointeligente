@@ -105,10 +105,18 @@ Campos da seção `notas_fiscais_concreto.rows` (homologação Engenharia):
 - `local_aplicacao`
 
 Campos da seção `producao_rdos.rows` adicionados para produção:
+- `ogs` (alias de `obra_nome`)
 - `sentido`, `faixa`
 - `estaca_inicial`, `estaca_final`
 - `km_inicial`, `km_final`
 - `trecho`
+- `encarregado`, `contratante`, `local`, `created_at`, `updated_at`
+- `retrabalho` (controle técnico; usado em Infra)
+
+Separação por tipo de RDO no payload:
+- `producao_pavimentacao_rdos.rows`: campos comuns + `faixa` (não inclui `retrabalho`)
+- `producao_infra_rdos.rows`: campos comuns + `retrabalho` (alias compatível: `retrababalho`) e sem `faixa`
+- `producao_inconsistencias_classificacao.rows`: linhas classificadas como CAUQ com `tipo_servico` de Infra (auditoria de qualidade)
 
 Campos da seção `equipamentos_modulo_geral.rows` (módulo geral de equipamentos):
 - `data`, `ogs`, `contratante`, `local`

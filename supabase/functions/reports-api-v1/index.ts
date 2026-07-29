@@ -37,7 +37,7 @@ function jsonResponse(status: number, payload: Json) {
     status,
     headers: {
       ...corsHeaders,
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
     },
   });
 }
@@ -84,6 +84,12 @@ function safeNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function nullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 function normalizeString(value: unknown): string {
   return String(value ?? "").trim();
 }
@@ -102,13 +108,13 @@ function isValidPlateLike(value: string | null): boolean {
   return /^[A-Z]{3}\d{4}$/.test(raw) || /^[A-Z]{3}\d[A-Z]\d{2}$/.test(raw);
 }
 
-function buildTrecho(estacaInicial: string | null, estacaFinal: string | null, kmInicial: number, kmFinal: number): string | null {
+function buildTrecho(estacaInicial: string | null, estacaFinal: string | null, kmInicial: number | null, kmFinal: number | null): string | null {
   if (estacaInicial || estacaFinal) {
     if (estacaInicial && estacaFinal) return `${estacaInicial} a ${estacaFinal}`;
     return estacaInicial || estacaFinal;
   }
-  if (kmInicial > 0 || kmFinal > 0) {
-    return `KM ${kmInicial} a KM ${kmFinal}`;
+  if (kmInicial !== null || kmFinal !== null) {
+    return `KM ${kmInicial ?? "?"} a KM ${kmFinal ?? "?"}`;
   }
   return null;
 }
@@ -169,6 +175,11 @@ function isTipoRdoPavimentacao(value: string | null): boolean {
 }
 
 function isTipoRdoInfra(value: string | null): boolean {
+  const key = normalizarUsinaKey(value || "");
+  return key === "INFRA" || key === "INFRAESTRUTURA";
+}
+
+function isTipoServicoInfra(value: string | null): boolean {
   const key = normalizarUsinaKey(value || "");
   return key === "INFRA" || key === "INFRAESTRUTURA";
 }
@@ -250,7 +261,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     rdoIds.length
       ? sb
           .from("rdo_producao")
-          .select("id,rdo_id,tipo_servico,sentido,sentido_faixa,faixa,estaca_inicial,estaca_final,km_inicial,km_final,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,tonelagem", { count: "exact" })
+          .select("id,rdo_id,tipo_servico,sentido,sentido_faixa,faixa,estaca_inicial,estaca_final,km_inicial,km_final,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,tonelagem,is_retrabalho", { count: "exact" })
           .eq("company_id", companyId)
           .in("rdo_id", rdoIds)
           .order("id", { ascending: false })
@@ -386,8 +397,8 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     const ogs = obrasByNumberMap.get(rdo?.obra_nome);
     const estacaInicial = normalizeString(p.estaca_inicial) || null;
     const estacaFinal = normalizeString(p.estaca_final) || null;
-    const kmInicial = safeNumber(p.km_inicial);
-    const kmFinal = safeNumber(p.km_final);
+    const kmInicial = nullableNumber(p.km_inicial);
+    const kmFinal = nullableNumber(p.km_final);
     const faixa = normalizeString(p.faixa) || null;
     const sentidoFaixa = p.sentido_faixa || p.sentido || null;
     const trecho = buildTrecho(estacaInicial, estacaFinal, kmInicial, kmFinal);
@@ -398,6 +409,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       created_at: rdo?.created_at || null,
       updated_at: rdo?.created_at || null,
       obra_nome: rdo?.obra_nome || null,
+      ogs: rdo?.obra_nome || null,
       contratante: ogs?.client_name || null,
       local: ogs?.location_address || null,
       tipo_rdo: rdo?.tipo_rdo || null,
@@ -412,6 +424,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       km_inicial: kmInicial,
       km_final: kmFinal,
       trecho,
+      retrabalho: Boolean(p.is_retrabalho),
       comprimento_m: safeNumber(p.comprimento_m),
       largura_m: safeNumber(p.largura_m),
       espessura_cm: safeNumber(p.espessura_cm),
@@ -421,8 +434,30 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     };
   });
 
-  const producaoPavimentacaoRows = producaoRows.filter((row: any) => isTipoRdoPavimentacao(row.tipo_rdo));
-  const producaoInfraRows = producaoRows.filter((row: any) => isTipoRdoInfra(row.tipo_rdo));
+  const producaoInconsistenciasClassificacaoRows = producaoRows.filter(
+    (row: any) => isTipoRdoPavimentacao(row.tipo_rdo) && isTipoServicoInfra(row.tipo_servico),
+  );
+
+  const producaoPavimentacaoRows = producaoRows
+    .filter((row: any) => isTipoRdoPavimentacao(row.tipo_rdo) && !isTipoServicoInfra(row.tipo_servico))
+    .map((row: any) => {
+      const { retrabalho, ...common } = row;
+      return {
+        ...common,
+        faixa: row.faixa,
+      };
+    });
+
+  const producaoInfraRows = producaoRows
+    .filter((row: any) => isTipoRdoInfra(row.tipo_rdo))
+    .map((row: any) => {
+      const { faixa, ...common } = row;
+      return {
+        ...common,
+        retrabalho: row.retrabalho,
+        retrababalho: row.retrabalho,
+      };
+    });
 
   const equipamentosGeralRows = (equipamentosGeralResp.data || []).map((row: any) => {
     const horimetroInicial = safeNumber(row.meter_initial);
@@ -490,6 +525,10 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
         total_area_m2: Number(producaoInfraRows.reduce((s: number, r: any) => s + safeNumber(r.area_m2), 0).toFixed(2)),
         total_tonelagem: Number(producaoInfraRows.reduce((s: number, r: any) => s + safeNumber(r.tonelagem), 0).toFixed(2)),
         rows: producaoInfraRows,
+      },
+      producao_inconsistencias_classificacao: {
+        total: producaoInconsistenciasClassificacaoRows.length,
+        rows: producaoInconsistenciasClassificacaoRows,
       },
       equipamentos_modulo_geral: {
         total: equipamentosGeralResp.count ?? 0,
