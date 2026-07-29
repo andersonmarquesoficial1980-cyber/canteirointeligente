@@ -84,6 +84,35 @@ function safeNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function normalizeString(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
+function parseFckMpa(tipoConcreto: string | null): number | null {
+  if (!tipoConcreto) return null;
+  const match = tipoConcreto.match(/(\d{1,2}(?:[.,]\d+)?)\s*MPA/i);
+  if (!match) return null;
+  const parsed = Number(match[1].replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isValidPlateLike(value: string | null): boolean {
+  if (!value) return false;
+  const raw = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return /^[A-Z]{3}\d{4}$/.test(raw) || /^[A-Z]{3}\d[A-Z]\d{2}$/.test(raw);
+}
+
+function buildTrecho(estacaInicial: string | null, estacaFinal: string | null, kmInicial: number, kmFinal: number): string | null {
+  if (estacaInicial || estacaFinal) {
+    if (estacaInicial && estacaFinal) return `${estacaInicial} a ${estacaFinal}`;
+    return estacaInicial || estacaFinal;
+  }
+  if (kmInicial > 0 || kmFinal > 0) {
+    return `KM ${kmInicial} a KM ${kmFinal}`;
+  }
+  return null;
+}
+
 const PREFIXO_USINA: Record<string, string> = {
   ELLENCO: "ELL",
   JULIOEJULIO: "JUJ",
@@ -168,7 +197,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   const funcionarioIds = [...new Set(medicoes.map((m: any) => m.funcionario_id).filter(Boolean))];
   const servicoIds = [...new Set(medicoes.map((m: any) => m.servico_id).filter(Boolean))];
 
-  const [obrasResp, obrasByNumberResp, empresasResp, funcionariosResp, servicosResp, nfResp, nfConcretoResp, producaoResp] = await Promise.all([
+  const [obrasResp, obrasByNumberResp, empresasResp, funcionariosResp, servicosResp, nfResp, nfConcretoResp, producaoResp, equipamentosGeralResp] = await Promise.all([
     obraIds.length
       ? sb.from("ogs_reference").select("id,ogs_number,client_name,location_address").eq("company_id", companyId).in("id", obraIds)
       : Promise.resolve({ data: [], error: null } as any),
@@ -203,12 +232,20 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     rdoIds.length
       ? sb
           .from("rdo_producao")
-          .select("id,rdo_id,tipo_servico,sentido,sentido_faixa,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,tonelagem", { count: "exact" })
+          .select("id,rdo_id,tipo_servico,sentido,sentido_faixa,faixa,estaca_inicial,estaca_final,km_inicial,km_final,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,tonelagem", { count: "exact" })
           .eq("company_id", companyId)
           .in("rdo_id", rdoIds)
           .order("id", { ascending: false })
           .range(offset, offset + pageSize - 1)
       : Promise.resolve({ data: [], error: null, count: 0 } as any),
+    sb
+      .from("equipment_diaries")
+      .select("id,date,ogs_number,client_name,location_address,equipment_type,equipment_fleet,operator_name,period,meter_initial,meter_final,odometer_initial,odometer_final,work_status", { count: "exact" })
+      .eq("company_id", companyId)
+      .gte("date", start)
+      .lte("date", end)
+      .order("date", { ascending: false })
+      .range(offset, offset + pageSize - 1),
   ]);
 
   if (obrasResp.error) throw new Error(obrasResp.error.message);
@@ -219,6 +256,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   if (nfResp.error) throw new Error(nfResp.error.message);
   if (nfConcretoResp.error) throw new Error(nfConcretoResp.error.message);
   if (producaoResp.error) throw new Error(producaoResp.error.message);
+  if (equipamentosGeralResp.error) throw new Error(equipamentosGeralResp.error.message);
 
   const obrasMap = new Map<string, any>((obrasResp.data || []).map((o: any) => [o.id, o]));
   const obrasByNumberMap = new Map<string, any>((obrasByNumberResp.data || []).map((o: any) => [o.ogs_number, o]));
@@ -283,10 +321,12 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     const ogs = obrasByNumberMap.get(rdo?.obra_nome);
     const dataRdo = rdo?.data || null;
     const nfNumero = n.nf || null;
-    const tipoConcreto = n.tipo_concreto || null;
+    const tipoConcreto = normalizeString(n.tipo_concreto) || null;
+    const fckMpa = parseFckMpa(tipoConcreto);
     const fornecedor = n.fornecedor || null;
     const volumeM3 = safeNumber(n.quantidade_m3);
-    const placaBetoneira = n.equipamento || null;
+    const equipamentoRaw = normalizeString(n.equipamento) || null;
+    const placaBetoneira = isValidPlateLike(equipamentoRaw) ? equipamentoRaw : null;
     const obraOgs = rdo?.obra_nome || null;
     const localAplicacao = ogs?.location_address || null;
 
@@ -306,16 +346,18 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       nf: nfNumero,
       tipo_concreto: tipoConcreto,
       fornecedor,
-      equipamento: placaBetoneira,
+      equipamento: equipamentoRaw,
       quantidade_m3: volumeM3,
 
       // aliases pedidos pela engenharia
       data: dataRdo,
       numero_nf: nfNumero,
       concreteira: fornecedor,
-      fck: tipoConcreto,
+      fck: fckMpa,
+      fck_descricao: tipoConcreto,
       volume_m3: volumeM3,
       placa_betoneira: placaBetoneira,
+      codigo_equipamento_origem: equipamentoRaw,
       obra_ogs: obraOgs,
       local_aplicacao: localAplicacao,
     };
@@ -323,6 +365,14 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
 
   const producaoRows = (producaoResp.data || []).map((p: any) => {
     const rdo = rdoMap.get(p.rdo_id);
+    const estacaInicial = normalizeString(p.estaca_inicial) || null;
+    const estacaFinal = normalizeString(p.estaca_final) || null;
+    const kmInicial = safeNumber(p.km_inicial);
+    const kmFinal = safeNumber(p.km_final);
+    const faixa = normalizeString(p.faixa) || null;
+    const sentidoFaixa = p.sentido_faixa || p.sentido || null;
+    const trecho = buildTrecho(estacaInicial, estacaFinal, kmInicial, kmFinal);
+
     return {
       id: p.id,
       data_rdo: rdo?.data || null,
@@ -330,13 +380,46 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       tipo_rdo: rdo?.tipo_rdo || null,
       apontador: rdo?.preenchido_por || rdo?.encarregado || null,
       tipo_servico: p.tipo_servico,
-      sentido_faixa: p.sentido_faixa || p.sentido,
+      sentido_faixa: sentidoFaixa,
+      sentido: p.sentido || null,
+      faixa,
+      estaca_inicial: estacaInicial,
+      estaca_final: estacaFinal,
+      km_inicial: kmInicial,
+      km_final: kmFinal,
+      trecho,
       comprimento_m: safeNumber(p.comprimento_m),
       largura_m: safeNumber(p.largura_m),
       espessura_cm: safeNumber(p.espessura_cm),
       area_m2: safeNumber(p.area_m2),
       volume_m3: safeNumber(p.volume_m3),
       tonelagem: safeNumber(p.tonelagem),
+    };
+  });
+
+  const equipamentosGeralRows = (equipamentosGeralResp.data || []).map((row: any) => {
+    const horimetroInicial = safeNumber(row.meter_initial);
+    const horimetroFinal = safeNumber(row.meter_final);
+    const odometroInicial = safeNumber(row.odometer_initial);
+    const odometroFinal = safeNumber(row.odometer_final);
+
+    return {
+      id: row.id,
+      data: row.date,
+      ogs: row.ogs_number || null,
+      contratante: row.client_name || null,
+      local: row.location_address || null,
+      equipamento_tipo: row.equipment_type || null,
+      equipamento_frota: row.equipment_fleet || null,
+      operador: row.operator_name || null,
+      turno: row.period || null,
+      status_obra: row.work_status || null,
+      horimetro_inicial: horimetroInicial,
+      horimetro_final: horimetroFinal,
+      horimetro_trabalhado: horimetroFinal > horimetroInicial ? Number((horimetroFinal - horimetroInicial).toFixed(2)) : 0,
+      odometro_inicial: odometroInicial,
+      odometro_final: odometroFinal,
+      km_rodado: odometroFinal > odometroInicial ? Number((odometroFinal - odometroInicial).toFixed(2)) : 0,
     };
   });
 
@@ -367,6 +450,10 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
         total_area_m2: Number(producaoRows.reduce((s: number, r: any) => s + safeNumber(r.area_m2), 0).toFixed(2)),
         total_tonelagem: Number(producaoRows.reduce((s: number, r: any) => s + safeNumber(r.tonelagem), 0).toFixed(2)),
         rows: producaoRows,
+      },
+      equipamentos_modulo_geral: {
+        total: equipamentosGeralResp.count ?? 0,
+        rows: equipamentosGeralRows,
       },
     },
   };

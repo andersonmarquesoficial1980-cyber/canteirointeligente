@@ -44,10 +44,12 @@ Regras:
 ## 0) RDO-FREMIX (ADM Engenharia)
 `report_key`: `rdo-fremix`
 
-API consolidada para o ADM da Engenharia com 3 blocos:
+API consolidada para o ADM da Engenharia com 5 blocos:
 - medições de terceiros (`terceiros_medicoes`)
 - notas fiscais de massa (`rdo_nf_massa`)
+- notas fiscais de concreto (`rdo_nf_concreto`)
 - produções dos RDOs (`rdo_producao`)
+- equipamentos do módulo geral (`equipment_diaries`)
 
 Retorno: objeto `secoes` com totais e linhas por bloco.
 
@@ -85,6 +87,29 @@ Campos técnicos adicionais:
 Identificação incremental recomendada:
 - Chave primária de registro: `id`
 - Marcador temporal: `updated_at` (no estado atual é equivalente a `created_at`)
+
+Campos da seção `notas_fiscais_concreto.rows` (homologação Engenharia):
+- `numero_nf` / `nf`
+- `concreteira` / `fornecedor`
+- `fck` (numérico em MPa quando identificado; ex.: `30`)
+- `fck_descricao` (texto original; ex.: `FCK 30 MPa`)
+- `placa_betoneira` (somente quando valor tem formato de placa)
+- `codigo_equipamento_origem` (valor bruto recebido no campo `equipamento`)
+- `volume_m3`
+- `obra_ogs`
+- `local_aplicacao`
+
+Campos da seção `producao_rdos.rows` adicionados para produção:
+- `sentido`, `faixa`
+- `estaca_inicial`, `estaca_final`
+- `km_inicial`, `km_final`
+- `trecho`
+
+Campos da seção `equipamentos_modulo_geral.rows` (módulo geral de equipamentos):
+- `data`, `ogs`, `contratante`, `local`
+- `equipamento_tipo`, `equipamento_frota`, `operador`, `turno`, `status_obra`
+- `horimetro_inicial`, `horimetro_final`, `horimetro_trabalhado`
+- `odometro_inicial`, `odometro_final`, `km_rodado`
 
 ## 1) RDO Summary
 `report_key`: `rdo/summary`
