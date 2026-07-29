@@ -2578,19 +2578,10 @@ function InsumosMaterialManager() {
     const ok = await add({ nome: nomeFmt, vinculo_rdo: "TODOS", tipo_uso: tipoUso });
     if (!ok) return;
 
-    // Compatibilidade: garante presença no legado quando ainda houver telas antigas dependentes
-    const existsLegacy = (insumosLegado || []).some((i: any) => normTxt(i?.nome || "") === normTxt(nomeFmt));
-    if (!existsLegacy) {
-      const { error: legacyErr } = await supabase
-        .from("insumos_materiais" as any)
-        .insert({ nome: nomeFmt, unidade_medida: "m³", ativo: true } as any);
-      if (legacyErr) {
-        toast({ title: "Cadastro central salvo", description: `Aviso: não foi possível espelhar no legado (${legacyErr.message}).`, variant: "destructive" });
-      }
-    }
-
+    // Fase 5: legado congelado (sem criação/espelhamento novo em insumos_materiais)
     setNome("");
     setTipoUso("Transporte");
+    toast({ title: "Material centralizado", description: "Cadastro salvo apenas no central (legado em modo leitura/rollback)." });
   };
 
   const startEdit = (item: any) => {
@@ -2607,20 +2598,6 @@ function InsumosMaterialManager() {
     }
     const ok = await update(id, { nome: nomeFmt, tipo_uso: editTipoUso, vinculo_rdo: "TODOS" });
     if (ok) setEditingId(null);
-  };
-
-  const migrateLegacyItem = async (item: any) => {
-    const nomeFmt = String(item?.nome || "").trim().toUpperCase();
-    if (!nomeFmt) return;
-
-    const existsCentral = transporteCentral.some((m: any) => normTxt(m?.nome || "") === normTxt(nomeFmt));
-    if (existsCentral) {
-      toast({ title: "Já centralizado", description: `${nomeFmt} já existe no cadastro central.` });
-      return;
-    }
-
-    const ok = await add({ nome: nomeFmt, vinculo_rdo: "TODOS", tipo_uso: "Transporte" });
-    if (ok) toast({ title: "Material migrado", description: `${nomeFmt} foi centralizado em Materiais.` });
   };
 
   const desativarLegadoCoberto = async () => {
@@ -2809,8 +2786,8 @@ function InsumosMaterialManager() {
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-foreground">Legado (insumos_materiais ainda não centralizados)</p>
-        <p className="text-[11px] text-muted-foreground">Esses itens seguem visíveis para compatibilidade. Você pode migrar para o cadastro central sem remover o legado agora.</p>
+        <p className="text-xs font-semibold text-foreground">Legado (modo leitura/rollback)</p>
+        <p className="text-[11px] text-muted-foreground">Fase 5 ativa: nenhum item novo é criado no legado. Esta lista fica somente para consulta e rollback temporário.</p>
         {!loadingLegado && legadoSomente.length === 0 && <p className="text-sm text-muted-foreground text-center py-3">Sem pendências de migração no legado.</p>}
         {legadoSomente.map((item: any) => (
           <div key={item.id} className={`bg-card rounded-lg border border-border p-3 flex items-center justify-between ${item.ativo === false ? "opacity-60" : ""}`}>
@@ -2823,7 +2800,7 @@ function InsumosMaterialManager() {
                 </span>
               </div>
             </div>
-            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => migrateLegacyItem(item)}>Migrar</Button>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">Somente leitura</span>
           </div>
         ))}
       </div>
