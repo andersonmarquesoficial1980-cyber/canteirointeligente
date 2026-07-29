@@ -164,7 +164,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
 
   let rdoQuery = sb
     .from("rdo_diarios")
-    .select("id,data,obra_nome,tipo_rdo,preenchido_por,encarregado", { count: "exact" })
+    .select("id,data,obra_nome,tipo_rdo,preenchido_por,encarregado,created_at", { count: "exact" })
     .eq("company_id", companyId)
     .gte("data", start)
     .lte("data", end)
@@ -365,6 +365,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
 
   const producaoRows = (producaoResp.data || []).map((p: any) => {
     const rdo = rdoMap.get(p.rdo_id);
+    const ogs = obrasByNumberMap.get(rdo?.obra_nome);
     const estacaInicial = normalizeString(p.estaca_inicial) || null;
     const estacaFinal = normalizeString(p.estaca_final) || null;
     const kmInicial = safeNumber(p.km_inicial);
@@ -376,9 +377,14 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     return {
       id: p.id,
       data_rdo: rdo?.data || null,
+      created_at: rdo?.created_at || null,
+      updated_at: rdo?.created_at || null,
       obra_nome: rdo?.obra_nome || null,
+      contratante: ogs?.client_name || null,
+      local: ogs?.location_address || null,
       tipo_rdo: rdo?.tipo_rdo || null,
       apontador: rdo?.preenchido_por || rdo?.encarregado || null,
+      encarregado: rdo?.encarregado || null,
       tipo_servico: p.tipo_servico,
       sentido_faixa: sentidoFaixa,
       sentido: p.sentido || null,
