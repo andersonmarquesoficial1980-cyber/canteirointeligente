@@ -38,6 +38,7 @@ import EngenheirosManager from "@/components/admin/EngenheirosManager";
 import PermissoesManager from "@/components/admin/PermissoesManager";
 import AdminRolesPage from "./AdminRolesPage";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { canRollbackLegacyFallback, disableLegacyFallbackWithWindow, enableLegacyFallback, getLegacyModeState } from "@/lib/materialsFeatureFlags";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
@@ -2485,6 +2486,7 @@ function InsumosMaterialManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNome, setEditNome] = useState("");
   const [editTipoUso, setEditTipoUso] = useState<"Transporte" | "Ambos">("Transporte");
+  const [legacyModeState, setLegacyModeState] = useState(() => getLegacyModeState());
 
   const transporteCentral = useMemo(
     () => (materiais || []).filter((m: any) => ["Transporte", "Ambos"].includes(String(m?.tipo_uso || ""))),
@@ -2561,6 +2563,25 @@ function InsumosMaterialManager() {
       atualizadoEm: new Date().toLocaleString("pt-BR"),
     };
   }, [legadoSomente, legadoCobertoAtivo, legadoCobertoInativo]);
+
+  const legacyFallbackEnabled = legacyModeState.legacyFallbackEnabled;
+  const rollbackAllowed = canRollbackLegacyFallback();
+
+  const ativarFallbackLegado = () => {
+    const next = enableLegacyFallback();
+    setLegacyModeState(next);
+    toast({ title: "Rollback ativado", description: "Fallback legado reativado para Transporte/Carreteiros." });
+  };
+
+  const desligarFallbackLegado = () => {
+    if (!relatorioCorteFinal.prontoParaCorte) {
+      toast({ title: "Bloqueado por segurança", description: "Finalize pendências e desative cobertos ativos antes do corte definitivo.", variant: "destructive" });
+      return;
+    }
+    const next = disableLegacyFallbackWithWindow(7);
+    setLegacyModeState(next);
+    toast({ title: "Fase 7 aplicada", description: "Fallback legado desligado. Janela de rollback aberta por 7 dias." });
+  };
 
   const TipoUsoPills = ({ value, onChange }: { value: "Transporte" | "Ambos"; onChange: (v: "Transporte" | "Ambos") => void }) => (
     <div className="flex flex-wrap gap-1.5">
@@ -2787,10 +2808,46 @@ function InsumosMaterialManager() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border p-2.5 bg-secondary/40">
+        <div className="rounded-lg border border-border p-2.5 bg-secondary/40 space-y-2">
           <p className="text-xs font-semibold text-foreground">Recomendação automática</p>
           <p className="text-xs text-muted-foreground">{relatorioCorteFinal.recomendado}</p>
-          <p className="text-[11px] text-muted-foreground mt-1">Atualizado em: {relatorioCorteFinal.atualizadoEm}</p>
+          <p className="text-[11px] text-muted-foreground">Atualizado em: {relatorioCorteFinal.atualizadoEm}</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+            <div className="rounded-md border border-border p-2">
+              <p className="text-[11px] text-muted-foreground">Feature flag legado</p>
+              <p className={`text-xs font-semibold ${legacyFallbackEnabled ? "text-amber-700" : "text-emerald-700"}`}>
+                {legacyFallbackEnabled ? "Ligado (compatibilidade ativa)" : "Desligado (corte definitivo ativo)"}
+              </p>
+            </div>
+            <div className="rounded-md border border-border p-2">
+              <p className="text-[11px] text-muted-foreground">Janela de rollback</p>
+              <p className="text-xs font-semibold text-foreground">
+                {legacyModeState.rollbackUntil ? new Date(legacyModeState.rollbackUntil).toLocaleString("pt-BR") : "Não aplicável"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={desligarFallbackLegado}
+              disabled={!relatorioCorteFinal.prontoParaCorte || !legacyFallbackEnabled}
+            >
+              Desligar fallback legado (Fase 7)
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={ativarFallbackLegado}
+              disabled={legacyFallbackEnabled || !rollbackAllowed}
+            >
+              Reativar fallback (rollback)
+            </Button>
+          </div>
         </div>
       </div>
 

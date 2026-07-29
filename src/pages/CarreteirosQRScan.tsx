@@ -9,8 +9,17 @@ import { Truck, MapPin, Send, CheckCircle2, Loader2, AlertTriangle } from "lucid
 import { supabase } from "@/integrations/supabase/client";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { isLegacyFallbackEnabled } from "@/lib/materialsFeatureFlags";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const GPS_REASON_OPTIONS = [
+  { value: "SEM_SINAL_RODOVIA", label: "Sem sinal na rodovia" },
+  { value: "GPS_DESATIVADO_APARELHO", label: "GPS desativado no aparelho" },
+  { value: "PERMISSAO_NEGADA", label: "Permissão de localização negada" },
+  { value: "FALHA_TEMPORARIA", label: "Falha momentânea do app/dispositivo" },
+  { value: "OUTRO", label: "Outro motivo" },
+] as const;
+type GpsReason = typeof GPS_REASON_OPTIONS[number]["value"];
 
 function localDateISO() {
   const now = new Date();
@@ -51,6 +60,9 @@ export default function CarreteirosQRScan() {
   const [destination, setDestination] = useState("Canteiro");
   const [arrivalLoadStatus, setArrivalLoadStatus] = useState<""|"CHEIO"|"MEIA CARGA"|"VAZIO">("");
   const [materiais, setMateriais] = useState<string[]>([]);
+  const [gpsIssueReason, setGpsIssueReason] = useState<"" | GpsReason>("");
+  const [gpsIssueNotes, setGpsIssueNotes] = useState("");
+  const [gpsJustificationRequired, setGpsJustificationRequired] = useState(false);
 
   const captureGeoNow = async (): Promise<string | null> => {
     if (geo) return geo;
@@ -100,22 +112,29 @@ export default function CarreteirosQRScan() {
     );
   }, []);
 
-  // Materiais de Transporte: união de insumos_materiais + materiais(tipo_uso Transporte/Ambos)
+  // Materiais de Transporte: usa central e, quando habilitado, também legado
   useEffect(() => {
     async function loadMateriaisTransporte() {
-      const [{ data: insumosData }, { data: materiaisData, error: matErr }] = await Promise.all([
-        supabase.from("insumos_materiais").select("nome").eq("ativo", true).order("nome"),
-        supabase.from("materiais").select("nome,tipo_uso").or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos").order("nome"),
-      ]);
+      const legacyFallbackEnabled = isLegacyFallbackEnabled();
+
+      const matResp = await supabase
+        .from("materiais")
+        .select("nome,tipo_uso")
+        .or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos")
+        .order("nome");
+
+      const legacyResp = legacyFallbackEnabled
+        ? await supabase.from("insumos_materiais").select("nome").eq("ativo", true).order("nome")
+        : { data: [] as any[], error: null as any };
 
       const merged = new Set<string>();
-      (insumosData || []).forEach((m: any) => {
+      (legacyResp.data || []).forEach((m: any) => {
         const nome = String(m?.nome || "").trim();
         if (nome) merged.add(nome);
       });
 
-      if (!matErr) {
-        (materiaisData || []).forEach((m: any) => {
+      if (!matResp.error) {
+        (matResp.data || []).forEach((m: any) => {
           const nome = String(m?.nome || "").trim();
           if (nome) merged.add(nome);
         });
@@ -150,6 +169,22 @@ export default function CarreteirosQRScan() {
     const { data: { user } } = await supabase.auth.getUser();
     const geoAtSubmit = await captureGeoNow();
 
+    if (!geoAtSubmit) {
+      setGpsJustificationRequired(true);
+      if (!gpsIssueReason) {
+        setSubmitting(false);
+        setErro("Sem GPS na saída: selecione a justificativa para concluir o lançamento.");
+        return;
+      }
+      if (gpsIssueReason === "OUTRO" && !gpsIssueNotes.trim()) {
+        setSubmitting(false);
+        setErro("Descreva o motivo no campo de observação para concluir o lançamento.");
+        return;
+      }
+    } else {
+      setGpsJustificationRequired(false);
+    }
+
     // Usar fetch com service key para evitar problema de RLS sem autenticação
     const payload = {
       truck_plate: truck.placa,
@@ -161,6 +196,8 @@ export default function CarreteirosQRScan() {
       departure_user_id: user?.id || null,
       departure_time: new Date().toISOString(),
       departure_geo: geoAtSubmit,
+      departure_gps_issue_reason: geoAtSubmit ? null : gpsIssueReason,
+      departure_gps_issue_notes: geoAtSubmit ? null : (gpsIssueReason === "OUTRO" ? gpsIssueNotes.trim() : null),
       status: "EM TRÂNSITO",
       date: localDateISO(),
       company_id: COMPANY_ID,
@@ -172,6 +209,9 @@ export default function CarreteirosQRScan() {
       setSubmitting(false);
       if (!insertError) {
         setDone("saida");
+        setGpsIssueReason("");
+        setGpsIssueNotes("");
+        setGpsJustificationRequired(false);
       } else {
         setErro("Erro ao registrar saída: " + insertError.message.slice(0, 120));
       }
@@ -326,7 +366,7 @@ export default function CarreteirosQRScan() {
               <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>MATERIAL *</label>
               <select style={{ ...inp, background: "white" }} value={material} onChange={e => setMaterial(e.target.value)}>
                 <option value="">Selecione o material...</option>
-                {materiais.map(m => <option key={m} value={m}>{m}</option>)}
+                {materiais.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
 
@@ -368,6 +408,36 @@ export default function CarreteirosQRScan() {
 
             {erro && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 10 }}>{erro}</p>}
             {geoStatus === "erro" && <p style={{ fontSize: 11, color: "#f97316", marginBottom: 10 }}>⚠️ GPS indisponível — saída será registrada sem localização</p>}
+
+            {(gpsJustificationRequired || gpsIssueReason) && (
+              <div style={{ marginBottom: 12, border: "1px solid #fcd34d", background: "#fffbeb", borderRadius: 10, padding: 10 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#92400e", marginBottom: 8 }}>
+                  Justificativa obrigatória (GPS na saída indisponível)
+                </p>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>MOTIVO *</label>
+                <select
+                  style={{ ...inp, background: "white", marginBottom: 8 }}
+                  value={gpsIssueReason}
+                  onChange={e => setGpsIssueReason(e.target.value as GpsReason)}
+                >
+                  <option value="">Selecione o motivo...</option>
+                  {GPS_REASON_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                </select>
+
+                {gpsIssueReason === "OUTRO" && (
+                  <>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 4 }}>OBSERVAÇÃO *</label>
+                    <input
+                      style={inp}
+                      value={gpsIssueNotes}
+                      onChange={e => setGpsIssueNotes(e.target.value)}
+                      placeholder="Descreva o motivo"
+                      maxLength={160}
+                    />
+                  </>
+                )}
+              </div>
+            )}
 
             <button onClick={lancarSaida} disabled={submitting}
               style={{ width: "100%", height: 50, borderRadius: 14, background: submitting ? "#9ca3af" : "#0055AA", color: "white", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>

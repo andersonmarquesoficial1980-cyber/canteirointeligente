@@ -14,13 +14,23 @@ import { toast } from "sonner";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { ResponsavelInput } from "@/components/rdo/ResponsavelInput";
 import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { isLegacyFallbackEnabled } from "@/lib/materialsFeatureFlags";
 
 // Materials are now loaded dynamically from insumos_materiais
 
 const LOAD_OPTIONS = ["CHEIO", "MEIA CARGA", "VAZIO"] as const;
+const GPS_REASON_OPTIONS = [
+  { value: "SEM_SINAL_RODOVIA", label: "Sem sinal na rodovia" },
+  { value: "GPS_DESATIVADO_APARELHO", label: "GPS desativado no aparelho" },
+  { value: "PERMISSAO_NEGADA", label: "Permissão de localização negada" },
+  { value: "FALHA_TEMPORARIA", label: "Falha momentânea do app/dispositivo" },
+  { value: "OUTRO", label: "Outro motivo" },
+] as const;
 
 type LoadStatus = typeof LOAD_OPTIONS[number];
 type LoadStatusInput = "" | LoadStatus;
+type GpsReason = typeof GPS_REASON_OPTIONS[number]["value"];
+type GpsReasonInput = "" | GpsReason;
 
 function localDateISO() {
   const now = new Date();
@@ -39,6 +49,9 @@ function DepartureForm() {
   const [originOgs, setOriginOgs] = useState("");
   const [encarregadoObra, setEncarregadoObra] = useState("");
   const [departureLoadStatus, setDepartureLoadStatus] = useState<LoadStatusInput>("");
+  const [gpsIssueReason, setGpsIssueReason] = useState<GpsReasonInput>("");
+  const [gpsIssueNotes, setGpsIssueNotes] = useState("");
+  const [gpsJustificationRequired, setGpsJustificationRequired] = useState(false);
   const [destination, setDestination] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -60,22 +73,25 @@ function DepartureForm() {
     },
   });
 
-  const { data: insumos, isLoading: loadingInsumos } = useQuery({
-    queryKey: ["insumos_materiais_list"],
-    queryFn: async () => {
-      const [{ data: insumosBase, error: insumosError }, materiaisResp] = await Promise.all([
-        supabase.from("insumos_materiais").select("*").eq("ativo", true).order("nome"),
-        supabase
-          .from("materiais")
-          .select("id,nome,tipo_uso")
-          .or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos")
-          .order("nome"),
-      ]);
+  const legacyFallbackEnabled = isLegacyFallbackEnabled();
 
-      if (insumosError) throw insumosError;
+  const { data: insumos, isLoading: loadingInsumos } = useQuery({
+    queryKey: ["insumos_materiais_list", legacyFallbackEnabled],
+    queryFn: async () => {
+      const materiaisResp = await supabase
+        .from("materiais")
+        .select("id,nome,tipo_uso")
+        .or("tipo_uso.eq.Transporte,tipo_uso.eq.Ambos")
+        .order("nome");
+
+      const insumosResp = legacyFallbackEnabled
+        ? await supabase.from("insumos_materiais").select("*").eq("ativo", true).order("nome")
+        : { data: [], error: null as any };
+
+      if (insumosResp.error) throw insumosResp.error;
 
       const merged = new Map<string, any>();
-      (insumosBase || []).forEach((m: any) => {
+      (insumosResp.data || []).forEach((m: any) => {
         const key = String(m?.nome || "").trim().toUpperCase();
         if (!key) return;
         merged.set(key, m);
@@ -129,8 +145,23 @@ function DepartureForm() {
         navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
       );
       geoStr = `${pos.coords.latitude},${pos.coords.longitude}`;
+      setGpsJustificationRequired(false);
     } catch {
       gpsFailed = true;
+    }
+
+    if (!geoStr) {
+      setGpsJustificationRequired(true);
+      if (!gpsIssueReason) {
+        setSubmitting(false);
+        toast.error("Sem GPS na saída: selecione a justificativa para concluir o lançamento.");
+        return;
+      }
+      if (gpsIssueReason === "OUTRO" && !gpsIssueNotes.trim()) {
+        setSubmitting(false);
+        toast.error("Descreva o motivo no campo de observação (GPS sem saída).");
+        return;
+      }
     }
 
     // Buscar company_id do usuário logado
@@ -153,6 +184,8 @@ function DepartureForm() {
       departure_user_id: userId,
       departure_time: new Date().toISOString(),
       departure_geo: geoStr,
+      departure_gps_issue_reason: geoStr ? null : gpsIssueReason,
+      departure_gps_issue_notes: geoStr ? null : (gpsIssueReason === "OUTRO" ? gpsIssueNotes.trim() : null),
       status: "EM TRÂNSITO",
       date: localDateISO(),
       company_id: companyId,
@@ -171,6 +204,9 @@ function DepartureForm() {
       setOriginOgs("");
       setEncarregadoObra("");
       setDepartureLoadStatus("");
+      setGpsIssueReason("");
+      setGpsIssueNotes("");
+      setGpsJustificationRequired(false);
       setDestination("");
     }
   };
@@ -295,6 +331,36 @@ function DepartureForm() {
               </SelectContent>
             </Select>
           </div>
+
+          {(gpsJustificationRequired || gpsIssueReason) && (
+            <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-semibold text-amber-800">Justificativa obrigatória (GPS na saída indisponível)</p>
+              <div className="space-y-1.5">
+                <Label>Motivo *</Label>
+                <Select value={gpsIssueReason} onValueChange={(v) => setGpsIssueReason(v as GpsReason)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GPS_REASON_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {gpsIssueReason === "OUTRO" && (
+                <div className="space-y-1.5">
+                  <Label>Observação *</Label>
+                  <Input
+                    value={gpsIssueNotes}
+                    onChange={(e) => setGpsIssueNotes(e.target.value)}
+                    placeholder="Descreva o motivo"
+                    maxLength={160}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <Button onClick={handleSubmit} disabled={submitting} className="w-full h-12 text-base font-bold mt-2">
             {submitting ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <MapPin className="mr-2 h-5 w-5" />}
