@@ -54,7 +54,12 @@ API consolidada para o ADM da Engenharia com 5 blocos:
 Retorno: objeto `secoes` com totais e linhas por bloco.
 
 Filtros opcionais:
-- `tipo_rdo` (ex.: `CAUQ`, `INFRAESTRUTURA`) — quando omitido, retorna **todos** os tipos de RDO no período.
+- `tipo_rdo` (ex.: `CAUQ`, `INFRAESTRUTURA`, `PAVIMENTACAO`, `INFRA`) — quando omitido, retorna **todos** os tipos de RDO no período.
+
+Separação de produção no próprio retorno:
+- `secoes.producao_pavimentacao_rdos` (linhas de RDO CAUQ/Pavimentação)
+- `secoes.producao_infra_rdos` (linhas de RDO Infraestrutura)
+- `secoes.producao_rdos` permanece como visão consolidada (compatibilidade retroativa)
 
 Parâmetros suportados no endpoint `rdo-fremix`:
 - `company_id` (obrigatório)

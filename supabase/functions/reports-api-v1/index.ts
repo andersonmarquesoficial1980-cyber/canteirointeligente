@@ -156,10 +156,28 @@ function nfComPrefixo(nf: string | null, usina: string | null): string | null {
   return `${prefix}-${nf}`;
 }
 
+function normalizeTipoRdoFilter(value: string): string {
+  const key = normalizarUsinaKey(value);
+  if (key === "PAVIMENTACAO" || key === "PAV" || key === "CAUQ") return "CAUQ";
+  if (key === "INFRA" || key === "INFRAESTRUTURA") return "INFRAESTRUTURA";
+  return value;
+}
+
+function isTipoRdoPavimentacao(value: string | null): boolean {
+  const key = normalizarUsinaKey(value || "");
+  return key === "CAUQ" || key === "PAVIMENTACAO" || key === "PAV";
+}
+
+function isTipoRdoInfra(value: string | null): boolean {
+  const key = normalizarUsinaKey(value || "");
+  return key === "INFRA" || key === "INFRAESTRUTURA";
+}
+
 async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: string, url: URL) {
   const start = url.searchParams.get("start_date")!;
   const end = url.searchParams.get("end_date")!;
-  const tipoRdo = url.searchParams.get("tipo_rdo")?.trim() || "";
+  const tipoRdoRaw = url.searchParams.get("tipo_rdo")?.trim() || "";
+  const tipoRdo = tipoRdoRaw ? normalizeTipoRdoFilter(tipoRdoRaw) : "";
   const { page, pageSize, offset } = parsePage(url);
 
   let rdoQuery = sb
@@ -403,6 +421,9 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     };
   });
 
+  const producaoPavimentacaoRows = producaoRows.filter((row: any) => isTipoRdoPavimentacao(row.tipo_rdo));
+  const producaoInfraRows = producaoRows.filter((row: any) => isTipoRdoInfra(row.tipo_rdo));
+
   const equipamentosGeralRows = (equipamentosGeralResp.data || []).map((row: any) => {
     const horimetroInicial = safeNumber(row.meter_initial);
     const horimetroFinal = safeNumber(row.meter_final);
@@ -435,6 +456,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     pagina: page,
     page_size: pageSize,
     filtro_tipo_rdo: tipoRdo || "TODOS",
+    filtro_tipo_rdo_original: tipoRdoRaw || "TODOS",
     periodo: { start_date: start, end_date: end },
     secoes: {
       medicoes_terceiros: {
@@ -456,6 +478,18 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
         total_area_m2: Number(producaoRows.reduce((s: number, r: any) => s + safeNumber(r.area_m2), 0).toFixed(2)),
         total_tonelagem: Number(producaoRows.reduce((s: number, r: any) => s + safeNumber(r.tonelagem), 0).toFixed(2)),
         rows: producaoRows,
+      },
+      producao_pavimentacao_rdos: {
+        total: producaoPavimentacaoRows.length,
+        total_area_m2: Number(producaoPavimentacaoRows.reduce((s: number, r: any) => s + safeNumber(r.area_m2), 0).toFixed(2)),
+        total_tonelagem: Number(producaoPavimentacaoRows.reduce((s: number, r: any) => s + safeNumber(r.tonelagem), 0).toFixed(2)),
+        rows: producaoPavimentacaoRows,
+      },
+      producao_infra_rdos: {
+        total: producaoInfraRows.length,
+        total_area_m2: Number(producaoInfraRows.reduce((s: number, r: any) => s + safeNumber(r.area_m2), 0).toFixed(2)),
+        total_tonelagem: Number(producaoInfraRows.reduce((s: number, r: any) => s + safeNumber(r.tonelagem), 0).toFixed(2)),
+        rows: producaoInfraRows,
       },
       equipamentos_modulo_geral: {
         total: equipamentosGeralResp.count ?? 0,
