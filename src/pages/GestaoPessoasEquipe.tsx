@@ -3,7 +3,7 @@
  * Abas: Todos | Por Função | Por Equipe | Por Responsável | Centro de Custo | Aniversariantes
  */
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, User, X
 } from "lucide-react";
@@ -107,21 +107,39 @@ type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "centro_custo" | "ani
 
 export default function GestaoPessoasEquipe() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const rotaVoltar = useOrigemBack("/gestao-pessoas", { "gestao-frotas": "/gestao-frotas" });
   const origem = searchParams.get("origem") || "";
-  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
+  const abaParam = searchParams.get("aba") as Aba | null;
+  const buscaParam = searchParams.get("q") || "";
+  const abaInicial: Aba = abaParam && ["lista", "funcao", "equipe", "responsavel", "centro_custo", "aniversariantes"].includes(abaParam)
+    ? abaParam
+    : "lista";
   const { isAdmin } = useIsAdmin();
   const [todos, setTodos] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aba, setAba] = useState<Aba>("lista");
-  const [busca, setBusca] = useState("");
+  const [aba, setAba] = useState<Aba>(abaInicial);
+  const [busca, setBusca] = useState(buscaParam);
   const [mostrarSalario, setMostrarSalario] = useState(false);
+  const currentParams = new URLSearchParams();
+  if (origem) currentParams.set("origem", origem);
+  currentParams.set("aba", aba);
+  if (busca.trim()) currentParams.set("q", busca);
+  const returnTo = encodeURIComponent(`${location.pathname}?${currentParams.toString()}`);
 
   useEffect(() => {
     supabase.from("employees").select("*").order("name")
       .then(({ data }) => { if (data) setTodos(data as any); setLoading(false); });
   }, []);
+
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (origem) next.set("origem", origem);
+    next.set("aba", aba);
+    if (busca.trim()) next.set("q", busca);
+    setSearchParams(next, { replace: true });
+  }, [aba, busca, origem, setSearchParams]);
 
   const porFuncao: Record<string, Funcionario[]> = {};
   const porEquipe: Record<string, Funcionario[]> = {};
@@ -158,7 +176,7 @@ export default function GestaoPessoasEquipe() {
       )
     : todos;
 
-  const irFuncionario = (id: string) => navigate(`/gestao-pessoas/${id}${origemQuery}`);
+  const irFuncionario = (id: string) => navigate(`/gestao-pessoas/${id}?returnTo=${returnTo}`);
 
   const ABAS: { id: Aba; label: string; emoji: string; count?: number }[] = [
     { id: "lista",           label: "Todos",           emoji: "👤", count: todos.length },

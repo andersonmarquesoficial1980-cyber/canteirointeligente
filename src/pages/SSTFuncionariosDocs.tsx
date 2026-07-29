@@ -4,7 +4,7 @@
  * Banco único, zero duplicação.
  */
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Search, Plus, Upload, FileText, X, ChevronRight, CheckCircle, AlertTriangle, Clock, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -92,8 +92,10 @@ function statusChipStyle(status?: string | null) {
 
 export default function SSTFuncionariosDocs() {
   const navigate = useNavigate();
-  const rotaVoltarIntegracao = useOrigemBack("/sst/integracao", { "gestao-frotas": "/gestao-frotas" });
+  const location = useLocation();
   const { toast } = useToast();
+  const rotaVoltarIntegracao = useOrigemBack("/sst/integracao", { "gestao-frotas": "/gestao-frotas" });
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [busca, setBusca] = useState("");
   const [funcSelecionado, setFuncSelecionado] = useState<Employee | null>(null);
@@ -257,7 +259,7 @@ export default function SSTFuncionariosDocs() {
           <div className="flex gap-2">
             {/* Ir para ficha completa */}
             <button
-              onClick={() => navigate(`/gestao-pessoas/${funcSelecionado.id}`)}
+              onClick={() => navigate(`/gestao-pessoas/${funcSelecionado.id}?returnTo=${returnTo}`)}
               className="flex items-center gap-1 bg-white/10 hover:bg-white/20 transition rounded-lg px-2.5 py-1.5 text-xs font-bold"
               title="Abrir ficha completa">
               <ExternalLink size={12} /> Ficha

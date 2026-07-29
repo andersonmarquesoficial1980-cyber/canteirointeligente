@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Loader2, Users, Truck, BarChart3 } from "lucide-react";
@@ -62,7 +62,6 @@ function splitPipe(val: string | null): string[] {
 
 export default function EncValidarRdo() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const goBack = useSmartBack("/encarregado/validacoes");
   const { toast } = useToast();
   const [rdo, setRdo] = useState<RdoDetalhe | null>(null);
@@ -131,7 +130,7 @@ export default function EncValidarRdo() {
       title: acao === "aprovar" ? "RDO aprovado!" : "RDO marcado como não aprovado",
       variant: acao === "aprovar" ? "default" : "destructive",
     });
-    navigate("/encarregado");
+    goBack();
   };
 
   if (loading) return (

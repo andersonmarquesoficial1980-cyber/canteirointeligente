@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft, MessageCircle, Search, Send, CheckCheck,
   Clock, User, ChevronRight, X, RefreshCw
@@ -60,8 +60,10 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function WhatsAppInbox() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -274,7 +276,7 @@ export default function WhatsAppInbox() {
                 </p>
               </div>
               {selected.employee_id && (
-                <button onClick={() => navigate(`/gestao-pessoas/${selected.employee_id}`)}
+                <button onClick={() => navigate(`/gestao-pessoas/${selected.employee_id}?returnTo=${returnTo}`)}
                   style={{ background:"#e8f0ff", border:"none", borderRadius:8, padding:"4px 10px", fontSize:11, color:"#0055AA", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
                   <User size={12} /> Ver ficha
                 </button>

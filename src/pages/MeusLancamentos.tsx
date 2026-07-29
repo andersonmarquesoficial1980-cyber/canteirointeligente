@@ -640,10 +640,39 @@ export default function MeusLancamentos() {
       return q;
     };
 
+    const enriquecerRdosComApontador = async (rows: any[]) => {
+      if (!rows || rows.length === 0) return [];
+
+      const userIds = Array.from(new Set(rows.map((r) => r?.user_id).filter(Boolean)));
+      if (userIds.length === 0) {
+        return rows.map((r) => ({ ...r, apontador_nome: "-" }));
+      }
+
+      let profilesQuery = (supabase as any)
+        .from("profiles")
+        .select("user_id,nome_completo")
+        .in("user_id", userIds);
+
+      if (effectiveCompanyId) {
+        profilesQuery = profilesQuery.eq("company_id", effectiveCompanyId);
+      }
+
+      const { data: profilesRows } = await profilesQuery;
+      const nomeByUserId = new Map<string, string>(
+        (profilesRows || []).map((p: any) => [p.user_id, (p.nome_completo || "").trim()]),
+      );
+
+      return rows.map((r) => ({
+        ...r,
+        apontador_nome: nomeByUserId.get(r.user_id) || "-",
+      }));
+    };
+
     if ((isAdmin && companyId) || (permRdoViewAll && effectiveCompanyId)) {
       // RDO_Admin/Administrador com view_all: vê todos os RDOs da empresa
       const { data: rdoRows } = await buildRdoBaseQuery();
-      setRdos(rdoRows || []);
+      const rdosComApontador = await enriquecerRdosComApontador(rdoRows || []);
+      setRdos(rdosComApontador);
     } else {
       const consultasRdo: Promise<any>[] = [buildRdoBaseQuery().eq("user_id", user.id)];
 
@@ -667,7 +696,8 @@ export default function MeusLancamentos() {
         return dtB.localeCompare(dtA);
       });
 
-      setRdos(rdoRows);
+      const rdosComApontador = await enriquecerRdosComApontador(rdoRows);
+      setRdos(rdosComApontador);
     }
 
     // Buscar rascunhos de RDO do próprio usuário
@@ -812,7 +842,7 @@ export default function MeusLancamentos() {
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <button
-                      onClick={() => navigate(`/obras/rdo?edit=${r.id}`)}
+                      onClick={() => navigate(`/obras/rdo?edit=${r.id}&returnTo=${returnTo}`)}
                       className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       Continuar
@@ -952,12 +982,13 @@ export default function MeusLancamentos() {
                         onClick={() => navigate(`/visualizar-rdo/${rdo.id}?returnTo=${returnTo}`)}>
                         <p className="text-sm font-display font-bold text-primary">OGS {rdo.obra_nome} • {fmtRdoDate}</p>
                         <p className="text-xs text-muted-foreground">Tipo: {rdo.tipo_rdo || '-'} • Responsável: {rdo.responsavel || '-'}</p>
+                        <p className="text-xs text-muted-foreground">Apontador: {rdo.apontador_nome || '-'}</p>
                         <p className="text-xs text-muted-foreground">Turno: {rdo.turno || '-'} • Clima: {rdo.clima || '-'}</p>
                       </button>
                       <div className="flex items-center gap-1 shrink-0">
                         <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold">RDO</span>
                         <button
-                          onClick={() => navigate(`/obras/rdo?edit=${rdo.id}`)}
+                          onClick={() => navigate(`/obras/rdo?edit=${rdo.id}&returnTo=${returnTo}`)}
                           className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors"
                           title="Editar">
                           <Pencil className="w-4 h-4" />

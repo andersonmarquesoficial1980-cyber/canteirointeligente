@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, ClipboardCheck, Clock, ChevronRight, Loader2, CheckCircle2 } from "lucide-react";
@@ -18,9 +18,11 @@ interface RdoPendente {
 
 export default function EncValidacoes() {
   const navigate = useNavigate();
+  const location = useLocation();
   const goBack = useSmartBack("/encarregado");
   const [rdos, setRdos] = useState<RdoPendente[]>([]);
   const [loading, setLoading] = useState(true);
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
 
   useEffect(() => {
     const load = async () => {
@@ -113,7 +115,7 @@ export default function EncValidacoes() {
           {rdos.map(rdo => (
             <button
               key={rdo.id}
-              onClick={() => navigate(`/encarregado/validar/${rdo.id}`)}
+              onClick={() => navigate(`/encarregado/validar/${rdo.id}?returnTo=${returnTo}`)}
               className="w-full flex items-center justify-between p-3 rounded-xl bg-white border border-amber-200 shadow-sm active:scale-95 transition-transform text-left"
             >
               <div className="space-y-0.5 flex-1 min-w-0">

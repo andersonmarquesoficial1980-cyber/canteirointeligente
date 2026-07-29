@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ function formatDateBRShort(dateValue: string): string {
 
 export default function RdoForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const goBack = useSmartBack("/obras");
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
@@ -58,6 +59,7 @@ export default function RdoForm() {
   const { profile } = useUserProfile();
   const isOnline = useOnlineStatus();
   const today = getTodayInSaoPauloIso();
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
   const isEditMode = !!searchParams.get("edit");
 
   // Header
@@ -889,7 +891,7 @@ export default function RdoForm() {
         description: "Será sincronizado quando a internet voltar.",
       });
 
-      if (showNavigate) navigate("/obras");
+      if (showNavigate) goBack();
       return;
     }
 
@@ -1278,14 +1280,14 @@ export default function RdoForm() {
           : "Relatório registrado com sucesso.",
         action: (
           <button
-            onClick={() => navigate(`/relatorios/rdo/${encodeURIComponent(header.obra_nome)}?ini=${header.data}&fim=${header.data}`)}
+            onClick={() => navigate(`/relatorios/rdo/${encodeURIComponent(header.obra_nome)}?ini=${header.data}&fim=${header.data}&returnTo=${returnTo}`)}
             className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg font-medium whitespace-nowrap"
           >
             Ver PDF / Exportar →
           </button>
         ),
       });
-      if (showNavigate) navigate("/obras");
+      if (showNavigate) goBack();
     } catch (err: any) {
       console.error(err);
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
@@ -1301,7 +1303,7 @@ export default function RdoForm() {
       {/* Gradient Header */}
       <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/obras")} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+          <button onClick={goBack} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <LogoHomeButton className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />

@@ -5,6 +5,7 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import {
   ArrowLeft, User, Clock, Bus, FileText, Plus, Trash2,
   Calendar, Briefcase, Phone, Mail, Shield, Edit2, Check, X,
@@ -178,6 +179,7 @@ function EquipeField({ editando, value, displayValue, onChange }: { editando: bo
 export default function FichaFuncionario() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useSmartBack("/gestao-pessoas/equipe");
   const { isAdmin } = useIsAdmin();
   const fotoRef = useRef<HTMLInputElement>(null);
   const docFileRef = useRef<HTMLInputElement>(null);
@@ -399,7 +401,7 @@ export default function FichaFuncionario() {
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/gestao-pessoas")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
