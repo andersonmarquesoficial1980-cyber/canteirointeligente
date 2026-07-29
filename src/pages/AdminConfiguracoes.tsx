@@ -2543,6 +2543,25 @@ function InsumosMaterialManager() {
     };
   }, [transporteCentral, insumosLegado, legadoSomente]);
 
+  const relatorioCorteFinal = useMemo(() => {
+    const pendentes = legadoSomente.length;
+    const cobertosAtivos = legadoCobertoAtivo.length;
+    const cobertosInativos = legadoCobertoInativo.length;
+    const prontoParaCorte = pendentes === 0 && cobertosAtivos === 0;
+    const recomendado = prontoParaCorte
+      ? "✅ Recomendado avançar para desligamento definitivo do legado"
+      : "⏳ Manter janela de observação (legado ainda necessário)";
+
+    return {
+      pendentes,
+      cobertosAtivos,
+      cobertosInativos,
+      prontoParaCorte,
+      recomendado,
+      atualizadoEm: new Date().toLocaleString("pt-BR"),
+    };
+  }, [legadoSomente, legadoCobertoAtivo, legadoCobertoInativo]);
+
   const TipoUsoPills = ({ value, onChange }: { value: "Transporte" | "Ambos"; onChange: (v: "Transporte" | "Ambos") => void }) => (
     <div className="flex flex-wrap gap-1.5">
       {(["Transporte", "Ambos"] as const).map((v) => (
@@ -2742,6 +2761,36 @@ function InsumosMaterialManager() {
           <Button size="sm" variant="outline" className="h-8 text-xs" onClick={reativarLegadoCoberto}>
             Reativar legado coberto
           </Button>
+        </div>
+      </div>
+
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">📄 Fase 6 — Relatório Final de Corte</p>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${relatorioCorteFinal.prontoParaCorte ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+            {relatorioCorteFinal.prontoParaCorte ? "Pronto para corte" : "Aguardando"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Pendentes no legado</p>
+            <p className="text-sm font-bold">{relatorioCorteFinal.pendentes}</p>
+          </div>
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Legado coberto ainda ativo</p>
+            <p className="text-sm font-bold text-amber-700">{relatorioCorteFinal.cobertosAtivos}</p>
+          </div>
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Legado coberto já inativo</p>
+            <p className="text-sm font-bold text-emerald-700">{relatorioCorteFinal.cobertosInativos}</p>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border p-2.5 bg-secondary/40">
+          <p className="text-xs font-semibold text-foreground">Recomendação automática</p>
+          <p className="text-xs text-muted-foreground">{relatorioCorteFinal.recomendado}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Atualizado em: {relatorioCorteFinal.atualizadoEm}</p>
         </div>
       </div>
 
