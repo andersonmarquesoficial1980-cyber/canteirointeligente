@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
@@ -117,6 +117,8 @@ export default function RdoForm() {
   // Tipo RDO
   const [tipoRdo, setTipoRdo] = useState("");
   const isPatioRdo = tipoRdo === "PATIO";
+  const statusSemOperacao = !isPatioRdo && (header.status_obra === "Cancelou" || header.status_obra === "Folga");
+  const autoCopyStatusKeyRef = useRef<string>("");
   const [semNota, setSemNota] = useState(false);
   const [semProducao, setSemProducao] = useState(false);
 
@@ -251,17 +253,26 @@ export default function RdoForm() {
     }
   };
 
-  const copiarDiaAnterior = async () => {
-    if (!header.obra_nome || !header.data) return;
+  const copiarDiaAnterior = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+
+    if (!header.obra_nome || !header.data) return false;
     if (!header.encarregado) {
-      toast({ title: "Preencha o Encarregado antes de copiar.", description: "O sistema usa o encarregado para identificar a equipe correta.", variant: "destructive" });
-      return;
+      if (!silent) {
+        toast({
+          title: "Preencha o Encarregado antes de copiar.",
+          description: "O sistema usa o encarregado para identificar a equipe correta.",
+          variant: "destructive",
+        });
+      }
+      return false;
     }
+
     setCopiandoDiaAnterior(true);
     try {
       const dataAnterior = new Date(header.data);
       dataAnterior.setDate(dataAnterior.getDate() - 1);
-      const dataAnteriorStr = dataAnterior.toISOString().split('T')[0];
+      const dataAnteriorStr = dataAnterior.toISOString().split("T")[0];
 
       // Busca RDO do dia anterior da mesma OGS E mesmo encarregado
       const { data: rdoAnterior } = await (supabase as any)
@@ -275,12 +286,14 @@ export default function RdoForm() {
         .maybeSingle();
 
       if (!rdoAnterior) {
-        toast({ 
-          title: `Nenhum RDO encontrado para o encarregado "${header.encarregado}" no dia anterior.`,
-          description: "Verifique se o encarregado e a OGS estão corretos.",
-          variant: "destructive" 
-        });
-        return;
+        if (!silent) {
+          toast({
+            title: `Nenhum RDO encontrado para o encarregado "${header.encarregado}" no dia anterior.`,
+            description: "Verifique se o encarregado e a OGS estão corretos.",
+            variant: "destructive",
+          });
+        }
+        return false;
       }
 
       const rdoId = rdoAnterior.id;
@@ -295,41 +308,51 @@ export default function RdoForm() {
 
       // Monta equipamentos copiados
       if (equipsAnt?.length) {
-        setEquipamentos(equipsAnt.map((e: any) => ({
-          id: crypto.randomUUID(),
-          categoria: e.categoria || "",
-          subTipo: e.sub_tipo || "",
-          frota: e.frota || "",
-          tipo: e.tipo || "",
-          nome: e.nome || "",
-          patrimonio: e.patrimonio || "",
-          empresa_dona: e.empresa_dona || "",
-          is_menor: e.is_menor || false,
-          fresadora_conica: e.fresadora_conica || "",
-        })));
+        setEquipamentos(
+          equipsAnt.map((e: any) => ({
+            id: crypto.randomUUID(),
+            categoria: e.categoria || "",
+            subTipo: e.sub_tipo || "",
+            frota: e.frota || "",
+            tipo: e.tipo || "",
+            nome: e.nome || "",
+            patrimonio: e.patrimonio || "",
+            empresa_dona: e.empresa_dona || "",
+            is_menor: e.is_menor || false,
+            fresadora_conica: e.fresadora_conica || "",
+          }))
+        );
       }
 
       // Monta efetivo copiado com status ajustado
       if (efetivoAnt?.length) {
-        setEfetivo(efetivoAnt.map((e: any) => ({
-          id: crypto.randomUUID(),
-          matricula: e.matricula || "",
-          nome: e.nome || "",
-          funcao: e.funcao || "",
-          entrada: e.entrada || "",
-          saida: e.saida || "",
-          status: statusEfetivo,
-          employee_id: e.employee_id || null, // preservar vínculo do dia anterior
-        })));
+        setEfetivo(
+          efetivoAnt.map((e: any) => ({
+            id: crypto.randomUUID(),
+            matricula: e.matricula || "",
+            nome: e.nome || "",
+            funcao: e.funcao || "",
+            entrada: e.entrada || "",
+            saida: e.saida || "",
+            status: statusEfetivo,
+            employee_id: e.employee_id || null, // preservar vínculo do dia anterior
+          }))
+        );
       }
 
-      toast({ title: `✅ Equipamentos e efetivo copiados do dia anterior (${dataAnteriorStr}).` });
+      if (!silent) {
+        toast({ title: `✅ Equipamentos e efetivo copiados do dia anterior (${dataAnteriorStr}).` });
+      }
+      return true;
     } catch (err: any) {
-      toast({ title: "Erro ao copiar dia anterior", description: err.message, variant: "destructive" });
+      if (!silent) {
+        toast({ title: "Erro ao copiar dia anterior", description: err.message, variant: "destructive" });
+      }
+      return false;
     } finally {
       setCopiandoDiaAnterior(false);
     }
-  };
+  }, [header.data, header.encarregado, header.obra_nome, header.status_obra, toast]);
 
   // Preencher "preenchido_por" automaticamente com o nome do usuário logado
   useEffect(() => {
@@ -337,6 +360,29 @@ export default function RdoForm() {
       setHeader(prev => ({ ...prev, preenchido_por: profile.nome_completo }));
     }
   }, [profile?.nome_completo]);
+
+  useEffect(() => {
+    if (isEditMode || !statusSemOperacao) {
+      autoCopyStatusKeyRef.current = "";
+      return;
+    }
+
+    if (!header.obra_nome || !header.data || !header.encarregado) return;
+
+    const key = [header.data, header.obra_nome, header.encarregado, header.status_obra].join("|");
+    if (autoCopyStatusKeyRef.current === key) return;
+
+    autoCopyStatusKeyRef.current = key;
+    void copiarDiaAnterior({ silent: false });
+  }, [
+    copiarDiaAnterior,
+    header.data,
+    header.encarregado,
+    header.obra_nome,
+    header.status_obra,
+    isEditMode,
+    statusSemOperacao,
+  ]);
 
   // Carregar RDO existente em modo edição
   useEffect(() => {
@@ -537,7 +583,7 @@ export default function RdoForm() {
         obra_nome: header.obra_nome,
         turno: normalizedTurno || "diurno",
         clima: header.status_obra || null,
-        motivo_cancelamento: motivoCancelamento || null,
+        motivo_cancelamento: statusSemOperacao ? (observacoesGerais || null) : (motivoCancelamento || null),
         responsavel: encarregado || preenchidoPor,
         preenchido_por: preenchidoPor,
         encarregado: encarregado || null,
@@ -574,7 +620,7 @@ export default function RdoForm() {
     } finally {
       setSavingDraft(false);
     }
-  }, [header, profile, motivoCancelamento, observacoesGerais, semNota, semProducao, draftId, searchParams, setSearchParams, toast]);
+  }, [header, profile, motivoCancelamento, observacoesGerais, statusSemOperacao, semNota, semProducao, draftId, searchParams, setSearchParams, toast]);
 
   const formatDateBR = (d: string) => {
     if (!d) return "";
@@ -781,6 +827,15 @@ export default function RdoForm() {
         return;
       }
 
+      if (statusSemOperacao && isBlank(observacoesGerais)) {
+        toast({
+          title: "⚠️ Observações obrigatórias",
+          description: "Para status Cancelou/Folga, preencha as Observações Gerais com a justificativa.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Efetivo obrigatório quando status é Trabalhou
       if (header.status_obra === "Trabalhou") {
         const validEfetivo = efetivo.filter(e => !isBlank(e.funcao) && !isBlank(e.nome));
@@ -915,7 +970,7 @@ export default function RdoForm() {
       obra_nome: header.obra_nome,
       turno: normalizedTurno,
       clima: header.status_obra || null,
-      motivo_cancelamento: motivoCancelamento || null,
+      motivo_cancelamento: statusSemOperacao ? (observacoesGerais || null) : (motivoCancelamento || null),
       responsavel: encarregado || preenchidoPor, // legado — compat
       preenchido_por: preenchidoPor,
       encarregado: encarregado || null,
@@ -1447,35 +1502,22 @@ export default function RdoForm() {
         ) : (
           <>
             {/* Cancelou: justificativa + botão copiar dia anterior */}
-            {!isPatioRdo && (header.status_obra === "Cancelou" || header.status_obra === "Folga") && (
-              <div className="mx-4 rounded-xl border border-border bg-card p-4 space-y-3">
-                {header.status_obra === "Cancelou" && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Motivo do Cancelamento *</label>
-                    <textarea
-                      value={motivoCancelamento}
-                      onChange={e => setMotivoCancelamento(e.target.value)}
-                      placeholder="Ex: Chuva intensa, quebra de usina, falta de material..."
-                      className="w-full min-h-[80px] rounded-xl border border-border bg-secondary px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={copiarDiaAnterior}
-                  disabled={!header.obra_nome || !header.data || !header.encarregado || copiandoDiaAnterior}
-                  className="w-full h-11 rounded-xl border border-primary text-primary text-sm font-semibold flex items-center justify-center gap-2 hover:bg-primary/5 disabled:opacity-40 transition-colors"
-                >
-                  {copiandoDiaAnterior ? "Copiando..." : "📅 Copiar equipamentos e efetivo do dia anterior"}
-                </button>
-                <p className="text-[11px] text-muted-foreground text-center">
-                  {!header.encarregado ? "⚠️ Preencha o Encarregado para identificar a equipe" : "Copia do RDO anterior desta OGS + encarregado"}
+            {!isPatioRdo && statusSemOperacao && (
+              <div className="mx-4 rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+                <p className="text-sm font-semibold text-amber-900">
+                  Status <strong>{header.status_obra}</strong>: campos operacionais foram ocultados.
                 </p>
+                <p className="text-xs text-amber-800">
+                  Preencha apenas <strong>Observações Gerais</strong> com a justificativa. Equipamentos e equipe em campo serão copiados automaticamente do RDO do dia anterior.
+                </p>
+                {copiandoDiaAnterior && (
+                  <p className="text-xs text-amber-800">⏳ Copiando equipamentos e equipe do dia anterior...</p>
+                )}
               </div>
             )}
             {/* placeholder para manter estrutura */}
 
-            {tipoRdo === "INFRAESTRUTURA" && (
+            {!statusSemOperacao && tipoRdo === "INFRAESTRUTURA" && (
               <>
                 <SectionInfraestrutura
                   empreiteiro={empreiteiro}
@@ -1490,7 +1532,7 @@ export default function RdoForm() {
               </>
             )}
 
-            {tipoRdo === "CAUQ" && (
+            {!statusSemOperacao && tipoRdo === "CAUQ" && (
               <>
                 <SectionCauq
                   entries={nfMassa}
@@ -1515,11 +1557,11 @@ export default function RdoForm() {
                 />
               </>
             )}
-            {tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
-            {tipoRdo === "PV" && <SectionPV data={pvData} onChange={setPvData} />}
+            {!statusSemOperacao && tipoRdo === "CANTEIRO" && <SectionCanteiro entries={nfInsumos} onChange={setNfInsumos} tipoRdo="CANTEIRO" />}
+            {!statusSemOperacao && tipoRdo === "PV" && <SectionPV data={pvData} onChange={setPvData} />}
             {/* SectionAeroPavGru removida — Drenagem & Terraplanagem sem seção de marmitas */}
 
-            {tipoRdo && (
+            {tipoRdo && !statusSemOperacao && (
               <>
                 {isPatioRdo ? (
                   <SectionEquipamentosPatio entries={equipamentosPatio} onChange={setEquipamentosPatio} />
@@ -1558,22 +1600,26 @@ export default function RdoForm() {
                   />
                 )}
 
-                {/* Observações Gerais */}
-                <div className="px-4 space-y-2">
-                  <h2 className="font-display font-extrabold text-lg flex items-center gap-2" style={{ color: "hsl(220 70% 20%)" }}>
-                    <FileText className="w-5 h-5" style={{ color: "hsl(215 100% 50%)" }} />
-                    Observações Gerais
-                  </h2>
-                  <div className="rdo-card">
-                    <Textarea
-                      value={observacoesGerais}
-                      onChange={e => setObservacoesGerais(e.target.value)}
-                      placeholder="Registre aqui observações importantes sobre o dia de trabalho..."
-                      className="min-h-[120px] bg-white border-border rounded-xl text-base resize-y"
-                    />
-                  </div>
-                </div>
               </>
+            )}
+
+            {tipoRdo && (
+              <div className="px-4 space-y-2">
+                <h2 className="font-display font-extrabold text-lg flex items-center gap-2" style={{ color: "hsl(220 70% 20%)" }}>
+                  <FileText className="w-5 h-5" style={{ color: "hsl(215 100% 50%)" }} />
+                  Observações Gerais{statusSemOperacao ? " *" : ""}
+                </h2>
+                <div className="rdo-card">
+                  <Textarea
+                    value={observacoesGerais}
+                    onChange={e => setObservacoesGerais(e.target.value)}
+                    placeholder={statusSemOperacao
+                      ? "Justifique aqui o motivo do cancelamento/folga..."
+                      : "Registre aqui observações importantes sobre o dia de trabalho..."}
+                    className="min-h-[120px] bg-white border-border rounded-xl text-base resize-y"
+                  />
+                </div>
+              </div>
             )}
           </>
         )}
