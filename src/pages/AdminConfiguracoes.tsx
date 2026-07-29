@@ -2472,66 +2472,181 @@ function DestinosManager() {
   );
 }
 
-// Insumos / Materiais Manager (insumos_materiais)
-const UNIDADE_OPTIONS = ["m³", "Ton", "L", "Kg", "Un"];
+// Transporte: visão unificada com cadastro central (materiais)
 function InsumosMaterialManager() {
-  const { items, add, remove } = useCrudTable("insumos_materiais");
+  const { items: materiais, add, remove, update } = useCrudTable("materiais");
+  const { items: insumosLegado, loading: loadingLegado } = useCrudTable("insumos_materiais");
   const { toast } = useToast();
+
   const [nome, setNome] = useState("");
-  const [unidade, setUnidade] = useState("m³");
+  const [tipoUso, setTipoUso] = useState<"Transporte" | "Ambos">("Transporte");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editTipoUso, setEditTipoUso] = useState<"Transporte" | "Ambos">("Transporte");
+
+  const transporteCentral = useMemo(
+    () => (materiais || []).filter((m: any) => ["Transporte", "Ambos"].includes(String(m?.tipo_uso || ""))),
+    [materiais]
+  );
+
+  const legadoSomente = useMemo(() => {
+    const centralNames = new Set(transporteCentral.map((m: any) => normalizeText(m?.nome || "")));
+    return (insumosLegado || []).filter((i: any) => !centralNames.has(normalizeText(i?.nome || "")));
+  }, [insumosLegado, transporteCentral]);
+
+  const TipoUsoPills = ({ value, onChange }: { value: "Transporte" | "Ambos"; onChange: (v: "Transporte" | "Ambos") => void }) => (
+    <div className="flex flex-wrap gap-1.5">
+      {(["Transporte", "Ambos"] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+            value === v
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+          }`}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
 
   const handleAdd = async () => {
-    if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" }); return; }
-    const ok = await add({ nome: nome.trim().toUpperCase(), unidade_medida: unidade, ativo: true });
-    if (ok) { setNome(""); setUnidade("m³"); }
+    const nomeFmt = nome.trim().toUpperCase();
+    if (!nomeFmt) {
+      toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" });
+      return;
+    }
+
+    const existsCentral = transporteCentral.some((m: any) => normalizeText(m?.nome || "") === normalizeText(nomeFmt));
+    if (existsCentral) {
+      toast({ title: "Já existe", description: "Esse material já está no cadastro central de transporte." });
+      return;
+    }
+
+    const ok = await add({ nome: nomeFmt, vinculo_rdo: "TODOS", tipo_uso: tipoUso });
+    if (!ok) return;
+
+    // Compatibilidade: garante presença no legado quando ainda houver telas antigas dependentes
+    const existsLegacy = (insumosLegado || []).some((i: any) => normalizeText(i?.nome || "") === normalizeText(nomeFmt));
+    if (!existsLegacy) {
+      const { error: legacyErr } = await supabase
+        .from("insumos_materiais" as any)
+        .insert({ nome: nomeFmt, unidade_medida: "m³", ativo: true } as any);
+      if (legacyErr) {
+        toast({ title: "Cadastro central salvo", description: `Aviso: não foi possível espelhar no legado (${legacyErr.message}).`, variant: "destructive" });
+      }
+    }
+
+    setNome("");
+    setTipoUso("Transporte");
   };
 
-  const toggleAtivo = async (item: any) => {
-    if (!item.id) return;
-    const { error } = await supabase.from("insumos_materiais" as any).update({ ativo: !item.ativo } as any).eq("id", item.id);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    toast({ title: item.ativo ? "Material desativado" : "Material reativado" });
-    // Force reload
-    window.location.reload();
+  const startEdit = (item: any) => {
+    setEditingId(item.id);
+    setEditNome(String(item?.nome || ""));
+    setEditTipoUso((item?.tipo_uso === "Ambos" ? "Ambos" : "Transporte") as "Transporte" | "Ambos");
+  };
+
+  const saveEdit = async (id: string) => {
+    const nomeFmt = editNome.trim().toUpperCase();
+    if (!nomeFmt) {
+      toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" });
+      return;
+    }
+    const ok = await update(id, { nome: nomeFmt, tipo_uso: editTipoUso, vinculo_rdo: "TODOS" });
+    if (ok) setEditingId(null);
+  };
+
+  const migrateLegacyItem = async (item: any) => {
+    const nomeFmt = String(item?.nome || "").trim().toUpperCase();
+    if (!nomeFmt) return;
+
+    const existsCentral = transporteCentral.some((m: any) => normalizeText(m?.nome || "") === normalizeText(nomeFmt));
+    if (existsCentral) {
+      toast({ title: "Já centralizado", description: `${nomeFmt} já existe no cadastro central.` });
+      return;
+    }
+
+    const ok = await add({ nome: nomeFmt, vinculo_rdo: "TODOS", tipo_uso: "Transporte" });
+    if (ok) toast({ title: "Material migrado", description: `${nomeFmt} foi centralizado em Materiais.` });
   };
 
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Nome do Material</Label>
+          <Label className="text-xs text-muted-foreground">Nome do Material (Cadastro Central)</Label>
           <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Ex: RAP ESPUMADO, MASSA ASFÁLTICA" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Unidade de Medida</Label>
-          <Select value={unidade} onValueChange={setUnidade}>
-            <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
-            <SelectContent>{UNIDADE_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-          </Select>
+          <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
+          <TipoUsoPills value={tipoUso} onChange={setTipoUso} />
         </div>
+        <p className="text-[11px] text-muted-foreground">Obs: o campo “Onde aparece” fica padronizado como <b>TODOS</b> para materiais de transporte.</p>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Material</Button>
       </div>
+
       <div className="space-y-2">
-        {items.map((item: any) => (
-          <div key={item.id} className={`bg-card rounded-lg border border-border p-3 flex items-center justify-between ${!item.ativo ? 'opacity-50' : ''}`}>
+        <p className="text-xs font-semibold text-foreground">Cadastro Central (tabela materiais)</p>
+        {transporteCentral.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum material centralizado para transporte.</p>}
+        {transporteCentral.map((item: any) => (
+          <div key={item.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
+            {editingId === item.id ? (
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Nome</Label>
+                  <Input value={editNome} onChange={e => setEditNome(e.target.value)} className="h-9 bg-secondary border-border text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
+                  <TipoUsoPills value={editTipoUso} onChange={setEditTipoUso} />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => saveEdit(item.id)}><Save className="w-3 h-3 mr-1" /> Salvar</Button>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditingId(null)}><X className="w-3 h-3" /></Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between">
+                <div className="space-y-1.5 flex-1 min-w-0 pr-2">
+                  <p className="font-medium text-sm text-foreground">{item.nome}</p>
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">TODOS</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{item.tipo_uso || "Transporte"}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">Central</span>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => startEdit(item)} className="text-muted-foreground p-1 hover:text-foreground"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-foreground">Legado (insumos_materiais ainda não centralizados)</p>
+        <p className="text-[11px] text-muted-foreground">Esses itens seguem visíveis para compatibilidade. Você pode migrar para o cadastro central sem remover o legado agora.</p>
+        {!loadingLegado && legadoSomente.length === 0 && <p className="text-sm text-muted-foreground text-center py-3">Sem pendências de migração no legado.</p>}
+        {legadoSomente.map((item: any) => (
+          <div key={item.id} className={`bg-card rounded-lg border border-border p-3 flex items-center justify-between ${item.ativo === false ? "opacity-60" : ""}`}>
             <div>
               <p className="font-medium text-sm text-foreground">{item.nome}</p>
               <div className="flex gap-2 mt-0.5">
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{item.unidade_medida}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${item.ativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {item.ativo ? 'Ativo' : 'Inativo'}
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">{item.unidade_medida || "m³"}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${item.ativo === false ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                  {item.ativo === false ? "Inativo" : "Legado"}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              <button onClick={() => toggleAtivo(item)} className="text-muted-foreground p-1 hover:text-foreground">
-                {item.ativo ? <UserMinus className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-              </button>
-              <button onClick={() => remove(item.id)} className="text-destructive p-1"><Trash2 className="w-4 h-4" /></button>
-            </div>
+            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => migrateLegacyItem(item)}>Migrar</Button>
           </div>
         ))}
-        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum material cadastrado.</p>}
       </div>
     </div>
   );
