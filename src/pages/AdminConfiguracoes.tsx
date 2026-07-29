@@ -2490,9 +2490,41 @@ function InsumosMaterialManager() {
   );
 
   const legadoSomente = useMemo(() => {
-    const centralNames = new Set(transporteCentral.map((m: any) => normalizeText(m?.nome || "")));
-    return (insumosLegado || []).filter((i: any) => !centralNames.has(normalizeText(i?.nome || "")));
+    const centralNames = new Set(transporteCentral.map((m: any) => normTxt(m?.nome || "")));
+    return (insumosLegado || []).filter((i: any) => !centralNames.has(normTxt(i?.nome || "")));
   }, [insumosLegado, transporteCentral]);
+
+  const diagnosticoMigracao = useMemo(() => {
+    const centralNames = new Set((transporteCentral || []).map((m: any) => normTxt(m?.nome || "")));
+    const legacyNames = new Set((insumosLegado || []).map((i: any) => normTxt(i?.nome || "")));
+    const universo = new Set<string>([...centralNames, ...legacyNames]);
+
+    const totalUniverso = universo.size;
+    const totalSomenteLegado = (legadoSomente || []).length;
+    const totalComCoberturaCentral = totalUniverso - totalSomenteLegado;
+    const progresso = totalUniverso > 0 ? Math.round((totalComCoberturaCentral / totalUniverso) * 100) : 100;
+
+    const modulos = [
+      { id: "admin-transporte", nome: "Painel > Materiais de Transporte", campo: "Cadastro de Materiais" },
+      { id: "carreteiros-home", nome: "Carreteiros > Lançar Saída", campo: "Campo Material" },
+      { id: "carreteiros-qr", nome: "Carreteiros > QR Scan", campo: "Campo Material" },
+    ].map((m) => ({
+      ...m,
+      progresso,
+      status: totalSomenteLegado > 0 ? "Em transição" : "Centralizado",
+      fonte: totalSomenteLegado > 0 ? "Central + Legado (compatibilidade)" : "Central",
+    }));
+
+    return {
+      totalUniverso,
+      totalCentral: centralNames.size,
+      totalLegado: legacyNames.size,
+      totalSomenteLegado,
+      totalComCoberturaCentral,
+      progresso,
+      modulos,
+    };
+  }, [transporteCentral, insumosLegado, legadoSomente]);
 
   const TipoUsoPills = ({ value, onChange }: { value: "Transporte" | "Ambos"; onChange: (v: "Transporte" | "Ambos") => void }) => (
     <div className="flex flex-wrap gap-1.5">
@@ -2520,7 +2552,7 @@ function InsumosMaterialManager() {
       return;
     }
 
-    const existsCentral = transporteCentral.some((m: any) => normalizeText(m?.nome || "") === normalizeText(nomeFmt));
+    const existsCentral = transporteCentral.some((m: any) => normTxt(m?.nome || "") === normTxt(nomeFmt));
     if (existsCentral) {
       toast({ title: "Já existe", description: "Esse material já está no cadastro central de transporte." });
       return;
@@ -2530,7 +2562,7 @@ function InsumosMaterialManager() {
     if (!ok) return;
 
     // Compatibilidade: garante presença no legado quando ainda houver telas antigas dependentes
-    const existsLegacy = (insumosLegado || []).some((i: any) => normalizeText(i?.nome || "") === normalizeText(nomeFmt));
+    const existsLegacy = (insumosLegado || []).some((i: any) => normTxt(i?.nome || "") === normTxt(nomeFmt));
     if (!existsLegacy) {
       const { error: legacyErr } = await supabase
         .from("insumos_materiais" as any)
@@ -2564,7 +2596,7 @@ function InsumosMaterialManager() {
     const nomeFmt = String(item?.nome || "").trim().toUpperCase();
     if (!nomeFmt) return;
 
-    const existsCentral = transporteCentral.some((m: any) => normalizeText(m?.nome || "") === normalizeText(nomeFmt));
+    const existsCentral = transporteCentral.some((m: any) => normTxt(m?.nome || "") === normTxt(nomeFmt));
     if (existsCentral) {
       toast({ title: "Já centralizado", description: `${nomeFmt} já existe no cadastro central.` });
       return;
@@ -2587,6 +2619,54 @@ function InsumosMaterialManager() {
         </div>
         <p className="text-[11px] text-muted-foreground">Obs: o campo “Onde aparece” fica padronizado como <b>TODOS</b> para materiais de transporte.</p>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar Material</Button>
+      </div>
+
+      <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">📊 Diagnóstico de Migração (Fase 2.2)</p>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${diagnosticoMigracao.totalSomenteLegado > 0 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+            {diagnosticoMigracao.totalSomenteLegado > 0 ? "Em transição" : "Centralizado"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Base total (únicos)</p>
+            <p className="text-sm font-bold">{diagnosticoMigracao.totalUniverso}</p>
+          </div>
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Com cobertura central</p>
+            <p className="text-sm font-bold text-emerald-700">{diagnosticoMigracao.totalComCoberturaCentral}</p>
+          </div>
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Somente legado</p>
+            <p className="text-sm font-bold text-amber-700">{diagnosticoMigracao.totalSomenteLegado}</p>
+          </div>
+          <div className="rounded-lg border border-border p-2">
+            <p className="text-[10px] text-muted-foreground">Progresso geral</p>
+            <p className="text-sm font-bold">{diagnosticoMigracao.progresso}%</p>
+          </div>
+        </div>
+
+        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+          <div className="h-full bg-primary transition-all" style={{ width: `${diagnosticoMigracao.progresso}%` }} />
+        </div>
+
+        <div className="space-y-2">
+          {diagnosticoMigracao.modulos.map((m) => (
+            <div key={m.id} className="rounded-lg border border-border p-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold text-foreground">{m.nome}</p>
+                  <p className="text-[11px] text-muted-foreground">Campo: {m.campo} • Fonte atual: {m.fonte}</p>
+                </div>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${m.status === "Centralizado" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                  {m.status} ({m.progresso}%)
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-2">
