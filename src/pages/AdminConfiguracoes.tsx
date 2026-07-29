@@ -2045,7 +2045,40 @@ function TruckRegistryManager() {
       toast({ title: "Atenção", description: "Preencha Placa e Capacidade (m³).", variant: "destructive" });
       return;
     }
-    const ok = await add({ placa: placa.trim().toUpperCase(), modelo: modelo.trim() || null, cor: cor.trim() || null, fornecedor: fornecedor.trim() || null, capacidade_m3: parseFloat(String(capacidade).replace(",", ".")), vinculos });
+
+    // truck_registry é multi-tenant por company_id (RLS). Sem company_id o INSERT falha.
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+    let userCompanyId: string | null = null;
+
+    if (userId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      userCompanyId = (profile as any)?.company_id || null;
+    }
+
+    if (!userCompanyId) {
+      toast({
+        title: "Empresa não identificada",
+        description: "Não foi possível identificar o company_id do seu perfil. Verifique o cadastro do usuário.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const ok = await add({
+      placa: placa.trim().toUpperCase(),
+      modelo: modelo.trim() || null,
+      cor: cor.trim() || null,
+      fornecedor: fornecedor.trim() || null,
+      capacidade_m3: parseFloat(String(capacidade).replace(",", ".")),
+      vinculos,
+      company_id: userCompanyId,
+    });
+
     if (ok) { setPlaca(""); setModelo(""); setCor(""); setFornecedor(""); setCapacidade(""); setVinculos(["TODOS"]); }
   };
 
