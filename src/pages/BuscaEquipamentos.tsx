@@ -304,7 +304,7 @@ export default function BuscaEquipamentos() {
           {/* Botão relatório direto quando frota selecionada */}
           {frota && (
             <button
-              onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(frota)}?ini=${ini}&fim=${fim}`)}
+              onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(frota)}?ini=${ini}&fim=${fim}&returnTo=${returnTo}`)}
               className="w-full flex items-center gap-3 rounded-xl border border-green-500/40 bg-green-500/8 px-4 py-3 hover:bg-green-500/15 transition-colors text-left"
             >
               <FileSpreadsheet className="w-4 h-4 text-green-600 shrink-0" />
@@ -345,7 +345,7 @@ export default function BuscaEquipamentos() {
 
                 {frota && (
                   <button
-                    onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(frota)}?ini=${ini}&fim=${fim}`)}
+                    onClick={() => navigate(`/relatorios/equipamento/${encodeURIComponent(frota)}?ini=${ini}&fim=${fim}&returnTo=${returnTo}`)}
                     className="w-full flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 hover:bg-green-500/10 transition-colors text-left"
                   >
                     <FileSpreadsheet className="w-4 h-4 text-green-600 shrink-0" />

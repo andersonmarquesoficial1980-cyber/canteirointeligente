@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, Search } from "lucide-react";
@@ -42,11 +42,14 @@ function normTxt(v: string) {
 
 export default function RelatoriosHome() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
   const origem = searchParams.get("origem") || "";
   const origemQuery = origem ? `&origem=${encodeURIComponent(origem)}` : "";
   const origemQueryPrefix = origem ? `?origem=${encodeURIComponent(origem)}` : "";
+  const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
+  const returnToQuery = `&returnTo=${returnTo}`;
   const { categorias } = useEquipamentoTipos();
 
   // ── Persistência de filtros ─────────────────────────────────────────────
@@ -188,15 +191,15 @@ export default function RelatoriosHome() {
     salvar({ step: "periodo", tipoRel, tipoEquip, frotaOgs, tipoPeriodo, dataDia, dataIni, dataFim });
 
     if (tipoRel === "equipamento") {
-      navigate(`/relatorio-equipamento/${encodeURIComponent(frotaOgs)}?ini=${ini}&fim=${fim}${origemQuery}`);
+      navigate(`/relatorio-equipamento/${encodeURIComponent(frotaOgs)}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     } else if (tipoRel === "transportes") {
-      navigate(`/relatorios/transportes?frota=${encodeURIComponent(frotaOgs)}&ini=${ini}&fim=${fim}${origemQuery}`);
+      navigate(`/relatorios/transportes?frota=${encodeURIComponent(frotaOgs)}&ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     } else if (tipoRel === "rdo") {
-      navigate(`/relatorios/rdo/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}`);
+      navigate(`/relatorios/rdo/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     } else if (tipoRel === "abastecimento") {
-      navigate(`/relatorios/abastecimento/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}`);
+      navigate(`/relatorios/abastecimento/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     } else if (tipoRel === "manutencao") {
-      navigate(`/relatorios/manutencao/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}`);
+      navigate(`/relatorios/manutencao/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     }
   }
 

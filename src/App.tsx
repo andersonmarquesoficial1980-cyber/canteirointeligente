@@ -132,12 +132,14 @@ function RedirectEquipamento() {
   const fim = searchParams.get("fim");
   const mes = searchParams.get("mes");
   const ano = searchParams.get("ano");
+  const returnTo = searchParams.get("returnTo");
   let to = `/relatorios/equipamento/${encodeURIComponent(fleet || "")}`;
   const params = new URLSearchParams();
   if (ini) params.set("ini", ini);
   if (fim) params.set("fim", fim);
   if (mes) params.set("mes", mes);
   if (ano) params.set("ano", ano);
+  if (returnTo) params.set("returnTo", returnTo);
   if (params.toString()) to += `?${params.toString()}`;
   return <Navigate to={to} replace />;
 }
