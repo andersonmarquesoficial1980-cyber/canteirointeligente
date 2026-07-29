@@ -2339,43 +2339,160 @@ function MaterialManager() {
   const { items, add, remove, update } = useCrudTable("materiais");
   const { toast } = useToast();
   const [nome, setNome] = useState("");
-  const [vinculo, setVinculo] = useState("TODOS");
-  const [tipoUso, setTipoUso] = useState("Nota Fiscal");
+  const [vinculos, setVinculos] = useState<string[]>(["TODOS"]);
+  const [tiposUso, setTiposUso] = useState<string[]>(["Nota Fiscal"]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNome, setEditNome] = useState("");
-  const [editVinculo, setEditVinculo] = useState("TODOS");
-  const [editTipoUso, setEditTipoUso] = useState("Nota Fiscal");
+  const [editVinculos, setEditVinculos] = useState<string[]>(["TODOS"]);
+  const [editTiposUso, setEditTiposUso] = useState<string[]>(["Nota Fiscal"]);
 
-  const PillGroup = ({ options, selected, onSelect, labels }: { options: string[]; selected: string; onSelect: (v: string) => void; labels?: Record<string, string> }) => (
+  const toggleMulti = (
+    value: string,
+    current: string[],
+    set: (next: string[]) => void,
+    opts?: { allKey?: string; exclusiveKey?: string }
+  ) => {
+    const allKey = opts?.allKey;
+    const exclusiveKey = opts?.exclusiveKey;
+
+    if (allKey && value === allKey) {
+      set([allKey]);
+      return;
+    }
+
+    let next = allKey ? current.filter((v) => v !== allKey) : [...current];
+
+    if (exclusiveKey && value === exclusiveKey) {
+      set([exclusiveKey]);
+      return;
+    }
+
+    if (exclusiveKey) next = next.filter((v) => v !== exclusiveKey);
+
+    if (next.includes(value)) {
+      const removed = next.filter((v) => v !== value);
+      if (allKey && removed.length === 0) {
+        set([allKey]);
+      } else {
+        set(removed);
+      }
+    } else {
+      set([...next, value]);
+    }
+  };
+
+  const deriveVinculoPersist = (selected: string[]) => {
+    if (selected.includes("TODOS")) return "TODOS";
+    if (selected.length > 1) return "TODOS";
+    return selected[0] || "TODOS";
+  };
+
+  const deriveTipoUsoPersist = (selected: string[]) => {
+    if (selected.includes("Ambos")) return "Ambos";
+    const base = selected.filter((v) => v !== "Ambos");
+    if (base.length >= 2) return "Ambos";
+    return base[0] || "Nota Fiscal";
+  };
+
+  const toVinculosState = (value: string | null | undefined) => {
+    const v = String(value || "TODOS");
+    return [v];
+  };
+
+  const toTipoUsoState = (value: string | null | undefined) => {
+    const v = String(value || "Nota Fiscal");
+    if (v === "Ambos") return ["Nota Fiscal", "Transporte"];
+    return [v];
+  };
+
+  const PillGroup = ({
+    options,
+    selected,
+    onToggle,
+    labels,
+  }: {
+    options: string[];
+    selected: string[];
+    onToggle: (v: string) => void;
+    labels?: Record<string, string>;
+  }) => (
     <div className="flex flex-wrap gap-1.5">
-      {options.map(v => (
-        <button key={v} type="button" onClick={() => onSelect(v)}
-          className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
-            selected === v ? "bg-primary text-primary-foreground border-primary"
-                           : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
-          }`}>
-          {labels?.[v] ?? v}
-        </button>
-      ))}
+      {options.map((v) => {
+        const active = selected.includes(v);
+        return (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onToggle(v)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+              active
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+            }`}
+          >
+            {labels?.[v] ?? v}
+          </button>
+        );
+      })}
     </div>
   );
 
   const handleAdd = async () => {
-    if (!nome.trim()) { toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" }); return; }
-    const ok = await add({ nome: nome.trim(), vinculo_rdo: vinculo, tipo_uso: tipoUso });
-    if (ok) { setNome(""); setVinculo("TODOS"); setTipoUso("Nota Fiscal"); }
+    if (!nome.trim()) {
+      toast({ title: "Atenção", description: "Preencha o nome do material.", variant: "destructive" });
+      return;
+    }
+
+    if (vinculos.length === 0) {
+      toast({ title: "Atenção", description: "Selecione ao menos um item em Onde aparece.", variant: "destructive" });
+      return;
+    }
+
+    if (tiposUso.length === 0) {
+      toast({ title: "Atenção", description: "Selecione ao menos um item em Tipo de Uso.", variant: "destructive" });
+      return;
+    }
+
+    const ok = await add({
+      nome: nome.trim(),
+      vinculo_rdo: deriveVinculoPersist(vinculos),
+      tipo_uso: deriveTipoUsoPersist(tiposUso),
+    });
+    if (ok) {
+      setNome("");
+      setVinculos(["TODOS"]);
+      setTiposUso(["Nota Fiscal"]);
+    }
   };
 
   const startEdit = (item: any) => {
     setEditingId(item.id);
     setEditNome(item.nome || "");
-    setEditVinculo(item.vinculo_rdo || "TODOS");
-    setEditTipoUso(item.tipo_uso || "Nota Fiscal");
+    setEditVinculos(toVinculosState(item.vinculo_rdo));
+    setEditTiposUso(toTipoUsoState(item.tipo_uso));
   };
 
   const saveEdit = async (id: string) => {
-    if (!editNome.trim()) { toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" }); return; }
-    const ok = await update(id, { nome: editNome.trim(), vinculo_rdo: editVinculo, tipo_uso: editTipoUso });
+    if (!editNome.trim()) {
+      toast({ title: "Atenção", description: "Preencha o nome.", variant: "destructive" });
+      return;
+    }
+
+    if (editVinculos.length === 0) {
+      toast({ title: "Atenção", description: "Selecione ao menos um item em Onde aparece.", variant: "destructive" });
+      return;
+    }
+
+    if (editTiposUso.length === 0) {
+      toast({ title: "Atenção", description: "Selecione ao menos um item em Tipo de Uso.", variant: "destructive" });
+      return;
+    }
+
+    const ok = await update(id, {
+      nome: editNome.trim(),
+      vinculo_rdo: deriveVinculoPersist(editVinculos),
+      tipo_uso: deriveTipoUsoPersist(editTiposUso),
+    });
     if (ok) setEditingId(null);
   };
 
@@ -2387,12 +2504,21 @@ function MaterialManager() {
           <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Novo Material" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Onde aparece</Label>
-          <PillGroup options={MATERIAL_VINCULO_OPTIONS} selected={vinculo} onSelect={setVinculo} labels={VINCULO_LABELS} />
+          <Label className="text-xs text-muted-foreground">Onde aparece (um ou mais)</Label>
+          <PillGroup
+            options={MATERIAL_VINCULO_OPTIONS}
+            selected={vinculos}
+            onToggle={(v) => toggleMulti(v, vinculos, setVinculos, { allKey: "TODOS" })}
+            labels={VINCULO_LABELS}
+          />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
-          <PillGroup options={TIPO_USO_OPTIONS} selected={tipoUso} onSelect={setTipoUso} />
+          <Label className="text-xs text-muted-foreground">Tipo de Uso (um ou mais)</Label>
+          <PillGroup
+            options={TIPO_USO_OPTIONS}
+            selected={tiposUso}
+            onToggle={(v) => toggleMulti(v, tiposUso, setTiposUso, { exclusiveKey: "Ambos" })}
+          />
         </div>
         <Button onClick={handleAdd} className="w-full h-11 gap-2"><Plus className="w-4 h-4" /> Adicionar</Button>
       </div>
@@ -2407,12 +2533,21 @@ function MaterialManager() {
                   <Input value={editNome} onChange={e => setEditNome(e.target.value)} className="h-9 bg-secondary border-border text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Onde aparece</Label>
-                  <PillGroup options={MATERIAL_VINCULO_OPTIONS} selected={editVinculo} onSelect={setEditVinculo} labels={VINCULO_LABELS} />
+                  <Label className="text-xs text-muted-foreground">Onde aparece (um ou mais)</Label>
+                  <PillGroup
+                    options={MATERIAL_VINCULO_OPTIONS}
+                    selected={editVinculos}
+                    onToggle={(v) => toggleMulti(v, editVinculos, setEditVinculos, { allKey: "TODOS" })}
+                    labels={VINCULO_LABELS}
+                  />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
-                  <PillGroup options={TIPO_USO_OPTIONS} selected={editTipoUso} onSelect={setEditTipoUso} />
+                  <Label className="text-xs text-muted-foreground">Tipo de Uso (um ou mais)</Label>
+                  <PillGroup
+                    options={TIPO_USO_OPTIONS}
+                    selected={editTiposUso}
+                    onToggle={(v) => toggleMulti(v, editTiposUso, setEditTiposUso, { exclusiveKey: "Ambos" })}
+                  />
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" className="flex-1 h-8 text-xs" onClick={() => saveEdit(item.id)}><Save className="w-3 h-3 mr-1" /> Salvar</Button>
