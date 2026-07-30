@@ -12,6 +12,7 @@ export interface FuncionarioTerceiro {
   empresa_id: string;
   nome: string;
   ativo: boolean;
+  is_encarregado: boolean;
 }
 
 const EMPRESAS_DEFAULT = ["Geoservice", "RGSE", "Barão", "Copavel", "JBA", "Premark"];
@@ -39,7 +40,7 @@ export function useEmpresasTerceiras() {
       // Busca funcionários terceirizados diretamente de employees (fonte única)
       (supabase as any)
         .from("employees")
-        .select("id, empresa_id, name, status")
+        .select("id, empresa_id, name, status, is_encarregado")
         .eq("origem", "TERCEIRO")
         .eq("status", "ativo")
         .order("name"),
@@ -69,6 +70,7 @@ export function useEmpresasTerceiras() {
       empresa_id: f.empresa_id,
       nome: f.name,
       ativo: f.status === "ativo",
+      is_encarregado: !!f.is_encarregado,
     }));
 
     setEmpresas(empList);
@@ -99,7 +101,7 @@ export function useEmpresasTerceiras() {
     return !error;
   };
 
-  const addFuncionario = async (nome: string, empresa_id: string, role?: string): Promise<boolean> => {
+  const addFuncionario = async (nome: string, empresa_id: string, role?: string, is_encarregado: boolean = false): Promise<boolean> => {
     const companyId = await getCompanyId();
     if (!companyId) return false;
     // Terceirizados vão direto para a tabela employees (fonte única)
@@ -112,6 +114,7 @@ export function useEmpresasTerceiras() {
         origem: "TERCEIRO",
         status: "ativo",
         role: role?.trim() || null,
+        is_encarregado,
       });
     if (!error) await fetchAll();
     return !error;

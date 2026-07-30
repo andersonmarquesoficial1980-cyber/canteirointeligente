@@ -3666,6 +3666,7 @@ function TerceirizadosManager() {
   const [empresaFuncId, setEmpresaFuncId] = useState("");
   const [filterEmpresa, setFilterEmpresa] = useState("");
   const [savingFunc, setSavingFunc] = useState(false);
+  const [novoFuncEncarregado, setNovoFuncEncarregado] = useState(false);
 
   const handleAddEmpresa = async () => {
     if (!novaEmpresa.trim()) return;
@@ -3686,9 +3687,13 @@ function TerceirizadosManager() {
   const handleAddFunc = async () => {
     if (!novoFunc.trim() || !empresaFuncId) return;
     setSavingFunc(true);
-    const ok = await addFuncionario(novoFunc.trim(), empresaFuncId);
+    const ok = await addFuncionario(novoFunc.trim(), empresaFuncId, undefined, novoFuncEncarregado);
     setSavingFunc(false);
-    if (ok) { setNovoFunc(""); toast({ title: "Funcionário adicionado!" }); }
+    if (ok) {
+      setNovoFunc("");
+      setNovoFuncEncarregado(false);
+      toast({ title: "Funcionário adicionado!" });
+    }
     else toast({ title: "Erro ao adicionar funcionário", variant: "destructive" });
   };
 
@@ -3781,6 +3786,15 @@ function TerceirizadosManager() {
                   {savingFunc ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 </Button>
               </div>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={novoFuncEncarregado}
+                  onChange={e => setNovoFuncEncarregado(e.target.checked)}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Marcar este funcionário como encarregado de obra (aparece no RDO)
+              </label>
             </div>
 
             {/* Filtro */}
@@ -3811,6 +3825,11 @@ function TerceirizadosManager() {
                       <div>
                         <span className="text-sm font-medium">{func.nome}</span>
                         <span className="text-xs text-muted-foreground ml-2">— {empresa?.nome || "?"}</span>
+                        {func.is_encarregado && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                            Encarregado
+                          </span>
+                        )}
                       </div>
                       <button
                         onClick={() => handleRemoveFunc(func.id, func.nome)}
