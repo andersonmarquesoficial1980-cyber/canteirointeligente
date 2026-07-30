@@ -35,6 +35,14 @@ import { useEquipes } from "@/hooks/useEquipes";
 
 const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const parseBRNumber = (value: string | number | null | undefined): number | null => {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  const parsed = Number.parseFloat(text.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 function getTodayInSaoPauloIso(): string {
   const br = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const [day, month, year] = br.split("/");
@@ -953,6 +961,55 @@ export default function RdoForm() {
             });
             return;
           }
+        }
+      }
+    }
+
+    if (!semProducao && ["CAUQ", "INFRAESTRUTURA", "INFRA", "PAVIMENTAÇÃO", "PAVIMENTACAO"].includes(tipoRdo || "")) {
+      const getInvalidEspessura = (esp: number | null) => esp !== null && esp > 0 && esp < 1;
+
+      if (tipoRdo === "INFRAESTRUTURA" || tipoRdo === "INFRA") {
+        const invalidInfra = infraProducao
+          .map((row, idx) => {
+            const comp = parseBRNumber(row.comprimento_m);
+            const esp = parseBRNumber(row.espessura_cm);
+            return { idx, comp, esp, hasAny: !!(row.tipo_servico || row.sentido || row.estaca_inicial || row.estaca_final || row.comprimento_m || row.largura_m || row.espessura_cm) };
+          })
+          .find((r) => r.hasAny && ((r.comp !== null && r.comp < 0) || getInvalidEspessura(r.esp)));
+
+        if (invalidInfra) {
+          const problems: string[] = [];
+          if (invalidInfra.comp !== null && invalidInfra.comp < 0) problems.push("comprimento negativo");
+          if (getInvalidEspessura(invalidInfra.esp)) problems.push("espessura em formato metro (ex.: 0,17)");
+          toast({
+            title: `⚠️ Produção Infra - linha ${invalidInfra.idx + 1} inválida`,
+            description: `Corrija: ${problems.join(" e ")}. Use comprimento positivo e espessura em cm (ex.: 17, 3, 5).`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      if (tipoRdo === "CAUQ" || tipoRdo === "PAVIMENTAÇÃO" || tipoRdo === "PAVIMENTACAO") {
+        const invalidCauq = producaoCauq.trechos
+          .map((row, idx) => {
+            const comp = parseBRNumber(row.comprimento_m);
+            const esp = parseBRNumber(row.espessura_m);
+            const hasAny = !!(row.tipo_servico || row.sentido || row.faixa || row.estaca_inicial || row.estaca_final || row.comprimento_m || row.largura_m || row.espessura_m || row.densidade || row.observacoes);
+            return { idx, comp, esp, hasAny };
+          })
+          .find((r) => r.hasAny && ((r.comp !== null && r.comp < 0) || getInvalidEspessura(r.esp)));
+
+        if (invalidCauq) {
+          const problems: string[] = [];
+          if (invalidCauq.comp !== null && invalidCauq.comp < 0) problems.push("comprimento negativo");
+          if (getInvalidEspessura(invalidCauq.esp)) problems.push("espessura em formato metro (ex.: 0,17)");
+          toast({
+            title: `⚠️ Produção Pavimentação - trecho ${invalidCauq.idx + 1} inválido`,
+            description: `Corrija: ${problems.join(" e ")}. Use comprimento positivo e espessura em cm (ex.: 17, 3, 5).`,
+            variant: "destructive",
+          });
+          return;
         }
       }
     }
