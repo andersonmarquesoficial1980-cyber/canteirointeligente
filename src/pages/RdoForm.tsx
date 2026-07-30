@@ -598,6 +598,290 @@ export default function RdoForm() {
     }
   }, [header.turno]);
 
+  const persistRdoChildren = useCallback(async (rdoId: string) => {
+    const deleteTables = [
+      "rdo_efetivo",
+      "rdo_producao",
+      "rdo_equipamentos",
+      "rdo_nf_massa",
+      "rdo_nf_concreto",
+      "rdo_efetivo_terceiros",
+      "rdo_sinalizacao_horizontal",
+      "rdo_informacoes_dmt",
+    ] as const;
+
+    const deleteResults = await Promise.all(
+      deleteTables.map(async (table) => {
+        const { error } = await (supabase as any).from(table).delete().eq("rdo_id", rdoId);
+        return { table, error };
+      })
+    );
+
+    const deleteErrors = deleteResults.filter((r) => r.error);
+    if (deleteErrors.length > 0) {
+      const detalhe = deleteErrors
+        .map((e) => `${e.table}: ${e.error?.message || "erro desconhecido"}`)
+        .join(" | ");
+      throw new Error(`Falha ao limpar dados antigos do RDO antes de salvar. ${detalhe}`);
+    }
+
+    // Produção (infra)
+    if (tipoRdo === "INFRAESTRUTURA" && !semProducao) {
+      const entries = infraProducao
+        .filter(p =>
+          p.tipo_servico || p.sentido || p.estaca_inicial || p.estaca_final ||
+          p.comprimento_m || p.largura_m || p.espessura_cm
+        )
+        .map(p => {
+          const comp = p.comprimento_m ? parseFloat(String(p.comprimento_m).replace(",", ".")) : null;
+          const larg = p.largura_m ? parseFloat(String(p.largura_m).replace(",", ".")) : null;
+          const esp = p.espessura_cm ? parseFloat(String(p.espessura_cm).replace(",", ".")) : null;
+          const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
+          const volume = area && esp ? Math.round(area * (esp / 100) * 1000) / 1000 : null;
+          return {
+            rdo_id: rdoId,
+            company_id: profile?.company_id || null,
+            tipo_servico: p.tipo_servico || null,
+            sentido: p.sentido || null,
+            sentido_faixa: p.sentido || null,
+            faixa: p.sentido || null,
+            estaca_inicial: p.estaca_inicial || null,
+            estaca_final: p.estaca_final || null,
+            km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,
+            km_final: p.estaca_final ? parseFloat(String(p.estaca_final).replace(",", ".")) : null,
+            comprimento_m: comp,
+            largura_m: larg,
+            espessura_cm: esp,
+            area_m2: area,
+            volume_m3: volume,
+            is_retrabalho: !!p.is_retrabalho,
+          };
+        });
+      if (entries.length > 0) {
+        const { error } = await supabase.from("rdo_producao").insert(entries);
+        if (error) throw error;
+      }
+    }
+
+    // Produção CAUQ
+    if (tipoRdo === "CAUQ" && !semProducao) {
+      const trechoEntries = producaoCauq.trechos
+        .filter(t =>
+          t.tipo_servico || t.sentido || t.faixa || t.estaca_inicial || t.estaca_final ||
+          t.comprimento_m || t.largura_m || t.espessura_m || t.densidade || t.observacoes
+        )
+        .map(t => {
+          const comp = t.comprimento_m ? parseFloat(String(t.comprimento_m).replace(",", ".")) : null;
+          const larg = t.largura_m ? parseFloat(String(t.largura_m).replace(",", ".")) : null;
+          const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
+          const sentidoFaixa = [t.sentido, t.faixa].filter(Boolean).join(" - ") || null;
+          return {
+            rdo_id: rdoId,
+            company_id: profile?.company_id || null,
+            tipo_servico: t.tipo_servico || null,
+            sentido: t.sentido || null,
+            faixa: t.faixa || null,
+            sentido_faixa: sentidoFaixa,
+            estaca_inicial: t.estaca_inicial || null,
+            estaca_final: t.estaca_final || null,
+            km_inicial: t.estaca_inicial ? parseFloat(String(t.estaca_inicial).replace(",", ".")) : null,
+            km_final: t.estaca_final ? parseFloat(String(t.estaca_final).replace(",", ".")) : null,
+            comprimento_m: comp,
+            largura_m: larg,
+            espessura_cm: t.espessura_m ? parseFloat(t.espessura_m.replace(",", ".")) : null,
+            area_m2: area,
+            densidade: t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null,
+            volume_m3: area && t.espessura_m ? Math.round(area * parseFloat(t.espessura_m.replace(",", ".")) / 100 * 100) / 100 : null,
+            tonelagem: (() => {
+              const vol = area && t.espessura_m ? area * parseFloat(t.espessura_m.replace(",", ".")) / 100 : null;
+              const dens = t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null;
+              return vol && dens ? Math.round(vol * dens * 100) / 100 : null;
+            })(),
+            observacoes: t.observacoes || null,
+          };
+        });
+      if (trechoEntries.length > 0) {
+        const { error } = await supabase.from("rdo_producao").insert(trechoEntries);
+        if (error) throw error;
+      }
+
+      const sinalizacoesRows = sinalizacoesHorizontais
+        .filter((s) => {
+          const { id: _id, ...rest } = s;
+          return Object.values(rest).some((value) => String(value || "").trim() !== "");
+        })
+        .map((s) => ({
+          rdo_id: rdoId,
+          company_id: profile?.company_id || null,
+          tipo: s.tipo || null,
+          sentido: s.sentido || null,
+          faixa: s.faixa || null,
+          estaca_inicial: s.estaca_inicial || null,
+          estaca_final: s.estaca_final || null,
+          quantidade: s.quantidade ? parseFloat(s.quantidade.replace(",", ".")) : null,
+          comprimento_m: s.comprimento_m ? parseFloat(s.comprimento_m.replace(",", ".")) : null,
+          largura_m: s.largura_m ? parseFloat(s.largura_m.replace(",", ".")) : null,
+          quantidade_taxas: s.quantidade_taxas ? parseFloat(s.quantidade_taxas.replace(",", ".")) : null,
+        }));
+
+      if (sinalizacoesRows.length > 0) {
+        const { error: sinalizacaoError } = await (supabase as any).from("rdo_sinalizacao_horizontal").insert(sinalizacoesRows);
+        if (sinalizacaoError) throw sinalizacaoError;
+      }
+
+      const hasDmt = Object.values(informacoesDmt).some((value) => String(value || "").trim() !== "");
+      if (hasDmt) {
+        const { error: dmtError } = await (supabase as any).from("rdo_informacoes_dmt").insert({
+          rdo_id: rdoId,
+          company_id: profile?.company_id || null,
+          dmt_usina_km: informacoesDmt.dmt_usina_km ? parseFloat(informacoesDmt.dmt_usina_km.replace(",", ".")) : null,
+          dmt_canteiro_km: informacoesDmt.dmt_canteiro_km ? parseFloat(informacoesDmt.dmt_canteiro_km.replace(",", ".")) : null,
+        });
+        if (dmtError) throw dmtError;
+      }
+    }
+
+    // Equipamentos
+    const equipEntries = isPatioRdo
+      ? equipamentosPatio
+          .filter(e => e.frota)
+          .map(e => ({
+            rdo_id: rdoId,
+            frota: e.frota || null,
+            categoria: "PATIO",
+            sub_tipo: e.status_patio || null,
+            tipo: e.tipo || null,
+            nome: e.nome || null,
+            patrimonio: null,
+            empresa_dona: e.observacao || null,
+          }))
+      : semEquipamentos
+        ? []
+        : equipamentos
+            .filter(e => e.frota || e.nome || e.tipo)
+            .map(e => ({
+              rdo_id: rdoId,
+              frota: e.frota || null,
+              categoria: e.categoria || null,
+              sub_tipo: e.subTipo || null,
+              tipo: e.tipo || null,
+              nome: e.nome || null,
+              patrimonio: e.patrimonio || null,
+              empresa_dona: e.empresa_dona || null,
+            }));
+
+    if (equipEntries.length > 0) {
+      const { error } = await (supabase as any).from("rdo_equipamentos").insert(equipEntries);
+      if (error) throw error;
+    }
+
+    // NF de Massa
+    const nfEntries = semNota
+      ? []
+      : nfMassa
+      .filter(n => n.nf || n.placa || n.tonelagem)
+      .map(n => ({
+        rdo_id: rdoId,
+        company_id: profile?.company_id || null,
+        nf: n.nf || null,
+        placa: n.placa || null,
+        usina: n.usina || null,
+        tonelagem: n.tonelagem ? parseFloat(n.tonelagem.replace(",", ".")) : null,
+        tipo_material: n.tipo_material || n.tipo_material_outro || null,
+      }));
+
+    if (nfEntries.length > 0) {
+      const { error } = await (supabase as any).from("rdo_nf_massa").insert(nfEntries);
+      if (error) throw error;
+    }
+
+    // NF de Concreto (Infra)
+    if (tipoRdo === "INFRAESTRUTURA") {
+      const nfConcretoEntries = nfConcreto
+        .filter(n => n.nf || n.quantidade_m3 || n.tipo_concreto || n.fornecedor || n.foto_url)
+        .map(n => ({
+          rdo_id: rdoId,
+          company_id: profile?.company_id || null,
+          nf: n.nf || null,
+          quantidade_m3: n.quantidade_m3 ? parseFloat(String(n.quantidade_m3).replace(",", ".")) : null,
+          tipo_concreto: n.tipo_concreto || null,
+          fornecedor: n.fornecedor || null,
+          foto_url: n.foto_url || null,
+        }));
+
+      if (nfConcretoEntries.length > 0) {
+        const { error } = await (supabase as any).from("rdo_nf_concreto").insert(nfConcretoEntries);
+        if (error) throw new Error(`Falha ao salvar NFs de concreto: ${error.message}`);
+      }
+    }
+
+    // Efetivo
+    const efEntries = semEquipeCampo
+      ? []
+      : efetivo
+          .filter(e => e.funcao)
+          .map(e => ({
+            rdo_id: rdoId,
+            company_id: profile?.company_id || null,
+            funcao: e.funcao,
+            nome: e.nome || null,
+            matricula: e.matricula || null,
+            quantidade: 1,
+            entrada: e.entrada || globalEntrada || null,
+            saida: e.saida || globalSaida || null,
+            employee_id: e.employee_id && !(e.nome || "").includes("|||") ? e.employee_id : null,
+          }));
+
+    if (efEntries.length > 0) {
+      const { error } = await supabase.from("rdo_efetivo").insert(efEntries);
+      if (error) throw error;
+    }
+
+    // Efetivo Terceirizado
+    const tercEntries = terceirizados
+      .filter(t => t.empresa_id && t.funcionario_ids.length > 0)
+      .flatMap(t => {
+        const empresa = empresasTerceiras.find(e => e.id === t.empresa_id);
+        return t.funcionario_ids.map(fid => {
+          const func = funcionariosTerceiros.find(f => f.id === fid);
+          return {
+            rdo_id: rdoId,
+            empresa_id: t.empresa_id,
+            empresa_nome: empresa?.nome || "",
+            funcionario_id: fid,
+            funcionario_nome: func?.nome || "",
+          };
+        });
+      });
+
+    if (tercEntries.length > 0) {
+      const { error } = await (supabase as any).from("rdo_efetivo_terceiros").insert(tercEntries);
+      if (error) throw error;
+    }
+  }, [
+    tipoRdo,
+    semProducao,
+    infraProducao,
+    producaoCauq,
+    sinalizacoesHorizontais,
+    informacoesDmt,
+    isPatioRdo,
+    semEquipamentos,
+    equipamentosPatio,
+    equipamentos,
+    semNota,
+    nfMassa,
+    nfConcreto,
+    semEquipeCampo,
+    efetivo,
+    globalEntrada,
+    globalSaida,
+    terceirizados,
+    empresasTerceiras,
+    funcionariosTerceiros,
+    profile?.company_id,
+  ]);
+
   // Save Draft handler
   const handleSaveDraft = useCallback(async () => {
     const normalizedTurno = header.turno?.trim().toLowerCase() || "";
@@ -631,12 +915,14 @@ export default function RdoForm() {
         sem_nota: semNota,
         sem_producao: semProducao,
         user_id: user.id,
+        tipo_rdo: tipoRdo || null,
         company_id: profile?.company_id || null,
         status_validacao: "rascunho",
       };
 
       // ID existente: vem de rascunho já salvo nesta sessão OU de ?edit= na URL
       const existingId = draftId || searchParams.get("edit");
+      let rdoId = existingId || "";
 
       if (existingId) {
         // UPDATE — não cria duplicata
@@ -646,19 +932,40 @@ export default function RdoForm() {
         // INSERT — primeiro rascunho desta sessão
         const { data: inserted, error } = await (supabase as any).from("rdo_diarios").insert(draftPayload).select("id").single();
         if (error) throw error;
+        rdoId = inserted.id;
         setDraftId(inserted.id);
         // Atualiza URL para que o botão Enviar use o mesmo registro
         setSearchParams(prev => { const n = new URLSearchParams(prev); n.set("edit", inserted.id); return n; }, { replace: true });
       }
 
-      toast({ title: "📝 Rascunho salvo!", description: "Continue de onde parou quando quiser." });
+      if (!rdoId) {
+        throw new Error("Não foi possível identificar o ID do rascunho para salvar os dados do formulário.");
+      }
+
+      await persistRdoChildren(rdoId);
+
+      toast({ title: "📝 Rascunho salvo!", description: "Todos os campos preenchidos foram salvos no rascunho." });
     } catch (err: any) {
       console.error(err);
       toast({ title: "Erro ao salvar rascunho", description: err.message, variant: "destructive" });
     } finally {
       setSavingDraft(false);
     }
-  }, [header, profile, motivoCancelamento, observacoesGerais, statusSemOperacao, semNota, semProducao, draftId, searchParams, setSearchParams, toast]);
+  }, [
+    header,
+    profile,
+    motivoCancelamento,
+    observacoesGerais,
+    statusSemOperacao,
+    semNota,
+    semProducao,
+    tipoRdo,
+    draftId,
+    searchParams,
+    setSearchParams,
+    persistRdoChildren,
+    toast,
+  ]);
 
   const formatDateBR = (d: string) => {
     if (!d) return "";
@@ -1119,38 +1426,11 @@ export default function RdoForm() {
       let rdoId: string;
 
       if (editId) {
-        // Modo edição: atualiza registro existente e deleta filhos pra reinserir
+        // Modo edição: atualiza registro existente
         const { error: updError } = await (supabase as any)
           .from("rdo_diarios").update(rdoPayload).eq("id", editId);
         if (updError) throw updError;
         rdoId = editId;
-
-        // Limpar dados filhos antes de reinserir
-        const deleteTables = [
-          "rdo_efetivo",
-          "rdo_producao",
-          "rdo_equipamentos",
-          "rdo_nf_massa",
-          "rdo_nf_concreto",
-          "rdo_efetivo_terceiros",
-          "rdo_sinalizacao_horizontal",
-          "rdo_informacoes_dmt",
-        ] as const;
-
-        const deleteResults = await Promise.all(
-          deleteTables.map(async (table) => {
-            const { error } = await (supabase as any).from(table).delete().eq("rdo_id", rdoId);
-            return { table, error };
-          })
-        );
-
-        const deleteErrors = deleteResults.filter((r) => r.error);
-        if (deleteErrors.length > 0) {
-          const detalhe = deleteErrors
-            .map((e) => `${e.table}: ${e.error?.message || "erro desconhecido"}`)
-            .join(" | ");
-          throw new Error(`Falha ao limpar dados antigos do RDO antes de salvar. ${detalhe}`);
-        }
       } else {
         const { data: rdo, error: rdoError } = await supabase
           .from("rdo_diarios")
@@ -1161,232 +1441,7 @@ export default function RdoForm() {
         rdoId = rdo.id;
       }
 
-      // Produção (infra)
-      if (tipoRdo === "INFRAESTRUTURA" && !semProducao) {
-        const entries = infraProducao
-          .filter(p =>
-            p.tipo_servico || p.sentido || p.estaca_inicial || p.estaca_final ||
-            p.comprimento_m || p.largura_m || p.espessura_cm
-          )
-          .map(p => {
-            const comp = p.comprimento_m ? parseFloat(String(p.comprimento_m).replace(",", ".")) : null;
-            const larg = p.largura_m ? parseFloat(String(p.largura_m).replace(",", ".")) : null;
-            const esp = p.espessura_cm ? parseFloat(String(p.espessura_cm).replace(",", ".")) : null;
-            const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
-            const volume = area && esp ? Math.round(area * (esp / 100) * 1000) / 1000 : null;
-            return {
-              rdo_id: rdoId,
-              company_id: profile?.company_id || null,
-              tipo_servico: p.tipo_servico || null,
-              sentido: p.sentido || null,
-              sentido_faixa: p.sentido || null,
-              faixa: p.sentido || null,
-              estaca_inicial: p.estaca_inicial || null,
-              estaca_final: p.estaca_final || null,
-              km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,
-              km_final: p.estaca_final ? parseFloat(String(p.estaca_final).replace(",", ".")) : null,
-              comprimento_m: comp,
-              largura_m: larg,
-              espessura_cm: esp,
-              area_m2: area,
-              volume_m3: volume,
-              is_retrabalho: !!p.is_retrabalho,
-            };
-          });
-        if (entries.length > 0) {
-          const { error } = await supabase.from("rdo_producao").insert(entries);
-          if (error) throw error;
-        }
-      }
-
-      // Produção CAUQ
-      if (tipoRdo === "CAUQ" && !semProducao) {
-        const trechoEntries = producaoCauq.trechos
-          .filter(t =>
-            t.tipo_servico || t.sentido || t.faixa || t.estaca_inicial || t.estaca_final ||
-            t.comprimento_m || t.largura_m || t.espessura_m || t.densidade || t.observacoes
-          )
-          .map(t => {
-            const comp = t.comprimento_m ? parseFloat(String(t.comprimento_m).replace(",", ".")) : null;
-            const larg = t.largura_m ? parseFloat(String(t.largura_m).replace(",", ".")) : null;
-            const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
-            const sentidoFaixa = [t.sentido, t.faixa].filter(Boolean).join(" - ") || null;
-            return {
-              rdo_id: rdoId,
-              company_id: profile?.company_id || null,
-              tipo_servico: t.tipo_servico || null,
-              sentido: t.sentido || null,
-              faixa: t.faixa || null,
-              sentido_faixa: sentidoFaixa,
-              estaca_inicial: t.estaca_inicial || null,
-              estaca_final: t.estaca_final || null,
-              km_inicial: t.estaca_inicial ? parseFloat(String(t.estaca_inicial).replace(",", ".")) : null,
-              km_final: t.estaca_final ? parseFloat(String(t.estaca_final).replace(",", ".")) : null,
-              comprimento_m: comp,
-              largura_m: larg,
-              espessura_cm: t.espessura_m ? parseFloat(t.espessura_m.replace(",", ".")) : null,
-              area_m2: area,
-              densidade: t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null,
-              volume_m3: area && t.espessura_m ? Math.round(area * parseFloat(t.espessura_m.replace(",", ".")) / 100 * 100) / 100 : null,
-              tonelagem: (() => {
-                const vol = area && t.espessura_m ? area * parseFloat(t.espessura_m.replace(",", ".")) / 100 : null;
-                const dens = t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null;
-                return vol && dens ? Math.round(vol * dens * 100) / 100 : null;
-              })(),
-              observacoes: t.observacoes || null,
-            };
-          });
-        if (trechoEntries.length > 0) {
-          const { error } = await supabase.from("rdo_producao").insert(trechoEntries);
-          if (error) throw error;
-        }
-
-        const sinalizacoesRows = sinalizacoesHorizontais
-          .filter((s) => {
-            const { id: _id, ...rest } = s;
-            return Object.values(rest).some((value) => String(value || "").trim() !== "");
-          })
-          .map((s) => ({
-            rdo_id: rdoId,
-            company_id: profile?.company_id || null,
-            tipo: s.tipo || null,
-            sentido: s.sentido || null,
-            faixa: s.faixa || null,
-            estaca_inicial: s.estaca_inicial || null,
-            estaca_final: s.estaca_final || null,
-            quantidade: s.quantidade ? parseFloat(s.quantidade.replace(",", ".")) : null,
-            comprimento_m: s.comprimento_m ? parseFloat(s.comprimento_m.replace(",", ".")) : null,
-            largura_m: s.largura_m ? parseFloat(s.largura_m.replace(",", ".")) : null,
-            quantidade_taxas: s.quantidade_taxas ? parseFloat(s.quantidade_taxas.replace(",", ".")) : null,
-          }));
-
-        if (sinalizacoesRows.length > 0) {
-          const { error: sinalizacaoError } = await (supabase as any).from("rdo_sinalizacao_horizontal").insert(sinalizacoesRows);
-          if (sinalizacaoError) throw sinalizacaoError;
-        }
-
-        const hasDmt = Object.values(informacoesDmt).some((value) => String(value || "").trim() !== "");
-        if (hasDmt) {
-          const { error: dmtError } = await (supabase as any).from("rdo_informacoes_dmt").insert({
-            rdo_id: rdoId,
-            company_id: profile?.company_id || null,
-            dmt_usina_km: informacoesDmt.dmt_usina_km ? parseFloat(informacoesDmt.dmt_usina_km.replace(",", ".")) : null,
-            dmt_canteiro_km: informacoesDmt.dmt_canteiro_km ? parseFloat(informacoesDmt.dmt_canteiro_km.replace(",", ".")) : null,
-          });
-          if (dmtError) throw dmtError;
-        }
-      }
-
-      // Equipamentos
-      const equipEntries = isPatioRdo
-        ? equipamentosPatio
-            .filter(e => e.frota)
-            .map(e => ({
-              rdo_id: rdoId,
-              frota: e.frota || null,
-              categoria: "PATIO",
-              sub_tipo: e.status_patio || null,
-              tipo: e.tipo || null,
-              nome: e.nome || null,
-              patrimonio: null,
-              empresa_dona: e.observacao || null,
-            }))
-        : equipamentos
-            .filter(e => e.frota || e.nome || e.tipo)
-            .map(e => ({
-              rdo_id: rdoId,
-              frota: e.frota || null,
-              categoria: e.categoria || null,
-              sub_tipo: e.subTipo || null,
-              tipo: e.tipo || null,
-              nome: e.nome || null,
-              patrimonio: e.patrimonio || null,
-              empresa_dona: e.empresa_dona || null,
-            }));
-      if (equipEntries.length > 0) {
-        const { error } = await (supabase as any).from("rdo_equipamentos").insert(equipEntries);
-        if (error) console.warn("Equipamentos RDO:", error.message);
-      }
-
-      // NF de Massa
-      const nfEntries = semNota
-        ? []
-        : nfMassa
-        .filter(n => n.nf || n.placa || n.tonelagem)
-        .map(n => ({
-          rdo_id: rdoId,
-          company_id: profile?.company_id || null,
-          nf: n.nf || null,
-          placa: n.placa || null,
-          usina: n.usina || null,
-          tonelagem: n.tonelagem ? parseFloat(n.tonelagem.replace(",", ".")) : null,
-          tipo_material: n.tipo_material || n.tipo_material_outro || null,
-        }));
-      if (nfEntries.length > 0) {
-        const { error } = await (supabase as any).from("rdo_nf_massa").insert(nfEntries);
-        if (error) console.warn("NF Massa RDO:", error.message);
-      }
-
-      // NF de Concreto (Infra)
-      if (tipoRdo === "INFRAESTRUTURA") {
-        const nfConcretoEntries = nfConcreto
-          .filter(n => n.nf || n.quantidade_m3 || n.tipo_concreto || n.fornecedor || n.foto_url)
-          .map(n => ({
-            rdo_id: rdoId,
-            company_id: profile?.company_id || null,
-            nf: n.nf || null,
-            quantidade_m3: n.quantidade_m3 ? parseFloat(String(n.quantidade_m3).replace(",", ".")) : null,
-            tipo_concreto: n.tipo_concreto || null,
-            fornecedor: n.fornecedor || null,
-            foto_url: n.foto_url || null,
-          }));
-
-        if (nfConcretoEntries.length > 0) {
-          const { error } = await (supabase as any).from("rdo_nf_concreto").insert(nfConcretoEntries);
-          if (error) throw new Error(`Falha ao salvar NFs de concreto: ${error.message}`);
-        }
-      }
-
-      // Efetivo
-      const efEntries = efetivo
-        .filter(e => e.funcao)
-        .map(e => ({
-          rdo_id: rdoId,
-          company_id: profile?.company_id || null,
-          funcao: e.funcao,
-          nome: e.nome || null,
-          matricula: e.matricula || null,
-          quantidade: 1,
-          entrada: e.entrada || globalEntrada || null,
-          saida: e.saida || globalSaida || null,
-          // employee_id: só grava quando há 1 funcionário (sem |||)
-          employee_id: e.employee_id && !(e.nome || "").includes("|||") ? e.employee_id : null,
-        }));
-      if (efEntries.length > 0) {
-        const { error } = await supabase.from("rdo_efetivo").insert(efEntries);
-        if (error) throw error;
-      }
-
-      // Efetivo Terceirizado
-      const tercEntries = terceirizados
-        .filter(t => t.empresa_id && t.funcionario_ids.length > 0)
-        .flatMap(t => {
-          const empresa = empresasTerceiras.find(e => e.id === t.empresa_id);
-          return t.funcionario_ids.map(fid => {
-            const func = funcionariosTerceiros.find(f => f.id === fid);
-            return {
-              rdo_id: rdoId,
-              empresa_id: t.empresa_id,
-              empresa_nome: empresa?.nome || "",
-              funcionario_id: fid,
-              funcionario_nome: func?.nome || "",
-            };
-          });
-        });
-      if (tercEntries.length > 0) {
-        const { error } = await (supabase as any).from("rdo_efetivo_terceiros").insert(tercEntries);
-        if (error) console.warn("Efetivo terceirizado:", error.message);
-      }
+      await persistRdoChildren(rdoId);
 
       // Build HTML report and send email
       const htmlReport = buildHtmlReport(
