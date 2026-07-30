@@ -5,11 +5,14 @@ import { FileText, Truck, HardHat, ClipboardList, LogOut } from "lucide-react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 export default function Index() {
   const navigate = useNavigate();
   const { profile } = useUserProfile();
   const [loggingOut, setLoggingOut] = useState(false);
+  const { trail, goTo } = useNavigationTrail({ label: "WF Obras", resetToHome: true });
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -64,6 +67,10 @@ export default function Index() {
         >
           <LogOut className="w-4 h-4" /> {loggingOut ? "Saindo..." : "Sair"}
         </button>
+      </div>
+
+      <div className="rounded-xl bg-header-gradient px-3 py-2 shadow-sm">
+        <NavigationTrail trail={trail} onSelect={goTo} />
       </div>
 
       {/* Hero card */}

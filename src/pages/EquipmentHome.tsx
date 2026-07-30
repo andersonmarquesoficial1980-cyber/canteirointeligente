@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { LogOut, ChevronRight, FileSpreadsheet, ClipboardList, Truck, MapPin, ExternalLink, Clock } from "lucide-react";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 import imgFresadora from "@/assets/equip-fresadora.png";
 import imgBobcat from "@/assets/equip-bobcat.webp";
@@ -121,6 +123,7 @@ export default function EquipmentHome() {
   const [equipamentosPermitidos, setEquipamentosPermitidos] = useState<string[]>([]);
   const [ordens, setOrdens] = useState<OrdemTransporte[]>([]);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const { trail, goTo } = useNavigationTrail({ label: "WF Equipamentos", resetToHome: true });
 
   const temOrdens = equipamentosPermitidos.includes("ordens_transporte");
 
@@ -210,6 +213,9 @@ export default function EquipmentHome() {
               <span className="block text-[11px] text-primary-foreground/80 font-medium leading-tight">Gestão de Equipamentos</span>
             </div>
           </button>
+        </div>
+        <div className="flex-1 mx-3 min-w-0">
+          <NavigationTrail trail={trail} onSelect={goTo} />
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={handleLogout} disabled={loggingOut} className="text-primary-foreground hover:bg-white/15">

@@ -5,6 +5,8 @@ import { ArrowLeft, Loader2, HardHat, CheckCircle2, XCircle, Clock } from "lucid
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "-";
@@ -31,6 +33,10 @@ export default function VisualizarRdo() {
   const [producao, setProducao] = useState<any[]>([]);
   const [nfMassa, setNfMassa] = useState<any[]>([]);
   const [nfConcreto, setNfConcreto] = useState<any[]>([]);
+  const breadcrumbLabel = rdo?.obra_nome && rdo?.data
+    ? `OGS ${rdo.obra_nome} ${fmtDate(rdo.data)}`
+    : "Visualizar RDO";
+  const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
 
   useEffect(() => {
     const load = async () => {
@@ -145,15 +151,18 @@ export default function VisualizarRdo() {
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
-      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <LogoHomeButton className="h-10 object-contain" />
-        <div className="flex-1">
-          <span className="block font-display font-extrabold text-sm text-primary-foreground">Visualizar RDO</span>
-          <span className="block text-[11px] text-primary-foreground/80">Somente leitura</span>
+      <header className="px-4 py-3 bg-header-gradient shadow-lg space-y-2">
+        <div className="flex items-center gap-3">
+          <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <LogoHomeButton className="h-10 object-contain" />
+          <div className="flex-1 min-w-0">
+            <span className="block font-display font-extrabold text-sm text-primary-foreground truncate">Visualizar RDO</span>
+            <span className="block text-[11px] text-primary-foreground/80">Somente leitura</span>
+          </div>
         </div>
+        <NavigationTrail trail={trail} onSelect={goTo} />
       </header>
 
       <main className="max-w-4xl mx-auto p-4 space-y-4">

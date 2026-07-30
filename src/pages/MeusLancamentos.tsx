@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 // Ordena apontamentos respeitando turno noturno (virada de meia-noite)
 // Horários antes das 07:00 são tratados como continuação do dia anterior
@@ -185,6 +187,12 @@ export default function MeusLancamentos() {
     return "equipamentos";
   })();
   const [aba, setAba] = useState<"equipamentos" | "rdos" | "ocorrencias">(abaInicial);
+  const breadcrumbLabel = aba === "rdos"
+    ? "Meus Lançamentos (RDOs)"
+    : aba === "ocorrencias"
+      ? "Meus Lançamentos (Ocorrências)"
+      : "Meus Lançamentos";
+  const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
   const [selecionado, setSelecionado] = useState<Lancamento | null>(null);
   const [detalheExtra, setDetalheExtra] = useState<{ areas: any[]; bits: any[]; times: any[]; horas: number | null; kmaOperation: KmaOperationDetail | null }>({ areas: [], bits: [], times: [], horas: null, kmaOperation: null });
 
@@ -781,20 +789,23 @@ export default function MeusLancamentos() {
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
-      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button
-          onClick={goBack}
-          className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <LogoHomeButton className="h-10 object-contain" />
-        <div className="flex-1">
-          <span className="block font-display font-extrabold text-sm text-primary-foreground">
-            {isAdmin ? "Lançamentos — Todos" : "Meus Lançamentos"}
-          </span>
-          <span className="block text-[11px] text-primary-foreground/80">{resumo}</span>
+      <header className="px-4 py-3 bg-header-gradient shadow-lg space-y-2">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={goBack}
+            className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <LogoHomeButton className="h-10 object-contain" />
+          <div className="flex-1 min-w-0">
+            <span className="block font-display font-extrabold text-sm text-primary-foreground truncate">
+              {isAdmin ? "Lançamentos — Todos" : "Meus Lançamentos"}
+            </span>
+            <span className="block text-[11px] text-primary-foreground/80">{resumo}</span>
+          </div>
         </div>
+        <NavigationTrail trail={trail} onSelect={goTo} />
       </header>
 
       <div className="max-w-3xl mx-auto p-4 space-y-4">
