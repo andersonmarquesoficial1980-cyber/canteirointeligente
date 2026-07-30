@@ -74,13 +74,19 @@ export default function RelatoriosHome() {
   );
   const [tipoRel, setTipoRel] = useState(saved.tipoRel || "");
   const [tipoEquip, setTipoEquip] = useState(saved.tipoEquip || "");
-  const [frotaOgs, setFrotaOgs] = useState(saved.frotaOgs || "");
+  const [frotaSelecionada, setFrotaSelecionada] = useState(
+    saved.frotaSelecionada || (saved.tipoRel !== "rdo" ? (saved.frotaOgs || "") : "")
+  );
+  const [ogsSelecionada, setOgsSelecionada] = useState(
+    saved.ogsSelecionada || (saved.tipoRel === "rdo" ? (saved.frotaOgs || "") : "")
+  );
   const [tipoPeriodo, setTipoPeriodo] = useState<"dia" | "periodo">(
     (saved.tipoPeriodo as any) || "dia"
   );
   const [dataDia, setDataDia] = useState(saved.dataDia || new Date().toISOString().split("T")[0]);
   const [dataIni, setDataIni] = useState(saved.dataIni || "");
   const [dataFim, setDataFim] = useState(saved.dataFim || "");
+  const alvoSelecionado = tipoRel === "rdo" ? ogsSelecionada : frotaSelecionada;
 
   // Dados dinâmicos
   const [tiposEquip, setTiposEquip] = useState<string[]>([]);
@@ -189,20 +195,22 @@ export default function RelatoriosHome() {
   function irParaRelatorio() {
     const ini = tipoPeriodo === "dia" ? dataDia : dataIni;
     const fim = tipoPeriodo === "dia" ? dataDia : dataFim;
+    const alvo = alvoSelecionado?.trim();
+    if (!alvo) return;
 
-    // Limpa sessionStorage ao abrir o relatório — volta restaura ao passo correto
-    salvar({ step: "periodo", tipoRel, tipoEquip, frotaOgs, tipoPeriodo, dataDia, dataIni, dataFim });
+    // Persistência por tipo sem contaminar OGS x Frota
+    salvar({ step: "periodo", tipoRel, tipoEquip, frotaSelecionada, ogsSelecionada, tipoPeriodo, dataDia, dataIni, dataFim });
 
     if (tipoRel === "equipamento") {
-      navigate(`/relatorio-equipamento/${encodeURIComponent(frotaOgs)}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
+      navigate(`/relatorio-equipamento/${encodeURIComponent(alvo)}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     } else if (tipoRel === "transportes") {
-      navigate(`/relatorios/transportes?frota=${encodeURIComponent(frotaOgs)}&ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
+      navigate(`/relatorios/transportes?frota=${encodeURIComponent(alvo)}&ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     } else if (tipoRel === "rdo") {
-      navigate(`/relatorios/rdo/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
+      navigate(`/relatorios/rdo/${alvo}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     } else if (tipoRel === "abastecimento") {
-      navigate(`/relatorios/abastecimento/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
+      navigate(`/relatorios/abastecimento/${alvo}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     } else if (tipoRel === "manutencao") {
-      navigate(`/relatorios/manutencao/${frotaOgs}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
+      navigate(`/relatorios/manutencao/${alvo}?ini=${ini}&fim=${fim}${origemQuery}${returnToQuery}`);
     }
   }
 
@@ -223,18 +231,33 @@ export default function RelatoriosHome() {
   // Wrappers que salvam automaticamente ao mudar estado
   function selecionarTipo(tipo: string) {
     setTipoRel(tipo);
+    setTipoEquip("");
+    setFrotaSelecionada("");
+    setOgsSelecionada("");
     setStep("subtipo");
-    salvar({ tipoRel: tipo, step: "subtipo" });
+    salvar({
+      tipoRel: tipo,
+      tipoEquip: "",
+      step: "subtipo",
+      frotaSelecionada: "",
+      ogsSelecionada: "",
+    });
   }
   function selecionarTipoEquip(tipo: string) {
     setTipoEquip(tipo);
     setStep("frota_ogs");
     salvar({ tipoEquip: tipo, step: "frota_ogs" });
   }
-  function selecionarFrotaOgs(frota: string) {
-    setFrotaOgs(frota);
+  function selecionarFrotaOgs(valor: string) {
+    const limpo = valor.trim();
+    if (tipoRel === "rdo") {
+      setOgsSelecionada(limpo);
+      salvar({ ogsSelecionada: limpo, step: "periodo" });
+    } else {
+      setFrotaSelecionada(limpo);
+      salvar({ frotaSelecionada: limpo, step: "periodo" });
+    }
     setStep("periodo");
-    salvar({ frotaOgs: frota, step: "periodo" });
   }
 
   const frotas = tipoEquip ? (frotasPorTipo[tipoEquip] || []) : [];
@@ -266,7 +289,7 @@ export default function RelatoriosHome() {
             {step === "tipo" && "Selecione o tipo"}
             {step === "subtipo" && (tipoRel === "equipamento" ? "Tipo de Equipamento" : "Selecione a OGS")}
             {step === "frota_ogs" && (tipoRel === "equipamento" ? `${tipoEquip} — Selecione a frota` : "Selecione a OGS")}
-            {step === "periodo" && `${frotaOgs} — Selecione o período`}
+            {step === "periodo" && `${alvoSelecionado} — Selecione o período`}
           </span>
         </div>
       </header>
@@ -429,17 +452,17 @@ export default function RelatoriosHome() {
                   <input
                     type="text"
                     inputMode="numeric"
-                    value={frotaOgs}
-                    onChange={e => setFrotaOgs(e.target.value.trim())}
+                    value={ogsSelecionada}
+                    onChange={e => setOgsSelecionada(e.target.value.replace(/\D/g, ""))}
                     placeholder="Ex: 2532"
                     className="w-full h-12 px-3 rounded-xl border border-border bg-secondary text-base font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
                     autoFocus
                   />
                   {/* Sugestões filtradas */}
-                  {frotaOgs.length >= 2 && (
+                  {ogsSelecionada.length >= 2 && (
                     <div className="space-y-1 max-h-48 overflow-y-auto">
                       {ogsList
-                        .filter(o => o.ogs.includes(frotaOgs) || o.cliente.toLowerCase().includes(frotaOgs.toLowerCase()))
+                        .filter(o => o.ogs.includes(ogsSelecionada) || o.cliente.toLowerCase().includes(ogsSelecionada.toLowerCase()))
                         .map(o => (
                           <button key={o.ogs} onClick={() => { selecionarFrotaOgs(o.ogs); }}
                             className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/10 transition-colors flex items-center justify-between">
@@ -454,8 +477,8 @@ export default function RelatoriosHome() {
                   )}
                 </div>
                 <button
-                  onClick={() => { if (frotaOgs.trim()) selecionarFrotaOgs(frotaOgs.trim()); }}
-                  disabled={!frotaOgs.trim()}
+                  onClick={() => { if (ogsSelecionada.trim()) selecionarFrotaOgs(ogsSelecionada.trim()); }}
+                  disabled={!ogsSelecionada.trim()}
                   className="w-full h-12 rounded-xl bg-primary text-white font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Continuar →
@@ -523,7 +546,7 @@ export default function RelatoriosHome() {
         {step === "periodo" && (
           <>
             <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">
-              Período do relatório — <strong>{frotaOgs}</strong>
+              Período do relatório — <strong>{alvoSelecionado}</strong>
             </p>
 
             <div className="rdo-card space-y-4">
