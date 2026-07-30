@@ -129,6 +129,8 @@ export default function RdoForm() {
   const autoCopyStatusKeyRef = useRef<string>("");
   const [semNota, setSemNota] = useState(false);
   const [semProducao, setSemProducao] = useState(false);
+  const [semEquipamentos, setSemEquipamentos] = useState(false);
+  const [semEquipeCampo, setSemEquipeCampo] = useState(false);
 
   // Infraestrutura
   const [empreiteiro, setEmpreiteiro] = useState("");
@@ -259,6 +261,28 @@ export default function RdoForm() {
         comprimento_m: "", largura_m: "", espessura_cm: "", is_retrabalho: false,
       }]);
     }
+  };
+
+  const handleToggleSemEquipamentos = (checked: boolean) => {
+    setSemEquipamentos(checked);
+    if (!checked) return;
+
+    setEquipamentos([{
+      id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
+    }]);
+
+    setEquipamentosPatio([{
+      id: crypto.randomUUID(), categoria: "", frota: "", nome: "", tipo: "", status_patio: "Disposição", observacao: "",
+    }]);
+  };
+
+  const handleToggleSemEquipeCampo = (checked: boolean) => {
+    setSemEquipeCampo(checked);
+    if (!checked) return;
+
+    setEfetivo([{
+      id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
+    }]);
   };
 
   const copiarDiaAnterior = useCallback(async (opts?: { silent?: boolean }) => {
@@ -427,6 +451,7 @@ export default function RdoForm() {
       setSemProducao(Boolean((rdo as any).sem_producao));
       // Efetivo
       if (efetivo?.length) {
+        setSemEquipeCampo(false);
         setEfetivo(efetivo.map((e: any) => ({
           id: e.id,
           matricula: e.matricula || "",
@@ -438,6 +463,8 @@ export default function RdoForm() {
         })));
         if (efetivo[0]?.entrada) setGlobalEntrada(efetivo[0].entrada);
         if (efetivo[0]?.saida) setGlobalSaida(efetivo[0].saida);
+      } else {
+        setSemEquipeCampo(true);
       }
       // Efetivo Terceirizado (modo edição)
       if (tercRows?.length) {
@@ -493,6 +520,7 @@ export default function RdoForm() {
       }
       // Equipamentos
       if (equipamentos?.length) {
+        setSemEquipamentos(false);
         setEquipamentos(equipamentos.map((e: any) => ({
           id: e.id,
           categoria: e.categoria || "",
@@ -505,6 +533,8 @@ export default function RdoForm() {
           is_menor: false,
           fresadora_conica: "",
         })));
+      } else {
+        setSemEquipamentos(true);
       }
       // NF Massa
       if (nfRows?.length) {
@@ -847,13 +877,26 @@ export default function RdoForm() {
       // Efetivo obrigatório quando status é Trabalhou
       if (header.status_obra === "Trabalhou") {
         const validEfetivo = efetivo.filter(e => !isBlank(e.funcao) && !isBlank(e.nome));
-        if (validEfetivo.length === 0) {
-          toast({ title: "⚠️ Efetivo obrigatório", description: "Adicione pelo menos 1 função com nomes no efetivo antes de enviar.", variant: "destructive" });
+        if (!semEquipeCampo && validEfetivo.length === 0) {
+          toast({
+            title: "⚠️ Equipe em campo obrigatória",
+            description: "Adicione pelo menos 1 função com nomes no efetivo ou marque 'Sem Equipe em Campo'.",
+            variant: "destructive",
+          });
           return;
         }
+
+        const validEquipamentos = equipamentos.filter(
+          (e) => !isBlank(e.categoria) || !isBlank(e.frota) || !isBlank(e.tipo) || !isBlank(e.nome),
+        );
+
         // Equipamentos obrigatórios quando status é Trabalhou (exceto Patio)
-        if (!isPatioRdo && equipamentos.length === 0) {
-          toast({ title: "⚠️ Equipamentos obrigatórios", description: "Adicione pelo menos 1 equipamento no RDO antes de enviar.", variant: "destructive" });
+        if (!isPatioRdo && !semEquipamentos && validEquipamentos.length === 0) {
+          toast({
+            title: "⚠️ Equipamentos obrigatórios",
+            description: "Adicione pelo menos 1 equipamento ou marque 'Sem Equipamentos'.",
+            variant: "destructive",
+          });
           return;
         }
 
@@ -1508,6 +1551,8 @@ export default function RdoForm() {
             if (v !== tipoRdo) {
               setSemNota(false);
               setSemProducao(false);
+              setSemEquipamentos(false);
+              setSemEquipeCampo(false);
             }
             setTipoRdo(v);
             if (v === "PATIO") handleHeaderChange("obra_nome", "BASE / PÁTIO CENTRAL");
@@ -1620,13 +1665,49 @@ export default function RdoForm() {
 
             {tipoRdo && !statusSemOperacao && (
               <>
+                {!isPatioRdo && (
+                  <div className="mx-4 rounded-xl border border-border bg-card p-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={semEquipamentos}
+                        onChange={(e) => handleToggleSemEquipamentos(e.target.checked)}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      Sem Equipamentos
+                    </label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Marque quando não houver equipamento para lançar neste RDO.
+                    </p>
+                  </div>
+                )}
+
                 {isPatioRdo ? (
                   <SectionEquipamentosPatio entries={equipamentosPatio} onChange={setEquipamentosPatio} />
                 ) : (
-                  <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
+                  !semEquipamentos && (
+                    <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
+                  )
+                )}
+
+                {!isPatioRdo && (
+                  <div className="mx-4 rounded-xl border border-border bg-card p-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={semEquipeCampo}
+                        onChange={(e) => handleToggleSemEquipeCampo(e.target.checked)}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      Sem Equipe em Campo
+                    </label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Marque quando não houver equipe própria para lançar neste RDO.
+                    </p>
+                  </div>
                 )}
                 
-                {!isPatioRdo && <StepEfetivo
+                {!isPatioRdo && !semEquipeCampo && <StepEfetivo
                   entries={efetivo}
                   onChange={setEfetivo}
                   globalEntrada={globalEntrada}
