@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, MapPin, Users, Wrench, CalendarDays, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 interface RdoRow {
@@ -237,6 +239,7 @@ type ModoVis = "tipo" | "equipe";
 export default function GestaoFrotasDashboardRdo() {
   const navigate = useNavigate();
   const { profile } = useUserProfile();
+  const { trail, goTo } = useNavigationTrail({ label: "Dashboard RDO Frotas" });
 
   // Período — padrão: esta semana
   const [periodo, setPeriodo] = useState<Periodo>("semana");
@@ -533,6 +536,10 @@ export default function GestaoFrotasDashboardRdo() {
           <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
         </button>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       {/* ── BARRA DE PERÍODO ─────────────────────────────────────────────────── */}
       <div style={{

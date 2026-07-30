@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ManutencaoRow {
@@ -32,6 +34,8 @@ export default function RelatorioManutencao() {
 
   const ini = searchParams.get("ini") || "";
   const fim = searchParams.get("fim") || "";
+  const breadcrumbLabel = `Relatório Manutenção · ${fleet === "TODAS" ? "Todos" : fleet || "Frota"}`;
+  const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ManutencaoRow[]>([]);
@@ -74,6 +78,10 @@ export default function RelatorioManutencao() {
           <span className="block text-[11px] text-primary-foreground/80">{fleet === "TODAS" ? "Todos os Equipamentos" : `Frota ${fleet}`} • {ini || "-"} a {fim || "-"}</span>
         </div>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       <main className="max-w-3xl mx-auto p-4 space-y-3">
         {loading ? (

@@ -8,6 +8,8 @@ import { ArrowLeft, Plus, Car, Wrench, FileText, Fuel, Search, ChevronRight, Bar
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -93,6 +95,7 @@ function carregarFiltrosIniciais(): FiltrosGF {
 
 export default function GestaoFrotasHome() {
   const navigate = useNavigate();
+  const { trail, goTo } = useNavigationTrail({ label: "WF Gestão de Frotas", resetToHome: true });
   const { toast } = useToast();
   const { categorias, loading: loadingTipos } = useEquipamentoTipos();
   const [todos, setTodos] = useState<any[]>([]);
@@ -826,6 +829,10 @@ export default function GestaoFrotasHome() {
           </span>
         </div>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       {/* Abas */}
       <div className="flex border-b border-border bg-white">

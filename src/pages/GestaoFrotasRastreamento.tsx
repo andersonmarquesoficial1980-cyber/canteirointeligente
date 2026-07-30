@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
@@ -108,6 +110,7 @@ function corDias(d: number | null): string {
 
 export default function GestaoFrotasRastreamento() {
   const navigate = useNavigate();
+  const { trail, goTo } = useNavigationTrail({ label: "Rastreamento de Frotas" });
   const [lista, setLista] = useState<EquipRastreio[]>([]);
   const [loading, setLoading] = useState(true);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
@@ -326,6 +329,10 @@ export default function GestaoFrotasRastreamento() {
           Atualizar
         </button>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
 

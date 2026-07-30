@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Edit2, Save, UserCheck, History, FileText, Loader2, Gauge, Lock, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipes } from "@/hooks/useEquipes";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 type MedidorAtual = {
   valor: number;
@@ -53,6 +55,8 @@ export default function GestaoFrotasVeiculo() {
   const [trocandoCondutor, setTrocandoCondutor] = useState(false);
   const [medidorAtual, setMedidorAtual] = useState<MedidorAtual>(null);
   const { equipesData, loading: carregandoEquipes } = useEquipes();
+  const breadcrumbLabel = `Frota ${veiculo?.frota || veiculo?.placa || "Veículo"}`;
+  const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
 
   const opcoesEquipe = useMemo(() => {
     const nomes = (equipesData || [])
@@ -199,6 +203,10 @@ export default function GestaoFrotasVeiculo() {
           {editando ? <><Save className="w-4 h-4" /> Salvar</> : <><Edit2 className="w-4 h-4" /> Editar</>}
         </Button>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
 

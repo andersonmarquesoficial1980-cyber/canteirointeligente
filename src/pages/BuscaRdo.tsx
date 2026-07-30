@@ -10,6 +10,8 @@ import { ArrowLeft, Search, FileText, ChevronRight, Loader2, X, CheckCircle2, XC
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -37,6 +39,7 @@ export default function BuscaRdo() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const goBack = useSmartBack("/relatorios");
+  const { trail, goTo } = useNavigationTrail({ label: "Busca RDOs" });
 
   const hoje = new Date().toISOString().split("T")[0];
   const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
@@ -141,6 +144,10 @@ export default function BuscaRdo() {
           <span className="block text-[10px] text-primary-foreground/70">Filtrar por OGS, data, encarregado ou apontador</span>
         </div>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       <main className="max-w-2xl mx-auto p-4 space-y-3">
         {/* Filtros */}

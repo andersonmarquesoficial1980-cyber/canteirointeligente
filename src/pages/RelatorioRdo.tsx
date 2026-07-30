@@ -19,6 +19,8 @@ import { useCanDelete } from "@/hooks/useCanDelete";
 import { useCanExport } from "@/hooks/useCanExport";
 import { toast } from "@/hooks/use-toast";
 import { registrarAuditoria } from "@/lib/audit";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import JSZip from "jszip";
@@ -613,6 +615,8 @@ export default function RelatorioRdo() {
 
   const ini = searchParams.get("ini") || "";
   const fim = searchParams.get("fim") || "";
+  const breadcrumbLabel = ogs ? `RDO OGS ${ogs}` : "Relatório RDO";
+  const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
 
   const { isAdmin } = useIsAdmin();
   const { canDelete } = useCanDelete();
@@ -821,6 +825,10 @@ export default function RelatorioRdo() {
           <span className="block text-[11px] text-primary-foreground/80">OGS {ogs} • {fmtDate(ini)} a {fmtDate(fim)}</span>
         </div>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       <main className="max-w-3xl mx-auto p-4 space-y-3">
         {/* Barra de ações */}

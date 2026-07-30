@@ -13,6 +13,8 @@ import * as XLSX from "xlsx";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useCanDelete } from "@/hooks/useCanDelete";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { toast } from "sonner";
 
 function fmtDate(d: string | null) {
@@ -60,6 +62,7 @@ export default function RelatorioCarreteiros() {
   const goBack = useOrigemBack("/relatorios", { "gestao-frotas": "/gestao-frotas" });
   const { isAdmin } = useIsAdmin();
   const { canDelete } = useCanDelete();
+  const { trail, goTo } = useNavigationTrail({ label: "Relatório Carreteiros" });
   const hoje = new Date();
   const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   const [dataInicio, setDataInicio] = useState(formatDateInput(primeiroDiaMes));
@@ -258,6 +261,22 @@ export default function RelatorioCarreteiros() {
     return "-";
   };
 
+  const justificativaGpsSaida = (trip: any): string => {
+    if (trip?.departure_geo) return "GPS registrado";
+
+    const reasonMap: Record<string, string> = {
+      SEM_SINAL_RODOVIA: "Sem sinal na rodovia",
+      GPS_DESATIVADO_APARELHO: "GPS desativado no aparelho",
+      PERMISSAO_NEGADA: "Permissão de localização negada",
+      FALHA_TEMPORARIA: "Falha momentânea do app/dispositivo",
+      OUTRO: "Outro motivo",
+    };
+
+    const motivo = reasonMap[(trip?.departure_gps_issue_reason || "").toString()] || "Não informado";
+    const obs = (trip?.departure_gps_issue_notes || "").toString().trim();
+    return obs ? `${motivo} — ${obs}` : motivo;
+  };
+
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
 
@@ -281,7 +300,7 @@ export default function RelatorioCarreteiros() {
 
     // Aba 2: Detalhe de todas as viagens
     const detalheRows: any[][] = [
-      ["Data", "Placa", "Material", "Qtd (m³)", "Situação Saída", "Situação Chegada", "OGS (Obra)", "Encarregado", "Destino", "Apontador Origem", "Apontador Destino", "Saída", "Chegada", "Duração", "Status", "GPS Saída", "GPS Chegada"],
+      ["Data", "Placa", "Material", "Qtd (m³)", "Situação Saída", "Situação Chegada", "OGS (Obra)", "Encarregado", "Destino", "Apontador Origem", "Apontador Destino", "Saída", "Chegada", "Duração", "Status", "GPS Saída", "Justificativa GPS Saída", "GPS Chegada"],
       ...trips.map(t => [
         fmtDate(t.date),
         t.truck_plate || "-",
@@ -299,6 +318,7 @@ export default function RelatorioCarreteiros() {
         calcDuracao(t.departure_time, t.arrival_time),
         t.status || "-",
         t.departure_geo || "-",
+        justificativaGpsSaida(t),
         t.arrival_geo || "-",
       ]),
     ];
@@ -340,6 +360,10 @@ export default function RelatorioCarreteiros() {
           </ExportButton>
         )}
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient print:hidden">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       <main className="max-w-5xl mx-auto p-4 space-y-4">
         {/* Filtros */}
@@ -570,6 +594,7 @@ export default function RelatorioCarreteiros() {
                           <th className="text-left py-2 pr-3">Chegada</th>
                           <th className="text-right py-2 pr-3">Duração</th>
                           <th className="text-left py-2 pr-3">GPS Saída</th>
+                          <th className="text-left py-2 pr-3">Justificativa GPS Saída</th>
                           <th className="text-left py-2">GPS Chegada</th>
                           {isAdmin && canDelete && <th className="text-right py-2 pl-2">Ações</th>}
                         </tr>
@@ -611,6 +636,7 @@ export default function RelatorioCarreteiros() {
                                 </span>
                               )}
                             </td>
+                            <td className="py-2 pr-3 text-muted-foreground">{justificativaGpsSaida(t)}</td>
                             <td className="py-2">
                               {t.arrival_geo ? (
                                 <a href={`https://maps.google.com/?q=${t.arrival_geo}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">

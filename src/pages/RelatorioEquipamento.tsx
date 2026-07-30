@@ -6,6 +6,8 @@ import { ExportButton } from "@/components/ui/export-button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, ChevronDown, ChevronUp, FileSpreadsheet, Loader2, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import * as XLSX from "xlsx";
 
 type Diario = {
@@ -214,6 +216,8 @@ export default function RelatorioEquipamento() {
   const mes = searchParams.get("mes") || monthNow;
   const ano = searchParams.get("ano") || yearNow;
   const returnTo = searchParams.get("returnTo") || "";
+  const breadcrumbLabel = `Relatório ${fleetParam || "Equipamento"}`;
+  const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
   const returnToQuery = returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : "";
   const setMes = (v: string) => navigate(`/relatorios/equipamento/${encodeURIComponent(fleetParam)}?mes=${v}&ano=${searchParams.get("ano") || yearNow}${returnToQuery}`, { replace: true });
   const setAno = (v: string) => navigate(`/relatorios/equipamento/${encodeURIComponent(fleetParam)}?mes=${searchParams.get("mes") || monthNow}&ano=${v}${returnToQuery}`, { replace: true });
@@ -558,6 +562,10 @@ export default function RelatorioEquipamento() {
           </ExportButton>
         </div>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient print:hidden">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       <div className="px-4 py-3 flex gap-2 print:hidden">
         {modoPeriodo && (

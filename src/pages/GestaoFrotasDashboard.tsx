@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Package, Maximize2, Minimize2, Download, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 // ─── TYPES ─────────────────────────────────────────────────────────────────────
 
@@ -213,6 +215,7 @@ const SIDEBAR_W = 220;
 
 export default function GestaoFrotasDashboard() {
   const navigate = useNavigate();
+  const { trail, goTo } = useNavigationTrail({ label: "Dashboard de Frotas" });
   const [todos, setTodos]           = useState<Equip[]>([]);
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -945,6 +948,9 @@ export default function GestaoFrotasDashboard() {
           <Maximize2 size={14} /> Apresentação
         </button>
       </header>
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {renderSidebar()}
         <div style={{ flex: 1, overflowY: "auto" }}>

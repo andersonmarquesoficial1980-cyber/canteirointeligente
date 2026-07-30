@@ -13,6 +13,8 @@ import { buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -69,6 +71,8 @@ export default function RelatorioTransportes() {
   const { data: ogsData = [] } = useOgsReference();
 
   const frotaParam = searchParams.get("frota") || "";
+  const breadcrumbLabel = `Relatório Transportes · ${frotaParam && frotaParam !== "TODAS" ? frotaParam : "Todas as Carretas"}`;
+  const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
   const today = new Date().toISOString().split("T")[0];
   const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
 
@@ -228,6 +232,10 @@ export default function RelatorioTransportes() {
           <span className="block text-[11px] text-primary-foreground/80">{frotaLabel} • {fmtDate(ini)} a {fmtDate(fim)}</span>
         </div>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       <main className="max-w-4xl mx-auto p-4 space-y-4">
         {/* Filtros */}

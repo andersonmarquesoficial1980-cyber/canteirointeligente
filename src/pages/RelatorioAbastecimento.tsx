@@ -7,6 +7,8 @@ import { ExportButton } from "@/components/ui/export-button";
 import { Input } from "@/components/ui/input";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtNum as fmtNumLib, fmtNumCsv as fmtNumCsvLib } from "@/lib/fmt";
 
@@ -394,6 +396,7 @@ export default function RelatorioAbastecimento() {
       : tipoEquip !== "__todos__"
         ? (categorias.find((c) => c.key === tipoEquip)?.label || tipoEquip)
         : "Todas as Frotas";
+  const { trail, goTo } = useNavigationTrail({ label: `Relatório Abastecimento · ${labelFrota}` });
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -407,6 +410,10 @@ export default function RelatorioAbastecimento() {
           <span className="block text-[11px] text-primary-foreground/80">{labelFrota}</span>
         </div>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       <main className="max-w-3xl mx-auto p-4 space-y-3">
         {/* Filtros */}

@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import AdvancedReports from "@/components/dashboard/AdvancedReports";
 import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 const TIPOS_RELATORIO = [
   { id: "equipamento", label: "Equipamentos", emoji: "🚜", desc: "Diário, consumo, manutenção, produção" },
@@ -51,6 +53,7 @@ export default function RelatoriosHome() {
   const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
   const returnToQuery = `&returnTo=${returnTo}`;
   const { categorias } = useEquipamentoTipos();
+  const { trail, goTo } = useNavigationTrail({ label: "WF Relatórios", resetToHome: true });
 
   // ── Persistência de filtros ─────────────────────────────────────────────
   const RKEY = "relatoriosHome_filtros";
@@ -267,6 +270,10 @@ export default function RelatoriosHome() {
           </span>
         </div>
       </header>
+
+      <div className="px-4 pb-2 bg-header-gradient">
+        <NavigationTrail trail={trail} onSelect={goTo} />
+      </div>
 
       {/* Indicador de progresso */}
       <div className="flex px-4 pt-3 gap-1.5">
