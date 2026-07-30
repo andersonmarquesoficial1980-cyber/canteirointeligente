@@ -193,7 +193,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
 
   let rdoQuery = sb
     .from("rdo_diarios")
-    .select("id,data,obra_nome,tipo_rdo,preenchido_por,encarregado,created_at", { count: "exact" })
+    .select("id,data,obra_nome,tipo_rdo,preenchido_por,encarregado,empreiteiro,created_at", { count: "exact" })
     .eq("company_id", companyId)
     .gte("data", start)
     .lte("data", end)
@@ -372,6 +372,9 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       contratante: ogs?.client_name || null,
       local: localAplicacao,
       tipo_rdo: rdo?.tipo_rdo || null,
+      empreiteiro_id: null,
+      empreiteiro_nome: rdo?.empreiteiro || null,
+      empreiteiro: rdo?.empreiteiro || null,
       nf: nfNumero,
       tipo_concreto: tipoConcreto,
       fornecedor,
@@ -413,6 +416,9 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       contratante: ogs?.client_name || null,
       local: ogs?.location_address || null,
       tipo_rdo: rdo?.tipo_rdo || null,
+      empreiteiro_id: null,
+      empreiteiro_nome: rdo?.empreiteiro || null,
+      empreiteiro: rdo?.empreiteiro || null,
       apontador: rdo?.preenchido_por || rdo?.encarregado || null,
       encarregado: rdo?.encarregado || null,
       tipo_servico: p.tipo_servico,

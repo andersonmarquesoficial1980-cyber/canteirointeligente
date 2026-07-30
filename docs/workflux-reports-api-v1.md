@@ -96,6 +96,8 @@ Identificação incremental recomendada:
 Campos da seção `notas_fiscais_concreto.rows` (homologação Engenharia):
 - `numero_nf` / `nf`
 - `concreteira` / `fornecedor`
+- `empreiteiro_id` (atual: `null` quando não houver id técnico no RDO)
+- `empreiteiro_nome` / `empreiteiro` (empresa executora do serviço, ex.: EJL/OBJETIVA)
 - `fck` (numérico em MPa quando identificado; ex.: `30`)
 - `fck_descricao` (texto original; ex.: `FCK 30 MPa`)
 - `placa_betoneira` (somente quando valor tem formato de placa)
@@ -111,6 +113,7 @@ Campos da seção `producao_rdos.rows` adicionados para produção:
 - `km_inicial`, `km_final`
 - `trecho`
 - `encarregado`, `contratante`, `local`, `created_at`, `updated_at`
+- `empreiteiro_id`, `empreiteiro_nome`, `empreiteiro` (empresa executora; diferente de contratante)
 - `retrabalho` (controle técnico; usado em Infra)
 
 Separação por tipo de RDO no payload:
