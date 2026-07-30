@@ -1753,6 +1753,7 @@ function OgsManager() {
   const [cliente, setCliente] = useState("");
   const [endereco, setEndereco] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [originalEditAddress, setOriginalEditAddress] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deletingLoading, setDeletingLoading] = useState(false);
   const [myCompanyId, setMyCompanyId] = useState<string | null>(null);
@@ -1772,22 +1773,51 @@ function OgsManager() {
     });
   }, []);
 
+  const normalizeOgsField = (value: string) =>
+    (value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toUpperCase();
+
   const handleAdd = async () => {
     if (!numero.trim() || !cliente.trim() || !endereco.trim()) {
       toast({ title: "Atenção", description: "Preencha OGS, Cliente e Endereço.", variant: "destructive" });
       return;
     }
+
+    const numeroLimpo = numero.trim();
+    const enderecoLimpo = endereco.trim();
+    const enderecoNormalizado = normalizeOgsField(enderecoLimpo);
+
+    const duplicadoLocal = items.some((o: any) => {
+      if (editingId && o.id === editingId) return false;
+      return String(o.ogs_number || "").trim() === numeroLimpo
+        && normalizeOgsField(String(o.location_address || "")) === enderecoNormalizado;
+    });
+
+    if (duplicadoLocal) {
+      toast({
+        title: "Rua já cadastrada",
+        description: `A OGS ${numeroLimpo} já possui esse endereço. Informe outra rua para adicionar.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast({ title: "Sessão expirada", variant: "destructive" }); return; }
       if (editingId) {
         if (!editingId) { toast({ title: "Erro interno", description: "Identificador não encontrado.", variant: "destructive" }); return; }
-        const { error } = await supabase.from("ogs_reference").update({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim() } as any).eq("id", editingId);
+        const { error } = await supabase.from("ogs_reference").update({ ogs_number: numeroLimpo, client_name: cliente.trim(), location_address: enderecoLimpo } as any).eq("id", editingId);
         if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
         toast({ title: "✅ OGS atualizada!" });
         setEditingId(null);
+        setOriginalEditAddress("");
       } else {
-        const { error } = await supabase.from("ogs_reference").insert({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim(), company_id: myCompanyId } as any);
+        const { error } = await supabase.from("ogs_reference").insert({ ogs_number: numeroLimpo, client_name: cliente.trim(), location_address: enderecoLimpo, company_id: myCompanyId } as any);
         if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
         toast({ title: "✅ Endereço adicionado!" });
       }
@@ -1804,10 +1834,11 @@ function OgsManager() {
     setNumero(o.ogs_number || "");
     setCliente(o.client_name || "");
     setEndereco(o.location_address || "");
+    setOriginalEditAddress(o.location_address || "");
     setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   };
 
-  const cancelEdit = () => { setEditingId(null); setNumero(""); setCliente(""); setEndereco(""); };
+  const cancelEdit = () => { setEditingId(null); setOriginalEditAddress(""); setNumero(""); setCliente(""); setEndereco(""); };
 
   const handleDelete = async () => {
     if (!deleteTarget || !deleteTarget.id) {
@@ -1875,9 +1906,37 @@ function OgsManager() {
               className="h-11 gap-2 border-primary text-primary hover:bg-primary/10"
               onClick={async () => {
                 if (!endereco.trim()) { toast({ title: "Informe o endereço da nova rua", variant: "destructive" }); return; }
-                const { error } = await supabase.from("ogs_reference").insert({ ogs_number: numero.trim(), client_name: cliente.trim(), location_address: endereco.trim(), company_id: myCompanyId } as any);
+
+                const numeroLimpo = numero.trim();
+                const enderecoLimpo = endereco.trim();
+                const enderecoNormalizado = normalizeOgsField(enderecoLimpo);
+
+                if (normalizeOgsField(originalEditAddress) === enderecoNormalizado) {
+                  toast({
+                    title: "Endereço já é o atual",
+                    description: "Para adicionar nova rua, altere o campo Endereço/ Rua antes de clicar em Adicionar rua.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+
+                const duplicado = items.some((o: any) =>
+                  String(o.ogs_number || "").trim() === numeroLimpo
+                  && normalizeOgsField(String(o.location_address || "")) === enderecoNormalizado
+                );
+
+                if (duplicado) {
+                  toast({
+                    title: "Rua já cadastrada",
+                    description: `A OGS ${numeroLimpo} já possui esse endereço.`,
+                    variant: "destructive"
+                  });
+                  return;
+                }
+
+                const { error } = await supabase.from("ogs_reference").insert({ ogs_number: numeroLimpo, client_name: cliente.trim(), location_address: enderecoLimpo, company_id: myCompanyId } as any);
                 if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-                toast({ title: "✅ Nova rua adicionada!", description: `${numero} — ${endereco}` });
+                toast({ title: "✅ Nova rua adicionada!", description: `${numeroLimpo} — ${enderecoLimpo}` });
                 setEndereco("");
                 await load();
               }}
