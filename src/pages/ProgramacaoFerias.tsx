@@ -14,7 +14,7 @@ const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 interface Employee {
   id: string;
   name: string;
-  matricula: string;
+  matricula: string | null;
   role: string;
   data_admissao: string;
   centro_custo?: string;
@@ -177,7 +177,7 @@ function ModalFerias({
           <button onClick={onClose}><X size={20} color="#9ca3af" /></button>
         </div>
 
-        <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 16 }}>{emp.name} · Mat. {emp.matricula}</p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 16 }}>{emp.name} · Mat. {emp.matricula ?? "—"}</p>
 
         {/* Tipo */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -278,7 +278,7 @@ function CardFuncionario({ emp, onRegistrar, onToggle, expanded }: {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp.name}</p>
-          <p style={{ fontSize: 11, color: "#9ca3af" }}>Mat. {emp.matricula} · {emp.role}</p>
+          <p style={{ fontSize: 11, color: "#9ca3af" }}>Mat. {emp.matricula ?? "—"} · {emp.role}</p>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           {saldo !== null ? (
@@ -423,9 +423,13 @@ export default function ProgramacaoFerias() {
   // Filtros
   const hoje = new Date().toISOString().split("T")[0];
   const filtrados = employees.filter(e => {
+    const nome = (e.name ?? "").toLowerCase();
+    const matricula = String(e.matricula ?? "");
+    const termo = busca.toLowerCase();
+
     const matchBusca = !busca ||
-      e.name.toLowerCase().includes(busca.toLowerCase()) ||
-      e.matricula.includes(busca);
+      nome.includes(termo) ||
+      matricula.includes(busca);
 
     if (!matchBusca) return false;
 
