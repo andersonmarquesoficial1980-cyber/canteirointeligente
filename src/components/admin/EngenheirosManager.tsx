@@ -63,11 +63,17 @@ export default function EngenheirosManager() {
     setToggling(null);
   };
 
-  const filtrados = todos.filter(f =>
-    !busca || f.name.toLowerCase().includes(busca.toLowerCase()) ||
-    f.role.toLowerCase().includes(busca.toLowerCase()) ||
-    f.matricula.includes(busca)
-  );
+  const filtrados = todos.filter(f => {
+    const termo = busca.toLowerCase();
+    const matricula = String(f.matricula ?? "");
+
+    return (
+      !busca ||
+      f.name.toLowerCase().includes(termo) ||
+      f.role.toLowerCase().includes(termo) ||
+      matricula.includes(busca)
+    );
+  });
 
   const engenheiros = filtrados.filter(f => f.is_engenheiro);
   const demais = filtrados.filter(f => !f.is_engenheiro);

@@ -127,11 +127,14 @@ export function ResponsavelInput({ value, onChange, placeholder = "Nome do encar
       setFiltrados(candidatos.slice(0, 15));
     } else {
       const r = candidatos
-        .filter(c =>
-          c.name.toLowerCase().includes(q) ||
-          c.role.toLowerCase().includes(q) ||
-          c.matricula.includes(q)
-        )
+        .filter(c => {
+          const matricula = String(c.matricula ?? "");
+          return (
+            c.name.toLowerCase().includes(q) ||
+            c.role.toLowerCase().includes(q) ||
+            matricula.includes(q)
+          );
+        })
         .slice(0, 10);
       setFiltrados(r);
     }

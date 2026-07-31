@@ -57,11 +57,17 @@ export default function EncarregadosManager() {
     setToggling(null);
   };
 
-  const filtrados = todos.filter(f =>
-    !busca || f.name.toLowerCase().includes(busca.toLowerCase()) ||
-    f.role.toLowerCase().includes(busca.toLowerCase()) ||
-    f.matricula.includes(busca)
-  );
+  const filtrados = todos.filter(f => {
+    const termo = busca.toLowerCase();
+    const matricula = String(f.matricula ?? "");
+
+    return (
+      !busca ||
+      f.name.toLowerCase().includes(termo) ||
+      f.role.toLowerCase().includes(termo) ||
+      matricula.includes(busca)
+    );
+  });
 
   const encarregados = filtrados.filter(f => f.is_encarregado);
   const demais = filtrados.filter(f => !f.is_encarregado);
