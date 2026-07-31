@@ -18,6 +18,21 @@ const ACTIVITIES = [
   "Transporte",
 ] as const;
 
+const OGS_RODOVIA_KM_REQUIRED = "2539";
+
+function extractOgsNumber(raw: string | undefined): string {
+  const normalized = (raw || "").trim();
+  if (!normalized) return "";
+  if (normalized.toUpperCase().includes("BASE")) return "BASE";
+  if (normalized.includes("|")) return normalized.split("|")[0]?.trim() || "";
+  if (normalized.includes(" — ")) return normalized.split(" — ")[0]?.trim() || "";
+  return normalized;
+}
+
+function shouldShowRodoviaKm(raw: string | undefined): boolean {
+  return extractOgsNumber(raw) === OGS_RODOVIA_KM_REQUIRED;
+}
+
 export interface TimeEntry {
    id: string;
    startTime: string;
@@ -27,8 +42,10 @@ export interface TimeEntry {
    maintenanceDetails?: string;
    origin?: string;
    originCustom?: string;
+   originKm?: string;
    destination?: string;
    destinationCustom?: string;
+   destinationKm?: string;
    transportObs?: string;
    transportOgs?: string;
    transportPassengers?: string;
@@ -99,7 +116,9 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
     isParada: false,
     maintenanceDetails: "",
     origin: "",
+    originKm: "",
     destination: "",
+    destinationKm: "",
     transportObs: "",
     transportOgs: "",
     transportPassengers: "",
@@ -164,7 +183,9 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
         if (value !== "Manutenção") newEntry.maintenanceDetails = "";
         if (value !== "Transporte") {
           newEntry.origin = "";
+          newEntry.originKm = "";
           newEntry.destination = "";
+          newEntry.destinationKm = "";
           newEntry.transportObs = "";
           newEntry.transportOgs = "";
           newEntry.transportPassengers = "";
@@ -304,13 +325,16 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                       />
                       <button
                         type="button"
-                        onClick={() => updateEntry(idx, "origin", "", { originCustom: "" })}
+                        onClick={() => updateEntry(idx, "origin", "", { originCustom: "", originKm: "" })}
                         className="text-muted-foreground hover:text-foreground px-1.5"
                         title="Limpar"
                       >✕</button>
                     </div>
                   ) : (
-                    <Select value={entry.origin || ""} onValueChange={(v) => updateEntry(idx, "origin", v, { originCustom: "" })}>
+                    <Select value={entry.origin || ""} onValueChange={(v) => updateEntry(idx, "origin", v, {
+                      originCustom: "",
+                      originKm: shouldShowRodoviaKm(v) ? (entry.originKm || "") : "",
+                    })}>
                       <SelectTrigger className="bg-secondary border-border h-9 text-xs">
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
@@ -330,6 +354,18 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                   )}
                 </div>
 
+                {shouldShowRodoviaKm(entry.origin) && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">KM Origem *</span>
+                    <Input
+                      value={entry.originKm || ""}
+                      onChange={(e) => updateEntry(idx, "originKm", e.target.value)}
+                      placeholder="KM-100"
+                      className="bg-secondary border-border h-9 text-xs"
+                    />
+                  </div>
+                )}
+
                 {/* DESTINO */}
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-accent uppercase">Destino</span>
@@ -344,7 +380,7 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                       />
                       <button
                         type="button"
-                        onClick={() => updateEntry(idx, "destination", "", { destinationCustom: "" })}
+                        onClick={() => updateEntry(idx, "destination", "", { destinationCustom: "", destinationKm: "" })}
                         className="text-muted-foreground hover:text-foreground px-1.5"
                         title="Limpar"
                       >✕</button>
@@ -352,8 +388,13 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                   ) : (
                     <Select value={entry.destination || ""} onValueChange={(v) => {
                       const extra: Partial<TimeEntry> = v !== BASE_PATIO_VALUE
-                        ? { returnReason: "", returnDetails: "", destinationCustom: "" }
-                        : { destinationCustom: "" };
+                        ? {
+                            returnReason: "",
+                            returnDetails: "",
+                            destinationCustom: "",
+                            destinationKm: shouldShowRodoviaKm(v) ? (entry.destinationKm || "") : "",
+                          }
+                        : { destinationCustom: "", destinationKm: "" };
                       updateEntry(idx, "destination", v, extra);
                     }}>
                       <SelectTrigger className="bg-secondary border-border h-9 text-xs">
@@ -374,6 +415,18 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                     </Select>
                   )}
                 </div>
+
+                {shouldShowRodoviaKm(entry.destination) && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-accent uppercase">KM Destino *</span>
+                    <Input
+                      value={entry.destinationKm || ""}
+                      onChange={(e) => updateEntry(idx, "destinationKm", e.target.value)}
+                      placeholder="KM-125"
+                      className="bg-secondary border-border h-9 text-xs"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Return reason when destination is BASE */}

@@ -44,6 +44,29 @@ import { generateComboioPdf } from "@/lib/generateComboioPdf";
 import { buildComboioEmailReport, buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Em Transporte"] as const;
+const OGS_RODOVIA_KM_REQUIRED = "2539";
+const KM_ORIGEM_TAG = "KM Origem:";
+const KM_DESTINO_TAG = "KM Destino:";
+
+function extractOgsNumberFromLocation(raw: string | null | undefined): string {
+  const normalized = (raw || "").trim();
+  if (!normalized) return "";
+  if (normalized.toUpperCase().includes("BASE")) return "BASE";
+  if (normalized.includes("|")) return normalized.split("|")[0]?.trim() || "";
+  if (normalized.includes(" — ")) return normalized.split(" — ")[0]?.trim() || "";
+  return normalized;
+}
+
+function requiresRodoviaKm(raw: string | null | undefined): boolean {
+  return extractOgsNumberFromLocation(raw) === OGS_RODOVIA_KM_REQUIRED;
+}
+
+function extractTaggedValue(text: string | null | undefined, tag: string): string {
+  if (!text) return "";
+  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = text.match(new RegExp(`${escaped}\\s*([^|]+)`, "i"));
+  return match?.[1]?.trim() || "";
+}
 
 // Frotas removidas do hardcode — agora vêm de maquinas_frota (Painel de Controle)
 
@@ -1005,8 +1028,10 @@ export default function EquipmentDiaryForm() {
             isParada: ["Refeições", "À Disposição", "Manutenção"].includes(row.activity || ""),
             maintenanceDetails: row.activity === "Manutenção" ? row.description || "" : "",
             origin: row.origin || "",
+            originKm: extractTaggedValue(row.description, KM_ORIGEM_TAG),
             destination: row.destination || "",
-            transportObs: row.activity === "Transporte" ? row.description || "" : "",
+            destinationKm: extractTaggedValue(row.description, KM_DESTINO_TAG),
+            transportObs: row.activity === "Transporte" && !isCarreta ? row.description || "" : "",
             transportOgs: row.ogs_destination || "",
             transportPassengers: "",
             transportEquip1: "",
@@ -1018,7 +1043,7 @@ export default function EquipmentDiaryForm() {
             transportInternalDetails: "",
             returnReason: "",
             returnDetails: "",
-            transportVazio: row.description === "VAZIO",
+            transportVazio: String(row.description || "").toUpperCase().includes("VAZIO"),
           }));
         setTimeEntries(
           mappedTimeEntries.length > 0 ? mappedTimeEntries : [createDefaultTimeEntry(loadedTurno)],
@@ -1499,6 +1524,31 @@ export default function EquipmentDiaryForm() {
       diaryPayload.meter_final = toNDB(meterFinal);
     }
 
+    const transportesCarreta = timeEntries.filter((t) => t.activity === "Transporte");
+    const idxKmOrigemPendente = isCarreta
+      ? transportesCarreta.findIndex((t) => requiresRodoviaKm(t.origin) && !String(t.originKm || "").trim())
+      : -1;
+    if (idxKmOrigemPendente >= 0) {
+      toast({
+        title: "⚠️ KM da origem obrigatório",
+        description: `No apontamento de transporte #${idxKmOrigemPendente + 1}, preencha o KM da origem para a OGS ${OGS_RODOVIA_KM_REQUIRED}.`,
+        variant: "destructive",
+      });
+      return cancelSave();
+    }
+
+    const idxKmDestinoPendente = isCarreta
+      ? transportesCarreta.findIndex((t) => requiresRodoviaKm(t.destination) && !String(t.destinationKm || "").trim())
+      : -1;
+    if (idxKmDestinoPendente >= 0) {
+      toast({
+        title: "⚠️ KM do destino obrigatório",
+        description: `No apontamento de transporte #${idxKmDestinoPendente + 1}, preencha o KM do destino para a OGS ${OGS_RODOVIA_KM_REQUIRED}.`,
+        variant: "destructive",
+      });
+      return cancelSave();
+    }
+
     if (!isOnline) {
       if (isEditMode) {
         toast({
@@ -1680,6 +1730,12 @@ export default function EquipmentDiaryForm() {
             }
             if (t.origin && t.destination && t.origin === t.destination && t.transportInternalDetails) {
               parts.push(`Trecho: ${t.transportInternalDetails}`);
+            }
+            if (requiresRodoviaKm(t.origin) && String(t.originKm || "").trim()) {
+              parts.push(`${KM_ORIGEM_TAG} ${String(t.originKm).trim()}`);
+            }
+            if (requiresRodoviaKm(t.destination) && String(t.destinationKm || "").trim()) {
+              parts.push(`${KM_DESTINO_TAG} ${String(t.destinationKm).trim()}`);
             }
             if (t.destination === "BASE / PÁTIO CENTRAL" && t.returnReason) {
               parts.push(`Retorno: ${t.returnReason}`);

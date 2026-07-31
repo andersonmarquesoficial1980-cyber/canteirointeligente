@@ -249,6 +249,8 @@ export function buildCarretaEmailReport(params: {
 
       const orig = resolveOgs(t.origin, ogsLookup);
       const dest = resolveOgs(t.destination, ogsLookup);
+      const origAddr = t.originKm ? `${orig.addr} (KM ${t.originKm})` : orig.addr;
+      const destAddr = t.destinationKm ? `${dest.addr} (KM ${t.destinationKm})` : dest.addr;
 
       const obsParts: string[] = [];
       if (t.activity && t.activity !== "Transporte") obsParts.push(t.activity);
@@ -267,9 +269,9 @@ export function buildCarretaEmailReport(params: {
         <td>${eq2 || "—"}</td>
         <td>${eq3 || "—"}</td>
         <td><strong>${orig.num}</strong></td>
-        <td>${orig.addr}</td>
+        <td>${origAddr}</td>
         <td><strong>${dest.num}</strong></td>
-        <td>${dest.addr}</td>
+        <td>${destAddr}</td>
         <td>${t.startTime || "—"} — ${t.endTime || "—"}</td>
         <td>${obsParts.length > 0 ? obsParts.join(" | ") : "—"}</td>
       </tr>`;

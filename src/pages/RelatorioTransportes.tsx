@@ -23,9 +23,18 @@ function fmtDate(d: string) {
 }
 
 // description salva equipamentos como texto: "CP05" ou "PN49, CH33" ou "VAZIO"
+function extractTaggedValue(text: string | null | undefined, tag: string): string {
+  if (!text) return "";
+  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = text.match(new RegExp(`${escaped}\\s*([^|]+)`, "i"));
+  return match?.[1]?.trim() || "";
+}
+
 function parseEquipamentos(desc: string | null): [string, string, string] {
-  if (!desc || desc.toUpperCase() === "VAZIO") return ["", "", ""];
-  const parts = desc.split(",").map(s => s.trim()).filter(Boolean);
+  if (!desc) return ["", "", ""];
+  const head = desc.split("|")[0]?.trim() || "";
+  if (!head || head.toUpperCase() === "VAZIO") return ["", "", ""];
+  const parts = head.split(",").map(s => s.trim()).filter(Boolean);
   return [parts[0] || "", parts[1] || "", parts[2] || ""];
 }
 
@@ -43,12 +52,15 @@ const sortTimeEntries = (entries: any[]): any[] => {
 function mapEntry(row: any) {
   const [eq1, eq2, eq3] = parseEquipamentos(row.description);
   return {
+    id: row.id || crypto.randomUUID(),
     startTime: row.start_time || "",
     endTime: row.end_time || "",
     activity: row.activity || "",
     isParada: false,
     origin: row.origin || "",
     destination: row.destination || "",
+    originKm: extractTaggedValue(row.description, "KM Origem:"),
+    destinationKm: extractTaggedValue(row.description, "KM Destino:"),
     transportOgs: row.ogs_destination || "",
     transportEquip1: eq1,
     transportEquip1Custom: "",
