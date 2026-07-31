@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, Loader2, FileSpreadsheet, Eye } from "lucide-react";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ArrowLeft, ChevronDown, Download, Loader2, FileSpreadsheet, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import * as XLSX from "xlsx";
@@ -112,7 +113,6 @@ function validateKmaDiary(diary: any, kmaOp: any) {
   };
 }
 
-const TODOS_SUBTIPOS_VALUE = "__todos_subtipos__";
 const TODOS_SUBTIPOS_LABEL = "Todos os Subtipos";
 
 // Equipamentos com Auxiliar
@@ -202,7 +202,7 @@ export default function ExportarProtheus() {
   const { categorias, loading: loadingTipos } = useEquipamentoTipos();
 
   const [tipoEquip, setTipoEquip] = useState(""); // categoria key: CAMINHOES, CARRETAS...
-  const [subtipoEquip, setSubtipoEquip] = useState(""); // tipoValor: CAMINHÃO BASCULANTE...
+  const [subtiposSelecionados, setSubtiposSelecionados] = useState<string[]>([]); // tipoValor[]
   const [frota, setFrota] = useState("__todas__");
   const [frotas, setFrotas] = useState<string[]>([]);
   const [loadingFrotas, setLoadingFrotas] = useState(false);
@@ -228,17 +228,49 @@ export default function ExportarProtheus() {
     [categoriaSel],
   );
 
-  const isTodosSubtipos = subtipoEquip === TODOS_SUBTIPOS_VALUE;
+  const isTodosSubtipos = subtipos.length > 0 && subtiposSelecionados.length === subtipos.length;
+
+  const subtiposSelecionadosDetalhes = useMemo(
+    () => subtipos.filter((s) => subtiposSelecionados.includes(s.value)),
+    [subtipos, subtiposSelecionados],
+  );
+
+  const subtipoLabel = useMemo(() => {
+    if (!subtiposSelecionados.length) return "";
+    if (isTodosSubtipos) return TODOS_SUBTIPOS_LABEL;
+    if (subtiposSelecionadosDetalhes.length === 1) return subtiposSelecionadosDetalhes[0].label;
+    return `${subtiposSelecionadosDetalhes.length} subtipos selecionados`;
+  }, [isTodosSubtipos, subtiposSelecionados.length, subtiposSelecionadosDetalhes]);
 
   const tipoEquipLabel = categoriaSel?.label || "";
-  const subtipoLabel = isTodosSubtipos
-    ? TODOS_SUBTIPOS_LABEL
-    : subtipos.find((s) => s.value === subtipoEquip)?.label || subtipoEquip;
-  const tipoExportBase = useMemo(() => toLegacyTipo(tipoEquip, subtipoLabel), [tipoEquip, subtipoLabel]);
+
+  const tiposExportSelecionados = useMemo(
+    () => subtiposSelecionadosDetalhes.map((s) => toLegacyTipo(tipoEquip, s.label)),
+    [subtiposSelecionadosDetalhes, tipoEquip],
+  );
+
+  const tipoExportBase = useMemo(() => {
+    if (!tiposExportSelecionados.length) return "";
+    return [...new Set(tiposExportSelecionados)][0] || "";
+  }, [tiposExportSelecionados]);
+
+  const toggleSubtipo = (value: string) => {
+    setSubtiposSelecionados((prev) => {
+      if (prev.includes(value)) return prev.filter((v) => v !== value);
+      return [...prev, value];
+    });
+    resetPreview();
+  };
+
+  const selecionarTodosSubtipos = () => {
+    const todos = subtipos.map((s) => s.value);
+    setSubtiposSelecionados((prev) => (prev.length === todos.length ? [] : todos));
+    resetPreview();
+  };
 
   // ── Reseta cascata ao trocar categoria ──────────────────────────────────────
   useEffect(() => {
-    setSubtipoEquip("");
+    setSubtiposSelecionados([]);
     setFrota("__todas__");
     setFrotas([]);
     setPreviewHeader(null);
@@ -248,9 +280,9 @@ export default function ExportarProtheus() {
     setTotal(null);
   }, [tipoEquip]);
 
-  // ── Carrega frotas após escolher subtipo ────────────────────────────────────
+  // ── Carrega frotas após escolher subtipo(s) ────────────────────────────────
   useEffect(() => {
-    if (!subtipoEquip) {
+    if (!subtiposSelecionados.length) {
       setFrotas([]);
       setFrota("__todas__");
       return;
@@ -266,15 +298,6 @@ export default function ExportarProtheus() {
 
     const loadFrotas = async () => {
       try {
-        const subtiposSelecionados = isTodosSubtipos
-          ? subtipos.map((s) => s.value)
-          : [subtipoEquip];
-
-        if (!subtiposSelecionados.length) {
-          setFrotas([]);
-          return;
-        }
-
         const { data } = await (supabase as any)
           .from("equipamentos")
           .select("frota")
@@ -289,7 +312,7 @@ export default function ExportarProtheus() {
     };
 
     loadFrotas();
-  }, [isTodosSubtipos, subtipoEquip, subtipos]);
+  }, [subtiposSelecionados]);
 
   const resetPreview = () => {
     setPreviewHeader(null);
@@ -305,8 +328,13 @@ export default function ExportarProtheus() {
       throw new Error("Selecione o tipo de equipamento.");
     }
 
-    if (!subtipoEquip) {
-      throw new Error("Selecione o subtipo antes de exportar.");
+    if (!subtiposSelecionados.length) {
+      throw new Error("Selecione pelo menos um subtipo antes de exportar.");
+    }
+
+    const tiposExportUnicos = [...new Set(tiposExportSelecionados)];
+    if (tiposExportUnicos.length > 1) {
+      throw new Error("Os subtipos selecionados geram layouts diferentes de planilha. Selecione subtipos compatíveis.");
     }
 
     if (!frotas.length) {
@@ -512,7 +540,7 @@ export default function ExportarProtheus() {
     return { header, rows: dataRows, total: diarios.length, kmaValidationRows, kmaValidationSummary };
   };
 
-  const isFormValid = !!tipoEquip && !!subtipoEquip && dataInicio && dataFim && dataInicio <= dataFim;
+  const isFormValid = !!tipoEquip && subtiposSelecionados.length > 0 && dataInicio && dataFim && dataInicio <= dataFim;
 
   // ── Pré-visualizar ────────────────────────────────────────────────────────
   const handlePrevisualizar = async () => {
@@ -661,25 +689,46 @@ export default function ExportarProtheus() {
           {tipoEquip && (
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Subtipo</span>
-              <Select value={subtipoEquip} onValueChange={v => { setSubtipoEquip(v); resetPreview(); }}>
-                <SelectTrigger className="h-12 bg-white border-border rounded-xl">
-                  <SelectValue placeholder="Selecione o subtipo" />
-                </SelectTrigger>
-                <SelectContent>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 w-full bg-white border-border rounded-xl justify-between font-normal"
+                  >
+                    <span className={subtiposSelecionados.length ? "text-foreground" : "text-muted-foreground"}>
+                      {subtiposSelecionados.length ? subtipoLabel : "Selecione um ou mais subtipos"}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-72 overflow-auto">
+                  <DropdownMenuLabel>Selecione os subtipos</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
                   {subtipos.length > 1 && (
-                    <SelectItem value={TODOS_SUBTIPOS_VALUE}>{TODOS_SUBTIPOS_LABEL}</SelectItem>
+                    <DropdownMenuCheckboxItem checked={isTodosSubtipos} onCheckedChange={selecionarTodosSubtipos}>
+                      {TODOS_SUBTIPOS_LABEL}
+                    </DropdownMenuCheckboxItem>
                   )}
-                  {subtipos.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {subtipoEquip && (
-                <p className="text-sm font-semibold text-blue-700">subtipo = {subtipoLabel.toLowerCase()}</p>
+                  {subtipos.map((s) => (
+                    <DropdownMenuCheckboxItem
+                      key={s.value}
+                      checked={subtiposSelecionados.includes(s.value)}
+                      onCheckedChange={() => toggleSubtipo(s.value)}
+                    >
+                      {s.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {subtiposSelecionados.length > 0 && (
+                <p className="text-sm font-semibold text-blue-700">subtipo(s) = {subtipoLabel.toLowerCase()}</p>
               )}
             </div>
           )}
 
           {/* Frota — só após escolher subtipo */}
-          {tipoEquip && subtipoEquip && (
+          {tipoEquip && subtiposSelecionados.length > 0 && (
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Frota</span>
               {loadingFrotas ? (
@@ -885,7 +934,7 @@ export default function ExportarProtheus() {
             {tipoExportBase === "Fresadora" && <li>Bits: Tipo Fresagem + Aplicou/Status/Qtd/Horímetro/Fornecedor</li>}
             {TEM_PRODUCAO.includes(tipoExportBase) && <li>25 blocos fixos de Produção (Comprimento/Largura/Espessura)</li>}
             {tipoExportBase === "Usina KMA" && <li>Colunas adicionais KMA: CAP, Filer, Silos, Água e Quantidade em Toneladas</li>}
-            {!TEM_PRODUCAO.includes(tipoExportBase) && subtipoEquip && <li className="text-amber-600">Sem colunas de Produção para este equipamento</li>}
+            {!TEM_PRODUCAO.includes(tipoExportBase) && subtiposSelecionados.length > 0 && <li className="text-amber-600">Sem colunas de Produção para este equipamento</li>}
             <li>Observações Gerais</li>
           </ul>
         </div>
