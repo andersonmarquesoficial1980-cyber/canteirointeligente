@@ -112,6 +112,9 @@ function validateKmaDiary(diary: any, kmaOp: any) {
   };
 }
 
+const TODOS_SUBTIPOS_VALUE = "__todos_subtipos__";
+const TODOS_SUBTIPOS_LABEL = "Todos os Subtipos";
+
 // Equipamentos com Auxiliar
 const TEM_AUXILIAR = ["Fresadora", "Usina KMA"];
 // Equipamentos com coluna de Produção (Comp/Larg/Esp)
@@ -225,8 +228,12 @@ export default function ExportarProtheus() {
     [categoriaSel],
   );
 
+  const isTodosSubtipos = subtipoEquip === TODOS_SUBTIPOS_VALUE;
+
   const tipoEquipLabel = categoriaSel?.label || "";
-  const subtipoLabel = subtipos.find((s) => s.value === subtipoEquip)?.label || subtipoEquip;
+  const subtipoLabel = isTodosSubtipos
+    ? TODOS_SUBTIPOS_LABEL
+    : subtipos.find((s) => s.value === subtipoEquip)?.label || subtipoEquip;
   const tipoExportBase = useMemo(() => toLegacyTipo(tipoEquip, subtipoLabel), [tipoEquip, subtipoLabel]);
 
   // ── Reseta cascata ao trocar categoria ──────────────────────────────────────
@@ -259,10 +266,19 @@ export default function ExportarProtheus() {
 
     const loadFrotas = async () => {
       try {
+        const subtiposSelecionados = isTodosSubtipos
+          ? subtipos.map((s) => s.value)
+          : [subtipoEquip];
+
+        if (!subtiposSelecionados.length) {
+          setFrotas([]);
+          return;
+        }
+
         const { data } = await (supabase as any)
           .from("equipamentos")
           .select("frota")
-          .eq("tipo", subtipoEquip)
+          .in("tipo", subtiposSelecionados)
           .order("frota");
 
         const unique = [...new Set((data ?? []).map((d: any) => d.frota).filter(Boolean))] as string[];
@@ -273,7 +289,7 @@ export default function ExportarProtheus() {
     };
 
     loadFrotas();
-  }, [subtipoEquip]);
+  }, [isTodosSubtipos, subtipoEquip, subtipos]);
 
   const resetPreview = () => {
     setPreviewHeader(null);
@@ -294,7 +310,7 @@ export default function ExportarProtheus() {
     }
 
     if (!frotas.length) {
-      throw new Error(`Nenhuma frota encontrada para o subtipo ${subtipoLabel}.`);
+      throw new Error(`Nenhuma frota encontrada para ${isTodosSubtipos ? "todos os subtipos" : `o subtipo ${subtipoLabel}`}.`);
     }
 
     let query = supabase
@@ -650,6 +666,9 @@ export default function ExportarProtheus() {
                   <SelectValue placeholder="Selecione o subtipo" />
                 </SelectTrigger>
                 <SelectContent>
+                  {subtipos.length > 1 && (
+                    <SelectItem value={TODOS_SUBTIPOS_VALUE}>{TODOS_SUBTIPOS_LABEL}</SelectItem>
+                  )}
                   {subtipos.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
