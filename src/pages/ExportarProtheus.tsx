@@ -238,8 +238,7 @@ export default function ExportarProtheus() {
   const subtipoLabel = useMemo(() => {
     if (!subtiposSelecionados.length) return "";
     if (isTodosSubtipos) return TODOS_SUBTIPOS_LABEL;
-    if (subtiposSelecionadosDetalhes.length === 1) return subtiposSelecionadosDetalhes[0].label;
-    return `${subtiposSelecionadosDetalhes.length} subtipos selecionados`;
+    return subtiposSelecionadosDetalhes.map((s) => s.label).join(", ");
   }, [isTodosSubtipos, subtiposSelecionados.length, subtiposSelecionadosDetalhes]);
 
   const tipoEquipLabel = categoriaSel?.label || "";
