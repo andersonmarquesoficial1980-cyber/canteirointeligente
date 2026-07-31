@@ -44,12 +44,13 @@ Regras:
 ## 0) RDO-FREMIX (ADM Engenharia)
 `report_key`: `rdo-fremix`
 
-API consolidada para o ADM da Engenharia com 5 blocos:
+API consolidada para o ADM da Engenharia com 6 blocos:
 - medições de terceiros (`terceiros_medicoes`)
 - notas fiscais de massa (`rdo_nf_massa`)
 - notas fiscais de concreto (`rdo_nf_concreto`)
 - produções dos RDOs (`rdo_producao`)
 - equipamentos do módulo geral (`equipment_diaries`)
+- equipamentos vinculados no RDO (`rdo_equipamentos`)
 
 Retorno: objeto `secoes` com totais e linhas por bloco.
 
@@ -126,6 +127,14 @@ Campos da seção `equipamentos_modulo_geral.rows` (módulo geral de equipamento
 - `equipamento_tipo`, `equipamento_frota`, `operador`, `turno`, `status_obra`
 - `horimetro_inicial`, `horimetro_final`, `horimetro_trabalhado`
 - `odometro_inicial`, `odometro_final`, `km_rodado`
+
+Campos da seção `equipamentos_rdo.rows` (equipamentos vinculados ao RDO):
+- `rdo_id`, `data_rdo`, `ogs`, `contratante`, `local`
+- `equipamento_id`
+- `frota`
+- `equipamento`
+- `modelo_placa`
+- `empresa`
 
 ## 1) RDO Summary
 `report_key`: `rdo/summary`

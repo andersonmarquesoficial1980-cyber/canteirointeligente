@@ -226,7 +226,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   const funcionarioIds = [...new Set(medicoes.map((m: any) => m.funcionario_id).filter(Boolean))];
   const servicoIds = [...new Set(medicoes.map((m: any) => m.servico_id).filter(Boolean))];
 
-  const [obrasResp, obrasByNumberResp, empresasResp, funcionariosResp, servicosResp, nfResp, nfConcretoResp, producaoResp, equipamentosGeralResp] = await Promise.all([
+  const [obrasResp, obrasByNumberResp, empresasResp, funcionariosResp, servicosResp, nfResp, nfConcretoResp, producaoResp, equipamentosGeralResp, equipamentosRdoResp] = await Promise.all([
     obraIds.length
       ? sb.from("ogs_reference").select("id,ogs_number,client_name,location_address").eq("company_id", companyId).in("id", obraIds)
       : Promise.resolve({ data: [], error: null } as any),
@@ -275,6 +275,15 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       .lte("date", end)
       .order("date", { ascending: false })
       .range(offset, offset + pageSize - 1),
+    rdoIds.length
+      ? sb
+          .from("rdo_equipamentos")
+          .select("id,rdo_id,frota,tipo,sub_tipo,nome,empresa_dona", { count: "exact" })
+          .eq("company_id", companyId)
+          .in("rdo_id", rdoIds)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + pageSize - 1)
+      : Promise.resolve({ data: [], error: null, count: 0 } as any),
   ]);
 
   if (obrasResp.error) throw new Error(obrasResp.error.message);
@@ -286,6 +295,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   if (nfConcretoResp.error) throw new Error(nfConcretoResp.error.message);
   if (producaoResp.error) throw new Error(producaoResp.error.message);
   if (equipamentosGeralResp.error) throw new Error(equipamentosGeralResp.error.message);
+  if (equipamentosRdoResp.error) throw new Error(equipamentosRdoResp.error.message);
 
   const obrasMap = new Map<string, any>((obrasResp.data || []).map((o: any) => [o.id, o]));
   const obrasByNumberMap = new Map<string, any>((obrasByNumberResp.data || []).map((o: any) => [o.ogs_number, o]));
@@ -491,6 +501,25 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     };
   });
 
+  const equipamentosRdoRows = (equipamentosRdoResp.data || []).map((row: any) => {
+    const rdo = rdoMap.get(row.rdo_id);
+    const ogs = obrasByNumberMap.get(rdo?.obra_nome);
+    const equipamentoNome = normalizeString(row.tipo) || normalizeString(row.sub_tipo) || normalizeString(row.nome) || null;
+
+    return {
+      rdo_id: row.rdo_id,
+      data_rdo: rdo?.data || null,
+      ogs: rdo?.obra_nome || null,
+      contratante: ogs?.client_name || null,
+      local: ogs?.location_address || null,
+      equipamento_id: row.id,
+      frota: row.frota || null,
+      equipamento: equipamentoNome,
+      modelo_placa: normalizeString(row.nome) || normalizeString(row.sub_tipo) || null,
+      empresa: row.empresa_dona || null,
+    };
+  });
+
   return {
     nome_api: "RDO-FREMIX",
     modulo: "ADM Engenharia",
@@ -539,6 +568,10 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       equipamentos_modulo_geral: {
         total: equipamentosGeralResp.count ?? 0,
         rows: equipamentosGeralRows,
+      },
+      equipamentos_rdo: {
+        total: equipamentosRdoResp.count ?? 0,
+        rows: equipamentosRdoRows,
       },
     },
   };
