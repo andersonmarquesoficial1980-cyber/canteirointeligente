@@ -806,6 +806,12 @@ export default function AbastecimentoHome() {
       const base = { data, created_by: user?.id, company_id: companyId, fonte };
 
       if (fonte === "comboio") {
+        if (!comboioFrota) {
+          alert("Selecione a frota do comboio antes de salvar o abastecimento.");
+          setSalvando(false);
+          return;
+        }
+
         // Salva uma linha por entrada de abastecimento
         const rows = entradas
           .filter(e => e.frota && e.litros)
@@ -820,7 +826,7 @@ export default function AbastecimentoHome() {
             ogs: e.ogs || null,
             lubrificado: e.lubrificado,
             lavado: e.lavado,
-            comboio_fleet: comboioFrota || null,
+            comboio_fleet: comboioFrota,
             motorista_comboio: motoristaComboio || null,
             lubrificador: lubrificador || null,
             fornecedor: fornecedor || null,
@@ -1481,7 +1487,7 @@ export default function AbastecimentoHome() {
               <Input value={observacao} onChange={e => setObservacao(e.target.value)} className="h-11 rounded-xl" placeholder="Adicione observações..." />
             </div>
 
-            <Button onClick={salvar} disabled={salvando} className="w-full h-11 gap-2">
+            <Button onClick={salvar} disabled={salvando || (fonte === "comboio" && !comboioFrota)} className="w-full h-11 gap-2">
               {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               {salvando ? "Salvando..." : "Salvar Lançamento"}
             </Button>
