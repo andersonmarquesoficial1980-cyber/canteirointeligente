@@ -1429,19 +1429,8 @@ export default function EquipmentDiaryForm() {
       }
     }
 
-    // 5. Status Manutenção exige medidores + observação
+    // 5. Status Manutenção exige apenas observação (medidores opcionais)
     if (isStatusManutencao && !isPatioMode && !isDraft) {
-      const ini = toNVal(meterInitial);
-      const fim = toNVal(meterFinal);
-
-      if (!meterInitial || ini === 0) {
-        toast({ title: `⚠️ ${meterLabel} obrigatório`, description: `Informe o ${meterLabel} Inicial para status Manutenção.`, variant: "destructive" });
-        return cancelSave();
-      }
-      if (!meterFinal || fim === 0) {
-        toast({ title: `⚠️ ${meterLabel} obrigatório`, description: `Informe o ${meterLabel} Final para status Manutenção.`, variant: "destructive" });
-        return cancelSave();
-      }
       if (!observations.trim()) {
         toast({ title: "⚠️ Observação obrigatória", description: "Para status Manutenção, descreva o problema em Observações.", variant: "destructive" });
         return cancelSave();
