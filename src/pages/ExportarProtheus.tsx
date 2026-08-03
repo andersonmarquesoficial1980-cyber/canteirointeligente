@@ -43,6 +43,20 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`;
 }
 
+function toExcelSheetName(rawName: string): string {
+  const cleaned = (rawName || "EXPORT")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\[\]\*\?\\/:]/g, "_")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+
+  const limited = cleaned.slice(0, 31);
+  return limited || "EXPORT";
+}
+
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -628,7 +642,7 @@ export default function ExportarProtheus() {
 
       ws["!cols"] = header.map(() => ({ wch: 20 }));
 
-      const nomeAba = (subtipoLabel || tipoEquipLabel || "EXPORT").replace(/\s/g, "_").toUpperCase();
+      const nomeAba = toExcelSheetName(subtipoLabel || tipoEquipLabel || "EXPORT");
       XLSX.utils.book_append_sheet(wb, ws, nomeAba);
 
       const frotaLabel = frota && frota !== "__todas__" ? `_${frota.replace(/\s/g,"_")}` : "";
