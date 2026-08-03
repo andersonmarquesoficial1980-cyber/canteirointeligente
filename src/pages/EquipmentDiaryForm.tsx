@@ -43,7 +43,7 @@ import { generateKmaPdf } from "@/lib/generateKmaPdf";
 import { generateComboioPdf } from "@/lib/generateComboioPdf";
 import { buildComboioEmailReport, buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 
-const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Cancelou", "Em Transporte"] as const;
+const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Manutenção", "Cancelou", "Em Transporte"] as const;
 const OGS_RODOVIA_KM_REQUIRED = "2539";
 const KM_ORIGEM_TAG = "KM Origem:";
 const KM_DESTINO_TAG = "KM Destino:";
@@ -263,7 +263,8 @@ export default function EquipmentDiaryForm() {
   const [horimetroAlerta, setHorimetroAlerta] = useState<{ diff: number; ultimoValor: number; threshold: number } | null>(null);
   const [horimetroConfirmado, setHorimetroConfirmado] = useState(false);
   const { verificarInconsistencia, registrarAudit } = useHorimetroAudit("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
-  const isModoSimples = workStatus === "Folga" || workStatus === "Cancelou";
+  const isStatusManutencao = workStatus === "Manutenção";
+  const isModoSimples = workStatus === "Folga" || workStatus === "Cancelou" || isStatusManutencao;
   const [cancelouMotivo, setCancellouMotivo] = useState("");
   const [ogsNumber, setOgsNumber] = useState("");
   const [ogsSugerida, setOgsSugerida] = useState<{ ogs: string; equipe: string; local: string | null; cliente: string | null } | null>(null);
@@ -1428,7 +1429,26 @@ export default function EquipmentDiaryForm() {
       }
     }
 
-    // 5. Coerência: horímetro final não pode ser menor que inicial
+    // 5. Status Manutenção exige medidores + observação
+    if (isStatusManutencao && !isPatioMode && !isDraft) {
+      const ini = toNVal(meterInitial);
+      const fim = toNVal(meterFinal);
+
+      if (!meterInitial || ini === 0) {
+        toast({ title: `⚠️ ${meterLabel} obrigatório`, description: `Informe o ${meterLabel} Inicial para status Manutenção.`, variant: "destructive" });
+        return cancelSave();
+      }
+      if (!meterFinal || fim === 0) {
+        toast({ title: `⚠️ ${meterLabel} obrigatório`, description: `Informe o ${meterLabel} Final para status Manutenção.`, variant: "destructive" });
+        return cancelSave();
+      }
+      if (!observations.trim()) {
+        toast({ title: "⚠️ Observação obrigatória", description: "Para status Manutenção, descreva o problema em Observações.", variant: "destructive" });
+        return cancelSave();
+      }
+    }
+
+    // 6. Coerência: horímetro final não pode ser menor que inicial
     if (horimeterError && !isDraft) {
       toast({ title: `${meterLabel} inválido`, description: horimeterError, variant: "destructive" });
       return cancelSave();
@@ -2927,8 +2947,8 @@ export default function EquipmentDiaryForm() {
             />
           </Field>
 
-          {/* Horímetro/Odômetro Final — visível quando Cancelou */}
-          {workStatus === "Cancelou" && (
+          {/* Horímetro/Odômetro Final — visível quando Cancelou ou Manutenção */}
+          {(workStatus === "Cancelou" || isStatusManutencao) && (
             <Field label={`${meterLabel} Final`}>
               <Input
                 type="text"
@@ -2943,7 +2963,7 @@ export default function EquipmentDiaryForm() {
         </Section>}
 
         {/* CAMPOS COMPLETOS — ocultos no modo pátio */}
-        {/* CAMPOS COLAPSADOS quando Folga ou Inoperante */}
+        {/* CAMPOS COLAPSADOS quando Folga, Cancelou ou Manutenção */}
         {!isPatioMode && !isModoSimples && (<>
 
         {/* APONTAMENTO DE HORAS */}

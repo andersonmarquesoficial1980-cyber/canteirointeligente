@@ -85,9 +85,10 @@ function statusColor(ws: string | null) {
   switch (ws) {
     case "Trabalhando":   return "bg-green-100 text-green-800 border border-green-300";
     case "Folga":         return "bg-yellow-100 text-yellow-800 border border-yellow-300";
+    case "Manutenção":    return "bg-amber-100 text-amber-800 border border-amber-300";
     case "Disposição":    return "bg-blue-100 text-blue-800 border border-blue-300";
     case "Em Transporte": return "bg-purple-100 text-purple-800 border border-purple-300";
-    default:              return "bg-gray-100 text-gray-600 border border-gray-200";
+    default:               return "bg-gray-100 text-gray-600 border border-gray-200";
   }
 }
 
@@ -95,9 +96,10 @@ function statusIcon(ws: string | null) {
   switch (ws) {
     case "Trabalhando":   return <CheckCircle2 size={12} className="text-green-600" />;
     case "Folga":         return <Clock size={12} className="text-yellow-600" />;
+    case "Manutenção":    return <Wrench size={12} className="text-amber-600" />;
     case "Disposição":    return <AlertCircle size={12} className="text-blue-600" />;
     case "Em Transporte": return <ChevronDown size={12} className="text-purple-600" />;
-    default:              return <FileX size={12} className="text-gray-400" />;
+    default:               return <FileX size={12} className="text-gray-400" />;
   }
 }
 
