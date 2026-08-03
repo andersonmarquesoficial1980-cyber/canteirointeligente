@@ -961,9 +961,9 @@ export default function EquipmentDiaryForm() {
             if (roleGerente) isAdminEdit = true;
           }
         }
-        if (!isAdminEdit && diary.user_id && diary.user_id !== session.user.id) {
-          throw new Error("Você não tem permissão para editar este lançamento.");
-        }
+        // Permissão de edição é governada pela RLS no backend.
+        // Não bloquear no frontend por user_id para evitar falsos negativos
+        // em registros legados e em cenários de apontador/encarregado.
         if (cancelled) return;
 
         setPreserveManualClientLocation(true);
@@ -1608,23 +1608,13 @@ export default function EquipmentDiaryForm() {
       let error: any = null;
 
       if (isEditMode && editId) {
-        // Admin/Gerente: pode editar qualquer lançamento visível pela RLS.
-        // Usuário comum: pode editar o próprio lançamento (user_id)
-        // e também legado sem user_id quando ele foi o criador (created_by).
-        const isAdminOrGerente = profile?.role === "admin" || profile?.role === "superadmin" || profile?.role === "gerente" ||
-          (profile as any)?.perfil === "Administrador" || (profile as any)?.perfil === "Gerente";
-
-        let updateQuery = (supabase as any)
+        // Permissão de edição governada pela RLS no backend.
+        // Frontend não deve restringir por user_id para evitar bloqueio indevido
+        // em registros legados e lançamentos vinculados ao encarregado/responsável.
+        const { data: updatedDiary, error: updateError } = await (supabase as any)
           .from("equipment_diaries")
           .update(diaryPayload)
-          .eq("id", editId);
-
-        if (!isAdminOrGerente) {
-          const uid = session.user.id;
-          updateQuery = updateQuery.or(`user_id.eq.${uid},and(user_id.is.null,created_by.eq.${uid})`);
-        }
-
-        const { data: updatedDiary, error: updateError } = await updateQuery
+          .eq("id", editId)
           .select("id,date,user_id,created_by")
           .maybeSingle();
 
