@@ -133,20 +133,52 @@ export default function AdvancedReports() {
     if (!range) { toast.error("Selecione o período inicial e final."); return; }
     setLoadingTransport(true);
     try {
-      const { data, error } = await supabase
-        .from("equipment_time_entries")
-        .select("*, equipment_diaries!inner(date, equipment_fleet, equipment_type, attachment_type, odometer_initial, odometer_final)")
-        .gte("equipment_diaries.date", range.from)
-        .lte("equipment_diaries.date", range.to);
+      const { data: diaries, error: diariesError } = await supabase
+        .from("equipment_diaries")
+        .select("id, date, equipment_fleet, equipment_type, attachment_type, odometer_initial, odometer_final")
+        .eq("equipment_type", "Carreta")
+        .gte("date", range.from)
+        .lte("date", range.to)
+        .order("date", { ascending: true })
+        .order("equipment_fleet", { ascending: true });
 
-      if (error) throw error;
+      if (diariesError) throw diariesError;
 
-      const transportRows = (data || []).filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta");
+      const diaryRows = diaries || [];
+      if (diaryRows.length === 0) {
+        toast.info("Nenhum transporte de Carreta encontrado no período.");
+        return;
+      }
+
+      const diaryIds = diaryRows.map((d: any) => d.id);
+      const byDiaryId: Record<string, any> = {};
+      diaryRows.forEach((d: any) => { byDiaryId[d.id] = d; });
+
+      const CHUNK = 200;
+      const allEntries: any[] = [];
+      for (let i = 0; i < diaryIds.length; i += CHUNK) {
+        const chunk = diaryIds.slice(i, i + CHUNK);
+        const { data: chunkEntries, error: entriesError } = await supabase
+          .from("equipment_time_entries")
+          .select("*")
+          .in("diary_id", chunk)
+          .order("start_time", { ascending: true });
+        if (entriesError) throw entriesError;
+        allEntries.push(...(chunkEntries || []));
+      }
+
+      const transportRows = allEntries.filter((r: any) => byDiaryId[r.diary_id]);
       const ogsLookup = await fetchOgsLookup(transportRows.flatMap((r: any) => [r.origin, r.destination]));
 
       const rows = transportRows
+        .sort((a: any, b: any) => {
+          const da = byDiaryId[a.diary_id]?.date || "";
+          const db = byDiaryId[b.diary_id]?.date || "";
+          if (da !== db) return da.localeCompare(db);
+          return String(a.start_time || "").localeCompare(String(b.start_time || ""));
+        })
         .map((r: any) => {
-          const d = r.equipment_diaries;
+          const d = byDiaryId[r.diary_id];
           const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
           const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
           const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
