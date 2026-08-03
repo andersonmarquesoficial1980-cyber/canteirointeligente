@@ -1608,27 +1608,32 @@ export default function EquipmentDiaryForm() {
       let error: any = null;
 
       if (isEditMode && editId) {
-        // Admin e Gerente podem editar lançamentos de qualquer usuário — não filtrar por user_id
+        // Admin/Gerente: pode editar qualquer lançamento visível pela RLS.
+        // Usuário comum: pode editar o próprio lançamento (user_id)
+        // e também legado sem user_id quando ele foi o criador (created_by).
         const isAdminOrGerente = profile?.role === "admin" || profile?.role === "superadmin" || profile?.role === "gerente" ||
           (profile as any)?.perfil === "Administrador" || (profile as any)?.perfil === "Gerente";
+
         let updateQuery = (supabase as any)
           .from("equipment_diaries")
           .update(diaryPayload)
           .eq("id", editId);
+
         if (!isAdminOrGerente) {
-          updateQuery = updateQuery.eq("user_id", session.user.id);
+          const uid = session.user.id;
+          updateQuery = updateQuery.or(`user_id.eq.${uid},and(user_id.is.null,created_by.eq.${uid})`);
         }
-        const { data: updatedDiary, error: updateError } = await updateQuery.select().maybeSingle();
+
+        const { data: updatedDiary, error: updateError } = await updateQuery
+          .select("id,date,user_id,created_by")
+          .maybeSingle();
+
         diary = updatedDiary;
         error = updateError;
-        // maybeSingle retorna null sem erro quando RLS filtra a linha — busca manualmente
+
+        // Evita falso positivo de "enviado com sucesso" quando nenhuma linha foi atualizada.
         if (!diary && !error) {
-          const { data: fetched } = await (supabase as any)
-            .from("equipment_diaries")
-            .select("id")
-            .eq("id", editId)
-            .maybeSingle();
-          diary = fetched || { id: editId };
+          throw new Error("Você não tem permissão para editar este lançamento.");
         }
       } else if (savedDiaryId) {
         // Checklist já criou um diário temporário — atualizar ele com o payload completo
