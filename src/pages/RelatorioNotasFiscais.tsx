@@ -190,7 +190,7 @@ export default function RelatorioNotasFiscais() {
       // PASSO 1: Busca RDOs no período com filtro de company_id (RLS)
       let rdoQuery = (supabase as any)
         .from("rdo_diarios")
-        .select("id, obra_nome, data, user_id, encarregado, preenchido_por")
+        .select("id, obra_nome, ogs_id, local, data, user_id, encarregado, preenchido_por")
         .eq("company_id", profile.company_id)
         .gte("data", dataIni)
         .lte("data", dataFim);
@@ -207,25 +207,44 @@ export default function RelatorioNotasFiscais() {
       }
 
       const rdoIds = rdos.map((r: any) => r.id);
+      const ogsIds = Array.from(new Set(rdos.map((r: any) => r.ogs_id).filter(Boolean)));
       const ogsNumbers = Array.from(new Set(rdos.map((r: any) => r.obra_nome).filter(Boolean)));
-      
+
       const rdoMap: Record<string, any> = {};
       rdos.forEach((r: any) => { rdoMap[r.id] = r; });
 
-      // PASSO 3: Busca OGS Reference (para Contratante e Local)
-      let ogsMap: Record<string, any> = {};
-      if (ogsNumbers.length > 0) {
-        const { data: ogsRefs, error: ogsErr } = await (supabase as any)
+      // PASSO 3: Busca OGS Reference (prioriza ogs_id; fallback por ogs_number)
+      let ogsById: Record<string, any> = {};
+      let ogsByNumber: Record<string, any> = {};
+
+      if (ogsIds.length > 0) {
+        const { data: ogsRefsById, error: ogsErrById } = await (supabase as any)
           .from("ogs_reference")
-          .select("ogs_number, client_name, location_address")
+          .select("id, ogs_number, client_name, location_address")
+          .eq("company_id", profile.company_id!)
+          .in("id", ogsIds);
+
+        if (ogsErrById) {
+          console.error("Erro ao buscar ogs_reference por id:", ogsErrById);
+        } else {
+          (ogsRefsById || []).forEach((o: any) => {
+            ogsById[o.id] = o;
+          });
+        }
+      }
+
+      if (ogsNumbers.length > 0) {
+        const { data: ogsRefsByNumber, error: ogsErrByNumber } = await (supabase as any)
+          .from("ogs_reference")
+          .select("id, ogs_number, client_name, location_address")
           .eq("company_id", profile.company_id!)
           .in("ogs_number", ogsNumbers);
-        
-        if (ogsErr) {
-          console.error("Erro ao buscar ogs_reference:", ogsErr);
+
+        if (ogsErrByNumber) {
+          console.error("Erro ao buscar ogs_reference por número:", ogsErrByNumber);
         } else {
-          (ogsRefs || []).forEach((o: any) => {
-            ogsMap[o.ogs_number] = o;
+          (ogsRefsByNumber || []).forEach((o: any) => {
+            ogsByNumber[o.ogs_number] = o;
           });
         }
       }
@@ -241,18 +260,20 @@ export default function RelatorioNotasFiscais() {
       // PASSO 5: Montar resultado final
       const result: NfRow[] = (nfs || []).map((n: any) => {
         const rdo = rdoMap[n.rdo_id];
-        const ogsRef = ogsMap[rdo?.obra_nome];
+        const ogsRefById = rdo?.ogs_id ? ogsById[rdo.ogs_id] : null;
+        const ogsRefByNumber = ogsByNumber[rdo?.obra_nome];
+        const ogsRef = ogsRefById || ogsRefByNumber;
         // Apontador: usar preenchido_por (nome do quem preencheu o RDO)
         // Fallback: se preenchido_por for NULL, usa encarregado
         const apontador = rdo?.preenchido_por || rdo?.encarregado || null;
-        
+
         return {
           data: rdo?.data || "",
           apontador,
           encarregado: rdo?.encarregado || null,
           obra_nome: rdo?.obra_nome || "",
           contratante: ogsRef?.client_name || null,
-          local: ogsRef?.location_address || null,
+          local: rdo?.local || ogsRefById?.location_address || null,
           nf: n.nf || null,
           placa: n.placa || null,
           usina: n.usina || null,

@@ -76,7 +76,17 @@ export default function VisualizarRdo() {
           return;
         }
 
-        setRdo(rdoRow);
+        let localSelecionado = (rdoRow as any).local || null;
+        if (!localSelecionado && (rdoRow as any).ogs_id) {
+          const { data: ogsRef } = await (supabase as any)
+            .from("ogs_reference")
+            .select("location_address")
+            .eq("id", (rdoRow as any).ogs_id)
+            .maybeSingle();
+          localSelecionado = ogsRef?.location_address || null;
+        }
+
+        setRdo({ ...(rdoRow as any), local: localSelecionado });
 
         // Expandir efetivo (nomes separados por |||)
         const expandido: any[] = [];
@@ -184,6 +194,7 @@ export default function VisualizarRdo() {
             <div className="rdo-card space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <Info label="Obra / OGS" value={rdo.obra_nome || "-"} />
+                <Info label="Local" value={(rdo as any).local || "-"} />
                 <Info label="Data" value={fmtDate(rdo.data)} />
                 <Info label="Turno" value={rdo.turno || "-"} />
                 <Info label="Clima" value={rdo.clima || "-"} />

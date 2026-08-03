@@ -2440,6 +2440,7 @@ export type Database = {
           motivo_rejeicao_enc: string | null
           motivo_rejeicao_eng: string | null
           nao_aprovado_encarregado: boolean | null
+          local: string | null
           obra_nome: string
           observacoes_gerais: string | null
           ogs_id: string | null
@@ -2470,6 +2471,7 @@ export type Database = {
           motivo_rejeicao_enc?: string | null
           motivo_rejeicao_eng?: string | null
           nao_aprovado_encarregado?: boolean | null
+          local?: string | null
           obra_nome: string
           observacoes_gerais?: string | null
           ogs_id?: string | null
@@ -2500,6 +2502,7 @@ export type Database = {
           motivo_rejeicao_enc?: string | null
           motivo_rejeicao_eng?: string | null
           nao_aprovado_encarregado?: boolean | null
+          local?: string | null
           obra_nome?: string
           observacoes_gerais?: string | null
           ogs_id?: string | null

@@ -11,6 +11,7 @@ interface RdoHeaderProps {
   data: {
     data: string;
     obra_nome: string;
+    ogs_id?: string;
     cliente: string;
     local: string;
     status_obra: string;
@@ -69,16 +70,18 @@ export default function RdoHeader({
   }, [obras, data.obra_nome]);
 
   const uniqueAddresses = useMemo(() => {
-    const allAddrs: string[] = [];
+    const map = new Map<string, string>();
     selectedEntries.forEach(e => {
       if (e.location_address) {
         e.location_address.split(";").forEach((s: string) => {
           const trimmed = s.trim();
-          if (trimmed && !allAddrs.includes(trimmed)) allAddrs.push(trimmed);
+          if (trimmed && !map.has(trimmed)) {
+            map.set(trimmed, e.id);
+          }
         });
       }
     });
-    return allAddrs;
+    return Array.from(map.entries()).map(([address, ogsId]) => ({ address, ogsId }));
   }, [selectedEntries]);
 
   // Auto-popula cliente/local quando obra_nome já está preenchido (modo edição)
@@ -87,6 +90,7 @@ export default function RdoHeader({
     const entries = obras.filter(o => o.ogs_number === data.obra_nome);
     if (entries.length > 0) {
       onChange("cliente", entries[0].client_name || "");
+      if (!data.ogs_id) onChange("ogs_id", entries[0].id || "");
       const addrs: string[] = [];
       entries.forEach(e => {
         if (e.location_address) {
@@ -96,15 +100,16 @@ export default function RdoHeader({
           });
         }
       });
-      if (addrs.length === 1) onChange("local", addrs[0]);
+      if (!data.local && addrs.length === 1) onChange("local", addrs[0]);
     }
-  }, [obras, data.obra_nome]);
+  }, [obras, data.obra_nome, data.cliente, data.local, data.ogs_id, onChange]);
 
   const handleObraChange = (value: string) => {
     onChange("obra_nome", value);
     const entries = obras?.filter(o => o.ogs_number === value) || [];
     if (entries.length > 0) {
       onChange("cliente", entries[0].client_name || "");
+      onChange("ogs_id", entries[0].id || "");
       // Se OGS de local livre, limpa para o usuário digitar
       if (OGS_LOCAL_LIVRE.includes(value)) {
         onChange("local", "");
@@ -120,7 +125,12 @@ export default function RdoHeader({
         });
         onChange("local", addrs.length === 1 ? addrs[0] : "");
       }
+      return;
     }
+
+    onChange("ogs_id", "");
+    onChange("cliente", "");
+    if (!OGS_LOCAL_LIVRE.includes(value)) onChange("local", "");
   };
 
   return (
@@ -241,13 +251,20 @@ export default function RdoHeader({
             className="h-12 text-base bg-white border-border rounded-xl"
           />
         ) : uniqueAddresses.length > 1 ? (
-          <Select value={data.local} onValueChange={v => onChange("local", v)}>
+          <Select
+            value={data.local}
+            onValueChange={v => {
+              onChange("local", v);
+              const selected = uniqueAddresses.find((item) => item.address === v);
+              if (selected?.ogsId) onChange("ogs_id", selected.ogsId);
+            }}
+          >
             <SelectTrigger className="h-12 text-base bg-white border-border rounded-xl">
               <SelectValue placeholder="Selecione o local" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px]">
-              {uniqueAddresses.map(addr => (
-                <SelectItem key={addr} value={addr} className="py-3">{addr}</SelectItem>
+              {uniqueAddresses.map(item => (
+                <SelectItem key={item.address} value={item.address} className="py-3">{item.address}</SelectItem>
               ))}
             </SelectContent>
           </Select>

@@ -248,7 +248,7 @@ export default function RelatorioProducaoPavimentacao() {
       // 1. RDOs de PAVIMENTAÇÃO (CAUQ) no período
       let rdoQ = (supabase as any)
         .from("rdo_diarios")
-        .select("id, obra_nome, data, encarregado, preenchido_por")
+        .select("id, obra_nome, ogs_id, local, data, encarregado, preenchido_por")
         .eq("company_id", profile.company_id)
         .eq("tipo_rdo", "CAUQ")
         .gte("data", dataIni)
@@ -262,19 +262,29 @@ export default function RelatorioProducaoPavimentacao() {
       if (!rdos || rdos.length === 0) { setRows([]); setLoading(false); return; }
 
       const rdoIds = rdos.map((r: any) => r.id);
+      const ogsIds = Array.from(new Set(rdos.map((r: any) => r.ogs_id).filter(Boolean)));
+      const ogsNumbers = Array.from(new Set(rdos.map((r: any) => r.obra_nome).filter(Boolean)));
       const rdoMap: Record<string, any> = {};
       rdos.forEach((r: any) => { rdoMap[r.id] = r; });
 
-      // 2. OGS Reference para Local
-      const ogsNumbers = Array.from(new Set(rdos.map((r: any) => r.obra_nome).filter(Boolean)));
-      let ogsMap: Record<string, any> = {};
-      if (ogsNumbers.length > 0) {
-        const { data: ogsRefs } = await (supabase as any)
+      // 2. OGS Reference para Local (prioriza ogs_id; fallback por ogs_number)
+      let ogsById: Record<string, any> = {};
+      let ogsByNumber: Record<string, any> = {};
+      if (ogsIds.length > 0) {
+        const { data: ogsRefsById } = await (supabase as any)
           .from("ogs_reference")
-          .select("ogs_number, location_address")
+          .select("id, ogs_number, location_address")
+          .eq("company_id", profile.company_id)
+          .in("id", ogsIds);
+        (ogsRefsById || []).forEach((o: any) => { ogsById[o.id] = o; });
+      }
+      if (ogsNumbers.length > 0) {
+        const { data: ogsRefsByNumber } = await (supabase as any)
+          .from("ogs_reference")
+          .select("id, ogs_number, location_address")
           .eq("company_id", profile.company_id)
           .in("ogs_number", ogsNumbers);
-        (ogsRefs || []).forEach((o: any) => { ogsMap[o.ogs_number] = o; });
+        (ogsRefsByNumber || []).forEach((o: any) => { ogsByNumber[o.ogs_number] = o; });
       }
 
       // 3. Produção desses RDOs
@@ -287,12 +297,14 @@ export default function RelatorioProducaoPavimentacao() {
       // 4. Montar resultado
       let result: InfraRow[] = (prods || []).map((p: any) => {
         const rdo = rdoMap[p.rdo_id];
-        const ogsRef = ogsMap[rdo?.obra_nome];
+        const ogsRefById = rdo?.ogs_id ? ogsById[rdo.ogs_id] : null;
+        const ogsRefByNumber = ogsByNumber[rdo?.obra_nome];
+        const ogsRef = ogsRefById || ogsRefByNumber;
         return {
           data: rdo?.data || "",
           apontador: rdo?.preenchido_por || rdo?.encarregado || null,
           obra_nome: rdo?.obra_nome || "",
-          local: ogsRef?.location_address || null,
+          local: rdo?.local || ogsRefById?.location_address || null,
           tipo_servico: p.tipo_servico || null,
           sentido: p.sentido || null,
           faixa: p.faixa || null,

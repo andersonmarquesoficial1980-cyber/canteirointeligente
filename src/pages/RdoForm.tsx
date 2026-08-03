@@ -72,7 +72,13 @@ export default function RdoForm() {
 
   // Header
   const [header, setHeader] = useState({
-    data: today, obra_nome: "", cliente: "", local: "", status_obra: "Trabalhou", turno: "",
+    data: today,
+    obra_nome: "",
+    ogs_id: "",
+    cliente: "",
+    local: "",
+    status_obra: "Trabalhou",
+    turno: "",
     responsavel: "",    // legado
     encarregado: "",    // encarregado da obra (autocomplete)
     engenheiro_responsavel: "", // novo: quem valida no WF Engenharia
@@ -437,6 +443,8 @@ export default function RdoForm() {
         ...prev,
         data: rdo.data || prev.data,
         obra_nome: rdo.obra_nome || "",
+        ogs_id: (rdo as any).ogs_id || "",
+        local: (rdo as any).local || "",
         status_obra: rdo.clima || "Trabalhou",
         turno: rdo.turno || "",
         responsavel: rdo.responsavel || "",
@@ -903,6 +911,8 @@ export default function RdoForm() {
       const draftPayload = {
         data: header.data,
         obra_nome: header.obra_nome,
+        ogs_id: header.ogs_id || null,
+        local: header.local?.trim() || null,
         turno: normalizedTurno || "diurno",
         clima: header.status_obra || null,
         motivo_cancelamento: statusSemOperacao ? (observacoesGerais || null) : (motivoCancelamento || null),
@@ -1375,6 +1385,8 @@ export default function RdoForm() {
     const rdoPayload = {
       data: header.data,
       obra_nome: header.obra_nome,
+      ogs_id: header.ogs_id || null,
+      local: header.local?.trim() || null,
       turno: normalizedTurno,
       clima: header.status_obra || null,
       motivo_cancelamento: statusSemOperacao ? (observacoesGerais || null) : (motivoCancelamento || null),
