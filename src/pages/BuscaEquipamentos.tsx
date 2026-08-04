@@ -46,6 +46,57 @@ function normTxt(v: string | null | undefined) {
     .toUpperCase();
 }
 
+function legacyTiposPorCategoria(categoriaKey: string): string[] {
+  switch (categoriaKey) {
+    case "CAMINHOES":
+      return ["Caminhões", "Comboio"];
+    case "CARRETAS":
+      return ["Carreta", "Cavalo Mecânico"];
+    case "VEICULOS":
+      return ["Veículo", "Veiculo"];
+    case "USINAGEM":
+      return ["Usina KMA", "Usina Móvel"];
+    case "LINHA_AMARELA":
+      return ["Retro"];
+    case "PEQUENO_PORTE":
+    case "SANITARIO":
+      return ["Comboio"];
+    case "PAVIMENTACAO":
+      return ["Rolo", "Vibroacabadora"];
+    case "FRESAGEM":
+      return ["Fresadora", "Bobcat"];
+    default:
+      return [];
+  }
+}
+
+function buildTypeMatchers(value: string): string[] {
+  const raw = (value || "").trim();
+  if (!raw) return [];
+
+  const semAcento = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const wildcardRaw = raw.split(/\s+/).filter(Boolean).join("%");
+  const wildcardSemAcento = semAcento.split(/\s+/).filter(Boolean).join("%");
+
+  return Array.from(new Set([raw, semAcento, wildcardRaw, wildcardSemAcento].filter(Boolean)));
+}
+
+function buildTypeOrClause(values: string[]): string {
+  return Array.from(
+    new Set(
+      values
+        .flatMap(buildTypeMatchers)
+        .map((v) => (v || "").trim())
+        .filter(Boolean),
+    ),
+  )
+    .map((v) => `equipment_type.ilike.${v.replace(/,/g, "")}`)
+    .join(",");
+}
+
 export default function BuscaEquipamentos() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,7 +127,9 @@ export default function BuscaEquipamentos() {
     }, { replace: true });
   };
 
+  const SEARCH_LIMIT = 500;
   const [resultados, setResultados] = useState<DiarioResult[]>([]);
+  const [totalResultados, setTotalResultados] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
   // Opções dinâmicas
@@ -136,30 +189,43 @@ export default function BuscaEquipamentos() {
 
     let query = (supabase as any)
       .from("equipment_diaries")
-      .select("id, date, equipment_type, equipment_fleet, operator_name, ogs_number, client_name, work_status, period")
+      .select("id, date, equipment_type, equipment_fleet, operator_name, ogs_number, client_name, work_status, period", { count: "exact" })
       .gte("date", ini)
       .lte("date", fim)
       .order("date", { ascending: false })
       .order("equipment_fleet", { ascending: true })
-      .limit(150);
+      .range(0, SEARCH_LIMIT - 1);
 
     if (ogs.trim()) query = query.ilike("ogs_number", `%${ogs.trim()}%`);
     if (subtipoEquip) {
-      query = query.ilike("equipment_type", subtipoEquip);
+      const subtipoClause = buildTypeOrClause([subtipoEquip]);
+      if (subtipoClause) query = query.or(subtipoClause);
     } else if (tipoEquip) {
       const categoria = categorias.find((cat) => cat.key === tipoEquip);
       const subtiposCategoria = (categoria?.tipos || []).map((t) => t.tipoValor).filter(Boolean);
-      if (subtiposCategoria.length > 0) {
-        query = query.in("equipment_type", subtiposCategoria);
+      const legadosCategoria = legacyTiposPorCategoria(tipoEquip);
+
+      const valoresFiltro = Array.from(new Set([...subtiposCategoria, ...legadosCategoria]));
+      if (valoresFiltro.length === 1) {
+        query = query.ilike("equipment_type", valoresFiltro[0]);
+      } else if (valoresFiltro.length > 1) {
+        query = query.or(buildTypeOrClause(valoresFiltro));
       }
     }
     if (frota.trim()) query = query.ilike("equipment_fleet", `%${frota.trim()}%`);
     if (operador.trim()) query = query.ilike("operator_name", `%${operador.trim()}%`);
 
-    const { data, error } = await query;
-    if (!error) setResultados(data || []);
+    const { data, error, count } = await query;
+    if (!error) {
+      const rows = data || [];
+      setResultados(rows);
+      setTotalResultados(count ?? rows.length);
+    } else {
+      setResultados([]);
+      setTotalResultados(0);
+    }
     setLoading(false);
-  }, [ini, fim, ogs, tipoEquip, subtipoEquip, frota, operador, categorias]);
+  }, [ini, fim, ogs, tipoEquip, subtipoEquip, frota, operador, categorias, SEARCH_LIMIT]);
 
   // Rebusca automaticamente ao voltar se já havia buscado antes
   useEffect(() => {
@@ -179,6 +245,7 @@ export default function BuscaEquipamentos() {
   const limpar = () => {
     setSearchParams({}, { replace: true });
     setResultados([]);
+    setTotalResultados(0);
   };
 
   const STATUS_COR: Record<string, string> = {
@@ -347,7 +414,11 @@ export default function BuscaEquipamentos() {
             ) : (
               <>
                 <div className="flex items-center justify-between px-1">
-                  <p className="text-xs text-muted-foreground">{resultados.length} lançamento{resultados.length !== 1 ? "s" : ""}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {totalResultados > resultados.length
+                      ? `${resultados.length} de ${totalResultados} lançamentos`
+                      : `${resultados.length} lançamento${resultados.length !== 1 ? "s" : ""}`}
+                  </p>
                 </div>
 
                 {frota && (
