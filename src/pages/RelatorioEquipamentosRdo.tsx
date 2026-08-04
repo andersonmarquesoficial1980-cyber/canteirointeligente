@@ -84,12 +84,19 @@ function buildTextMatchers(value: string): string[] {
   return Array.from(new Set([raw, semAcento, wildcardRaw, wildcardSemAcento].filter(Boolean)));
 }
 
-function buildSubtypeOrClause(value: string): string {
-  return buildTextMatchers(value)
+function buildSubtypeOrClauseFromValues(values: string[]): string {
+  return Array.from(
+    new Set(
+      values
+        .flatMap((value) => buildTextMatchers(value))
+        .map((matcher) => matcher.replace(/,/g, ""))
+        .filter(Boolean),
+    ),
+  )
     .flatMap((matcher) => [
-      `tipo.ilike.${matcher.replace(/,/g, "")}`,
-      `sub_tipo.ilike.${matcher.replace(/,/g, "")}`,
-      `nome.ilike.${matcher.replace(/,/g, "")}`,
+      `tipo.ilike.${matcher}`,
+      `sub_tipo.ilike.${matcher}`,
+      `nome.ilike.${matcher}`,
     ])
     .join(",");
 }
@@ -360,16 +367,21 @@ export default function RelatorioEquipamentosRdo() {
         // pois os rdoIds vieram de rdo_diarios filtrado por company_id.
         .in("rdo_id", rdoIds);
 
-      // Se filtro é frota, aplicar filtro por categoria de equipamento no conjunto de RDO equipamentos
+      // Se filtro é frota, aplicar filtro por tipo/subtipo selecionado no conjunto de RDO equipamentos
       if (filterType === "frota") {
-        const categoriasRdo = categoriasRdoPorTipo(tipoEquip);
-        if (categoriasRdo.length > 0) {
-          equipQuery = equipQuery.in("categoria", categoriasRdo);
-        }
+        const categoriaSelecionada = categorias.find((c) => c.key === tipoEquip);
+        const subtiposCategoria = (categoriaSelecionada?.tipos || []).map((t) => t.tipoValor).filter(Boolean);
+        const subtiposParaFiltro = subtipoEquip.trim() ? [subtipoEquip] : subtiposCategoria;
 
-        if (subtipoEquip.trim()) {
-          const subtipoClause = buildSubtypeOrClause(subtipoEquip);
+        if (subtiposParaFiltro.length > 0) {
+          const subtipoClause = buildSubtypeOrClauseFromValues(subtiposParaFiltro);
           if (subtipoClause) equipQuery = equipQuery.or(subtipoClause);
+        } else {
+          // Fallback defensivo para categorias legadas quando não houver subtipo cadastrado
+          const categoriasRdo = categoriasRdoPorTipo(tipoEquip);
+          if (categoriasRdo.length > 0) {
+            equipQuery = equipQuery.in("categoria", categoriasRdo);
+          }
         }
 
         if (frota.trim()) {
