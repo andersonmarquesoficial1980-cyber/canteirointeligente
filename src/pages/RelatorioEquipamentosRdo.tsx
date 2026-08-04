@@ -48,6 +48,52 @@ function normTxt(v: string | null | undefined) {
     .toUpperCase();
 }
 
+function categoriasRdoPorTipo(tipoKey: string): string[] {
+  switch (tipoKey) {
+    case "CAMINHOES":
+    case "CARRETAS":
+    case "VEICULOS":
+      return ["VEÍCULOS EM GERAL", "VEICULOS EM GERAL"];
+    case "PAVIMENTACAO":
+      return ["VIBROACABADORA", "ROLO COMPACTADOR", "PAVIMENTAÇÃO"];
+    case "FRESAGEM":
+      return ["FRESADORA", "BOBCAT"];
+    case "USINAGEM":
+      return ["USINA MÓVEL", "USINA MOVEL", "USINAGEM"];
+    case "LINHA_AMARELA":
+      return ["LINHA AMARELA"];
+    case "PEQUENO_PORTE":
+    case "SANITARIO":
+      return ["PEQUENO PORTE", "SANITARIO", "SANITÁRIO"];
+    default:
+      return [];
+  }
+}
+
+function buildTextMatchers(value: string): string[] {
+  const raw = (value || "").trim();
+  if (!raw) return [];
+
+  const semAcento = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const wildcardRaw = raw.split(/\s+/).filter(Boolean).join("%");
+  const wildcardSemAcento = semAcento.split(/\s+/).filter(Boolean).join("%");
+
+  return Array.from(new Set([raw, semAcento, wildcardRaw, wildcardSemAcento].filter(Boolean)));
+}
+
+function buildSubtypeOrClause(value: string): string {
+  return buildTextMatchers(value)
+    .flatMap((matcher) => [
+      `tipo.ilike.${matcher.replace(/,/g, "")}`,
+      `sub_tipo.ilike.${matcher.replace(/,/g, "")}`,
+      `nome.ilike.${matcher.replace(/,/g, "")}`,
+    ])
+    .join(",");
+}
+
 function exportarExcel(filterType: FilterType, filterValue: string, dataIni: string, dataFim: string, rows: ResultRow[]) {
   const linhas: string[][] = [];
   linhas.push(["Localização de Equipamentos (RDO)"]);
@@ -251,17 +297,10 @@ export default function RelatorioEquipamentosRdo() {
   }, [filterType, profile?.company_id]);
 
   const buscar = async () => {
-    const filter = filterType === "frota" ? subtipoEquip : (filterType === "obra" ? obra : encarregado);
-    
+    const filter = filterType === "frota" ? tipoEquip : (filterType === "obra" ? obra : encarregado);
+
     if (!filter.trim()) return;
     if (!profile?.company_id) return;
-
-    if (filterType === "frota" && !frota.trim() && frotasSelecionaveis.length === 0) {
-      setRows([]);
-      setSearched(true);
-      setMessageNoData(`Nenhuma frota cadastrada para o subtipo "${subtipoEquip}".`);
-      return;
-    }
 
     setLoading(true);
     setSearched(true);
@@ -321,16 +360,22 @@ export default function RelatorioEquipamentosRdo() {
         // pois os rdoIds vieram de rdo_diarios filtrado por company_id.
         .in("rdo_id", rdoIds);
 
-      // Se filtro é frota, aplicar aqui PARA REDUZIR RESULTADOS
+      // Se filtro é frota, aplicar filtro por categoria de equipamento no conjunto de RDO equipamentos
       if (filterType === "frota") {
+        const categoriasRdo = categoriasRdoPorTipo(tipoEquip);
+        if (categoriasRdo.length > 0) {
+          equipQuery = equipQuery.in("categoria", categoriasRdo);
+        }
+
+        if (subtipoEquip.trim()) {
+          const subtipoClause = buildSubtypeOrClause(subtipoEquip);
+          if (subtipoClause) equipQuery = equipQuery.or(subtipoClause);
+        }
+
         if (frota.trim()) {
           // Frota específica selecionada
           equipQuery = equipQuery.ilike("frota", `%${frota.trim()}%`);
-        } else if (frotasSelecionaveis.length > 0) {
-          // Tipo selecionado, frota em branco → filtra pelas frotas daquele tipo
-          equipQuery = equipQuery.in("frota", frotasSelecionaveis);
         }
-        // Se frotasSelecionaveis vazio (tipo sem frotas cadastradas), retorna sem filtro de frota
       }
       // Se for encarregado ou obra, NÃO aplicar filtro de frota - pega TODOS
 
@@ -527,7 +572,7 @@ export default function RelatorioEquipamentosRdo() {
   };
 
   const isFilterValid = (): boolean => {
-    if (filterType === "frota") return tipoEquip.trim().length > 0 && subtipoEquip.trim().length > 0;
+    if (filterType === "frota") return tipoEquip.trim().length > 0;
     if (filterType === "obra") return obra.trim().length > 0;
     if (filterType === "encarregado") return encarregado.trim().length > 0;
     return false;
@@ -637,7 +682,7 @@ export default function RelatorioEquipamentosRdo() {
                 {tipoEquip && (
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Subtipo *
+                      Subtipo
                     </label>
                     <select
                       value={subtipoEquip}
@@ -647,7 +692,7 @@ export default function RelatorioEquipamentosRdo() {
                       }}
                       className="h-11 w-full px-3 bg-secondary border border-border rounded-md text-sm"
                     >
-                      <option value="">Selecione o subtipo...</option>
+                      <option value="">Todos os subtipos</option>
                       {subtiposDisponiveis.map((s) => (
                         <option key={s.value} value={s.value}>{s.label}</option>
                       ))}
