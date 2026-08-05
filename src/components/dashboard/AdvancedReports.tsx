@@ -15,6 +15,19 @@ type OgsLookupMap = Record<string, string[]>;
 
 const BASE_OGS = { num: "BASE", addr: "PÁTIO CENTRAL / OFICINA" };
 const EMPTY_OGS = { num: "—", addr: "—" };
+const CARRETA_TYPE_OR_FILTER = "equipment_type.ilike.%carreta%,equipment_type.ilike.%cavalo%mec%";
+
+const normalizeType = (value: string | null | undefined): string =>
+  (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const isCarretaTipo = (value: string | null | undefined): boolean => {
+  const normalized = normalizeType(value);
+  return normalized.includes("carreta") || (normalized.includes("cavalo") && normalized.includes("mecan"));
+};
 
 const getLocationAddresses = (locationAddress: string | null | undefined): string[] =>
   (locationAddress || "")
@@ -136,7 +149,7 @@ export default function AdvancedReports() {
       const { data: diaries, error: diariesError } = await supabase
         .from("equipment_diaries")
         .select("id, date, equipment_fleet, equipment_type, attachment_type, odometer_initial, odometer_final")
-        .eq("equipment_type", "Carreta")
+        .or(CARRETA_TYPE_OR_FILTER)
         .gte("date", range.from)
         .lte("date", range.to)
         .order("date", { ascending: true })
@@ -335,7 +348,7 @@ export default function AdvancedReports() {
       if (transportRes.error) throw transportRes.error;
       if (refuelRes.error) throw refuelRes.error;
 
-      const transportRows = (transportRes.data || []).filter((r: any) => r.equipment_diaries?.equipment_type === "Carreta");
+      const transportRows = (transportRes.data || []).filter((r: any) => isCarretaTipo(r.equipment_diaries?.equipment_type));
       const refuelRows = refuelRes.data || [];
       const ogsLookup = await fetchOgsLookup([
         ...transportRows.flatMap((r: any) => [r.origin, r.destination]),
