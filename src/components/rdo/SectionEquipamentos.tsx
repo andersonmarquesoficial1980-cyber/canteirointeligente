@@ -73,6 +73,15 @@ const CATEGORIA_TIPO_MAP: Record<string, { tipos?: string[]; categorias?: string
 
 const FC_OPTIONS = ["FC001", "FC002", "FC003", "FC004", "FC005"];
 
+function normTxt(value: string | null | undefined): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
 const emptyEquip = (): EquipamentoEntry => ({
   id: crypto.randomUUID(),
   categoria: "",
@@ -160,14 +169,16 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
     const hasSubTypes = SUB_TIPOS[categoria];
     if (hasSubTypes) {
       if (!subTipo) return [];
-      return maquinas.filter((m: any) => m.tipo?.toUpperCase() === subTipo.toUpperCase());
+      const subtipoNorm = normTxt(subTipo);
+      return maquinas.filter((m: any) => normTxt(m.tipo) === subtipoNorm);
     }
 
     return maquinas.filter((m: any) => {
       // 1. Prioridade: categoria_rdo do banco (campo mais confiável, com aliases)
       if (m.categoria_rdo) {
         const aliases = CATEGORIA_RDO_ALIAS[categoria] || [categoria];
-        return aliases.some((a) => m.categoria_rdo.toUpperCase() === a.toUpperCase());
+        const categoriaNorm = normTxt(m.categoria_rdo);
+        return aliases.some((a) => categoriaNorm === normTxt(a));
       }
       // 2. Vínculos específicos (não genéricos): usa como filtro
       const vinculos: string[] = m.vinculos || [];
@@ -178,11 +189,13 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
       // 3. Legado (vinculos genérico ou vazio): usa mapeamento por tipo/categoria do JSON
       const map = CATEGORIA_TIPO_MAP[categoria];
       if (map) {
-        const tipoOk = map.tipos?.some((t) => m.tipo?.toUpperCase() === t.toUpperCase());
-        const catOk = map.categorias?.some((c) => (m.categoria || "").toUpperCase() === c.toUpperCase());
+        const tipoNorm = normTxt(m.tipo);
+        const categoriaNorm = normTxt(m.categoria);
+        const tipoOk = map.tipos?.some((t) => tipoNorm === normTxt(t));
+        const catOk = map.categorias?.some((c) => categoriaNorm === normTxt(c));
         return tipoOk || catOk;
       }
-      return (m.categoria || "").toUpperCase() === categoria.toUpperCase();
+      return normTxt(m.categoria) === normTxt(categoria);
     });
   };
 
