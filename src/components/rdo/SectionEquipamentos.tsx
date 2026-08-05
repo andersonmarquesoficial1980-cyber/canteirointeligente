@@ -82,6 +82,16 @@ function normTxt(value: string | null | undefined): string {
     .toUpperCase();
 }
 
+function normCompact(value: string | null | undefined): string {
+  return normTxt(value).replace(/[^A-Z0-9]/g, "");
+}
+
+const SUBTIPO_VINCULO_HINTS: Record<string, string[]> = {
+  MICROONIBUS: ["VEICULO_MICROONIBUS", "MICROONIBUS", "ONIBUS"],
+  VAN: ["VEICULO_VAN", "VAN"],
+  "CAVALO MECANICO": ["CARRETA", "CAVALO"],
+};
+
 const emptyEquip = (): EquipamentoEntry => ({
   id: crypto.randomUUID(),
   categoria: "",
@@ -169,8 +179,33 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
     const hasSubTypes = SUB_TIPOS[categoria];
     if (hasSubTypes) {
       if (!subTipo) return [];
+
       const subtipoNorm = normTxt(subTipo);
-      return maquinas.filter((m: any) => normTxt(m.tipo) === subtipoNorm);
+      const subtipoCompact = normCompact(subTipo);
+
+      const byTipo = maquinas.filter((m: any) => {
+        const tipoNorm = normTxt(m.tipo);
+        const tipoCompact = normCompact(m.tipo);
+        return (
+          tipoNorm === subtipoNorm ||
+          tipoCompact === subtipoCompact ||
+          tipoCompact.includes(subtipoCompact) ||
+          subtipoCompact.includes(tipoCompact)
+        );
+      });
+
+      if (byTipo.length > 0) return byTipo;
+
+      // Fallback defensivo: usa hints de vínculos para evitar falso vazio por variação de cadastro
+      const hintKeys = SUBTIPO_VINCULO_HINTS[subtipoNorm] || [subtipoNorm];
+      return maquinas.filter((m: any) => {
+        const vinculos: string[] = Array.isArray(m.vinculos) ? m.vinculos : [];
+        const raw = [m.tipo, m.nome, m.categoria, ...(vinculos || [])]
+          .map((v) => normCompact(v))
+          .filter(Boolean)
+          .join(" ");
+        return hintKeys.some((h) => raw.includes(normCompact(h)));
+      });
     }
 
     return maquinas.filter((m: any) => {
