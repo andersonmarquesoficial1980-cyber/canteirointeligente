@@ -76,6 +76,17 @@ function toNumberSafe(v: any): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function sanitizeTimeEntryObservation(value: any): string {
+  const txt = String(value ?? "").trim();
+  if (!txt) return "";
+
+  // Guardrail: não exportar marcações técnicas de auditoria/backfill para Protheus
+  // (ex.: "[BACKFILL 2026-08-05] ...").
+  if (normalizeTxt(txt).startsWith("[BACKFILL")) return "";
+
+  return txt;
+}
+
 function validateKmaDiary(diary: any, kmaOp: any) {
   const erros: string[] = [];
   const alertas: string[] = [];
@@ -494,7 +505,7 @@ export default function ExportarProtheus() {
         row.push(t?.start_time ?? "");
         row.push(t?.end_time ?? "");
         row.push(t?.activity ?? "");
-        row.push(t?.description ?? "");
+        row.push(sanitizeTimeEntryObservation(t?.description));
       }
 
       if (tipoExportBase === "Fresadora") {
