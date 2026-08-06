@@ -2,15 +2,17 @@
  * WF Gestão de Pessoas — Lista de Funcionários
  * Abas: Todos | Por Função | Por Equipe | Por Responsável | Centro de Custo | Aniversariantes
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
-  ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, User, X
+  ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, X, Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Funcionario {
   id: string;
@@ -23,6 +25,7 @@ interface Funcionario {
   salario?: number | null;
   foto_url?: string | null;
   status?: string | null;
+  company_id?: string | null;
 }
 
 function funcaoBase(role: string | null) {
@@ -31,51 +34,115 @@ function funcaoBase(role: string | null) {
 }
 
 function LinhaFuncionario({
-  f, index, onClickFuncionario, mostrarSalario,
-}: { f: Funcionario; index: number; onClickFuncionario: (id: string) => void; mostrarSalario: boolean }) {
+  f,
+  index,
+  onClickFuncionario,
+  mostrarSalario,
+  equipesDisponiveis,
+  updatingEquipeId,
+  onChangeEquipe,
+}: {
+  f: Funcionario;
+  index: number;
+  onClickFuncionario: (id: string) => void;
+  mostrarSalario: boolean;
+  equipesDisponiveis: string[];
+  updatingEquipeId: string | null;
+  onChangeEquipe: (id: string, novaEquipe: string) => void;
+}) {
+  const equipeAtual = (f.equipe || "").trim();
+
   return (
     <div
-      onClick={() => onClickFuncionario(f.id)}
       style={{
-        display: "flex", alignItems: "center", gap: 12,
-        padding: "10px 16px", cursor: "pointer",
         borderBottom: "1px solid #f1f5f9",
         background: index % 2 === 0 ? "white" : "#fafbfc",
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = "#f0f7ff"; }}
-      onMouseLeave={e => { e.currentTarget.style.background = index % 2 === 0 ? "white" : "#fafbfc"; }}
     >
-      {f.foto_url ? (
-        <img src={f.foto_url} alt="" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-      ) : (
-        <div style={{
-          width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-          background: "linear-gradient(135deg,#0055AA,#0077DD)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          color: "white", fontSize: 14, fontWeight: 800,
-        }}>
-          {f.name.charAt(0)}
+      <div
+        onClick={() => onClickFuncionario(f.id)}
+        style={{
+          display: "flex", alignItems: "center", gap: 12,
+          padding: "10px 16px", cursor: "pointer",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = "#f0f7ff"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+      >
+        {f.foto_url ? (
+          <img src={f.foto_url} alt="" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+        ) : (
+          <div style={{
+            width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+            background: "linear-gradient(135deg,#0055AA,#0077DD)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "white", fontSize: 14, fontWeight: 800,
+          }}>
+            {f.name.charAt(0)}
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {f.name}
+          </p>
+          <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
+            {f.role ?? "—"}{f.equipe ? ` · ${f.equipe}` : ""}{f.matricula ? ` · Mat. ${f.matricula}` : ""}
+            {mostrarSalario && f.salario ? ` · R$ ${Number(f.salario).toLocaleString("pt-BR")}` : ""}
+          </p>
         </div>
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {f.name}
-        </p>
-        <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
-          {f.role ?? "—"}{f.equipe ? ` · ${f.equipe}` : ""}{f.matricula ? ` · Mat. ${f.matricula}` : ""}
-          {mostrarSalario && f.salario ? ` · R$ ${Number(f.salario).toLocaleString("pt-BR")}` : ""}
-        </p>
+        <ChevronRight size={15} color="#d1d5db" style={{ flexShrink: 0 }} />
       </div>
-      <ChevronRight size={15} color="#d1d5db" style={{ flexShrink: 0 }} />
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "0 16px 10px 16px",
+          borderTop: "1px solid #f8fafc",
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>Editar equipe:</span>
+        <Select
+          value={equipeAtual || "__sem_equipe"}
+          onValueChange={(valor) => onChangeEquipe(f.id, valor)}
+          disabled={updatingEquipeId === f.id}
+        >
+          <SelectTrigger className="h-8 rounded-lg text-xs bg-white">
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__sem_equipe">Sem equipe</SelectItem>
+            {equipesDisponiveis.map((eq) => (
+              <SelectItem key={`${f.id}-${eq}`} value={eq}>{eq}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {updatingEquipeId === f.id && <Loader2 size={13} className="animate-spin text-primary" />}
+      </div>
     </div>
   );
 }
 
 function GrupoColapsavel({
-  titulo, itens, corTema, onClickFuncionario, mostrarSalario,
+  titulo,
+  itens,
+  corTema,
+  onClickFuncionario,
+  mostrarSalario,
+  equipesDisponiveis,
+  updatingEquipeId,
+  onChangeEquipe,
 }: {
-  titulo: string; itens: Funcionario[]; corTema: string;
-  onClickFuncionario: (id: string) => void; mostrarSalario: boolean;
+  titulo: string;
+  itens: Funcionario[];
+  corTema: string;
+  onClickFuncionario: (id: string) => void;
+  mostrarSalario: boolean;
+  equipesDisponiveis: string[];
+  updatingEquipeId: string | null;
+  onChangeEquipe: (id: string, novaEquipe: string) => void;
 }) {
   const [aberto, setAberto] = useState(false);
   return (
@@ -95,7 +162,16 @@ function GrupoColapsavel({
       {aberto && (
         <div style={{ borderTop: "1px solid #f1f5f9" }}>
           {itens.map((f, i) => (
-            <LinhaFuncionario key={f.id} f={f} index={i} onClickFuncionario={onClickFuncionario} mostrarSalario={mostrarSalario} />
+            <LinhaFuncionario
+              key={f.id}
+              f={f}
+              index={i}
+              onClickFuncionario={onClickFuncionario}
+              mostrarSalario={mostrarSalario}
+              equipesDisponiveis={equipesDisponiveis}
+              updatingEquipeId={updatingEquipeId}
+              onChangeEquipe={onChangeEquipe}
+            />
           ))}
         </div>
       )}
@@ -108,6 +184,7 @@ type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "centro_custo" | "ani
 export default function GestaoPessoasEquipe() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const rotaVoltar = useOrigemBack("/gestao-pessoas", { "gestao-frotas": "/gestao-frotas" });
   const origem = searchParams.get("origem") || "";
@@ -118,10 +195,12 @@ export default function GestaoPessoasEquipe() {
     : "lista";
   const { isAdmin } = useIsAdmin();
   const [todos, setTodos] = useState<Funcionario[]>([]);
+  const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [aba, setAba] = useState<Aba>(abaInicial);
   const [busca, setBusca] = useState(buscaParam);
   const [mostrarSalario, setMostrarSalario] = useState(false);
+  const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
   const currentParams = new URLSearchParams();
   if (origem) currentParams.set("origem", origem);
   currentParams.set("aba", aba);
@@ -129,9 +208,88 @@ export default function GestaoPessoasEquipe() {
   const returnTo = encodeURIComponent(`${location.pathname}?${currentParams.toString()}`);
 
   useEffect(() => {
-    supabase.from("employees").select("*").order("name")
-      .then(({ data }) => { if (data) setTodos(data as any); setLoading(false); });
+    Promise.all([
+      supabase.from("employees").select("*").order("name"),
+      (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"),
+    ]).then(([employeesResp, equipesResp]) => {
+      if (employeesResp.data) setTodos(employeesResp.data as any);
+      if (equipesResp?.data) {
+        const equipes = (equipesResp.data as any[])
+          .map((e) => (e?.nome || "").trim())
+          .filter(Boolean);
+        setEquipesCadastro(equipes);
+      }
+      setLoading(false);
+    });
   }, []);
+
+  const equipesDisponiveis = useMemo(() => {
+    const map = new Map<string, string>();
+    const add = (nome: string | null | undefined) => {
+      const limpo = (nome || "").trim();
+      if (!limpo) return;
+      const chave = limpo.toLocaleLowerCase("pt-BR");
+      if (!map.has(chave)) map.set(chave, limpo);
+    };
+
+    todos.forEach((f) => add(f.equipe));
+    equipesCadastro.forEach((eq) => add(eq));
+
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+  }, [todos, equipesCadastro]);
+
+  async function alterarEquipeRapida(funcionarioId: string, novaEquipe: string) {
+    const equipeNova = novaEquipe === "__sem_equipe" ? null : novaEquipe;
+    const funcAtual = todos.find((f) => f.id === funcionarioId);
+    const equipeAnterior = (funcAtual?.equipe || "").trim() || null;
+
+    if ((equipeAnterior || null) === (equipeNova || null)) return;
+
+    setUpdatingEquipeId(funcionarioId);
+
+    try {
+      const { error } = await (supabase as any)
+        .from("employees")
+        .update({
+          equipe: equipeNova,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", funcionarioId);
+
+      if (error) {
+        toast({
+          title: "Erro ao atualizar equipe",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setTodos((prev) => prev.map((f) => (f.id === funcionarioId ? { ...f, equipe: equipeNova } : f)));
+
+      const hoje = new Date().toISOString().slice(0, 10);
+      await (supabase as any).from("employee_historico").insert({
+        employee_id: funcionarioId,
+        company_id: funcAtual?.company_id || null,
+        tipo: "mudanca_equipe",
+        descricao: `Mudança rápida de equipe: ${equipeAnterior || "Sem equipe"} → ${equipeNova || "Sem equipe"}`,
+        data: hoje,
+      });
+
+      toast({
+        title: "Equipe atualizada",
+        description: `${funcAtual?.name || "Funcionário"}: ${equipeAnterior || "Sem equipe"} → ${equipeNova || "Sem equipe"}`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Erro inesperado",
+        description: err?.message || "Não foi possível alterar a equipe agora.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingEquipeId(null);
+    }
+  }
 
   useEffect(() => {
     const next = new URLSearchParams();
@@ -277,7 +435,16 @@ export default function GestaoPessoasEquipe() {
                   {filtrados.length === 0 ? (
                     <p style={{ textAlign: "center", color: "#9ca3af", padding: "40px 0", fontSize: 13 }}>Nenhum funcionário encontrado</p>
                   ) : filtrados.map((f, i) => (
-                    <LinhaFuncionario key={f.id} f={f} index={i} onClickFuncionario={irFuncionario} mostrarSalario={false} />
+                    <LinhaFuncionario
+                      key={f.id}
+                      f={f}
+                      index={i}
+                      onClickFuncionario={irFuncionario}
+                      mostrarSalario={false}
+                      equipesDisponiveis={equipesDisponiveis}
+                      updatingEquipeId={updatingEquipeId}
+                      onChangeEquipe={alterarEquipeRapida}
+                    />
                   ))}
                 </div>
               </>
@@ -309,6 +476,9 @@ export default function GestaoPessoasEquipe() {
                       corTema={corGrupo(aba)}
                       onClickFuncionario={irFuncionario}
                       mostrarSalario={mostrarSalario && isAdmin}
+                      equipesDisponiveis={equipesDisponiveis}
+                      updatingEquipeId={updatingEquipeId}
+                      onChangeEquipe={alterarEquipeRapida}
                     />
                   ))}
               </>
