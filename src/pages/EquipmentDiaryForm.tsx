@@ -2936,8 +2936,8 @@ export default function EquipmentDiaryForm() {
             />
           </Field>
 
-          {/* Horímetro/Odômetro Final — visível quando Cancelou ou Manutenção */}
-          {(workStatus === "Cancelou" || isStatusManutencao) && (
+          {/* Horímetro/Odômetro Final — visível quando Folga, Cancelou ou Manutenção */}
+          {(workStatus === "Folga" || workStatus === "Cancelou" || isStatusManutencao) && (
             <Field label={`${meterLabel} Final`}>
               <Input
                 type="text"
