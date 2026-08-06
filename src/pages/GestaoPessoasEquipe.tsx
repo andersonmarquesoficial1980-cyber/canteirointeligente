@@ -252,7 +252,6 @@ export default function GestaoPessoasEquipe() {
         .from("employees")
         .update({
           equipe: equipeNova,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", funcionarioId);
 
