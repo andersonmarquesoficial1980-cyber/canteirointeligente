@@ -1414,16 +1414,15 @@ export default function EquipmentDiaryForm() {
       return cancelSave();
     }
 
-    // 4. Horímetro/Odômetro obrigatório quando Trabalhando
-    const hasHorimeter = !isModoSimples && workStatus === "Trabalhando" && !isPatioMode;
-    if (hasHorimeter && !isDraft) {
-      const ini = toNVal(meterInitial);
-      const fim = toNVal(meterFinal);
-      if (!meterInitial || ini === 0) {
+    // 4. Horímetro/Odômetro obrigatório em qualquer lançamento
+    if (!isDraft) {
+      const iniRaw = String(meterInitial || "").trim();
+      const fimRaw = String(meterFinal || "").trim();
+      if (!iniRaw) {
         toast({ title: `⚠️ ${meterLabel} obrigatório`, description: `Informe o ${meterLabel} Inicial antes de enviar.`, variant: "destructive" });
         return cancelSave();
       }
-      if (!meterFinal || fim === 0) {
+      if (!fimRaw) {
         toast({ title: `⚠️ ${meterLabel} obrigatório`, description: `Informe o ${meterLabel} Final antes de enviar.`, variant: "destructive" });
         return cancelSave();
       }
@@ -1446,6 +1445,17 @@ export default function EquipmentDiaryForm() {
     // 6. Apontamentos obrigatórios quando horímetro avançou
     const hasHorProgress = meterInitial && meterFinal && toNVal(meterFinal) > toNVal(meterInitial);
     const hasTimeEntriesType = isFresadora || isRolo || isBobcat || isRetro || isVibro || isUsinaKma || isCaminhoes || isComboio || isVeiculo;
+    if (hasTimeEntriesType && !isDraft && workStatus === "Trabalhando") {
+      const firstEntry = timeEntries[0];
+      if (!firstEntry || firstEntry.activity !== "Check e Preparação") {
+        toast({
+          title: "⚠️ Ordem obrigatória do apontamento",
+          description: "A 1ª atividade do turno deve ser 'Check e Preparação'.",
+          variant: "destructive",
+        });
+        return cancelSave();
+      }
+    }
     if (hasHorProgress && hasTimeEntriesType && !isDraft && workStatus === "Trabalhando") {
       const validEntries = timeEntries.filter(t => t.startTime && t.activity);
       const partialEntries = timeEntries.filter(t => (t.startTime || t.activity) && !(t.startTime && t.activity));
@@ -2956,6 +2966,11 @@ export default function EquipmentDiaryForm() {
         {!isPatioMode && !isModoSimples && (<>
 
         {/* APONTAMENTO DE HORAS */}
+        {workStatus === "Trabalhando" && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary">
+            Inicie o turno com a atividade <strong>“Check e Preparação”</strong> no primeiro apontamento.
+          </div>
+        )}
         <TimeEntriesSection
           entries={timeEntries}
           onChange={setTimeEntries}
