@@ -162,7 +162,7 @@ export default function GestaoFrotasHome() {
         const vencendo = data
           .map((d: any) => ({
             ...d,
-            dias_restantes: Math.ceil((new Date(d.data_vencimento).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)),
+            dias_restantes: Math.ceil((new Date(`${d.data_vencimento}T12:00:00`).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)),
           }))
           .filter((d: any) => d.dias_restantes <= 30)
           .sort((a: any, b: any) => a.dias_restantes - b.dias_restantes);

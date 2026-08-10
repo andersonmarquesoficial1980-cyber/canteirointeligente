@@ -172,7 +172,7 @@ export default function GestaoFrotasVeiculo() {
   const hoje = new Date();
   const docsVencendo = documentos.filter(d => {
     if (!d.data_vencimento) return false;
-    const dias = Math.ceil((new Date(d.data_vencimento).getTime() - hoje.getTime()) / 86400000);
+    const dias = Math.ceil((new Date(`${d.data_vencimento}T12:00:00`).getTime() - hoje.getTime()) / 86400000);
     return dias <= 30;
   });
 
@@ -215,7 +215,7 @@ export default function GestaoFrotasVeiculo() {
           <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
             <p className="text-sm font-bold text-orange-700">⚠️ {docsVencendo.length} documento{docsVencendo.length !== 1 ? "s" : ""} vencendo</p>
             {docsVencendo.map((d, i) => {
-              const dias = Math.ceil((new Date(d.data_vencimento).getTime() - hoje.getTime()) / 86400000);
+              const dias = Math.ceil((new Date(`${d.data_vencimento}T12:00:00`).getTime() - hoje.getTime()) / 86400000);
               return <p key={i} className="text-xs text-orange-600">{d.tipo_documento}: {dias <= 0 ? "⛔ VENCIDO" : `${dias} dias`}</p>;
             })}
           </div>
@@ -438,7 +438,7 @@ export default function GestaoFrotasVeiculo() {
             <p className="text-xs text-muted-foreground italic">Nenhum documento cadastrado para este veículo.</p>
           ) : (
             documentos.map((d, i) => {
-              const dias = d.data_vencimento ? Math.ceil((new Date(d.data_vencimento).getTime() - hoje.getTime()) / 86400000) : 999;
+              const dias = d.data_vencimento ? Math.ceil((new Date(`${d.data_vencimento}T12:00:00`).getTime() - hoje.getTime()) / 86400000) : 999;
               return (
                 <div key={i} className={`flex items-center justify-between p-2 rounded-xl border text-xs ${dias <= 0 ? "bg-red-50 border-red-200" : dias <= 30 ? "bg-orange-50 border-orange-200" : "bg-green-50 border-green-200"}`}>
                   <span className="font-semibold">{d.tipo_documento}</span>

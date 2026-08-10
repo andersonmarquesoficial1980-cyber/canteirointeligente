@@ -183,7 +183,7 @@ export function Spotlight() {
       // RDOs
       if (rdoResp.status === "fulfilled" && rdoResp.value.data) {
         rdoResp.value.data.forEach((e: any) => {
-          const data = e.data ? new Date(e.data).toLocaleDateString("pt-BR") : "";
+          const data = e.data ? new Date(`${e.data}T12:00:00`).toLocaleDateString("pt-BR") : "";
           encontrados.push({
             id: e.id,
             tipo: "rdo",
@@ -197,7 +197,7 @@ export function Spotlight() {
       // Abastecimentos
       if (absResp.status === "fulfilled" && absResp.value.data) {
         absResp.value.data.forEach((e: any) => {
-          const data = e.data ? new Date(e.data).toLocaleDateString("pt-BR") : "";
+          const data = e.data ? new Date(`${e.data}T12:00:00`).toLocaleDateString("pt-BR") : "";
           encontrados.push({
             id: e.id,
             tipo: "abastecimento",

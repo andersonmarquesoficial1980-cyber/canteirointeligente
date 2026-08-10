@@ -19,7 +19,18 @@ import { toast } from "sonner";
 
 function fmtDate(d: string | null) {
   if (!d) return "-";
-  return new Date(d).toLocaleDateString("pt-BR");
+
+  // Blindagem: aceita DATE puro (YYYY-MM-DD) e também datetime ISO (YYYY-MM-DDTHH:mm...)
+  // sem depender de timezone do navegador.
+  const raw = String(d).trim();
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const [, y, mm, dd] = m;
+    return `${dd}/${mm}/${y}`;
+  }
+
+  // Fallback apenas para formatos não-ISO
+  return new Date(raw).toLocaleDateString("pt-BR");
 }
 
 function fmtDateTime(d: string | null) {

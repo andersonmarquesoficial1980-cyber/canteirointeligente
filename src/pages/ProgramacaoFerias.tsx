@@ -54,13 +54,13 @@ function fmtDate(d?: string | null) {
 }
 
 function addYears(dateStr: string, years: number): string {
-  const d = new Date(dateStr);
+  const d = new Date(`${dateStr}T12:00:00`);
   d.setFullYear(d.getFullYear() + years);
   return d.toISOString().split("T")[0];
 }
 
 function diffDays(a: string, b: string): number {
-  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+  return Math.round((new Date(`${b}T12:00:00`).getTime() - new Date(`${a}T12:00:00`).getTime()) / 86400000);
 }
 
 function statusColor(status: string) {

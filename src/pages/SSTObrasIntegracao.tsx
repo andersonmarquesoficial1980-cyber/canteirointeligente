@@ -268,7 +268,7 @@ export default function SSTObrasIntegracao() {
 
       let data_vencimento: string | null = null;
       if (formFunc.data_integracao && obraSelecionada.validade_meses) {
-        const d = new Date(formFunc.data_integracao);
+        const d = new Date(`${formFunc.data_integracao}T12:00:00`);
         d.setMonth(d.getMonth() + obraSelecionada.validade_meses);
         data_vencimento = d.toISOString().split("T")[0];
       }

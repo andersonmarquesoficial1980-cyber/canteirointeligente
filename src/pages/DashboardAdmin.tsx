@@ -273,7 +273,7 @@ function Alertas() {
       setOsUrgentes(os || []);
       const hoje = new Date();
       const vencendo = (docs || [])
-        .map(d => ({ ...d, dias: Math.ceil((new Date(d.data_vencimento).getTime() - hoje.getTime()) / 86400000) }))
+        .map(d => ({ ...d, dias: Math.ceil((new Date(`${d.data_vencimento}T12:00:00`).getTime() - hoje.getTime()) / 86400000) }))
         .filter(d => d.dias <= 30)
         .sort((a, b) => a.dias - b.dias);
       setDocsVencendo(vencendo);

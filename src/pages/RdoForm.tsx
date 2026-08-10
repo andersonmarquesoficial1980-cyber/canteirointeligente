@@ -273,7 +273,7 @@ export default function RdoForm() {
 
     setCopiandoDiaAnterior(true);
     try {
-      const dataAnterior = new Date(header.data);
+      const dataAnterior = new Date(`${header.data}T12:00:00`);
       dataAnterior.setDate(dataAnterior.getDate() - 1);
       const dataAnteriorStr = dataAnterior.toISOString().split("T")[0];
 

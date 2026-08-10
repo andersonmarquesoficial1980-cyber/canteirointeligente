@@ -4086,7 +4086,7 @@ function AssinaturaManager() {
             <div className="mt-1">
               <span className="text-2xl font-bold text-green-600">Plano {subscription?.plano} (Ativo)</span>
               <p className="text-sm text-muted-foreground mt-1">
-                Sua próxima fatura vence em {new Date(subscription?.data_vencimento).toLocaleDateString("pt-BR")}.
+                Sua próxima fatura vence em {new Date(`${subscription?.data_vencimento}T12:00:00`).toLocaleDateString("pt-BR")}.
               </p>
             </div>
           )}
@@ -4416,7 +4416,7 @@ function LixeiraManager() {
                     </div>
                     <p className="text-sm font-medium text-foreground mt-1.5">
                       {item.tabela === "rdo_diarios" && dados?.rdo
-                        ? `RDO — OGS ${dados.rdo.obra_nome || "-"} — ${dados.rdo.data ? new Date(dados.rdo.data).toLocaleDateString("pt-BR") : "-"}`
+                        ? `RDO — OGS ${dados.rdo.obra_nome || "-"} — ${dados.rdo.data ? new Date(`${dados.rdo.data}T12:00:00`).toLocaleDateString("pt-BR") : "-"}`
                         : `Registro ${item.registro_id.slice(0, 8)}...`}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">

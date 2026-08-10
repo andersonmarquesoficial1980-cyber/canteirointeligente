@@ -103,7 +103,7 @@ export default function DashboardManutencao() {
     const vencendo = ((docsAll || []) as any[])
       .map(d => ({
         ...d,
-        dias: Math.ceil((new Date(d.data_vencimento).getTime() - hoje.getTime()) / 86400000),
+        dias: Math.ceil((new Date(`${d.data_vencimento}T12:00:00`).getTime() - hoje.getTime()) / 86400000),
       }))
       .filter(d => d.dias <= 60)
       .sort((a, b) => a.dias - b.dias);
