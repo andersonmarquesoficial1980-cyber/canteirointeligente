@@ -31,7 +31,6 @@ import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteir
 import { buildHtmlReport } from "@/lib/buildHtmlReport";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
-import { useEquipes } from "@/hooks/useEquipes";
 
 const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -93,39 +92,6 @@ export default function RdoForm() {
 
   const handleHeaderChange = (field: string, value: string) => {
     setHeader(prev => ({ ...prev, [field]: value }));
-
-    // Auto-fill efetivo quando encarregado muda (só em modo criação, não edição, e só para RDO de Pavimentação)
-    // Só dispara se o nome digitado corresponde EXATAMENTE a um responsavel cadastrado
-    const tiposComAutoFill = ["CAUQ", "PV", "AEROPAV"];
-    if (field === "encarregado" && value && !isEditMode && !loadingEquipes && tiposComAutoFill.includes(tipoRdo)) {
-      const membros = getMembrosDoResponsavel(value);
-      if (membros.length > 0) {
-        // Agrupar por funcao (igual ao formato do StepEfetivo)
-        const porFuncao: Record<string, { nomes: string[]; matriculas: string[] }> = {};
-        membros.forEach(m => {
-          const f = m.funcao || "SEM FUNÇÃO";
-          if (!porFuncao[f]) porFuncao[f] = { nomes: [], matriculas: [] };
-          porFuncao[f].nomes.push(m.nome);
-          porFuncao[f].matriculas.push(m.matricula);
-        });
-        const novoEfetivo = Object.entries(porFuncao).map(([funcao, data]) => ({
-          id: crypto.randomUUID(),
-          funcao,
-          nome: data.nomes.join("|||"),
-          matricula: data.matriculas.join("|||"),
-          entrada: "",
-          saida: "",
-          status: "" as const,
-          horasExtras: "",
-        }));
-        setEfetivo(novoEfetivo);
-        const equipeNome = membros[0]?.equipe || "";
-        toast({
-          title: `✅ Equipe carregada${equipeNome ? ": " + equipeNome : ""}`,
-          description: `${membros.length} funcionário(s) pré-preenchido(s). Você pode ajustar.`,
-        });
-      }
-    }
   };
 
   // Tipo RDO
@@ -201,7 +167,6 @@ export default function RdoForm() {
   }]);
   const [semEfetivoTerceirizado, setSemEfetivoTerceirizado] = useState(false);
   const { empresas: empresasTerceiras, funcionarios: funcionariosTerceiros, loading: loadingTerceiros } = useEmpresasTerceiras();
-  const { getMembrosDoResponsavel, loading: loadingEquipes } = useEquipes();
   // Shared
   const [equipamentos, setEquipamentos] = useState<EquipamentoEntry[]>([{
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
