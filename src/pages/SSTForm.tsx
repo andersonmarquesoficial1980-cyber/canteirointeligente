@@ -161,7 +161,13 @@ function ResponsavelSelect({ value, onChange, placeholder, cargo }: { value: str
           if (cargo === "tecnico_sst") {
             return roleNorm.includes("TECNICO DE SEGURAN") || roleNorm.includes("SST") || roleNorm.includes("SEGURANCA DO TRABALHO");
           }
-          if (cargo === "administrativo") return roleNorm.includes("ADMINISTR") || roleNorm.includes("APONTADOR");
+          if (cargo === "administrativo") {
+            return Boolean(e.is_engenheiro)
+              || roleNorm.includes("ENGENHEIR")
+              || roleNorm.includes("TECNICO DE SEGURAN")
+              || roleNorm.includes("SST")
+              || roleNorm.includes("SEGURANCA DO TRABALHO");
+          }
           return false;
         });
 
