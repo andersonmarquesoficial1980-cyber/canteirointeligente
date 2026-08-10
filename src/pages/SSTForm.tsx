@@ -134,49 +134,61 @@ function SignaturePad({ label, value, onChange }: { label: string; value: string
   );
 }
 
-// ─── Componente Responsavel Select (usa tabela sst_responsaveis) ───────────────────────────────
+// ─── Componente Responsavel Select (usa tabela employees) ───────────────────
 function ResponsavelSelect({ value, onChange, placeholder, cargo }: { value: string; onChange: (v: string) => void; placeholder?: string; cargo: string }) {
-  const [lista, setLista] = useState<{id:string; nome:string; cargo:string}[]>([]);
-  const [filtrados, setFiltrados] = useState<{id:string; nome:string; cargo:string}[]>([]);
-  const [aberto, setAberto] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [lista, setLista] = useState<Array<{ id: string; name: string; role: string | null; is_engenheiro?: boolean | null; is_encarregado?: boolean | null }>>([]);
+
+  const normalize = (txt: string) =>
+    (txt || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase();
 
   useEffect(() => {
-    supabase.from("sst_responsaveis" as any).select("id,nome,cargo").eq("company_id", COMPANY_ID).eq("cargo", cargo).eq("ativo", true).order("nome")
-      .then(({ data }) => { if (data) setLista(data as any); });
+    supabase
+      .from("employees" as any)
+      .select("id,name,role,is_engenheiro,is_encarregado,status")
+      .eq("company_id", COMPANY_ID)
+      .eq("status", "ativo")
+      .order("name")
+      .then(({ data }) => {
+        const all = (data || []) as Array<{ id: string; name: string; role: string | null; is_engenheiro?: boolean | null; is_encarregado?: boolean | null }>;
+
+        const filtered = all.filter((e) => {
+          const roleNorm = normalize(e.role || "");
+          if (cargo === "engenheiro") return Boolean(e.is_engenheiro) || roleNorm.includes("ENGENHEIR");
+          if (cargo === "encarregado") return Boolean(e.is_encarregado) || roleNorm.includes("ENCARREG");
+          if (cargo === "tecnico_sst") {
+            return roleNorm.includes("TECNICO DE SEGURAN") || roleNorm.includes("SST") || roleNorm.includes("SEGURANCA DO TRABALHO");
+          }
+          if (cargo === "administrativo") return roleNorm.includes("ADMINISTR") || roleNorm.includes("APONTADOR");
+          return false;
+        });
+
+        setLista(filtered);
+      });
   }, [cargo]);
 
-  useEffect(() => {
-    if (!value) { setFiltrados(lista.slice(0, 30)); return; }
-    setFiltrados(lista.filter(e => e.nome.toLowerCase().includes(value.toLowerCase())).slice(0, 30));
-  }, [value, lista]);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setAberto(false); }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  const hasCurrentValue = !!value && lista.some((e) => e.name === value);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <div style={{ position: "relative" }}>
-        <input value={value} onChange={e => { onChange(e.target.value); setAberto(true); }} onFocus={() => setAberto(true)}
-          placeholder={placeholder || "Selecione..."}
-          style={{ width: "100%", height: 40, borderRadius: 10, border: "1.5px solid #e5e7eb", padding: "0 36px 0 12px", fontSize: 13, outline: "none", boxSizing: "border-box" as any }} />
-        <ChevronDown size={16} color="#9ca3af" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-      </div>
-      {aberto && filtrados.length > 0 && (
-        <div style={{ position: "absolute", top: 44, left: 0, right: 0, background: "white", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 50, maxHeight: 220, overflowY: "auto" }}>
-          {filtrados.map(e => (
-            <div key={e.id} onClick={() => { onChange(e.nome); setAberto(false); }}
-              style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}
-              onMouseEnter={ev => { ev.currentTarget.style.background = "#f0f7ff"; }}
-              onMouseLeave={ev => { ev.currentTarget.style.background = "white"; }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{e.nome}</p>
-            </div>
-          ))}
-        </div>
-      )}
+    <div style={{ position: "relative" }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", height: 40, borderRadius: 10, border: "1.5px solid #e5e7eb", padding: "0 36px 0 12px", fontSize: 13, outline: "none", boxSizing: "border-box" as any, background: "white", appearance: "none" as any }}
+      >
+        <option value="">{placeholder || "Selecione..."}</option>
+        {!hasCurrentValue && value ? (
+          <option value={value}>{value} (legado)</option>
+        ) : null}
+        {lista.map((e) => (
+          <option key={e.id} value={e.name}>
+            {e.name}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={16} color="#9ca3af" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
     </div>
   );
 }
