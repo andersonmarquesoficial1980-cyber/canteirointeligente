@@ -362,6 +362,13 @@ export default function GestaoPessoasDashboard() {
       cor: "bg-blue-500/15 text-blue-600",
       rota: "/gestao-pessoas/equipe",
     },
+    {
+      label: "Banco de Candidatos",
+      desc: "Entrevistas, contatos, testes e ficha completa de contratação",
+      icon: ClipboardList,
+      cor: "bg-fuchsia-500/15 text-fuchsia-600",
+      rota: "/gestao-pessoas/candidatos",
+    },
     { label: "Registrar Ponto",       desc: "Ponto facial com GPS e geofencing automático",          icon: Camera,        cor: "bg-blue-500/20 text-blue-600",    rota: "/rh/registrar-ponto" },
     { label: "Espelho de Ponto",      desc: "Histórico mensal, horas trabalhadas e extras",           icon: ClipboardList,  cor: "bg-green-500/20 text-green-600",  rota: "/rh/espelho-ponto" },
     { label: "Trajeto e VT",          desc: "Calcule rotas de transporte público e custo de VT",     icon: Bus,            cor: "bg-orange-500/20 text-orange-600", rota: "/rh/trajeto-vt" },
