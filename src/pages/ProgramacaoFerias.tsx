@@ -64,6 +64,14 @@ function diffDays(a: string, b: string): number {
   return Math.round((new Date(`${b}T12:00:00`).getTime() - new Date(`${a}T12:00:00`).getTime()) / 86400000);
 }
 
+function isDateInRange(ref: string, inicio: string, fim: string) {
+  return ref >= inicio && ref <= fim;
+}
+
+function employeeOnVacationNow(records: VacationRecord[], refDate: string) {
+  return records.some((r) => isDateInRange(refDate, r.data_inicio, r.data_fim));
+}
+
 function statusColor(status: string) {
   if (status === "gozado") return "#22c55e";
   if (status === "parcial") return "#f97316";
@@ -161,6 +169,26 @@ function ModalFerias({
             updated_at: new Date().toISOString(),
           }).eq("id", periodId);
         }
+      }
+
+      // Sincronização mínima fase 2: histórico + status quando férias estão vigentes hoje
+      const hoje = new Date().toISOString().split("T")[0];
+      const emFeriasAgora = isDateInRange(hoje, dataInicio, dataFim);
+
+      await (supabase as any).from("employee_historico").insert({
+        employee_id: emp.id,
+        company_id: COMPANY_ID,
+        tipo: "ferias",
+        descricao: `Férias ${tipo} registradas: ${fmtDate(dataInicio)} → ${fmtDate(dataFim)} (${dias}d)`,
+        data: dataInicio,
+      });
+
+      if (emFeriasAgora) {
+        await supabase
+          .from("employees")
+          .update({ status: "ferias" })
+          .eq("id", emp.id)
+          .eq("company_id", COMPANY_ID);
       }
       onSaved();
     } catch (e: any) {
@@ -488,7 +516,7 @@ export default function ProgramacaoFerias() {
     if (filtro === "pendente") return p && p.periodo_fim <= hoje && p.status !== "gozado";
     if (filtro === "vencido") return p && p.status === "vencido";
     if (filtro === "coletiva") return e.records.some(r => r.tipo === "coletiva");
-    if (filtro === "em_ferias") return (e.status || "").toLowerCase() === "ferias";
+    if (filtro === "em_ferias") return employeeOnVacationNow(e.records, hoje);
     return true;
   });
 
@@ -498,7 +526,9 @@ export default function ProgramacaoFerias() {
   }).length;
 
   const totalColetiva = employees.filter(e => e.records.some(r => r.tipo === "coletiva")).length;
-  const totalEmFerias = employees.filter(e => (e.status || "").toLowerCase() === "ferias").length;
+  const totalEmFerias = employees.filter(e => employeeOnVacationNow(e.records, hoje)).length;
+  const totalStatusFerias = employees.filter(e => (e.status || "").toLowerCase() === "ferias").length;
+  const divergenciaStatusVsPeriodo = Math.abs(totalStatusFerias - totalEmFerias);
 
   return (
     <div className="min-h-screen bg-background">
@@ -523,6 +553,7 @@ export default function ProgramacaoFerias() {
           {[
             { label: "Total", value: employees.length, cor: "#00C6FF" },
             { label: "Pendentes", value: totalPendente, cor: "#f97316" },
+            { label: "Em férias agora", value: totalEmFerias, cor: "#22c55e" },
             { label: "C. Coletiva", value: totalColetiva, cor: "#a855f7" },
           ].map(s => (
             <div key={s.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 14px", flex: 1, textAlign: "center" }}>
@@ -549,6 +580,21 @@ export default function ProgramacaoFerias() {
       </div>
 
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px" }}>
+        {divergenciaStatusVsPeriodo > 0 && (
+          <div style={{
+            marginBottom: 12,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid #fde68a",
+            background: "#fffbeb",
+            color: "#92400e",
+            fontSize: 12,
+            fontWeight: 600,
+          }}>
+            ⚠️ Há {divergenciaStatusVsPeriodo} divergência(s) entre status e período vigente. O filtro “Em férias” usa período vigente.
+          </div>
+        )}
+
         {/* Busca */}
         <div style={{ position: "relative", marginBottom: 14 }}>
           <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 15, height: 15, color: "#9ca3af" }} />
