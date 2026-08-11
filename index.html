@@ -27,13 +27,36 @@
 
   <body>
     <div id="root"></div>
-    <!-- Remove qualquer Service Worker antigo instalado (PWA foi desabilitado) -->
+    <!-- Higienização agressiva de cache/SW (one-shot) para evitar app antigo em celular -->
     <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (var r of registrations) { r.unregister(); }
+      (function () {
+        var BUST_KEY = 'wf_cache_bust_20260811_v1';
+        var alreadyBusted = localStorage.getItem(BUST_KEY) === '1';
+
+        function unregisterAllServiceWorkers() {
+          if (!('serviceWorker' in navigator)) return Promise.resolve();
+          return navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            return Promise.all(registrations.map(function (r) { return r.unregister(); }));
+          }).catch(function () { return Promise.resolve(); });
+        }
+
+        function clearAllCaches() {
+          if (!('caches' in window)) return Promise.resolve();
+          return caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+          }).catch(function () { return Promise.resolve(); });
+        }
+
+        // Executa sempre (garante SW/caches limpos), mas só força reload 1x por device
+        Promise.all([unregisterAllServiceWorkers(), clearAllCaches()]).finally(function () {
+          if (!alreadyBusted) {
+            localStorage.setItem(BUST_KEY, '1');
+            var u = new URL(window.location.href);
+            u.searchParams.set('cache_bust', '20260811');
+            window.location.replace(u.toString());
+          }
         });
-      }
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
