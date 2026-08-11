@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Camera, AlertTriangle, Send, CheckCircle2 } from "lucide-react";
@@ -35,6 +35,20 @@ interface Props {
   enviando?: boolean;
 }
 
+const normalizeText = (value: string) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+
+const CHECKLIST_EXCLUDED_CAMINHOES = new Set([
+  "DOCUMENTACAO (CNH, CRLV)",
+  "LICENCA DE TRANSPORTE DE PRODUTO INFLAMAVEL (SE APLICAVEL)",
+  "LIQUIDO DE ARREFECIMENTO",
+  "SEGURO DPVAT EM DIA",
+]);
+
 export default function ChecklistSection({
   equipmentType = "Fresadora",
   results,
@@ -58,6 +72,16 @@ export default function ChecklistSection({
       return data as { id: string; item_name: string }[];
     },
   });
+
+  const itemsFiltered = useMemo(() => {
+    const isCaminhoes = normalizeText(equipmentType) === "CAMINHOES";
+    if (!isCaminhoes) return items;
+
+    return items.filter((item) => {
+      const normalizedName = normalizeText(item.item_name);
+      return !CHECKLIST_EXCLUDED_CAMINHOES.has(normalizedName);
+    });
+  }, [items, equipmentType]);
 
   const getResult = (item: { id: string; item_name: string }): ChecklistResult => {
     return results.find((r) => r.itemId === item.id) || {
@@ -95,7 +119,7 @@ export default function ChecklistSection({
     }
   };
 
-  const allAnswered = items.length > 0 && items.every(item => {
+  const allAnswered = itemsFiltered.length > 0 && itemsFiltered.every(item => {
     const r = results.find(r => r.itemId === item.id);
     return r && r.status !== null && r.status !== undefined;
   });
@@ -109,14 +133,14 @@ export default function ChecklistSection({
         Itens de verificação
       </h3>
 
-      {items.length === 0 && (
+      {itemsFiltered.length === 0 && (
         <p className="text-xs text-muted-foreground italic">
           Nenhum item de checklist cadastrado para {equipmentType}.
         </p>
       )}
 
       <div className="space-y-2">
-        {items.map((item) => {
+        {itemsFiltered.map((item) => {
           const result = getResult(item);
           return (
             <ChecklistItem
@@ -130,7 +154,7 @@ export default function ChecklistSection({
       </div>
 
       {/* Botão Enviar Checklist — aparece se diaryId OU showEnviarButton fornecido */}
-      {(diaryId || showEnviarButton) && items.length > 0 && (
+      {(diaryId || showEnviarButton) && itemsFiltered.length > 0 && (
         <div className="pt-2">
           {jaEnviado ? (
             <div className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3">

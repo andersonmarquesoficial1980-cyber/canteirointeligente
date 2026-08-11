@@ -298,6 +298,7 @@ export default function EquipmentDiaryForm() {
   const [fuelSyncedFromComboio, setFuelSyncedFromComboio] = useState(false);
   const [checklistResults, setChecklistResults] = useState<ChecklistResult[]>([]);
   const [checklistSubmittedAt, setChecklistSubmittedAt] = useState<string | null>(null);
+  const [preopChecklistId, setPreopChecklistId] = useState<string | null>(null);
   const [savedDiaryId, setSavedDiaryId] = useState<string | null>(null);
   const [enviandoChecklist, setEnviandoChecklist] = useState(false);
 
@@ -1149,6 +1150,24 @@ export default function EquipmentDiaryForm() {
         }));
         setChecklistResults(mappedChecklist);
         setChecklistSubmittedAt((diary as any).checklist_submitted_at || null);
+
+        // Se existir checklist pré-op separado já vinculado ao diário, guardar o vínculo no estado
+        try {
+          const { data: preop } = await (supabase as any)
+            .from("equipment_preop_checklists")
+            .select("id, submitted_at")
+            .eq("diary_id", editId)
+            .order("submitted_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (preop?.id) {
+            setPreopChecklistId(preop.id);
+            setChecklistSubmittedAt((prev) => prev || preop.submitted_at || null);
+          }
+        } catch {
+          // tabela pode não existir antes da migration — não bloquear edição
+        }
+
         loadedEditIdRef.current = editId;
       } catch (err: any) {
         if (!cancelled) {
@@ -1271,39 +1290,31 @@ export default function EquipmentDiaryForm() {
       ));
     }
     if (isPipa) {
+      const isPipaFleet = (x: any) => x.tipo?.toUpperCase().includes("PIPA") || x.frota?.startsWith("CP");
       return eq.filter(e =>
-        hasVinculoTipo(e, "CAMINHAO_PIPA", x =>
-          x.tipo?.toUpperCase().includes("PIPA") || x.frota?.startsWith("CP")
-        ) || hasVinculoTipo(e, "CAMINHOES", x =>
-          x.tipo?.toUpperCase().includes("PIPA") || x.frota?.startsWith("CP")
-        )
+        hasVinculoTipo(e, "CAMINHAO_PIPA", isPipaFleet) ||
+        (hasVinculoTipo(e, "CAMINHOES", isPipaFleet) && isPipaFleet(e))
       );
     }
     if (isEspargidor) {
+      const isEspargidorFleet = (x: any) => x.tipo?.toUpperCase().includes("ESPARGIDOR") || x.frota?.startsWith("CE");
       return eq.filter(e =>
-        hasVinculoTipo(e, "CAMINHAO_ESPARGIDOR", x =>
-          x.tipo?.toUpperCase().includes("ESPARGIDOR") || x.frota?.startsWith("CE")
-        ) || hasVinculoTipo(e, "CAMINHOES", x =>
-          x.tipo?.toUpperCase().includes("ESPARGIDOR") || x.frota?.startsWith("CE")
-        )
+        hasVinculoTipo(e, "CAMINHAO_ESPARGIDOR", isEspargidorFleet) ||
+        (hasVinculoTipo(e, "CAMINHOES", isEspargidorFleet) && isEspargidorFleet(e))
       );
     }
     if (isCarroceria) {
+      const isCarroceriaFleet = (x: any) => x.tipo?.toUpperCase().includes("CARROCERIA") || x.frota?.startsWith("CC");
       return eq.filter(e =>
-        hasVinculoTipo(e, "CAMINHAO_CARROCERIA", x =>
-          x.tipo?.toUpperCase().includes("CARROCERIA") || x.frota?.startsWith("CC")
-        ) || hasVinculoTipo(e, "CAMINHOES", x =>
-          x.tipo?.toUpperCase().includes("CARROCERIA") || x.frota?.startsWith("CC")
-        )
+        hasVinculoTipo(e, "CAMINHAO_CARROCERIA", isCarroceriaFleet) ||
+        (hasVinculoTipo(e, "CAMINHOES", isCarroceriaFleet) && isCarroceriaFleet(e))
       );
     }
     if (isBasculante) {
+      const isBasculanteFleet = (x: any) => x.tipo?.toUpperCase().includes("BASCULANTE") || x.frota?.startsWith("CB");
       return eq.filter(e =>
-        hasVinculoTipo(e, "CAMINHAO_BASCULANTE", x =>
-          x.tipo?.toUpperCase().includes("BASCULANTE") || x.frota?.startsWith("CB")
-        ) || hasVinculoTipo(e, "CAMINHOES", x =>
-          x.tipo?.toUpperCase().includes("BASCULANTE") || x.frota?.startsWith("CB")
-        )
+        hasVinculoTipo(e, "CAMINHAO_BASCULANTE", isBasculanteFleet) ||
+        (hasVinculoTipo(e, "CAMINHOES", isBasculanteFleet) && isBasculanteFleet(e))
       );
     }
     if (isComboio) {
@@ -1388,6 +1399,123 @@ export default function EquipmentDiaryForm() {
     return list || [];
   };
 
+  const resolvePreopChecklistByKey = async () => {
+    if (isEditMode) return null;
+    if (!selectedFleet || !date || !turno) return null;
+    const companyId = profile?.company_id;
+    if (!companyId) return null;
+
+    try {
+      const { data } = await (supabase as any)
+        .from("equipment_preop_checklists")
+        .select("id, submitted_at")
+        .eq("company_id", companyId)
+        .eq("equipment_fleet", selectedFleet.trim().toUpperCase())
+        .eq("date", date)
+        .eq("period", turno)
+        .order("submitted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return data || null;
+    } catch {
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadExistingPreopChecklist = async () => {
+      if (isEditMode) return;
+      if (!selectedFleet || !date) return;
+
+      const preop = await resolvePreopChecklistByKey();
+      if (!preop || cancelled) {
+        if (!cancelled) {
+          setPreopChecklistId(null);
+          setChecklistSubmittedAt(null);
+        }
+        return;
+      }
+
+      setPreopChecklistId(preop.id);
+      setChecklistSubmittedAt(preop.submitted_at || null);
+
+      // Se ainda não há respostas carregadas, buscar itens do checklist pré-op para manter round-trip
+      if ((checklistResults || []).length === 0) {
+        try {
+          const { data: preopRows } = await (supabase as any)
+            .from("equipment_preop_checklist_entries")
+            .select("item_id, status, observation, photo_url")
+            .eq("preop_checklist_id", preop.id);
+
+          if (!cancelled && Array.isArray(preopRows) && preopRows.length > 0) {
+            const mapped = preopRows.map((row: any) => ({
+              itemId: row.item_id,
+              itemName: "",
+              status: row.status,
+              observation: row.observation || "",
+              photoFile: null,
+              photoPreview: row.photo_url || null,
+            }));
+            setChecklistResults(mapped);
+          }
+        } catch {
+          // Sem impacto de fluxo se não conseguir carregar os itens
+        }
+      }
+    };
+
+    loadExistingPreopChecklist();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, selectedFleet, date, turno, profile?.company_id]);
+
+  const materializePreopChecklistOnDiary = async (
+    diaryId: string,
+    companyId: string | null,
+    preopId: string,
+    fallbackSubmittedAt?: string | null,
+  ) => {
+    const { data: preopRows, error: preopRowsErr } = await (supabase as any)
+      .from("equipment_preop_checklist_entries")
+      .select("item_id, status, observation, photo_url")
+      .eq("preop_checklist_id", preopId);
+
+    if (preopRowsErr) throw preopRowsErr;
+
+    if (Array.isArray(preopRows) && preopRows.length > 0) {
+      await supabase.from("checklist_entries").delete().eq("diary_id", diaryId);
+      const rows = preopRows.map((r: any) => ({
+        diary_id: diaryId,
+        item_id: r.item_id,
+        status: r.status,
+        observation: r.observation || null,
+        photo_url: r.photo_url || null,
+        company_id: companyId,
+      }));
+      const { error: insertErr } = await (supabase as any).from("checklist_entries").insert(rows);
+      if (insertErr) throw insertErr;
+    }
+
+    const submittedAt = fallbackSubmittedAt || checklistSubmittedAt || new Date().toISOString();
+
+    await Promise.all([
+      (supabase as any)
+        .from("equipment_preop_checklists")
+        .update({ diary_id: diaryId })
+        .eq("id", preopId),
+      (supabase as any)
+        .from("equipment_diaries")
+        .update({ checklist_submitted_at: submittedAt, preop_checklist_id: preopId })
+        .eq("id", diaryId),
+    ]);
+
+    setChecklistSubmittedAt(submittedAt);
+  };
+
   const handleSave = async (isDraft = false) => {
     // Proteção contra double-submit (cliques rápidos antes do React re-renderizar)
     if (savingRef.current) return;
@@ -1414,7 +1542,17 @@ export default function EquipmentDiaryForm() {
       return cancelSave();
     }
 
-    // 4. Horímetro/Odômetro obrigatório em qualquer lançamento
+    // 4. Checklist obrigatório para Caminhão Basculante
+    if (isBasculante && !isDraft && !checklistSubmittedAt) {
+      toast({
+        title: "⚠️ Checklist obrigatório",
+        description: "Para Caminhão Basculante, envie o Checklist Pré-Operação antes de enviar o diário.",
+        variant: "destructive",
+      });
+      return cancelSave();
+    }
+
+    // 5. Horímetro/Odômetro obrigatório em qualquer lançamento
     if (!isDraft) {
       const iniRaw = String(meterInitial || "").trim();
       const fimRaw = String(meterFinal || "").trim();
@@ -1428,7 +1566,7 @@ export default function EquipmentDiaryForm() {
       }
     }
 
-    // 5. Status Manutenção exige apenas observação (medidores opcionais)
+    // 6. Status Manutenção exige apenas observação (medidores opcionais)
     if (isStatusManutencao && !isPatioMode && !isDraft) {
       if (!observations.trim()) {
         toast({ title: "⚠️ Observação obrigatória", description: "Para status Manutenção, descreva o problema em Observações.", variant: "destructive" });
@@ -1502,6 +1640,17 @@ export default function EquipmentDiaryForm() {
     }
 
     const normalizedSelectedFleet = selectedFleet.trim().toUpperCase();
+
+    let linkedPreopChecklistId = preopChecklistId;
+    if (!isDraft && !linkedPreopChecklistId) {
+      const foundPreop = await resolvePreopChecklistByKey();
+      if (foundPreop?.id) {
+        linkedPreopChecklistId = foundPreop.id;
+        setPreopChecklistId(foundPreop.id);
+        if (foundPreop.submitted_at) setChecklistSubmittedAt((prev) => prev || foundPreop.submitted_at);
+      }
+    }
+
     const diaryPayload: any = {
       equipment_fleet: normalizedSelectedFleet,
       equipment_type: equipmentType,
@@ -1529,6 +1678,7 @@ export default function EquipmentDiaryForm() {
       attachment_type: isCarreta ? (prancha || null) : (attachmentType || null),
       status: isDraft ? "rascunho" : "enviado",
       fotos_perfil: Object.keys(fotosPerfilUrls).length > 0 ? fotosPerfilUrls : null,
+      ...(linkedPreopChecklistId ? { preop_checklist_id: linkedPreopChecklistId } : {}),
       // Preservar checklist_submitted_at se já foi enviado
       ...(checklistSubmittedAt ? { checklist_submitted_at: checklistSubmittedAt } : {}),
     };
@@ -1693,6 +1843,16 @@ export default function EquipmentDiaryForm() {
 
       if (error) throw error;
       if (!diary?.id) throw new Error("Não foi possível salvar o diário.");
+
+      // Vincular checklist pré-op separado (médio prazo) e materializar no modelo legado
+      if (!isDraft && linkedPreopChecklistId) {
+        await materializePreopChecklistOnDiary(
+          diary.id,
+          effectiveCompanyId || null,
+          linkedPreopChecklistId,
+          checklistSubmittedAt,
+        );
+      }
 
       // Upload fotos de perfil (só as que foram selecionadas como File)
       const slots = ["frente", "lado_direito", "traseira", "lado_esquerdo"] as const;
@@ -1989,7 +2149,8 @@ export default function EquipmentDiaryForm() {
       }
 
       // Save checklist results (batch insert for stability)
-      if (hasChecklist && diary && checklistResults.length > 0) {
+      // Quando há checklist pré-op separado vinculado, os itens já foram materializados no bloco acima
+      if (hasChecklist && diary && checklistResults.length > 0 && !linkedPreopChecklistId) {
         const checklistRows: any[] = [];
         for (const cr of checklistResults) {
           let photoUrl: string | null = isRemoteUrl(cr.photoPreview) ? cr.photoPreview : null;
@@ -2359,82 +2520,147 @@ export default function EquipmentDiaryForm() {
     }
   }
 
-  // Enviar checklist: se diário já existe, só marca submitted_at
-  // Se diário ainda não foi salvo, cria o diário mínimo primeiro
+  // Enviar checklist:
+  // - Se diário já existe: marca submitted_at e persiste itens no checklist_entries (fluxo legado)
+  // - Se diário não existe ainda: salva checklist pré-op separado para vincular depois
   const handleEnviarChecklistDoDiario = async () => {
     setEnviandoChecklist(true);
     try {
-      let targetDiaryId = editId || savedDiaryId;
-
-      if (!targetDiaryId) {
-        // Diário ainda não foi salvo — criar agora com o mínimo
-        if (!selectedFleet || !date) {
-          alert("Selecione a frota e a data antes de enviar o checklist.");
-          return;
-        }
-        const now = new Date().toISOString();
-        const { data: newDiary, error: insertErr } = await (supabase as any)
-          .from("equipment_diaries")
-          .insert({
-            equipment_fleet: selectedFleet,
-            date,
-            period: turno,
-            user_id: session?.user?.id,
-            created_by: session?.user?.id,
-            company_id: profile?.company_id || null,
-            checklist_submitted_at: now,
-          })
-          .select()
-          .single();
-        if (insertErr) throw insertErr;
-        targetDiaryId = newDiary.id;
-        setSavedDiaryId(targetDiaryId);
-        setChecklistSubmittedAt(now);
-
-        // Salvar as entries do checklist nesse novo diary (com upload de fotos NC)
-        if (checklistResults.length > 0) {
-          // Só salvar itens com status válido (não null)
-          const validResults = checklistResults.filter(cr => cr.status != null && ["ok","nao_ok","na"].includes(cr.status));
-          const rows: any[] = [];
-          for (const cr of validResults) {
-            let photoUrl: string | null = null;
-            if (cr.photoFile) {
-              try {
-                const path = `checklist/${targetDiaryId}/${cr.itemId}_${Date.now()}.jpg`;
-                const { error: upErr } = await supabase.storage
-                  .from("checklist-fotos")
-                  .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
-                if (!upErr) {
-                  const { data: urlData } = supabase.storage.from("checklist-fotos").getPublicUrl(path);
-                  photoUrl = urlData.publicUrl;
-                }
-              } catch {}
-            }
-            rows.push({
-              diary_id: targetDiaryId,
-              item_id: cr.itemId,
-              status: cr.status,
-              observation: cr.observation || null,
-              photo_url: photoUrl,
-            });
-          }
-          if (rows.length > 0) {
-            const { error: entriesErr } = await supabase.from("checklist_entries").insert(rows);
-            if (entriesErr) {
-              console.error("[EnviarChecklist] Erro ao salvar entries:", entriesErr);
-              throw new Error("Falha ao salvar itens do checklist: " + entriesErr.message);
-            }
-          }
-        }
-      } else {
-        // Diário já existe — só marcar submitted_at
-        const now = new Date().toISOString();
-        await (supabase as any)
-          .from("equipment_diaries")
-          .update({ checklist_submitted_at: now })
-          .eq("id", targetDiaryId);
-        setChecklistSubmittedAt(now);
+      if (!selectedFleet || !date) {
+        alert("Selecione a frota e a data antes de enviar o checklist.");
+        return;
       }
+
+      const now = new Date().toISOString();
+      const normalizedFleet = selectedFleet.trim().toUpperCase();
+      const targetDiaryId = editId || savedDiaryId;
+      const validResults = checklistResults.filter(
+        (cr) => cr.status != null && ["ok", "nao_ok", "na"].includes(cr.status),
+      );
+
+      if (targetDiaryId) {
+        // Diário já existe — mantém compatibilidade total
+        if (preopChecklistId) {
+          await materializePreopChecklistOnDiary(
+            targetDiaryId,
+            profile?.company_id || null,
+            preopChecklistId,
+            now,
+          );
+        } else {
+          await supabase.from("checklist_entries").delete().eq("diary_id", targetDiaryId);
+
+          if (validResults.length > 0) {
+            const rows: any[] = [];
+            for (const cr of validResults) {
+              let photoUrl: string | null = isRemoteUrl(cr.photoPreview) ? cr.photoPreview : null;
+              if (cr.photoFile) {
+                try {
+                  const path = `checklist/${targetDiaryId}/${cr.itemId}_${Date.now()}.jpg`;
+                  const { error: upErr } = await supabase.storage
+                    .from("checklist-fotos")
+                    .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
+                  if (!upErr) {
+                    const { data: urlData } = supabase.storage.from("checklist-fotos").getPublicUrl(path);
+                    photoUrl = urlData.publicUrl;
+                  }
+                } catch {}
+              }
+
+              rows.push({
+                diary_id: targetDiaryId,
+                item_id: cr.itemId,
+                status: cr.status,
+                observation: cr.observation || null,
+                photo_url: photoUrl,
+                company_id: profile?.company_id || null,
+              });
+            }
+
+            const { error: entriesErr } = await (supabase as any).from("checklist_entries").insert(rows);
+            if (entriesErr) throw new Error("Falha ao salvar itens do checklist: " + entriesErr.message);
+          }
+
+          await (supabase as any)
+            .from("equipment_diaries")
+            .update({ checklist_submitted_at: now })
+            .eq("id", targetDiaryId);
+        }
+
+        setChecklistSubmittedAt(now);
+        return;
+      }
+
+      // Sem diário: persistir checklist pré-op separado (médio prazo)
+      if (!session?.user?.id) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+      if (!profile?.company_id) {
+        throw new Error("Company ID não encontrado para salvar checklist pré-op.");
+      }
+
+      const preopPayload = {
+        company_id: profile.company_id,
+        equipment_fleet: normalizedFleet,
+        equipment_type: equipmentType,
+        truck_type: isCaminhoes ? (caminhaoTipo || null) : null,
+        date,
+        period: turno,
+        operator_name: operator || null,
+        created_by: session.user.id,
+        submitted_at: now,
+      };
+
+      const { data: preopHeader, error: preopErr } = await (supabase as any)
+        .from("equipment_preop_checklists")
+        .upsert(preopPayload, { onConflict: "company_id,equipment_fleet,date,period" })
+        .select("id")
+        .single();
+      if (preopErr) throw preopErr;
+
+      const targetPreopId = preopHeader.id as string;
+
+      // Regrava itens para manter round-trip fiel da última versão enviada
+      await (supabase as any)
+        .from("equipment_preop_checklist_entries")
+        .delete()
+        .eq("preop_checklist_id", targetPreopId);
+
+      if (validResults.length > 0) {
+        const preopRows: any[] = [];
+        for (const cr of validResults) {
+          let photoUrl: string | null = isRemoteUrl(cr.photoPreview) ? cr.photoPreview : null;
+          if (cr.photoFile) {
+            try {
+              const path = `checklist/preop/${targetPreopId}/${cr.itemId}_${Date.now()}.jpg`;
+              const { error: upErr } = await supabase.storage
+                .from("checklist-fotos")
+                .upload(path, cr.photoFile, { contentType: "image/jpeg", upsert: true });
+              if (!upErr) {
+                const { data: urlData } = supabase.storage.from("checklist-fotos").getPublicUrl(path);
+                photoUrl = urlData.publicUrl;
+              }
+            } catch {}
+          }
+
+          preopRows.push({
+            preop_checklist_id: targetPreopId,
+            item_id: cr.itemId,
+            status: cr.status,
+            observation: cr.observation || null,
+            photo_url: photoUrl,
+          });
+        }
+
+        const { error: preopItemsErr } = await (supabase as any)
+          .from("equipment_preop_checklist_entries")
+          .insert(preopRows);
+        if (preopItemsErr) throw preopItemsErr;
+      }
+
+      setPreopChecklistId(targetPreopId);
+      setChecklistSubmittedAt(now);
+      toast({ title: "Checklist pré-op enviado", description: "Agora você pode concluir o diário e o sistema fará o vínculo automaticamente." });
     } catch (err: any) {
       console.error("[EnviarChecklist]", err);
       alert("Erro ao enviar checklist: " + (err.message || "Tente novamente"));
