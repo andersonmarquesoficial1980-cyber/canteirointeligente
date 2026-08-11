@@ -18,6 +18,7 @@ interface Employee {
   role: string;
   data_admissao: string;
   centro_custo?: string;
+  status?: string | null;
 }
 
 interface VacationPeriod {
@@ -385,13 +386,13 @@ export default function ProgramacaoFerias() {
   const [busca, setBusca] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalEmp, setModalEmp] = useState<Employee | null>(null);
-  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva">("todos");
+  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias">("todos");
 
   const load = useCallback(async () => {
     setLoading(true);
     const { data: emps } = await supabase
       .from("employees")
-      .select("id,name,matricula,role,data_admissao,centro_custo")
+      .select("id,name,matricula,role,data_admissao,centro_custo,status")
       .eq("company_id", COMPANY_ID)
       .in("status", ["ativo", "ferias"])
       .order("name");
@@ -437,6 +438,7 @@ export default function ProgramacaoFerias() {
     if (filtro === "pendente") return p && p.periodo_fim <= hoje && p.status !== "gozado";
     if (filtro === "vencido") return p && p.status === "vencido";
     if (filtro === "coletiva") return e.records.some(r => r.tipo === "coletiva");
+    if (filtro === "em_ferias") return (e.status || "").toLowerCase() === "ferias";
     return true;
   });
 
@@ -446,6 +448,7 @@ export default function ProgramacaoFerias() {
   }).length;
 
   const totalColetiva = employees.filter(e => e.records.some(r => r.tipo === "coletiva")).length;
+  const totalEmFerias = employees.filter(e => (e.status || "").toLowerCase() === "ferias").length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -483,6 +486,7 @@ export default function ProgramacaoFerias() {
           { id: "todos", label: "Todos" },
           { id: "pendente", label: `⚠️ Pendentes (${totalPendente})` },
           { id: "coletiva", label: `🏢 C. Coletiva (${totalColetiva})` },
+          { id: "em_ferias", label: `🏖️ Em férias (${totalEmFerias})` },
         ] as const).map(f => (
           <button key={f.id} onClick={() => setFiltro(f.id)}
             className={`px-4 py-3 text-xs font-medium whitespace-nowrap border-b-2 shrink-0 transition-colors ${filtro === f.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}>
