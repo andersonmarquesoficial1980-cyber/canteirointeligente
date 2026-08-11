@@ -1395,6 +1395,27 @@ export default function EquipmentDiaryForm() {
     });
   }, [filteredFleetForType, isCarreta]);
 
+  // Guarda final anti-vazamento no UI: reforça filtro de frota por subtipo de caminhão
+  const fleetOptionsStrict = useMemo(() => {
+    const base = (isCarreta ? carretaCavalos : filteredFleetForType) || [];
+    if (!isCaminhoes) return base;
+
+    const subtipo = caminhaoTipoNorm || equipmentTypeNorm;
+    const matches = (e: any, tipoKey: string, prefixo: string) => {
+      const tipo = normTxt(e?.tipo || "");
+      const frota = normTxt(e?.frota || "");
+      return tipo.includes(tipoKey) || frota.startsWith(prefixo);
+    };
+
+    if (subtipo.includes("BASCULANTE")) return base.filter((e: any) => matches(e, "BASCULANTE", "CB"));
+    if (subtipo.includes("PIPA")) return base.filter((e: any) => matches(e, "PIPA", "CP"));
+    if (subtipo.includes("ESPARGIDOR")) return base.filter((e: any) => matches(e, "ESPARGIDOR", "CE"));
+    if (subtipo.includes("CARROCERIA")) return base.filter((e: any) => matches(e, "CARROCERIA", "CC"));
+    if (subtipo.includes("COMBOIO")) return base.filter((e: any) => matches(e, "COMBOIO", "CO"));
+
+    return base;
+  }, [isCarreta, carretaCavalos, filteredFleetForType, isCaminhoes, caminhaoTipoNorm, equipmentTypeNorm]);
+
   // staticFleetList e useStaticFleet removidos — fonte única agora é filteredFleetForType
 
   const getOperatorList = () => {
@@ -2784,10 +2805,10 @@ export default function EquipmentDiaryForm() {
               ) : (
                 <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : (isCarreta ? carretaCavalos.length === 0 : filteredFleetForType.length === 0) ? "Nenhuma frota cadastrada" : "Selecione..."} />
+                    <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : fleetOptionsStrict.length === 0 ? "Nenhuma frota cadastrada" : "Selecione..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(isCarreta ? carretaCavalos : filteredFleetForType).filter((eq: any) => eq && eq.frota).map((eq: any) => (
+                    {fleetOptionsStrict.filter((eq: any) => eq && eq.frota).map((eq: any) => (
                       <SelectItem key={eq.id} value={eq.frota}>
                         {eq.frota} — {eq.nome}
                       </SelectItem>
