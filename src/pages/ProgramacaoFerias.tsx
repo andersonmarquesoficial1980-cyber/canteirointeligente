@@ -442,6 +442,8 @@ export default function ProgramacaoFerias() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    const hoje = new Date().toISOString().split("T")[0];
+
     const { data: emps } = await supabase
       .from("employees")
       .select("id,name,matricula,role,data_admissao,centro_custo,status")
@@ -461,11 +463,45 @@ export default function ProgramacaoFerias() {
       .eq("company_id", COMPANY_ID)
       .order("data_inicio", { ascending: false });
 
-    const result: EmployeeWithVacation[] = (emps || []).map(e => ({
-      ...e,
-      periodos: (periods || []).filter(p => p.employee_id === e.id),
-      records: (records || []).filter(r => r.employee_id === e.id),
-    }));
+    const idsEmFeriasPorPeriodo = new Set(
+      (records || [])
+        .filter((r) => isDateInRange(hoje, r.data_inicio, r.data_fim))
+        .map((r) => r.employee_id)
+    );
+
+    const idsAtivoParaFerias = (emps || [])
+      .filter((e) => (e.status || "").toLowerCase() === "ativo" && idsEmFeriasPorPeriodo.has(e.id))
+      .map((e) => e.id);
+
+    const idsFeriasParaAtivo = (emps || [])
+      .filter((e) => (e.status || "").toLowerCase() === "ferias" && !idsEmFeriasPorPeriodo.has(e.id))
+      .map((e) => e.id);
+
+    if (idsAtivoParaFerias.length > 0) {
+      await supabase
+        .from("employees")
+        .update({ status: "ferias" })
+        .eq("company_id", COMPANY_ID)
+        .in("id", idsAtivoParaFerias);
+    }
+
+    if (idsFeriasParaAtivo.length > 0) {
+      await supabase
+        .from("employees")
+        .update({ status: "ativo" })
+        .eq("company_id", COMPANY_ID)
+        .in("id", idsFeriasParaAtivo);
+    }
+
+    const result: EmployeeWithVacation[] = (emps || []).map((e) => {
+      const statusSincronizado = idsEmFeriasPorPeriodo.has(e.id) ? "ferias" : ((e.status || "ativo").toLowerCase() === "ferias" ? "ativo" : e.status || "ativo");
+      return {
+        ...e,
+        status: statusSincronizado,
+        periodos: (periods || []).filter((p) => p.employee_id === e.id),
+        records: (records || []).filter((r) => r.employee_id === e.id),
+      };
+    });
 
     setEmployees(result);
     setLoading(false);

@@ -270,6 +270,15 @@ export default function FichaFuncionario() {
       return;
     }
 
+    if (statusFinal === "ferias") {
+      toast({
+        title: "Status 'Férias' é automático",
+        description: "Use Programação de Férias para registrar período vigente. O sistema sincroniza o status automaticamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSalvando(true);
     const { error } = await supabase.from("employees").update({
       name: (form.name || func.name).toUpperCase(),
@@ -614,17 +623,24 @@ export default function FichaFuncionario() {
                 <div className="flex-1">
                   <p className="text-[10px] text-muted-foreground">Status</p>
                   {editando
-                    ? <select value={form.status || "ativo"} onChange={e => setForm(p => {
-                        const next = e.target.value;
-                        return {
-                          ...p,
-                          status: next,
-                          data_demissao: next === "demitido" ? p.data_demissao : null,
-                        };
-                      })}
-                        className="text-sm bg-background border border-border rounded-lg px-2 py-1 mt-0.5 w-full">
-                        {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                      </select>
+                    ? <>
+   <select value={form.status || "ativo"} onChange={e => setForm(p => {
+     const next = e.target.value;
+     return {
+       ...p,
+       status: next,
+       data_demissao: next === "demitido" ? p.data_demissao : null,
+     };
+   })}
+     className="text-sm bg-background border border-border rounded-lg px-2 py-1 mt-0.5 w-full">
+     {Object.entries(STATUS_CONFIG)
+       .filter(([k]) => k !== "ferias")
+       .map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+   </select>
+   <p className="text-[10px] text-muted-foreground mt-1">
+     Status "Férias" é automático via Programação de Férias.
+   </p>
+ </>
                     : <span className={`inline-flex text-xs px-2 py-0.5 rounded-full border font-medium ${statusCfg.cor}`}>{statusCfg.label}</span>
                   }
                 </div>
