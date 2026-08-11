@@ -353,31 +353,58 @@ export default function GestaoPessoasDashboard() {
       .then(({ data }) => { if (data) setTodos(data as any); setLoading(false); });
   }, []);
 
-  // Todos os cards do hub — ordem exata do print
-  const HUB_ITEMS = [
+  // Hub organizado por domínio para reduzir dispersão (sem alterar rotas)
+  const HUB_GROUPS = [
     {
-      label: "Cadastro de Equipe",
-      desc: "Por função, por equipe, Centro de Custo e Aniversariantes",
-      icon: User,
-      cor: "bg-blue-500/15 text-blue-600",
-      rota: "/gestao-pessoas/equipe",
+      titulo: "Cadastros e RH",
+      items: [
+        {
+          label: "Cadastro de Funcionários",
+          desc: "Por função, por equipe, Centro de Custo e Aniversariantes",
+          icon: User,
+          cor: "bg-blue-500/15 text-blue-600",
+          rota: "/gestao-pessoas/equipe",
+        },
+        {
+          label: "Banco de Candidatos",
+          desc: "Entrevistas, contatos, testes e ficha completa de contratação",
+          icon: ClipboardList,
+          cor: "bg-fuchsia-500/15 text-fuchsia-600",
+          rota: "/gestao-pessoas/candidatos",
+        },
+        {
+          label: "Programação de Férias",
+          desc: "Controle de férias, coletivas e saldo por funcionário",
+          icon: Calendar,
+          cor: "bg-green-500/20 text-green-600",
+          rota: "/gestao-pessoas/ferias",
+        },
+        {
+          label: "WhatsApp RH",
+          desc: "Inbox de mensagens dos funcionários via WhatsApp",
+          icon: Smartphone,
+          cor: "bg-green-600/20 text-green-700",
+          rota: "/gestao-pessoas/whatsapp",
+        },
+      ],
     },
     {
-      label: "Banco de Candidatos",
-      desc: "Entrevistas, contatos, testes e ficha completa de contratação",
-      icon: ClipboardList,
-      cor: "bg-fuchsia-500/15 text-fuchsia-600",
-      rota: "/gestao-pessoas/candidatos",
+      titulo: "Gerenciamento de Ponto",
+      items: [
+        { label: "Registrar Ponto",       desc: "Ponto facial com GPS e geofencing automático",          icon: Camera,        cor: "bg-blue-500/20 text-blue-600",    rota: "/rh/registrar-ponto" },
+        { label: "Espelho de Ponto",      desc: "Histórico mensal, horas trabalhadas e extras",           icon: ClipboardList,  cor: "bg-green-500/20 text-green-600",  rota: "/rh/espelho-ponto" },
+        { label: "Solicitações de Ponto", desc: "Ajuste de ponto e abono de falta",                      icon: MessageSquare,  cor: "bg-yellow-500/20 text-yellow-600", rota: "/rh/solicitacoes" },
+        { label: "Aprovações",            desc: "Aprovar ou reprovar solicitações da equipe",            icon: CheckSquare,    cor: "bg-teal-500/20 text-teal-600",    rota: "/rh/aprovacoes" },
+        { label: "Banco de Horas",        desc: "Saldo de horas por funcionário no mês",                 icon: Clock,          cor: "bg-indigo-500/20 text-indigo-600", rota: "/rh/banco-horas" },
+      ],
     },
-    { label: "Registrar Ponto",       desc: "Ponto facial com GPS e geofencing automático",          icon: Camera,        cor: "bg-blue-500/20 text-blue-600",    rota: "/rh/registrar-ponto" },
-    { label: "Espelho de Ponto",      desc: "Histórico mensal, horas trabalhadas e extras",           icon: ClipboardList,  cor: "bg-green-500/20 text-green-600",  rota: "/rh/espelho-ponto" },
-    { label: "Trajeto e VT",          desc: "Calcule rotas de transporte público e custo de VT",     icon: Bus,            cor: "bg-orange-500/20 text-orange-600", rota: "/rh/trajeto-vt" },
-    { label: "Gestão de VT",          desc: "Tarifas, conduções e custo mensal por funcionário",     icon: MapPin,         cor: "bg-purple-500/20 text-purple-600", rota: "/vale-transporte" },
-    { label: "Solicitações de Ponto", desc: "Ajuste de ponto e abono de falta",                      icon: MessageSquare,  cor: "bg-yellow-500/20 text-yellow-600", rota: "/rh/solicitacoes" },
-    { label: "Aprovações",            desc: "Aprovar ou reprovar solicitações da equipe",            icon: CheckSquare,    cor: "bg-teal-500/20 text-teal-600",    rota: "/rh/aprovacoes" },
-    { label: "Banco de Horas",        desc: "Saldo de horas por funcionário no mês",                 icon: Clock,          cor: "bg-indigo-500/20 text-indigo-600", rota: "/rh/banco-horas" },
-    { label: "Programação de Férias", desc: "Controle de férias, coletivas e saldo por funcionário", icon: Calendar,       cor: "bg-green-500/20 text-green-600",  rota: "/gestao-pessoas/ferias" },
-    { label: "WhatsApp RH",           desc: "Inbox de mensagens dos funcionários via WhatsApp",      icon: Smartphone,     cor: "bg-green-600/20 text-green-700",  rota: "/gestao-pessoas/whatsapp" },
+    {
+      titulo: "Gerenciamento de VT",
+      items: [
+        { label: "Trajeto e VT",          desc: "Calcule rotas de transporte público e custo de VT",     icon: Bus,            cor: "bg-orange-500/20 text-orange-600", rota: "/rh/trajeto-vt" },
+        { label: "Gestão de VT",          desc: "Tarifas, conduções e custo mensal por funcionário",     icon: MapPin,         cor: "bg-purple-500/20 text-purple-600", rota: "/vale-transporte" },
+      ],
+    },
   ];
 
   return (
@@ -404,26 +431,34 @@ export default function GestaoPessoasDashboard() {
       </div>
 
       {/* Hub de cards */}
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
-        {HUB_ITEMS.map(item => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.rota}
-              onClick={() => navigate(`${item.rota}${origemQuery}`)}
-              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors text-left w-full"
-            >
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${item.cor}`}>
-                <Icon className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-            </button>
-          );
-        })}
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {HUB_GROUPS.map(group => (
+          <section key={group.titulo} className="space-y-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground px-1">
+              {group.titulo}
+            </p>
+
+            {group.items.map(item => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.rota}
+                  onClick={() => navigate(`${item.rota}${origemQuery}`)}
+                  className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors text-left w-full"
+                >
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${item.cor}`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                </button>
+              );
+            })}
+          </section>
+        ))}
 
         {/* Card Integrações por Obra */}
         <IntegracaoObrasCard />
