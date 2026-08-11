@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   ArrowLeft, Calendar, Plus, ChevronRight, AlertTriangle,
   CheckCircle, Clock, Users, Search, X, ChevronDown, ChevronUp
@@ -255,10 +255,11 @@ function ModalFerias({
 }
 
 // ─── Card de funcionário ──────────────────────────────────────────────────────
-function CardFuncionario({ emp, onRegistrar, onToggle, expanded }: {
+function CardFuncionario({ emp, onRegistrar, onToggle, onAbrirFicha, expanded }: {
   emp: EmployeeWithVacation;
   onRegistrar: () => void;
   onToggle: () => void;
+  onAbrirFicha: () => void;
   expanded: boolean;
 }) {
   const periodoAtual = emp.periodos.find(p => p.status !== "gozado") || emp.periodos[0];
@@ -363,13 +364,23 @@ function CardFuncionario({ emp, onRegistrar, onToggle, expanded }: {
             {proxPeriodo && ` · Próximo período: ${fmtDate(proxPeriodo)}`}
           </p>
 
-          <button onClick={onRegistrar} style={{
-            width: "100%", height: 40, borderRadius: 10, background: "#0055AA",
-            color: "white", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 6
-          }}>
-            <Plus size={15} /> Registrar Férias
-          </button>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <button onClick={onAbrirFicha} style={{
+              height: 40, borderRadius: 10, background: "#eef2ff",
+              color: "#3730a3", fontWeight: 700, fontSize: 13, border: "1px solid #c7d2fe", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6
+            }}>
+              <Users size={15} /> Abrir Ficha
+            </button>
+
+            <button onClick={onRegistrar} style={{
+              height: 40, borderRadius: 10, background: "#0055AA",
+              color: "white", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6
+            }}>
+              <Plus size={15} /> Registrar Férias
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -379,14 +390,27 @@ function CardFuncionario({ emp, onRegistrar, onToggle, expanded }: {
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function ProgramacaoFerias() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const rotaVoltar = useOrigemBack("/gestao-pessoas", { "gestao-frotas": "/gestao-frotas" });
+  const origem = searchParams.get("origem") || "";
+  const buscaInicial = searchParams.get("q") || "";
+  const focoFuncionarioId = searchParams.get("funcionario_id") || "";
+  const returnToParam = searchParams.get("returnTo") || "";
+  const filtroParam = searchParams.get("filtro");
+  const filtroInicial: "todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" =
+    filtroParam === "pendente" || filtroParam === "vencido" || filtroParam === "coletiva" || filtroParam === "em_ferias"
+      ? filtroParam
+      : "todos";
+
   const { isAdmin } = useIsAdmin();
   const [employees, setEmployees] = useState<EmployeeWithVacation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useState(buscaInicial);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalEmp, setModalEmp] = useState<Employee | null>(null);
-  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias">("todos");
+  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias">(filtroInicial);
+  const [focoAplicado, setFocoAplicado] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -421,6 +445,32 @@ export default function ProgramacaoFerias() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (loading || focoAplicado || !focoFuncionarioId) return;
+    const alvo = employees.find(e => e.id === focoFuncionarioId);
+    if (!alvo) {
+      setFocoAplicado(true);
+      return;
+    }
+
+    setExpandedId(alvo.id);
+    if (!buscaInicial) {
+      setBusca(alvo.matricula?.trim() || alvo.name);
+    }
+    setFocoAplicado(true);
+  }, [loading, focoAplicado, focoFuncionarioId, employees, buscaInicial]);
+
+  const abrirFichaFuncionario = (emp: EmployeeWithVacation) => {
+    const retParams = new URLSearchParams();
+    if (origem) retParams.set("origem", origem);
+    if (busca.trim()) retParams.set("q", busca.trim());
+    if (filtro !== "todos") retParams.set("filtro", filtro);
+    retParams.set("funcionario_id", emp.id);
+
+    const returnTo = `${location.pathname}?${retParams.toString()}`;
+    navigate(`/gestao-pessoas/${emp.id}?returnTo=${encodeURIComponent(returnTo)}`);
+  };
+
   // Filtros
   const hoje = new Date().toISOString().split("T")[0];
   const filtrados = employees.filter(e => {
@@ -454,7 +504,10 @@ export default function ProgramacaoFerias() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button
+          onClick={() => returnToParam ? navigate(returnToParam) : navigate(rotaVoltar)}
+          className="p-1.5 rounded-lg hover:bg-white/10 transition"
+        >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />
@@ -519,6 +572,7 @@ export default function ProgramacaoFerias() {
               expanded={expandedId === emp.id}
               onToggle={() => setExpandedId(expandedId === emp.id ? null : emp.id)}
               onRegistrar={() => { setModalEmp(emp); setExpandedId(null); }}
+              onAbrirFicha={() => abrirFichaFuncionario(emp)}
             />
           ))
         )}

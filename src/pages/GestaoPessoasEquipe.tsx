@@ -41,6 +41,7 @@ function LinhaFuncionario({
   equipesDisponiveis,
   updatingEquipeId,
   onChangeEquipe,
+  onProgramarFerias,
 }: {
   f: Funcionario;
   index: number;
@@ -49,6 +50,7 @@ function LinhaFuncionario({
   equipesDisponiveis: string[];
   updatingEquipeId: string | null;
   onChangeEquipe: (id: string, novaEquipe: string) => void;
+  onProgramarFerias: (f: Funcionario) => void;
 }) {
   const equipeAtual = (f.equipe || "").trim();
 
@@ -119,6 +121,13 @@ function LinhaFuncionario({
             ))}
           </SelectContent>
         </Select>
+        <button
+          onClick={(e) => { e.stopPropagation(); onProgramarFerias(f); }}
+          className="h-8 px-2.5 rounded-lg border border-primary/30 text-primary text-[11px] font-semibold hover:bg-primary/10 transition-colors whitespace-nowrap"
+          title="Abrir programação de férias deste funcionário"
+        >
+          Programar férias
+        </button>
         {updatingEquipeId === f.id && <Loader2 size={13} className="animate-spin text-primary" />}
       </div>
     </div>
@@ -134,6 +143,7 @@ function GrupoColapsavel({
   equipesDisponiveis,
   updatingEquipeId,
   onChangeEquipe,
+  onProgramarFerias,
 }: {
   titulo: string;
   itens: Funcionario[];
@@ -143,6 +153,7 @@ function GrupoColapsavel({
   equipesDisponiveis: string[];
   updatingEquipeId: string | null;
   onChangeEquipe: (id: string, novaEquipe: string) => void;
+  onProgramarFerias: (f: Funcionario) => void;
 }) {
   const [aberto, setAberto] = useState(false);
   return (
@@ -171,6 +182,7 @@ function GrupoColapsavel({
               equipesDisponiveis={equipesDisponiveis}
               updatingEquipeId={updatingEquipeId}
               onChangeEquipe={onChangeEquipe}
+              onProgramarFerias={onProgramarFerias}
             />
           ))}
         </div>
@@ -335,6 +347,15 @@ export default function GestaoPessoasEquipe() {
 
   const irFuncionario = (id: string) => navigate(`/gestao-pessoas/${id}?returnTo=${returnTo}`);
 
+  const irProgramacaoFerias = (f: Funcionario) => {
+    const params = new URLSearchParams();
+    if (origem) params.set("origem", origem);
+    params.set("q", f.matricula?.trim() || f.name);
+    params.set("funcionario_id", f.id);
+    params.set("returnTo", `${location.pathname}?${currentParams.toString()}`);
+    navigate(`/gestao-pessoas/ferias?${params.toString()}`);
+  };
+
   const ABAS: { id: Aba; label: string; emoji: string; count?: number }[] = [
     { id: "lista",           label: "Todos",           emoji: "👤", count: todos.length },
     { id: "funcao",          label: "Por Função",      emoji: "🔧", count: Object.keys(porFuncao).length },
@@ -443,6 +464,7 @@ export default function GestaoPessoasEquipe() {
                       equipesDisponiveis={equipesDisponiveis}
                       updatingEquipeId={updatingEquipeId}
                       onChangeEquipe={alterarEquipeRapida}
+                      onProgramarFerias={irProgramacaoFerias}
                     />
                   ))}
                 </div>
@@ -478,6 +500,7 @@ export default function GestaoPessoasEquipe() {
                       equipesDisponiveis={equipesDisponiveis}
                       updatingEquipeId={updatingEquipeId}
                       onChangeEquipe={alterarEquipeRapida}
+                      onProgramarFerias={irProgramacaoFerias}
                     />
                   ))}
               </>
