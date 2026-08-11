@@ -393,7 +393,7 @@ export default function ProgramacaoFerias() {
       .from("employees")
       .select("id,name,matricula,role,data_admissao,centro_custo")
       .eq("company_id", COMPANY_ID)
-      .eq("status", "ativo")
+      .in("status", ["ativo", "ferias"])
       .order("name");
 
     const { data: periods } = await supabase
