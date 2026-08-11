@@ -389,20 +389,22 @@ export default function GestaoPessoasDashboard() {
       ],
     },
     {
-      titulo: "Gerenciamento de Ponto",
+      titulo: "Jornadas e Benefícios",
       items: [
-        { label: "Registrar Ponto",       desc: "Ponto facial com GPS e geofencing automático",          icon: Camera,        cor: "bg-blue-500/20 text-blue-600",    rota: "/rh/registrar-ponto" },
-        { label: "Espelho de Ponto",      desc: "Histórico mensal, horas trabalhadas e extras",           icon: ClipboardList,  cor: "bg-green-500/20 text-green-600",  rota: "/rh/espelho-ponto" },
-        { label: "Solicitações de Ponto", desc: "Ajuste de ponto e abono de falta",                      icon: MessageSquare,  cor: "bg-yellow-500/20 text-yellow-600", rota: "/rh/solicitacoes" },
-        { label: "Aprovações",            desc: "Aprovar ou reprovar solicitações da equipe",            icon: CheckSquare,    cor: "bg-teal-500/20 text-teal-600",    rota: "/rh/aprovacoes" },
-        { label: "Banco de Horas",        desc: "Saldo de horas por funcionário no mês",                 icon: Clock,          cor: "bg-indigo-500/20 text-indigo-600", rota: "/rh/banco-horas" },
-      ],
-    },
-    {
-      titulo: "Gerenciamento de VT",
-      items: [
-        { label: "Trajeto e VT",          desc: "Calcule rotas de transporte público e custo de VT",     icon: Bus,            cor: "bg-orange-500/20 text-orange-600", rota: "/rh/trajeto-vt" },
-        { label: "Gestão de VT",          desc: "Tarifas, conduções e custo mensal por funcionário",     icon: MapPin,         cor: "bg-purple-500/20 text-purple-600", rota: "/vale-transporte" },
+        {
+          label: "Gerenciamento de Ponto",
+          desc: "Registrar ponto, espelho, solicitações, aprovações e banco de horas",
+          icon: Clock,
+          cor: "bg-indigo-500/20 text-indigo-600",
+          rota: "/gestao-pessoas/gerenciamento-ponto",
+        },
+        {
+          label: "Gerenciamento de VT",
+          desc: "Trajeto, tarifas, conduções e custo mensal de vale-transporte",
+          icon: Bus,
+          cor: "bg-orange-500/20 text-orange-600",
+          rota: "/gestao-pessoas/gerenciamento-vt",
+        },
       ],
     },
   ];
