@@ -227,21 +227,31 @@ export default function EquipmentDiaryForm() {
   const isRetro = equipmentType === "Retro";
   const isRolo = equipmentType === "Rolo";
   const isVibro = equipmentType === "Vibroacabadora";
-  const isCaminhoes = equipmentType === "Caminhões";
+  const isCaminhoes = equipmentTypeNorm === "CAMINHOES" || equipmentTypeNorm.includes("CAMINHAO");
   const isVeiculo = equipmentType === "Veículo";
   const isCarreta = equipmentType === "Carreta";
 
   // Caminhões sub-type state
   const [caminhaoTipo, setCaminhaoTipo] = useState("");
-  const isPipa = isCaminhoes && caminhaoTipo === "Pipa";
-  const isEspargidor = isCaminhoes && caminhaoTipo === "Espargidor";
-  const isCarroceria = isCaminhoes && caminhaoTipo === "Carroceria";
-  const isBasculante = isCaminhoes && caminhaoTipo === "Basculante";
-  const isComboio = equipmentType === "Comboio" || (isCaminhoes && caminhaoTipo === "Comboio");
+  const caminhaoTipoNorm = normTxt(caminhaoTipo);
+  const isPipa = isCaminhoes && caminhaoTipoNorm.includes("PIPA");
+  const isEspargidor = isCaminhoes && caminhaoTipoNorm.includes("ESPARGIDOR");
+  const isCarroceria = isCaminhoes && caminhaoTipoNorm.includes("CARROCERIA");
+  const isBasculante = isCaminhoes && caminhaoTipoNorm.includes("BASCULANTE");
+  const isComboio = equipmentTypeNorm === "COMBOIO" || (isCaminhoes && caminhaoTipoNorm.includes("COMBOIO"));
 
   const isTruck = isCaminhoes || isComboio || isVeiculo || isCarreta;
   const usesOdometer = isTruck;
   const hasChecklist = isFresadora || isBobcat || isRetro || isRolo || isVibro || isUsinaKma || isCaminhoes || isVeiculo || isComboio || isCarreta;
+
+  useEffect(() => {
+    if (!isCaminhoes || caminhaoTipo) return;
+    if (equipmentTypeNorm.includes("BASCULANTE")) { setCaminhaoTipo("Basculante"); return; }
+    if (equipmentTypeNorm.includes("PIPA")) { setCaminhaoTipo("Pipa"); return; }
+    if (equipmentTypeNorm.includes("ESPARGIDOR")) { setCaminhaoTipo("Espargidor"); return; }
+    if (equipmentTypeNorm.includes("CARROCERIA")) { setCaminhaoTipo("Carroceria"); return; }
+    if (equipmentTypeNorm.includes("COMBOIO")) { setCaminhaoTipo("Comboio"); }
+  }, [isCaminhoes, caminhaoTipo, equipmentTypeNorm]);
 
   const { data: ogsData = [] } = useOgsReference();
 

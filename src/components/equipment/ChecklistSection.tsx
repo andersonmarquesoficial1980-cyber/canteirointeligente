@@ -74,7 +74,15 @@ export default function ChecklistSection({
   });
 
   const itemsFiltered = useMemo(() => {
-    const isCaminhoes = normalizeText(equipmentType) === "CAMINHOES";
+    const equipmentTypeNorm = normalizeText(equipmentType);
+    const isCaminhoes =
+      equipmentTypeNorm === "CAMINHOES" ||
+      equipmentTypeNorm.includes("CAMINHAO") ||
+      equipmentTypeNorm.includes("BASCULANTE") ||
+      equipmentTypeNorm.includes("PIPA") ||
+      equipmentTypeNorm.includes("ESPARGIDOR") ||
+      equipmentTypeNorm.includes("CARROCERIA");
+
     if (!isCaminhoes) return items;
 
     return items.filter((item) => {
