@@ -45,6 +45,11 @@ const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
 const WFDashboardsHub = lazy(() => import("./WFDashboards"));
 
+const OWNER_ONLY_ADMIN_EMAILS = new Set([
+  "andersonmarquesoficial1980@gmail.com",
+  "anderson@fremix.workflux.app",
+]);
+
 const VINCULO_OPTIONS = [
   "FRESADORA", "BOBCAT", "VIBRO", "KMA",
   "ROLO_CHAPA", "ROLO_PNEU", "ROLO_PE_CARNEIRO",
@@ -4928,6 +4933,8 @@ export default function AdminConfiguracoes() {
   const [transitioning, setTransitioning] = useState(false);
   const [allowedSections, setAllowedSections] = useState<Set<string> | null>(null);
   const [loadingAdminSections, setLoadingAdminSections] = useState(true);
+  const [currentUserEmail, setCurrentUserEmail] = useState("");
+  const isOwnerAdmin = OWNER_ONLY_ADMIN_EMAILS.has(currentUserEmail.toLowerCase());
 
   useEffect(() => {
     if (activeSection === "lancamentos_admin") {
@@ -4946,6 +4953,18 @@ export default function AdminConfiguracoes() {
 
   const loadingBase = loadingAdmin || loadingPerms || loadingModules;
   const hasAccess = isAdmin || isSuperAdmin || permissions?.is_admin === true;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const email = authData?.user?.email?.toLowerCase() || "";
+      if (mounted) setCurrentUserEmail(email);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -5081,8 +5100,8 @@ export default function AdminConfiguracoes() {
       }
 
       // Segurança UX: se o usuário tem role admin, mas sem permissões de seção,
-      // libera apenas a aba de Roles para que um admin global complete a configuração.
-      if (allowed.size === 0) {
+      // para owner libera a aba de Roles; para demais mantém bloqueado.
+      if (allowed.size === 0 && isOwnerAdmin) {
         allowed.add("roles");
       }
 
@@ -5097,14 +5116,17 @@ export default function AdminConfiguracoes() {
     return () => {
       mounted = false;
     };
-  }, [loadingBase, hasAccess, isSuperAdmin, permissions?.is_admin]);
+  }, [loadingBase, hasAccess, isSuperAdmin, permissions?.is_admin, isOwnerAdmin]);
 
   const menuSectionsVisiveis = useMemo(() => {
-    if (isSuperAdmin || permissions?.is_admin || allowedSections === null) {
-      return MENU_SECTIONS;
-    }
-    return MENU_SECTIONS.filter((item) => allowedSections?.has(item.key));
-  }, [isSuperAdmin, permissions?.is_admin, allowedSections]);
+    const baseSections = (isSuperAdmin || permissions?.is_admin || allowedSections === null)
+      ? MENU_SECTIONS
+      : MENU_SECTIONS.filter((item) => allowedSections?.has(item.key));
+
+    if (isOwnerAdmin) return baseSections;
+
+    return baseSections.filter((item) => item.key !== "permissoes" && item.key !== "roles");
+  }, [isSuperAdmin, permissions?.is_admin, allowedSections, isOwnerAdmin]);
 
   useEffect(() => {
     if (loadingBase || loadingAdminSections) return;
