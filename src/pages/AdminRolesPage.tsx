@@ -371,6 +371,7 @@ function RolesTab() {
 function PermissionsTab() {
   const [permissions, setPermissions] = useState<AdminPermission[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingMatrix, setSavingMatrix] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState("");
@@ -388,12 +389,40 @@ function PermissionsTab() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) {
+        setPermissions([]);
+        setRoles([]);
+        setCompanyId(null);
+        return;
+      }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+
+      const cid = profileData?.company_id || null;
+      setCompanyId(cid);
+
+      if (!cid) {
+        setPermissions([]);
+        setRoles([]);
+        return;
+      }
+
       const [permissionsRes, rolesRes] = await Promise.all([
         supabase
           .from("admin_permissions")
           .select("*")
+          .eq("company_id", cid)
           .order("created_at", { ascending: false }),
-        supabase.from("admin_roles").select("*"),
+        supabase.from("admin_roles").select("*").eq("company_id", cid),
       ]);
 
       if (permissionsRes.error) throw permissionsRes.error;
@@ -430,6 +459,10 @@ function PermissionsTab() {
   };
 
   const handleSavePermission = async () => {
+    if (!companyId) {
+      toast.error("Empresa não identificada para salvar permissões");
+      return;
+    }
     if (!formData.role_id || !formData.resource || !formData.action) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
@@ -446,12 +479,14 @@ function PermissionsTab() {
             is_sector_scoped: formData.is_sector_scoped,
             sector_filter: formData.is_sector_scoped ? formData.sector_filter : null,
           })
-          .eq("id", editingPermission.id);
+          .eq("id", editingPermission.id)
+          .eq("company_id", companyId);
 
         if (error) throw error;
         toast.success("Permissão atualizada com sucesso");
       } else {
         const { error } = await supabase.from("admin_permissions").insert({
+          company_id: companyId,
           role_id: formData.role_id,
           resource: formData.resource,
           action: formData.action,
@@ -466,7 +501,8 @@ function PermissionsTab() {
       setIsDialogOpen(false);
       await fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar permissão");
+      const detail = err instanceof Error ? err.message : "Erro ao salvar permissão";
+      toast.error(`Erro ao atualizar permissão: ${detail}`);
     }
   };
 
@@ -495,6 +531,10 @@ function PermissionsTab() {
   };
 
   const toggleMatrixPermission = async (section: string, action: string, enabled: boolean) => {
+    if (!companyId) {
+      toast.error("Empresa não identificada para atualizar permissões");
+      return;
+    }
     if (!selectedRoleId) {
       toast.error("Selecione um role primeiro");
       return;
@@ -507,6 +547,7 @@ function PermissionsTab() {
       if (enabled) {
         const { error } = await supabase.from("admin_permissions").upsert(
           {
+            company_id: companyId,
             role_id: selectedRoleId,
             resource,
             action,
@@ -521,6 +562,7 @@ function PermissionsTab() {
         const { error } = await supabase
           .from("admin_permissions")
           .delete()
+          .eq("company_id", companyId)
           .eq("role_id", selectedRoleId)
           .eq("resource", resource)
           .eq("action", action);
@@ -537,6 +579,10 @@ function PermissionsTab() {
   };
 
   const setAllSectionPermissions = async (enabled: boolean) => {
+    if (!companyId) {
+      toast.error("Empresa não identificada para atualizar permissões");
+      return;
+    }
     if (!selectedRoleId) {
       toast.error("Selecione um role primeiro");
       return;
@@ -547,6 +593,7 @@ function PermissionsTab() {
       if (enabled) {
         const rows = ADMIN_PANEL_SECTIONS.flatMap((section) =>
           ADMIN_PERMISSION_ACTIONS.map((action) => ({
+            company_id: companyId,
             role_id: selectedRoleId,
             resource: adminSectionResource(section),
             action: action.key,
@@ -565,6 +612,7 @@ function PermissionsTab() {
         const { error } = await (supabase as any)
           .from("admin_permissions")
           .delete()
+          .eq("company_id", companyId)
           .eq("role_id", selectedRoleId)
           .in("resource", resources);
 
@@ -1281,23 +1329,23 @@ export default function AdminRolesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="roles" className="w-full">
+            <Tabs defaultValue="assignments" className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-6">
-                <TabsTrigger value="roles">Roles</TabsTrigger>
-                <TabsTrigger value="permissions">Permissões</TabsTrigger>
-                <TabsTrigger value="assignments">Atribuições</TabsTrigger>
+                <TabsTrigger value="assignments">Atribuições (por usuário)</TabsTrigger>
+                <TabsTrigger value="permissions">Permissões (por role)</TabsTrigger>
+                <TabsTrigger value="roles">Catálogo de Roles</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="roles" className="space-y-4">
-                <RolesTab />
+              <TabsContent value="assignments" className="space-y-4">
+                <AssignmentsTab />
               </TabsContent>
 
               <TabsContent value="permissions" className="space-y-4">
                 <PermissionsTab />
               </TabsContent>
 
-              <TabsContent value="assignments" className="space-y-4">
-                <AssignmentsTab />
+              <TabsContent value="roles" className="space-y-4">
+                <RolesTab />
               </TabsContent>
             </Tabs>
           </CardContent>
