@@ -375,6 +375,7 @@ function PermissionsTab() {
   const [loading, setLoading] = useState(true);
   const [savingMatrix, setSavingMatrix] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [showAdvancedRoleConfig, setShowAdvancedRoleConfig] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPermission, setEditingPermission] = useState<AdminPermission | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -655,13 +656,38 @@ function PermissionsTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Permissões</h2>
-        <Button onClick={() => handleOpenDialog()} size="sm">
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Permissão
-        </Button>
+        <div>
+          <h2 className="text-lg font-semibold">Permissões</h2>
+          <p className="text-sm text-muted-foreground">
+            Esta aba é avançada (por tipo de role). Para operação do dia a dia, use primeiro Atribuições (por usuário).
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAdvancedRoleConfig((prev) => !prev)}
+          >
+            {showAdvancedRoleConfig ? "Ocultar configuração avançada" : "Mostrar configuração avançada por role"}
+          </Button>
+          {showAdvancedRoleConfig && (
+            <Button onClick={() => handleOpenDialog()} size="sm">
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Permissão
+            </Button>
+          )}
+        </div>
       </div>
 
+      {!showAdvancedRoleConfig ? (
+        <Card>
+          <CardContent className="p-6 text-sm text-gray-600">
+            Configuração por role está oculta para evitar ajustes indevidos. Clique em
+            <span className="font-semibold"> Mostrar configuração avançada por role</span> quando realmente precisar.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Configuração rápida por role (PT-BR)</CardTitle>
@@ -796,6 +822,8 @@ function PermissionsTab() {
             </TableBody>
           </Table>
         </Card>
+      )}
+        </>
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
