@@ -39,6 +39,7 @@ import PermissoesManager from "@/components/admin/PermissoesManager";
 import AdminRolesPage from "./AdminRolesPage";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { canRollbackLegacyFallback, disableLegacyFallbackWithWindow, enableLegacyFallback, getLegacyModeState } from "@/lib/materialsFeatureFlags";
+import { sectionFromResource, isAdminSectionResource } from "@/lib/adminRoles";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
@@ -4925,6 +4926,8 @@ export default function AdminConfiguracoes() {
   const { isSuperAdmin, loading: loadingModules } = useCompanyModules();
   const activeSection = searchParams.get("section") || "dashboard";
   const [transitioning, setTransitioning] = useState(false);
+  const [allowedSections, setAllowedSections] = useState<Set<string> | null>(null);
+  const [loadingAdminSections, setLoadingAdminSections] = useState(true);
 
   useEffect(() => {
     if (activeSection === "lancamentos_admin") {
@@ -4941,11 +4944,145 @@ export default function AdminConfiguracoes() {
     }, 120);
   };
 
-  const loading = loadingAdmin || loadingPerms || loadingModules;
+  const loadingBase = loadingAdmin || loadingPerms || loadingModules;
   const hasAccess = isAdmin || isSuperAdmin || permissions?.is_admin === true;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadAdminSectionPermissions = async () => {
+      if (loadingBase) return;
+
+      if (!hasAccess) {
+        if (mounted) {
+          setAllowedSections(new Set());
+          setLoadingAdminSections(false);
+        }
+        return;
+      }
+
+      // SuperAdmin e admin global seguem com acesso total ao Painel
+      if (isSuperAdmin || permissions?.is_admin) {
+        if (mounted) {
+          setAllowedSections(null);
+          setLoadingAdminSections(false);
+        }
+        return;
+      }
+
+      if (mounted) setLoadingAdminSections(true);
+
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) {
+        if (mounted) {
+          setAllowedSections(new Set());
+          setLoadingAdminSections(false);
+        }
+        return;
+      }
+
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from("user_admin_roles")
+        .select("role_id")
+        .eq("employee_id", userId)
+        .eq("is_active", true);
+
+      if (assignmentsError) {
+        console.error("[AdminConfiguracoes] erro ao buscar atribuições:", assignmentsError.message);
+      }
+
+      const roleIds = (assignments || []).map((a: any) => a.role_id).filter(Boolean);
+      if (roleIds.length === 0) {
+        if (mounted) {
+          setAllowedSections(new Set());
+          setLoadingAdminSections(false);
+        }
+        return;
+      }
+
+      const { data: perms, error: permsError } = await supabase
+        .from("admin_permissions")
+        .select("resource, action")
+        .in("role_id", roleIds);
+
+      if (permsError) {
+        console.error("[AdminConfiguracoes] erro ao buscar permissões admin:", permsError.message);
+      }
+
+      const allowed = new Set<string>();
+      const allKeys = MENU_SECTIONS.map((s) => s.key);
+
+      (perms || []).forEach((perm: any) => {
+        const resource = String(perm.resource || "");
+        const action = String(perm.action || "");
+
+        if (resource === "all" || action === "manage") {
+          allKeys.forEach((k) => allowed.add(k));
+          return;
+        }
+
+        if (isAdminSectionResource(resource)) {
+          const sectionKey = sectionFromResource(resource);
+          if (allKeys.includes(sectionKey)) {
+            allowed.add(sectionKey);
+          }
+        }
+      });
+
+      // Segurança UX: se o usuário tem role admin, mas sem permissões de seção,
+      // libera apenas a aba de Roles para que um admin global complete a configuração.
+      if (allowed.size === 0) {
+        allowed.add("roles");
+      }
+
+      if (mounted) {
+        setAllowedSections(allowed);
+        setLoadingAdminSections(false);
+      }
+    };
+
+    loadAdminSectionPermissions();
+
+    return () => {
+      mounted = false;
+    };
+  }, [loadingBase, hasAccess, isSuperAdmin, permissions?.is_admin]);
+
+  const menuSectionsVisiveis = useMemo(() => {
+    if (isSuperAdmin || permissions?.is_admin || allowedSections === null) {
+      return MENU_SECTIONS;
+    }
+    return MENU_SECTIONS.filter((item) => allowedSections?.has(item.key));
+  }, [isSuperAdmin, permissions?.is_admin, allowedSections]);
+
+  useEffect(() => {
+    if (loadingBase || loadingAdminSections) return;
+    if (menuSectionsVisiveis.length === 0) return;
+
+    const sectionExists = menuSectionsVisiveis.some((s) => s.key === activeSection);
+    if (!sectionExists) {
+      setSearchParams({ section: menuSectionsVisiveis[0].key });
+    }
+  }, [loadingBase, loadingAdminSections, menuSectionsVisiveis, activeSection, setSearchParams]);
+
+  const loading = loadingBase || loadingAdminSections;
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Carregando...</p></div>;
   if (!hasAccess) { navigate("/"); return null; }
+  if (menuSectionsVisiveis.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6 text-center">
+        <div className="max-w-md space-y-2">
+          <h2 className="text-lg font-semibold">Sem acesso ao Painel de Controle</h2>
+          <p className="text-sm text-muted-foreground">
+            Seu perfil de Admin está ativo, mas ainda não recebeu permissões de seção.
+            Peça ao Super Admin para liberar as áreas no Admin Roles.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const renderContent = () => {
     switch (activeSection) {
@@ -5000,7 +5137,7 @@ export default function AdminConfiguracoes() {
     }
   };
 
-  const currentItem = MENU_SECTIONS.find(s => s.key === activeSection);
+  const currentItem = menuSectionsVisiveis.find(s => s.key === activeSection);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -5029,7 +5166,7 @@ export default function AdminConfiguracoes() {
       {/* Mobile tabs (horizontal scroll) */}
       <div className="md:hidden sticky top-[52px] z-40 bg-card border-b border-border overflow-x-auto">
         <div className="flex gap-1 px-2 py-2 min-w-max">
-          {MENU_SECTIONS.map((item) => {
+          {menuSectionsVisiveis.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.key;
             return (
@@ -5054,7 +5191,7 @@ export default function AdminConfiguracoes() {
         {/* Sidebar navigation — desktop only */}
         <nav className="w-56 shrink-0 border-r border-border bg-card overflow-y-auto hidden md:block">
           <div className="py-2">
-            {MENU_SECTIONS.map((item) => {
+            {menuSectionsVisiveis.map((item) => {
               const Icon = item.icon;
               const isActive = activeSection === item.key;
               return (
