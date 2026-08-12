@@ -650,21 +650,42 @@ export default function AbastecimentoHome() {
     if (!editingRow) return;
     setSalvandoEdit(true);
     try {
-      const litros = parseFloat(String(editLitros).replace(",", "."));
+      const litrosInformado = parseFloat(String(editLitros).replace(",", "."));
+      const litrosAplicado = Number.isFinite(litrosInformado) ? litrosInformado : Number(editingRow.litros || 0);
       const medicaoVal = editMedicao ? parseFloat(String(editMedicao).replace(",", ".")) : null;
-      await (supabase as any).from("abastecimentos").update({
-        litros: isNaN(litros) ? editingRow.litros : litros,
-        horimetro: !isVehicleFleet(editingRow.equipment_fleet) ? medicaoVal : null,
-        km_odometro: isVehicleFleet(editingRow.equipment_fleet) ? medicaoVal : null,
-        ogs: editOgs || null,
-        lubrificado: editLubrificado,
-        lavado: editLavado,
-        observacao: editObs || null,
-      }).eq("id", editingRow.id);
+
+      const { error: updateError } = await (supabase as any)
+        .from("abastecimentos")
+        .update({
+          litros: litrosAplicado,
+          horimetro: !isVehicleFleet(editingRow.equipment_fleet) ? medicaoVal : null,
+          km_odometro: isVehicleFleet(editingRow.equipment_fleet) ? medicaoVal : null,
+          ogs: editOgs || null,
+          lubrificado: editLubrificado,
+          lavado: editLavado,
+          observacao: editObs || null,
+        })
+        .eq("id", editingRow.id);
+
+      if (updateError) throw updateError;
+
+      // Se editar uma saída de comboio, ajustar saldo do reservatório pela diferença de litros.
+      if (editingRow.fonte === "comboio" && editingRow.comboio_fleet) {
+        const litrosAnterior = Number(editingRow.litros || 0);
+        const deltaSaldo = litrosAnterior - litrosAplicado;
+        if (deltaSaldo !== 0) {
+          await ajustarSaldoComboio(editingRow.comboio_fleet, deltaSaldo);
+        }
+      }
+
       setEditingRow(null);
       buscarTudo();
-    } catch (e) { console.error(e); }
-    finally { setSalvandoEdit(false); }
+    } catch (e) {
+      console.error(e);
+      alert("Não foi possível salvar a edição do lançamento.");
+    } finally {
+      setSalvandoEdit(false);
+    }
   }
 
   async function salvarEdicaoReposicao() {
@@ -699,7 +720,20 @@ export default function AbastecimentoHome() {
 
   async function excluirLancamento(id: string) {
     if (!confirm("Tem certeza que deseja excluir este lançamento?")) return;
-    await (supabase as any).from("abastecimentos").delete().eq("id", id);
+
+    const row = abastecimentos.find((a) => a.id === id);
+    const { error: deleteError } = await (supabase as any).from("abastecimentos").delete().eq("id", id);
+    if (deleteError) {
+      console.error(deleteError);
+      alert("Não foi possível excluir o lançamento.");
+      return;
+    }
+
+    // Se excluir uma saída de comboio, devolver os litros ao saldo do reservatório.
+    if (row?.fonte === "comboio" && row.comboio_fleet) {
+      await ajustarSaldoComboio(row.comboio_fleet, Number(row.litros || 0));
+    }
+
     buscarTudo();
   }
 
@@ -800,6 +834,11 @@ export default function AbastecimentoHome() {
   }
 
   async function salvar() {
+    if (!companyId) {
+      alert("Aguarde o carregamento da empresa e tente novamente.");
+      return;
+    }
+
     setSalvando(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -808,52 +847,60 @@ export default function AbastecimentoHome() {
       if (fonte === "comboio") {
         if (!comboioFrota) {
           alert("Selecione a frota do comboio antes de salvar o abastecimento.");
-          setSalvando(false);
           return;
         }
 
-        // Salva uma linha por entrada de abastecimento
-        const rows = entradas
-          .filter(e => e.frota && e.litros)
-          .map(e => ({
-            ...base,
-            hora: e.hora || null,
-            equipment_fleet: e.frota,
-            equipment_type: e.subtipoEquipamento || e.tipoEquipamento || null,
-            litros: parseFloat(String(e.litros).replace(",", ".")),
-            horimetro: !isVehicleFleet(e.frota) && e.medicao ? parseFloat(String(e.medicao).replace(",", ".")) : null,
-            km_odometro: isVehicleFleet(e.frota) && e.medicao ? parseFloat(String(e.medicao).replace(",", ".")) : null,
-            ogs: e.ogs || null,
-            lubrificado: e.lubrificado,
-            lavado: e.lavado,
-            comboio_fleet: comboioFrota,
-            motorista_comboio: motoristaComboio || null,
-            lubrificador: lubrificador || null,
-            fornecedor: fornecedor || null,
-            observacao: observacao || null,
-          }));
+        const entradasComDados = entradas.filter((e) => e.tipoEquipamento || e.subtipoEquipamento || e.frota || e.litros || e.medicao || e.ogs);
+        const entradasIncompletas = entradasComDados.filter((e) => !e.tipoEquipamento || !e.subtipoEquipamento || !e.frota || !e.litros);
+        if (entradasIncompletas.length > 0) {
+          alert("Existem entradas incompletas. Preencha Tipo, Subtipo, Frota e Litros em cada linha.");
+          return;
+        }
+
+        // Salva uma linha por entrada completa de abastecimento
+        const rows = entradasComDados.map((e) => ({
+          ...base,
+          hora: e.hora || null,
+          equipment_fleet: e.frota,
+          equipment_type: e.subtipoEquipamento || e.tipoEquipamento || null,
+          litros: parseFloat(String(e.litros).replace(",", ".")),
+          horimetro: !isVehicleFleet(e.frota) && e.medicao ? parseFloat(String(e.medicao).replace(",", ".")) : null,
+          km_odometro: isVehicleFleet(e.frota) && e.medicao ? parseFloat(String(e.medicao).replace(",", ".")) : null,
+          ogs: e.ogs || null,
+          lubrificado: e.lubrificado,
+          lavado: e.lavado,
+          comboio_fleet: comboioFrota,
+          motorista_comboio: motoristaComboio || null,
+          lubrificador: lubrificador || null,
+          fornecedor: fornecedor || null,
+          observacao: observacao || null,
+        })).filter((r) => Number.isFinite(r.litros) && r.litros > 0);
 
         if (rows.length === 0) {
-          setSalvando(false);
+          alert("Adicione pelo menos um abastecimento com litros válidos para salvar.");
           return;
         }
 
-        await (supabase as any).from("abastecimentos").insert(rows);
+        const { error: insertError } = await (supabase as any).from("abastecimentos").insert(rows);
+        if (insertError) throw insertError;
 
         // Atualizar saldo persistente do comboio após a saída para equipamentos
-        if (comboioFrota && companyId) {
-          const novoSaldo = saldoAtualCalculado;
-          const { data: currentUser } = await supabase.auth.getUser();
-          const currentUserId = currentUser.user?.id;
+        const novoSaldo = saldoAtualCalculado;
+        const { data: currentUser } = await supabase.auth.getUser();
+        const currentUserId = currentUser.user?.id;
 
-          await (supabase as any).from("comboio_saldo").upsert(
-            { company_id: companyId, comboio_fleet: comboioFrota, saldo_atual: novoSaldo, updated_by: currentUserId, updated_at: new Date().toISOString() },
-            { onConflict: "company_id,comboio_fleet" }
-          );
-        }
+        const { error: saldoError } = await (supabase as any).from("comboio_saldo").upsert(
+          { company_id: companyId, comboio_fleet: comboioFrota, saldo_atual: novoSaldo, updated_by: currentUserId, updated_at: new Date().toISOString() },
+          { onConflict: "company_id,comboio_fleet" }
+        );
+        if (saldoError) throw saldoError;
       } else {
-        if (!simpFrota || !simpLitros) return;
-        await supabase.from("abastecimentos").insert({
+        if (!simpFrota || !simpLitros) {
+          alert("Preencha Frota e Litros para salvar.");
+          return;
+        }
+
+        const { error: insertError } = await supabase.from("abastecimentos").insert({
           ...base,
           hora: simpHora || null,
           equipment_fleet: simpFrota,
@@ -866,12 +913,18 @@ export default function AbastecimentoHome() {
           autorizado_por: fonte === "shelbox" ? (simpAutorizadoPor || null) : null,
           observacao: observacao || null,
         });
+        if (insertError) throw insertError;
       }
+
       setModal(false);
       resetForm();
       buscarTudo();
-    } catch (e) { console.error(e); }
-    finally { setSalvando(false); }
+    } catch (e) {
+      console.error(e);
+      alert("Não foi possível salvar o lançamento. Verifique os campos e tente novamente.");
+    } finally {
+      setSalvando(false);
+    }
   }
 
   const filtrados = abastecimentos.filter(a => {
@@ -1286,7 +1339,7 @@ export default function AbastecimentoHome() {
                         {listMotoristas.map((nome: string) => (
                           <SelectItem key={nome} value={nome}>{nome}</SelectItem>
                         ))}
-                        {listMotoristas.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → WF Abastecimento</div>}
+                        {listMotoristas.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → Configurações de Abastecimento</div>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1298,7 +1351,7 @@ export default function AbastecimentoHome() {
                         {listLubrificadores.map((nome: string) => (
                           <SelectItem key={nome} value={nome}>{nome}</SelectItem>
                         ))}
-                        {listLubrificadores.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → WF Abastecimento</div>}
+                        {listLubrificadores.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → Configurações de Abastecimento</div>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1556,7 +1609,7 @@ export default function AbastecimentoHome() {
                   {listLubrificadores.map((nome: string) => (
                     <SelectItem key={`carga-lub-${nome}`} value={nome}>{nome}</SelectItem>
                   ))}
-                  {listLubrificadores.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → WF Abastecimento</div>}
+                  {listLubrificadores.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → Configurações de Abastecimento</div>}
                 </SelectContent>
               </Select>
             </div>
@@ -1670,7 +1723,7 @@ export default function AbastecimentoHome() {
                     {listLubrificadores.map((nome: string) => (
                       <SelectItem key={`edit-repo-lub-${nome}`} value={nome}>{nome}</SelectItem>
                     ))}
-                    {listLubrificadores.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → WF Abastecimento</div>}
+                    {listLubrificadores.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Cadastre em Painel → Configurações de Abastecimento</div>}
                   </SelectContent>
                 </Select>
               </div>
