@@ -119,8 +119,11 @@ export default function Home() {
         )}
         {!loadingPerms && !loadingModules && HUB_MODULES
           .filter(mod => {
-            // adminOnly: só quem tem is_admin=true em user_permissions (checkbox "Painel de Controle")
-            const hasAdminAccess = isSuperAdmin || permissions?.is_admin === true;
+            // adminOnly: acesso ao painel por 3 caminhos
+            // 1) superadmin global
+            // 2) admin legado (is_admin em user_permissions)
+            // 3) admin por Admin Roles (useIsAdmin/has_role)
+            const hasAdminAccess = isAdmin || isSuperAdmin || permissions?.is_admin === true;
             if (mod.adminOnly && !hasAdminAccess) return false;
             // Módulo admin: libera só quem tem permissão explícita
             if (mod.id === "admin") return hasAdminAccess;
