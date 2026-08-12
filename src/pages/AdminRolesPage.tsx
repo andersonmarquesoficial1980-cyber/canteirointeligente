@@ -1314,7 +1314,17 @@ function AssignmentsTab() {
           .eq("user_id", userId);
         if (deletePermsError) throw deletePermsError;
 
-        const rowsToInsert = Array.from(desiredKeys)
+        // Integridade de ACL: se o usuário tem qualquer ação numa seção,
+        // garantimos também 'view' para evitar seção invisível/inconsistente.
+        const normalizedKeys = new Set<string>(Array.from(desiredKeys));
+        Array.from(desiredKeys).forEach((key) => {
+          const { section, action } = userPermParse(key);
+          if (!section || !action) return;
+          if (!ADMIN_PANEL_SECTIONS.includes(section as any)) return;
+          if (action !== "view") normalizedKeys.add(userPermKey(section, "view"));
+        });
+
+        const rowsToInsert = Array.from(normalizedKeys)
           .map((key) => {
             const { section, action } = userPermParse(key);
             if (!section || !action || !ADMIN_PANEL_SECTIONS.includes(section as any)) return null;
