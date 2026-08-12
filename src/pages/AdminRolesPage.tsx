@@ -83,6 +83,13 @@ interface UserAdminPanelAccess {
   allowed_sections: string[] | null;
 }
 
+interface UserAdminPermission {
+  user_id: string;
+  company_id: string;
+  resource: string;
+  action: string;
+}
+
 const ADMIN_ROLE_LABELS: Record<string, string> = {
   Super_Admin: "Administrador Geral (Super Admin)",
   RDO_Admin: "Administrador de RDO",
@@ -93,6 +100,12 @@ const ADMIN_ROLE_LABELS: Record<string, string> = {
 };
 
 const getAdminRoleLabel = (roleName: string) => ADMIN_ROLE_LABELS[roleName] || roleName;
+
+const userPermKey = (section: string, action: string) => `${section}::${action}`;
+const userPermParse = (key: string) => {
+  const [section, action] = key.split("::");
+  return { section, action };
+};
 
 // Abas de Roles
 function RolesTab() {
@@ -963,6 +976,9 @@ function AssignmentsTab() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [panelAccessByUser, setPanelAccessByUser] = useState<Record<string, { canAccess: boolean; sections: string[] }>>({});
+  const [userPermissionsByUser, setUserPermissionsByUser] = useState<Record<string, string[]>>({});
+  const [explicitUserPerms, setExplicitUserPerms] = useState<Record<string, boolean>>({});
+  const [permRows, setPermRows] = useState<UserAdminPermission[]>([]);
   const [draftByUser, setDraftByUser] = useState<Record<string, string[]>>({});
   const [savingUser, setSavingUser] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -989,7 +1005,7 @@ function AssignmentsTab() {
       const companyId = currentProfile?.company_id;
       if (!companyId) throw new Error("company_id do usuário atual não encontrado.");
 
-      const [assignmentsRes, profilesRes, rolesRes, panelAccessRes] = await Promise.all([
+      const [assignmentsRes, profilesRes, rolesRes, panelAccessRes, rolePermsRes, userPermsRes] = await Promise.all([
         supabase
           .from("user_admin_roles")
           .select("*")
@@ -1010,24 +1026,40 @@ function AssignmentsTab() {
           .from("user_admin_panel_access")
           .select("user_id, company_id, can_access_panel, allowed_sections")
           .eq("company_id", companyId),
+        supabase
+          .from("admin_permissions")
+          .select("role_id, resource, action")
+          .eq("company_id", companyId),
+        (supabase as any)
+          .from("user_admin_permissions")
+          .select("user_id, company_id, resource, action")
+          .eq("company_id", companyId),
       ]);
 
       if (assignmentsRes.error) throw assignmentsRes.error;
       if (profilesRes.error) throw profilesRes.error;
       if (rolesRes.error) throw rolesRes.error;
       if (panelAccessRes.error) throw panelAccessRes.error;
+      if (rolePermsRes.error) throw rolePermsRes.error;
+      if (userPermsRes.error) throw userPermsRes.error;
 
       const assignmentsData = assignmentsRes.data || [];
       const profilesData = profilesRes.data || [];
       const rolesData = rolesRes.data || [];
       const panelRows = (panelAccessRes.data || []) as UserAdminPanelAccess[];
+      const rolePerms = rolePermsRes.data || [];
+      const userPermsRows = (userPermsRes.data || []) as UserAdminPermission[];
 
       setAssignments(assignmentsData);
       setProfiles(profilesData);
       setRoles(rolesData);
+      setPermRows(userPermsRows);
 
       const initialDraft: Record<string, string[]> = {};
       const initialPanel: Record<string, { canAccess: boolean; sections: string[] }> = {};
+      const initialUserPerms: Record<string, string[]> = {};
+      const initialExplicit: Record<string, boolean> = {};
+
       for (const p of profilesData) {
         const roleIds = assignmentsData
           .filter((a) => a.employee_id === p.user_id)
@@ -1041,9 +1073,50 @@ function AssignmentsTab() {
             ? (panel?.allowed_sections as string[]).filter((s) => ADMIN_PANEL_SECTIONS.includes(s as any))
             : [...ADMIN_PANEL_SECTIONS],
         };
+
+        const explicitRows = userPermsRows.filter((row) => row.user_id === p.user_id);
+        const explicitKeys = explicitRows
+          .map((row) => {
+            if (!row.resource?.startsWith("admin_section.")) return null;
+            const section = row.resource.replace("admin_section.", "");
+            if (!ADMIN_PANEL_SECTIONS.includes(section as any)) return null;
+            return userPermKey(section, row.action);
+          })
+          .filter(Boolean) as string[];
+
+        if (explicitKeys.length > 0) {
+          initialUserPerms[p.user_id] = Array.from(new Set(explicitKeys));
+          initialExplicit[p.user_id] = true;
+        } else {
+          const derived = new Set<string>();
+          const userRoleIds = initialDraft[p.user_id] || [];
+          rolePerms
+            .filter((rp: any) => userRoleIds.includes(rp.role_id))
+            .forEach((rp: any) => {
+              const resource = String(rp.resource || "");
+              const action = String(rp.action || "");
+              if (resource === "all" && action === "manage") {
+                ADMIN_PANEL_SECTIONS.forEach((section) => {
+                  ADMIN_PERMISSION_ACTIONS.forEach((a) => derived.add(userPermKey(section, a.key)));
+                });
+                return;
+              }
+              if (resource.startsWith("admin_section.")) {
+                const section = resource.replace("admin_section.", "");
+                if (ADMIN_PANEL_SECTIONS.includes(section as any)) {
+                  derived.add(userPermKey(section, action));
+                }
+              }
+            });
+
+          initialUserPerms[p.user_id] = Array.from(derived);
+          initialExplicit[p.user_id] = false;
+        }
       }
       setDraftByUser(initialDraft);
       setPanelAccessByUser(initialPanel);
+      setUserPermissionsByUser(initialUserPerms);
+      setExplicitUserPerms(initialExplicit);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao carregar dados");
     } finally {
@@ -1105,6 +1178,41 @@ function AssignmentsTab() {
         sections: enabled ? [...ADMIN_PANEL_SECTIONS] : [],
       },
     }));
+  };
+
+  const toggleUserPermission = (userId: string, section: string, action: string) => {
+    setUserPermissionsByUser((prev) => {
+      const current = new Set(prev[userId] || []);
+      const key = userPermKey(section, action);
+      if (current.has(key)) current.delete(key);
+      else current.add(key);
+      return { ...prev, [userId]: Array.from(current) };
+    });
+    setExplicitUserPerms((prev) => ({ ...prev, [userId]: true }));
+  };
+
+  const setAllUserPermissions = (userId: string, enabled: boolean) => {
+    const all = ADMIN_PANEL_SECTIONS.flatMap((section) =>
+      ADMIN_PERMISSION_ACTIONS.map((a) => userPermKey(section, a.key))
+    );
+    setUserPermissionsByUser((prev) => ({
+      ...prev,
+      [userId]: enabled ? all : [],
+    }));
+    setExplicitUserPerms((prev) => ({ ...prev, [userId]: true }));
+  };
+
+  const setAllSectionActionsForUser = (userId: string, section: string, enabled: boolean) => {
+    setUserPermissionsByUser((prev) => {
+      const current = new Set(prev[userId] || []);
+      ADMIN_PERMISSION_ACTIONS.forEach((a) => {
+        const key = userPermKey(section, a.key);
+        if (enabled) current.add(key);
+        else current.delete(key);
+      });
+      return { ...prev, [userId]: Array.from(current) };
+    });
+    setExplicitUserPerms((prev) => ({ ...prev, [userId]: true }));
   };
 
   const saveUserAssignments = async (profile: Profile) => {
@@ -1174,6 +1282,47 @@ function AssignmentsTab() {
         );
 
       if (panelAccessError) throw panelAccessError;
+
+      const previousRows = permRows.filter((row) => row.user_id === userId);
+      const desiredKeys = new Set(userPermissionsByUser[userId] || []);
+      const previousKeys = new Set(
+        previousRows
+          .filter((row) => row.resource.startsWith("admin_section."))
+          .map((row) => userPermKey(row.resource.replace("admin_section.", ""), row.action))
+      );
+
+      const changed =
+        desiredKeys.size !== previousKeys.size ||
+        Array.from(desiredKeys).some((k) => !previousKeys.has(k));
+
+      if (changed || explicitUserPerms[userId]) {
+        const { error: deletePermsError } = await (supabase as any)
+          .from("user_admin_permissions")
+          .delete()
+          .eq("company_id", companyId)
+          .eq("user_id", userId);
+        if (deletePermsError) throw deletePermsError;
+
+        const rowsToInsert = Array.from(desiredKeys)
+          .map((key) => {
+            const { section, action } = userPermParse(key);
+            if (!section || !action || !ADMIN_PANEL_SECTIONS.includes(section as any)) return null;
+            return {
+              company_id: companyId,
+              user_id: userId,
+              resource: adminSectionResource(section),
+              action,
+            };
+          })
+          .filter(Boolean);
+
+        if (rowsToInsert.length > 0) {
+          const { error: insertPermsError } = await (supabase as any)
+            .from("user_admin_permissions")
+            .insert(rowsToInsert);
+          if (insertPermsError) throw insertPermsError;
+        }
+      }
 
       toast.success(`Acessos de ${profile.nome_completo || profile.email} atualizados`);
       await fetchData();
@@ -1322,6 +1471,85 @@ function AssignmentsTab() {
                       </div>
                     </>
                   )}
+                </div>
+
+                <div className="rounded-lg border bg-white p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">Permissões detalhadas por usuário</p>
+                      <p className="text-xs text-gray-600">
+                        Aqui você define ação por ação para este usuário. Isso sobrepõe o padrão do role.
+                      </p>
+                    </div>
+                    <span className={`text-[10px] px-2 py-1 rounded-full ${explicitUserPerms[profile.user_id] ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                      {explicitUserPerms[profile.user_id] ? "Personalizado" : "Baseado no role"}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-3 text-xs">
+                    <button
+                      type="button"
+                      className="text-primary underline"
+                      onClick={() => setAllUserPermissions(profile.user_id, true)}
+                    >
+                      Marcar tudo
+                    </button>
+                    <button
+                      type="button"
+                      className="text-gray-500 underline"
+                      onClick={() => setAllUserPermissions(profile.user_id, false)}
+                    >
+                      Limpar tudo
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {ADMIN_SECTION_GROUPS.map((group) => (
+                      <div key={`${profile.user_id}-${group.key}`} className="rounded-md border p-2 bg-slate-50">
+                        <p className="text-xs font-semibold mb-2">{group.label}</p>
+                        <div className="space-y-2">
+                          {group.sections.map((section) => {
+                            const selectedPerms = new Set(userPermissionsByUser[profile.user_id] || []);
+                            const allSectionChecked = ADMIN_PERMISSION_ACTIONS.every((a) =>
+                              selectedPerms.has(userPermKey(section, a.key))
+                            );
+
+                            return (
+                              <div key={`${profile.user_id}-${section}`} className="rounded border bg-white p-2">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-medium">{adminSectionLabel(section)}</span>
+                                  <button
+                                    type="button"
+                                    className="text-[11px] text-primary underline"
+                                    onClick={() => setAllSectionActionsForUser(profile.user_id, section, !allSectionChecked)}
+                                  >
+                                    {allSectionChecked ? "Desmarcar seção" : "Marcar seção"}
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                                  {ADMIN_PERMISSION_ACTIONS.map((action) => {
+                                    const key = userPermKey(section, action.key);
+                                    const checked = selectedPerms.has(key);
+                                    return (
+                                      <label key={key} className="flex items-center gap-1.5 text-[11px] rounded border px-2 py-1 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={() => toggleUserPermission(profile.user_id, section, action.key)}
+                                          className="h-3.5 w-3.5"
+                                        />
+                                        <span>{action.label}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex justify-end">

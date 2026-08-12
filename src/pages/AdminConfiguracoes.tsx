@@ -5024,19 +5024,35 @@ export default function AdminConfiguracoes() {
         return;
       }
 
-      const { data: perms, error: permsError } = await supabase
-        .from("admin_permissions")
+      const { data: userPermRows, error: userPermError } = await (supabase as any)
+        .from("user_admin_permissions")
         .select("resource, action")
-        .in("role_id", roleIds);
+        .eq("company_id", profileData?.company_id)
+        .eq("user_id", userId);
 
-      if (permsError) {
-        console.error("[AdminConfiguracoes] erro ao buscar permissões admin:", permsError.message);
+      if (userPermError) {
+        console.error("[AdminConfiguracoes] erro ao buscar permissões por usuário:", userPermError.message);
+      }
+
+      let perms: any[] = [];
+      if ((userPermRows || []).length > 0) {
+        perms = userPermRows || [];
+      } else {
+        const { data: rolePerms, error: permsError } = await supabase
+          .from("admin_permissions")
+          .select("resource, action")
+          .in("role_id", roleIds);
+
+        if (permsError) {
+          console.error("[AdminConfiguracoes] erro ao buscar permissões admin:", permsError.message);
+        }
+        perms = rolePerms || [];
       }
 
       const allowed = new Set<string>();
       const allKeys = MENU_SECTIONS.map((s) => s.key);
 
-      (perms || []).forEach((perm: any) => {
+      perms.forEach((perm: any) => {
         const resource = String(perm.resource || "");
         const action = String(perm.action || "");
 
