@@ -5172,7 +5172,8 @@ export default function AdminConfiguracoes() {
           </Suspense>
         );
       case "usuarios": return <UsersManagerExternal />;
-      case "permissoes": return <PermissoesManager />;
+      case "permissoes":
+        return isOwnerAdmin ? <PermissoesManager /> : null;
       case "ogs": return <OgsManager />;
       case "materiais": return <MateriaisUnificadoManager />;
       case "maquinas": return <MaquinasManager />;
@@ -5198,7 +5199,7 @@ export default function AdminConfiguracoes() {
       case "desbloquear": return <DesbloqueioLancamentosManager />;
 
       case "operadores_habilitados": return <OperadoresHabilitadosManager />;
-      case "roles": return <AdminRolesPage />;
+      case "roles": return isOwnerAdmin ? <AdminRolesPage /> : null;
       case "tarifas_vt": return <TarifasVTManager />;
       case "lixeira": return <LixeiraManager />;
       case "auditoria": return <AuditLogViewerAdmin />;

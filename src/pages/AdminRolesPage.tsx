@@ -101,6 +101,11 @@ const ADMIN_ROLE_LABELS: Record<string, string> = {
 
 const getAdminRoleLabel = (roleName: string) => ADMIN_ROLE_LABELS[roleName] || roleName;
 
+const OWNER_ONLY_ADMIN_EMAILS = new Set([
+  "andersonmarquesoficial1980@gmail.com",
+  "anderson@fremix.workflux.app",
+]);
+
 const userPermKey = (section: string, action: string) => `${section}::${action}`;
 const userPermParse = (key: string) => {
   const [section, action] = key.split("::");
@@ -1591,6 +1596,44 @@ function AssignmentsTab() {
 
 // Componente Principal
 export default function AdminRolesPage() {
+  const [accessLoading, setAccessLoading] = useState(true);
+  const [isOwnerAdmin, setIsOwnerAdmin] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const email = data?.user?.email?.toLowerCase() || "";
+      if (!mounted) return;
+      setIsOwnerAdmin(OWNER_ONLY_ADMIN_EMAILS.has(email));
+      setAccessLoading(false);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (accessLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!isOwnerAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6 text-center">
+        <div className="max-w-md space-y-2">
+          <h2 className="text-lg font-semibold">Sem acesso ao Admin Roles</h2>
+          <p className="text-sm text-muted-foreground">
+            Esta área é restrita ao administrador owner da Fremix.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
       <div className="max-w-7xl mx-auto">
