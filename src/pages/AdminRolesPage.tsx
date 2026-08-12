@@ -29,6 +29,7 @@ import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import {
   ADMIN_PANEL_SECTIONS,
   ADMIN_PERMISSION_ACTIONS,
+  ADMIN_SECTION_GROUPS,
   adminSectionLabel,
   adminSectionResource,
 } from "@/lib/adminRoles";
@@ -535,6 +536,49 @@ function PermissionsTab() {
     }
   };
 
+  const setAllSectionPermissions = async (enabled: boolean) => {
+    if (!selectedRoleId) {
+      toast.error("Selecione um role primeiro");
+      return;
+    }
+
+    setSavingMatrix(true);
+    try {
+      if (enabled) {
+        const rows = ADMIN_PANEL_SECTIONS.flatMap((section) =>
+          ADMIN_PERMISSION_ACTIONS.map((action) => ({
+            role_id: selectedRoleId,
+            resource: adminSectionResource(section),
+            action: action.key,
+            is_sector_scoped: false,
+            sector_filter: null,
+          }))
+        );
+
+        const { error } = await (supabase as any)
+          .from("admin_permissions")
+          .upsert(rows, { onConflict: "role_id,resource,action" });
+
+        if (error) throw error;
+      } else {
+        const resources = ADMIN_PANEL_SECTIONS.map((section) => adminSectionResource(section));
+        const { error } = await (supabase as any)
+          .from("admin_permissions")
+          .delete()
+          .eq("role_id", selectedRoleId)
+          .in("resource", resources);
+
+        if (error) throw error;
+      }
+
+      await fetchData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar permissões em lote");
+    } finally {
+      setSavingMatrix(false);
+    }
+  };
+
   const selectedRoleName = roles.find((r) => r.id === selectedRoleId)?.name || "";
 
   const formatResourceLabel = (resource: string) => {
@@ -603,40 +647,50 @@ function PermissionsTab() {
           </div>
 
           {selectedRoleId && (
-            <div className="overflow-auto border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[230px]">Área do Painel</TableHead>
-                    {ADMIN_PERMISSION_ACTIONS.map((action) => (
-                      <TableHead key={action.key} className="text-center whitespace-nowrap">
-                        {action.label}
-                      </TableHead>
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" disabled={savingMatrix} onClick={() => setAllSectionPermissions(true)}>
+                  Marcar tudo (todas as áreas + ações)
+                </Button>
+                <Button size="sm" variant="outline" disabled={savingMatrix} onClick={() => setAllSectionPermissions(false)}>
+                  Limpar tudo
+                </Button>
+              </div>
+
+              {ADMIN_SECTION_GROUPS.map((group) => (
+                <Card key={group.key}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{group.label}</CardTitle>
+                    <CardDescription>
+                      Clique nas ações para definir o que este role pode fazer em cada área.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {group.sections.map((section) => (
+                      <div key={section} className="rounded-md border p-3 space-y-2">
+                        <div className="font-medium text-sm">{adminSectionLabel(section)}</div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                          {ADMIN_PERMISSION_ACTIONS.map((action) => {
+                            const checked = hasPermission(section, action.key);
+                            return (
+                              <label key={`${section}-${action.key}`} className="flex items-center gap-2 rounded border px-2 py-1 text-xs cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={savingMatrix}
+                                  onChange={(e) => toggleMatrixPermission(section, action.key, e.target.checked)}
+                                  className="h-3.5 w-3.5"
+                                />
+                                <span>{action.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
                     ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ADMIN_PANEL_SECTIONS.map((section) => (
-                    <TableRow key={section}>
-                      <TableCell className="font-medium">{adminSectionLabel(section)}</TableCell>
-                      {ADMIN_PERMISSION_ACTIONS.map((action) => {
-                        const checked = hasPermission(section, action.key);
-                        return (
-                          <TableCell key={action.key} className="text-center">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={savingMatrix}
-                              onChange={(e) => toggleMatrixPermission(section, action.key, e.target.checked)}
-                              className="h-4 w-4"
-                            />
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </CardContent>

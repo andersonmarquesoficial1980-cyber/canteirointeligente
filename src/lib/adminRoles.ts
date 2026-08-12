@@ -91,3 +91,40 @@ export const sectionFromResource = (resource: string) =>
 
 export const adminSectionLabel = (section: string) =>
   ADMIN_PANEL_SECTION_LABELS[section as AdminPanelSection] || section;
+
+export const ADMIN_SECTION_GROUPS: Array<{
+  key: string;
+  label: string;
+  sections: AdminPanelSection[];
+}> = [
+  {
+    key: "geral",
+    label: "Geral / Governança",
+    sections: ["dashboard", "auditoria", "roles", "permissoes", "usuarios", "assinatura", "lixeira"],
+  },
+  {
+    key: "rdo",
+    label: "RDO / Obras",
+    sections: ["ogs", "engenheiros_ogs", "encarregados_ogs", "tipos_servico", "terceirizados", "desbloquear"],
+  },
+  {
+    key: "frota",
+    label: "Frota / Equipamentos",
+    sections: ["maquinas", "tipos_equipamento", "operadores_habilitados", "caminhoes"],
+  },
+  {
+    key: "pessoas",
+    label: "Pessoas / RH",
+    sections: ["funcionarios", "equipes", "funcoes", "centros_custo", "engenheiros", "encarregados", "tarifas_vt", "sst"],
+  },
+  {
+    key: "suprimentos",
+    label: "Suprimentos / Abastecimento",
+    sections: ["materiais", "fornecedores", "destinos", "abastecimento_config"],
+  },
+  {
+    key: "sistema",
+    label: "Sistema / Comunicação",
+    sections: ["notificacoes", "destinatarios_notif", "emails", "empresas_parceiras"],
+  },
+];
