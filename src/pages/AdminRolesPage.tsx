@@ -75,6 +75,13 @@ interface Profile {
   company_id: string | null;
 }
 
+interface UserAdminPanelAccess {
+  user_id: string;
+  company_id: string;
+  can_access_panel: boolean;
+  allowed_sections: string[] | null;
+}
+
 const ADMIN_ROLE_LABELS: Record<string, string> = {
   Super_Admin: "Administrador Geral (Super Admin)",
   RDO_Admin: "Administrador de RDO",
@@ -825,6 +832,7 @@ function AssignmentsTab() {
   const [assignments, setAssignments] = useState<UserAdminRole[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
+  const [panelAccessByUser, setPanelAccessByUser] = useState<Record<string, { canAccess: boolean; sections: string[] }>>({});
   const [draftByUser, setDraftByUser] = useState<Record<string, string[]>>({});
   const [savingUser, setSavingUser] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -851,7 +859,7 @@ function AssignmentsTab() {
       const companyId = currentProfile?.company_id;
       if (!companyId) throw new Error("company_id do usuário atual não encontrado.");
 
-      const [assignmentsRes, profilesRes, rolesRes] = await Promise.all([
+      const [assignmentsRes, profilesRes, rolesRes, panelAccessRes] = await Promise.all([
         supabase
           .from("user_admin_roles")
           .select("*")
@@ -868,28 +876,44 @@ function AssignmentsTab() {
           .eq("active", true)
           .or(`company_id.is.null,company_id.eq.${companyId}`)
           .order("name"),
+        (supabase as any)
+          .from("user_admin_panel_access")
+          .select("user_id, company_id, can_access_panel, allowed_sections")
+          .eq("company_id", companyId),
       ]);
 
       if (assignmentsRes.error) throw assignmentsRes.error;
       if (profilesRes.error) throw profilesRes.error;
       if (rolesRes.error) throw rolesRes.error;
+      if (panelAccessRes.error) throw panelAccessRes.error;
 
       const assignmentsData = assignmentsRes.data || [];
       const profilesData = profilesRes.data || [];
       const rolesData = rolesRes.data || [];
+      const panelRows = (panelAccessRes.data || []) as UserAdminPanelAccess[];
 
       setAssignments(assignmentsData);
       setProfiles(profilesData);
       setRoles(rolesData);
 
       const initialDraft: Record<string, string[]> = {};
+      const initialPanel: Record<string, { canAccess: boolean; sections: string[] }> = {};
       for (const p of profilesData) {
         const roleIds = assignmentsData
           .filter((a) => a.employee_id === p.user_id)
           .map((a) => a.role_id);
         initialDraft[p.user_id] = Array.from(new Set(roleIds));
+
+        const panel = panelRows.find((r) => r.user_id === p.user_id);
+        initialPanel[p.user_id] = {
+          canAccess: panel?.can_access_panel ?? true,
+          sections: Array.isArray(panel?.allowed_sections)
+            ? (panel?.allowed_sections as string[]).filter((s) => ADMIN_PANEL_SECTIONS.includes(s as any))
+            : [...ADMIN_PANEL_SECTIONS],
+        };
       }
       setDraftByUser(initialDraft);
+      setPanelAccessByUser(initialPanel);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao carregar dados");
     } finally {
@@ -914,6 +938,42 @@ function AssignmentsTab() {
     setDraftByUser((prev) => ({
       ...prev,
       [userId]: enabled ? roles.map((r) => r.id) : [],
+    }));
+  };
+
+  const setPanelAccessEnabled = (userId: string, enabled: boolean) => {
+    setPanelAccessByUser((prev) => ({
+      ...prev,
+      [userId]: {
+        canAccess: enabled,
+        sections: prev[userId]?.sections?.length ? prev[userId].sections : [...ADMIN_PANEL_SECTIONS],
+      },
+    }));
+  };
+
+  const togglePanelSection = (userId: string, section: string) => {
+    setPanelAccessByUser((prev) => {
+      const current = new Set(prev[userId]?.sections || []);
+      if (current.has(section)) current.delete(section);
+      else current.add(section);
+
+      return {
+        ...prev,
+        [userId]: {
+          canAccess: prev[userId]?.canAccess ?? true,
+          sections: Array.from(current),
+        },
+      };
+    });
+  };
+
+  const setAllPanelSections = (userId: string, enabled: boolean) => {
+    setPanelAccessByUser((prev) => ({
+      ...prev,
+      [userId]: {
+        canAccess: prev[userId]?.canAccess ?? true,
+        sections: enabled ? [...ADMIN_PANEL_SECTIONS] : [],
+      },
     }));
   };
 
@@ -959,12 +1019,31 @@ function AssignmentsTab() {
           .from("user_admin_roles")
           .update({ is_active: false, revoked_at: new Date().toISOString() })
           .eq("company_id", companyId)
-          .eq("user_id", userId)
+          .eq("employee_id", userId)
           .in("role_id", toRemove)
           .eq("is_active", true);
 
         if (deactivateError) throw deactivateError;
       }
+
+      const panelDraft = panelAccessByUser[userId] || {
+        canAccess: true,
+        sections: [...ADMIN_PANEL_SECTIONS],
+      };
+
+      const { error: panelAccessError } = await (supabase as any)
+        .from("user_admin_panel_access")
+        .upsert(
+          {
+            company_id: companyId,
+            user_id: userId,
+            can_access_panel: panelDraft.canAccess,
+            allowed_sections: panelDraft.sections,
+          },
+          { onConflict: "company_id,user_id" }
+        );
+
+      if (panelAccessError) throw panelAccessError;
 
       toast.success(`Acessos de ${profile.nome_completo || profile.email} atualizados`);
       await fetchData();
@@ -1057,6 +1136,62 @@ function AssignmentsTab() {
                       </label>
                     );
                   })}
+                </div>
+
+                <div className="rounded-lg border bg-slate-50 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">Painel de Controle</p>
+                      <p className="text-xs text-gray-600">Permitir acesso e escolher as áreas visíveis deste usuário</p>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={panelAccessByUser[profile.user_id]?.canAccess ?? true}
+                        onChange={(e) => setPanelAccessEnabled(profile.user_id, e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                      Permitir painel
+                    </label>
+                  </div>
+
+                  {(panelAccessByUser[profile.user_id]?.canAccess ?? true) && (
+                    <>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          className="text-xs text-primary underline"
+                          onClick={() => setAllPanelSections(profile.user_id, true)}
+                        >
+                          Marcar todas as áreas
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs text-gray-500 underline"
+                          onClick={() => setAllPanelSections(profile.user_id, false)}
+                        >
+                          Desmarcar todas as áreas
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {ADMIN_PANEL_SECTIONS.map((section) => {
+                          const checked = (panelAccessByUser[profile.user_id]?.sections || []).includes(section);
+                          return (
+                            <label key={`${profile.user_id}-${section}`} className="flex items-center gap-2 rounded-md border bg-white p-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => togglePanelSection(profile.user_id, section)}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-sm">{adminSectionLabel(section)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex justify-end">

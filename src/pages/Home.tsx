@@ -20,6 +20,8 @@ export default function Home() {
   const { hasModule, loading: loadingModules, isSuperAdmin, companyLogo } = useCompanyModules();
   const { requestPermission, isSupported, isSubscribed } = usePushNotifications();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [panelAccessAllowed, setPanelAccessAllowed] = useState(true);
+  const [loadingPanelAccess, setLoadingPanelAccess] = useState(true);
 
   useEffect(() => {
     if (!isSupported || isSubscribed) return;
@@ -30,6 +32,57 @@ export default function Home() {
 
     return () => window.clearTimeout(timeout);
   }, [isSupported, isSubscribed, requestPermission]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPanelAccess = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        const user = auth?.user;
+        if (!user) {
+          if (mounted) setLoadingPanelAccess(false);
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("company_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!profile?.company_id) {
+          if (mounted) {
+            setPanelAccessAllowed(true);
+            setLoadingPanelAccess(false);
+          }
+          return;
+        }
+
+        const { data } = await (supabase as any)
+          .from("user_admin_panel_access")
+          .select("can_access_panel")
+          .eq("company_id", profile.company_id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (mounted) {
+          setPanelAccessAllowed(data?.can_access_panel !== false);
+          setLoadingPanelAccess(false);
+        }
+      } catch {
+        if (mounted) {
+          setPanelAccessAllowed(true);
+          setLoadingPanelAccess(false);
+        }
+      }
+    };
+
+    loadPanelAccess();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -110,14 +163,14 @@ export default function Home() {
           </div>
         )}
         {/* Loading skeleton enquanto permissões carregam */}
-        {(loadingPerms || loadingModules) && (
+        {(loadingPerms || loadingModules || loadingPanelAccess) && (
           <div className="space-y-3">
             {[1,2,3,4,5].map(i => (
               <div key={i} className="h-20 rounded-2xl bg-header-gradient/30 animate-pulse" />
             ))}
           </div>
         )}
-        {!loadingPerms && !loadingModules && HUB_MODULES
+        {!loadingPerms && !loadingModules && !loadingPanelAccess && HUB_MODULES
           .filter(mod => {
             // adminOnly: acesso ao painel por 3 caminhos
             // 1) superadmin global
@@ -126,7 +179,7 @@ export default function Home() {
             const hasAdminAccess = isAdmin || isSuperAdmin || permissions?.is_admin === true;
             if (mod.adminOnly && !hasAdminAccess) return false;
             // Módulo admin: libera só quem tem permissão explícita
-            if (mod.id === "admin") return hasAdminAccess;
+            if (mod.id === "admin") return hasAdminAccess && panelAccessAllowed;
             // Super-admin (dono do Workflux) vê tudo
             // Admin da empresa vê módulos contratados pela empresa
             if (!hasModule(mod.id)) return false;

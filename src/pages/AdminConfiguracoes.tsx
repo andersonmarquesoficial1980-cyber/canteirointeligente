@@ -4982,6 +4982,29 @@ export default function AdminConfiguracoes() {
         return;
       }
 
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      const companyId = profileData?.company_id;
+
+      const { data: panelAccessRow } = await (supabase as any)
+        .from("user_admin_panel_access")
+        .select("can_access_panel, allowed_sections")
+        .eq("user_id", userId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+
+      if (panelAccessRow?.can_access_panel === false) {
+        if (mounted) {
+          setAllowedSections(new Set());
+          setLoadingAdminSections(false);
+        }
+        return;
+      }
+
       const { data: assignments, error: assignmentsError } = await supabase
         .from("user_admin_roles")
         .select("role_id")
@@ -5017,7 +5040,7 @@ export default function AdminConfiguracoes() {
         const resource = String(perm.resource || "");
         const action = String(perm.action || "");
 
-        if (resource === "all" || action === "manage") {
+        if (resource === "all" && action === "manage") {
           allKeys.forEach((k) => allowed.add(k));
           return;
         }
@@ -5029,6 +5052,17 @@ export default function AdminConfiguracoes() {
           }
         }
       });
+
+      const userSections = Array.isArray(panelAccessRow?.allowed_sections)
+        ? (panelAccessRow?.allowed_sections as string[])
+        : [];
+
+      if (userSections.length > 0) {
+        const userAllowed = new Set(userSections.filter((s) => allKeys.includes(s)));
+        Array.from(allowed).forEach((k) => {
+          if (!userAllowed.has(k)) allowed.delete(k);
+        });
+      }
 
       // Segurança UX: se o usuário tem role admin, mas sem permissões de seção,
       // libera apenas a aba de Roles para que um admin global complete a configuração.
