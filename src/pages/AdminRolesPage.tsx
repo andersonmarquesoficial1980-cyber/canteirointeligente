@@ -29,6 +29,7 @@ import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import {
   ADMIN_PANEL_SECTIONS,
   ADMIN_PERMISSION_ACTIONS,
+  adminSectionLabel,
   adminSectionResource,
 } from "@/lib/adminRoles";
 
@@ -55,6 +56,7 @@ interface AdminPermission {
 
 interface UserAdminRole {
   id: string;
+  user_id?: string | null;
   employee_id: string;
   role_id: string;
   scope_sector: string | null;
@@ -72,6 +74,17 @@ interface Profile {
   nome_completo: string | null;
   company_id: string | null;
 }
+
+const ADMIN_ROLE_LABELS: Record<string, string> = {
+  Super_Admin: "Administrador Geral (Super Admin)",
+  RDO_Admin: "Administrador de RDO",
+  Equipment_Admin: "Administrador de Equipamentos",
+  Fuel_Admin: "Administrador de Abastecimento",
+  Maintenance_Admin: "Administrador de Manutenção",
+  HR_Admin: "Administrador de RH",
+};
+
+const getAdminRoleLabel = (roleName: string) => ADMIN_ROLE_LABELS[roleName] || roleName;
 
 // Abas de Roles
 function RolesTab() {
@@ -351,6 +364,8 @@ function PermissionsTab() {
   const [permissions, setPermissions] = useState<AdminPermission[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingMatrix, setSavingMatrix] = useState(false);
+  const [selectedRoleId, setSelectedRoleId] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPermission, setEditingPermission] = useState<AdminPermission | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -464,6 +479,80 @@ function PermissionsTab() {
     return roles.find((r) => r.id === roleId)?.name || roleId;
   };
 
+  const selectedRolePermissions = permissions.filter((p) => p.role_id === selectedRoleId);
+
+  const hasPermission = (section: string, action: string) => {
+    const resource = adminSectionResource(section);
+    return selectedRolePermissions.some((p) => p.resource === resource && p.action === action);
+  };
+
+  const toggleMatrixPermission = async (section: string, action: string, enabled: boolean) => {
+    if (!selectedRoleId) {
+      toast.error("Selecione um role primeiro");
+      return;
+    }
+
+    const resource = adminSectionResource(section);
+    setSavingMatrix(true);
+
+    try {
+      if (enabled) {
+        const { error } = await supabase.from("admin_permissions").upsert(
+          {
+            role_id: selectedRoleId,
+            resource,
+            action,
+            is_sector_scoped: false,
+            sector_filter: null,
+          },
+          { onConflict: "role_id,resource,action" }
+        );
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("admin_permissions")
+          .delete()
+          .eq("role_id", selectedRoleId)
+          .eq("resource", resource)
+          .eq("action", action);
+
+        if (error) throw error;
+      }
+
+      await fetchData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar permissão");
+    } finally {
+      setSavingMatrix(false);
+    }
+  };
+
+  const selectedRoleName = roles.find((r) => r.id === selectedRoleId)?.name || "";
+
+  const formatResourceLabel = (resource: string) => {
+    if (resource.startsWith("admin_section.")) {
+      return adminSectionLabel(resource.replace("admin_section.", ""));
+    }
+
+    const legados: Record<string, string> = {
+      all: "Todos os recursos",
+      rdo_diarios: "RDOs",
+      equipment_diaries: "Equipamentos",
+      ocorrencias: "Ocorrências",
+      funcionarios: "Funcionários",
+    };
+    return legados[resource] || resource;
+  };
+
+  const formatActionLabel = (actionKey: string) => {
+    const found = ADMIN_PERMISSION_ACTIONS.find((a) => a.key === actionKey);
+    if (found) return found.label;
+    if (actionKey === "view_all") return "👁️ Ver todos";
+    if (actionKey === "view_own") return "👤 Ver próprios";
+    return actionKey;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -473,6 +562,78 @@ function PermissionsTab() {
           Nova Permissão
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Configuração rápida por role (PT-BR)</CardTitle>
+          <CardDescription>
+            Selecione um role e marque exatamente o que ele pode fazer em cada área do Painel de Controle.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <div>
+              <Label htmlFor="selected-role">Role para configurar</Label>
+              <select
+                id="selected-role"
+                value={selectedRoleId}
+                onChange={(e) => setSelectedRoleId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Selecione um role</option>
+                {roles
+                  .filter((r) => r.active !== false)
+                  .map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {getAdminRoleLabel(role.name)}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {selectedRoleName ? `Configurando: ${getAdminRoleLabel(selectedRoleName)}` : "Nenhum role selecionado"}
+            </div>
+          </div>
+
+          {selectedRoleId && (
+            <div className="overflow-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[230px]">Área do Painel</TableHead>
+                    {ADMIN_PERMISSION_ACTIONS.map((action) => (
+                      <TableHead key={action.key} className="text-center whitespace-nowrap">
+                        {action.label}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ADMIN_PANEL_SECTIONS.map((section) => (
+                    <TableRow key={section}>
+                      <TableCell className="font-medium">{adminSectionLabel(section)}</TableCell>
+                      {ADMIN_PERMISSION_ACTIONS.map((action) => {
+                        const checked = hasPermission(section, action.key);
+                        return (
+                          <TableCell key={action.key} className="text-center">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={savingMatrix}
+                              onChange={(e) => toggleMatrixPermission(section, action.key, e.target.checked)}
+                              className="h-4 w-4"
+                            />
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="flex items-center justify-center p-8">
@@ -489,20 +650,20 @@ function PermissionsTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Role</TableHead>
-                <TableHead>Recurso</TableHead>
-                <TableHead>Ação</TableHead>
-                <TableHead>Scoped</TableHead>
-                <TableHead>Filtro</TableHead>
+                <TableHead>Role (perfil admin)</TableHead>
+                <TableHead>Área / Recurso</TableHead>
+                <TableHead>Ação permitida</TableHead>
+                <TableHead>Escopo por setor</TableHead>
+                <TableHead>Filtro de setor</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {permissions.map((perm) => (
                 <TableRow key={perm.id}>
-                  <TableCell className="font-semibold">{getRoleName(perm.role_id)}</TableCell>
-                  <TableCell>{perm.resource}</TableCell>
-                  <TableCell>{perm.action}</TableCell>
+                  <TableCell className="font-semibold">{getAdminRoleLabel(getRoleName(perm.role_id))}</TableCell>
+                  <TableCell>{formatResourceLabel(perm.resource)}</TableCell>
+                  <TableCell>{formatActionLabel(perm.action)}</TableCell>
                   <TableCell>{perm.is_sector_scoped ? "✓" : "✗"}</TableCell>
                   <TableCell className="text-sm text-gray-500">{perm.sector_filter || "-"}</TableCell>
                   <TableCell className="text-right space-x-2">
@@ -549,7 +710,7 @@ function PermissionsTab() {
                 <option value="">Selecione um role</option>
                 {roles.map((role) => (
                   <option key={role.id} value={role.id}>
-                    {role.name}
+                    {getAdminRoleLabel(role.name)}
                   </option>
                 ))}
               </select>
@@ -568,7 +729,7 @@ function PermissionsTab() {
                 <optgroup label="Painel de Controle (seções)">
                   {ADMIN_PANEL_SECTIONS.map((section) => (
                     <option key={section} value={adminSectionResource(section)}>
-                      {`🧩 ${section}`}
+                      {`🧩 ${adminSectionLabel(section)}`}
                     </option>
                   ))}
                 </optgroup>
@@ -724,7 +885,7 @@ function AssignmentsTab() {
       const initialDraft: Record<string, string[]> = {};
       for (const p of profilesData) {
         const roleIds = assignmentsData
-          .filter((a) => (a.user_id && a.user_id === p.user_id) || a.employee_id === p.user_id)
+          .filter((a) => a.employee_id === p.user_id)
           .map((a) => a.role_id);
         initialDraft[p.user_id] = Array.from(new Set(roleIds));
       }
@@ -769,7 +930,7 @@ function AssignmentsTab() {
       const desired = new Set(draftByUser[userId] || []);
       const current = new Set(
         assignments
-          .filter((a) => (a.user_id && a.user_id === userId) || a.employee_id === userId)
+          .filter((a) => a.employee_id === userId)
           .map((a) => a.role_id)
       );
 
@@ -887,7 +1048,7 @@ function AssignmentsTab() {
                           onChange={() => toggleRole(profile.user_id, role.id)}
                           className="h-4 w-4"
                         />
-                        <span className="text-sm font-medium">{role.name}</span>
+                        <span className="text-sm font-medium">{getAdminRoleLabel(role.name)}</span>
                         {role.is_system_role ? (
                           <span className="text-[10px] text-blue-600 ml-auto">Sistema</span>
                         ) : (
