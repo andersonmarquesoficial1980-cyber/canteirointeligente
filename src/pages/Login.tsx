@@ -10,6 +10,10 @@ import logoCi from "@/assets/logo-workflux.png";
 // Domínio padrão — usado enquanto empresas carregam ou se só há uma empresa
 const LOGIN_DOMAIN_DEFAULT = "@workflux.app";
 
+// Em recuperação de senha, nunca apontar para localhost em produção.
+// Se o app estiver aberto localmente por engano, força callback para domínio oficial.
+const PASSWORD_RESET_FALLBACK_ORIGIN = "https://app.workflux.com.br";
+
 interface CompanyOption {
   id: string;
   name: string;
@@ -152,7 +156,9 @@ export default function Login() {
     e.preventDefault();
     setResetLoading(true);
     try {
-      const redirectTo = `${window.location.origin}/update-password`;
+      const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+      const resetOrigin = isLocalHost ? PASSWORD_RESET_FALLBACK_ORIGIN : window.location.origin;
+      const redirectTo = `${resetOrigin}/update-password`;
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, { redirectTo });
       if (error) throw error;
       setResetSent(true);

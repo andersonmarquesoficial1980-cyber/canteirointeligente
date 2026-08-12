@@ -26,6 +26,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  ADMIN_PANEL_SECTIONS,
+  ADMIN_PERMISSION_ACTIONS,
+  adminSectionResource,
+} from "@/lib/adminRoles";
 
 // Types
 interface AdminRole {
@@ -158,6 +163,13 @@ function RolesTab() {
   };
 
   const handleDeleteRole = async (id: string) => {
+    const role = roles.find((r) => r.id === id);
+    if (role?.is_system_role) {
+      toast.error("Roles de sistema não podem ser excluídos");
+      setDeleteConfirm(null);
+      return;
+    }
+
     try {
       const { error } = await supabase.from("admin_roles").delete().eq("id", id);
 
@@ -224,9 +236,17 @@ function RolesTab() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setDeleteConfirm(role.id)}
+                      disabled={!!role.is_system_role}
+                      title={role.is_system_role ? "Role de sistema não pode ser excluído" : "Excluir role"}
+                      onClick={() => {
+                        if (role.is_system_role) {
+                          toast.error("Roles de sistema não podem ser excluídos");
+                          return;
+                        }
+                        setDeleteConfirm(role.id);
+                      }}
                     >
-                      <Trash2 className="w-4 h-4 text-red-500" />
+                      <Trash2 className={`w-4 h-4 ${role.is_system_role ? "text-gray-300" : "text-red-500"}`} />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -303,16 +323,19 @@ function RolesTab() {
           <AlertDialogHeader>
             <AlertDialogTitle>Deletar Role</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja deletar este role? Esta ação não pode ser desfeita.
+              {roles.find((r) => r.id === deleteConfirm)?.is_system_role
+                ? "Este é um role de sistema e não pode ser excluído."
+                : "Tem certeza que deseja deletar este role? Esta ação não pode ser desfeita."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
+              disabled={!!roles.find((r) => r.id === deleteConfirm)?.is_system_role}
               onClick={() => {
                 if (deleteConfirm) handleDeleteRole(deleteConfirm);
               }}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:hover:bg-gray-400"
             >
               Deletar
             </AlertDialogAction>
@@ -541,11 +564,20 @@ function PermissionsTab() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="">Selecione um recurso</option>
-                <option value="rdo_diarios">📋 RDOs (Relatórios Diários de Obra)</option>
-                <option value="equipment_diaries">🚜 Equipamentos (Lançamentos de Equip.)</option>
-                <option value="ocorrencias">⚠️ Ocorrências</option>
-                <option value="funcionarios">👷 Funcionários</option>
                 <option value="all">🔓 Todos os recursos</option>
+                <optgroup label="Painel de Controle (seções)">
+                  {ADMIN_PANEL_SECTIONS.map((section) => (
+                    <option key={section} value={adminSectionResource(section)}>
+                      {`🧩 ${section}`}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Recursos legados">
+                  <option value="rdo_diarios">📋 RDOs (Relatórios Diários de Obra)</option>
+                  <option value="equipment_diaries">🚜 Equipamentos (Lançamentos de Equip.)</option>
+                  <option value="ocorrencias">⚠️ Ocorrências</option>
+                  <option value="funcionarios">👷 Funcionários</option>
+                </optgroup>
               </select>
             </div>
 
@@ -558,12 +590,13 @@ function PermissionsTab() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="">Selecione uma ação</option>
-                <option value="view_all">👁️ Ver todos (da empresa)</option>
-                <option value="view_own">👤 Ver apenas os próprios</option>
-                <option value="create">✏️ Criar</option>
-                <option value="edit">📝 Editar</option>
-                <option value="delete">🗑️ Deletar</option>
-                <option value="manage">⚙️ Gerenciar (criar/editar/deletar)</option>
+                {ADMIN_PERMISSION_ACTIONS.map((action) => (
+                  <option key={action.key} value={action.key}>
+                    {action.label}
+                  </option>
+                ))}
+                <option value="view_all">👁️ Ver todos (legado)</option>
+                <option value="view_own">👤 Ver apenas os próprios (legado)</option>
               </select>
             </div>
 
