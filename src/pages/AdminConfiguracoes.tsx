@@ -3368,9 +3368,9 @@ function OperadoresHabilitadosManager() {
         })}
       </div>
 
-      {/* ── Operadores Habilitados ── */}
-      <div>
-        <p className="text-sm font-semibold text-foreground mb-1">Operadores Habilitados</p>
+      {/* ── Cadastros do Sistema ── */}
+      <div className="rdo-card">
+        <p className="text-sm font-semibold text-foreground mb-1">Cadastros do Sistema</p>
         <p className="text-xs text-muted-foreground mb-3">Configure quais funcionários aparecem como opções ao lançar o diário de cada equipamento.</p>
       {EQUIP_TYPES_FOR_HABILITADOS.map(({ id, label }) => {
         const habilitados = links.filter(l => l.equipment_type === id).map(l => funcionarios.find(f => f.id === l.funcionario_id)).filter(Boolean);
@@ -3934,7 +3934,7 @@ function AbastecimentoConfigManager() {
       <div className="rdo-card space-y-3">
         <p className="text-xs text-muted-foreground">
           👤 <strong>Motoristas do Comboio</strong> e <strong>Lubrificadores</strong> são configurados em
-          <strong> Painel → Operadores Habilitados</strong>: tipo <em>Comboio</em> (motoristas) e tipo <em>Lubrificador (WF Abastecimento)</em>.
+          <strong> Painel → Cadastros do Sistema</strong>: tipo <em>Comboio</em> (motoristas) e tipo <em>Lubrificador (WF Abastecimento)</em>.
         </p>
       </div>
       <div className="rdo-card space-y-6">

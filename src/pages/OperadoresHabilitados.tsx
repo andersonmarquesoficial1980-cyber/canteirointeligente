@@ -16,7 +16,7 @@ import { useOrigemBack } from "@/hooks/useOrigemBack";
 const ALL_CATEGORIES = [
   // WF Manutenção
   { id: "Mecânico", label: "Mecânicos (WF Manutenção)", section: "manutencao" },
-  // Operadores Habilitados (diário)
+  // Cadastros do Sistema (diário)
   { id: "Fresadora",   label: "Fresadora",                   section: "operadores" },
   { id: "Bobcat",      label: "Bobcat",                      section: "operadores" },
   { id: "Rolo",        label: "Rolo Compactador",            section: "operadores" },
@@ -220,7 +220,7 @@ export default function OperadoresHabilitados() {
         </section>
 
         <section>
-          <h2 className="font-display font-bold text-base mb-1">Operadores Habilitados</h2>
+          <h2 className="font-display font-bold text-base mb-1">Cadastros do Sistema</h2>
           <p className="text-sm text-muted-foreground mb-3">Configure quais funcionários aparecem ao lançar o diário de cada equipamento.</p>
           <AccordionSection cats={catsOperadores as any} />
         </section>

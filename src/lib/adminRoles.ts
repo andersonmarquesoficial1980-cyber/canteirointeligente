@@ -74,7 +74,7 @@ export const ADMIN_PANEL_SECTION_LABELS: Record<AdminPanelSection, string> = {
   tarifas_vt: "Tarifas de VT",
   lixeira: "Lixeira (30 dias)",
   auditoria: "Log de Auditoria",
-  operadores_habilitados: "Operadores Habilitados",
+  operadores_habilitados: "Cadastros do Sistema",
   roles: "Admin Roles",
   engenheiros_ogs: "Engenheiros por OGS",
   encarregados_ogs: "Encarregados por OGS",
