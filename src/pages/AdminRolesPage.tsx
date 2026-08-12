@@ -370,7 +370,7 @@ function PermissionsTab() {
           .from("admin_permissions")
           .select("*")
           .order("created_at", { ascending: false }),
-        supabase.from("admin_roles").select("id, name"),
+        supabase.from("admin_roles").select("*"),
       ]);
 
       if (permissionsRes.error) throw permissionsRes.error;
@@ -664,37 +664,71 @@ function AssignmentsTab() {
   const [assignments, setAssignments] = useState<UserAdminRole[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
+  const [draftByUser, setDraftByUser] = useState<Record<string, string[]>>({});
+  const [savingUser, setSavingUser] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingAssignment, setEditingAssignment] = useState<UserAdminRole | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    employee_id: "",
-    role_id: "",
-    scope_sector: "",
-    scope_obra: "",
-  });
+  const [search, setSearch] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error("Sessão expirada. Faça login novamente.");
+
+      const { data: currentProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (profileError) throw profileError;
+
+      const companyId = currentProfile?.company_id;
+      if (!companyId) throw new Error("company_id do usuário atual não encontrado.");
+
       const [assignmentsRes, profilesRes, rolesRes] = await Promise.all([
         supabase
           .from("user_admin_roles")
-          .select("*"),
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("is_active", true),
         supabase
           .from("profiles")
-          .select("user_id, email, nome_completo, company_id"),
-        supabase.from("admin_roles").select("id, name"),
+          .select("user_id, email, nome_completo, company_id")
+          .eq("company_id", companyId)
+          .order("nome_completo"),
+        supabase
+          .from("admin_roles")
+          .select("*")
+          .eq("active", true)
+          .or(`company_id.is.null,company_id.eq.${companyId}`)
+          .order("name"),
       ]);
 
       if (assignmentsRes.error) throw assignmentsRes.error;
       if (profilesRes.error) throw profilesRes.error;
       if (rolesRes.error) throw rolesRes.error;
 
-      setAssignments(assignmentsRes.data || []);
-      setProfiles(profilesRes.data || []);
-      setRoles(rolesRes.data || []);
+      const assignmentsData = assignmentsRes.data || [];
+      const profilesData = profilesRes.data || [];
+      const rolesData = rolesRes.data || [];
+
+      setAssignments(assignmentsData);
+      setProfiles(profilesData);
+      setRoles(rolesData);
+
+      const initialDraft: Record<string, string[]> = {};
+      for (const p of profilesData) {
+        const roleIds = assignmentsData
+          .filter((a) => (a.user_id && a.user_id === p.user_id) || a.employee_id === p.user_id)
+          .map((a) => a.role_id);
+        initialDraft[p.user_id] = Array.from(new Set(roleIds));
+      }
+      setDraftByUser(initialDraft);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao carregar dados");
     } finally {
@@ -706,255 +740,175 @@ function AssignmentsTab() {
     fetchData();
   }, [fetchData]);
 
-  const handleOpenDialog = (assignment?: UserAdminRole) => {
-    if (assignment) {
-      setEditingAssignment(assignment);
-      setFormData({
-        employee_id: assignment.employee_id,
-        role_id: assignment.role_id,
-        scope_sector: assignment.scope_sector || "",
-        scope_obra: assignment.scope_obra || "",
-      });
-    } else {
-      setEditingAssignment(null);
-      setFormData({ employee_id: "", role_id: "", scope_sector: "", scope_obra: "" });
-    }
-    setIsDialogOpen(true);
+  const toggleRole = (userId: string, roleId: string) => {
+    setDraftByUser((prev) => {
+      const current = new Set(prev[userId] || []);
+      if (current.has(roleId)) current.delete(roleId);
+      else current.add(roleId);
+      return { ...prev, [userId]: Array.from(current) };
+    });
   };
 
-  const handleSaveAssignment = async () => {
-    if (!formData.employee_id || !formData.role_id) {
-      toast.error("Usuário e Role são obrigatórios");
+  const setAllRoles = (userId: string, enabled: boolean) => {
+    setDraftByUser((prev) => ({
+      ...prev,
+      [userId]: enabled ? roles.map((r) => r.id) : [],
+    }));
+  };
+
+  const saveUserAssignments = async (profile: Profile) => {
+    const userId = profile.user_id;
+    const companyId = profile.company_id;
+    if (!companyId) {
+      toast.error("company_id do usuário não encontrado");
       return;
     }
 
+    setSavingUser(userId);
     try {
-      if (editingAssignment) {
-        const { error } = await supabase
-          .from("user_admin_roles")
-          .update({
-            employee_id: formData.employee_id,
-            role_id: formData.role_id,
-            scope_sector: formData.scope_sector || null,
-            scope_obra: formData.scope_obra || null,
-          })
-          .eq("id", editingAssignment.id);
+      const desired = new Set(draftByUser[userId] || []);
+      const current = new Set(
+        assignments
+          .filter((a) => (a.user_id && a.user_id === userId) || a.employee_id === userId)
+          .map((a) => a.role_id)
+      );
 
-        if (error) throw error;
-        toast.success("Atribuição atualizada com sucesso");
-      } else {
-        // Buscar company_id do perfil selecionado
-        const selectedProfile = profiles.find((p) => p.user_id === formData.employee_id);
-        const companyId = selectedProfile?.company_id || null;
+      const toAdd = Array.from(desired).filter((r) => !current.has(r));
+      const toRemove = Array.from(current).filter((r) => !desired.has(r));
 
-        const { error } = await supabase.from("user_admin_roles").insert({
-          user_id: formData.employee_id,
-          employee_id: formData.employee_id,
+      if (toAdd.length > 0) {
+        const rows = toAdd.map((roleId) => ({
+          user_id: userId,
+          employee_id: userId,
+          role_id: roleId,
           company_id: companyId,
-          role_id: formData.role_id,
-          scope_sector: formData.scope_sector || null,
-          scope_obra: formData.scope_obra || null,
           is_active: true,
-        });
+          revoked_at: null,
+        }));
 
-        if (error) throw error;
-        toast.success("Atribuição criada com sucesso");
+        const { error: upsertError } = await (supabase as any)
+          .from("user_admin_roles")
+          .upsert(rows, { onConflict: "user_id,role_id" });
+
+        if (upsertError) throw upsertError;
       }
 
-      setIsDialogOpen(false);
+      if (toRemove.length > 0) {
+        const { error: deactivateError } = await (supabase as any)
+          .from("user_admin_roles")
+          .update({ is_active: false, revoked_at: new Date().toISOString() })
+          .eq("company_id", companyId)
+          .eq("user_id", userId)
+          .in("role_id", toRemove)
+          .eq("is_active", true);
+
+        if (deactivateError) throw deactivateError;
+      }
+
+      toast.success(`Acessos de ${profile.nome_completo || profile.email} atualizados`);
       await fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar atribuição");
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar atribuições");
+    } finally {
+      setSavingUser(null);
     }
   };
 
-  const handleDeleteAssignment = async (id: string) => {
-    try {
-      const { error } = await supabase.from("user_admin_roles").delete().eq("id", id);
+  const filteredProfiles = profiles.filter((p) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (p.nome_completo || "").toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
+  });
 
-      if (error) throw error;
-      toast.success("Atribuição deletada com sucesso");
-      setDeleteConfirm(null);
-      await fetchData();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao deletar atribuição");
-    }
-  };
-
-  const getProfileDisplay = (employeeId: string) => {
-    const profile = profiles.find((p) => p.user_id === employeeId);
-    return profile ? `${profile.nome_completo || profile.email} (${profile.email})` : employeeId;
-  };
-
-  const getRoleName = (roleId: string) => {
-    return roles.find((r) => r.id === roleId)?.name || roleId;
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Atribuições</h2>
-        <Button onClick={() => handleOpenDialog()} size="sm">
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Atribuição
-        </Button>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Atribuições por Usuário (Fremix)</h2>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center p-8">
-          <Loader2 className="w-6 h-6 animate-spin" />
-        </div>
-      ) : assignments.length === 0 ? (
+      <Input
+        placeholder="Buscar usuário por nome ou e-mail..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      {filteredProfiles.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-gray-500">
-            Nenhuma atribuição criada ainda
-          </CardContent>
+          <CardContent className="p-8 text-center text-gray-500">Nenhum usuário encontrado</CardContent>
         </Card>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Setor</TableHead>
-                <TableHead>Obra</TableHead>
-                <TableHead>Ativo</TableHead>
-                <TableHead>Atribuído em</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {assignments.map((assignment) => (
-                <TableRow key={assignment.id}>
-                  <TableCell className="font-semibold">{getProfileDisplay(assignment.employee_id)}</TableCell>
-                  <TableCell>{getRoleName(assignment.role_id)}</TableCell>
-                  <TableCell className="text-sm">{assignment.scope_sector || "-"}</TableCell>
-                  <TableCell className="text-sm">{assignment.scope_obra || "-"}</TableCell>
-                  <TableCell>{assignment.is_active ? "✓" : "✗"}</TableCell>
-                  <TableCell className="text-sm text-gray-500">
-                    {assignment.assigned_at ? new Date(assignment.assigned_at).toLocaleDateString("pt-BR") : "-"}
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleOpenDialog(assignment)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setDeleteConfirm(assignment.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+        filteredProfiles.map((profile) => {
+          const selected = new Set(draftByUser[profile.user_id] || []);
+          const enabledCount = selected.size;
+          const isSaving = savingUser === profile.user_id;
+
+          return (
+            <Card key={profile.user_id}>
+              <CardHeader>
+                <CardTitle className="text-base">{profile.nome_completo || profile.email}</CardTitle>
+                <CardDescription>
+                  {profile.email} • {enabledCount} role{enabledCount === 1 ? "" : "s"} ativo{enabledCount === 1 ? "" : "s"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    className="text-xs text-primary underline"
+                    onClick={() => setAllRoles(profile.user_id, true)}
+                  >
+                    Marcar todos
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs text-gray-500 underline"
+                    onClick={() => setAllRoles(profile.user_id, false)}
+                  >
+                    Desmarcar todos
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {roles.map((role) => {
+                    const checked = selected.has(role.id);
+                    return (
+                      <label key={role.id} className="flex items-center gap-2 rounded-md border p-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleRole(profile.user_id, role.id)}
+                          className="h-4 w-4"
+                        />
+                        <span className="text-sm font-medium">{role.name}</span>
+                        {role.is_system_role ? (
+                          <span className="text-[10px] text-blue-600 ml-auto">Sistema</span>
+                        ) : (
+                          <span className="text-[10px] text-gray-500 ml-auto">Custom</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={() => saveUserAssignments(profile)} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Salvar Acessos
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })
       )}
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingAssignment ? "Editar Atribuição" : "Criar Nova Atribuição"}</DialogTitle>
-            <DialogDescription>
-              {editingAssignment ? "Atualize a atribuição do role" : "Atribua um role a um usuário"}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="user_id">Usuário *</Label>
-              <select
-                id="user_id"
-                value={formData.employee_id}
-                onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Selecione um usuário</option>
-                {profiles.map((profile) => (
-                  <option key={profile.user_id} value={profile.user_id}>
-                    {profile.nome_completo || profile.email} ({profile.email})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="role_id">Role *</Label>
-              <select
-                id="role_id"
-                value={formData.role_id}
-                onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Selecione um role</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="scope_sector">Escopo - Setor</Label>
-              <Input
-                id="scope_sector"
-                value={formData.scope_sector}
-                onChange={(e) => setFormData({ ...formData, scope_sector: e.target.value })}
-                placeholder="Ex: construção"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="scope_obra">Escopo - Obra</Label>
-              <Input
-                id="scope_obra"
-                value={formData.scope_obra}
-                onChange={(e) => setFormData({ ...formData, scope_obra: e.target.value })}
-                placeholder="Ex: obra-001"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveAssignment}>
-              {editingAssignment ? "Atualizar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Deletar Atribuição</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja deletar esta atribuição? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (deleteConfirm) handleDeleteAssignment(deleteConfirm);
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Deletar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
