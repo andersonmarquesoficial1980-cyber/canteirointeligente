@@ -1269,6 +1269,17 @@ function AssignmentsTab() {
         sections: [...ADMIN_PANEL_SECTIONS],
       };
 
+      const desiredKeysForSections = new Set(userPermissionsByUser[userId] || []);
+      const sectionsFromPermissions = Array.from(desiredKeysForSections)
+        .map((k) => userPermParse(k).section)
+        .filter((s): s is string => !!s && ADMIN_PANEL_SECTIONS.includes(s as any));
+
+      // Guarda anti-frustração: se marcou permissões detalhadas de uma seção,
+      // a seção também fica visível no painel automaticamente.
+      const finalAllowedSections = panelDraft.canAccess
+        ? Array.from(new Set([...(panelDraft.sections || []), ...sectionsFromPermissions]))
+        : [];
+
       const { error: panelAccessError } = await (supabase as any)
         .from("user_admin_panel_access")
         .upsert(
@@ -1276,7 +1287,7 @@ function AssignmentsTab() {
             company_id: companyId,
             user_id: userId,
             can_access_panel: panelDraft.canAccess,
-            allowed_sections: panelDraft.sections,
+            allowed_sections: finalAllowedSections,
           },
           { onConflict: "company_id,user_id" }
         );
@@ -1479,6 +1490,7 @@ function AssignmentsTab() {
                       <p className="text-sm font-semibold">Permissões detalhadas por usuário</p>
                       <p className="text-xs text-gray-600">
                         Aqui você define ação por ação para este usuário. Isso sobrepõe o padrão do role.
+                        Ao marcar uma ação de seção, a seção entra automaticamente na visibilidade do painel.
                       </p>
                     </div>
                     <span className={`text-[10px] px-2 py-1 rounded-full ${explicitUserPerms[profile.user_id] ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
