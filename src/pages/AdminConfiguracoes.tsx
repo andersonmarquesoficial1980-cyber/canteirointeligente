@@ -3946,8 +3946,8 @@ function AbastecimentoConfigManager() {
 
 // ═══════════════════════════════════════════════════════════════
 const MENU_SECTIONS = [
-  { key: "assinatura", label: "Meu Plano / Faturas", icon: Receipt },
-  { key: "dashboard", label: "WF Dashboards", icon: BarChart3 },
+  { key: "assinatura", label: "Assinatura", icon: Receipt },
+  { key: "dashboard", label: "Dashboard", icon: BarChart3 },
   { key: "usuarios", label: "Usuários", icon: Users },
   { key: "permissoes", label: "Permissões", icon: Users },
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
@@ -3979,7 +3979,7 @@ const MENU_SECTIONS = [
   { key: "roles", label: "Admin Roles", icon: ShieldCheck },
   { key: "engenheiros_ogs", label: "Engenheiros por OGS", icon: HardHat },
   { key: "encarregados_ogs", label: "Encarregados por OGS", icon: HardHat },
-  { key: "abastecimento_config", label: "WF Abastecimento", icon: Fuel },
+  { key: "abastecimento_config", label: "Configurações de Abastecimento", icon: Fuel },
 ];
 
 // ═══════════════════════════════════════════════════════════════
