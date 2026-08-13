@@ -290,7 +290,7 @@ function LinhaFuncionario({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Encerrar férias agora?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Isso vai encerrar o período vigente de férias de <strong>{f.name}</strong> e retornar o status para ativo.
+                    Isso vai encerrar as férias vigentes de <strong>{f.name}</strong>, ajustar o fim do período para ontem e retornar o status para ativo.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
