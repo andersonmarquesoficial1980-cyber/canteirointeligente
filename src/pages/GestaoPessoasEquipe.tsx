@@ -265,6 +265,8 @@ function LinhaFuncionario({
             <button
               onClick={async (e) => {
                 e.stopPropagation();
+                const ok = window.confirm(`Encerrar férias agora de ${f.name}?`);
+                if (!ok) return;
                 await onEncerrarFeriasAgora(f);
                 setStatusEdit("ativo");
               }}
