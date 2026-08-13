@@ -28,9 +28,43 @@ interface Funcionario {
   company_id?: string | null;
 }
 
+interface VacationRecordResumo {
+  id: string;
+  employee_id: string;
+  data_inicio: string;
+  data_fim: string;
+}
+
+interface StatusResumo {
+  emFeriasAgora: boolean;
+  periodoAtual: { inicio: string; fim: string } | null;
+  proximoPeriodo: { inicio: string; fim: string } | null;
+}
+
+const STATUS_UI: Record<string, { label: string; bg: string; text: string; border: string }> = {
+  ativo: { label: "Ativo", bg: "#dcfce7", text: "#166534", border: "#86efac" },
+  ferias: { label: "Em férias", bg: "#e0f2fe", text: "#075985", border: "#7dd3fc" },
+  afastado: { label: "Afastado", bg: "#ffedd5", text: "#9a3412", border: "#fdba74" },
+  demitido: { label: "Demitido", bg: "#fee2e2", text: "#991b1b", border: "#fca5a5" },
+  programado: { label: "Férias programadas", bg: "#ede9fe", text: "#5b21b6", border: "#c4b5fd" },
+};
+
 function funcaoBase(role: string | null) {
   if (!role) return "SEM FUNÇÃO";
   return role.trim().toUpperCase();
+}
+
+function hojeISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function emIntervalo(data: string, inicio: string, fim: string) {
+  return data >= inicio && data <= fim;
+}
+
+function fmtPeriodoCurto(dataISO: string) {
+  const [ano, mes, dia] = dataISO.split("-");
+  return `${dia}/${mes}/${ano.slice(2)}`;
 }
 
 function LinhaFuncionario({
@@ -40,7 +74,12 @@ function LinhaFuncionario({
   mostrarSalario,
   equipesDisponiveis,
   updatingEquipeId,
+  updatingStatusId,
+  updatingFeriasId,
+  statusResumo,
   onChangeEquipe,
+  onChangeStatus,
+  onRegistrarFeriasInline,
   onProgramarFerias,
 }: {
   f: Funcionario;
@@ -49,10 +88,55 @@ function LinhaFuncionario({
   mostrarSalario: boolean;
   equipesDisponiveis: string[];
   updatingEquipeId: string | null;
+  updatingStatusId: string | null;
+  updatingFeriasId: string | null;
+  statusResumo: StatusResumo;
   onChangeEquipe: (id: string, novaEquipe: string) => void;
+  onChangeStatus: (f: Funcionario, novoStatus: string) => Promise<void>;
+  onRegistrarFeriasInline: (f: Funcionario, inicio: string, fim: string) => Promise<void>;
   onProgramarFerias: (f: Funcionario) => void;
 }) {
   const equipeAtual = (f.equipe || "").trim();
+  const statusAtual = (f.status || "ativo").toLowerCase();
+  const statusVisual = statusResumo.emFeriasAgora
+    ? STATUS_UI.ferias
+    : statusResumo.proximoPeriodo
+      ? STATUS_UI.programado
+      : (STATUS_UI[statusAtual] || STATUS_UI.ativo);
+
+  const [statusEdit, setStatusEdit] = useState<string>(statusResumo.emFeriasAgora ? "ferias" : statusAtual);
+  const [abrirFeriasInline, setAbrirFeriasInline] = useState(false);
+  const [feriasInicio, setFeriasInicio] = useState(statusResumo.proximoPeriodo?.inicio || "");
+  const [feriasFim, setFeriasFim] = useState(statusResumo.proximoPeriodo?.fim || "");
+
+  useEffect(() => {
+    setStatusEdit(statusResumo.emFeriasAgora ? "ferias" : (f.status || "ativo").toLowerCase());
+  }, [f.status, statusResumo.emFeriasAgora]);
+
+  useEffect(() => {
+    if (statusResumo.proximoPeriodo && !statusResumo.emFeriasAgora) {
+      setFeriasInicio(statusResumo.proximoPeriodo.inicio);
+      setFeriasFim(statusResumo.proximoPeriodo.fim);
+    }
+  }, [statusResumo.proximoPeriodo, statusResumo.emFeriasAgora]);
+
+  async function aplicarStatus(valor: string) {
+    setStatusEdit(valor);
+    if (valor === "ferias") {
+      setAbrirFeriasInline(true);
+      if (!feriasInicio) setFeriasInicio(hojeISO());
+      if (!feriasFim) setFeriasFim(hojeISO());
+      return;
+    }
+    setAbrirFeriasInline(false);
+    await onChangeStatus(f, valor);
+  }
+
+  async function salvarFeriasInline() {
+    await onRegistrarFeriasInline(f, feriasInicio, feriasFim);
+    setAbrirFeriasInline(false);
+    setStatusEdit("ferias");
+  }
 
   return (
     <div
@@ -83,9 +167,33 @@ function LinhaFuncionario({
           </div>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {f.name}
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
+              {f.name}
+            </p>
+            <span style={{
+              fontSize: 10,
+              fontWeight: 700,
+              padding: "2px 8px",
+              borderRadius: 999,
+              background: statusVisual.bg,
+              color: statusVisual.text,
+              border: `1px solid ${statusVisual.border}`,
+              whiteSpace: "nowrap",
+            }}>
+              {statusVisual.label}
+            </span>
+            {statusResumo.periodoAtual && (
+              <span style={{ fontSize: 10, color: "#0369a1", fontWeight: 600 }}>
+                {fmtPeriodoCurto(statusResumo.periodoAtual.inicio)} → {fmtPeriodoCurto(statusResumo.periodoAtual.fim)}
+              </span>
+            )}
+            {!statusResumo.periodoAtual && statusResumo.proximoPeriodo && (
+              <span style={{ fontSize: 10, color: "#5b21b6", fontWeight: 600 }}>
+                programada: {fmtPeriodoCurto(statusResumo.proximoPeriodo.inicio)} → {fmtPeriodoCurto(statusResumo.proximoPeriodo.fim)}
+              </span>
+            )}
+          </div>
           <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
             {f.role ?? "—"}{f.equipe ? ` · ${f.equipe}` : ""}{f.matricula ? ` · Mat. ${f.matricula}` : ""}
             {mostrarSalario && f.salario ? ` · R$ ${Number(f.salario).toLocaleString("pt-BR")}` : ""}
@@ -96,7 +204,8 @@ function LinhaFuncionario({
 
       <div
         style={{
-          display: "flex",
+          display: "grid",
+          gridTemplateColumns: "1.3fr 1fr auto",
           alignItems: "center",
           gap: 8,
           padding: "0 16px 10px 16px",
@@ -105,22 +214,44 @@ function LinhaFuncionario({
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>Editar equipe:</span>
-        <Select
-          value={equipeAtual || "__sem_equipe"}
-          onValueChange={(valor) => onChangeEquipe(f.id, valor)}
-          disabled={updatingEquipeId === f.id}
-        >
-          <SelectTrigger className="h-8 rounded-lg text-xs bg-white">
-            <SelectValue placeholder="Selecione" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__sem_equipe">Sem equipe</SelectItem>
-            {equipesDisponiveis.map((eq) => (
-              <SelectItem key={`${f.id}-${eq}`} value={eq}>{eq}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>Equipe:</span>
+          <Select
+            value={equipeAtual || "__sem_equipe"}
+            onValueChange={(valor) => onChangeEquipe(f.id, valor)}
+            disabled={updatingEquipeId === f.id}
+          >
+            <SelectTrigger className="h-8 rounded-lg text-xs bg-white">
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__sem_equipe">Sem equipe</SelectItem>
+              {equipesDisponiveis.map((eq) => (
+                <SelectItem key={`${f.id}-${eq}`} value={eq}>{eq}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>Status:</span>
+          <Select
+            value={statusEdit || "ativo"}
+            onValueChange={aplicarStatus}
+            disabled={updatingStatusId === f.id || updatingFeriasId === f.id}
+          >
+            <SelectTrigger className="h-8 rounded-lg text-xs bg-white">
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ativo">Ativo</SelectItem>
+              <SelectItem value="afastado">Afastado</SelectItem>
+              <SelectItem value="demitido">Demitido</SelectItem>
+              <SelectItem value="ferias">Férias</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <button
           onClick={(e) => { e.stopPropagation(); onProgramarFerias(f); }}
           className="h-8 px-2.5 rounded-lg border border-primary/30 text-primary text-[11px] font-semibold hover:bg-primary/10 transition-colors whitespace-nowrap"
@@ -128,8 +259,66 @@ function LinhaFuncionario({
         >
           Programar férias
         </button>
-        {updatingEquipeId === f.id && <Loader2 size={13} className="animate-spin text-primary" />}
       </div>
+
+      {abrirFeriasInline && (
+        <div
+          style={{
+            margin: "0 16px 10px 16px",
+            border: "1px solid #dbeafe",
+            background: "#f8fbff",
+            borderRadius: 10,
+            padding: 10,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p style={{ fontSize: 11, fontWeight: 700, color: "#1e3a8a", marginBottom: 8 }}>
+            Informe o período de férias
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "end" }}>
+            <label style={{ fontSize: 10, color: "#475569" }}>
+              Início
+              <input
+                type="date"
+                value={feriasInicio}
+                onChange={(e) => setFeriasInicio(e.target.value)}
+                style={{ width: "100%", height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 8px", marginTop: 4 }}
+              />
+            </label>
+            <label style={{ fontSize: 10, color: "#475569" }}>
+              Fim
+              <input
+                type="date"
+                value={feriasFim}
+                onChange={(e) => setFeriasFim(e.target.value)}
+                style={{ width: "100%", height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 8px", marginTop: 4 }}
+              />
+            </label>
+            <button
+              onClick={salvarFeriasInline}
+              disabled={!feriasInicio || !feriasFim || updatingFeriasId === f.id}
+              className="h-8 px-3 rounded-lg bg-primary text-white text-[11px] font-semibold disabled:opacity-50"
+            >
+              Salvar
+            </button>
+            <button
+              onClick={() => {
+                setAbrirFeriasInline(false);
+                setStatusEdit(statusResumo.emFeriasAgora ? "ferias" : (f.status || "ativo").toLowerCase());
+              }}
+              className="h-8 px-3 rounded-lg border border-slate-300 text-slate-600 text-[11px] font-semibold"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(updatingEquipeId === f.id || updatingStatusId === f.id || updatingFeriasId === f.id) && (
+        <div style={{ padding: "0 16px 10px", display: "flex", justifyContent: "flex-end" }}>
+          <Loader2 size={13} className="animate-spin text-primary" />
+        </div>
+      )}
     </div>
   );
 }
@@ -142,7 +331,12 @@ function GrupoColapsavel({
   mostrarSalario,
   equipesDisponiveis,
   updatingEquipeId,
+  updatingStatusId,
+  updatingFeriasId,
+  statusResumoPorFuncionario,
   onChangeEquipe,
+  onChangeStatus,
+  onRegistrarFeriasInline,
   onProgramarFerias,
 }: {
   titulo: string;
@@ -152,7 +346,12 @@ function GrupoColapsavel({
   mostrarSalario: boolean;
   equipesDisponiveis: string[];
   updatingEquipeId: string | null;
+  updatingStatusId: string | null;
+  updatingFeriasId: string | null;
+  statusResumoPorFuncionario: Record<string, StatusResumo>;
   onChangeEquipe: (id: string, novaEquipe: string) => void;
+  onChangeStatus: (f: Funcionario, novoStatus: string) => Promise<void>;
+  onRegistrarFeriasInline: (f: Funcionario, inicio: string, fim: string) => Promise<void>;
   onProgramarFerias: (f: Funcionario) => void;
 }) {
   const [aberto, setAberto] = useState(false);
@@ -181,7 +380,12 @@ function GrupoColapsavel({
               mostrarSalario={mostrarSalario}
               equipesDisponiveis={equipesDisponiveis}
               updatingEquipeId={updatingEquipeId}
+              updatingStatusId={updatingStatusId}
+              updatingFeriasId={updatingFeriasId}
+              statusResumo={statusResumoPorFuncionario[f.id] || { emFeriasAgora: false, periodoAtual: null, proximoPeriodo: null }}
               onChangeEquipe={onChangeEquipe}
+              onChangeStatus={onChangeStatus}
+              onRegistrarFeriasInline={onRegistrarFeriasInline}
               onProgramarFerias={onProgramarFerias}
             />
           ))}
@@ -207,12 +411,15 @@ export default function GestaoPessoasEquipe() {
     : "lista";
   const { isAdmin } = useIsAdmin();
   const [todos, setTodos] = useState<Funcionario[]>([]);
+  const [vacationRecords, setVacationRecords] = useState<VacationRecordResumo[]>([]);
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [aba, setAba] = useState<Aba>(abaInicial);
   const [busca, setBusca] = useState(buscaParam);
   const [mostrarSalario, setMostrarSalario] = useState(false);
   const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [updatingFeriasId, setUpdatingFeriasId] = useState<string | null>(null);
   const currentParams = new URLSearchParams();
   if (origem) currentParams.set("origem", origem);
   currentParams.set("aba", aba);
@@ -223,13 +430,17 @@ export default function GestaoPessoasEquipe() {
     Promise.all([
       supabase.from("employees").select("*").order("name"),
       (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"),
-    ]).then(([employeesResp, equipesResp]) => {
+      (supabase as any).from("vacation_records").select("id,employee_id,data_inicio,data_fim").order("data_inicio", { ascending: false }),
+    ]).then(([employeesResp, equipesResp, feriasResp]) => {
       if (employeesResp.data) setTodos(employeesResp.data as any);
       if (equipesResp?.data) {
         const equipes = (equipesResp.data as any[])
           .map((e) => (e?.nome || "").trim())
           .filter(Boolean);
         setEquipesCadastro(equipes);
+      }
+      if (feriasResp?.data) {
+        setVacationRecords(feriasResp.data as VacationRecordResumo[]);
       }
       setLoading(false);
     });
@@ -249,6 +460,28 @@ export default function GestaoPessoasEquipe() {
 
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
   }, [todos, equipesCadastro]);
+
+  const statusResumoPorFuncionario = useMemo(() => {
+    const hoje = hojeISO();
+    const mapa: Record<string, StatusResumo> = {};
+
+    for (const f of todos) {
+      const registros = vacationRecords
+        .filter((r) => r.employee_id === f.id)
+        .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio));
+
+      const atual = registros.find((r) => emIntervalo(hoje, r.data_inicio, r.data_fim));
+      const proximo = registros.find((r) => r.data_inicio >= hoje);
+
+      mapa[f.id] = {
+        emFeriasAgora: Boolean(atual),
+        periodoAtual: atual ? { inicio: atual.data_inicio, fim: atual.data_fim } : null,
+        proximoPeriodo: !atual && proximo ? { inicio: proximo.data_inicio, fim: proximo.data_fim } : null,
+      };
+    }
+
+    return mapa;
+  }, [todos, vacationRecords]);
 
   async function alterarEquipeRapida(funcionarioId: string, novaEquipe: string) {
     const equipeNova = novaEquipe === "__sem_equipe" ? null : novaEquipe;
@@ -299,6 +532,141 @@ export default function GestaoPessoasEquipe() {
       });
     } finally {
       setUpdatingEquipeId(null);
+    }
+  }
+
+  async function alterarStatusRapido(funcionario: Funcionario, novoStatus: string) {
+    const statusAnterior = (funcionario.status || "ativo").toLowerCase();
+    const statusNormalizado = novoStatus.toLowerCase();
+
+    if (statusAnterior === statusNormalizado) return;
+
+    if (statusNormalizado === "ferias") {
+      return;
+    }
+
+    setUpdatingStatusId(funcionario.id);
+
+    try {
+      const payload: Record<string, any> = {
+        status: statusNormalizado,
+      };
+
+      if (statusNormalizado === "demitido") {
+        payload.data_demissao = hojeISO();
+      } else {
+        payload.data_demissao = null;
+      }
+
+      const statusQuery = (supabase as any)
+        .from("employees")
+        .update(payload)
+        .eq("id", funcionario.id);
+
+      if (funcionario.company_id) {
+        statusQuery.eq("company_id", funcionario.company_id);
+      }
+
+      const { error } = await statusQuery;
+
+      if (error) {
+        toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      setTodos((prev) => prev.map((f) => (f.id === funcionario.id ? { ...f, status: statusNormalizado } : f)));
+
+      await (supabase as any).from("employee_historico").insert({
+        employee_id: funcionario.id,
+        company_id: funcionario.company_id || null,
+        tipo: statusNormalizado === "demitido" ? "demissao" : statusNormalizado === "afastado" ? "afastamento" : "outro",
+        descricao: `Mudança rápida de status: ${statusAnterior} → ${statusNormalizado}`,
+        data: hojeISO(),
+      });
+
+      toast({ title: "Status atualizado", description: `${funcionario.name}: ${statusAnterior} → ${statusNormalizado}` });
+    } catch (err: any) {
+      toast({
+        title: "Erro inesperado",
+        description: err?.message || "Não foi possível alterar o status agora.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  }
+
+  async function registrarFeriasInline(funcionario: Funcionario, inicio: string, fim: string) {
+    if (!inicio || !fim || fim < inicio) {
+      toast({ title: "Período inválido", description: "Informe início/fim válidos.", variant: "destructive" });
+      return;
+    }
+
+    setUpdatingFeriasId(funcionario.id);
+
+    try {
+      const dias = Math.floor((new Date(`${fim}T12:00:00`).getTime() - new Date(`${inicio}T12:00:00`).getTime()) / 86400000) + 1;
+      const payload = {
+        employee_id: funcionario.id,
+        company_id: funcionario.company_id || null,
+        vacation_period_id: null,
+        tipo: "individual",
+        data_inicio: inicio,
+        data_fim: fim,
+        dias,
+        observacao: "Registro rápido pela lista de funcionários",
+        registrado_por: "admin",
+      };
+
+      const { data, error } = await (supabase as any)
+        .from("vacation_records")
+        .insert(payload)
+        .select("id,employee_id,data_inicio,data_fim")
+        .single();
+
+      if (error) {
+        toast({ title: "Erro ao registrar férias", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      await (supabase as any).from("employee_historico").insert({
+        employee_id: funcionario.id,
+        company_id: funcionario.company_id || null,
+        tipo: "ferias",
+        descricao: `Férias registradas: ${fmtPeriodoCurto(inicio)} → ${fmtPeriodoCurto(fim)} (${dias}d)`,
+        data: inicio,
+      });
+
+      const hoje = hojeISO();
+      const emFeriasAgora = emIntervalo(hoje, inicio, fim);
+      if (emFeriasAgora) {
+        const statusFeriasQuery = (supabase as any)
+          .from("employees")
+          .update({ status: "ferias" })
+          .eq("id", funcionario.id);
+
+        if (funcionario.company_id) {
+          statusFeriasQuery.eq("company_id", funcionario.company_id);
+        }
+
+        await statusFeriasQuery;
+
+        setTodos((prev) => prev.map((f) => (f.id === funcionario.id ? { ...f, status: "ferias" } : f)));
+      }
+
+      if (data) {
+        setVacationRecords((prev) => [data as VacationRecordResumo, ...prev]);
+      }
+
+      toast({ title: "Férias registradas", description: `${funcionario.name}: ${fmtPeriodoCurto(inicio)} → ${fmtPeriodoCurto(fim)}` });
+    } catch (err: any) {
+      toast({
+        title: "Erro inesperado",
+        description: err?.message || "Não foi possível registrar férias agora.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingFeriasId(null);
     }
   }
 
@@ -463,7 +831,12 @@ export default function GestaoPessoasEquipe() {
                       mostrarSalario={false}
                       equipesDisponiveis={equipesDisponiveis}
                       updatingEquipeId={updatingEquipeId}
+                      updatingStatusId={updatingStatusId}
+                      updatingFeriasId={updatingFeriasId}
+                      statusResumo={statusResumoPorFuncionario[f.id] || { emFeriasAgora: false, periodoAtual: null, proximoPeriodo: null }}
                       onChangeEquipe={alterarEquipeRapida}
+                      onChangeStatus={alterarStatusRapido}
+                      onRegistrarFeriasInline={registrarFeriasInline}
                       onProgramarFerias={irProgramacaoFerias}
                     />
                   ))}
@@ -499,7 +872,12 @@ export default function GestaoPessoasEquipe() {
                       mostrarSalario={mostrarSalario && isAdmin}
                       equipesDisponiveis={equipesDisponiveis}
                       updatingEquipeId={updatingEquipeId}
+                      updatingStatusId={updatingStatusId}
+                      updatingFeriasId={updatingFeriasId}
+                      statusResumoPorFuncionario={statusResumoPorFuncionario}
                       onChangeEquipe={alterarEquipeRapida}
+                      onChangeStatus={alterarStatusRapido}
+                      onRegistrarFeriasInline={registrarFeriasInline}
                       onProgramarFerias={irProgramacaoFerias}
                     />
                   ))}
