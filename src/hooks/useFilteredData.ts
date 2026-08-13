@@ -27,30 +27,70 @@ function useFilteredTable(tableName: string, tipoRdo: string, tipoUso?: string) 
     queryKey: [tableName, tipoRdo, tipoUso],
     queryFn: async () => {
       const aliases = VINCULO_ALIAS[tipoRdo] ?? [tipoRdo, "TODOS"];
-      const legacyOr = aliases.map(a => `vinculo_rdo.eq.${a}`).join(",");
-      // Só adiciona filtro de array para tabelas que têm a coluna vinculos[]
+      const normalizedAliases = new Set(
+        aliases.map((v) => String(v || "").trim().toUpperCase())
+      );
+
+      const normalize = (v: string) => String(v || "").trim().toUpperCase();
+
+      const hasArrayValues = (arr: unknown): arr is string[] =>
+        Array.isArray(arr) && arr.some((v) => String(v || "").trim() !== "");
+
+      const matchesVinculoWithPriority = (row: any) => {
+        const vinculos = row?.vinculos;
+
+        // Prioridade: se vinculos[] existir/preenchido, usa APENAS vinculos[]
+        if (hasArrayValues(vinculos)) {
+          return vinculos.some((v) => normalizedAliases.has(normalize(v)));
+        }
+
+        // Fallback legado: usa vinculo_rdo somente quando não há vinculos[]
+        return normalizedAliases.has(normalize(String(row?.vinculo_rdo || "")));
+      };
+
+      const matchesTipoUsoWithPriority = (row: any) => {
+        if (!tipoUso) return true;
+
+        const normalizedTipoUso = normalize(tipoUso);
+        const allowed = new Set([normalizedTipoUso, "AMBOS"]);
+        const tiposUso = row?.tipos_uso;
+
+        // Prioridade: se tipos_uso[] existir/preenchido, usa APENAS tipos_uso[]
+        if (hasArrayValues(tiposUso)) {
+          return tiposUso.some((v) => allowed.has(normalize(v)));
+        }
+
+        // Fallback legado: usa tipo_uso somente quando não há tipos_uso[]
+        return allowed.has(normalize(String(row?.tipo_uso || "")));
+      };
+
+      const legacyOr = aliases.map((a) => `vinculo_rdo.eq.${a}`).join(",");
+
+      // Query ampla + filtro determinístico em memória para garantir prioridade de vinculos[]
+      // e evitar vazamento entre módulos quando vinculo_rdo legado estiver em TODOS.
       const orFilter = TABELAS_COM_VINCULOS_ARRAY.includes(tableName)
-        ? `${legacyOr},${aliases.map(a => `vinculos.cs.{${a}}`).join(",")}`
+        ? `${legacyOr},${aliases.map((a) => `vinculos.cs.{${a}}`).join(",")}`
         : legacyOr;
-      let query = supabase
+
+      const { data, error } = await supabase
         .from(tableName as any)
         .select("*")
         .or(orFilter)
         .order("nome");
 
-      if (tipoUso && tableName === "materiais") {
-        const legacyTipoUsoFilter = `tipo_uso.eq.${tipoUso},tipo_uso.eq.Ambos`;
-        const arrayTipoUsoFilter = `tipos_uso.cs.{${tipoUso}},tipos_uso.cs.{Ambos}`;
-        query = query.or(
-          TABELAS_COM_TIPOS_USO_ARRAY.includes(tableName)
-            ? `${legacyTipoUsoFilter},${arrayTipoUsoFilter}`
-            : legacyTipoUsoFilter
-        );
+      if (error) throw error;
+
+      let rows = (data || []) as any[];
+
+      if (TABELAS_COM_VINCULOS_ARRAY.includes(tableName)) {
+        rows = rows.filter(matchesVinculoWithPriority);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []) as unknown as FilteredItem[];
+      if (tipoUso && (tableName === "materiais" || TABELAS_COM_TIPOS_USO_ARRAY.includes(tableName))) {
+        rows = rows.filter(matchesTipoUsoWithPriority);
+      }
+
+      return rows as unknown as FilteredItem[];
     },
     enabled: !!tipoRdo,
   });
