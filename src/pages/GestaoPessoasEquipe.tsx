@@ -58,6 +58,12 @@ function hojeISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function ontemISO() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 function emIntervalo(data: string, inicio: string, fim: string) {
   return data >= inicio && data <= fim;
 }
@@ -541,6 +547,7 @@ export default function GestaoPessoasEquipe() {
 
     if (statusAnterior === statusNormalizado) return;
 
+    // Status férias deve ser derivado de período; ao escolher "férias" abre fluxo de datas inline.
     if (statusNormalizado === "ferias") {
       return;
     }
@@ -548,12 +555,64 @@ export default function GestaoPessoasEquipe() {
     setUpdatingStatusId(funcionario.id);
 
     try {
+      // Se houver férias vigentes e o usuário mudar para outro status,
+      // encerra os registros vigentes para liberar a edição no espelho.
+      const hoje = hojeISO();
+      const ontem = ontemISO();
+      const vigentes = vacationRecords.filter(
+        (r) => r.employee_id === funcionario.id && emIntervalo(hoje, r.data_inicio, r.data_fim)
+      );
+
+      if (vigentes.length > 0) {
+        const ajustes = await Promise.all(
+          vigentes.map(async (r) => {
+            const payloadRegistro = r.data_inicio > ontem
+              ? {
+                  data_inicio: ontem,
+                  data_fim: ontem,
+                  observacao: "Ajuste rápido na lista de funcionários (encerramento de férias vigentes)",
+                }
+              : {
+                  data_fim: ontem,
+                  observacao: "Ajuste rápido na lista de funcionários (encerramento de férias vigentes)",
+                };
+
+            const { error } = await (supabase as any)
+              .from("vacation_records")
+              .update(payloadRegistro)
+              .eq("id", r.id);
+
+            return { id: r.id, error, payloadRegistro };
+          })
+        );
+
+        const erroAjuste = ajustes.find((a) => a.error);
+        if (erroAjuste?.error) {
+          toast({
+            title: "Erro ao encerrar férias vigentes",
+            description: erroAjuste.error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        setVacationRecords((prev) => prev.map((r) => {
+          const ajuste = ajustes.find((a) => a.id === r.id);
+          if (!ajuste) return r;
+          return {
+            ...r,
+            data_inicio: (ajuste.payloadRegistro as any).data_inicio ?? r.data_inicio,
+            data_fim: (ajuste.payloadRegistro as any).data_fim ?? r.data_fim,
+          };
+        }));
+      }
+
       const payload: Record<string, any> = {
         status: statusNormalizado,
       };
 
       if (statusNormalizado === "demitido") {
-        payload.data_demissao = hojeISO();
+        payload.data_demissao = hoje;
       } else {
         payload.data_demissao = null;
       }
@@ -581,7 +640,7 @@ export default function GestaoPessoasEquipe() {
         company_id: funcionario.company_id || null,
         tipo: statusNormalizado === "demitido" ? "demissao" : statusNormalizado === "afastado" ? "afastamento" : "outro",
         descricao: `Mudança rápida de status: ${statusAnterior} → ${statusNormalizado}`,
-        data: hojeISO(),
+        data: hoje,
       });
 
       toast({ title: "Status atualizado", description: `${funcionario.name}: ${statusAnterior} → ${statusNormalizado}` });
