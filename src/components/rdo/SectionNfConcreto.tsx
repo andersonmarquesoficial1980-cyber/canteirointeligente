@@ -56,11 +56,27 @@ export default function SectionNfConcreto({ entries, onChange }: Props) {
 
   const { data: materiaisInfraData } = useMateriais("INFRA", "Nota Fiscal");
 
+  const isTipoConcreto = (nome: string) => {
+    const norm = nome
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toUpperCase();
+
+    return (
+      norm.startsWith("FCK") ||
+      norm.startsWith("FCJ") ||
+      norm.includes("CONCRETO") ||
+      norm.includes("MAGRO") ||
+      norm.includes("CICLOP")
+    );
+  };
+
   const tiposConcretoFromMateriais = Array.from(
     new Set(
       (materiaisInfraData || [])
         .map((m: any) => String(m?.nome || "").trim())
-        .filter(Boolean)
+        .filter((nome: string) => !!nome && isTipoConcreto(nome))
     )
   );
 
