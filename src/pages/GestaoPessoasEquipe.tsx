@@ -13,6 +13,16 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useOrigemBack } from "@/hooks/useOrigemBack";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Funcionario {
   id: string;
@@ -114,6 +124,7 @@ function LinhaFuncionario({
 
   const [statusEdit, setStatusEdit] = useState<string>(statusResumo.emFeriasAgora ? "ferias" : statusAtual);
   const [abrirFeriasInline, setAbrirFeriasInline] = useState(false);
+  const [abrirConfirmacaoEncerrarFerias, setAbrirConfirmacaoEncerrarFerias] = useState(false);
   const [feriasInicio, setFeriasInicio] = useState(statusResumo.proximoPeriodo?.inicio || "");
   const [feriasFim, setFeriasFim] = useState(statusResumo.proximoPeriodo?.fim || "");
 
@@ -262,20 +273,41 @@ function LinhaFuncionario({
 
         <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
           {statusResumo.emFeriasAgora && (
-            <button
-              onClick={async (e) => {
-                e.stopPropagation();
-                const ok = window.confirm(`Encerrar férias agora de ${f.name}?`);
-                if (!ok) return;
-                await onEncerrarFeriasAgora(f);
-                setStatusEdit("ativo");
-              }}
-              disabled={updatingFeriasId === f.id || updatingStatusId === f.id}
-              className="h-8 px-2.5 rounded-lg border border-amber-300 text-amber-700 bg-amber-50 text-[11px] font-semibold hover:bg-amber-100 transition-colors whitespace-nowrap disabled:opacity-60"
-              title="Encerra o período de férias vigente e volta o colaborador para ativo"
-            >
-              Encerrar férias agora
-            </button>
+            <AlertDialog open={abrirConfirmacaoEncerrarFerias} onOpenChange={setAbrirConfirmacaoEncerrarFerias}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAbrirConfirmacaoEncerrarFerias(true);
+                }}
+                disabled={updatingFeriasId === f.id || updatingStatusId === f.id}
+                className="h-8 px-2.5 rounded-lg border border-amber-300 text-amber-700 bg-amber-50 text-[11px] font-semibold hover:bg-amber-100 transition-colors whitespace-nowrap disabled:opacity-60"
+                title="Encerra o período de férias vigente e volta o colaborador para ativo"
+              >
+                Encerrar férias agora
+              </button>
+
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Encerrar férias agora?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Isso vai encerrar o período vigente de férias de <strong>{f.name}</strong> e retornar o status para ativo.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-amber-600 hover:bg-amber-700"
+                    onClick={async () => {
+                      await onEncerrarFeriasAgora(f);
+                      setStatusEdit("ativo");
+                      setAbrirConfirmacaoEncerrarFerias(false);
+                    }}
+                  >
+                    Sim, encerrar agora
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
 
           <button
