@@ -5,6 +5,7 @@ import { Plus, Trash2, Landmark } from "lucide-react";
 import NfPhotoCapture from "./NfPhotoCapture";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useMateriais } from "@/hooks/useFilteredData";
 
 export interface NfConcretoEntry {
   id: string;
@@ -20,7 +21,7 @@ interface Props {
   onChange: (entries: NfConcretoEntry[]) => void;
 }
 
-const TIPOS_CONCRETO = [
+const TIPOS_CONCRETO_FALLBACK = [
   "FCK 15 MPa",
   "FCK 20 MPa",
   "FCK 25 MPa",
@@ -52,6 +53,26 @@ export default function SectionNfConcreto({ entries, onChange }: Props) {
       return data || [];
     },
   });
+
+  const { data: materiaisInfraData } = useMateriais("INFRA", "Nota Fiscal");
+
+  const tiposConcretoFromMateriais = Array.from(
+    new Set(
+      (materiaisInfraData || [])
+        .map((m: any) => String(m?.nome || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  const tiposConcretoOptions =
+    tiposConcretoFromMateriais.length > 0
+      ? tiposConcretoFromMateriais
+      : TIPOS_CONCRETO_FALLBACK;
+
+  const withCurrentOption = (options: string[], currentValue: string) => {
+    if (!currentValue) return options;
+    return options.includes(currentValue) ? options : [currentValue, ...options];
+  };
 
   const update = (id: string, field: string, value: string) =>
     onChange(entries.map(e => (e.id === id ? { ...e, [field]: value } : e)));
@@ -129,7 +150,7 @@ export default function SectionNfConcreto({ entries, onChange }: Props) {
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  {TIPOS_CONCRETO.map(t => (
+                  {withCurrentOption(tiposConcretoOptions, entry.tipo_concreto).map(t => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
                 </SelectContent>
