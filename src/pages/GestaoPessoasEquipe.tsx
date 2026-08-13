@@ -86,6 +86,7 @@ function LinhaFuncionario({
   onChangeEquipe,
   onChangeStatus,
   onRegistrarFeriasInline,
+  onEncerrarFeriasAgora,
   onProgramarFerias,
 }: {
   f: Funcionario;
@@ -100,6 +101,7 @@ function LinhaFuncionario({
   onChangeEquipe: (id: string, novaEquipe: string) => void;
   onChangeStatus: (f: Funcionario, novoStatus: string) => Promise<void>;
   onRegistrarFeriasInline: (f: Funcionario, inicio: string, fim: string) => Promise<void>;
+  onEncerrarFeriasAgora: (f: Funcionario) => Promise<void>;
   onProgramarFerias: (f: Funcionario) => void;
 }) {
   const equipeAtual = (f.equipe || "").trim();
@@ -258,13 +260,30 @@ function LinhaFuncionario({
           </Select>
         </div>
 
-        <button
-          onClick={(e) => { e.stopPropagation(); onProgramarFerias(f); }}
-          className="h-8 px-2.5 rounded-lg border border-primary/30 text-primary text-[11px] font-semibold hover:bg-primary/10 transition-colors whitespace-nowrap"
-          title="Abrir programação de férias deste funcionário"
-        >
-          Programar férias
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          {statusResumo.emFeriasAgora && (
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                await onEncerrarFeriasAgora(f);
+                setStatusEdit("ativo");
+              }}
+              disabled={updatingFeriasId === f.id || updatingStatusId === f.id}
+              className="h-8 px-2.5 rounded-lg border border-amber-300 text-amber-700 bg-amber-50 text-[11px] font-semibold hover:bg-amber-100 transition-colors whitespace-nowrap disabled:opacity-60"
+              title="Encerra o período de férias vigente e volta o colaborador para ativo"
+            >
+              Encerrar férias agora
+            </button>
+          )}
+
+          <button
+            onClick={(e) => { e.stopPropagation(); onProgramarFerias(f); }}
+            className="h-8 px-2.5 rounded-lg border border-primary/30 text-primary text-[11px] font-semibold hover:bg-primary/10 transition-colors whitespace-nowrap"
+            title="Abrir programação de férias deste funcionário"
+          >
+            Programar férias
+          </button>
+        </div>
       </div>
 
       {abrirFeriasInline && (
@@ -343,6 +362,7 @@ function GrupoColapsavel({
   onChangeEquipe,
   onChangeStatus,
   onRegistrarFeriasInline,
+  onEncerrarFeriasAgora,
   onProgramarFerias,
 }: {
   titulo: string;
@@ -358,6 +378,7 @@ function GrupoColapsavel({
   onChangeEquipe: (id: string, novaEquipe: string) => void;
   onChangeStatus: (f: Funcionario, novoStatus: string) => Promise<void>;
   onRegistrarFeriasInline: (f: Funcionario, inicio: string, fim: string) => Promise<void>;
+  onEncerrarFeriasAgora: (f: Funcionario) => Promise<void>;
   onProgramarFerias: (f: Funcionario) => void;
 }) {
   const [aberto, setAberto] = useState(false);
@@ -392,6 +413,7 @@ function GrupoColapsavel({
               onChangeEquipe={onChangeEquipe}
               onChangeStatus={onChangeStatus}
               onRegistrarFeriasInline={onRegistrarFeriasInline}
+              onEncerrarFeriasAgora={onEncerrarFeriasAgora}
               onProgramarFerias={onProgramarFerias}
             />
           ))}
@@ -655,6 +677,116 @@ export default function GestaoPessoasEquipe() {
     }
   }
 
+  async function encerrarFeriasAgora(funcionario: Funcionario) {
+    setUpdatingFeriasId(funcionario.id);
+
+    try {
+      const hoje = hojeISO();
+      const ontem = ontemISO();
+      const vigentes = vacationRecords.filter(
+        (r) => r.employee_id === funcionario.id && emIntervalo(hoje, r.data_inicio, r.data_fim)
+      );
+
+      if (vigentes.length === 0) {
+        // fallback: força status ativo mesmo sem registro vigente local
+        const fallbackQuery = (supabase as any)
+          .from("employees")
+          .update({ status: "ativo", data_demissao: null })
+          .eq("id", funcionario.id);
+
+        if (funcionario.company_id) fallbackQuery.eq("company_id", funcionario.company_id);
+        const { error: fallbackErr } = await fallbackQuery;
+        if (fallbackErr) {
+          toast({ title: "Erro ao corrigir status", description: fallbackErr.message, variant: "destructive" });
+          return;
+        }
+
+        setTodos((prev) => prev.map((f) => (f.id === funcionario.id ? { ...f, status: "ativo" } : f)));
+        toast({ title: "Status corrigido", description: `${funcionario.name}: marcado como ativo.` });
+        return;
+      }
+
+      const ajustes = await Promise.all(
+        vigentes.map(async (r) => {
+          const payloadRegistro = r.data_inicio > ontem
+            ? {
+                data_inicio: ontem,
+                data_fim: ontem,
+                observacao: "Encerrado manualmente no espelho de funcionários",
+              }
+            : {
+                data_fim: ontem,
+                observacao: "Encerrado manualmente no espelho de funcionários",
+              };
+
+          const { error } = await (supabase as any)
+            .from("vacation_records")
+            .update(payloadRegistro)
+            .eq("id", r.id);
+
+          return { id: r.id, error, payloadRegistro };
+        })
+      );
+
+      const erroAjuste = ajustes.find((a) => a.error);
+      if (erroAjuste?.error) {
+        toast({
+          title: "Erro ao encerrar férias",
+          description: erroAjuste.error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const statusQuery = (supabase as any)
+        .from("employees")
+        .update({ status: "ativo", data_demissao: null })
+        .eq("id", funcionario.id);
+
+      if (funcionario.company_id) statusQuery.eq("company_id", funcionario.company_id);
+
+      const { error: errStatus } = await statusQuery;
+      if (errStatus) {
+        toast({
+          title: "Erro ao atualizar status",
+          description: errStatus.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setVacationRecords((prev) => prev.map((r) => {
+        const ajuste = ajustes.find((a) => a.id === r.id);
+        if (!ajuste) return r;
+        return {
+          ...r,
+          data_inicio: (ajuste.payloadRegistro as any).data_inicio ?? r.data_inicio,
+          data_fim: (ajuste.payloadRegistro as any).data_fim ?? r.data_fim,
+        };
+      }));
+
+      setTodos((prev) => prev.map((f) => (f.id === funcionario.id ? { ...f, status: "ativo" } : f)));
+
+      await (supabase as any).from("employee_historico").insert({
+        employee_id: funcionario.id,
+        company_id: funcionario.company_id || null,
+        tipo: "retorno",
+        descricao: "Encerramento manual de férias no espelho de funcionários",
+        data: hoje,
+      });
+
+      toast({ title: "Férias encerradas", description: `${funcionario.name} voltou para ativo.` });
+    } catch (err: any) {
+      toast({
+        title: "Erro inesperado",
+        description: err?.message || "Não foi possível encerrar as férias agora.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingFeriasId(null);
+    }
+  }
+
   async function registrarFeriasInline(funcionario: Funcionario, inicio: string, fim: string) {
     if (!inicio || !fim || fim < inicio) {
       toast({ title: "Período inválido", description: "Informe início/fim válidos.", variant: "destructive" });
@@ -896,6 +1028,7 @@ export default function GestaoPessoasEquipe() {
                       onChangeEquipe={alterarEquipeRapida}
                       onChangeStatus={alterarStatusRapido}
                       onRegistrarFeriasInline={registrarFeriasInline}
+                      onEncerrarFeriasAgora={encerrarFeriasAgora}
                       onProgramarFerias={irProgramacaoFerias}
                     />
                   ))}
@@ -937,6 +1070,7 @@ export default function GestaoPessoasEquipe() {
                       onChangeEquipe={alterarEquipeRapida}
                       onChangeStatus={alterarStatusRapido}
                       onRegistrarFeriasInline={registrarFeriasInline}
+                      onEncerrarFeriasAgora={encerrarFeriasAgora}
                       onProgramarFerias={irProgramacaoFerias}
                     />
                   ))}
