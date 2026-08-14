@@ -83,6 +83,11 @@ function fmtPeriodoCurto(dataISO: string) {
   return `${dia}/${mes}/${ano.slice(2)}`;
 }
 
+function fmtPeriodoCompleto(dataISO: string) {
+  const [ano, mes, dia] = dataISO.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
 function LinhaFuncionario({
   f,
   index,
@@ -97,6 +102,7 @@ function LinhaFuncionario({
   onChangeStatus,
   onRegistrarFeriasInline,
   onEncerrarFeriasAgora,
+  onExcluirLancamentoIndevido,
   onProgramarFerias,
 }: {
   f: Funcionario;
@@ -112,6 +118,7 @@ function LinhaFuncionario({
   onChangeStatus: (f: Funcionario, novoStatus: string) => Promise<void>;
   onRegistrarFeriasInline: (f: Funcionario, inicio: string, fim: string) => Promise<void>;
   onEncerrarFeriasAgora: (f: Funcionario) => Promise<void>;
+  onExcluirLancamentoIndevido: (f: Funcionario) => Promise<void>;
   onProgramarFerias: (f: Funcionario) => void;
 }) {
   const equipeAtual = (f.equipe || "").trim();
@@ -125,6 +132,7 @@ function LinhaFuncionario({
   const [statusEdit, setStatusEdit] = useState<string>(statusResumo.emFeriasAgora ? "ferias" : statusAtual);
   const [abrirFeriasInline, setAbrirFeriasInline] = useState(false);
   const [abrirConfirmacaoEncerrarFerias, setAbrirConfirmacaoEncerrarFerias] = useState(false);
+  const [abrirConfirmacaoExcluirLancamento, setAbrirConfirmacaoExcluirLancamento] = useState(false);
   const [feriasInicio, setFeriasInicio] = useState(statusResumo.proximoPeriodo?.inicio || "");
   const [feriasFim, setFeriasFim] = useState(statusResumo.proximoPeriodo?.fim || "");
 
@@ -312,6 +320,46 @@ function LinhaFuncionario({
             </AlertDialog>
           )}
 
+          {(statusResumo.emFeriasAgora || statusResumo.proximoPeriodo) && (
+            <AlertDialog open={abrirConfirmacaoExcluirLancamento} onOpenChange={setAbrirConfirmacaoExcluirLancamento}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAbrirConfirmacaoExcluirLancamento(true);
+                }}
+                disabled={updatingFeriasId === f.id || updatingStatusId === f.id}
+                className="h-8 px-2.5 rounded-lg border border-red-300 text-red-700 bg-red-50 text-[11px] font-semibold hover:bg-red-100 transition-colors whitespace-nowrap disabled:opacity-60"
+                title="Exclui o lançamento de férias indevido e remove o histórico associado"
+              >
+                Excluir lançamento indevido
+              </button>
+
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir lançamento indevido?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Use esta opção quando o período de férias foi lançado por engano para <strong>{f.name}</strong>.
+                    <br />
+                    O período selecionado será removido e o histórico de férias correspondente também será excluído.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={async () => {
+                      await onExcluirLancamentoIndevido(f);
+                      setStatusEdit("ativo");
+                      setAbrirConfirmacaoExcluirLancamento(false);
+                    }}
+                  >
+                    Sim, excluir lançamento
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
           <button
             onClick={(e) => { e.stopPropagation(); onProgramarFerias(f); }}
             className="h-8 px-2.5 rounded-lg border border-primary/30 text-primary text-[11px] font-semibold hover:bg-primary/10 transition-colors whitespace-nowrap"
@@ -399,6 +447,7 @@ function GrupoColapsavel({
   onChangeStatus,
   onRegistrarFeriasInline,
   onEncerrarFeriasAgora,
+  onExcluirLancamentoIndevido,
   onProgramarFerias,
 }: {
   titulo: string;
@@ -415,6 +464,7 @@ function GrupoColapsavel({
   onChangeStatus: (f: Funcionario, novoStatus: string) => Promise<void>;
   onRegistrarFeriasInline: (f: Funcionario, inicio: string, fim: string) => Promise<void>;
   onEncerrarFeriasAgora: (f: Funcionario) => Promise<void>;
+  onExcluirLancamentoIndevido: (f: Funcionario) => Promise<void>;
   onProgramarFerias: (f: Funcionario) => void;
 }) {
   const [aberto, setAberto] = useState(false);
@@ -450,6 +500,7 @@ function GrupoColapsavel({
               onChangeStatus={onChangeStatus}
               onRegistrarFeriasInline={onRegistrarFeriasInline}
               onEncerrarFeriasAgora={onEncerrarFeriasAgora}
+              onExcluirLancamentoIndevido={onExcluirLancamentoIndevido}
               onProgramarFerias={onProgramarFerias}
             />
           ))}
@@ -823,6 +874,102 @@ export default function GestaoPessoasEquipe() {
     }
   }
 
+  async function excluirLancamentoIndevido(funcionario: Funcionario) {
+    setUpdatingFeriasId(funcionario.id);
+
+    try {
+      const hoje = hojeISO();
+      const registrosDoFuncionario = vacationRecords
+        .filter((r) => r.employee_id === funcionario.id)
+        .sort((a, b) => a.data_inicio.localeCompare(b.data_inicio));
+
+      const vigente = registrosDoFuncionario.find((r) => emIntervalo(hoje, r.data_inicio, r.data_fim));
+      const futuro = registrosDoFuncionario.find((r) => r.data_inicio >= hoje);
+      const alvo = vigente || futuro || registrosDoFuncionario[registrosDoFuncionario.length - 1];
+
+      if (!alvo) {
+        toast({
+          title: "Nenhum lançamento para excluir",
+          description: "Não foi encontrado período de férias para este funcionário.",
+        });
+        return;
+      }
+
+      const { error: delErro } = await (supabase as any)
+        .from("vacation_records")
+        .delete()
+        .eq("id", alvo.id);
+
+      if (delErro) {
+        toast({ title: "Erro ao excluir lançamento", description: delErro.message, variant: "destructive" });
+        return;
+      }
+
+      const inicioCurto = fmtPeriodoCurto(alvo.data_inicio);
+      const fimCurto = fmtPeriodoCurto(alvo.data_fim);
+      const inicioCompleto = fmtPeriodoCompleto(alvo.data_inicio);
+      const fimCompleto = fmtPeriodoCompleto(alvo.data_fim);
+
+      const { data: historicosFerias } = await (supabase as any)
+        .from("employee_historico")
+        .select("id, descricao, data")
+        .eq("employee_id", funcionario.id)
+        .eq("company_id", funcionario.company_id || "")
+        .eq("tipo", "ferias")
+        .eq("data", alvo.data_inicio);
+
+      const idsHistoricoParaExcluir = (historicosFerias || [])
+        .filter((h: any) => {
+          const d = (h?.descricao || "") as string;
+          return (
+            d.includes(inicioCurto) ||
+            d.includes(fimCurto) ||
+            d.includes(inicioCompleto) ||
+            d.includes(fimCompleto) ||
+            d.toLowerCase().includes("férias")
+          );
+        })
+        .map((h: any) => h.id)
+        .filter(Boolean);
+
+      if (idsHistoricoParaExcluir.length > 0) {
+        await (supabase as any)
+          .from("employee_historico")
+          .delete()
+          .in("id", idsHistoricoParaExcluir);
+      }
+
+      const novosRegistros = vacationRecords.filter((r) => r.id !== alvo.id);
+      setVacationRecords(novosRegistros);
+
+      const aindaEmFerias = novosRegistros.some((r) => r.employee_id === funcionario.id && emIntervalo(hoje, r.data_inicio, r.data_fim));
+      if (!aindaEmFerias) {
+        const statusQuery = (supabase as any)
+          .from("employees")
+          .update({ status: "ativo", data_demissao: null })
+          .eq("id", funcionario.id);
+
+        if (funcionario.company_id) statusQuery.eq("company_id", funcionario.company_id);
+
+        await statusQuery;
+        setTodos((prev) => prev.map((f) => (f.id === funcionario.id ? { ...f, status: "ativo" } : f)));
+      }
+
+      toast({
+        title: "Lançamento indevido excluído",
+        description: `${funcionario.name}: ${inicioCompleto} → ${fimCompleto} removido${idsHistoricoParaExcluir.length ? " (histórico também removido)" : ""}.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Erro inesperado",
+        description: err?.message || "Não foi possível excluir o lançamento indevido agora.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingFeriasId(null);
+    }
+  }
+
   async function registrarFeriasInline(funcionario: Funcionario, inicio: string, fim: string) {
     if (!inicio || !fim || fim < inicio) {
       toast({ title: "Período inválido", description: "Informe início/fim válidos.", variant: "destructive" });
@@ -1065,6 +1212,7 @@ export default function GestaoPessoasEquipe() {
                       onChangeStatus={alterarStatusRapido}
                       onRegistrarFeriasInline={registrarFeriasInline}
                       onEncerrarFeriasAgora={encerrarFeriasAgora}
+                      onExcluirLancamentoIndevido={excluirLancamentoIndevido}
                       onProgramarFerias={irProgramacaoFerias}
                     />
                   ))}
@@ -1107,6 +1255,7 @@ export default function GestaoPessoasEquipe() {
                       onChangeStatus={alterarStatusRapido}
                       onRegistrarFeriasInline={registrarFeriasInline}
                       onEncerrarFeriasAgora={encerrarFeriasAgora}
+                      onExcluirLancamentoIndevido={excluirLancamentoIndevido}
                       onProgramarFerias={irProgramacaoFerias}
                     />
                   ))}
