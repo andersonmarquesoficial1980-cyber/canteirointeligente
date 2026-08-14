@@ -584,28 +584,28 @@ export default function FichaFuncionario() {
                 <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-muted-foreground">Função</p>
-                  {editando ? (
-                    <select
-                      value={((form as any).funcao_id ?? (func as any).funcao_id ?? "") as string}
-                      onChange={(e) => {
-                        const funcaoId = e.target.value || null;
-                        const funcaoNome = funcaoId ? (funcoes.find((f) => f.id === funcaoId)?.nome || "") : "";
-                        setForm((p) => ({
-                          ...p,
-                          funcao_id: funcaoId,
-                          role: funcaoNome || p.role || "",
-                        }));
-                      }}
-                      className="w-full text-sm bg-background border border-border rounded-lg px-2 py-1 mt-0.5"
-                    >
-                      <option value="">— Selecione a função —</option>
-                      {funcoes.map((f) => (
-                        <option key={f.id} value={f.id}>{f.nome}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p className="text-sm font-medium text-foreground truncate">{func.role || "—"}</p>
-                  )}
+                  <select
+                    value={((form as any).funcao_id ?? (func as any).funcao_id ?? "") as string}
+                    disabled={!editando}
+                    onChange={(e) => {
+                      if (!editando) return;
+                      const funcaoId = e.target.value || null;
+                      const funcaoNome = funcaoId ? (funcoes.find((f) => f.id === funcaoId)?.nome || "") : "";
+                      setForm((p) => ({
+                        ...p,
+                        funcao_id: funcaoId,
+                        role: funcaoNome || p.role || "",
+                      }));
+                    }}
+                    className={`w-full text-sm border border-border rounded-lg px-2 py-1 mt-0.5 ${editando ? "bg-background" : "bg-muted/40 text-foreground"}`}
+                  >
+                    {!((form as any).funcao_id ?? (func as any).funcao_id) && (
+                      <option value="">{func.role || "—"}</option>
+                    )}
+                    {funcoes.map((f) => (
+                      <option key={f.id} value={f.id}>{f.nome}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
