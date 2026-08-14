@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useFuncoes } from "@/hooks/useFuncoes";
 import { toast } from "@/hooks/use-toast";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 
@@ -21,6 +22,7 @@ interface Funcionario {
   id: string;
   name: string;
   role: string;
+  funcao_id?: string | null;
   matricula: string;
   equipe: string;
   responsavel: string;
@@ -181,6 +183,7 @@ export default function FichaFuncionario() {
   const navigate = useNavigate();
   const goBack = useSmartBack("/gestao-pessoas/equipe");
   const { isAdmin } = useIsAdmin();
+  const { funcoes } = useFuncoes();
   const fotoRef = useRef<HTMLInputElement>(null);
   const docFileRef = useRef<HTMLInputElement>(null);
 
@@ -212,6 +215,18 @@ export default function FichaFuncionario() {
   const [vtTotal, setVtTotal] = useState<number | null>(null);
 
   useEffect(() => { if (id) carregarTudo(); }, [id]);
+
+  useEffect(() => {
+    if (!editando || !func) return;
+    setForm((prev) => {
+      if ((prev as any).funcao_id) return prev;
+      const roleAtual = String((prev as any).role || func.role || "").trim().toUpperCase();
+      if (!roleAtual) return prev;
+      const porNome = funcoes.find((f) => f.nome.trim().toUpperCase() === roleAtual);
+      if (!porNome) return prev;
+      return { ...prev, funcao_id: porNome.id };
+    });
+  }, [editando, func, funcoes]);
 
   async function carregarTudo() {
     setLoading(true);
@@ -280,9 +295,15 @@ export default function FichaFuncionario() {
     }
 
     setSalvando(true);
+
+    const funcaoIdFinal = ((form as any).funcao_id ?? (func as any).funcao_id ?? null) as string | null;
+    const funcaoSelecionada = funcaoIdFinal ? funcoes.find((f) => f.id === funcaoIdFinal) : null;
+    const roleFinal = (funcaoSelecionada?.nome || form.role || func.role || "").toUpperCase();
+
     const { error } = await supabase.from("employees").update({
       name: (form.name || func.name).toUpperCase(),
-      role: (form.role || func.role).toUpperCase(),
+      role: roleFinal,
+      funcao_id: funcaoIdFinal,
       matricula: form.matricula || func.matricula,
       equipe: form.equipe || null,
       responsavel: form.responsavel || null,
@@ -304,7 +325,7 @@ export default function FichaFuncionario() {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "✅ Salvo com sucesso!" });
-      setFunc(prev => prev ? { ...prev, ...form } : prev);
+      setFunc(prev => prev ? { ...prev, ...form, role: roleFinal, funcao_id: funcaoIdFinal } : prev);
       setEditando(false);
     }
     setSalvando(false);
@@ -541,7 +562,6 @@ export default function FichaFuncionario() {
               </div>
               {[
                 { label: "Nome Completo", field: "name" as const, icon: User },
-                { label: "Função", field: "role" as const, icon: Briefcase },
                 { label: "Matrícula", field: "matricula" as const, icon: Shield },
                 { label: "Responsável", field: "responsavel" as const, icon: User },
                 { label: "Centro de Custo", field: "centro_custo" as const, icon: Briefcase },
@@ -558,6 +578,37 @@ export default function FichaFuncionario() {
                   </div>
                 </div>
               ))}
+
+              {/* Função — select oficial do cadastro de funções */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground">Função</p>
+                  {editando ? (
+                    <select
+                      value={((form as any).funcao_id ?? (func as any).funcao_id ?? "") as string}
+                      onChange={(e) => {
+                        const funcaoId = e.target.value || null;
+                        const funcaoNome = funcaoId ? (funcoes.find((f) => f.id === funcaoId)?.nome || "") : "";
+                        setForm((p) => ({
+                          ...p,
+                          funcao_id: funcaoId,
+                          role: funcaoNome || p.role || "",
+                        }));
+                      }}
+                      className="w-full text-sm bg-background border border-border rounded-lg px-2 py-1 mt-0.5"
+                    >
+                      <option value="">— Selecione a função —</option>
+                      {funcoes.map((f) => (
+                        <option key={f.id} value={f.id}>{f.nome}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-sm font-medium text-foreground truncate">{func.role || "—"}</p>
+                  )}
+                </div>
+              </div>
+
               {/* Campo Equipe — select puxando de ci_equipes */}
               <EquipeField editando={editando} value={form.equipe || ""} displayValue={(func as any).equipe || "—"} onChange={v => setForm(p => ({ ...p, equipe: v }))} />
               {/* Datas */}
