@@ -239,103 +239,92 @@ export default function RelatorioChecklist() {
     });
   }, [allDiariesRows, searchFrota]);
 
-  const csvEscape = (value: any) => {
-    const raw = value == null ? "" : String(value);
-    const escaped = raw.replace(/"/g, '""');
-    return `"${escaped}"`;
+  const downloadXlsx = async (filename: string, sheetName: string, rows: Record<string, any>[]) => {
+    const XLSX = await import("xlsx");
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows.length > 0 ? rows : [{ Info: "Sem registros no período" }]);
+    ws["!cols"] = Object.keys(rows[0] || { Info: "" }).map(() => ({ wch: 20 }));
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, filename);
   };
 
-  const downloadCsv = (filename: string, headers: string[], rows: any[][]) => {
-    const lines = [headers.map(csvEscape).join(";"), ...rows.map((r) => r.map(csvEscape).join(";"))];
-    const content = `\uFEFF${lines.join("\n")}`;
-    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportDiariosCsv = () => {
+  const handleExportDiariosCsv = async () => {
     const rows = diariosFiltrados.map((d) => {
       const hasChecklist = Boolean(d.preop_checklist_id || d.checklist_submitted_at);
-      return [
-        d.date,
-        d.equipment_fleet || "",
-        d.equipment_type || "",
-        d.operator_name || "",
-        d.status || "",
-        d.ogs_number || "",
-        d.client_name || "",
-        hasChecklist ? "SIM" : "NÃO",
-        d.checklist_submitted_at || "",
-        d.preop_checklist_id || "",
-        d.id,
-      ];
+      return {
+        Data: d.date,
+        Frota: d.equipment_fleet || "",
+        Tipo: d.equipment_type || "",
+        Operador: d.operator_name || "",
+        Status: d.status || "",
+        OGS: d.ogs_number || "",
+        Cliente: d.client_name || "",
+        "Tem Checklist": hasChecklist ? "SIM" : "NÃO",
+        "Checklist Enviado Em": d.checklist_submitted_at || "",
+        "Preop Checklist ID": d.preop_checklist_id || "",
+        "Diário ID": d.id,
+      };
     });
 
-    downloadCsv(
-      `diarios_equipamentos_${dataIni}_a_${dataFim}.csv`,
-      ["data", "frota", "tipo_equipamento", "operador", "status", "ogs", "cliente", "tem_checklist", "checklist_submitted_at", "preop_checklist_id", "diario_id"],
+    await downloadXlsx(
+      `diarios_equipamentos_${dataIni}_a_${dataFim}.xlsx`,
+      "Diarios",
       rows,
     );
   };
 
-  const handleExportChecklistCsv = () => {
+  const handleExportChecklistCsv = async () => {
     const reportMap = new Map(reportsFiltrados.map((r) => [r.diaryId, r]));
     const rows = diariosFiltrados
       .filter((d) => Boolean(d.preop_checklist_id || d.checklist_submitted_at))
       .map((d) => {
         const rep = reportMap.get(d.id);
-        return [
-          d.date,
-          d.equipment_fleet || "",
-          d.equipment_type || "",
-          d.operator_name || "",
-          rep?.submittedAt || d.checklist_submitted_at || "",
-          rep?.totalItems ?? 0,
-          rep?.okCount ?? 0,
-          rep?.naoOkCount ?? 0,
-          rep?.naCount ?? 0,
-          d.preop_checklist_id || "",
-          d.id,
-        ];
+        return {
+          Data: d.date,
+          Frota: d.equipment_fleet || "",
+          Tipo: d.equipment_type || "",
+          Operador: d.operator_name || "",
+          "Enviado Em": rep?.submittedAt || d.checklist_submitted_at || "",
+          "Itens Total": rep?.totalItems ?? 0,
+          OK: rep?.okCount ?? 0,
+          "Não OK": rep?.naoOkCount ?? 0,
+          NA: rep?.naCount ?? 0,
+          "Preop Checklist ID": d.preop_checklist_id || "",
+          "Diário ID": d.id,
+        };
       });
 
-    downloadCsv(
-      `checklists_${dataIni}_a_${dataFim}.csv`,
-      ["data", "frota", "tipo_equipamento", "operador", "enviado_em", "itens_total", "ok", "nao_ok", "na", "preop_checklist_id", "diario_id"],
+    await downloadXlsx(
+      `checklists_${dataIni}_a_${dataFim}.xlsx`,
+      "Checklists",
       rows,
     );
   };
 
-  const handleExportConsolidadoCsv = () => {
+  const handleExportConsolidadoCsv = async () => {
     const reportMap = new Map(reports.map((r) => [r.diaryId, r]));
     const rows = diariosFiltrados.map((d) => {
       const rep = reportMap.get(d.id);
       const hasChecklist = Boolean(d.preop_checklist_id || d.checklist_submitted_at);
-      return [
-        d.date,
-        d.equipment_fleet || "",
-        d.equipment_type || "",
-        d.operator_name || "",
-        d.status || "",
-        hasChecklist ? "SIM" : "NÃO",
-        rep?.submittedAt || d.checklist_submitted_at || "",
-        rep?.totalItems ?? 0,
-        rep?.okCount ?? 0,
-        rep?.naoOkCount ?? 0,
-        rep?.naCount ?? 0,
-        d.id,
-      ];
+      return {
+        Data: d.date,
+        Frota: d.equipment_fleet || "",
+        Tipo: d.equipment_type || "",
+        Operador: d.operator_name || "",
+        "Status Diário": d.status || "",
+        "Tem Checklist": hasChecklist ? "SIM" : "NÃO",
+        "Checklist Enviado Em": rep?.submittedAt || d.checklist_submitted_at || "",
+        "Itens Total": rep?.totalItems ?? 0,
+        OK: rep?.okCount ?? 0,
+        "Não OK": rep?.naoOkCount ?? 0,
+        NA: rep?.naCount ?? 0,
+        "Diário ID": d.id,
+      };
     });
 
-    downloadCsv(
-      `consolidado_diario_checklist_${dataIni}_a_${dataFim}.csv`,
-      ["data", "frota", "tipo_equipamento", "operador", "status_diario", "tem_checklist", "checklist_enviado_em", "itens_total", "ok", "nao_ok", "na", "diario_id"],
+    await downloadXlsx(
+      `consolidado_diario_checklist_${dataIni}_a_${dataFim}.xlsx`,
+      "Consolidado",
       rows,
     );
   };
