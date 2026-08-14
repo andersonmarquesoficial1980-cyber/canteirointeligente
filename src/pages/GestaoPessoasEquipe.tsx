@@ -5,9 +5,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
-  ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, X, Loader2
+  ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, X, Loader2, FileSpreadsheet, FileText
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useOrigemBack } from "@/hooks/useOrigemBack";
@@ -86,6 +89,29 @@ function fmtPeriodoCurto(dataISO: string) {
 function fmtPeriodoCompleto(dataISO: string) {
   const [ano, mes, dia] = dataISO.split("-");
   return `${dia}/${mes}/${ano}`;
+}
+
+function hojeBR() {
+  const d = new Date();
+  const dia = String(d.getDate()).padStart(2, "0");
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const ano = d.getFullYear();
+  return `${dia}/${mes}/${ano}`;
+}
+
+function isoParaBR(dataISO: string) {
+  if (!dataISO) return hojeBR();
+  const [ano, mes, dia] = dataISO.split("-");
+  if (!ano || !mes || !dia) return hojeBR();
+  return `${dia}/${mes}/${ano}`;
+}
+
+function statusParaExport(status: string | null | undefined) {
+  const st = String(status || "ativo").toLowerCase();
+  if (st === "ferias") return "FÉRIAS";
+  if (st === "afastado") return "AFASTADO";
+  if (st === "demitido") return "DEMITIDO";
+  return "ATIVO";
 }
 
 function LinhaFuncionario({
@@ -532,6 +558,8 @@ export default function GestaoPessoasEquipe() {
   const [aba, setAba] = useState<Aba>(abaInicial);
   const [busca, setBusca] = useState(buscaParam);
   const [mostrarSalario, setMostrarSalario] = useState(false);
+  const [dataExportacao, setDataExportacao] = useState(hojeISO());
+  const [equipeExportSelecionada, setEquipeExportSelecionada] = useState<string>("__todas__");
   const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [updatingFeriasId, setUpdatingFeriasId] = useState<string | null>(null);
@@ -1098,6 +1126,112 @@ export default function GestaoPessoasEquipe() {
     navigate(`/gestao-pessoas/ferias?${params.toString()}`);
   };
 
+  const funcionariosEquipeSelecionada = equipeExportSelecionada === "__todas__"
+    ? todos
+    : todos.filter((f) => (f.equipe || "SEM EQUIPE") === equipeExportSelecionada);
+
+  const agrupamentoAtual = aba === "funcao"
+    ? porFuncao
+    : aba === "equipe"
+      ? porEquipe
+      : aba === "centro_custo"
+        ? porCentro
+        : porResp;
+
+  const gruposRenderizados = Object.entries(agrupamentoAtual)
+    .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
+    .filter(([chave]) => {
+      if (aba !== "equipe") return true;
+      if (equipeExportSelecionada === "__todas__") return true;
+      return chave === equipeExportSelecionada;
+    });
+
+  const montarLinhasExport = (fonte: Funcionario[]) => {
+    const dataRef = isoParaBR(dataExportacao);
+    return [...fonte]
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+      .map((f) => ({
+        DATA: dataRef,
+        NOME: (f.name || "").toUpperCase(),
+        "FUNÇÃO": (f.role || "-").toUpperCase(),
+        "EQUIPE ATUAL": (f.equipe || "SEM EQUIPE").toUpperCase(),
+        STATUS: statusParaExport(f.status),
+      }));
+  };
+
+  function exportarExcel(tipo: "geral" | "equipe") {
+    const fonte = tipo === "geral" ? todos : funcionariosEquipeSelecionada;
+    if (tipo === "equipe" && equipeExportSelecionada === "__todas__") {
+      toast({ title: "Selecione uma equipe", description: "Escolha uma equipe específica para exportar somente ela." });
+      return;
+    }
+    if (!fonte.length) {
+      toast({ title: "Sem dados para exportar", variant: "destructive" });
+      return;
+    }
+
+    const linhas = montarLinhasExport(fonte);
+    const ws = XLSX.utils.json_to_sheet(linhas, { header: ["DATA", "NOME", "FUNÇÃO", "EQUIPE ATUAL", "STATUS"] });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Funcionarios");
+
+    const dataArquivo = isoParaBR(dataExportacao).replaceAll("/", "-");
+    const sufixo = tipo === "geral"
+      ? "GERAL"
+      : (equipeExportSelecionada || "SEM_EQUIPE").replace(/\s+/g, "_").replace(/[^A-Z0-9_\-]/gi, "").toUpperCase();
+    XLSX.writeFile(wb, `WF_FUNCIONARIOS_${sufixo}_${dataArquivo}.xlsx`);
+  }
+
+  function exportarPdf(tipo: "geral" | "equipe") {
+    const fonte = tipo === "geral" ? todos : funcionariosEquipeSelecionada;
+    if (tipo === "equipe" && equipeExportSelecionada === "__todas__") {
+      toast({ title: "Selecione uma equipe", description: "Escolha uma equipe específica para exportar somente ela." });
+      return;
+    }
+    if (!fonte.length) {
+      toast({ title: "Sem dados para exportar", variant: "destructive" });
+      return;
+    }
+
+    const linhas = montarLinhasExport(fonte);
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const titulo = tipo === "geral" ? "RELATÓRIO DE FUNCIONÁRIOS - GERAL" : `RELATÓRIO DE FUNCIONÁRIOS - ${equipeExportSelecionada}`;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(titulo, 14, 12);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Data de referência: ${isoParaBR(dataExportacao)}`, 14, 17);
+
+    autoTable(doc, {
+      startY: 21,
+      head: [["DATA", "NOME", "FUNÇÃO", "EQUIPE ATUAL", "STATUS"]],
+      body: linhas.map((r) => [r.DATA, r.NOME, r["FUNÇÃO"], r["EQUIPE ATUAL"], r.STATUS]),
+      styles: { fontSize: 8, cellPadding: 1.8, lineColor: [180, 180, 180], lineWidth: 0.1 },
+      headStyles: { fillColor: [176, 0, 32], textColor: [255, 255, 255], fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: 24 },
+        1: { cellWidth: 86 },
+        2: { cellWidth: 86 },
+        3: { cellWidth: 60 },
+        4: { cellWidth: 22 },
+      },
+      margin: { left: 14, right: 14 },
+      didDrawPage: () => {
+        const pageCount = doc.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.text(`Página ${pageCount}`, 280, 205, { align: "right" });
+      },
+    });
+
+    const dataArquivo = isoParaBR(dataExportacao).replaceAll("/", "-");
+    const sufixo = tipo === "geral"
+      ? "GERAL"
+      : (equipeExportSelecionada || "SEM_EQUIPE").replace(/\s+/g, "_").replace(/[^A-Z0-9_\-]/gi, "").toUpperCase();
+    doc.save(`WF_FUNCIONARIOS_${sufixo}_${dataArquivo}.pdf`);
+  }
+
   const ABAS: { id: Aba; label: string; emoji: string; count?: number }[] = [
     { id: "lista",           label: "Todos",           emoji: "👤", count: todos.length },
     { id: "funcao",          label: "Por Função",      emoji: "🔧", count: Object.keys(porFuncao).length },
@@ -1145,7 +1279,11 @@ export default function GestaoPessoasEquipe() {
         {ABAS.map(a => (
           <button
             key={a.id}
-            onClick={() => { setAba(a.id); setBusca(""); }}
+            onClick={() => {
+              setAba(a.id);
+              setBusca("");
+              if (a.id !== "equipe") setEquipeExportSelecionada("__todas__");
+            }}
             className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium whitespace-nowrap transition-colors border-b-2 shrink-0 ${
               aba === a.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
@@ -1227,17 +1365,88 @@ export default function GestaoPessoasEquipe() {
                   <p style={{ fontSize: 12, color: "#9ca3af" }}>
                     {aba === "funcao" ? Object.keys(porFuncao).length : aba === "equipe" ? Object.keys(porEquipe).length : aba === "centro_custo" ? Object.keys(porCentro).length : Object.keys(porResp).length} grupos · {todos.length} funcionários
                   </p>
-                  {isAdmin && (
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, color: mostrarSalario ? "#f97316" : "#64748b" }}>
-                      <input type="checkbox" checked={mostrarSalario} onChange={e => setMostrarSalario(e.target.checked)} style={{ accentColor: "#f97316" }} />
-                      Ver salário
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <label style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+                      Data
+                      <input
+                        type="date"
+                        value={dataExportacao}
+                        onChange={(e) => setDataExportacao(e.target.value)}
+                        style={{ height: 30, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 8px", fontSize: 11 }}
+                      />
                     </label>
-                  )}
+
+                    {aba === "equipe" && (
+                      <Select value={equipeExportSelecionada} onValueChange={setEquipeExportSelecionada}>
+                        <SelectTrigger className="h-8 rounded-lg text-xs bg-white min-w-[200px]">
+                          <SelectValue placeholder="Selecionar equipe" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__todas__">Todas as equipes</SelectItem>
+                          {Object.keys(porEquipe)
+                            .sort((a, b) => a.localeCompare(b, "pt-BR"))
+                            .map((eq) => (
+                              <SelectItem key={`sel-eq-${eq}`} value={eq}>{eq}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+
+                    {aba === "equipe" && (
+                      <>
+                        <button
+                          onClick={() => exportarExcel("equipe")}
+                          disabled={equipeExportSelecionada === "__todas__"}
+                          className="h-8 px-2.5 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 text-[11px] font-semibold hover:bg-emerald-100 transition-colors whitespace-nowrap disabled:opacity-50"
+                          title="Exportar somente a equipe selecionada"
+                        >
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <FileSpreadsheet size={13} /> Excel equipe
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => exportarPdf("equipe")}
+                          disabled={equipeExportSelecionada === "__todas__"}
+                          className="h-8 px-2.5 rounded-lg border border-sky-300 text-sky-700 bg-sky-50 text-[11px] font-semibold hover:bg-sky-100 transition-colors whitespace-nowrap disabled:opacity-50"
+                          title="Exportar PDF da equipe selecionada"
+                        >
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <FileText size={13} /> PDF equipe
+                          </span>
+                        </button>
+                      </>
+                    )}
+
+                    <button
+                      onClick={() => exportarExcel("geral")}
+                      className="h-8 px-2.5 rounded-lg border border-primary/30 text-primary text-[11px] font-semibold hover:bg-primary/10 transition-colors whitespace-nowrap"
+                      title="Exportar todos os funcionários"
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <FileSpreadsheet size={13} /> Excel geral
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => exportarPdf("geral")}
+                      className="h-8 px-2.5 rounded-lg border border-primary/30 text-primary text-[11px] font-semibold hover:bg-primary/10 transition-colors whitespace-nowrap"
+                      title="Exportar PDF geral"
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <FileText size={13} /> PDF geral
+                      </span>
+                    </button>
+
+                    {isAdmin && (
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, color: mostrarSalario ? "#f97316" : "#64748b" }}>
+                        <input type="checkbox" checked={mostrarSalario} onChange={e => setMostrarSalario(e.target.checked)} style={{ accentColor: "#f97316" }} />
+                        Ver salário
+                      </label>
+                    )}
+                  </div>
                 </div>
-                {Object.entries(
-                  aba === "funcao" ? porFuncao : aba === "equipe" ? porEquipe : aba === "centro_custo" ? porCentro : porResp
-                )
-                  .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
+                {gruposRenderizados
                   .map(([chave, itens]) => (
                     <GrupoColapsavel
                       key={chave}
