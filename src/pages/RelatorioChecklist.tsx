@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Download, CheckCircle2, AlertTriangle, Search, Filter } from "lucide-react";
@@ -40,6 +40,20 @@ interface ChecklistCoverageRow {
   aderenciaPct: number;
 }
 
+interface DiaryRow {
+  id: string;
+  equipment_fleet: string | null;
+  equipment_type: string | null;
+  operator_name: string | null;
+  ogs_number: string | null;
+  client_name: string | null;
+  date: string;
+  status: string | null;
+  checklist_submitted_at: string | null;
+  preop_checklist_id: string | null;
+  created_at?: string | null;
+}
+
 export default function RelatorioChecklist() {
   const navigate = useNavigate();
   const goBack = useSmartBack("/relatorios");
@@ -48,6 +62,7 @@ export default function RelatorioChecklist() {
   const [selectedReport, setSelectedReport] = useState<ChecklistReport | null>(null);
   const [coverageByFrota, setCoverageByFrota] = useState<ChecklistCoverageRow[]>([]);
   const [coverageByOperador, setCoverageByOperador] = useState<ChecklistCoverageRow[]>([]);
+  const [allDiariesRows, setAllDiariesRows] = useState<DiaryRow[]>([]);
   const firstDayCurrentMonth = (() => {
     const now = new Date();
     return toLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -61,7 +76,7 @@ export default function RelatorioChecklist() {
     try {
       const { data: allDiaries, error: allDiariesErr } = await (supabase as any)
         .from("equipment_diaries")
-        .select("id, equipment_fleet, equipment_type, operator_name, ogs_number, client_name, date, checklist_submitted_at, preop_checklist_id, status, user_id")
+        .select("id, equipment_fleet, equipment_type, operator_name, ogs_number, client_name, date, checklist_submitted_at, preop_checklist_id, status, user_id, created_at")
         .gte("date", dataIni)
         .lte("date", dataFim)
         .neq("status", "rascunho")
@@ -71,9 +86,12 @@ export default function RelatorioChecklist() {
         setReports([]);
         setCoverageByFrota([]);
         setCoverageByOperador([]);
+        setAllDiariesRows([]);
         setLoading(false);
         return;
       }
+
+      setAllDiariesRows((allDiaries as any[]) as DiaryRow[]);
 
       // Cobertura: diário pode estar com checklist por preop_checklist_id OU checklist_submitted_at legado
       const byFrota = new Map<string, ChecklistCoverageRow>();
@@ -213,6 +231,114 @@ export default function RelatorioChecklist() {
   const reportsFiltrados = reports.filter(r =>
     !searchFrota || r.frota.toLowerCase().includes(searchFrota.toLowerCase())
   );
+
+  const diariosFiltrados = useMemo(() => {
+    return allDiariesRows.filter((d) => {
+      const frota = (d.equipment_fleet || "").toLowerCase();
+      return !searchFrota || frota.includes(searchFrota.toLowerCase());
+    });
+  }, [allDiariesRows, searchFrota]);
+
+  const csvEscape = (value: any) => {
+    const raw = value == null ? "" : String(value);
+    const escaped = raw.replace(/"/g, '""');
+    return `"${escaped}"`;
+  };
+
+  const downloadCsv = (filename: string, headers: string[], rows: any[][]) => {
+    const lines = [headers.map(csvEscape).join(";"), ...rows.map((r) => r.map(csvEscape).join(";"))];
+    const content = `\uFEFF${lines.join("\n")}`;
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportDiariosCsv = () => {
+    const rows = diariosFiltrados.map((d) => {
+      const hasChecklist = Boolean(d.preop_checklist_id || d.checklist_submitted_at);
+      return [
+        d.date,
+        d.equipment_fleet || "",
+        d.equipment_type || "",
+        d.operator_name || "",
+        d.status || "",
+        d.ogs_number || "",
+        d.client_name || "",
+        hasChecklist ? "SIM" : "NÃO",
+        d.checklist_submitted_at || "",
+        d.preop_checklist_id || "",
+        d.id,
+      ];
+    });
+
+    downloadCsv(
+      `diarios_equipamentos_${dataIni}_a_${dataFim}.csv`,
+      ["data", "frota", "tipo_equipamento", "operador", "status", "ogs", "cliente", "tem_checklist", "checklist_submitted_at", "preop_checklist_id", "diario_id"],
+      rows,
+    );
+  };
+
+  const handleExportChecklistCsv = () => {
+    const reportMap = new Map(reportsFiltrados.map((r) => [r.diaryId, r]));
+    const rows = diariosFiltrados
+      .filter((d) => Boolean(d.preop_checklist_id || d.checklist_submitted_at))
+      .map((d) => {
+        const rep = reportMap.get(d.id);
+        return [
+          d.date,
+          d.equipment_fleet || "",
+          d.equipment_type || "",
+          d.operator_name || "",
+          rep?.submittedAt || d.checklist_submitted_at || "",
+          rep?.totalItems ?? 0,
+          rep?.okCount ?? 0,
+          rep?.naoOkCount ?? 0,
+          rep?.naCount ?? 0,
+          d.preop_checklist_id || "",
+          d.id,
+        ];
+      });
+
+    downloadCsv(
+      `checklists_${dataIni}_a_${dataFim}.csv`,
+      ["data", "frota", "tipo_equipamento", "operador", "enviado_em", "itens_total", "ok", "nao_ok", "na", "preop_checklist_id", "diario_id"],
+      rows,
+    );
+  };
+
+  const handleExportConsolidadoCsv = () => {
+    const reportMap = new Map(reports.map((r) => [r.diaryId, r]));
+    const rows = diariosFiltrados.map((d) => {
+      const rep = reportMap.get(d.id);
+      const hasChecklist = Boolean(d.preop_checklist_id || d.checklist_submitted_at);
+      return [
+        d.date,
+        d.equipment_fleet || "",
+        d.equipment_type || "",
+        d.operator_name || "",
+        d.status || "",
+        hasChecklist ? "SIM" : "NÃO",
+        rep?.submittedAt || d.checklist_submitted_at || "",
+        rep?.totalItems ?? 0,
+        rep?.okCount ?? 0,
+        rep?.naoOkCount ?? 0,
+        rep?.naCount ?? 0,
+        d.id,
+      ];
+    });
+
+    downloadCsv(
+      `consolidado_diario_checklist_${dataIni}_a_${dataFim}.csv`,
+      ["data", "frota", "tipo_equipamento", "operador", "status_diario", "tem_checklist", "checklist_enviado_em", "itens_total", "ok", "nao_ok", "na", "diario_id"],
+      rows,
+    );
+  };
 
   const handleDownloadPDF = async (report: ChecklistReport) => {
     const { default: jsPDF } = await import("jspdf");
@@ -458,6 +584,18 @@ export default function RelatorioChecklist() {
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-extrabold uppercase tracking-wide text-foreground">Cobertura Checklist x Diário (Veículos em geral)</h3>
               <span className="text-[10px] text-muted-foreground">Período: {fmtDate(dataIni)} a {fmtDate(dataFim)}</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Button type="button" variant="outline" className="h-8 rounded-xl text-[11px] font-bold" onClick={handleExportDiariosCsv}>
+                <Download className="w-3.5 h-3.5 mr-1.5" /> Exportar só Diários
+              </Button>
+              <Button type="button" variant="outline" className="h-8 rounded-xl text-[11px] font-bold" onClick={handleExportChecklistCsv}>
+                <Download className="w-3.5 h-3.5 mr-1.5" /> Exportar só Checklists
+              </Button>
+              <Button type="button" className="h-8 rounded-xl text-[11px] font-bold" onClick={handleExportConsolidadoCsv}>
+                <Download className="w-3.5 h-3.5 mr-1.5" /> Exportar Consolidado
+              </Button>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
