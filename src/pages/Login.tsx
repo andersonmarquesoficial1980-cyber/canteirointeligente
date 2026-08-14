@@ -7,8 +7,11 @@ import { useToast } from "@/hooks/use-toast";
 import { LogIn, Mail, Lock, ArrowLeft, User, Eye, EyeOff, Building2, ChevronDown } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
 
-// Não usar fallback global de domínio para login curto.
-// O domínio deve vir da empresa selecionada (ou da única empresa ativa).
+// Fallback por host: garante login curto mesmo se a lista de empresas falhar/carregar tarde.
+const HOST_LOGIN_DOMAIN_FALLBACK: Record<string, string> = {
+  "app.workflux.com.br": "@fremix.workflux.app",
+};
+const LOGIN_DOMAIN_DEFAULT = "@workflux.app";
 
 // Em recuperação de senha, nunca apontar para localhost em produção.
 // Se o app estiver aberto localmente por engano, força callback para domínio oficial.
@@ -53,6 +56,13 @@ export default function Login() {
     const c = companies.find(c => c.id === selectedCompanyId) || (companies.length === 1 ? companies[0] : null);
     return c?.login_domain ? `@${c.login_domain}` : null;
   }, [companies, selectedCompanyId]);
+
+  const loginDomainFallback = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return HOST_LOGIN_DOMAIN_FALLBACK[window.location.hostname] || LOGIN_DOMAIN_DEFAULT;
+    }
+    return LOGIN_DOMAIN_DEFAULT;
+  }, []);
 
   const selectedCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId), [companies, selectedCompanyId]);
 
@@ -101,16 +111,7 @@ export default function Login() {
       let authEmail = input;
 
       if (!input.includes("@")) {
-        if (!activeDomain) {
-          toast({
-            title: "Aguarde um instante",
-            description: "Estamos carregando o domínio da empresa para validar seu login.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-        authEmail = `${input}${activeDomain}`;
+        authEmail = `${input}${activeDomain || loginDomainFallback}`;
       }
 
       // Verificar bloqueio server-side antes de tentar
@@ -349,7 +350,7 @@ export default function Login() {
         <Button
           type="submit"
           className="w-full h-14 gap-2 text-base font-extrabold rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-          disabled={loading || (!login.trim().includes("@") && loadingCompanies)}
+          disabled={loading}
         >
           <LogIn className="w-5 h-5" />
           {loading ? "Aguarde..." : "Entrar"}
