@@ -1437,18 +1437,53 @@ export default function EquipmentDiaryForm() {
     if (!companyId) return null;
 
     try {
-      const { data } = await (supabase as any)
+      const normalizedFleet = selectedFleet.trim().toUpperCase();
+
+      // 1) Match exato (mesmo dia/período)
+      const { data: exact } = await (supabase as any)
         .from("equipment_preop_checklists")
-        .select("id, submitted_at")
+        .select("id, submitted_at, date, period, diary_id")
         .eq("company_id", companyId)
-        .eq("equipment_fleet", selectedFleet.trim().toUpperCase())
+        .eq("equipment_fleet", normalizedFleet)
         .eq("date", date)
         .eq("period", turno)
         .order("submitted_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      return data || null;
+      if (exact?.id) return exact;
+
+      // 2) Fallback operacional: checklist mais próximo (até 48h) ainda sem vínculo
+      // resolve casos noturnos em que checklist foi no turno anterior e o diário no dia seguinte
+      const { data: recent } = await (supabase as any)
+        .from("equipment_preop_checklists")
+        .select("id, submitted_at, date, period, diary_id")
+        .eq("company_id", companyId)
+        .eq("equipment_fleet", normalizedFleet)
+        .is("diary_id", null)
+        .order("submitted_at", { ascending: false })
+        .limit(15);
+
+      if (!Array.isArray(recent) || recent.length === 0) return null;
+
+      const diaryDate = new Date(`${date}T12:00:00`);
+      const fortyEightHoursMs = 48 * 60 * 60 * 1000;
+
+      let best: any = null;
+      let bestDelta = Number.POSITIVE_INFINITY;
+
+      for (const r of recent) {
+        const submittedAt = r?.submitted_at ? new Date(r.submitted_at) : null;
+        if (!submittedAt || Number.isNaN(submittedAt.getTime())) continue;
+
+        const delta = Math.abs(submittedAt.getTime() - diaryDate.getTime());
+        if (delta <= fortyEightHoursMs && delta < bestDelta) {
+          best = r;
+          bestDelta = delta;
+        }
+      }
+
+      return best || null;
     } catch {
       return null;
     }
@@ -1573,14 +1608,13 @@ export default function EquipmentDiaryForm() {
       return cancelSave();
     }
 
-    // 4. Checklist obrigatório para Caminhão Basculante
+    // 4. Checklist para Caminhão Basculante: obrigatório para controle,
+    // mas NÃO pode bloquear o envio do diário (apenas alerta).
     if (isBasculante && !isDraft && !checklistSubmittedAt) {
       toast({
-        title: "⚠️ Checklist obrigatório",
-        description: "Para Caminhão Basculante, envie o Checklist Pré-Operação antes de enviar o diário.",
-        variant: "destructive",
+        title: "⚠️ Checklist pendente",
+        description: "Diário será enviado sem checklist pré-op vinculado. Faça o checklist para regularizar e permitir cobrança no relatório.",
       });
-      return cancelSave();
     }
 
     // 5. Horímetro/Odômetro obrigatório em qualquer lançamento
