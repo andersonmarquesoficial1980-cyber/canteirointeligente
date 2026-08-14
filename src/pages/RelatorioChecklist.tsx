@@ -5,6 +5,7 @@ import { ArrowLeft, Download, CheckCircle2, AlertTriangle, Search, Filter } from
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { toLocalISODate } from "@/lib/date-local";
 
 interface ChecklistReport {
   diaryId: string;
@@ -28,31 +29,108 @@ interface ChecklistReport {
   }[];
 }
 
+interface ChecklistCoverageRow {
+  chave: string;
+  frota: string;
+  operador: string;
+  tipoEquip: string;
+  totalDiarios: number;
+  diariosComChecklist: number;
+  diariosSemChecklist: number;
+  aderenciaPct: number;
+}
+
 export default function RelatorioChecklist() {
   const navigate = useNavigate();
   const goBack = useSmartBack("/relatorios");
   const [reports, setReports] = useState<ChecklistReport[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ChecklistReport | null>(null);
-  const [dataIni, setDataIni] = useState(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]
-  );
-  const [dataFim, setDataFim] = useState(new Date().toISOString().split("T")[0]);
+  const [coverageByFrota, setCoverageByFrota] = useState<ChecklistCoverageRow[]>([]);
+  const [coverageByOperador, setCoverageByOperador] = useState<ChecklistCoverageRow[]>([]);
+  const firstDayCurrentMonth = (() => {
+    const now = new Date();
+    return toLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1));
+  })();
+  const [dataIni, setDataIni] = useState(firstDayCurrentMonth);
+  const [dataFim, setDataFim] = useState(toLocalISODate());
   const [searchFrota, setSearchFrota] = useState("");
 
   const buscarRelatorios = async () => {
     setLoading(true);
     try {
-      // Buscar diários que tiveram checklist enviado no período
-      const { data: diaries, error } = await (supabase as any)
+      const { data: allDiaries, error: allDiariesErr } = await (supabase as any)
         .from("equipment_diaries")
-        .select("id, equipment_fleet, equipment_type, operator_name, ogs_number, client_name, date, checklist_submitted_at, user_id")
+        .select("id, equipment_fleet, equipment_type, operator_name, ogs_number, client_name, date, checklist_submitted_at, preop_checklist_id, status, user_id")
         .gte("date", dataIni)
         .lte("date", dataFim)
-        .not("checklist_submitted_at", "is", null)
+        .neq("status", "rascunho")
         .order("date", { ascending: false });
 
-      if (error || !diaries || diaries.length === 0) {
+      if (allDiariesErr || !allDiaries) {
+        setReports([]);
+        setCoverageByFrota([]);
+        setCoverageByOperador([]);
+        setLoading(false);
+        return;
+      }
+
+      // Cobertura: diário pode estar com checklist por preop_checklist_id OU checklist_submitted_at legado
+      const byFrota = new Map<string, ChecklistCoverageRow>();
+      const byOperador = new Map<string, ChecklistCoverageRow>();
+
+      for (const d of allDiaries as any[]) {
+        const frota = d.equipment_fleet || "—";
+        const operador = d.operator_name || "—";
+        const tipoEquip = d.equipment_type || "—";
+        const temChecklist = Boolean(d.preop_checklist_id || d.checklist_submitted_at);
+
+        const keyFrota = frota;
+        const rowFrota = byFrota.get(keyFrota) || {
+          chave: keyFrota,
+          frota,
+          operador: "—",
+          tipoEquip: "—",
+          totalDiarios: 0,
+          diariosComChecklist: 0,
+          diariosSemChecklist: 0,
+          aderenciaPct: 0,
+        };
+        rowFrota.totalDiarios += 1;
+        if (temChecklist) rowFrota.diariosComChecklist += 1; else rowFrota.diariosSemChecklist += 1;
+        byFrota.set(keyFrota, rowFrota);
+
+        const keyOperador = `${operador}||${frota}`;
+        const rowOperador = byOperador.get(keyOperador) || {
+          chave: keyOperador,
+          frota,
+          operador,
+          tipoEquip,
+          totalDiarios: 0,
+          diariosComChecklist: 0,
+          diariosSemChecklist: 0,
+          aderenciaPct: 0,
+        };
+        rowOperador.totalDiarios += 1;
+        if (temChecklist) rowOperador.diariosComChecklist += 1; else rowOperador.diariosSemChecklist += 1;
+        byOperador.set(keyOperador, rowOperador);
+      }
+
+      const coberturaFrota = Array.from(byFrota.values())
+        .map((r) => ({ ...r, aderenciaPct: r.totalDiarios > 0 ? Math.round((r.diariosComChecklist / r.totalDiarios) * 100) : 0 }))
+        .sort((a, b) => b.diariosSemChecklist - a.diariosSemChecklist || a.aderenciaPct - b.aderenciaPct);
+
+      const coberturaOperador = Array.from(byOperador.values())
+        .map((r) => ({ ...r, aderenciaPct: r.totalDiarios > 0 ? Math.round((r.diariosComChecklist / r.totalDiarios) * 100) : 0 }))
+        .sort((a, b) => b.diariosSemChecklist - a.diariosSemChecklist || a.aderenciaPct - b.aderenciaPct);
+
+      setCoverageByFrota(coberturaFrota);
+      setCoverageByOperador(coberturaOperador);
+
+      // Lista detalhada (somente diários com checklist para tela de detalhe existente)
+      const diaries = (allDiaries as any[]).filter((d) => Boolean(d.checklist_submitted_at || d.preop_checklist_id));
+
+      if (!diaries || diaries.length === 0) {
         setReports([]);
         setLoading(false);
         return;
@@ -60,8 +138,17 @@ export default function RelatorioChecklist() {
 
       const diaryIds = diaries.map((d: any) => d.id);
 
-      // Buscar nomes dos usuários que fizeram o checklist
-      const userIds = [...new Set(diaries.map((d: any) => d.user_id).filter(Boolean))];
+      const preopIds = [...new Set(diaries.map((d: any) => d.preop_checklist_id).filter(Boolean))] as string[];
+      const preopSubmittedMap: Record<string, string> = {};
+      if (preopIds.length > 0) {
+        const { data: preopHeaders } = await (supabase as any)
+          .from("equipment_preop_checklists")
+          .select("id, submitted_at")
+          .in("id", preopIds);
+        (preopHeaders || []).forEach((p: any) => { preopSubmittedMap[p.id] = p.submitted_at; });
+      }
+
+      const userIds = [...new Set(diaries.map((d: any) => d.user_id).filter(Boolean))] as string[];
       const { data: profilesData } = await supabase
         .from("profiles")
         .select("user_id, nome_completo")
@@ -69,14 +156,12 @@ export default function RelatorioChecklist() {
       const profileMap: Record<string, string> = {};
       (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p.nome_completo || ""; });
 
-      // Buscar todas as entries + items numa query
       const { data: entries } = await supabase
         .from("checklist_entries")
         .select("diary_id, status, observation, photo_url, item_id")
         .in("diary_id", diaryIds);
 
-      // Buscar nomes dos itens
-      const itemIds = [...new Set((entries || []).map((e: any) => e.item_id))];
+      const itemIds = [...new Set((entries || []).map((e: any) => e.item_id))] as string[];
       const { data: itemsData } = await supabase
         .from("checklist_items_standard")
         .select("id, item_name")
@@ -100,7 +185,7 @@ export default function RelatorioChecklist() {
           clientName: d.client_name || "",
           usuarioNome: d.user_id ? (profileMap[d.user_id] || "—") : "—",
           data: d.date,
-          submittedAt: d.checklist_submitted_at,
+          submittedAt: d.checklist_submitted_at || (d.preop_checklist_id ? preopSubmittedMap[d.preop_checklist_id] : null) || d.created_at || new Date().toISOString(),
           totalItems: diaryEntries.length,
           okCount: ok,
           naoOkCount: naoOk,
@@ -366,6 +451,61 @@ export default function RelatorioChecklist() {
               <Filter className="w-4 h-4" />
               {loading ? "Buscando..." : "Buscar Checklists"}
             </Button>
+          </div>
+
+          {/* Cobertura Checklist x Diário */}
+          <div className="bg-card border border-border rounded-2xl p-3 shadow-card space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-foreground">Cobertura Checklist x Diário (Veículos em geral)</h3>
+              <span className="text-[10px] text-muted-foreground">Período: {fmtDate(dataIni)} a {fmtDate(dataFim)}</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-border p-2 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase">Diários</p>
+                <p className="text-lg font-extrabold text-foreground">{coverageByFrota.reduce((s, r) => s + r.totalDiarios, 0)}</p>
+              </div>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-center">
+                <p className="text-[10px] text-emerald-700 uppercase">Com checklist</p>
+                <p className="text-lg font-extrabold text-emerald-700">{coverageByFrota.reduce((s, r) => s + r.diariosComChecklist, 0)}</p>
+              </div>
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-2 text-center">
+                <p className="text-[10px] text-rose-700 uppercase">Sem checklist</p>
+                <p className="text-lg font-extrabold text-rose-700">{coverageByFrota.reduce((s, r) => s + r.diariosSemChecklist, 0)}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase">Top pendências por frota</p>
+              {coverageByFrota.slice(0, 8).map((row) => (
+                <div key={`f-${row.chave}`} className="flex items-center justify-between rounded-xl border border-border px-2 py-1.5">
+                  <div>
+                    <p className="text-xs font-bold">{row.frota}</p>
+                    <p className="text-[10px] text-muted-foreground">{row.diariosComChecklist}/{row.totalDiarios} com checklist</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-xs font-extrabold ${row.diariosSemChecklist > 0 ? "text-rose-600" : "text-emerald-600"}`}>{row.diariosSemChecklist} sem checklist</p>
+                    <p className="text-[10px] text-muted-foreground">{row.aderenciaPct}% aderência</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase">Top pendências por operador</p>
+              {coverageByOperador.slice(0, 12).map((row) => (
+                <div key={`o-${row.chave}`} className="flex items-center justify-between rounded-xl border border-border px-2 py-1.5">
+                  <div>
+                    <p className="text-xs font-bold">{row.operador}</p>
+                    <p className="text-[10px] text-muted-foreground">{row.frota} · {row.tipoEquip}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-xs font-extrabold ${row.diariosSemChecklist > 0 ? "text-rose-600" : "text-emerald-600"}`}>{row.diariosSemChecklist} sem checklist</p>
+                    <p className="text-[10px] text-muted-foreground">{row.diariosComChecklist}/{row.totalDiarios} · {row.aderenciaPct}%</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Resultados */}
