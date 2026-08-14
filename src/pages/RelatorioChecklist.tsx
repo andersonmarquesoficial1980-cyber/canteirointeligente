@@ -302,8 +302,12 @@ export default function RelatorioChecklist() {
   };
 
   const handleExportConsolidadoCsv = async () => {
+    const XLSX = await import("xlsx");
+    const wb = XLSX.utils.book_new();
     const reportMap = new Map(reports.map((r) => [r.diaryId, r]));
-    const rows = diariosFiltrados.map((d) => {
+
+    // Aba 1: Consolidado
+    const consolidadoRows = diariosFiltrados.map((d) => {
       const rep = reportMap.get(d.id);
       const hasChecklist = Boolean(d.preop_checklist_id || d.checklist_submitted_at);
       return {
@@ -321,12 +325,87 @@ export default function RelatorioChecklist() {
         "Diário ID": d.id,
       };
     });
+    const wsConsolidado = XLSX.utils.json_to_sheet(consolidadoRows.length > 0 ? consolidadoRows : [{ Info: "Sem registros no período" }]);
+    wsConsolidado["!cols"] = Object.keys(consolidadoRows[0] || { Info: "" }).map(() => ({ wch: 20 }));
+    XLSX.utils.book_append_sheet(wb, wsConsolidado, "Consolidado");
 
-    await downloadXlsx(
-      `consolidado_diario_checklist_${dataIni}_a_${dataFim}.xlsx`,
-      "Consolidado",
-      rows,
-    );
+    // Aba 2: Só Diários
+    const diariosRows = diariosFiltrados.map((d) => {
+      const hasChecklist = Boolean(d.preop_checklist_id || d.checklist_submitted_at);
+      return {
+        Data: d.date,
+        Frota: d.equipment_fleet || "",
+        Tipo: d.equipment_type || "",
+        Operador: d.operator_name || "",
+        Status: d.status || "",
+        OGS: d.ogs_number || "",
+        Cliente: d.client_name || "",
+        "Tem Checklist": hasChecklist ? "SIM" : "NÃO",
+        "Checklist Enviado Em": d.checklist_submitted_at || "",
+        "Preop Checklist ID": d.preop_checklist_id || "",
+        "Diário ID": d.id,
+      };
+    });
+    const wsDiarios = XLSX.utils.json_to_sheet(diariosRows.length > 0 ? diariosRows : [{ Info: "Sem registros no período" }]);
+    wsDiarios["!cols"] = Object.keys(diariosRows[0] || { Info: "" }).map(() => ({ wch: 20 }));
+    XLSX.utils.book_append_sheet(wb, wsDiarios, "So Diarios");
+
+    // Aba 3: Só Checklists
+    const checklistRows = diariosFiltrados
+      .filter((d) => Boolean(d.preop_checklist_id || d.checklist_submitted_at))
+      .map((d) => {
+        const rep = reportMap.get(d.id);
+        return {
+          Data: d.date,
+          Frota: d.equipment_fleet || "",
+          Tipo: d.equipment_type || "",
+          Operador: d.operator_name || "",
+          "Enviado Em": rep?.submittedAt || d.checklist_submitted_at || "",
+          "Itens Total": rep?.totalItems ?? 0,
+          OK: rep?.okCount ?? 0,
+          "Não OK": rep?.naoOkCount ?? 0,
+          NA: rep?.naCount ?? 0,
+          "Preop Checklist ID": d.preop_checklist_id || "",
+          "Diário ID": d.id,
+        };
+      });
+    const wsChecklist = XLSX.utils.json_to_sheet(checklistRows.length > 0 ? checklistRows : [{ Info: "Sem registros no período" }]);
+    wsChecklist["!cols"] = Object.keys(checklistRows[0] || { Info: "" }).map(() => ({ wch: 20 }));
+    XLSX.utils.book_append_sheet(wb, wsChecklist, "So Checklists");
+
+    // Aba 4: Ranking Cobrança (frota + operador)
+    const rankingRows: Record<string, any>[] = [];
+
+    rankingRows.push({ "Tipo Ranking": "POR FROTA", Referencia: "", "Diários": "", "Com Checklist": "", "Sem Checklist": "", "Aderência %": "" });
+    coverageByFrota.forEach((row) => {
+      rankingRows.push({
+        "Tipo Ranking": "FROTA",
+        Referencia: row.frota,
+        "Diários": row.totalDiarios,
+        "Com Checklist": row.diariosComChecklist,
+        "Sem Checklist": row.diariosSemChecklist,
+        "Aderência %": row.aderenciaPct,
+      });
+    });
+
+    rankingRows.push({ "Tipo Ranking": "", Referencia: "", "Diários": "", "Com Checklist": "", "Sem Checklist": "", "Aderência %": "" });
+    rankingRows.push({ "Tipo Ranking": "POR OPERADOR", Referencia: "", "Diários": "", "Com Checklist": "", "Sem Checklist": "", "Aderência %": "" });
+    coverageByOperador.forEach((row) => {
+      rankingRows.push({
+        "Tipo Ranking": "OPERADOR",
+        Referencia: `${row.operador} • ${row.frota}`,
+        "Diários": row.totalDiarios,
+        "Com Checklist": row.diariosComChecklist,
+        "Sem Checklist": row.diariosSemChecklist,
+        "Aderência %": row.aderenciaPct,
+      });
+    });
+
+    const wsRanking = XLSX.utils.json_to_sheet(rankingRows.length > 0 ? rankingRows : [{ Info: "Sem dados de ranking no período" }]);
+    wsRanking["!cols"] = Object.keys(rankingRows[0] || { Info: "" }).map(() => ({ wch: 24 }));
+    XLSX.utils.book_append_sheet(wb, wsRanking, "Ranking Cobranca");
+
+    XLSX.writeFile(wb, `consolidado_diario_checklist_${dataIni}_a_${dataFim}.xlsx`);
   };
 
   const handleDownloadPDF = async (report: ChecklistReport) => {
