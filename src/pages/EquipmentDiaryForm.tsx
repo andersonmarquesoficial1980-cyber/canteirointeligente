@@ -13,6 +13,7 @@ import { useOgsReference } from "@/hooks/useOgsReference";
 import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -272,7 +273,7 @@ export default function EquipmentDiaryForm() {
   const [workStatus, setWorkStatus] = useState("");
   const [horimetroAlerta, setHorimetroAlerta] = useState<{ diff: number; ultimoValor: number; threshold: number } | null>(null);
   const [horimetroConfirmado, setHorimetroConfirmado] = useState(false);
-  const { verificarInconsistencia, registrarAudit } = useHorimetroAudit("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+  const { verificarInconsistencia, registrarAudit } = useHorimetroAudit(DEFAULT_COMPANY_ID);
   const isStatusManutencao = workStatus === "Manutenção";
   const isModoSimples = workStatus === "Folga" || workStatus === "Cancelou" || isStatusManutencao;
   const [cancelouMotivo, setCancellouMotivo] = useState("");
@@ -594,7 +595,7 @@ export default function EquipmentDiaryForm() {
   // para ele ver as listas filtradas igual aos usuários normais
   // Fallback para Fremix — garante que a query de operadores sempre executa
   // mesmo se o profile demorar a carregar ou falhar
-  const effectiveCompanyId = profile?.company_id || "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+  const effectiveCompanyId = profile?.company_id || DEFAULT_COMPANY_ID;
 
   const { data: enabledOperatorIds = [] } = useQuery({
     queryKey: ["equipment_type_operators_ids", effectiveCompanyId, equipmentType, isOnline],
@@ -1562,7 +1563,12 @@ export default function EquipmentDiaryForm() {
         photo_url: r.photo_url || null,
         company_id: companyId,
       }));
-      const { error: insertErr } = await (supabase as any).from("checklist_entries").insert(rows);
+      const dedupedRows = Array.from(
+        new Map(rows.map((row: any) => [String(row.item_id), row])).values(),
+      );
+      const { error: insertErr } = await (supabase as any)
+        .from("checklist_entries")
+        .upsert(dedupedRows, { onConflict: "diary_id,item_id" });
       if (insertErr) throw insertErr;
     }
 
@@ -2241,7 +2247,12 @@ export default function EquipmentDiaryForm() {
             photo_url: photoUrl,
           });
         }
-        const { error: checklistErr } = await supabase.from("checklist_entries").insert(checklistRows);
+        const dedupedChecklistRows = Array.from(
+          new Map(checklistRows.map((row: any) => [String(row.item_id), row])).values(),
+        );
+        const { error: checklistErr } = await (supabase as any)
+          .from("checklist_entries")
+          .upsert(dedupedChecklistRows, { onConflict: "diary_id,item_id" });
         if (checklistErr) {
           console.error("[Checklist] Erro ao salvar checklist:", checklistErr);
         }
@@ -2551,7 +2562,7 @@ export default function EquipmentDiaryForm() {
         .from("equipamentos")
         .select("id, frota, nome, tipo")
         .eq("frota", selectedFleet.trim().toUpperCase())
-        .eq("company_id", profile?.company_id || "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+        .eq("company_id", profile?.company_id || DEFAULT_COMPANY_ID)
         .maybeSingle();
 
       let fotoUrl = null;
@@ -2642,7 +2653,12 @@ export default function EquipmentDiaryForm() {
               });
             }
 
-            const { error: entriesErr } = await (supabase as any).from("checklist_entries").insert(rows);
+            const dedupedRows = Array.from(
+              new Map(rows.map((row: any) => [String(row.item_id), row])).values(),
+            );
+            const { error: entriesErr } = await (supabase as any)
+              .from("checklist_entries")
+              .upsert(dedupedRows, { onConflict: "diary_id,item_id" });
             if (entriesErr) throw new Error("Falha ao salvar itens do checklist: " + entriesErr.message);
           }
 
@@ -2717,9 +2733,12 @@ export default function EquipmentDiaryForm() {
           });
         }
 
+        const dedupedPreopRows = Array.from(
+          new Map(preopRows.map((row: any) => [String(row.item_id), row])).values(),
+        );
         const { error: preopItemsErr } = await (supabase as any)
           .from("equipment_preop_checklist_entries")
-          .insert(preopRows);
+          .upsert(dedupedPreopRows, { onConflict: "preop_checklist_id,item_id" });
         if (preopItemsErr) throw preopItemsErr;
       }
 
