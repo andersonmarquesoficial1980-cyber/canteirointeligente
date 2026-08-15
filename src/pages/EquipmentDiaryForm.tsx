@@ -1440,7 +1440,9 @@ export default function EquipmentDiaryForm() {
     try {
       const normalizedFleet = selectedFleet.trim().toUpperCase();
 
-      // 1) Match exato (mesmo dia/período)
+      // HOTFIX OPERACIONAL:
+      // Vincular APENAS por chave exata (empresa + frota + data + período)
+      // para evitar associação indevida entre dias diferentes.
       const { data: exact } = await (supabase as any)
         .from("equipment_preop_checklists")
         .select("id, submitted_at, date, period, diary_id")
@@ -1452,39 +1454,7 @@ export default function EquipmentDiaryForm() {
         .limit(1)
         .maybeSingle();
 
-      if (exact?.id) return exact;
-
-      // 2) Fallback operacional: checklist mais próximo (até 48h) ainda sem vínculo
-      // resolve casos noturnos em que checklist foi no turno anterior e o diário no dia seguinte
-      const { data: recent } = await (supabase as any)
-        .from("equipment_preop_checklists")
-        .select("id, submitted_at, date, period, diary_id")
-        .eq("company_id", companyId)
-        .eq("equipment_fleet", normalizedFleet)
-        .is("diary_id", null)
-        .order("submitted_at", { ascending: false })
-        .limit(15);
-
-      if (!Array.isArray(recent) || recent.length === 0) return null;
-
-      const diaryDate = new Date(`${date}T12:00:00`);
-      const fortyEightHoursMs = 48 * 60 * 60 * 1000;
-
-      let best: any = null;
-      let bestDelta = Number.POSITIVE_INFINITY;
-
-      for (const r of recent) {
-        const submittedAt = r?.submitted_at ? new Date(r.submitted_at) : null;
-        if (!submittedAt || Number.isNaN(submittedAt.getTime())) continue;
-
-        const delta = Math.abs(submittedAt.getTime() - diaryDate.getTime());
-        if (delta <= fortyEightHoursMs && delta < bestDelta) {
-          best = r;
-          bestDelta = delta;
-        }
-      }
-
-      return best || null;
+      return exact || null;
     } catch {
       return null;
     }
@@ -1713,6 +1683,37 @@ export default function EquipmentDiaryForm() {
     const normalizedSelectedFleet = selectedFleet.trim().toUpperCase();
 
     let linkedPreopChecklistId = preopChecklistId;
+
+    // Segurança operacional: nunca vincular checklist de data/período/frota diferentes.
+    if (!isDraft && linkedPreopChecklistId) {
+      try {
+        const { data: preopHeader } = await (supabase as any)
+          .from("equipment_preop_checklists")
+          .select("id, equipment_fleet, date, period")
+          .eq("id", linkedPreopChecklistId)
+          .maybeSingle();
+
+        const isSameKey = Boolean(
+          preopHeader?.id &&
+          String(preopHeader.equipment_fleet || "").trim().toUpperCase() === normalizedSelectedFleet &&
+          preopHeader.date === date &&
+          preopHeader.period === turno,
+        );
+
+        if (!isSameKey) {
+          linkedPreopChecklistId = null;
+          setPreopChecklistId(null);
+          setChecklistSubmittedAt(null);
+          toast({
+            title: "Checklist não vinculado automaticamente",
+            description: "Foi detectado checklist de outra data/período. O diário seguirá sem vínculo para não travar a operação.",
+          });
+        }
+      } catch {
+        linkedPreopChecklistId = null;
+      }
+    }
+
     if (!isDraft && !linkedPreopChecklistId) {
       const foundPreop = await resolvePreopChecklistByKey();
       if (foundPreop?.id) {
