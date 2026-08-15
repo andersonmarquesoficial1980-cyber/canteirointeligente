@@ -178,6 +178,69 @@ function EquipeField({ editando, value, displayValue, onChange }: { editando: bo
   );
 }
 
+function ResponsavelField({
+  editando,
+  value,
+  displayValue,
+  companyId,
+  employeeId,
+  onChange,
+}: {
+  editando: boolean;
+  value: string;
+  displayValue: string;
+  companyId?: string | null;
+  employeeId?: string;
+  onChange: (v: string) => void;
+}) {
+  const [opcoes, setOpcoes] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!editando || !companyId) return;
+
+    (supabase as any)
+      .from("employees")
+      .select("id, name, status")
+      .eq("company_id", companyId)
+      .order("name")
+      .then(({ data }: any) => {
+        const nomes = [...new Set(
+          (data || [])
+            .filter((e: any) => e?.id !== employeeId)
+            .filter((e: any) => String(e?.status || "ativo").toLowerCase() !== "demitido")
+            .map((e: any) => String(e?.name || "").trim().toUpperCase())
+            .filter(Boolean)
+        )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+        if (displayValue && !nomes.includes(displayValue)) nomes.unshift(displayValue);
+        setOpcoes(nomes);
+      });
+  }, [editando, companyId, employeeId, displayValue]);
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <User className="w-4 h-4 text-muted-foreground shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] text-muted-foreground">Responsável</p>
+        {editando ? (
+          <select
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full text-sm bg-transparent border-b border-primary/40 outline-none py-0.5 text-foreground"
+          >
+            <option value="">Sem responsável</option>
+            {opcoes.map((op) => (
+              <option key={op} value={op}>{op}</option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-sm font-medium text-foreground truncate">{displayValue || "—"}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function FichaFuncionario() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -585,8 +648,6 @@ export default function FichaFuncionario() {
               {[
                 { label: "Nome Completo", field: "name" as const, icon: User },
                 { label: "Matrícula", field: "matricula" as const, icon: Shield },
-                { label: "Responsável", field: "responsavel" as const, icon: User },
-                { label: "Centro de Custo", field: "centro_custo" as const, icon: Briefcase },
               ].map(row => (
                 <div key={row.field} className="flex items-center gap-3 px-4 py-3">
                   <row.icon className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -600,6 +661,27 @@ export default function FichaFuncionario() {
                   </div>
                 </div>
               ))}
+
+              <ResponsavelField
+                editando={editando}
+                value={form.responsavel || ""}
+                displayValue={(func as any).responsavel || ""}
+                companyId={func.company_id || null}
+                employeeId={func.id}
+                onChange={(v) => setForm((p) => ({ ...p, responsavel: v }))}
+              />
+
+              <div className="flex items-center gap-3 px-4 py-3">
+                <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground">Centro de Custo</p>
+                  {editando
+                    ? <input value={(form.centro_custo as string) || ""} onChange={e => setForm(p => ({ ...p, centro_custo: e.target.value }))}
+                        className="w-full text-sm bg-transparent border-b border-primary/40 outline-none py-0.5 text-foreground" />
+                    : <p className="text-sm font-medium text-foreground truncate">{(func as any).centro_custo || "—"}</p>
+                  }
+                </div>
+              </div>
 
               {/* Função — select oficial do cadastro de funções */}
               <div className="flex items-center gap-3 px-4 py-3">
