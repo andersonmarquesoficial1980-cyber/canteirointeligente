@@ -296,9 +296,31 @@ export default function FichaFuncionario() {
 
     setSalvando(true);
 
-    const funcaoIdFinal = ((form as any).funcao_id ?? (func as any).funcao_id ?? null) as string | null;
-    const funcaoSelecionada = funcaoIdFinal ? funcoes.find((f) => f.id === funcaoIdFinal) : null;
-    const roleFinal = (funcaoSelecionada?.nome || form.role || func.role || "").toUpperCase();
+    const roleDigitada = String((form as any).role ?? func.role ?? "").trim().toUpperCase();
+    const roleAnterior = String(func.role ?? "").trim().toUpperCase();
+
+    let funcaoIdFinal = ((form as any).funcao_id ?? (func as any).funcao_id ?? null) as string | null;
+    let funcaoSelecionada = funcaoIdFinal ? funcoes.find((f) => f.id === funcaoIdFinal) : null;
+
+    if (!funcaoSelecionada && roleDigitada) {
+      const porNome = funcoes.find((f) => f.nome.trim().toUpperCase() === roleDigitada);
+      if (porNome) {
+        funcaoSelecionada = porNome;
+        funcaoIdFinal = porNome.id;
+      }
+    }
+
+    if (!funcaoSelecionada && roleDigitada && roleDigitada !== roleAnterior) {
+      toast({
+        title: "Função inválida",
+        description: "Selecione uma função da lista oficial para salvar.",
+        variant: "destructive",
+      });
+      setSalvando(false);
+      return;
+    }
+
+    const roleFinal = (funcaoSelecionada?.nome || roleAnterior || roleDigitada || "").toUpperCase();
 
     const { error } = await supabase.from("employees").update({
       name: (form.name || func.name).toUpperCase(),
