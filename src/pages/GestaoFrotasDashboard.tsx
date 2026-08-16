@@ -12,6 +12,12 @@ interface Equip {
   tipo: string; setor: string; condutor_atual: string; condicao: string; categoria: string;
   empresa_proprietaria: string; locadora: string; valor_mensal: number; status: string;
   observacoes: string; motivo_manutencao: string; previsao_liberacao: string;
+  // Campos opcionais de localização/obra (nem sempre preenchidos em bases legadas)
+  uf?: string;
+  estado?: string;
+  cidade?: string;
+  local?: string;
+  obra_nome?: string;
 }
 
 type Ferramenta = "nav" | "selecionar" | "caneta" | "seta" | "circulo" | "retangulo" | "texto";
@@ -47,6 +53,30 @@ function getStatusNorm(e: Equip): "operacional" | "manutencao" | "inativo" | "di
   return "operacional";
 }
 function isTerceiro(e: Equip) { return (e.condicao || "").toUpperCase() === "TERCEIRO" || (e.categoria || "").toLowerCase() === "locado"; }
+
+function getLocalizacaoLabel(e: Equip) {
+  return [e.obra_nome, e.local, e.cidade, e.uf || e.estado, e.setor]
+    .map(v => (v || "").trim())
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function isForaSP(e: Equip) {
+  const uf = (e.uf || "").trim().toUpperCase();
+  if (uf) return uf !== "SP";
+
+  const estado = normTxt(e.estado || "");
+  if (estado) return estado !== "SP" && estado !== "SAO PAULO";
+
+  const localMix = normTxt([e.cidade, e.local, e.obra_nome, e.setor].filter(Boolean).join(" "));
+  if (!localMix) return false;
+  return !(localMix.includes("SP") || localMix.includes("SAO PAULO"));
+}
+
+function hasEquipeDefinida(e: Equip) {
+  const setor = (e.setor || "").trim();
+  return Boolean(setor && setor !== "—" && !setor.toLowerCase().includes("manutenção / frota"));
+}
 
 const STATUS_BADGE: Record<string, { bg: string; cor: string; label: string; dot: string }> = {
   operacional: { bg: "#dcfce7", cor: "#166534", label: "Operacional", dot: "#16a34a" },
@@ -158,7 +188,19 @@ function SvgFormaEl({
 
 // ─── TABELA ────────────────────────────────────────────────────────────────────
 
-function TabelaEquipamentos({ items }: { items: Equip[] }) {
+function TabelaEquipamentos({
+  items,
+  workshopMode,
+  selectedIds,
+  onToggleItem,
+  onToggleAllFiltered,
+}: {
+  items: Equip[];
+  workshopMode: boolean;
+  selectedIds: string[];
+  onToggleItem: (id: string) => void;
+  onToggleAllFiltered: () => void;
+}) {
   const sorted = useMemo(() => [...items].sort((a, b) => {
     const sa = getStatusNorm(a), sb = getStatusNorm(b);
     if (sa === "manutencao" && sb !== "manutencao") return -1;
@@ -168,10 +210,18 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
 
   if (!items.length) return <div style={{ textAlign: "center", padding: "60px 0", color: "#9ca3af", fontSize: 15 }}>Nenhum equipamento encontrado.</div>;
 
-  const cols = "160px 170px 210px 130px 110px 100px 110px";
+  const colBase = "160px 170px 210px 130px 110px 100px 110px";
+  const cols = workshopMode ? `40px ${colBase}` : colBase;
+  const allSelected = sorted.length > 0 && sorted.every((e) => selectedIds.includes(e.id));
+
   return (
     <div style={{ background: "white", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
       <div style={{ display: "grid", gridTemplateColumns: cols, background: "#f1f5f9", borderBottom: "2px solid #e2e8f0", padding: "9px 16px", gap: 8 }}>
+        {workshopMode && (
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <input type="checkbox" checked={allSelected} onChange={onToggleAllFiltered} />
+          </span>
+        )}
         {["Frota", "Tipo", "Equipe / Responsável", "Empresa", "Status", "Situação", "Valor/mês"].map(h => (
           <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</span>
         ))}
@@ -179,8 +229,14 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
       {sorted.map((e, i) => {
         const st = getStatusNorm(e), badge = STATUS_BADGE[st], terceiro = isTerceiro(e), isManut = st === "manutencao";
         const empresa = e.empresa_proprietaria || e.locadora || (terceiro ? "Terceiro" : "—");
+        const isChecked = selectedIds.includes(e.id);
         return (
-          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: "10px 16px", gap: 8, borderBottom: "1px solid #f8fafc", background: isManut ? "#fffbeb" : (i % 2 === 0 ? "white" : "#fafbfc"), borderLeft: isManut ? "4px solid #f59e0b" : "4px solid transparent" }}>
+          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: "10px 16px", gap: 8, borderBottom: "1px solid #f8fafc", background: isChecked ? "#eff6ff" : (isManut ? "#fffbeb" : (i % 2 === 0 ? "white" : "#fafbfc")), borderLeft: isManut ? "4px solid #f59e0b" : "4px solid transparent" }}>
+            {workshopMode && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <input type="checkbox" checked={isChecked} onChange={() => onToggleItem(e.id)} />
+              </div>
+            )}
             <div>
               <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
               {e.placa && e.placa !== e.frota && <p style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>{e.placa}</p>}
@@ -189,6 +245,7 @@ function TabelaEquipamentos({ items }: { items: Equip[] }) {
             <div style={{ alignSelf: "center", overflow: "hidden" }}>
               <p style={{ fontSize: 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
               {e.condutor_atual && <p style={{ fontSize: 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
+              {getLocalizacaoLabel(e) && <p style={{ fontSize: 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
             </div>
             <span style={{ fontSize: 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
             <div style={{ alignSelf: "center" }}>
@@ -218,11 +275,29 @@ export default function GestaoFrotasDashboard() {
   const { trail, goTo } = useNavigationTrail({ label: "Dashboard de Frotas" });
   const [todos, setTodos]           = useState<Equip[]>([]);
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
+  const [equipesRows, setEquipesRows] = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
   const [modoVis, setModoVis]       = useState<"tipo" | "equipe">("tipo");
   const [chipSel, setChipSel]       = useState("todos");
   const [subChipSel, setSubChipSel] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState<"todos"|"operacional"|"manutencao"|"terceiro"|"disposicao">("todos");
+  const [filtroGeo, setFiltroGeo] = useState<"todos" | "sp" | "fora_sp">("todos");
+  const [filtroAlocacao, setFiltroAlocacao] = useState<"todos" | "com_equipe" | "sem_equipe">("todos");
+  const [workshopMode, setWorkshopMode] = useState(true);
+  const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [loteStatus, setLoteStatus] = useState<string>("__manter__");
+  const [loteEquipe, setLoteEquipe] = useState<string>("__manter__");
+  const [loteLocal, setLoteLocal] = useState<string>("");
+  const [salvandoLote, setSalvandoLote] = useState(false);
+
+  const [progData, setProgData] = useState<string>("2026-09-01");
+  const [progPeriodo, setProgPeriodo] = useState<string>("INTEGRAL");
+  const [progTipoServico, setProgTipoServico] = useState<string>("OUTRO");
+  const [progLocalBase, setProgLocalBase] = useState<string>("");
+  const [progObs, setProgObs] = useState<string>("");
+  const [salvandoProgramacao, setSalvandoProgramacao] = useState(false);
+  const [emailsDestino, setEmailsDestino] = useState<string>("");
+
   const [busca, setBusca]           = useState("");
 
   // Apresentação
@@ -254,21 +329,40 @@ export default function GestaoFrotasDashboard() {
   useEffect(() => { corRef.current = cor; },               [cor]);
   useEffect(() => { espRef.current = esp; },               [esp]);
 
+  async function carregarDadosBase() {
+    setLoading(true);
+    const [equipRes, equipesRes] = await Promise.all([
+      (supabase as any).from("equipamentos").select("*").order("tipo,frota"),
+      (supabase as any).from("ci_equipes").select("*").eq("ativa", true).order("nome"),
+    ]);
+
+    if (equipRes?.data) setTodos(equipRes.data);
+    if (equipesRes?.data) {
+      const rows = (equipesRes.data as any[]) || [];
+      setEquipesRows(rows);
+
+      const nomes = rows
+        .map((e) => (e?.nome || "").trim())
+        .filter(Boolean);
+      setEquipesCadastro(nomes);
+
+      if (!emailsDestino.trim()) {
+        const emails = rows
+          .flatMap((e) => [e?.email, e?.responsavel_email, e?.email_responsavel, e?.gestor_email])
+          .map((v) => (typeof v === "string" ? v.trim() : ""))
+          .filter((v) => /@/.test(v));
+
+        if (emails.length) {
+          setEmailsDestino([...new Set(emails)].join(";"));
+        }
+      }
+    }
+    setLoading(false);
+  }
+
   // Dados
   useEffect(() => {
-    Promise.all([
-      (supabase as any).from("equipamentos").select("*").order("tipo,frota"),
-      (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"),
-    ]).then(([equipRes, equipesRes]: any) => {
-      if (equipRes?.data) setTodos(equipRes.data);
-      if (equipesRes?.data) {
-        const nomes = (equipesRes.data as any[])
-          .map((e) => (e?.nome || "").trim())
-          .filter(Boolean);
-        setEquipesCadastro(nomes);
-      }
-      setLoading(false);
-    });
+    carregarDadosBase();
   }, []);
 
   // Delete key para remover selecionado
@@ -574,20 +668,40 @@ export default function GestaoFrotasDashboard() {
         });
       }
     }
-    if (filtroStatus === "manutencao")   lista = lista.filter(e => getStatusNorm(e) === "manutencao");
+
+    if (filtroStatus === "manutencao") lista = lista.filter(e => getStatusNorm(e) === "manutencao");
     else if (filtroStatus === "operacional") lista = lista.filter(e => getStatusNorm(e) === "operacional");
-    else if (filtroStatus === "terceiro")    lista = lista.filter(isTerceiro);
+    else if (filtroStatus === "terceiro") lista = lista.filter(isTerceiro);
     else if (filtroStatus === "disposicao") lista = lista.filter(e => getStatusNorm(e) === "disposicao");
+
+    if (filtroGeo === "sp") lista = lista.filter(e => !isForaSP(e));
+    else if (filtroGeo === "fora_sp") lista = lista.filter(isForaSP);
+
+    if (filtroAlocacao === "com_equipe") lista = lista.filter(hasEquipeDefinida);
+    else if (filtroAlocacao === "sem_equipe") lista = lista.filter(e => !hasEquipeDefinida(e));
+
     if (busca.trim()) {
       const b = busca.toLowerCase();
-      lista = lista.filter(e => [e.frota, e.placa, e.tipo, e.nome, e.setor, e.condutor_atual, e.empresa_proprietaria, e.locadora].some(f => f?.toLowerCase().includes(b)));
+      lista = lista.filter(e => [
+        e.frota, e.placa, e.tipo, e.nome, e.setor, e.condutor_atual,
+        e.empresa_proprietaria, e.locadora, e.uf, e.estado, e.cidade, e.local, e.obra_nome,
+      ].some(f => f?.toLowerCase().includes(b)));
     }
+
     return lista;
-  }, [todos, chipSel, subChipSel, modoVis, filtroStatus, busca, equipesCanonMap]);
+  }, [todos, chipSel, subChipSel, modoVis, filtroStatus, filtroGeo, filtroAlocacao, busca, equipesCanonMap]);
 
   const kpiSel = useMemo(() => {
     const t = listaFiltrada.filter(isTerceiro);
     return { total: listaFiltrada.length, terceiros: t.length, custo: t.reduce((s, e) => s + (e.valor_mensal || 0), 0), manut: listaFiltrada.filter(e => getStatusNorm(e) === "manutencao").length };
+  }, [listaFiltrada]);
+
+  const kpiWorkshop = useMemo(() => {
+    const foraSP = listaFiltrada.filter(isForaSP).length;
+    const semEquipe = listaFiltrada.filter((e) => !hasEquipeDefinida(e)).length;
+    const comEquipe = listaFiltrada.length - semEquipe;
+    const manutCritica = listaFiltrada.filter((e) => getStatusNorm(e) === "manutencao" && isForaSP(e)).length;
+    return { foraSP, semEquipe, comEquipe, manutCritica };
   }, [listaFiltrada]);
 
   const chips = modoVis === "tipo" ? chipsDoTipo : chipsDeEquipe;
@@ -596,7 +710,265 @@ export default function GestaoFrotasDashboard() {
     : subChipSel !== "todos" ? subChipSel.charAt(0) + subChipSel.slice(1).toLowerCase()
     : (chips.find(c => c.key === chipSel)?.label ?? chipSel);
 
-  function trocarModo(m: "tipo" | "equipe") { setModoVis(m); setChipSel("todos"); setSubChipSel("todos"); setBusca(""); setFiltroStatus("todos"); }
+  function trocarModo(m: "tipo" | "equipe") {
+    setModoVis(m);
+    setChipSel("todos");
+    setSubChipSel("todos");
+    setBusca("");
+    setFiltroStatus("todos");
+    setFiltroGeo("todos");
+    setFiltroAlocacao("todos");
+    setSelecionados([]);
+  }
+
+  function toggleSelecionado(id: string) {
+    setSelecionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function toggleSelecionarFiltrados() {
+    const idsFiltro = listaFiltrada.map((e) => e.id);
+    const todosDoFiltroSelecionados = idsFiltro.length > 0 && idsFiltro.every((id) => selecionados.includes(id));
+
+    if (todosDoFiltroSelecionados) {
+      setSelecionados((prev) => prev.filter((id) => !idsFiltro.includes(id)));
+    } else {
+      setSelecionados((prev) => [...new Set([...prev, ...idsFiltro])]);
+    }
+  }
+
+  async function aplicarEdicaoLote() {
+    if (!selecionados.length) {
+      alert("Selecione pelo menos 1 equipamento.");
+      return;
+    }
+
+    const atualizarStatus = loteStatus !== "__manter__";
+    const atualizarEquipe = loteEquipe !== "__manter__";
+    const atualizarLocal = loteLocal.trim().length > 0;
+
+    if (!atualizarStatus && !atualizarEquipe && !atualizarLocal) {
+      alert("Defina ao menos 1 campo para aplicar no lote.");
+      return;
+    }
+
+    setSalvandoLote(true);
+    try {
+      let ok = 0;
+      let fail = 0;
+
+      for (const id of selecionados) {
+        const atual = todos.find((e) => e.id === id);
+        if (!atual) continue;
+
+        const payload: Record<string, any> = {
+          updated_at: new Date().toISOString(),
+        };
+
+        if (atualizarStatus) payload.status = loteStatus;
+        if (atualizarEquipe) payload.setor = loteEquipe;
+
+        if (atualizarLocal) {
+          if ("local" in atual) payload.local = loteLocal.trim();
+          else if ("obra_nome" in atual) payload.obra_nome = loteLocal.trim();
+          else {
+            const obsAtual = (atual.observacoes || "").trim();
+            payload.observacoes = [obsAtual, `Local workshop: ${loteLocal.trim()}`].filter(Boolean).join(" | ");
+          }
+        }
+
+        const { error } = await (supabase as any)
+          .from("equipamentos")
+          .update(payload)
+          .eq("id", id);
+
+        if (error) fail += 1;
+        else ok += 1;
+      }
+
+      await carregarDadosBase();
+      setSelecionados([]);
+
+      if (fail > 0) {
+        alert(`Lote finalizado com pendências: ${ok} sucesso(s) e ${fail} falha(s).`);
+      } else {
+        alert(`Lote aplicado com sucesso em ${ok} equipamento(s).`);
+      }
+    } finally {
+      setSalvandoLote(false);
+    }
+  }
+
+  async function programarSelecionados() {
+    if (!selecionados.length) {
+      alert("Selecione os equipamentos para programar.");
+      return;
+    }
+
+    if (!progData) {
+      alert("Defina a data da programação.");
+      return;
+    }
+
+    const selecionadosRows = todos.filter((e) => selecionados.includes(e.id));
+    if (!selecionadosRows.length) {
+      alert("Não foi possível montar a programação com a seleção atual.");
+      return;
+    }
+
+    const grupos = selecionadosRows.reduce<Record<string, Equip[]>>((acc, e) => {
+      const equipe = (e.setor || "SEM EQUIPE").trim() || "SEM EQUIPE";
+      if (!acc[equipe]) acc[equipe] = [];
+      acc[equipe].push(e);
+      return acc;
+    }, {});
+
+    setSalvandoProgramacao(true);
+    try {
+      let criadas = 0;
+
+      for (const [equipe, itens] of Object.entries(grupos)) {
+        const frotas = itens.map((i) => i.frota || i.placa).filter(Boolean);
+        const localInferido = progLocalBase.trim() || itens.map(getLocalizacaoLabel).find(Boolean) || null;
+
+        const payload = {
+          data: progData,
+          equipe,
+          responsavel: null,
+          ogs: null,
+          cliente: "FREMIX",
+          local: localInferido,
+          periodo: progPeriodo,
+          status_equipe: "TRABALHOU",
+          status_programacao: "AGUARDANDO_MANUTENCAO",
+          equipamentos_designados: frotas,
+          carretas_designadas: [],
+          engenheiro_responsavel: null,
+          obs: progObs || "Programação criada no Workshop Executivo de Frotas",
+          tipo_servico: progTipoServico || "OUTRO",
+          confirmado_manutencao: false,
+        };
+
+        const { error } = await (supabase as any).from("ci_programacoes").insert(payload);
+        if (!error) criadas += 1;
+      }
+
+      alert(`Programações futuras criadas: ${criadas} registro(s) em ci_programacoes para ${progData}.`);
+    } finally {
+      setSalvandoProgramacao(false);
+    }
+  }
+
+  function getBaseExportRows() {
+    if (selecionados.length > 0) {
+      const byId = new Map(todos.map((e) => [e.id, e]));
+      return selecionados.map((id) => byId.get(id)).filter(Boolean) as Equip[];
+    }
+    return listaFiltrada;
+  }
+
+  function exportarWorkshopCsv() {
+    const rows = getBaseExportRows();
+    if (!rows.length) {
+      alert("Sem dados para exportar.");
+      return;
+    }
+
+    const header = [
+      "Frota",
+      "Tipo",
+      "Equipe/Setor",
+      "Status",
+      "Situação",
+      "Empresa",
+      "Valor/mês",
+      "Localização",
+      "Fora_SP",
+      "Data_programada",
+      "Período_programado",
+      "Tipo_serviço_programado",
+      "Obs_workshop",
+    ];
+
+    const body = rows.map((e) => {
+      const st = STATUS_BADGE[getStatusNorm(e)]?.label || "—";
+      const situacao = isTerceiro(e) ? "Terceiro" : "Próprio";
+      const empresa = e.empresa_proprietaria || e.locadora || "";
+      return [
+        e.frota || e.placa || "",
+        e.tipo || "",
+        e.setor || "",
+        st,
+        situacao,
+        empresa,
+        e.valor_mensal || 0,
+        getLocalizacaoLabel(e),
+        isForaSP(e) ? "SIM" : "NÃO",
+        progData,
+        progPeriodo,
+        progTipoServico,
+        progObs || "",
+      ];
+    });
+
+    const csv = [header, ...body]
+      .map((line) => line.map((v) => `"${String(v ?? "").replaceAll("\"", "\"\"")}"`).join(";"))
+      .join("\n");
+
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `workshop-frotas-${progData}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function encaminharPorEmail() {
+    const rows = getBaseExportRows();
+    if (!rows.length) {
+      alert("Sem dados para encaminhar.");
+      return;
+    }
+
+    const destinatarios = emailsDestino
+      .split(/[;,\s]+/)
+      .map((e) => e.trim())
+      .filter((e) => /@/.test(e));
+
+    const total = rows.length;
+    const manut = rows.filter((e) => getStatusNorm(e) === "manutencao").length;
+    const fora = rows.filter(isForaSP).length;
+    const terceiros = rows.filter(isTerceiro).length;
+
+    const equipesComResp = equipesRows
+      .map((r) => `${r.nome || "Equipe"}${r.responsavel ? ` (${r.responsavel})` : ""}`)
+      .slice(0, 12)
+      .join(", ");
+
+    const subject = `Workshop Frotas Fremix — decisões e programação ${progData}`;
+    const body = [
+      "Prezados,",
+      "",
+      "Segue consolidado do Workshop Executivo de Frotas:",
+      `• Total analisado: ${total}`,
+      `• Em manutenção: ${manut}`,
+      `• Fora de SP: ${fora}`,
+      `• Terceiros: ${terceiros}`,
+      `• Programação alvo: ${progData} (${progPeriodo})`,
+      progObs ? `• Observação: ${progObs}` : "",
+      "",
+      "Anexo: CSV exportado pelo Workflux (workshop-frotas).",
+      "",
+      `Equipes/responsáveis envolvidos: ${equipesComResp || "(preencher)"}`,
+      "",
+      "Atenciosamente,",
+      "Fremix / Workflux",
+    ].filter(Boolean).join("\n");
+
+    const to = destinatarios.join(",");
+    const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailto, "_self");
+  }
 
   // ── SIDEBAR ───────────────────────────────────────────────────────────────────
 
@@ -661,9 +1033,11 @@ export default function GestaoFrotasDashboard() {
   function renderConteudo() {
     return (
       <main style={{ flex: 1, padding: "16px 18px", background: "#f0f4f8", minHeight: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <div>
-            <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 18, color: "#0A0F2C", margin: 0 }}>{chipLabel}</h2>
+            <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 18, color: "#0A0F2C", margin: 0 }}>
+              {workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel}
+            </h2>
             <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
               {kpiSel.total} equipamento{kpiSel.total !== 1 ? "s" : ""}
               {kpiSel.manut > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}> · ⚠️ {kpiSel.manut} em manutenção</span>}
@@ -672,6 +1046,21 @@ export default function GestaoFrotasDashboard() {
             </p>
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button
+              onClick={() => setWorkshopMode(v => !v)}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                border: "1.5px solid #0f172a",
+                background: workshopMode ? "#0f172a" : "white",
+                color: workshopMode ? "white" : "#0f172a",
+              }}
+            >
+              {workshopMode ? "Modo Workshop ON" : "Modo Workshop OFF"}
+            </button>
             {[{ key: "todos", label: "Todos", cor: "#374151" }, { key: "operacional", label: "Operacional", cor: "#166534" }, { key: "manutencao", label: "Manutenção", cor: "#92400e" }, { key: "disposicao", label: "Disposição", cor: "#475569" }, { key: "terceiro", label: "Locados", cor: "#1d4ed8" }].map(f => (
               <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#e2e8f0", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#374151", transition: "all 0.12s" }}>
                 {f.label}
@@ -679,12 +1068,240 @@ export default function GestaoFrotasDashboard() {
             ))}
           </div>
         </div>
+
+        {workshopMode && (
+          <div style={{ marginBottom: 12, background: "white", border: "1px solid #e2e8f0", borderRadius: 14, padding: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(120px, 1fr))", gap: 8, marginBottom: 10 }}>
+              {[
+                { label: "Fora de SP", value: kpiWorkshop.foraSP, tone: "#7c3aed", bg: "#f5f3ff" },
+                { label: "Com equipe", value: kpiWorkshop.comEquipe, tone: "#166534", bg: "#f0fdf4" },
+                { label: "Sem equipe", value: kpiWorkshop.semEquipe, tone: "#b91c1c", bg: "#fef2f2" },
+                { label: "Manut. fora SP", value: kpiWorkshop.manutCritica, tone: "#92400e", bg: "#fffbeb" },
+              ].map((k) => (
+                <div key={k.label} style={{ borderRadius: 10, padding: "8px 10px", background: k.bg, border: `1px solid ${k.bg}` }}>
+                  <p style={{ fontSize: 11, color: "#64748b", margin: 0 }}>{k.label}</p>
+                  <p style={{ fontSize: 22, fontWeight: 900, margin: 0, color: k.tone, lineHeight: 1.1 }}>{k.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[{ key: "todos", label: "Geo: Todos" }, { key: "sp", label: "Geo: São Paulo" }, { key: "fora_sp", label: "Geo: Fora de SP" }].map((g) => (
+                <button
+                  key={g.key}
+                  onClick={() => setFiltroGeo(g.key as any)}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: 18,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: "1.5px solid",
+                    borderColor: filtroGeo === g.key ? "#7c3aed" : "#e2e8f0",
+                    background: filtroGeo === g.key ? "#7c3aed" : "white",
+                    color: filtroGeo === g.key ? "white" : "#374151",
+                  }}
+                >
+                  {g.label}
+                </button>
+              ))}
+
+              {[{ key: "todos", label: "Alocação: Todas" }, { key: "com_equipe", label: "Com equipe" }, { key: "sem_equipe", label: "Sem equipe" }].map((a) => (
+                <button
+                  key={a.key}
+                  onClick={() => setFiltroAlocacao(a.key as any)}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: 18,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: "1.5px solid",
+                    borderColor: filtroAlocacao === a.key ? "#0f766e" : "#e2e8f0",
+                    background: filtroAlocacao === a.key ? "#0f766e" : "white",
+                    color: filtroAlocacao === a.key ? "white" : "#374151",
+                  }}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {workshopMode && (
+          <div style={{ marginBottom: 12, background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 14, padding: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
+                Edição em lote · {selecionados.length} selecionado(s)
+              </p>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button onClick={toggleSelecionarFiltrados} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #94a3b8", background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                  Marcar filtrados
+                </button>
+                <button onClick={() => setSelecionados([])} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #cbd5e1", background: "white", cursor: "pointer", fontSize: 12 }}>
+                  Limpar seleção
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.1fr 1.6fr auto", gap: 8 }}>
+              <select value={loteStatus} onChange={(e) => setLoteStatus(e.target.value)} style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}>
+                <option value="__manter__">Status: manter atual</option>
+                <option value="ativo">Status: Operacional</option>
+                <option value="em_manutencao">Status: Em manutenção</option>
+                <option value="disposicao">Status: Disposição</option>
+                <option value="inativo">Status: Inativo</option>
+              </select>
+
+              <select value={loteEquipe} onChange={(e) => setLoteEquipe(e.target.value)} style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}>
+                <option value="__manter__">Equipe: manter atual</option>
+                {equipesCadastro.map((eq) => (
+                  <option key={eq} value={eq}>{eq}</option>
+                ))}
+              </select>
+
+              <input
+                value={loteLocal}
+                onChange={(e) => setLoteLocal(e.target.value)}
+                placeholder="Local/obra destino (ex.: Ribeirão Preto - SP / OGS 9981)"
+                style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}
+              />
+
+              <button
+                onClick={aplicarEdicaoLote}
+                disabled={salvandoLote}
+                style={{
+                  height: 34,
+                  borderRadius: 8,
+                  border: "1px solid #0f172a",
+                  background: salvandoLote ? "#94a3b8" : "#0f172a",
+                  color: "white",
+                  padding: "0 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: salvandoLote ? "not-allowed" : "pointer",
+                }}
+              >
+                {salvandoLote ? "Aplicando..." : "Aplicar lote"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {workshopMode && (
+          <div style={{ marginBottom: 12, background: "#fff", border: "1px solid #dbeafe", borderRadius: 14, padding: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#1e3a8a" }}>
+                Programação futura dos selecionados
+              </p>
+              <span style={{ fontSize: 11, color: "#64748b" }}>Base: {selecionados.length} equipamento(s)</span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "150px 130px 150px 1.6fr auto", gap: 8 }}>
+              <input
+                type="date"
+                value={progData}
+                onChange={(e) => setProgData(e.target.value)}
+                style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}
+              />
+
+              <select value={progPeriodo} onChange={(e) => setProgPeriodo(e.target.value)} style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}>
+                <option value="NOTURNO">Período: NOTURNO</option>
+                <option value="DIURNO">Período: DIURNO</option>
+                <option value="INTEGRAL">Período: INTEGRAL</option>
+              </select>
+
+              <select value={progTipoServico} onChange={(e) => setProgTipoServico(e.target.value)} style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}>
+                <option value="OUTRO">Tipo: OUTRO</option>
+                <option value="PAVIMENTAÇÃO">PAVIMENTAÇÃO</option>
+                <option value="RETRABALHO">RETRABALHO</option>
+                <option value="FRESAGEM">FRESAGEM</option>
+                <option value="INFRA">INFRA</option>
+                <option value="BGS">BGS</option>
+              </select>
+
+              <input
+                value={progLocalBase}
+                onChange={(e) => setProgLocalBase(e.target.value)}
+                placeholder="Local base (opcional) — ex.: Uberlândia/MG"
+                style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}
+              />
+
+              <button
+                onClick={programarSelecionados}
+                disabled={salvandoProgramacao}
+                style={{
+                  height: 34,
+                  borderRadius: 8,
+                  border: "1px solid #1d4ed8",
+                  background: salvandoProgramacao ? "#93c5fd" : "#1d4ed8",
+                  color: "white",
+                  padding: "0 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: salvandoProgramacao ? "not-allowed" : "pointer",
+                }}
+              >
+                {salvandoProgramacao ? "Programando..." : "Criar programação"}
+              </button>
+            </div>
+
+            <input
+              value={progObs}
+              onChange={(e) => setProgObs(e.target.value)}
+              placeholder="Observação da programação (opcional)"
+              style={{ marginTop: 8, width: "100%", height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}
+            />
+          </div>
+        )}
+
+        {workshopMode && (
+          <div style={{ marginBottom: 12, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 12 }}>
+            <p style={{ margin: "0 0 8px 0", fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
+              Exportação e encaminhamento
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8 }}>
+              <input
+                value={emailsDestino}
+                onChange={(e) => setEmailsDestino(e.target.value)}
+                placeholder="Emails dos responsáveis (separar por ; )"
+                style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}
+              />
+              <button
+                onClick={exportarWorkshopCsv}
+                style={{ height: 34, borderRadius: 8, border: "1px solid #0f172a", background: "white", color: "#0f172a", padding: "0 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              >
+                Exportar CSV
+              </button>
+              <button
+                onClick={encaminharPorEmail}
+                style={{ height: 34, borderRadius: 8, border: "1px solid #065f46", background: "#065f46", color: "white", padding: "0 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              >
+                Encaminhar e-mail
+              </button>
+            </div>
+            <p style={{ margin: "8px 0 0 0", fontSize: 11, color: "#64748b" }}>
+              Dica: clique em "Exportar CSV" e anexe no e-mail que será aberto automaticamente.
+            </p>
+          </div>
+        )}
+
         <div style={{ position: "relative", marginBottom: 12 }}>
           <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#9ca3af" }} />
           <input placeholder="Buscar frota, placa, tipo, equipe/setor, empresa..." value={busca} onChange={e => setBusca(e.target.value)}
             style={{ width: "100%", paddingLeft: 36, paddingRight: 12, height: 38, borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }} />
         </div>
-        {loading ? <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af", fontSize: 15 }}>Carregando...</div> : <TabelaEquipamentos items={listaFiltrada} />}
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af", fontSize: 15 }}>Carregando...</div>
+        ) : (
+          <TabelaEquipamentos
+            items={listaFiltrada}
+            workshopMode={workshopMode}
+            selectedIds={selecionados}
+            onToggleItem={toggleSelecionado}
+            onToggleAllFiltered={toggleSelecionarFiltrados}
+          />
+        )}
         {!loading && kpiSel.custo > 0 && filtroStatus !== "operacional" && (
           <div style={{ marginTop: 16, background: "white", borderRadius: 14, padding: "14px 18px", boxShadow: "0 1px 6px rgba(0,0,0,0.07)" }}>
             <h3 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 13, marginBottom: 10, display: "flex", alignItems: "center", gap: 6, color: "#0A0F2C" }}>
