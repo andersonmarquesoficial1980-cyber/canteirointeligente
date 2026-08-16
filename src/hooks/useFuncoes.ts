@@ -38,11 +38,21 @@ export function useFuncoes() {
   const addFuncao = async (nome: string): Promise<boolean> => {
     const companyId = await getCompanyId();
     if (!companyId) return false;
-    const { error } = await (supabase as any)
-      .from("funcoes")
-      .insert({ nome: nome.trim().toUpperCase(), company_id: companyId });
-    if (!error) await fetchAll();
-    return !error;
+
+    const nomeNormalizado = nome.trim().toUpperCase();
+
+    const { error: rpcError } = await (supabase as any)
+      .rpc("upsert_funcao_ativa", { p_company_id: companyId, p_nome: nomeNormalizado });
+
+    if (rpcError) {
+      const { error: insertError } = await (supabase as any)
+        .from("funcoes")
+        .insert({ nome: nomeNormalizado, company_id: companyId });
+      if (insertError) return false;
+    }
+
+    await fetchAll();
+    return true;
   };
 
   const updateFuncao = async (id: string, nome: string): Promise<boolean> => {
