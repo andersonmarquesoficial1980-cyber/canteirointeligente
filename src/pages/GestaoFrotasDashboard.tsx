@@ -900,12 +900,8 @@ export default function GestaoFrotasDashboard() {
     return listaFiltrada;
   }
 
-  function exportarWorkshopCsv() {
-    const rows = getBaseExportRows();
-    if (!rows.length) {
-      alert("Sem dados para exportar.");
-      return;
-    }
+  function baixarCsvWorkshop(rows: Equip[], fileName?: string) {
+    if (!rows.length) return null;
 
     const header = [
       "Frota",
@@ -951,10 +947,21 @@ export default function GestaoFrotasDashboard() {
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+    const resolvedName = fileName || `workshop-frotas-${progData}.csv`;
     a.href = url;
-    a.download = `workshop-frotas-${progData}.csv`;
+    a.download = resolvedName;
     a.click();
     URL.revokeObjectURL(url);
+    return resolvedName;
+  }
+
+  function exportarWorkshopCsv() {
+    const rows = getBaseExportRows();
+    if (!rows.length) {
+      alert("Sem dados para exportar.");
+      return;
+    }
+    baixarCsvWorkshop(rows);
   }
 
   function encaminharPorEmail() {
@@ -1115,13 +1122,21 @@ export default function GestaoFrotasDashboard() {
   function gerarPautaEAbrirEmail() {
     const { txt, listaBase, terceiros, manut, foraSp, custo } = montarPautaReuniao();
 
-    // mantém export da pauta no clique único
+    const stamp = new Date().toISOString().slice(0, 10);
+    const pautaFile = `pauta-workshop-frotas-${stamp}.txt`;
+    const csvFile = `workshop-frotas-${progData}.csv`;
+
+    // exporta pauta
     const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `pauta-workshop-frotas-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = pautaFile;
     a.click();
     URL.revokeObjectURL(a.href);
+
+    // exporta CSV no mesmo clique
+    const rowsCsv = getBaseExportRows();
+    baixarCsvWorkshop(rowsCsv, csvFile);
 
     const destinatarios = emailsDestino
       .split(/[;,\s]+/)
@@ -1132,7 +1147,12 @@ export default function GestaoFrotasDashboard() {
     const resumo = [
       "Prezados,",
       "",
-      "Segue pauta executiva do workshop (arquivo .txt baixado para anexo).",
+      "Segue pauta executiva do workshop.",
+      "",
+      "Anexos para incluir neste e-mail:",
+      `1) ${csvFile}`,
+      `2) ${pautaFile}`,
+      "",
       `• Equipamentos em tela: ${listaBase.length}`,
       `• Fora de SP: ${foraSp.length}`,
       `• Em manutenção: ${manut.length}`,
