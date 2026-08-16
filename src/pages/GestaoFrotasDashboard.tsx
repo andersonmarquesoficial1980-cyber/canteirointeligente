@@ -226,7 +226,11 @@ function TabelaEquipamentos({
             <input type="checkbox" checked={allSelected} onChange={onToggleAllFiltered} />
           </span>
         )}
-        {["Frota", "Tipo", "Equipe / Responsável", "Empresa", "Status", "Situação", "Valor/mês"].map((h, idx) => (
+        {["Frota", "Tipo", "Equipe / Responsável", "Empresa", "Status", "Situação", "Valor/mês"].map((h, idx) => {
+          const stickyFrota = presentationMode && idx === 0;
+          const stickyStatus = presentationMode && presentationTvMode && idx === 4;
+          const stickyStatusLeft = workshopMode ? 710 : 670;
+          return (
           <span
             key={h}
             style={{
@@ -235,15 +239,15 @@ function TabelaEquipamentos({
               color: "#64748b",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
-              position: presentationMode && idx === 0 ? "sticky" : "static",
-              left: presentationMode && idx === 0 ? (workshopMode ? 48 : 0) : undefined,
-              background: presentationMode && idx === 0 ? "#f1f5f9" : undefined,
-              zIndex: presentationMode && idx === 0 ? 7 : undefined,
+              position: (stickyFrota || stickyStatus) ? "sticky" : "static",
+              left: stickyFrota ? (workshopMode ? 48 : 0) : (stickyStatus ? stickyStatusLeft : undefined),
+              background: (stickyFrota || stickyStatus) ? "#f1f5f9" : undefined,
+              zIndex: stickyFrota ? 7 : (stickyStatus ? 6 : undefined),
             }}
           >
             {h}
           </span>
-        ))}
+        )})}
       </div>
       {sorted.map((e, i) => {
         const st = getStatusNorm(e), badge = STATUS_BADGE[st], terceiro = isTerceiro(e), isManut = st === "manutencao", foraSp = isForaSP(e);
@@ -274,7 +278,7 @@ function TabelaEquipamentos({
               {getLocalizacaoLabel(e) && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
             </div>
             <span style={{ fontSize: presentationMode ? (presentationTvMode ? 14 : 12) : 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
-            <div style={{ alignSelf: "center" }}>
+            <div style={{ alignSelf: "center", position: presentationMode && presentationTvMode ? "sticky" : "static", left: presentationMode && presentationTvMode ? (workshopMode ? 710 : 670) : undefined, background: presentationMode && presentationTvMode ? rowBg : undefined, zIndex: presentationMode && presentationTvMode ? 5 : undefined, paddingRight: presentationMode && presentationTvMode ? 6 : undefined }}>
               <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 10) : 10, fontWeight: 700, background: badge.bg, color: badge.cor, padding: presentationMode && presentationTvMode ? "4px 10px" : "3px 8px", borderRadius: 20, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: badge.dot, display: "inline-block" }} /> {badge.label}
               </span>
@@ -330,6 +334,8 @@ export default function GestaoFrotasDashboard() {
   // Apresentação
   const [modoApres, setModoApres]   = useState(false);
   const [apresTvMode, setApresTvMode] = useState(true);
+  const [apresPreset, setApresPreset] = useState<"diretoria" | "operacional">("diretoria");
+  const [apenasCriticos, setApenasCriticos] = useState(false);
   const [zoom, setZoom]             = useState(1);
   const [ferramenta, setFerramenta] = useState<Ferramenta>("nav");
   const [cor, setCor]               = useState("#ef4444");
@@ -998,6 +1004,23 @@ export default function GestaoFrotasDashboard() {
     window.open(mailto, "_self");
   }
 
+  function aplicarPresetApresentacao(preset: "diretoria" | "operacional") {
+    setApresPreset(preset);
+    setBusca("");
+    setApenasCriticos(false);
+
+    if (preset === "diretoria") {
+      setFiltroStatus("todos");
+      setFiltroGeo("todos");
+      setFiltroAlocacao("todos");
+      return;
+    }
+
+    setFiltroStatus("operacional");
+    setFiltroGeo("todos");
+    setFiltroAlocacao("com_equipe");
+  }
+
   // ── SIDEBAR ───────────────────────────────────────────────────────────────────
 
   function renderSidebar() {
@@ -1059,6 +1082,20 @@ export default function GestaoFrotasDashboard() {
   // ── CONTEÚDO ──────────────────────────────────────────────────────────────────
 
   function renderConteudo(presentationClean = false, tvMode = false) {
+    const listaExibicao = presentationClean && apenasCriticos
+      ? listaFiltrada.filter((e) => getStatusNorm(e) === "manutencao" || isForaSP(e))
+      : listaFiltrada;
+
+    const totalExibicao = listaExibicao.length;
+    const terceirosExib = listaExibicao.filter(isTerceiro);
+    const kpiExib = {
+      total: listaExibicao.length,
+      terceiros: terceirosExib.length,
+      custo: terceirosExib.reduce((s, e) => s + (e.valor_mensal || 0), 0),
+      manut: listaExibicao.filter((e) => getStatusNorm(e) === "manutencao").length,
+    };
+    const criticosNoFiltro = listaFiltrada.filter((e) => getStatusNorm(e) === "manutencao" || isForaSP(e)).length;
+
     return (
       <main style={{ flex: 1, padding: presentationClean ? (tvMode ? "12px 16px" : "10px 14px") : "16px 18px", background: "#f0f4f8", minHeight: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
@@ -1067,10 +1104,11 @@ export default function GestaoFrotasDashboard() {
               {presentationClean ? "Painel Executivo de Frotas" : (workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel)}
             </h2>
             <p style={{ fontSize: presentationClean ? (tvMode ? 16 : 14) : 12, color: "#64748b", marginTop: 2 }}>
-              {kpiSel.total} equipamento{kpiSel.total !== 1 ? "s" : ""}
-              {kpiSel.manut > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}> · ⚠️ {kpiSel.manut} em manutenção</span>}
-              {kpiSel.terceiros > 0 && <span style={{ color: "#1d4ed8", fontWeight: 600 }}> · {kpiSel.terceiros} terceiros</span>}
-              {kpiSel.custo > 0 && <span style={{ color: "#ea580c", fontWeight: 700 }}> · {formatBRL(kpiSel.custo)}/mês</span>}
+              {totalExibicao} equipamento{totalExibicao !== 1 ? "s" : ""}
+              {kpiExib.manut > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}> · ⚠️ {kpiExib.manut} em manutenção</span>}
+              {kpiExib.terceiros > 0 && <span style={{ color: "#1d4ed8", fontWeight: 600 }}> · {kpiExib.terceiros} terceiros</span>}
+              {kpiExib.custo > 0 && <span style={{ color: "#ea580c", fontWeight: 700 }}> · {formatBRL(kpiExib.custo)}/mês</span>}
+              {presentationClean && apenasCriticos && <span style={{ color: "#7c3aed", fontWeight: 700 }}> · Somente críticos</span>}
             </p>
           </div>
           {!presentationClean && (
@@ -1100,13 +1138,43 @@ export default function GestaoFrotasDashboard() {
         </div>
 
         {presentationClean && (
-          <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[{ key: "todos", label: "Todos", cor: "#374151" }, { key: "operacional", label: "Operacional", cor: "#166534" }, { key: "manutencao", label: "Manutenção", cor: "#92400e" }, { key: "disposicao", label: "Disposição", cor: "#475569" }, { key: "terceiro", label: "Locados", cor: "#1d4ed8" }].map(f => (
-              <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
-                {f.label}
+          <>
+            <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[{ key: "todos", label: "Todos", cor: "#374151" }, { key: "operacional", label: "Operacional", cor: "#166534" }, { key: "manutencao", label: "Manutenção", cor: "#92400e" }, { key: "disposicao", label: "Disposição", cor: "#475569" }, { key: "terceiro", label: "Locados", cor: "#1d4ed8" }].map(f => (
+                <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                onClick={() => aplicarPresetApresentacao("diretoria")}
+                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: apresPreset === "diretoria" ? "#0f172a" : "#cbd5e1", background: apresPreset === "diretoria" ? "#0f172a" : "white", color: apresPreset === "diretoria" ? "white" : "#334155" }}
+              >
+                Preset Diretoria
               </button>
-            ))}
-          </div>
+              <button
+                onClick={() => aplicarPresetApresentacao("operacional")}
+                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: apresPreset === "operacional" ? "#0369a1" : "#cbd5e1", background: apresPreset === "operacional" ? "#0369a1" : "white", color: apresPreset === "operacional" ? "white" : "#334155" }}
+              >
+                Preset Operacional
+              </button>
+              <button
+                onClick={() => {
+                  const next = !apenasCriticos;
+                  setApenasCriticos(next);
+                  if (next) {
+                    setFiltroStatus("todos");
+                    setFiltroGeo("todos");
+                  }
+                }}
+                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 800, cursor: "pointer", border: "1.5px solid", borderColor: apenasCriticos ? "#7c3aed" : "#cbd5e1", background: apenasCriticos ? "#7c3aed" : "white", color: apenasCriticos ? "white" : "#334155" }}
+              >
+                Somente críticos ({criticosNoFiltro})
+              </button>
+            </div>
+          </>
         )}
 
         {workshopMode && (
@@ -1341,7 +1409,7 @@ export default function GestaoFrotasDashboard() {
           <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af", fontSize: 15 }}>Carregando...</div>
         ) : (
           <TabelaEquipamentos
-            items={listaFiltrada}
+            items={listaExibicao}
             workshopMode={workshopMode}
             presentationMode={modoApres}
             presentationTvMode={apresTvMode}
@@ -1578,7 +1646,7 @@ export default function GestaoFrotasDashboard() {
             </div>
           </div>
         </div>
-        <button onClick={() => { setModoApres(true); setApresTvMode(true); setWorkshopMode(false); setFerramenta("nav"); setZoom(1); setFormas([]); setSelectedId(null); setBusca(""); }}
+        <button onClick={() => { setModoApres(true); setApresTvMode(true); aplicarPresetApresentacao("diretoria"); setWorkshopMode(false); setFerramenta("nav"); setZoom(1); setFormas([]); setSelectedId(null); setBusca(""); }}
           style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 18px", background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.3)", borderRadius: 9, cursor: "pointer", color: "white", fontSize: 13, fontWeight: 700, transition: "all 0.15s" }}>
           <Maximize2 size={14} /> Apresentação
         </button>
