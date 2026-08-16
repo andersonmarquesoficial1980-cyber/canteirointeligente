@@ -519,7 +519,7 @@ function MaquinasManager() {
   }, []);
   const [categoria, setCategoria] = useState("");
   const [condicao, setCondicao] = useState("PROPRIO");
-  const [empresa, setEmpresa] = useState("PRÓPRIO");
+  const [empresa, setEmpresa] = useState("FREMIX");
   const [vinculos, setVinculos] = useState<string[]>(["TODOS"]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFrota, setEditFrota] = useState("");
@@ -571,7 +571,7 @@ function MaquinasManager() {
       return;
     }
     const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria_rdo: categoria, condicao, empresa_proprietaria: empresa.trim() || null, vinculos, vinculo_rdo: vinculos[0], status: "ativo", company_id: companyId });
-    if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setCondicao("PROPRIO"); setEmpresa("PRÓPRIO"); setVinculos(["TODOS"]); }
+    if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setCondicao("PROPRIO"); setEmpresa("FREMIX"); setVinculos(["TODOS"]); }
   };
 
   const startEdit = (m: any) => {
@@ -579,9 +579,9 @@ function MaquinasManager() {
     setEditFrota(m.frota || "");
     setEditNome(m.nome || "");
     setEditTipo(m.tipo || "");
-    setEditCategoria(m.categoria || "");
+    setEditCategoria(m.categoria_rdo || "");
     setEditCondicao(m.condicao || (m.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO'));
-    setEditEmpresa(m.empresa || "");
+    setEditEmpresa(m.empresa_proprietaria || "");
     setEditVinculos(m.vinculos?.length ? m.vinculos : [m.vinculo_rdo || "TODOS"]);
   };
 
@@ -660,7 +660,7 @@ function MaquinasManager() {
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Condição</Label>
-            <Select value={condicao} onValueChange={v => { setCondicao(v); setEmpresa(v === "PROPRIO" ? "PRÓPRIO" : ""); }}>
+            <Select value={condicao} onValueChange={v => { setCondicao(v); setEmpresa(v === "PROPRIO" ? "FREMIX" : ""); }}>
               <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="PROPRIO">Próprio (Fremix)</SelectItem>
@@ -784,7 +784,7 @@ function MaquinasManager() {
                   <div className="space-y-1"><Label className="text-xs text-muted-foreground">Tipo</Label><TipoSelect value={editTipo} onChange={setEditTipo} /></div>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Condição</Label>
-                    <Select value={editCondicao} onValueChange={v => { setEditCondicao(v); if (v === "PROPRIO") setEditEmpresa("PRÓPRIO"); }}>
+                    <Select value={editCondicao} onValueChange={v => { setEditCondicao(v); if (v === "PROPRIO") setEditEmpresa("FREMIX"); }}>
                       <SelectTrigger className="h-9 bg-secondary border-border text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PROPRIO">Próprio (Fremix)</SelectItem>
