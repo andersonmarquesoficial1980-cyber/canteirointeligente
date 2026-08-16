@@ -192,6 +192,7 @@ function TabelaEquipamentos({
   items,
   workshopMode,
   presentationMode = false,
+  presentationTvMode = false,
   selectedIds,
   onToggleItem,
   onToggleAllFiltered,
@@ -199,6 +200,7 @@ function TabelaEquipamentos({
   items: Equip[];
   workshopMode: boolean;
   presentationMode?: boolean;
+  presentationTvMode?: boolean;
   selectedIds: string[];
   onToggleItem: (id: string) => void;
   onToggleAllFiltered: () => void;
@@ -228,7 +230,7 @@ function TabelaEquipamentos({
           <span
             key={h}
             style={{
-              fontSize: presentationMode ? 12 : 10,
+              fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 10,
               fontWeight: 700,
               color: "#64748b",
               textTransform: "uppercase",
@@ -244,37 +246,44 @@ function TabelaEquipamentos({
         ))}
       </div>
       {sorted.map((e, i) => {
-        const st = getStatusNorm(e), badge = STATUS_BADGE[st], terceiro = isTerceiro(e), isManut = st === "manutencao";
+        const st = getStatusNorm(e), badge = STATUS_BADGE[st], terceiro = isTerceiro(e), isManut = st === "manutencao", foraSp = isForaSP(e);
         const empresa = e.empresa_proprietaria || e.locadora || (terceiro ? "Terceiro" : "—");
         const isChecked = selectedIds.includes(e.id);
-        const rowBg = isChecked ? "#eff6ff" : (isManut ? "#fffbeb" : (i % 2 === 0 ? "white" : "#fafbfc"));
+        const rowBg = isChecked
+          ? "#dbeafe"
+          : isManut
+            ? "#fff7ed"
+            : foraSp
+              ? "#f5f3ff"
+              : (i % 2 === 0 ? "white" : "#fafbfc");
         return (
-          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: "10px 16px", gap: 8, borderBottom: "1px solid #f8fafc", background: rowBg, borderLeft: isManut ? "4px solid #f59e0b" : "4px solid transparent" }}>
+          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: presentationTvMode ? "12px 16px" : "10px 16px", gap: 8, borderBottom: "1px solid #f8fafc", background: rowBg, borderLeft: isManut ? "4px solid #f59e0b" : (foraSp ? "4px solid #8b5cf6" : "4px solid transparent") }}>
             {workshopMode && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <input type="checkbox" checked={isChecked} onChange={() => onToggleItem(e.id)} />
               </div>
             )}
             <div style={{ position: presentationMode ? "sticky" : "static", left: presentationMode ? (workshopMode ? 48 : 0) : undefined, zIndex: presentationMode ? 5 : undefined, background: presentationMode ? rowBg : undefined, paddingRight: 6 }}>
-              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? 15 : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
-              {e.placa && e.placa !== e.frota && <p style={{ fontSize: presentationMode ? 12 : 10, color: "#9ca3af", marginTop: 1 }}>{e.placa}</p>}
+              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 17 : 15) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
+              {e.placa && e.placa !== e.frota && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 10, color: "#9ca3af", marginTop: 1 }}>{e.placa}</p>}
             </div>
-            <span style={{ fontSize: presentationMode ? 13 : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo || e.nome || "—"}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 15 : 13) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo || e.nome || "—"}</span>
             <div style={{ alignSelf: "center", overflow: "hidden" }}>
-              <p style={{ fontSize: presentationMode ? 13 : 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
-              {e.condutor_atual && <p style={{ fontSize: presentationMode ? 12 : 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
-              {getLocalizacaoLabel(e) && <p style={{ fontSize: presentationMode ? 11 : 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
+              <p style={{ fontSize: presentationMode ? (presentationTvMode ? 15 : 13) : 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
+              {e.condutor_atual && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
+              {getLocalizacaoLabel(e) && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
             </div>
-            <span style={{ fontSize: 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 14 : 12) : 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
             <div style={{ alignSelf: "center" }}>
-              <span style={{ fontSize: 10, fontWeight: 700, background: badge.bg, color: badge.cor, padding: "3px 8px", borderRadius: 20, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 10) : 10, fontWeight: 700, background: badge.bg, color: badge.cor, padding: presentationMode && presentationTvMode ? "4px 10px" : "3px 8px", borderRadius: 20, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: badge.dot, display: "inline-block" }} /> {badge.label}
               </span>
-              {isManut && e.motivo_manutencao && <p style={{ fontSize: 10, color: "#92400e", marginTop: 3 }}>⚠️ {e.motivo_manutencao}</p>}
-              {isManut && e.previsao_liberacao && <p style={{ fontSize: 10, color: "#1d4ed8", marginTop: 1 }}>📅 {fmtDate(e.previsao_liberacao)}</p>}
+              {foraSp && !isManut && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#6d28d9", marginTop: 2, fontWeight: 700 }}>📍 Fora de SP</p>}
+              {isManut && e.motivo_manutencao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#92400e", marginTop: 3 }}>⚠️ {e.motivo_manutencao}</p>}
+              {isManut && e.previsao_liberacao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#1d4ed8", marginTop: 1 }}>📅 {fmtDate(e.previsao_liberacao)}</p>}
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, alignSelf: "center", color: terceiro ? "#1d4ed8" : "#166534", background: terceiro ? "#eff6ff" : "#f0fdf4", padding: "3px 10px", borderRadius: 20, display: "inline-block", textAlign: "center" }}>{terceiro ? "Terceiro" : "Próprio"}</span>
-            <span style={{ fontSize: 12, fontWeight: e.valor_mensal > 0 ? 700 : 400, alignSelf: "center", color: e.valor_mensal > 0 ? "#ea580c" : "#9ca3af" }}>{formatBRL(e.valor_mensal)}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 11, fontWeight: 700, alignSelf: "center", color: terceiro ? "#1d4ed8" : "#166534", background: terceiro ? "#eff6ff" : "#f0fdf4", padding: presentationMode && presentationTvMode ? "4px 12px" : "3px 10px", borderRadius: 20, display: "inline-block", textAlign: "center" }}>{terceiro ? "Terceiro" : "Próprio"}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 12, fontWeight: e.valor_mensal > 0 ? 700 : 400, alignSelf: "center", color: e.valor_mensal > 0 ? "#ea580c" : "#9ca3af" }}>{formatBRL(e.valor_mensal)}</span>
           </div>
         );
       })}
@@ -320,6 +329,7 @@ export default function GestaoFrotasDashboard() {
 
   // Apresentação
   const [modoApres, setModoApres]   = useState(false);
+  const [apresTvMode, setApresTvMode] = useState(true);
   const [zoom, setZoom]             = useState(1);
   const [ferramenta, setFerramenta] = useState<Ferramenta>("nav");
   const [cor, setCor]               = useState("#ef4444");
@@ -1048,15 +1058,15 @@ export default function GestaoFrotasDashboard() {
 
   // ── CONTEÚDO ──────────────────────────────────────────────────────────────────
 
-  function renderConteudo(presentationClean = false) {
+  function renderConteudo(presentationClean = false, tvMode = false) {
     return (
-      <main style={{ flex: 1, padding: presentationClean ? "10px 14px" : "16px 18px", background: "#f0f4f8", minHeight: "100%" }}>
+      <main style={{ flex: 1, padding: presentationClean ? (tvMode ? "12px 16px" : "10px 14px") : "16px 18px", background: "#f0f4f8", minHeight: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <div>
-            <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: presentationClean ? 22 : 18, color: "#0A0F2C", margin: 0 }}>
+            <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: presentationClean ? (tvMode ? 28 : 22) : 18, color: "#0A0F2C", margin: 0 }}>
               {presentationClean ? "Painel Executivo de Frotas" : (workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel)}
             </h2>
-            <p style={{ fontSize: presentationClean ? 14 : 12, color: "#64748b", marginTop: 2 }}>
+            <p style={{ fontSize: presentationClean ? (tvMode ? 16 : 14) : 12, color: "#64748b", marginTop: 2 }}>
               {kpiSel.total} equipamento{kpiSel.total !== 1 ? "s" : ""}
               {kpiSel.manut > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}> · ⚠️ {kpiSel.manut} em manutenção</span>}
               {kpiSel.terceiros > 0 && <span style={{ color: "#1d4ed8", fontWeight: 600 }}> · {kpiSel.terceiros} terceiros</span>}
@@ -1092,7 +1102,7 @@ export default function GestaoFrotasDashboard() {
         {presentationClean && (
           <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[{ key: "todos", label: "Todos", cor: "#374151" }, { key: "operacional", label: "Operacional", cor: "#166534" }, { key: "manutencao", label: "Manutenção", cor: "#92400e" }, { key: "disposicao", label: "Disposição", cor: "#475569" }, { key: "terceiro", label: "Locados", cor: "#1d4ed8" }].map(f => (
-              <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
+              <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
                 {f.label}
               </button>
             ))}
@@ -1323,9 +1333,9 @@ export default function GestaoFrotasDashboard() {
         )}
 
         <div style={{ position: "relative", marginBottom: 12 }}>
-          <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: presentationClean ? 16 : 14, height: presentationClean ? 16 : 14, color: "#9ca3af" }} />
+          <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: presentationClean ? (tvMode ? 18 : 16) : 14, height: presentationClean ? (tvMode ? 18 : 16) : 14, color: "#9ca3af" }} />
           <input placeholder="Buscar frota, placa, tipo, equipe/setor, empresa..." value={busca} onChange={e => setBusca(e.target.value)}
-            style={{ width: "100%", paddingLeft: 36, paddingRight: 12, height: presentationClean ? 46 : 38, borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: presentationClean ? 16 : 13, outline: "none", boxSizing: "border-box", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }} />
+            style={{ width: "100%", paddingLeft: 36, paddingRight: 12, height: presentationClean ? (tvMode ? 52 : 46) : 38, borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: presentationClean ? (tvMode ? 18 : 16) : 13, outline: "none", boxSizing: "border-box", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }} />
         </div>
         {loading ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af", fontSize: 15 }}>Carregando...</div>
@@ -1334,6 +1344,7 @@ export default function GestaoFrotasDashboard() {
             items={listaFiltrada}
             workshopMode={workshopMode}
             presentationMode={modoApres}
+            presentationTvMode={apresTvMode}
             selectedIds={selecionados}
             onToggleItem={toggleSelecionado}
             onToggleAllFiltered={toggleSelecionarFiltrados}
@@ -1400,6 +1411,9 @@ export default function GestaoFrotasDashboard() {
             <span style={{ fontSize: 12, color: "white", fontWeight: 700, minWidth: 38, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
             <button onClick={() => setZoom(z => Math.min(2.5, parseFloat((z + 0.1).toFixed(1))))} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 8px", fontWeight: 300 }}>+</button>
           </div>
+          <button onClick={() => setApresTvMode(v => !v)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: apresTvMode ? "rgba(34,197,94,0.22)" : "rgba(255,255,255,0.12)", border: apresTvMode ? "1px solid rgba(34,197,94,0.5)" : "1px solid rgba(255,255,255,0.2)", borderRadius: 8, cursor: "pointer", color: "white", fontSize: 12, fontWeight: 700 }}>
+            {apresTvMode ? "TV ON" : "TV OFF"}
+          </button>
           <button onClick={() => setModoApres(false)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, cursor: "pointer", color: "white", fontSize: 12, fontWeight: 700 }}>
             <Minimize2 size={13} /> Sair
           </button>
@@ -1475,7 +1489,7 @@ export default function GestaoFrotasDashboard() {
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", overflowX: "hidden", background: "#f0f4f8" }}>
             <div style={{ zoom: zoom, position: "relative", minHeight: "100%" }}>
-              {renderConteudo(true)}
+              {renderConteudo(true, apresTvMode)}
             </div>
           </div>
         </div>
@@ -1564,7 +1578,7 @@ export default function GestaoFrotasDashboard() {
             </div>
           </div>
         </div>
-        <button onClick={() => { setModoApres(true); setWorkshopMode(false); setFerramenta("nav"); setZoom(1); setFormas([]); setSelectedId(null); setBusca(""); }}
+        <button onClick={() => { setModoApres(true); setApresTvMode(true); setWorkshopMode(false); setFerramenta("nav"); setZoom(1); setFormas([]); setSelectedId(null); setBusca(""); }}
           style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 18px", background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.3)", borderRadius: 9, cursor: "pointer", color: "white", fontSize: 13, fontWeight: 700, transition: "all 0.15s" }}>
           <Maximize2 size={14} /> Apresentação
         </button>
