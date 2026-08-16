@@ -1029,7 +1029,7 @@ export default function GestaoFrotasDashboard() {
     setFiltroAlocacao("todos");
   }
 
-  function gerarPautaReuniao() {
+  function montarPautaReuniao() {
     const listaBase = apenasCriticos
       ? listaFiltrada.filter((e) => getStatusNorm(e) === "manutencao" || isForaSP(e))
       : listaFiltrada;
@@ -1099,12 +1099,56 @@ export default function GestaoFrotasDashboard() {
 
     txt += `${sep}\n`;
 
+    return { txt, now, listaBase, terceiros, manut, foraSp, custo };
+  }
+
+  function gerarPautaReuniao() {
+    const { txt, now } = montarPautaReuniao();
     const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `pauta-workshop-frotas-${now.toISOString().slice(0, 10)}.txt`;
     a.click();
     URL.revokeObjectURL(a.href);
+  }
+
+  function gerarPautaEAbrirEmail() {
+    const { txt, listaBase, terceiros, manut, foraSp, custo } = montarPautaReuniao();
+
+    // mantém export da pauta no clique único
+    const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `pauta-workshop-frotas-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+
+    const destinatarios = emailsDestino
+      .split(/[;,\s]+/)
+      .map((e) => e.trim())
+      .filter((e) => /@/.test(e));
+
+    const subject = `Pauta executiva workshop frotas — ${progData}`;
+    const resumo = [
+      "Prezados,",
+      "",
+      "Segue pauta executiva do workshop (arquivo .txt baixado para anexo).",
+      `• Equipamentos em tela: ${listaBase.length}`,
+      `• Fora de SP: ${foraSp.length}`,
+      `• Em manutenção: ${manut.length}`,
+      `• Terceiros: ${terceiros.length}`,
+      `• Custo mensal terceiros: ${formatBRL(custo)}`,
+      "",
+      "Resumo da pauta:",
+      txt.slice(0, 3500),
+      "",
+      "Atenciosamente,",
+      "Fremix / Workflux",
+    ].join("\n");
+
+    const to = destinatarios.join(",");
+    const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(resumo)}`;
+    window.open(mailto, "_self");
   }
 
   // ── SIDEBAR ───────────────────────────────────────────────────────────────────
@@ -1270,6 +1314,12 @@ export default function GestaoFrotasDashboard() {
                 style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 800, cursor: "pointer", border: "1.5px solid #0f766e", background: "#0f766e", color: "white" }}
               >
                 Gerar pauta da reunião
+              </button>
+              <button
+                onClick={gerarPautaEAbrirEmail}
+                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 800, cursor: "pointer", border: "1.5px solid #1d4ed8", background: "#1d4ed8", color: "white" }}
+              >
+                Gerar pauta + abrir e-mail
               </button>
             </div>
           </>
