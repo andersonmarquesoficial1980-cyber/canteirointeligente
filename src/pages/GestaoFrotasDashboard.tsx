@@ -334,7 +334,7 @@ export default function GestaoFrotasDashboard() {
   // Apresentação
   const [modoApres, setModoApres]   = useState(false);
   const [apresTvMode, setApresTvMode] = useState(true);
-  const [apresPreset, setApresPreset] = useState<"diretoria" | "operacional">("diretoria");
+  const [apresPreset, setApresPreset] = useState<"diretoria" | "operacional" | "interestadual">("diretoria");
   const [apenasCriticos, setApenasCriticos] = useState(false);
   const [zoom, setZoom]             = useState(1);
   const [ferramenta, setFerramenta] = useState<Ferramenta>("nav");
@@ -1004,7 +1004,7 @@ export default function GestaoFrotasDashboard() {
     window.open(mailto, "_self");
   }
 
-  function aplicarPresetApresentacao(preset: "diretoria" | "operacional") {
+  function aplicarPresetApresentacao(preset: "diretoria" | "operacional" | "interestadual") {
     setApresPreset(preset);
     setBusca("");
     setApenasCriticos(false);
@@ -1016,9 +1016,95 @@ export default function GestaoFrotasDashboard() {
       return;
     }
 
-    setFiltroStatus("operacional");
-    setFiltroGeo("todos");
-    setFiltroAlocacao("com_equipe");
+    if (preset === "operacional") {
+      setFiltroStatus("operacional");
+      setFiltroGeo("todos");
+      setFiltroAlocacao("com_equipe");
+      return;
+    }
+
+    // Preset transporte interestadual
+    setFiltroStatus("todos");
+    setFiltroGeo("fora_sp");
+    setFiltroAlocacao("todos");
+  }
+
+  function gerarPautaReuniao() {
+    const listaBase = apenasCriticos
+      ? listaFiltrada.filter((e) => getStatusNorm(e) === "manutencao" || isForaSP(e))
+      : listaFiltrada;
+
+    const terceiros = listaBase.filter(isTerceiro);
+    const manut = listaBase.filter((e) => getStatusNorm(e) === "manutencao");
+    const foraSp = listaBase.filter(isForaSP);
+    const custo = terceiros.reduce((s, e) => s + (e.valor_mensal || 0), 0);
+
+    const topCustos = [...terceiros]
+      .sort((a, b) => (b.valor_mensal || 0) - (a.valor_mensal || 0))
+      .slice(0, 10);
+
+    const now = new Date();
+    const dataGeracao = now.toLocaleString("pt-BR");
+    const sep = "=".repeat(64);
+
+    let txt = "";
+    txt += `${sep}\n`;
+    txt += "PAUTA EXECUTIVA — WORKSHOP DE FROTAS (TRANSPORTE / ALOCAÇÃO)\n";
+    txt += `${sep}\n\n`;
+    txt += `Gerado em: ${dataGeracao}\n`;
+    txt += `Preset ativo: ${apresPreset}\n`;
+    txt += `Filtro críticos: ${apenasCriticos ? "SIM" : "NÃO"}\n`;
+    txt += `Programação alvo: ${progData} (${progPeriodo})\n\n`;
+
+    txt += "1) NÚMEROS-CHAVE\n";
+    txt += `- Equipamentos em tela: ${listaBase.length}\n`;
+    txt += `- Fora de SP: ${foraSp.length}\n`;
+    txt += `- Em manutenção: ${manut.length}\n`;
+    txt += `- Terceiros: ${terceiros.length}\n`;
+    txt += `- Custo mensal terceiros: ${formatBRL(custo)}\n\n`;
+
+    txt += "2) ITENS CRÍTICOS PARA DECISÃO\n";
+    if (!foraSp.length && !manut.length) {
+      txt += "- Nenhum item crítico no filtro atual.\n\n";
+    } else {
+      const criticos = listaBase
+        .filter((e) => getStatusNorm(e) === "manutencao" || isForaSP(e))
+        .slice(0, 30);
+      criticos.forEach((e) => {
+        const frota = e.frota || e.placa || "—";
+        const tipo = e.tipo || e.nome || "—";
+        const st = STATUS_BADGE[getStatusNorm(e)].label;
+        const loc = getLocalizacaoLabel(e) || "(sem local definido)";
+        const emp = e.empresa_proprietaria || e.locadora || (isTerceiro(e) ? "Terceiro" : "Próprio");
+        txt += `- ${frota} | ${tipo} | ${st} | ${loc} | ${emp}\n`;
+      });
+      txt += "\n";
+    }
+
+    txt += "3) TOP CUSTOS DE LOCAÇÃO (apoio à decisão transportar x alugar)\n";
+    if (!topCustos.length) {
+      txt += "- Sem locações no filtro atual.\n\n";
+    } else {
+      topCustos.forEach((e, i) => {
+        txt += `${i + 1}. ${e.frota || e.placa || "—"} | ${e.tipo || "—"} | ${formatBRL(e.valor_mensal || 0)}/mês\n`;
+      });
+      txt += "\n";
+    }
+
+    txt += "4) ENCAMINHAMENTOS SUGERIDOS\n";
+    txt += "- Validar permanência/transferência dos itens fora de SP.\n";
+    txt += "- Priorizar manutenção dos itens críticos com impacto em operação.\n";
+    txt += "- Revisar substituição de locados de maior custo.\n";
+    txt += "- Fechar programação alvo e responsáveis por equipe.\n\n";
+
+    txt += `${sep}\n`;
+
+    const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `pauta-workshop-frotas-${now.toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   // ── SIDEBAR ───────────────────────────────────────────────────────────────────
@@ -1161,6 +1247,12 @@ export default function GestaoFrotasDashboard() {
                 Preset Operacional
               </button>
               <button
+                onClick={() => aplicarPresetApresentacao("interestadual")}
+                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: apresPreset === "interestadual" ? "#7c3aed" : "#cbd5e1", background: apresPreset === "interestadual" ? "#7c3aed" : "white", color: apresPreset === "interestadual" ? "white" : "#334155" }}
+              >
+                Preset Transporte Interestadual
+              </button>
+              <button
                 onClick={() => {
                   const next = !apenasCriticos;
                   setApenasCriticos(next);
@@ -1172,6 +1264,12 @@ export default function GestaoFrotasDashboard() {
                 style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 800, cursor: "pointer", border: "1.5px solid", borderColor: apenasCriticos ? "#7c3aed" : "#cbd5e1", background: apenasCriticos ? "#7c3aed" : "white", color: apenasCriticos ? "white" : "#334155" }}
               >
                 Somente críticos ({criticosNoFiltro})
+              </button>
+              <button
+                onClick={gerarPautaReuniao}
+                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 800, cursor: "pointer", border: "1.5px solid #0f766e", background: "#0f766e", color: "white" }}
+              >
+                Gerar pauta da reunião
               </button>
             </div>
           </>
