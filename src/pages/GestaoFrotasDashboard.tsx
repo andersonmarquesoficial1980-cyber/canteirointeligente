@@ -191,12 +191,14 @@ function SvgFormaEl({
 function TabelaEquipamentos({
   items,
   workshopMode,
+  presentationMode = false,
   selectedIds,
   onToggleItem,
   onToggleAllFiltered,
 }: {
   items: Equip[];
   workshopMode: boolean;
+  presentationMode?: boolean;
   selectedIds: string[];
   onToggleItem: (id: string) => void;
   onToggleAllFiltered: () => void;
@@ -216,14 +218,14 @@ function TabelaEquipamentos({
 
   return (
     <div style={{ background: "white", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
-      <div style={{ display: "grid", gridTemplateColumns: cols, background: "#f1f5f9", borderBottom: "2px solid #e2e8f0", padding: "9px 16px", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: cols, background: "#f1f5f9", borderBottom: "2px solid #e2e8f0", padding: "9px 16px", gap: 8, position: "sticky", top: 0, zIndex: 6 }}>
         {workshopMode && (
           <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
             <input type="checkbox" checked={allSelected} onChange={onToggleAllFiltered} />
           </span>
         )}
         {["Frota", "Tipo", "Equipe / Responsável", "Empresa", "Status", "Situação", "Valor/mês"].map(h => (
-          <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</span>
+          <span key={h} style={{ fontSize: presentationMode ? 12 : 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</span>
         ))}
       </div>
       {sorted.map((e, i) => {
@@ -238,14 +240,14 @@ function TabelaEquipamentos({
               </div>
             )}
             <div>
-              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
-              {e.placa && e.placa !== e.frota && <p style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>{e.placa}</p>}
+              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? 15 : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
+              {e.placa && e.placa !== e.frota && <p style={{ fontSize: presentationMode ? 12 : 10, color: "#9ca3af", marginTop: 1 }}>{e.placa}</p>}
             </div>
-            <span style={{ fontSize: 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo || e.nome || "—"}</span>
+            <span style={{ fontSize: presentationMode ? 13 : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo || e.nome || "—"}</span>
             <div style={{ alignSelf: "center", overflow: "hidden" }}>
-              <p style={{ fontSize: 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
-              {e.condutor_atual && <p style={{ fontSize: 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
-              {getLocalizacaoLabel(e) && <p style={{ fontSize: 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
+              <p style={{ fontSize: presentationMode ? 13 : 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
+              {e.condutor_atual && <p style={{ fontSize: presentationMode ? 12 : 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
+              {getLocalizacaoLabel(e) && <p style={{ fontSize: presentationMode ? 11 : 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
             </div>
             <span style={{ fontSize: 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
             <div style={{ alignSelf: "center" }}>
@@ -1132,7 +1134,7 @@ export default function GestaoFrotasDashboard() {
           <div style={{ marginBottom: 12, background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 14, padding: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
-                Edição em lote · {selecionados.length} selecionado(s)
+                Edição em lote (selecione na tabela) · {selecionados.length} selecionado(s)
               </p>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <button onClick={toggleSelecionarFiltrados} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #94a3b8", background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
@@ -1169,22 +1171,25 @@ export default function GestaoFrotasDashboard() {
 
               <button
                 onClick={aplicarEdicaoLote}
-                disabled={salvandoLote}
+                disabled={salvandoLote || selecionados.length === 0}
                 style={{
                   height: 34,
                   borderRadius: 8,
                   border: "1px solid #0f172a",
-                  background: salvandoLote ? "#94a3b8" : "#0f172a",
+                  background: (salvandoLote || selecionados.length === 0) ? "#94a3b8" : "#0f172a",
                   color: "white",
                   padding: "0 12px",
                   fontSize: 12,
                   fontWeight: 700,
-                  cursor: salvandoLote ? "not-allowed" : "pointer",
+                  cursor: (salvandoLote || selecionados.length === 0) ? "not-allowed" : "pointer",
                 }}
               >
                 {salvandoLote ? "Aplicando..." : "Aplicar lote"}
               </button>
             </div>
+            <p style={{ margin: "8px 0 0 0", fontSize: 11, color: "#64748b" }}>
+              Selecione as frotas na tabela (checkbox) para habilitar a aplicação em lote.
+            </p>
           </div>
         )}
 
@@ -1229,17 +1234,17 @@ export default function GestaoFrotasDashboard() {
 
               <button
                 onClick={programarSelecionados}
-                disabled={salvandoProgramacao}
+                disabled={salvandoProgramacao || selecionados.length === 0}
                 style={{
                   height: 34,
                   borderRadius: 8,
                   border: "1px solid #1d4ed8",
-                  background: salvandoProgramacao ? "#93c5fd" : "#1d4ed8",
+                  background: (salvandoProgramacao || selecionados.length === 0) ? "#93c5fd" : "#1d4ed8",
                   color: "white",
                   padding: "0 12px",
                   fontSize: 12,
                   fontWeight: 700,
-                  cursor: salvandoProgramacao ? "not-allowed" : "pointer",
+                  cursor: (salvandoProgramacao || selecionados.length === 0) ? "not-allowed" : "pointer",
                 }}
               >
                 {salvandoProgramacao ? "Programando..." : "Criar programação"}
@@ -1252,6 +1257,9 @@ export default function GestaoFrotasDashboard() {
               placeholder="Observação da programação (opcional)"
               style={{ marginTop: 8, width: "100%", height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}
             />
+            <p style={{ margin: "8px 0 0 0", fontSize: 11, color: "#64748b" }}>
+              A programação só é criada para as frotas marcadas na tabela.
+            </p>
           </div>
         )}
 
@@ -1297,6 +1305,7 @@ export default function GestaoFrotasDashboard() {
           <TabelaEquipamentos
             items={listaFiltrada}
             workshopMode={workshopMode}
+            presentationMode={modoApres}
             selectedIds={selecionados}
             onToggleItem={toggleSelecionado}
             onToggleAllFiltered={toggleSelecionarFiltrados}
@@ -1369,7 +1378,7 @@ export default function GestaoFrotasDashboard() {
         </header>
 
         {/* ── TOOLBAR ── */}
-        <div style={{ height: TOOLBAR_H, flexShrink: 0, display: "flex", alignItems: "center", gap: 4, paddingInline: 12, background: "#1e293b", borderBottom: "1px solid rgba(255,255,255,0.07)", zIndex: 9998, overflowX: "auto" }}>
+        <div style={{ height: TOOLBAR_H, flexShrink: 0, display: "none", alignItems: "center", gap: 4, paddingInline: 12, background: "#1e293b", borderBottom: "1px solid rgba(255,255,255,0.07)", zIndex: 9998, overflowX: "auto" }}>
           <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginRight: 2, whiteSpace: "nowrap" }}>Ferramenta</span>
           {[
             { k: "nav",       icon: "🖱️",  title: "Navegar (scroll)" },
@@ -1560,7 +1569,7 @@ export default function GestaoFrotasDashboard() {
             </div>
           </div>
         </div>
-        <button onClick={() => { setModoApres(true); setFerramenta("nav"); setZoom(1); setFormas([]); setSelectedId(null); }}
+        <button onClick={() => { setModoApres(true); setWorkshopMode(false); setFerramenta("nav"); setZoom(1); setFormas([]); setSelectedId(null); setBusca(""); }}
           style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 18px", background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.3)", borderRadius: 9, cursor: "pointer", color: "white", fontSize: 13, fontWeight: 700, transition: "all 0.15s" }}>
           <Maximize2 size={14} /> Apresentação
         </button>
