@@ -217,29 +217,45 @@ function TabelaEquipamentos({
   const allSelected = sorted.length > 0 && sorted.every((e) => selectedIds.includes(e.id));
 
   return (
-    <div style={{ background: "white", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+    <div style={{ background: "white", borderRadius: 14, overflow: presentationMode ? "auto" : "hidden", maxHeight: presentationMode ? "calc(100vh - 260px)" : undefined, boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
       <div style={{ display: "grid", gridTemplateColumns: cols, background: "#f1f5f9", borderBottom: "2px solid #e2e8f0", padding: "9px 16px", gap: 8, position: "sticky", top: 0, zIndex: 6 }}>
         {workshopMode && (
-          <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", position: presentationMode ? "sticky" : "static", left: presentationMode ? 0 : undefined, background: "#f1f5f9", zIndex: presentationMode ? 8 : undefined }}>
             <input type="checkbox" checked={allSelected} onChange={onToggleAllFiltered} />
           </span>
         )}
-        {["Frota", "Tipo", "Equipe / Responsável", "Empresa", "Status", "Situação", "Valor/mês"].map(h => (
-          <span key={h} style={{ fontSize: presentationMode ? 12 : 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</span>
+        {["Frota", "Tipo", "Equipe / Responsável", "Empresa", "Status", "Situação", "Valor/mês"].map((h, idx) => (
+          <span
+            key={h}
+            style={{
+              fontSize: presentationMode ? 12 : 10,
+              fontWeight: 700,
+              color: "#64748b",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              position: presentationMode && idx === 0 ? "sticky" : "static",
+              left: presentationMode && idx === 0 ? (workshopMode ? 48 : 0) : undefined,
+              background: presentationMode && idx === 0 ? "#f1f5f9" : undefined,
+              zIndex: presentationMode && idx === 0 ? 7 : undefined,
+            }}
+          >
+            {h}
+          </span>
         ))}
       </div>
       {sorted.map((e, i) => {
         const st = getStatusNorm(e), badge = STATUS_BADGE[st], terceiro = isTerceiro(e), isManut = st === "manutencao";
         const empresa = e.empresa_proprietaria || e.locadora || (terceiro ? "Terceiro" : "—");
         const isChecked = selectedIds.includes(e.id);
+        const rowBg = isChecked ? "#eff6ff" : (isManut ? "#fffbeb" : (i % 2 === 0 ? "white" : "#fafbfc"));
         return (
-          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: "10px 16px", gap: 8, borderBottom: "1px solid #f8fafc", background: isChecked ? "#eff6ff" : (isManut ? "#fffbeb" : (i % 2 === 0 ? "white" : "#fafbfc")), borderLeft: isManut ? "4px solid #f59e0b" : "4px solid transparent" }}>
+          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: "10px 16px", gap: 8, borderBottom: "1px solid #f8fafc", background: rowBg, borderLeft: isManut ? "4px solid #f59e0b" : "4px solid transparent" }}>
             {workshopMode && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <input type="checkbox" checked={isChecked} onChange={() => onToggleItem(e.id)} />
               </div>
             )}
-            <div>
+            <div style={{ position: presentationMode ? "sticky" : "static", left: presentationMode ? (workshopMode ? 48 : 0) : undefined, zIndex: presentationMode ? 5 : undefined, background: presentationMode ? rowBg : undefined, paddingRight: 6 }}>
               <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? 15 : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
               {e.placa && e.placa !== e.frota && <p style={{ fontSize: presentationMode ? 12 : 10, color: "#9ca3af", marginTop: 1 }}>{e.placa}</p>}
             </div>
@@ -1032,21 +1048,22 @@ export default function GestaoFrotasDashboard() {
 
   // ── CONTEÚDO ──────────────────────────────────────────────────────────────────
 
-  function renderConteudo() {
+  function renderConteudo(presentationClean = false) {
     return (
-      <main style={{ flex: 1, padding: "16px 18px", background: "#f0f4f8", minHeight: "100%" }}>
+      <main style={{ flex: 1, padding: presentationClean ? "10px 14px" : "16px 18px", background: "#f0f4f8", minHeight: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <div>
-            <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 18, color: "#0A0F2C", margin: 0 }}>
-              {workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel}
+            <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: presentationClean ? 22 : 18, color: "#0A0F2C", margin: 0 }}>
+              {presentationClean ? "Painel Executivo de Frotas" : (workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel)}
             </h2>
-            <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+            <p style={{ fontSize: presentationClean ? 14 : 12, color: "#64748b", marginTop: 2 }}>
               {kpiSel.total} equipamento{kpiSel.total !== 1 ? "s" : ""}
               {kpiSel.manut > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}> · ⚠️ {kpiSel.manut} em manutenção</span>}
               {kpiSel.terceiros > 0 && <span style={{ color: "#1d4ed8", fontWeight: 600 }}> · {kpiSel.terceiros} terceiros</span>}
               {kpiSel.custo > 0 && <span style={{ color: "#ea580c", fontWeight: 700 }}> · {formatBRL(kpiSel.custo)}/mês</span>}
             </p>
           </div>
+          {!presentationClean && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button
               onClick={() => setWorkshopMode(v => !v)}
@@ -1069,7 +1086,18 @@ export default function GestaoFrotasDashboard() {
               </button>
             ))}
           </div>
+          )}
         </div>
+
+        {presentationClean && (
+          <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[{ key: "todos", label: "Todos", cor: "#374151" }, { key: "operacional", label: "Operacional", cor: "#166534" }, { key: "manutencao", label: "Manutenção", cor: "#92400e" }, { key: "disposicao", label: "Disposição", cor: "#475569" }, { key: "terceiro", label: "Locados", cor: "#1d4ed8" }].map(f => (
+              <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {workshopMode && (
           <div style={{ marginBottom: 12, background: "white", border: "1px solid #e2e8f0", borderRadius: 14, padding: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}>
@@ -1295,9 +1323,9 @@ export default function GestaoFrotasDashboard() {
         )}
 
         <div style={{ position: "relative", marginBottom: 12 }}>
-          <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#9ca3af" }} />
+          <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: presentationClean ? 16 : 14, height: presentationClean ? 16 : 14, color: "#9ca3af" }} />
           <input placeholder="Buscar frota, placa, tipo, equipe/setor, empresa..." value={busca} onChange={e => setBusca(e.target.value)}
-            style={{ width: "100%", paddingLeft: 36, paddingRight: 12, height: 38, borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }} />
+            style={{ width: "100%", paddingLeft: 36, paddingRight: 12, height: presentationClean ? 46 : 38, borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: presentationClean ? 16 : 13, outline: "none", boxSizing: "border-box", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }} />
         </div>
         {loading ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af", fontSize: 15 }}>Carregando...</div>
@@ -1311,7 +1339,7 @@ export default function GestaoFrotasDashboard() {
             onToggleAllFiltered={toggleSelecionarFiltrados}
           />
         )}
-        {!loading && kpiSel.custo > 0 && filtroStatus !== "operacional" && (
+        {!presentationClean && !loading && kpiSel.custo > 0 && filtroStatus !== "operacional" && (
           <div style={{ marginTop: 16, background: "white", borderRadius: 14, padding: "14px 18px", boxShadow: "0 1px 6px rgba(0,0,0,0.07)" }}>
             <h3 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 13, marginBottom: 10, display: "flex", alignItems: "center", gap: 6, color: "#0A0F2C" }}>
               <Package size={13} color="#ea580c" /> Locados por Empresa
@@ -1443,50 +1471,17 @@ export default function GestaoFrotasDashboard() {
           </button>
         </div>
 
-        {/* ── CORPO: SIDEBAR + CONTEÚDO COM SVG ── */}
+        {/* ── CORPO APRESENTAÇÃO LIMPA ── */}
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          {renderSidebar()}
-
-          {/* Área scrollável */}
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", overflowX: "hidden", background: "#f0f4f8" }}>
-            {/* Wrapper com zoom — SVG fica DENTRO aqui, acompanha tudo */}
             <div style={{ zoom: zoom, position: "relative", minHeight: "100%" }}>
-              {renderConteudo()}
-
-              {/* SVG overlay — absolutamente sobre o conteúdo, mesma coordenada */}
-              <svg
-                ref={svgRef}
-                style={{
-                  position: "absolute", top: 0, left: 0,
-                  width: "100%", height: "100%",
-                  pointerEvents: ferramenta !== "nav" ? "all" : "none",
-                  cursor: getCursor(),
-                  overflow: "visible",
-                }}
-                onMouseDown={onSvgMouseDown}
-                onWheel={e => { scrollRef.current?.scrollBy({ top: e.deltaY, behavior: "auto" }); }}
-              >
-                {/* Shapes permanentes */}
-                {formas.map(f => (
-                  <SvgFormaEl
-                    key={f.id} f={f}
-                    selecionada={selectedId === f.id}
-                    ferramenta={ferramenta}
-                    onMouseDown={e => onShapeMouseDown(e, f.id)}
-                  />
-                ))}
-                {/* Preview enquanto desenha */}
-                {formaPreview && (
-                  <SvgFormaEl f={formaPreview} selecionada={false} ferramenta={ferramenta} />
-                )}
-                {/* Input de texto inline no SVG — removido (usa div fixed abaixo) */}
-              </svg>
+              {renderConteudo(true)}
             </div>
           </div>
         </div>
 
         {/* ── INPUT DE TEXTO: div fixed, sempre alinhado à tela independente de zoom/scroll ── */}
-        {textInput && (
+        {false && textInput && (
           <div style={{
             position: "fixed",
             left: Math.min(textInput.screenX, window.innerWidth - 310),
@@ -1510,7 +1505,7 @@ export default function GestaoFrotasDashboard() {
         )}
 
         {/* ── PROMPT DE RÓTULO após desenhar forma ── */}
-        {labelPrompt && (
+        {false && labelPrompt && (
           <div style={{
             position: "fixed",
             left: Math.min(labelPrompt.screenX, window.innerWidth - 320),
@@ -1537,7 +1532,7 @@ export default function GestaoFrotasDashboard() {
         )}
 
         {/* Dica de ferramenta seleção */}
-        {ferramenta === "selecionar" && !selectedId && (
+        {false && ferramenta === "selecionar" && !selectedId && (
           <div style={{ position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)", background: "rgba(0,0,0,0.75)", color: "white", fontSize: 11, padding: "6px 16px", borderRadius: 20, pointerEvents: "none", zIndex: 10001, whiteSpace: "nowrap" }}>
             Clique para selecionar · Arraste para mover · Del para apagar
           </div>
