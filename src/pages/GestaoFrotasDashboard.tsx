@@ -328,6 +328,7 @@ export default function GestaoFrotasDashboard() {
   const [progObs, setProgObs] = useState<string>("");
   const [salvandoProgramacao, setSalvandoProgramacao] = useState(false);
   const [emailsDestino, setEmailsDestino] = useState<string>("");
+  const [toastMsg, setToastMsg] = useState<string>("");
 
   const [busca, setBusca]           = useState("");
 
@@ -352,6 +353,7 @@ export default function GestaoFrotasDashboard() {
   // Refs para SVG e interações (sem criar closure stale)
   const svgRef        = useRef<SVGSVGElement>(null);
   const scrollRef     = useRef<HTMLDivElement>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drawRef       = useRef<{ startPt: { x:number; y:number }; pts: { x:number; y:number }[] } | null>(null);
   const dragRef       = useRef<{ id: string; startPt: { x:number; y:number }; origForma: Forma } | null>(null);
   const zoomRef       = useRef(zoom);
@@ -362,6 +364,18 @@ export default function GestaoFrotasDashboard() {
   useEffect(() => { ferramentaRef.current = ferramenta; }, [ferramenta]);
   useEffect(() => { corRef.current = cor; },               [cor]);
   useEffect(() => { espRef.current = esp; },               [esp]);
+
+  function mostrarToast(msg: string) {
+    setToastMsg(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMsg(""), 2600);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   async function carregarDadosBase() {
     setLoading(true);
@@ -1169,6 +1183,7 @@ export default function GestaoFrotasDashboard() {
     const to = destinatarios.join(",");
     const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(resumo)}`;
     window.open(mailto, "_self");
+    mostrarToast(`CSV + pauta gerados. E-mail aberto (${csvFile} e ${pautaFile}).`);
   }
 
   // ── SIDEBAR ───────────────────────────────────────────────────────────────────
@@ -1787,6 +1802,26 @@ export default function GestaoFrotasDashboard() {
             Clique para selecionar · Arraste para mover · Del para apagar
           </div>
         )}
+
+        {!!toastMsg && (
+          <div style={{
+            position: "fixed",
+            bottom: 18,
+            right: 18,
+            zIndex: 10050,
+            background: "#0f766e",
+            color: "white",
+            border: "1px solid #115e59",
+            borderRadius: 10,
+            padding: "10px 12px",
+            fontSize: 12,
+            fontWeight: 700,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.28)",
+            maxWidth: 430,
+          }}>
+            {toastMsg}
+          </div>
+        )}
       </div>
     );
   }
@@ -1828,6 +1863,25 @@ export default function GestaoFrotasDashboard() {
           {renderConteudo()}
         </div>
       </div>
+      {!!toastMsg && (
+        <div style={{
+          position: "fixed",
+          bottom: 18,
+          right: 18,
+          zIndex: 10050,
+          background: "#0f766e",
+          color: "white",
+          border: "1px solid #115e59",
+          borderRadius: 10,
+          padding: "10px 12px",
+          fontSize: 12,
+          fontWeight: 700,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+          maxWidth: 430,
+        }}>
+          {toastMsg}
+        </div>
+      )}
     </div>
   );
 }
