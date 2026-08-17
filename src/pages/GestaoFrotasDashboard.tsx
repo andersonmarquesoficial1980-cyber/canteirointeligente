@@ -128,6 +128,30 @@ function getTipoLabelExecutivo(tipoRaw: string) {
   return n ? n.charAt(0).toUpperCase() + n.slice(1) : "—";
 }
 
+function getTipoKeyApresentacao(e: Equip) {
+  return normTxt(e.tipo || e.nome || "OUTRO");
+}
+
+const TIPOS_PEQUENO_PORTE = [
+  "BANHEIRO QUIMICO",
+  "CARRETINHA BANHEIRO",
+  "COMPRESSOR",
+  "DENSIMETRO",
+  "MISTURADOR DE ARGAMASSA",
+  "PLACA VIBRATORIA",
+  "ROMPEDOR ELETRICO",
+  "ROMPEDOR PNEUMATICO",
+  "SAPO COMPACTADOR",
+  "SERRA CLIPPER",
+  "TORRE DE ILUMINACAO",
+];
+
+function isPequenoPorteTipo(tipoKey: string) {
+  const t = normTxt(tipoKey);
+  if (TIPOS_PEQUENO_PORTE.includes(t)) return true;
+  return ["ROMPEDOR", "PLACA VIBRATORIA", "SAPO", "SERRA CLIPPER", "BANHEIRO"].some((k) => t.includes(k));
+}
+
 const STATUS_BADGE: Record<string, { bg: string; cor: string; label: string; dot: string }> = {
   operacional: { bg: "#dcfce7", cor: "#166534", label: "Operacional", dot: "#16a34a" },
   manutencao:  { bg: "#fef3c7", cor: "#92400e", label: "Manutenção",  dot: "#f59e0b" },
@@ -564,6 +588,8 @@ export default function GestaoFrotasDashboard() {
   const [apresTvMode, setApresTvMode] = useState(true);
   const [apresPreset, setApresPreset] = useState<"diretoria" | "operacional" | "interestadual">("diretoria");
   const [apenasCriticos, setApenasCriticos] = useState(false);
+  const [ocultarPequenoPorteApres, setOcultarPequenoPorteApres] = useState(false);
+  const [tiposOcultosApres, setTiposOcultosApres] = useState<string[]>([]);
   const [zoom, setZoom]             = useState(1);
   const [ferramenta, setFerramenta] = useState<Ferramenta>("nav");
   const [cor, setCor]               = useState("#ef4444");
@@ -1080,6 +1106,19 @@ export default function GestaoFrotasDashboard() {
   }, [listaFiltrada]);
 
   const chips = modoVis === "tipo" ? chipsDoTipo : chipsDeEquipe;
+  const tiposDisponiveisFiltro = useMemo(() => {
+    const set = new Set<string>();
+    listaFiltrada.forEach((e) => {
+      const k = getTipoKeyApresentacao(e);
+      if (k) set.add(k);
+    });
+    return [...set].sort((a, b) => getTipoLabelExecutivo(a).localeCompare(getTipoLabelExecutivo(b), "pt-BR"));
+  }, [listaFiltrada]);
+
+  function toggleTipoOcultoApres(tipoKey: string) {
+    setTiposOcultosApres((prev) => (prev.includes(tipoKey) ? prev.filter((t) => t !== tipoKey) : [...prev, tipoKey]));
+  }
+
   const subTiposDisponiveis = useMemo(() => {
     if (modoVis !== "tipo" || chipSel === "todos") return [] as string[];
     const grupo = GRUPOS_CHIP.find(g => g.key === chipSel);
@@ -1643,9 +1682,20 @@ export default function GestaoFrotasDashboard() {
   // ── CONTEÚDO ──────────────────────────────────────────────────────────────────
 
   function renderConteudo(presentationClean = false, tvMode = false) {
-    const listaExibicao = presentationClean && apenasCriticos
+    const listaBase = presentationClean && apenasCriticos
       ? listaFiltrada.filter((e) => getStatusNorm(e) === "manutencao" || isForaSP(e))
       : listaFiltrada;
+
+    const aplicarOcultacaoApresentacao = presentationClean || modoApres;
+
+    const listaExibicao = aplicarOcultacaoApresentacao
+      ? listaBase.filter((e) => {
+          const tipoKey = getTipoKeyApresentacao(e);
+          if (tiposOcultosApres.includes(tipoKey)) return false;
+          if (ocultarPequenoPorteApres && isPequenoPorteTipo(tipoKey)) return false;
+          return true;
+        })
+      : listaBase;
 
     const totalExibicao = listaExibicao.length;
     const terceirosExib = listaExibicao.filter(isTerceiro);
@@ -1718,6 +1768,80 @@ export default function GestaoFrotasDashboard() {
           </div>
           )}
         </div>
+
+        {!presentationClean && (
+          <div style={{ marginBottom: 12, background: "#ffffff", border: "1px solid #dbeafe", borderRadius: 12, padding: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#1e3a8a" }}>
+                Ocultação para Apresentação
+              </p>
+              <span style={{ fontSize: 11, color: "#64748b" }}>
+                {tiposOcultosApres.length} tipo(s) oculto(s) {ocultarPequenoPorteApres ? "· pequeno porte ON" : ""}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+              <button
+                onClick={() => setOcultarPequenoPorteApres((v) => !v)}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: 14,
+                  border: "1.5px solid",
+                  borderColor: ocultarPequenoPorteApres ? "#7c3aed" : "#cbd5e1",
+                  background: ocultarPequenoPorteApres ? "#7c3aed" : "white",
+                  color: ocultarPequenoPorteApres ? "white" : "#334155",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {ocultarPequenoPorteApres ? "Ocultar pequeno porte: ON" : "Ocultar pequeno porte"}
+              </button>
+
+              <button
+                onClick={() => { setTiposOcultosApres([]); setOcultarPequenoPorteApres(false); }}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: 14,
+                  border: "1.5px solid #cbd5e1",
+                  background: "white",
+                  color: "#334155",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Limpar ocultações
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {tiposDisponiveisFiltro.map((tipoKey) => {
+                const oculto = tiposOcultosApres.includes(tipoKey);
+                return (
+                  <button
+                    key={tipoKey}
+                    onClick={() => toggleTipoOcultoApres(tipoKey)}
+                    style={{
+                      padding: "4px 9px",
+                      borderRadius: 12,
+                      border: "1px solid",
+                      borderColor: oculto ? "#ef4444" : "#cbd5e1",
+                      background: oculto ? "#fee2e2" : "white",
+                      color: oculto ? "#991b1b" : "#334155",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                    title={oculto ? "Clique para mostrar na apresentação" : "Clique para ocultar na apresentação"}
+                  >
+                    {oculto ? "🙈 " : "👁️ "}{getTipoLabelExecutivo(tipoKey)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {presentationClean && (
           <>
