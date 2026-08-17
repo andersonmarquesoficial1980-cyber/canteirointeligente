@@ -44,6 +44,21 @@ function normTxt(v: string) {
     .toUpperCase();
 }
 
+function parseValorMensal(v: string): number | null {
+  const raw = (v || "").trim();
+  if (!raw) return null;
+
+  const normalized = raw
+    .replace(/\s/g, "")
+    .replace(/R\$/gi, "")
+    .replace(/\./g, "")
+    .replace(/,/g, ".");
+
+  const num = Number(normalized);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Number(num.toFixed(2));
+}
+
 function getStatusNorm(e: Equip): "operacional" | "manutencao" | "inativo" | "disposicao" {
   const s = (e.status || "").toLowerCase().replace(/[_\s]/g, "");
   const setor = (e.setor || "").toLowerCase();
@@ -319,7 +334,12 @@ export default function GestaoFrotasDashboard() {
   const [loteStatus, setLoteStatus] = useState<string>("__manter__");
   const [loteEquipe, setLoteEquipe] = useState<string>("__manter__");
   const [loteLocal, setLoteLocal] = useState<string>("");
+  const [loteValorMode, setLoteValorMode] = useState<"__manter__" | "__definir__" | "__zerar__">("__manter__");
+  const [loteValorInput, setLoteValorInput] = useState<string>("");
   const [salvandoLote, setSalvandoLote] = useState(false);
+
+  const [canEditDashboard, setCanEditDashboard] = useState(false);
+  const [loadingCanEditDashboard, setLoadingCanEditDashboard] = useState(true);
 
   const [progData, setProgData] = useState<string>("2026-09-01");
   const [progPeriodo, setProgPeriodo] = useState<string>("INTEGRAL");
@@ -408,9 +428,107 @@ export default function GestaoFrotasDashboard() {
     setLoading(false);
   }
 
+  async function carregarPermissaoEdicaoDashboard() {
+    setLoadingCanEditDashboard(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) {
+        setCanEditDashboard(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id, role")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!profile?.company_id) {
+        setCanEditDashboard(false);
+        return;
+      }
+
+      if (profile.role === "superadmin" || profile.role === "admin") {
+        setCanEditDashboard(true);
+        return;
+      }
+
+      const { data: panelAccessRow } = await (supabase as any)
+        .from("user_admin_panel_access")
+        .select("can_access_panel, allowed_sections")
+        .eq("user_id", userId)
+        .eq("company_id", profile.company_id)
+        .maybeSingle();
+
+      if (panelAccessRow?.can_access_panel === false) {
+        setCanEditDashboard(false);
+        return;
+      }
+
+      const { data: assignments } = await supabase
+        .from("user_admin_roles")
+        .select("role_id")
+        .eq("is_active", true)
+        .or(`employee_id.eq.${userId},user_id.eq.${userId}`);
+
+      const roleIds = (assignments || []).map((a: any) => a.role_id).filter(Boolean);
+      if (roleIds.length === 0) {
+        setCanEditDashboard(false);
+        return;
+      }
+
+      const { data: userPermRows } = await (supabase as any)
+        .from("user_admin_permissions")
+        .select("resource, action")
+        .eq("company_id", profile.company_id)
+        .eq("user_id", userId);
+
+      let perms: Array<{ resource: string; action: string }> = [];
+      if ((userPermRows || []).length > 0) {
+        perms = userPermRows as Array<{ resource: string; action: string }>;
+      } else {
+        const { data: rolePerms } = await supabase
+          .from("admin_permissions")
+          .select("resource, action")
+          .in("role_id", roleIds);
+        perms = (rolePerms || []) as Array<{ resource: string; action: string }>;
+      }
+
+      const hasManageMaquinas = perms.some((perm) => {
+        const resource = String(perm.resource || "");
+        const action = String(perm.action || "");
+        if (resource === "all" && action === "manage") return true;
+        if (resource === "admin_section.maquinas" && (action === "manage" || action === "edit")) return true;
+        return false;
+      });
+
+      if (!hasManageMaquinas) {
+        setCanEditDashboard(false);
+        return;
+      }
+
+      const allowedSections = Array.isArray(panelAccessRow?.allowed_sections)
+        ? (panelAccessRow.allowed_sections as string[])
+        : [];
+
+      if (allowedSections.length > 0 && !allowedSections.includes("maquinas")) {
+        setCanEditDashboard(false);
+        return;
+      }
+
+      setCanEditDashboard(true);
+    } catch {
+      setCanEditDashboard(false);
+    } finally {
+      setLoadingCanEditDashboard(false);
+    }
+  }
+
   // Dados
   useEffect(() => {
     carregarDadosBase();
+    carregarPermissaoEdicaoDashboard();
   }, []);
 
   // Delete key para remover selecionado
@@ -785,6 +903,16 @@ export default function GestaoFrotasDashboard() {
   }
 
   async function aplicarEdicaoLote() {
+    if (loadingCanEditDashboard) {
+      alert("Validando permissões... tente novamente em alguns segundos.");
+      return;
+    }
+
+    if (!canEditDashboard) {
+      alert("Você não tem permissão para editar equipamentos neste dashboard.");
+      return;
+    }
+
     if (!selecionados.length) {
       alert("Selecione pelo menos 1 equipamento.");
       return;
@@ -793,8 +921,18 @@ export default function GestaoFrotasDashboard() {
     const atualizarStatus = loteStatus !== "__manter__";
     const atualizarEquipe = loteEquipe !== "__manter__";
     const atualizarLocal = loteLocal.trim().length > 0;
+    const atualizarValor = loteValorMode !== "__manter__";
 
-    if (!atualizarStatus && !atualizarEquipe && !atualizarLocal) {
+    let valorMensalParsed: number | null = null;
+    if (loteValorMode === "__definir__") {
+      valorMensalParsed = parseValorMensal(loteValorInput);
+      if (valorMensalParsed === null) {
+        alert("Informe um valor mensal válido (ex.: 1350,00).");
+        return;
+      }
+    }
+
+    if (!atualizarStatus && !atualizarEquipe && !atualizarLocal && !atualizarValor) {
       alert("Defina ao menos 1 campo para aplicar no lote.");
       return;
     }
@@ -814,6 +952,8 @@ export default function GestaoFrotasDashboard() {
 
         if (atualizarStatus) payload.status = loteStatus;
         if (atualizarEquipe) payload.setor = loteEquipe;
+        if (loteValorMode === "__zerar__") payload.valor_mensal = 0;
+        if (loteValorMode === "__definir__") payload.valor_mensal = valorMensalParsed;
 
         if (atualizarLocal) {
           if ("local" in atual) payload.local = loteLocal.trim();
@@ -1150,6 +1290,10 @@ export default function GestaoFrotasDashboard() {
 
     // exporta CSV no mesmo clique
     const rowsCsv = getBaseExportRows();
+    if (!rowsCsv.length) {
+      mostrarToast("Sem dados no filtro para gerar CSV/e-mail.");
+      return;
+    }
     baixarCsvWorkshop(rowsCsv, csvFile);
 
     const destinatarios = emailsDestino
@@ -1426,7 +1570,7 @@ export default function GestaoFrotasDashboard() {
                 Edição em lote (selecione na tabela) · {selecionados.length} selecionado(s)
               </p>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button onClick={toggleSelecionarFiltrados} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #94a3b8", background: "white", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                <button onClick={toggleSelecionarFiltrados} disabled={!canEditDashboard || loadingCanEditDashboard} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #94a3b8", background: "white", cursor: (!canEditDashboard || loadingCanEditDashboard) ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600, opacity: (!canEditDashboard || loadingCanEditDashboard) ? 0.6 : 1 }}>
                   Marcar filtrados
                 </button>
                 <button onClick={() => setSelecionados([])} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #cbd5e1", background: "white", cursor: "pointer", fontSize: 12 }}>
@@ -1435,8 +1579,14 @@ export default function GestaoFrotasDashboard() {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.1fr 1.6fr auto", gap: 8 }}>
-              <select value={loteStatus} onChange={(e) => setLoteStatus(e.target.value)} style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}>
+            {!loadingCanEditDashboard && !canEditDashboard && (
+              <div style={{ marginBottom: 10, padding: "8px 10px", borderRadius: 8, background: "#fff7ed", border: "1px solid #fdba74", color: "#9a3412", fontSize: 12, fontWeight: 600 }}>
+                Modo leitura: edição de Equipe, Status e Valor liberada somente para administradores com permissão em Roles Admin (seção Frota/Equipamentos).
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.3fr 1fr 1fr auto", gap: 8 }}>
+              <select value={loteStatus} onChange={(e) => setLoteStatus(e.target.value)} disabled={!canEditDashboard || loadingCanEditDashboard} style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12, opacity: (!canEditDashboard || loadingCanEditDashboard) ? 0.65 : 1 }}>
                 <option value="__manter__">Status: manter atual</option>
                 <option value="ativo">Status: Operacional</option>
                 <option value="em_manutencao">Status: Em manutenção</option>
@@ -1444,7 +1594,7 @@ export default function GestaoFrotasDashboard() {
                 <option value="inativo">Status: Inativo</option>
               </select>
 
-              <select value={loteEquipe} onChange={(e) => setLoteEquipe(e.target.value)} style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}>
+              <select value={loteEquipe} onChange={(e) => setLoteEquipe(e.target.value)} disabled={!canEditDashboard || loadingCanEditDashboard} style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12, opacity: (!canEditDashboard || loadingCanEditDashboard) ? 0.65 : 1 }}>
                 <option value="__manter__">Equipe: manter atual</option>
                 {equipesCadastro.map((eq) => (
                   <option key={eq} value={eq}>{eq}</option>
@@ -1454,23 +1604,48 @@ export default function GestaoFrotasDashboard() {
               <input
                 value={loteLocal}
                 onChange={(e) => setLoteLocal(e.target.value)}
+                disabled={!canEditDashboard || loadingCanEditDashboard}
                 placeholder="Local/obra destino (ex.: Ribeirão Preto - SP / OGS 9981)"
-                style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12 }}
+                style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12, opacity: (!canEditDashboard || loadingCanEditDashboard) ? 0.65 : 1 }}
+              />
+
+              <select
+                value={loteValorMode}
+                onChange={(e) => setLoteValorMode(e.target.value as "__manter__" | "__definir__" | "__zerar__")}
+                disabled={!canEditDashboard || loadingCanEditDashboard}
+                style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12, opacity: (!canEditDashboard || loadingCanEditDashboard) ? 0.65 : 1 }}
+              >
+                <option value="__manter__">Valor: manter atual</option>
+                <option value="__definir__">Valor: definir</option>
+                <option value="__zerar__">Valor: zerar</option>
+              </select>
+
+              <input
+                value={loteValorInput}
+                onChange={(e) => setLoteValorInput(e.target.value)}
+                disabled={!canEditDashboard || loadingCanEditDashboard || loteValorMode !== "__definir__"}
+                placeholder="Ex.: 1350,00"
+                style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12, opacity: (!canEditDashboard || loadingCanEditDashboard || loteValorMode !== "__definir__") ? 0.65 : 1 }}
               />
 
               <button
                 onClick={aplicarEdicaoLote}
-                disabled={salvandoLote || selecionados.length === 0}
+                disabled={
+                  salvandoLote ||
+                  selecionados.length === 0 ||
+                  !canEditDashboard ||
+                  loadingCanEditDashboard
+                }
                 style={{
                   height: 34,
                   borderRadius: 8,
                   border: "1px solid #0f172a",
-                  background: (salvandoLote || selecionados.length === 0) ? "#94a3b8" : "#0f172a",
+                  background: (salvandoLote || selecionados.length === 0 || !canEditDashboard || loadingCanEditDashboard) ? "#94a3b8" : "#0f172a",
                   color: "white",
                   padding: "0 12px",
                   fontSize: 12,
                   fontWeight: 700,
-                  cursor: (salvandoLote || selecionados.length === 0) ? "not-allowed" : "pointer",
+                  cursor: (salvandoLote || selecionados.length === 0 || !canEditDashboard || loadingCanEditDashboard) ? "not-allowed" : "pointer",
                 }}
               >
                 {salvandoLote ? "Aplicando..." : "Aplicar lote"}
