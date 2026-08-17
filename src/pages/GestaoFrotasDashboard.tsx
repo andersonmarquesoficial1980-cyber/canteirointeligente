@@ -1905,7 +1905,7 @@ export default function GestaoFrotasDashboard() {
           </div>
         )}
 
-        {workshopMode && (
+        {!presentationClean && workshopMode && (
           <div style={{ marginBottom: 12, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 12 }}>
             <p style={{ margin: "0 0 8px 0", fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
               Exportação e encaminhamento
