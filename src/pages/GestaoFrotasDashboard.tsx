@@ -1634,50 +1634,38 @@ export default function GestaoFrotasDashboard() {
               ))}
             </div>
 
-            <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ marginBottom: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: tvMode ? 14 : 12, color: "#64748b", fontWeight: 700 }}>Categoria:</span>
               <button
-                onClick={() => aplicarPresetApresentacao("diretoria")}
-                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: apresPreset === "diretoria" ? "#0f172a" : "#cbd5e1", background: apresPreset === "diretoria" ? "#0f172a" : "white", color: apresPreset === "diretoria" ? "white" : "#334155" }}
+                onClick={() => trocarModo("tipo")}
+                style={{ padding: tvMode ? "8px 14px" : "6px 12px", borderRadius: 18, fontSize: tvMode ? 14 : 12, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "tipo" ? "#0f172a" : "#cbd5e1", background: modoVis === "tipo" ? "#0f172a" : "white", color: modoVis === "tipo" ? "white" : "#334155" }}
               >
-                Preset Diretoria
+                Por Frota
               </button>
               <button
-                onClick={() => aplicarPresetApresentacao("operacional")}
-                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: apresPreset === "operacional" ? "#0369a1" : "#cbd5e1", background: apresPreset === "operacional" ? "#0369a1" : "white", color: apresPreset === "operacional" ? "white" : "#334155" }}
+                onClick={() => trocarModo("equipe")}
+                style={{ padding: tvMode ? "8px 14px" : "6px 12px", borderRadius: 18, fontSize: tvMode ? 14 : 12, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "equipe" ? "#0f172a" : "#cbd5e1", background: modoVis === "equipe" ? "#0f172a" : "white", color: modoVis === "equipe" ? "white" : "#334155" }}
               >
-                Preset Operacional
+                Por Equipe
               </button>
+            </div>
+
+            <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap", maxHeight: tvMode ? 112 : 98, overflowY: "auto", paddingRight: 4 }}>
               <button
-                onClick={() => aplicarPresetApresentacao("interestadual")}
-                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: apresPreset === "interestadual" ? "#7c3aed" : "#cbd5e1", background: apresPreset === "interestadual" ? "#7c3aed" : "white", color: apresPreset === "interestadual" ? "white" : "#334155" }}
+                onClick={() => { setChipSel("todos"); setSubChipSel("todos"); }}
+                style={{ padding: tvMode ? "8px 14px" : "6px 12px", borderRadius: 18, fontSize: tvMode ? 14 : 12, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === "todos" ? "#334155" : "#cbd5e1", background: chipSel === "todos" ? "#334155" : "white", color: chipSel === "todos" ? "white" : "#334155" }}
               >
-                Preset Transporte Interestadual
+                Todos
               </button>
-              <button
-                onClick={() => {
-                  const next = !apenasCriticos;
-                  setApenasCriticos(next);
-                  if (next) {
-                    setFiltroStatus("todos");
-                    setFiltroGeo("todos");
-                  }
-                }}
-                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 800, cursor: "pointer", border: "1.5px solid", borderColor: apenasCriticos ? "#7c3aed" : "#cbd5e1", background: apenasCriticos ? "#7c3aed" : "white", color: apenasCriticos ? "white" : "#334155" }}
-              >
-                Somente críticos ({criticosNoFiltro})
-              </button>
-              <button
-                onClick={gerarPautaReuniao}
-                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 800, cursor: "pointer", border: "1.5px solid #0f766e", background: "#0f766e", color: "white" }}
-              >
-                Gerar pauta da reunião
-              </button>
-              <button
-                onClick={gerarPautaEAbrirEmail}
-                style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 800, cursor: "pointer", border: "1.5px solid #1d4ed8", background: "#1d4ed8", color: "white" }}
-              >
-                Gerar pauta + abrir e-mail
-              </button>
+              {chips.map((c) => (
+                <button
+                  key={c.key}
+                  onClick={() => { setChipSel(c.key); setSubChipSel("todos"); }}
+                  style={{ padding: tvMode ? "8px 14px" : "6px 12px", borderRadius: 18, fontSize: tvMode ? 14 : 12, fontWeight: 600, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === c.key ? "#0f172a" : "#cbd5e1", background: chipSel === c.key ? "#0f172a" : "white", color: chipSel === c.key ? "white" : "#334155" }}
+                >
+                  {c.label} ({c.count})
+                </button>
+              ))}
             </div>
           </>
         )}
