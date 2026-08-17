@@ -590,6 +590,7 @@ export default function GestaoFrotasDashboard() {
   const [apenasCriticos, setApenasCriticos] = useState(false);
   const [ocultarPequenoPorteApres, setOcultarPequenoPorteApres] = useState(false);
   const [tiposOcultosApres, setTiposOcultosApres] = useState<string[]>([]);
+  const [showOcultacaoApresPanel, setShowOcultacaoApresPanel] = useState(false);
   const [prefsKeyApres, setPrefsKeyApres] = useState<string>("wf:frotas:apres:anon");
   const [prefsHydratedApres, setPrefsHydratedApres] = useState(false);
   const [zoom, setZoom]             = useState(1);
@@ -2293,10 +2294,63 @@ export default function GestaoFrotasDashboard() {
           <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 700, fontSize: 12, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
             Painel Executivo · {kpis.total} equip. · {formatBRL(kpis.custoMensal)}/mês
           </span>
-          <button onClick={() => setModoApres(false)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}>
-            <Minimize2 size={12} /> Sair
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button
+              onClick={() => setOcultarPequenoPorteApres((v) => !v)}
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: ocultarPequenoPorteApres ? "#7c3aed" : "rgba(255,255,255,0.12)", border: ocultarPequenoPorteApres ? "1px solid #a78bfa" : "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}
+            >
+              {ocultarPequenoPorteApres ? "Pequeno porte: oculto" : "Ocultar pequeno porte"}
+            </button>
+            <button
+              onClick={() => setShowOcultacaoApresPanel((v) => !v)}
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: showOcultacaoApresPanel ? "#0f766e" : "rgba(255,255,255,0.12)", border: showOcultacaoApresPanel ? "1px solid #2dd4bf" : "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}
+            >
+              Tipos ocultos ({tiposOcultosApres.length})
+            </button>
+            <button onClick={() => setModoApres(false)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}>
+              <Minimize2 size={12} /> Sair
+            </button>
+          </div>
         </header>
+
+        {showOcultacaoApresPanel && (
+          <div style={{ flexShrink: 0, background: "#0f172a", borderBottom: "1px solid rgba(255,255,255,0.12)", padding: "7px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#cbd5e1" }}>Ocultar/mostrar tipos nesta apresentação</span>
+              <button
+                onClick={() => { setTiposOcultosApres([]); setOcultarPequenoPorteApres(false); }}
+                style={{ padding: "3px 8px", borderRadius: 7, border: "1px solid #64748b", background: "transparent", color: "#e2e8f0", fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+              >
+                Limpar ocultações
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", maxHeight: 78, overflowY: "auto", paddingRight: 2 }}>
+              {tiposDisponiveisFiltro.map((tipoKey) => {
+                const oculto = tiposOcultosApres.includes(tipoKey);
+                return (
+                  <button
+                    key={tipoKey}
+                    onClick={() => toggleTipoOcultoApres(tipoKey)}
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: 11,
+                      border: "1px solid",
+                      borderColor: oculto ? "#ef4444" : "#64748b",
+                      background: oculto ? "#7f1d1d" : "transparent",
+                      color: "#f8fafc",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {oculto ? "🙈 " : "👁️ "}{getTipoLabelExecutivo(tipoKey)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── TOOLBAR ── */}
         <div style={{ height: TOOLBAR_H, flexShrink: 0, display: "none", alignItems: "center", gap: 4, paddingInline: 12, background: "#1e293b", borderBottom: "1px solid rgba(255,255,255,0.07)", zIndex: 9998, overflowX: "auto" }}>
