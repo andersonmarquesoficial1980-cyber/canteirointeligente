@@ -1994,7 +1994,7 @@ export default function GestaoFrotasDashboard() {
               Dashboard de Frotas — Reunião Semanal
             </span>
             <span style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {kpis.total} total · {kpis.manutencao} manutenção · {kpis.terceiros} terceiros · {formatBRL(kpis.custoMensal)}/mês
+              {kpis.total} equip. · {formatBRL(kpis.custoMensal)}/mês
             </span>
           </div>
           <button onClick={() => setModoApres(false)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, cursor: "pointer", color: "white", fontSize: 12, fontWeight: 700 }}>
