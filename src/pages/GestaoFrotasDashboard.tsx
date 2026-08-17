@@ -1568,9 +1568,11 @@ export default function GestaoFrotasDashboard() {
       <main style={{ flex: 1, padding: presentationClean ? (tvMode ? "8px 12px" : "8px 10px") : "16px 18px", background: "#f0f4f8", minHeight: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: presentationClean ? 6 : 10, flexWrap: "wrap", gap: 8 }}>
           <div>
-            <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: presentationClean ? (tvMode ? 20 : 18) : 18, color: "#0A0F2C", margin: 0 }}>
-              {presentationClean ? "Painel Executivo de Frotas" : (workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel)}
-            </h2>
+            {!presentationClean && (
+              <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 18, color: "#0A0F2C", margin: 0 }}>
+                {workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel}
+              </h2>
+            )}
             {!presentationClean && (
               <p style={{ fontSize: 12, color: "#64748b", marginTop: 1 }}>
                 {totalExibicao} equipamento{totalExibicao !== 1 ? "s" : ""}
