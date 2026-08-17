@@ -71,6 +71,12 @@ interface EquipamentoItem {
   id: string;
   rdo_id: string | null;
   frota: string | null;
+  centro_custo?: string | null;
+  marca?: string | null;
+  modelo_completo?: string | null;
+  serie?: string | null;
+  chassi?: string | null;
+  tipo_veiculo?: string | null;
   categoria: string | null;
   sub_tipo: string | null;
   tipo: string | null;
@@ -120,6 +126,16 @@ function sanitizeFilename(value: string) {
 function dataRdoParaArquivo(data: string | null, fallbackIndex: number) {
   if (!data) return `sem_data_${fallbackIndex + 1}`;
   return data;
+}
+
+function labelFrotaEquip(e: EquipamentoItem) {
+  return e.centro_custo || e.frota || "-";
+}
+
+function labelModeloEquip(e: EquipamentoItem) {
+  return [e.marca || e.tipo_veiculo, e.modelo_completo || e.nome || e.patrimonio]
+    .filter(Boolean)
+    .join(" ") || e.nome || e.patrimonio || "-";
 }
 
 function montarPessoas(efetivo: EfetivoItem[]) {
@@ -179,8 +195,8 @@ function buildCsvRdo(
   const equipamentos = equipByRdoId[rdo.id] || [];
   if (equipamentos.length > 0) {
     linhas.push([`EQUIPAMENTOS (${equipamentos.length})`]);
-    linhas.push(["Frota", "Equipamento", "Modelo/Placa", "Empresa"]);
-    equipamentos.forEach((e) => linhas.push([e.frota || "-", e.sub_tipo || e.tipo || e.categoria || "-", e.nome || e.patrimonio || "-", e.empresa_dona || "-"]));
+    linhas.push(["Frota/CC", "Equipamento", "Modelo", "Empresa"]);
+    equipamentos.forEach((e) => linhas.push([labelFrotaEquip(e), e.sub_tipo || e.tipo || e.categoria || "-", labelModeloEquip(e), e.empresa_dona || "-"]));
     linhas.push([]);
   }
 
@@ -276,8 +292,8 @@ function gerarPdfRdoBlob(
   if (equipamentos.length > 0) {
     autoTable(doc, {
       startY: y,
-      head: [["Frota", "Equipamento", "Modelo/Placa", "Empresa"]],
-      body: equipamentos.map((e) => [e.frota || "-", e.sub_tipo || e.tipo || e.categoria || "-", e.nome || e.patrimonio || "-", e.empresa_dona || "-"]),
+      head: [["Frota/CC", "Equipamento", "Modelo", "Empresa"]],
+      body: equipamentos.map((e) => [labelFrotaEquip(e), e.sub_tipo || e.tipo || e.categoria || "-", labelModeloEquip(e), e.empresa_dona || "-"]),
       theme: "grid",
       margin: { left: 14, right: 14 },
       headStyles: { fillColor: [55, 65, 81], textColor: [255, 255, 255], fontSize: 8 },
@@ -397,8 +413,8 @@ function exportarExcel(
     const equipamentos = equipByRdoId[rdo.id] || [];
     if (equipamentos.length > 0) {
       linhas.push([`EQUIPAMENTOS (${equipamentos.length})`]);
-      linhas.push(["Frota", "Equipamento", "Modelo/Placa", "Empresa"]);
-      equipamentos.forEach(e => linhas.push([e.frota || "-", e.sub_tipo || e.tipo || e.categoria || "-", e.nome || e.patrimonio || "-", e.empresa_dona || "-"]));
+      linhas.push(["Frota/CC", "Equipamento", "Modelo", "Empresa"]);
+      equipamentos.forEach(e => linhas.push([labelFrotaEquip(e), e.sub_tipo || e.tipo || e.categoria || "-", labelModeloEquip(e), e.empresa_dona || "-"]));
       linhas.push([]);
     }
 
@@ -563,10 +579,9 @@ function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<str
 
     // Equipamentos
     if (equipamentos.length > 0) {
-      html += `<h2>🚜 Equipamentos (${equipamentos.length})</h2>
-      <table><tr><th>Frota</th><th>Equipamento</th><th>Modelo/Placa</th><th>Empresa</th></tr>`;
+      html += `<h3>Equipamentos (${equipamentos.length})</h3><table><tr><th>Frota/CC</th><th>Equipamento</th><th>Modelo</th><th>Empresa</th></tr>`;
       equipamentos.forEach(e => {
-        html += `<tr><td>${e.frota || "-"}</td><td>${e.sub_tipo || e.tipo || e.categoria || "-"}</td><td>${e.nome || e.patrimonio || "-"}</td><td>${e.empresa_dona || "-"}</td></tr>`;
+        html += `<tr><td>${labelFrotaEquip(e)}</td><td>${e.sub_tipo || e.tipo || e.categoria || "-"}</td><td>${labelModeloEquip(e)}</td><td>${e.empresa_dona || "-"}</td></tr>`;
       });
       html += `</table>`;
     }
@@ -706,14 +721,31 @@ export default function RelatorioRdo() {
 
       // Enriquecer empresa_dona: buscar empresa_proprietaria da tabela equipamentos para frotas sem empresa salva
       const frotasSemEmpresa = [...new Set((equipRows || []).filter((e: any) => !e.empresa_dona && e.frota).map((e: any) => e.frota))];
-      let empresaMap: Record<string, string> = {};
+      let empresaMap: Record<string, {
+        empresa_proprietaria?: string | null;
+        centro_custo?: string | null;
+        marca?: string | null;
+        modelo_completo?: string | null;
+        serie?: string | null;
+        chassi?: string | null;
+        tipo_veiculo?: string | null;
+      }> = {};
       if (frotasSemEmpresa.length > 0) {
         const { data: eqData } = await (supabase as any)
           .from("equipamentos")
-          .select("frota,empresa_proprietaria")
+          .select("frota,empresa_proprietaria,centro_custo,marca,modelo_completo,serie,chassi,tipo_veiculo")
           .in("frota", frotasSemEmpresa);
         (eqData || []).forEach((eq: any) => {
-          if (eq.frota && eq.empresa_proprietaria) empresaMap[eq.frota] = eq.empresa_proprietaria;
+          if (!eq.frota) return;
+          empresaMap[eq.frota] = {
+            empresa_proprietaria: eq.empresa_proprietaria || null,
+            centro_custo: eq.centro_custo || null,
+            marca: eq.marca || null,
+            modelo_completo: eq.modelo_completo || null,
+            serie: eq.serie || null,
+            chassi: eq.chassi || null,
+            tipo_veiculo: eq.tipo_veiculo || null,
+          };
         });
       }
 
@@ -721,7 +753,17 @@ export default function RelatorioRdo() {
       (equipRows || []).forEach((item: any) => {
         if (!item.rdo_id) return;
         if (!equipGrupo[item.rdo_id]) equipGrupo[item.rdo_id] = [];
-        const enriched = { ...item, empresa_dona: item.empresa_dona || empresaMap[item.frota] || "" };
+        const ref = item.frota ? empresaMap[item.frota] : null;
+        const enriched = {
+          ...item,
+          empresa_dona: item.empresa_dona || ref?.empresa_proprietaria || "",
+          centro_custo: ref?.centro_custo || null,
+          marca: ref?.marca || ref?.tipo_veiculo || null,
+          modelo_completo: ref?.modelo_completo || null,
+          serie: ref?.serie || ref?.chassi || null,
+          chassi: ref?.chassi || null,
+          tipo_veiculo: ref?.tipo_veiculo || null,
+        };
         equipGrupo[item.rdo_id].push(enriched as EquipamentoItem);
       });
       setEquipByRdoId(equipGrupo);
@@ -1060,18 +1102,18 @@ export default function RelatorioRdo() {
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-border bg-muted/30">
-                                <th className="text-left py-1.5 px-2">Frota</th>
+                                <th className="text-left py-1.5 px-2">Frota/CC</th>
                                 <th className="text-left py-1.5 px-2">Equipamento</th>
-                                <th className="text-left py-1.5 px-2">Modelo/Placa</th>
+                                <th className="text-left py-1.5 px-2">Modelo</th>
                                 <th className="text-left py-1.5 px-2">Empresa</th>
                               </tr>
                             </thead>
                             <tbody>
                               {equipamentos.map(e => (
                                 <tr key={e.id} className="border-b border-border/60 last:border-0">
-                                  <td className="py-1.5 px-2 font-medium">{e.frota || "-"}</td>
+                                  <td className="py-1.5 px-2 font-medium">{labelFrotaEquip(e)}</td>
                                   <td className="py-1.5 px-2">{e.sub_tipo || e.tipo || e.categoria || "-"}</td>
-                                  <td className="py-1.5 px-2">{e.nome || e.patrimonio || "-"}</td>
+                                  <td className="py-1.5 px-2">{labelModeloEquip(e)}</td>
                                   <td className="py-1.5 px-2">{e.empresa_dona || "-"}</td>
                                 </tr>
                               ))}

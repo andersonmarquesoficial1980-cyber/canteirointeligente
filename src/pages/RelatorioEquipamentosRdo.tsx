@@ -22,6 +22,8 @@ interface ResultRow {
   contratante: string | null;
   local: string | null;
   frota: string;
+  frota_label: string;
+  equipamento_info: string | null;
   empresa: string | null;
 }
 
@@ -38,6 +40,12 @@ interface Encarregado {
 interface EquipamentoCadastro {
   frota: string;
   tipo: string;
+  centro_custo?: string | null;
+  marca?: string | null;
+  modelo_completo?: string | null;
+  serie?: string | null;
+  tipo_veiculo?: string | null;
+  chassi?: string | null;
 }
 
 function normTxt(v: string | null | undefined) {
@@ -106,7 +114,7 @@ function exportarExcel(filterType: FilterType, filterValue: string, dataIni: str
   linhas.push(["Localização de Equipamentos (RDO)"]);
   linhas.push([`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`]);
   linhas.push([]);
-  linhas.push(["Data", "Apontador", "Encarregado", "OGS", "Contratante", "Local", "Frota", "Empresa"]);
+  linhas.push(["Data", "Apontador", "Encarregado", "OGS", "Contratante", "Local", "Frota/CC", "Equipamento", "Empresa"]);
   
   rows.forEach(r => {
     linhas.push([
@@ -116,7 +124,8 @@ function exportarExcel(filterType: FilterType, filterValue: string, dataIni: str
       r.ogs || "-",
       r.contratante || "-",
       r.local || "-",
-      r.frota || "-",
+      r.frota_label || r.frota || "-",
+      r.equipamento_info || "-",
       r.empresa || "-",
     ]);
   });
@@ -148,7 +157,7 @@ function exportarPdf(filterType: FilterType, filterValue: string, dataIni: strin
   <p class="meta"><strong>Filtro:</strong> ${filterType.toUpperCase()} = ${filterValue}</p>
   <p class="meta"><strong>Total de Registros:</strong> ${rows.length}</p>
   <table>
-    <tr><th>Data</th><th>Apontador</th><th>Encarregado</th><th>OGS</th><th>Contratante</th><th>Local</th><th>Frota</th><th>Empresa</th></tr>`;
+    <tr><th>Data</th><th>Apontador</th><th>Encarregado</th><th>OGS</th><th>Contratante</th><th>Local</th><th>Frota/CC</th><th>Equipamento</th><th>Empresa</th></tr>`;
   
   rows.forEach(r => {
     html += `<tr>
@@ -158,7 +167,8 @@ function exportarPdf(filterType: FilterType, filterValue: string, dataIni: strin
       <td>${r.ogs || "-"}</td>
       <td>${r.contratante || "-"}</td>
       <td>${r.local || "-"}</td>
-      <td>${r.frota || "-"}</td>
+      <td>${r.frota_label || r.frota || "-"}</td>
+      <td>${r.equipamento_info || "-"}</td>
       <td>${r.empresa || "-"}</td>
     </tr>`;
   });
@@ -205,7 +215,7 @@ export default function RelatorioEquipamentosRdo() {
       try {
         const { data, error } = await (supabase as any)
           .from("equipamentos")
-          .select("frota,tipo")
+          .select("frota,tipo,centro_custo,marca,modelo_completo,serie,tipo_veiculo,chassi")
           .eq("company_id", profile.company_id)
           .not("tipo", "is", null)
           .not("frota", "is", null)
@@ -404,13 +414,20 @@ export default function RelatorioEquipamentosRdo() {
 
       // Mapa de equipamentos por frota para buscar empresa
       const frotaNames = Array.from(new Set((equips || []).map((e: any) => e.frota).filter(Boolean)));
-      let frotaEmpresaMap: Record<string, { empresa: string | null; condicao: string | null }> = {};
+      let frotaEmpresaMap: Record<string, {
+        empresa: string | null;
+        condicao: string | null;
+        centro_custo: string | null;
+        marca: string | null;
+        modelo_completo: string | null;
+        serie: string | null;
+      }> = {};
       
       if (frotaNames.length > 0) {
         // PASSO 2B: Buscar empresa_proprietaria e condicao de equipamentos por frota
         const { data: maquinas, error: maqErr } = await (supabase as any)
           .from("equipamentos")
-          .select("frota, empresa_proprietaria, condicao")
+          .select("frota, empresa_proprietaria, condicao, centro_custo, marca, modelo_completo, serie, tipo_veiculo, chassi")
           .in("frota", frotaNames);
         
         if (maqErr) {
@@ -421,6 +438,10 @@ export default function RelatorioEquipamentosRdo() {
               frotaEmpresaMap[m.frota] = {
                 empresa: m.empresa_proprietaria || null,
                 condicao: m.condicao || null,
+                centro_custo: m.centro_custo || null,
+                marca: m.marca || m.tipo_veiculo || null,
+                modelo_completo: m.modelo_completo || null,
+                serie: m.serie || m.chassi || null,
               };
             }
           });
@@ -497,6 +518,10 @@ export default function RelatorioEquipamentosRdo() {
           const empresa = e.empresa_dona ||
             (frotaInfo?.empresa ? frotaInfo.empresa : null) ||
             (frotaInfo?.condicao?.toUpperCase() === "PROPRIO" ? "PRÓPRIO" : null);
+          const frotaLabel = frotaInfo?.centro_custo || e.frota || "";
+          const equipamentoInfo = [frotaInfo?.marca, frotaInfo?.modelo_completo]
+            .filter(Boolean)
+            .join(" ") || null;
           
           console.log(`[DEBUG EQUIP] frota=${e.frota}, empresa_dona=${e.empresa_dona}, empresa_final=${empresa}`);
           
@@ -508,6 +533,8 @@ export default function RelatorioEquipamentosRdo() {
             contratante: ogsRef?.client_name || null,
             local: ogsRef?.location_address || null,
             frota: e.frota || "",
+            frota_label: frotaLabel,
+            equipamento_info: equipamentoInfo,
             empresa,
           };
         }).filter((row: any) => row !== null);
@@ -527,6 +554,8 @@ export default function RelatorioEquipamentosRdo() {
             contratante: ogsRef?.client_name || null,
             local: ogsRef?.location_address || null,
             frota: "",
+            frota_label: "",
+            equipamento_info: null,
             empresa: null,
           };
         });
@@ -863,7 +892,10 @@ export default function RelatorioEquipamentosRdo() {
                         Local
                       </th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                        Frota
+                        Frota / CC
+                      </th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                        Equipamento
                       </th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         Empresa
@@ -895,7 +927,10 @@ export default function RelatorioEquipamentosRdo() {
                           {r.local || "-"}
                         </td>
                         <td className="px-3 py-2 font-bold whitespace-nowrap">
-                          {r.frota || "-"}
+                          {r.frota_label || r.frota || "-"}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                          {r.equipamento_info || "-"}
                         </td>
                         <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                           {r.empresa || "-"}
