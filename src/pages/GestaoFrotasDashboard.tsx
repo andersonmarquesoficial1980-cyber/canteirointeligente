@@ -608,6 +608,7 @@ export default function GestaoFrotasDashboard() {
   const [apresPreset, setApresPreset] = useState<"diretoria" | "operacional" | "interestadual">("diretoria");
   const [apenasCriticos, setApenasCriticos] = useState(false);
   const [ocultarPequenoPorteApres, setOcultarPequenoPorteApres] = useState(false);
+  const [ocultarDevolvidosApres, setOcultarDevolvidosApres] = useState(false);
   const [tiposOcultosApres, setTiposOcultosApres] = useState<string[]>([]);
   const [showOcultacaoApresPanel, setShowOcultacaoApresPanel] = useState(false);
   const [prefsKeyApres, setPrefsKeyApres] = useState<string>("wf:frotas:apres:anon");
@@ -811,11 +812,16 @@ export default function GestaoFrotasDashboard() {
       if (raw) {
         const parsed = JSON.parse(raw) as {
           ocultarPequenoPorteApres?: boolean;
+          ocultarDevolvidosApres?: boolean;
           tiposOcultosApres?: string[];
         };
 
         if (typeof parsed?.ocultarPequenoPorteApres === "boolean") {
           setOcultarPequenoPorteApres(parsed.ocultarPequenoPorteApres);
+        }
+
+        if (typeof parsed?.ocultarDevolvidosApres === "boolean") {
+          setOcultarDevolvidosApres(parsed.ocultarDevolvidosApres);
         }
 
         if (Array.isArray(parsed?.tiposOcultosApres)) {
@@ -834,12 +840,12 @@ export default function GestaoFrotasDashboard() {
     try {
       localStorage.setItem(
         prefsKeyApres,
-        JSON.stringify({ ocultarPequenoPorteApres, tiposOcultosApres }),
+        JSON.stringify({ ocultarPequenoPorteApres, ocultarDevolvidosApres, tiposOcultosApres }),
       );
     } catch {
       // noop
     }
-  }, [prefsKeyApres, prefsHydratedApres, ocultarPequenoPorteApres, tiposOcultosApres]);
+  }, [prefsKeyApres, prefsHydratedApres, ocultarPequenoPorteApres, ocultarDevolvidosApres, tiposOcultosApres]);
 
   // Delete key para remover selecionado
   useEffect(() => {
@@ -1795,6 +1801,7 @@ export default function GestaoFrotasDashboard() {
           const tipoKey = getTipoKeyApresentacao(e);
           if (tiposOcultosApres.includes(tipoKey)) return false;
           if (ocultarPequenoPorteApres && isPequenoPorteEquip(e)) return false;
+          if (ocultarDevolvidosApres && getStatusNorm(e) === "devolvido") return false;
           return true;
         })
       : listaBase;
@@ -1878,7 +1885,7 @@ export default function GestaoFrotasDashboard() {
                 Ocultação para Apresentação
               </p>
               <span style={{ fontSize: 11, color: "#64748b" }}>
-                {tiposOcultosApres.length} tipo(s) oculto(s) {ocultarPequenoPorteApres ? "· pequeno porte ON" : ""}
+                {tiposOcultosApres.length} tipo(s) oculto(s) {ocultarPequenoPorteApres ? "· pequeno porte ON" : ""} {ocultarDevolvidosApres ? "· devolvidos ON" : ""}
               </span>
             </div>
 
@@ -1901,7 +1908,24 @@ export default function GestaoFrotasDashboard() {
               </button>
 
               <button
-                onClick={() => { setTiposOcultosApres([]); setOcultarPequenoPorteApres(false); }}
+                onClick={() => setOcultarDevolvidosApres((v) => !v)}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: 14,
+                  border: "1.5px solid",
+                  borderColor: ocultarDevolvidosApres ? "#0284c7" : "#cbd5e1",
+                  background: ocultarDevolvidosApres ? "#0284c7" : "white",
+                  color: ocultarDevolvidosApres ? "white" : "#334155",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {ocultarDevolvidosApres ? "Ocultar devolvidos: ON" : "Ocultar devolvidos"}
+              </button>
+
+              <button
+                onClick={() => { setTiposOcultosApres([]); setOcultarPequenoPorteApres(false); setOcultarDevolvidosApres(false); }}
                 style={{
                   padding: "5px 10px",
                   borderRadius: 14,
@@ -2355,6 +2379,12 @@ export default function GestaoFrotasDashboard() {
               {ocultarPequenoPorteApres ? "Pequeno porte: oculto" : "Ocultar pequeno porte"}
             </button>
             <button
+              onClick={() => setOcultarDevolvidosApres((v) => !v)}
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: ocultarDevolvidosApres ? "#0284c7" : "rgba(255,255,255,0.12)", border: ocultarDevolvidosApres ? "1px solid #38bdf8" : "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}
+            >
+              {ocultarDevolvidosApres ? "Devolvidos: oculto" : "Ocultar devolvidos"}
+            </button>
+            <button
               onClick={() => setShowOcultacaoApresPanel((v) => !v)}
               style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: showOcultacaoApresPanel ? "#0f766e" : "rgba(255,255,255,0.12)", border: showOcultacaoApresPanel ? "1px solid #2dd4bf" : "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}
             >
@@ -2371,7 +2401,7 @@ export default function GestaoFrotasDashboard() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#cbd5e1" }}>Ocultar/mostrar tipos nesta apresentação</span>
               <button
-                onClick={() => { setTiposOcultosApres([]); setOcultarPequenoPorteApres(false); }}
+                onClick={() => { setTiposOcultosApres([]); setOcultarPequenoPorteApres(false); setOcultarDevolvidosApres(false); }}
                 style={{ padding: "3px 8px", borderRadius: 7, border: "1px solid #64748b", background: "transparent", color: "#e2e8f0", fontSize: 10, fontWeight: 700, cursor: "pointer" }}
               >
                 Limpar ocultações
