@@ -1175,10 +1175,12 @@ export default function GestaoFrotasDashboard() {
     const set = new Set<string>();
     listaFiltrada.forEach((e) => {
       const k = getTipoKeyApresentacao(e);
-      if (k) set.add(k);
+      if (!k) return;
+      if (ocultarPequenoPorteApres && isPequenoPorteTipo(k)) return;
+      set.add(k);
     });
     return [...set].sort((a, b) => getTipoLabelExecutivo(a).localeCompare(getTipoLabelExecutivo(b), "pt-BR"));
-  }, [listaFiltrada]);
+  }, [listaFiltrada, ocultarPequenoPorteApres]);
 
   function toggleTipoOcultoApres(tipoKey: string) {
     setTiposOcultosApres((prev) => (prev.includes(tipoKey) ? prev.filter((t) => t !== tipoKey) : [...prev, tipoKey]));
