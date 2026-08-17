@@ -939,48 +939,36 @@ export default function GestaoFrotasDashboard() {
 
     setSalvandoLote(true);
     try {
-      let ok = 0;
-      let fail = 0;
+      const { data, error } = await (supabase as any).rpc("update_equipamentos_dashboard_lote", {
+        p_ids: selecionados,
+        p_status: atualizarStatus ? loteStatus : null,
+        p_setor: atualizarEquipe ? loteEquipe : null,
+        p_local_atual: atualizarLocal ? loteLocal.trim() : null,
+        p_valor_mode:
+          loteValorMode === "__definir__"
+            ? "definir"
+            : loteValorMode === "__zerar__"
+              ? "zerar"
+              : "manter",
+        p_valor_mensal: loteValorMode === "__definir__" ? valorMensalParsed : null,
+      });
 
-      for (const id of selecionados) {
-        const atual = todos.find((e) => e.id === id);
-        if (!atual) continue;
+      if (error) throw error;
 
-        const payload: Record<string, any> = {
-          updated_at: new Date().toISOString(),
-        };
-
-        if (atualizarStatus) payload.status = loteStatus;
-        if (atualizarEquipe) payload.setor = loteEquipe;
-        if (loteValorMode === "__zerar__") payload.valor_mensal = 0;
-        if (loteValorMode === "__definir__") payload.valor_mensal = valorMensalParsed;
-
-        if (atualizarLocal) {
-          if ("local" in atual) payload.local = loteLocal.trim();
-          else if ("obra_nome" in atual) payload.obra_nome = loteLocal.trim();
-          else {
-            const obsAtual = (atual.observacoes || "").trim();
-            payload.observacoes = [obsAtual, `Local workshop: ${loteLocal.trim()}`].filter(Boolean).join(" | ");
-          }
-        }
-
-        const { error } = await (supabase as any)
-          .from("equipamentos")
-          .update(payload)
-          .eq("id", id);
-
-        if (error) fail += 1;
-        else ok += 1;
-      }
+      const row = Array.isArray(data) && data.length ? data[0] : null;
+      const ok = Number(row?.updated_count || 0);
+      const fail = Number(row?.denied_count || 0);
 
       await carregarDadosBase();
       setSelecionados([]);
 
       if (fail > 0) {
-        alert(`Lote finalizado com pendências: ${ok} sucesso(s) e ${fail} falha(s).`);
+        alert(`Lote finalizado com pendências: ${ok} sucesso(s) e ${fail} bloqueado(s).`);
       } else {
         alert(`Lote aplicado com sucesso em ${ok} equipamento(s).`);
       }
+    } catch (err: any) {
+      alert(`Falha ao aplicar lote: ${err?.message || "erro desconhecido"}`);
     } finally {
       setSalvandoLote(false);
     }
