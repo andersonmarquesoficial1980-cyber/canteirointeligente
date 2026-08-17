@@ -22,7 +22,11 @@ interface Props {
 interface Maquina {
   id: string;
   frota: string;
+  centro_custo?: string | null;
   tipo: string | null;
+  marca?: string | null;
+  modelo_completo?: string | null;
+  tipo_veiculo?: string | null;
   status: string;
   nome: string;
 }
@@ -54,6 +58,16 @@ function normalizeStatus(status?: string | null) {
 function isMaquinaAtiva(status?: string | null) {
   const s = normalizeStatus(status);
   return s === "ativo" || s === "operando";
+}
+
+function labelFrota(m: Maquina) {
+  return m.centro_custo || m.frota || "-";
+}
+
+function labelModelo(m: Maquina) {
+  return [m.marca || m.tipo_veiculo, m.modelo_completo || m.nome]
+    .filter(Boolean)
+    .join(" ") || m.nome || m.tipo || "-";
 }
 
 function blankMaterialItem(): MaterialItem {
@@ -156,7 +170,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
         user?.id
           ? supabase.from("profiles").select("nome_completo, perfil, company_id").eq("user_id", user.id).maybeSingle()
           : Promise.resolve({ data: null, error: null } as any),
-        (supabase as any).from("equipamentos").select("id, frota, tipo, status, nome").order("tipo").order("frota"),
+        (supabase as any).from("equipamentos").select("id, frota, centro_custo, tipo, marca, modelo_completo, tipo_veiculo, status, nome").order("tipo").order("frota"),
         (supabase as any).from("employees").select("id, name, role, status").eq("status","ativo").order("name"),
         // Busca usuários do Workflux para delegar tarefas
         supabase.from("profiles").select("id, user_id, nome_completo, perfil").neq("status", "inativo").order("nome_completo"),
@@ -260,7 +274,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
       .map((id) => getMaquinaById(id))
       .filter(Boolean) as Maquina[];
     const horarioFinal = horarioTransporte === "Horário específico..." ? horarioLivre.trim() : horarioTransporte;
-    const equipamentosTexto = equipamentosSelecionados.map((m) => `• ${m.frota} — ${m.nome || m.tipo || "-"}`).join("\n");
+    const equipamentosTexto = equipamentosSelecionados.map((m) => `• ${labelFrota(m)} — ${labelModelo(m)}`).join("\n");
 
     let msg = "🚛 *DEMANDA DE TRANSPORTE — Workflux*\n\n";
     msg += `👷 *Solicitante:* ${solicitanteNome.trim() || userNome}\n`;
@@ -322,7 +336,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
       return;
     }
 
-    const equipamentosTexto = equipamentosSelecionados.map((m) => `${m.frota} (${m.tipo || "-"})`).join(", ");
+    const equipamentosTexto = equipamentosSelecionados.map((m) => `${labelFrota(m)} (${m.tipo || "-"})`).join(", ");
     const descricaoLegada = [
       "Viagem",
       `Origem: ${origem.trim()}`,
@@ -644,7 +658,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
                                   checked={transporteEquipamentos.includes(m.id)}
                                   onChange={() => toggleEquipamentoTransporte(m.id)}
                                 />
-                                <span>{m.frota} - {m.nome}</span>
+                                <span>{labelFrota(m)} - {labelModelo(m)}</span>
                               </label>
                             ))}
                           </div>

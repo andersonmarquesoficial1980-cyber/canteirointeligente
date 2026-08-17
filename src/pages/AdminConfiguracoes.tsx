@@ -910,7 +910,7 @@ function MaquinasManager() {
             ) : (
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5 flex-1 min-w-0 pr-2">
-                  <p className="font-medium text-sm text-foreground">{m.frota} — {m.tipo} ({m.modelo_completo || m.nome})</p>
+                  <p className="font-medium text-sm text-foreground">{m.centro_custo || m.frota} — {m.tipo} ({[m.marca || m.tipo_veiculo, m.modelo_completo || m.nome].filter(Boolean).join(" ") || m.modelo_completo || m.nome})</p>
                   <p className="text-xs text-muted-foreground">{[m.placa, m.marca || m.tipo_veiculo, m.ano, m.serie || m.chassi].filter(Boolean).join(" • ") || "Sem placa/marca/ano/série"}</p>
                   <div className="flex flex-wrap gap-1">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${m.condicao === 'TERCEIRO' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{m.condicao === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}</span>
