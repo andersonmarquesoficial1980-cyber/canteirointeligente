@@ -60,14 +60,17 @@ function parseValorMensal(v: string): number | null {
   return Number(num.toFixed(2));
 }
 
-function getStatusNorm(e: Equip): "operacional" | "manutencao" | "inativo" | "disposicao" {
+function getStatusNorm(e: Equip): "operacional" | "manutencao" | "inoperante" | "devolver" | "devolvido" | "diaria" | "disposicao" {
   const s = (e.status || "").toLowerCase().replace(/[_\s]/g, "");
   const setor = (e.setor || "").toLowerCase();
 
   // Prioridade: status explícito salvo no banco
   if (s.includes("manut")) return "manutencao";
+  if (s.includes("inoperante") || s.includes("inativo")) return "inoperante";
+  if (s.includes("devolvido")) return "devolvido";
+  if (s.includes("devolver")) return "devolver";
+  if (s.includes("diaria")) return "diaria";
   if (s.includes("disposicao")) return "disposicao";
-  if (s.includes("inativo") || s.includes("inoperante")) return "inativo";
   if (s.includes("ativo") || s.includes("operacional")) return "operacional";
 
   // Fallback legado por setor
@@ -128,7 +131,10 @@ function getTipoLabelExecutivo(tipoRaw: string) {
 const STATUS_BADGE: Record<string, { bg: string; cor: string; label: string; dot: string }> = {
   operacional: { bg: "#dcfce7", cor: "#166534", label: "Operacional", dot: "#16a34a" },
   manutencao:  { bg: "#fef3c7", cor: "#92400e", label: "Manutenção",  dot: "#f59e0b" },
-  inativo:     { bg: "#fee2e2", cor: "#991b1b", label: "Inativo",     dot: "#ef4444" },
+  inoperante:  { bg: "#fee2e2", cor: "#991b1b", label: "Inoperante",  dot: "#ef4444" },
+  devolver:    { bg: "#ffedd5", cor: "#9a3412", label: "Devolver",    dot: "#f97316" },
+  devolvido:   { bg: "#e0f2fe", cor: "#075985", label: "Devolvido",   dot: "#0ea5e9" },
+  diaria:      { bg: "#ede9fe", cor: "#5b21b6", label: "Diária",      dot: "#8b5cf6" },
   disposicao:  { bg: "#f1f5f9", cor: "#475569", label: "Disposição",  dot: "#94a3b8" },
 };
 
@@ -258,15 +264,17 @@ function TabelaEquipamentos({
   onToggleAllFiltered: () => void;
   canEditDashboard: boolean;
   equipesCadastro: string[];
-  onInlineUpdate: (id: string, changes: { status?: string; setor?: string; valor_mensal?: number }) => Promise<boolean>;
+  onInlineUpdate: (id: string, changes: { status?: string; setor?: string; valor_mensal?: number; observacoes?: string }) => Promise<boolean>;
   inlineSavingId: string | null;
   inlineSavedId: string | null;
 }) {
   const [editingEquipeId, setEditingEquipeId] = useState<string | null>(null);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [editingObsId, setEditingObsId] = useState<string | null>(null);
   const [editingValorId, setEditingValorId] = useState<string | null>(null);
   const [draftEquipe, setDraftEquipe] = useState<string>("");
   const [draftStatus, setDraftStatus] = useState<string>("ativo");
+  const [draftObs, setDraftObs] = useState<string>("");
   const [draftValor, setDraftValor] = useState<string>("");
 
   const sorted = useMemo(() => [...items].sort((a, b) => {
@@ -278,11 +286,11 @@ function TabelaEquipamentos({
 
   if (!items.length) return <div style={{ textAlign: "center", padding: "60px 0", color: "#9ca3af", fontSize: 15 }}>Nenhum equipamento encontrado.</div>;
 
-  const colBase = presentationMode ? "210px 240px 320px 180px 150px 130px 150px" : "160px 170px 210px 130px 110px 100px 110px";
+  const colBase = presentationMode ? "210px 220px 260px 150px 150px 260px 120px 140px" : "160px 160px 190px 120px 110px 200px 100px 110px";
   const cols = workshopMode ? `40px ${colBase}` : colBase;
   const allSelected = sorted.length > 0 && sorted.every((e) => selectedIds.includes(e.id));
 
-  const podeEditarInline = canEditDashboard && !presentationMode;
+  const podeEditarInline = canEditDashboard;
 
   async function salvarValor(id: string) {
     const parsed = parseValorMensal(draftValor);
@@ -302,7 +310,7 @@ function TabelaEquipamentos({
             <input type="checkbox" checked={allSelected} onChange={onToggleAllFiltered} />
           </span>
         )}
-        {["Frota", "Tipo", "Equipe", "Empresa", "Status", "Situação", "Valor/mês"].map((h, idx) => {
+        {["Frota", "Tipo", "Equipe", "Empresa", "Status", "Observação", "Situação", "Valor/mês"].map((h, idx) => {
           const stickyFrota = presentationMode && idx === 0;
           const stickyStatus = false;
           return (
@@ -401,8 +409,12 @@ function TabelaEquipamentos({
                 >
                   <option value="ativo">Operacional</option>
                   <option value="em_manutencao">Manutenção</option>
+                  <option value="inoperante">Inoperante</option>
+                  <option value="devolver">Devolver</option>
+                  <option value="devolvido">Devolvido</option>
+                  <option value="diaria">Diária</option>
                   <option value="disposicao">Disposição</option>
-                  <option value="inativo">Inativo</option>
+                  <option value="inativo">Inativo (legado)</option>
                 </select>
               ) : (
                 <button
@@ -424,6 +436,45 @@ function TabelaEquipamentos({
               {foraSp && !isManut && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#6d28d9", marginTop: 2, fontWeight: 700 }}>📍 Fora de SP</p>}
               {isManut && e.motivo_manutencao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#92400e", marginTop: 3 }}>⚠️ {e.motivo_manutencao}</p>}
               {isManut && e.previsao_liberacao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#1d4ed8", marginTop: 1 }}>📅 {fmtDate(e.previsao_liberacao)}</p>}
+            </div>
+            <div style={{ alignSelf: "center" }}>
+              {podeEditarInline && editingObsId === e.id ? (
+                <input
+                  value={draftObs}
+                  onChange={(ev) => setDraftObs(ev.target.value)}
+                  onKeyDown={async (ev) => {
+                    if (ev.key === "Enter") {
+                      const ok = await onInlineUpdate(e.id, { observacoes: draftObs });
+                      if (ok) setEditingObsId(null);
+                    }
+                    if (ev.key === "Escape") {
+                      setEditingObsId(null);
+                    }
+                  }}
+                  onBlur={async () => {
+                    if (inlineSavingId === e.id) return;
+                    const ok = await onInlineUpdate(e.id, { observacoes: draftObs });
+                    if (ok) setEditingObsId(null);
+                  }}
+                  placeholder="Observação"
+                  disabled={inlineSavingId === e.id}
+                  style={{ width: "100%", height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12 }}
+                />
+              ) : (
+                <button
+                  onClick={() => {
+                    if (!podeEditarInline) return;
+                    setEditingObsId(e.id);
+                    setDraftObs(e.observacoes || "");
+                  }}
+                  disabled={!podeEditarInline || inlineSavingId === e.id}
+                  style={{ border: "none", background: "transparent", padding: 0, cursor: podeEditarInline ? "pointer" : "default", width: "100%", textAlign: "left" }}
+                >
+                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 11, color: (e.observacoes || "").trim() ? "#334155" : "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
+                    {(e.observacoes || "").trim() || "—"}
+                  </span>
+                </button>
+              )}
             </div>
             <span style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 11, fontWeight: 700, alignSelf: "center", color: terceiro ? "#1d4ed8" : "#166534", background: terceiro ? "#eff6ff" : "#f0fdf4", padding: presentationMode && presentationTvMode ? "3px 9px" : "2px 8px", borderRadius: 16, display: "inline-block", textAlign: "center" }}>{terceiro ? "Terceiro" : "Próprio"}</span>
             <div style={{ alignSelf: "center" }}>
@@ -1008,7 +1059,7 @@ export default function GestaoFrotasDashboard() {
       const b = busca.toLowerCase();
       lista = lista.filter(e => [
         e.centro_custo, e.frota, e.placa, e.tipo, e.nome, e.marca, e.setor, e.condutor_atual,
-        e.empresa_proprietaria, e.locadora, e.uf, e.estado, e.cidade, e.local, e.obra_nome,
+        e.empresa_proprietaria, e.locadora, e.uf, e.estado, e.cidade, e.local, e.obra_nome, e.observacoes,
       ].some(f => f?.toLowerCase().includes(b)));
     }
 
@@ -1139,7 +1190,7 @@ export default function GestaoFrotasDashboard() {
     }
   }
 
-  async function salvarEdicaoIndividual(id: string, changes: { status?: string; setor?: string; valor_mensal?: number }) {
+  async function salvarEdicaoIndividual(id: string, changes: { status?: string; setor?: string; valor_mensal?: number; observacoes?: string }) {
     if (!canEditDashboard) {
       alert("Você não tem permissão para editar equipamentos neste dashboard.");
       return false;
@@ -1147,21 +1198,32 @@ export default function GestaoFrotasDashboard() {
 
     setInlineSavingId(id);
     try {
-      const { data, error } = await (supabase as any).rpc("update_equipamentos_dashboard_lote", {
-        p_ids: [id],
-        p_status: typeof changes.status === "string" ? changes.status : null,
-        p_setor: typeof changes.setor === "string" ? changes.setor : null,
-        p_local_atual: null,
-        p_valor_mode: typeof changes.valor_mensal === "number" ? "definir" : "manter",
-        p_valor_mensal: typeof changes.valor_mensal === "number" ? changes.valor_mensal : null,
-      });
+      const alterandoObs = Object.prototype.hasOwnProperty.call(changes, "observacoes");
 
-      if (error) throw error;
-      const row = Array.isArray(data) && data.length ? data[0] : null;
-      const ok = Number(row?.updated_count || 0);
-      if (ok <= 0) {
-        alert("Edição bloqueada por permissão ou item não encontrado.");
-        return false;
+      if (alterandoObs) {
+        const { error } = await (supabase as any)
+          .from("equipamentos")
+          .update({ observacoes: (changes.observacoes || "").trim() || null, updated_at: new Date().toISOString() })
+          .eq("id", id);
+
+        if (error) throw error;
+      } else {
+        const { data, error } = await (supabase as any).rpc("update_equipamentos_dashboard_lote", {
+          p_ids: [id],
+          p_status: typeof changes.status === "string" ? changes.status : null,
+          p_setor: typeof changes.setor === "string" ? changes.setor : null,
+          p_local_atual: null,
+          p_valor_mode: typeof changes.valor_mensal === "number" ? "definir" : "manter",
+          p_valor_mensal: typeof changes.valor_mensal === "number" ? changes.valor_mensal : null,
+        });
+
+        if (error) throw error;
+        const row = Array.isArray(data) && data.length ? data[0] : null;
+        const ok = Number(row?.updated_count || 0);
+        if (ok <= 0) {
+          alert("Edição bloqueada por permissão ou item não encontrado.");
+          return false;
+        }
       }
 
       await carregarDadosBase();
@@ -1810,8 +1872,12 @@ export default function GestaoFrotasDashboard() {
                 <option value="__manter__">Status: manter atual</option>
                 <option value="ativo">Status: Operacional</option>
                 <option value="em_manutencao">Status: Em manutenção</option>
+                <option value="inoperante">Status: Inoperante</option>
+                <option value="devolver">Status: Devolver</option>
+                <option value="devolvido">Status: Devolvido</option>
+                <option value="diaria">Status: Diária</option>
                 <option value="disposicao">Status: Disposição</option>
-                <option value="inativo">Status: Inativo</option>
+                <option value="inativo">Status: Inativo (legado)</option>
               </select>
 
               <select value={loteEquipe} onChange={(e) => setLoteEquipe(e.target.value)} disabled={!canEditDashboard || loadingCanEditDashboard} style={{ height: 34, borderRadius: 8, border: "1px solid #cbd5e1", padding: "0 10px", fontSize: 12, opacity: (!canEditDashboard || loadingCanEditDashboard) ? 0.65 : 1 }}>

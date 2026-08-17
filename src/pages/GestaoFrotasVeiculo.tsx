@@ -30,13 +30,21 @@ function formatBRL(v: number) {
 const STATUS_OPTIONS = [
   { value: "ativo",          label: "✅ Operacional" },
   { value: "em_manutencao", label: "🔧 Em Manutenção" },
-  { value: "inativo",        label: "🚫 Inativo" },
+  { value: "inoperante",     label: "⛔ Inoperante" },
+  { value: "devolver",       label: "↩️ Devolver" },
+  { value: "devolvido",      label: "✅ Devolvido" },
+  { value: "diaria",         label: "🗓️ Diária" },
   { value: "disposicao",     label: "📦 Disposição" },
+  { value: "inativo",        label: "🚫 Inativo (legado)" },
 ];
 
 const STATUS_LABELS: Record<string, { label: string; bg: string; cor: string }> = {
   ativo:          { label: "Operacional",  bg: "#dcfce7", cor: "#166534" },
   em_manutencao:  { label: "Manutenção",   bg: "#fef3c7", cor: "#92400e" },
+  inoperante:     { label: "Inoperante",   bg: "#fee2e2", cor: "#991b1b" },
+  devolver:       { label: "Devolver",     bg: "#ffedd5", cor: "#9a3412" },
+  devolvido:      { label: "Devolvido",    bg: "#e0f2fe", cor: "#075985" },
+  diaria:         { label: "Diária",       bg: "#ede9fe", cor: "#5b21b6" },
   inativo:        { label: "Inativo",      bg: "#fee2e2", cor: "#991b1b" },
   disposicao:     { label: "Disposição",   bg: "#f1f5f9", cor: "#475569" },
 };
@@ -139,6 +147,7 @@ export default function GestaoFrotasVeiculo() {
       setor: veiculo.setor,
       condutor_atual: veiculo.condutor_atual,
       valor_mensal: veiculo.valor_mensal,
+      observacoes: veiculo.observacoes || null,
       motivo_manutencao: veiculo.motivo_manutencao,
       previsao_liberacao: veiculo.previsao_liberacao || null,
       updated_at: new Date().toISOString(),
@@ -322,6 +331,21 @@ export default function GestaoFrotasVeiculo() {
                   {statusAtual.label}
                 </span>
               </div>
+            )}
+          </div>
+
+          {/* Observação operacional */}
+          <div className="space-y-1.5">
+            <span className="rdo-label">Observação</span>
+            {editando ? (
+              <Input
+                value={veiculo.observacoes || ""}
+                onChange={e => setVeiculo((v: any) => ({ ...v, observacoes: e.target.value }))}
+                placeholder="Ex.: aguardando peça, pendência da obra, orientação da equipe..."
+                className="h-10 rounded-xl"
+              />
+            ) : (
+              <p className="text-sm font-medium text-muted-foreground">{veiculo.observacoes || "—"}</p>
             )}
           </div>
 
