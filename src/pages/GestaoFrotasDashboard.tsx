@@ -117,6 +117,7 @@ function getTipoLabelExecutivo(tipoRaw: string) {
     "CAVALO MECANICO": "Cavalo mecânico",
     "PRANCHA REBOQUE": "Prancha reboque",
     "MICROONIBUS": "Micro-ônibus",
+    "MICROÔNIBUS": "Micro-ônibus",
   };
   if (mapa[t]) return mapa[t];
   const n = (tipoRaw || "").trim().toLowerCase();
@@ -1036,7 +1037,7 @@ export default function GestaoFrotasDashboard() {
 
   const chipLabel = chipSel === "todos"
     ? (modoVis === "tipo" ? "Todos os Equipamentos" : "Todas as Equipes")
-    : subChipSel !== "todos" ? subChipSel.charAt(0) + subChipSel.slice(1).toLowerCase()
+    : subChipSel !== "todos" ? getTipoLabelExecutivo(subChipSel)
     : (chips.find(c => c.key === chipSel)?.label ?? chipSel);
 
   function trocarModo(m: "tipo" | "equipe") {
@@ -1555,8 +1556,7 @@ export default function GestaoFrotasDashboard() {
                 return (
                   <div style={{ paddingLeft: 10, marginBottom: 4 }}>
                     {subs.map(sub => {
-                      const lbl = sub.replace("CAMINHÃO ","").replace("CAMINHAO ","");
-                      return <SideChip key={sub} label={"↳ " + lbl.charAt(0) + lbl.slice(1).toLowerCase()} count={todos.filter(e => (e.tipo||"").toUpperCase() === sub.toUpperCase()).length} ativo={subChipSel === sub} manut={todos.filter(e => (e.tipo||"").toUpperCase() === sub.toUpperCase() && getStatusNorm(e) === "manutencao").length} onClick={() => setSubChipSel(sub)} />;
+                      return <SideChip key={sub} label={`↳ ${getTipoLabelExecutivo(sub)}`} count={todos.filter(e => (e.tipo||"").toUpperCase() === sub.toUpperCase()).length} ativo={subChipSel === sub} manut={todos.filter(e => (e.tipo||"").toUpperCase() === sub.toUpperCase() && getStatusNorm(e) === "manutencao").length} onClick={() => setSubChipSel(sub)} />;
                     })}
                   </div>
                 );
