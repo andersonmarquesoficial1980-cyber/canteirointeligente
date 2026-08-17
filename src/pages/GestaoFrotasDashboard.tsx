@@ -1991,7 +1991,7 @@ export default function GestaoFrotasDashboard() {
         <header style={{ height: HEADER_H, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, paddingInline: 14, background: "linear-gradient(135deg, #0A0F2C 0%, #0055AA 100%)", boxShadow: "0 2px 12px rgba(0,0,0,0.4)", zIndex: 9998 }}>
           <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 13, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              Dashboard de Frotas — Reunião Semanal
+              Painel Executivo
             </span>
             <span style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {kpis.total} equip. · {formatBRL(kpis.custoMensal)}/mês
