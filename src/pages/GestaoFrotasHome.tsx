@@ -112,6 +112,8 @@ export default function GestaoFrotasHome() {
   const [filtroAuditFrota, setFiltroAuditFrota] = useState<string>("");
   const [auditVisibleCount, setAuditVisibleCount] = useState<number>(AUDIT_PAGE_SIZE);
   const [mostrarHistoricoAuditoria, setMostrarHistoricoAuditoria] = useState(false);
+  const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(false);
+  const [mostrarBlocosAuxiliares, setMostrarBlocosAuxiliares] = useState(false);
 
   const [consumoRows, setConsumoRows] = useState<ConsumoRow[]>([]);
   const [consumoLoading, setConsumoLoading] = useState(false);
@@ -857,9 +859,74 @@ export default function GestaoFrotasHome() {
 
       {aba === "frotas" && (
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
-          <ProgramacoesDoDia />
+          <div className="rdo-card space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold">Busca rápida de equipamento</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => setMostrarFiltrosAvancados((prev) => !prev)}
+              >
+                {mostrarFiltrosAvancados ? "Ocultar filtros avançados" : "Mostrar filtros avançados"}
+              </Button>
+            </div>
 
-          {/* Dashboards auxiliares */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Digite frota, placa, modelo ou nome"
+                value={filtroFrota}
+                onChange={(e) => setFiltroFrota(e.target.value)}
+                className="pl-9 h-10 rounded-xl"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Select value={filtroCategoria} onValueChange={(valor) => {
+                setFiltroCategoria(valor);
+                setFiltroTipo("todos");
+                setFiltroSubtipo("todos");
+              }}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas as categorias</SelectItem>
+                  {categoriasComCount.map((cat) => (
+                    <SelectItem key={cat.key} value={cat.key}>{cat.label} ({cat.count})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={filtroEquipe} onValueChange={setFiltroEquipe}>
+                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as equipes</SelectItem>
+                  {equipesDisponiveis.map((eq) => (
+                    <SelectItem key={eq} value={eq}>{eq}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground"
+              onClick={() => setMostrarBlocosAuxiliares((prev) => !prev)}
+            >
+              {mostrarBlocosAuxiliares ? "Ocultar atalhos e auditoria" : "Mostrar atalhos e auditoria"}
+            </Button>
+          </div>
+
+          {mostrarBlocosAuxiliares && (
+            <>
+              <ProgramacoesDoDia />
+
+              {/* Dashboards auxiliares */}
           <button onClick={() => navigate("/gestao-frotas/dashboard")} className="w-full rdo-card border-l-4 border-l-blue-400 hover:shadow-md transition-all flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
               <BarChart3 className="w-5 h-5 text-blue-500" />
@@ -993,8 +1060,11 @@ export default function GestaoFrotasHome() {
               </div>
             )}
           </div>
+            </>
+          )}
 
-          <div className="rdo-card space-y-3">
+          {mostrarFiltrosAvancados && (
+            <div className="rdo-card space-y-3">
             <p className="text-xs text-muted-foreground font-semibold">Filtros rápidos (Tipo / Subtipo / Frota / Equipe)</p>
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1062,10 +1132,11 @@ export default function GestaoFrotasHome() {
               </Button>
             </div>
           </div>
+          )}
 
           <p className="text-xs text-muted-foreground px-1">{listaFiltrada.length} resultado{listaFiltrada.length !== 1 ? "s" : ""} — toque no card para abrir ficha completa</p>
 
-          {filtrosAtivos.length > 0 && (
+          {mostrarFiltrosAvancados && filtrosAtivos.length > 0 && (
             <div className="px-1 flex flex-wrap gap-1.5">
               {filtrosAtivos.map((chip) => (
                 <span key={chip} className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
@@ -1075,7 +1146,7 @@ export default function GestaoFrotasHome() {
             </div>
           )}
 
-          {contagemPorEquipe.length > 0 && (
+          {mostrarFiltrosAvancados && contagemPorEquipe.length > 0 && (
             <div className="px-1">
               <p className="text-[11px] text-muted-foreground mb-1">Contagem por equipe (resultado atual):</p>
               <div className="flex gap-1.5 overflow-x-auto pb-1">
