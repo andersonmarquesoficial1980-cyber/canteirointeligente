@@ -613,6 +613,7 @@ export default function GestaoFrotasDashboard() {
   const [showOcultacaoApresPanel, setShowOcultacaoApresPanel] = useState(false);
   const [prefsKeyApres, setPrefsKeyApres] = useState<string>("wf:frotas:apres:anon");
   const [prefsHydratedApres, setPrefsHydratedApres] = useState(false);
+  const [browserFullscreen, setBrowserFullscreen] = useState(false);
   const [zoom, setZoom]             = useState(1);
   const [ferramenta, setFerramenta] = useState<Ferramenta>("nav");
   const [cor, setCor]               = useState("#ef4444");
@@ -648,10 +649,57 @@ export default function GestaoFrotasDashboard() {
     toastTimerRef.current = setTimeout(() => setToastMsg(""), 2600);
   }
 
+  function isBrowserFullscreenActive() {
+    const d = document as any;
+    return Boolean(document.fullscreenElement || d.webkitFullscreenElement || d.msFullscreenElement);
+  }
+
+  async function enterBrowserFullscreen() {
+    if (isBrowserFullscreenActive()) return;
+    const el = document.documentElement as any;
+    try {
+      if (el.requestFullscreen) await el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+    } catch {
+      // noop
+    }
+  }
+
+  async function exitBrowserFullscreen() {
+    if (!isBrowserFullscreenActive()) return;
+    const d = document as any;
+    try {
+      if (document.exitFullscreen) await document.exitFullscreen();
+      else if (d.webkitExitFullscreen) await d.webkitExitFullscreen();
+      else if (d.msExitFullscreen) await d.msExitFullscreen();
+    } catch {
+      // noop
+    }
+  }
+
+  async function toggleBrowserFullscreen() {
+    if (isBrowserFullscreenActive()) await exitBrowserFullscreen();
+    else await enterBrowserFullscreen();
+  }
+
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       if (inlineSavedTimerRef.current) clearTimeout(inlineSavedTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setBrowserFullscreen(isBrowserFullscreenActive());
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    (document as any).addEventListener?.("webkitfullscreenchange", sync);
+    (document as any).addEventListener?.("msfullscreenchange", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      (document as any).removeEventListener?.("webkitfullscreenchange", sync);
+      (document as any).removeEventListener?.("msfullscreenchange", sync);
     };
   }, []);
 
@@ -2385,12 +2433,19 @@ export default function GestaoFrotasDashboard() {
               {ocultarDevolvidosApres ? "Devolvidos: oculto" : "Ocultar devolvidos"}
             </button>
             <button
+              onClick={() => toggleBrowserFullscreen()}
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: browserFullscreen ? "#0369a1" : "rgba(255,255,255,0.12)", border: browserFullscreen ? "1px solid #38bdf8" : "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}
+            >
+              {browserFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+              {browserFullscreen ? "Tela cheia: ON" : "Tela cheia"}
+            </button>
+            <button
               onClick={() => setShowOcultacaoApresPanel((v) => !v)}
               style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: showOcultacaoApresPanel ? "#0f766e" : "rgba(255,255,255,0.12)", border: showOcultacaoApresPanel ? "1px solid #2dd4bf" : "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}
             >
               Tipos ocultos ({tiposOcultosApres.length})
             </button>
-            <button onClick={() => setModoApres(false)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}>
+            <button onClick={() => { setModoApres(false); exitBrowserFullscreen(); }} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}>
               <Minimize2 size={12} /> Sair
             </button>
           </div>
@@ -2614,7 +2669,7 @@ export default function GestaoFrotasDashboard() {
             </div>
           </div>
         </div>
-        <button onClick={() => { setModoApres(true); setApresTvMode(true); aplicarPresetApresentacao("diretoria"); setWorkshopMode(false); setFerramenta("nav"); setZoom(1); setFormas([]); setSelectedId(null); setBusca(""); }}
+        <button onClick={() => { setModoApres(true); setApresTvMode(true); aplicarPresetApresentacao("diretoria"); setWorkshopMode(false); setFerramenta("nav"); setZoom(1); setFormas([]); setSelectedId(null); setBusca(""); enterBrowserFullscreen(); }}
           style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 18px", background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.3)", borderRadius: 9, cursor: "pointer", color: "white", fontSize: 13, fontWeight: 700, transition: "all 0.15s" }}>
           <Maximize2 size={14} /> Apresentação
         </button>
