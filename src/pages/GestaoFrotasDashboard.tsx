@@ -1835,7 +1835,7 @@ export default function GestaoFrotasDashboard() {
           </div>
         )}
 
-        {workshopMode && (
+        {!presentationClean && workshopMode && (
           <div style={{ marginBottom: 12, background: "#fff", border: "1px solid #dbeafe", borderRadius: 14, padding: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#1e3a8a" }}>
