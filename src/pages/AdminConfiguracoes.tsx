@@ -109,6 +109,30 @@ const CATEGORIA_EQUIP_UI_LABELS: Record<string, string> = {
   FRESAGEM: "FRESADORA",
 };
 
+const STATUS_PAINEL_OPTIONS = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE", "DEVOLVER", "DEVOLVIDO", "RESERVA"] as const;
+type StatusPainel = (typeof STATUS_PAINEL_OPTIONS)[number];
+
+const STATUS_PAINEL_TO_DB: Record<StatusPainel, string> = {
+  OPERACIONAL: "ativo",
+  "MANUTENÇÃO": "em_manutencao",
+  INOPERANTE: "inativo",
+  DEVOLVER: "disposicao",
+  DEVOLVIDO: "inativo",
+  RESERVA: "disposicao",
+};
+
+function painelStatusToDb(statusPainel: string) {
+  return STATUS_PAINEL_TO_DB[(statusPainel as StatusPainel) || "OPERACIONAL"] || "ativo";
+}
+
+function dbStatusToPainel(statusDb?: string | null): StatusPainel {
+  const s = (statusDb || "").toLowerCase();
+  if (s === "em_manutencao" || s.includes("manut")) return "MANUTENÇÃO";
+  if (s === "inativo" || s.includes("inoperante")) return "INOPERANTE";
+  if (s === "disposicao" || s.includes("reserva") || s.includes("devolver") || s.includes("devolvido")) return "RESERVA";
+  return "OPERACIONAL";
+}
+
 function categoriaEquipLabel(categoria: string) {
   return CATEGORIA_EQUIP_UI_LABELS[categoria] || categoria;
 }
@@ -513,6 +537,7 @@ function MaquinasManager() {
   const [modelo, setModelo] = useState("");
   const [ano, setAno] = useState("");
   const [serie, setSerie] = useState("");
+  const [statusPainel, setStatusPainel] = useState<StatusPainel>("OPERACIONAL");
   const [companyId, setCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -534,6 +559,7 @@ function MaquinasManager() {
   const [editModelo, setEditModelo] = useState("");
   const [editAno, setEditAno] = useState("");
   const [editSerie, setEditSerie] = useState("");
+  const [editStatusPainel, setEditStatusPainel] = useState<StatusPainel>("OPERACIONAL");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategoria, setFilterCategoria] = useState("");
   const [filterTipoDetalhado, setFilterTipoDetalhado] = useState("");
@@ -600,7 +626,7 @@ function MaquinasManager() {
       empresa_proprietaria: empresa.trim() || null,
       vinculos,
       vinculo_rdo: vinculos[0],
-      status: "ativo",
+      status: painelStatusToDb(statusPainel),
       company_id: companyId,
     });
     if (ok) {
@@ -611,6 +637,7 @@ function MaquinasManager() {
       setModelo("");
       setAno("");
       setSerie("");
+      setStatusPainel("OPERACIONAL");
       setCategoria("");
       setCondicao("PROPRIO");
       setEmpresa("FREMIX");
@@ -627,6 +654,7 @@ function MaquinasManager() {
     setEditModelo(m.modelo_completo || m.nome || "");
     setEditAno(m.ano || "");
     setEditSerie(m.serie || m.chassi || m.patrimonio || "");
+    setEditStatusPainel(dbStatusToPainel(m.status));
     setEditCategoria(m.categoria_rdo || "");
     setEditCondicao(m.condicao || (m.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO'));
     setEditEmpresa(m.empresa_proprietaria || "");
@@ -656,6 +684,7 @@ function MaquinasManager() {
       empresa_proprietaria: editEmpresa.trim() || null,
       vinculos: editVinculos,
       vinculo_rdo: editVinculos[0],
+      status: painelStatusToDb(editStatusPainel),
     });
     if (ok) setEditingId(null);
   };
@@ -736,6 +765,17 @@ function MaquinasManager() {
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Ano</Label>
             <Input value={ano} onChange={e => setAno(e.target.value)} className="h-11 bg-secondary border-border" placeholder="2022" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Select value={statusPainel} onValueChange={(v) => setStatusPainel(v as StatusPainel)}>
+              <SelectTrigger className="h-11 bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STATUS_PAINEL_OPTIONS.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="space-y-1">
@@ -877,6 +917,17 @@ function MaquinasManager() {
                   <div className="space-y-1"><Label className="text-xs text-muted-foreground">Ano</Label><Input value={editAno} onChange={e => setEditAno(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
                   <div className="space-y-1"><Label className="text-xs text-muted-foreground">Série</Label><Input value={editSerie} onChange={e => setEditSerie(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
                   <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <Select value={editStatusPainel} onValueChange={(v) => setEditStatusPainel(v as StatusPainel)}>
+                      <SelectTrigger className="h-9 bg-secondary border-border text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {STATUS_PAINEL_OPTIONS.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Condição</Label>
                     <Select value={editCondicao} onValueChange={v => { setEditCondicao(v); if (v === "PROPRIO") setEditEmpresa("FREMIX"); }}>
                       <SelectTrigger className="h-9 bg-secondary border-border text-sm"><SelectValue /></SelectTrigger>
@@ -913,6 +964,7 @@ function MaquinasManager() {
                   <p className="font-medium text-sm text-foreground">{m.centro_custo || m.frota} — {m.tipo} ({[m.marca || m.tipo_veiculo, m.modelo_completo || m.nome].filter(Boolean).join(" ") || m.modelo_completo || m.nome})</p>
                   <p className="text-xs text-muted-foreground">{[m.placa, m.marca || m.tipo_veiculo, m.ano, m.serie || m.chassi].filter(Boolean).join(" • ") || "Sem placa/marca/ano/série"}</p>
                   <div className="flex flex-wrap gap-1">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold">{dbStatusToPainel(m.status)}</span>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${m.condicao === 'TERCEIRO' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{m.condicao === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}</span>
                     {m.empresa_proprietaria && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.empresa_proprietaria}</span>}
                     {(m.categoria_rdo || m.categoria) && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{categoriaEquipLabel(m.categoria_rdo || m.categoria)}</span>}
