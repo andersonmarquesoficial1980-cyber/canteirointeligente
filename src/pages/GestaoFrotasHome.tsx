@@ -67,6 +67,7 @@ type ConsumoRow = {
 
 type ConsumoSortBy = "frota" | "tipo" | "litros" | "lancamentos" | "ultimaData";
 type ConsumoSortDir = "asc" | "desc";
+type FiltroRapido = "todos" | "sem_equipe" | "terceiro" | "proprio" | "sem_placa";
 
 function carregarFiltrosIniciais(): FiltrosGF {
   const defaults: FiltrosGF = {
@@ -130,6 +131,7 @@ export default function GestaoFrotasHome() {
   const [filtroSubtipo, setFiltroSubtipo] = useState<string>(filtrosIniciais.subtipo);
   const [filtroEquipe, setFiltroEquipe] = useState<string>(filtrosIniciais.equipe);
   const [filtroFrota, setFiltroFrota] = useState<string>(filtrosIniciais.frota);
+  const [filtroRapido, setFiltroRapido] = useState<FiltroRapido>("todos");
   const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -401,6 +403,7 @@ export default function GestaoFrotasHome() {
     setFiltroSubtipo("todos");
     setFiltroEquipe("todas");
     setFiltroFrota("");
+    setFiltroRapido("todos");
   }
 
   async function alterarEquipeNoCard(veiculoId: string, novaEquipe: string) {
@@ -485,21 +488,42 @@ export default function GestaoFrotasHome() {
     }
   }
 
-  // Lista de equipamentos filtrada (tipo/subtipo/frota/equipe)
+  // Lista de equipamentos filtrada (tipo/subtipo/frota/equipe + filtros rápidos)
   const listaFiltrada = useMemo(() => {
     const filtrados = todos.filter((v) => {
       const tipo = (v.tipo || "").toUpperCase();
-      const frotaOuPlaca = `${v.frota || ""} ${v.placa || ""}`.toLowerCase();
       const equipe = (v.setor || "").trim();
       const meta = tipoMetaMap.get(tipo);
+      const condicaoNorm = (v.condicao || (v.categoria === "locado" ? "TERCEIRO" : "PROPRIO")).toUpperCase();
+      const placaLimpa = (v.placa || "").trim();
 
       if (filtroCategoria !== "todos" && meta?.categoria !== filtroCategoria) return false;
       if (filtroTipo !== "todos" && tipo !== filtroTipo.toUpperCase()) return false;
       if (filtroSubtipo !== "todos" && (meta?.subtipo || "") !== filtroSubtipo) return false;
       if (filtroEquipe !== "todas" && equipe !== filtroEquipe) return false;
+
+      if (filtroRapido === "sem_equipe" && equipe) return false;
+      if (filtroRapido === "terceiro" && condicaoNorm !== "TERCEIRO") return false;
+      if (filtroRapido === "proprio" && condicaoNorm === "TERCEIRO") return false;
+      if (filtroRapido === "sem_placa" && placaLimpa) return false;
+
       if (filtroFrota.trim()) {
         const q = filtroFrota.trim().toLowerCase();
-        if (!frotaOuPlaca.includes(q)) return false;
+        const alvoBusca = [
+          v.centro_custo,
+          v.frota,
+          v.placa,
+          v.marca,
+          v.modelo_completo,
+          v.nome,
+          v.tipo,
+          v.setor,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        if (!alvoBusca.includes(q)) return false;
       }
 
       return true;
@@ -516,7 +540,7 @@ export default function GestaoFrotasHome() {
       const frotaB = (b.frota || b.placa || "").trim();
       return frotaA.localeCompare(frotaB, "pt-BR", { sensitivity: "base", numeric: true });
     });
-  }, [todos, tipoMetaMap, filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota]);
+  }, [todos, tipoMetaMap, filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota, filtroRapido]);
 
   const filtrosAtivos = useMemo(() => {
     const chips: string[] = [];
@@ -528,8 +552,12 @@ export default function GestaoFrotasHome() {
     if (filtroSubtipo !== "todos") chips.push(`Subtipo: ${filtroSubtipo}`);
     if (filtroEquipe !== "todas") chips.push(`Equipe: ${filtroEquipe}`);
     if (filtroFrota.trim()) chips.push(`Frota: ${filtroFrota.trim()}`);
+    if (filtroRapido === "sem_equipe") chips.push("Rápido: Sem equipe");
+    if (filtroRapido === "terceiro") chips.push("Rápido: Terceiros");
+    if (filtroRapido === "proprio") chips.push("Rápido: Próprios");
+    if (filtroRapido === "sem_placa") chips.push("Rápido: Sem placa");
     return chips;
-  }, [filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota, categoriasComCount]);
+  }, [filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota, filtroRapido, categoriasComCount]);
 
   const contagemPorEquipe = useMemo(() => {
     const map = new Map<string, number>();
@@ -908,6 +936,14 @@ export default function GestaoFrotasHome() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <Button type="button" size="sm" variant={filtroRapido === "todos" ? "default" : "outline"} className="h-7 rounded-full px-2.5 text-[11px]" onClick={() => setFiltroRapido("todos")}>Todos</Button>
+                <Button type="button" size="sm" variant={filtroRapido === "sem_equipe" ? "default" : "outline"} className="h-7 rounded-full px-2.5 text-[11px]" onClick={() => setFiltroRapido("sem_equipe")}>Sem equipe</Button>
+                <Button type="button" size="sm" variant={filtroRapido === "terceiro" ? "default" : "outline"} className="h-7 rounded-full px-2.5 text-[11px]" onClick={() => setFiltroRapido("terceiro")}>Terceiros</Button>
+                <Button type="button" size="sm" variant={filtroRapido === "proprio" ? "default" : "outline"} className="h-7 rounded-full px-2.5 text-[11px]" onClick={() => setFiltroRapido("proprio")}>Próprios</Button>
+                <Button type="button" size="sm" variant={filtroRapido === "sem_placa" ? "default" : "outline"} className="h-7 rounded-full px-2.5 text-[11px]" onClick={() => setFiltroRapido("sem_placa")}>Sem placa</Button>
               </div>
             </div>
 
