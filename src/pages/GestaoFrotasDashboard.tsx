@@ -211,6 +211,10 @@ function TabelaEquipamentos({
   selectedIds,
   onToggleItem,
   onToggleAllFiltered,
+  canEditDashboard,
+  equipesCadastro,
+  onInlineUpdate,
+  inlineSavingId,
 }: {
   items: Equip[];
   workshopMode: boolean;
@@ -219,7 +223,18 @@ function TabelaEquipamentos({
   selectedIds: string[];
   onToggleItem: (id: string) => void;
   onToggleAllFiltered: () => void;
+  canEditDashboard: boolean;
+  equipesCadastro: string[];
+  onInlineUpdate: (id: string, changes: { status?: string; setor?: string; valor_mensal?: number }) => Promise<void>;
+  inlineSavingId: string | null;
 }) {
+  const [editingEquipeId, setEditingEquipeId] = useState<string | null>(null);
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [editingValorId, setEditingValorId] = useState<string | null>(null);
+  const [draftEquipe, setDraftEquipe] = useState<string>("");
+  const [draftStatus, setDraftStatus] = useState<string>("ativo");
+  const [draftValor, setDraftValor] = useState<string>("");
+
   const sorted = useMemo(() => [...items].sort((a, b) => {
     const sa = getStatusNorm(a), sb = getStatusNorm(b);
     if (sa === "manutencao" && sb !== "manutencao") return -1;
@@ -232,6 +247,29 @@ function TabelaEquipamentos({
   const colBase = "160px 170px 210px 130px 110px 100px 110px";
   const cols = workshopMode ? `40px ${colBase}` : colBase;
   const allSelected = sorted.length > 0 && sorted.every((e) => selectedIds.includes(e.id));
+
+  const podeEditarInline = canEditDashboard && !presentationMode;
+
+  async function salvarEquipe(id: string) {
+    if (!draftEquipe.trim()) return;
+    await onInlineUpdate(id, { setor: draftEquipe.trim() });
+    setEditingEquipeId(null);
+  }
+
+  async function salvarStatus(id: string) {
+    await onInlineUpdate(id, { status: draftStatus });
+    setEditingStatusId(null);
+  }
+
+  async function salvarValor(id: string) {
+    const parsed = parseValorMensal(draftValor);
+    if (parsed === null) {
+      alert("Informe um valor válido. Ex.: 1350,00");
+      return;
+    }
+    await onInlineUpdate(id, { valor_mensal: parsed });
+    setEditingValorId(null);
+  }
 
   return (
     <div style={{ background: "white", borderRadius: 14, overflow: presentationMode ? "auto" : "hidden", maxHeight: presentationMode ? "calc(100vh - 260px)" : undefined, boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
@@ -288,21 +326,100 @@ function TabelaEquipamentos({
             </div>
             <span style={{ fontSize: presentationMode ? (presentationTvMode ? 15 : 13) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo || e.nome || "—"}</span>
             <div style={{ alignSelf: "center", overflow: "hidden" }}>
-              <p style={{ fontSize: presentationMode ? (presentationTvMode ? 15 : 13) : 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
-              {e.condutor_atual && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
-              {getLocalizacaoLabel(e) && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
+              {podeEditarInline && editingEquipeId === e.id ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <select
+                    value={draftEquipe}
+                    onChange={(ev) => setDraftEquipe(ev.target.value)}
+                    disabled={inlineSavingId === e.id}
+                    style={{ height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12, background: "#fff" }}
+                  >
+                    <option value="">Sem equipe</option>
+                    {equipesCadastro.map((eq) => (
+                      <option key={eq} value={eq}>{eq}</option>
+                    ))}
+                  </select>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => salvarEquipe(e.id)} disabled={inlineSavingId === e.id || !draftEquipe.trim()} style={{ border: "1px solid #d1d5db", background: "#111827", color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>Salvar</button>
+                    <button onClick={() => setEditingEquipeId(null)} disabled={inlineSavingId === e.id} style={{ border: "1px solid #d1d5db", background: "#fff", color: "#374151", borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      if (!podeEditarInline) return;
+                      setEditingEquipeId(e.id);
+                      setDraftEquipe((e.setor || "").trim());
+                    }}
+                    disabled={!podeEditarInline || inlineSavingId === e.id}
+                    style={{ border: "none", background: "transparent", padding: 0, margin: 0, cursor: podeEditarInline ? "pointer" : "default", textAlign: "left" }}
+                  >
+                    <p style={{ fontSize: presentationMode ? (presentationTvMode ? 15 : 13) : 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
+                  </button>
+                  {e.condutor_atual && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
+                  {getLocalizacaoLabel(e) && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
+                </>
+              )}
             </div>
             <span style={{ fontSize: presentationMode ? (presentationTvMode ? 14 : 12) : 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
             <div style={{ alignSelf: "center", position: presentationMode && presentationTvMode ? "sticky" : "static", left: presentationMode && presentationTvMode ? (workshopMode ? 710 : 670) : undefined, background: presentationMode && presentationTvMode ? rowBg : undefined, zIndex: presentationMode && presentationTvMode ? 5 : undefined, paddingRight: presentationMode && presentationTvMode ? 6 : undefined }}>
-              <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 10) : 10, fontWeight: 700, background: badge.bg, color: badge.cor, padding: presentationMode && presentationTvMode ? "4px 10px" : "3px 8px", borderRadius: 20, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: badge.dot, display: "inline-block" }} /> {badge.label}
-              </span>
+              {podeEditarInline && editingStatusId === e.id ? (
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <select value={draftStatus} onChange={(ev) => setDraftStatus(ev.target.value)} disabled={inlineSavingId === e.id} style={{ height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12, background: "#fff" }}>
+                    <option value="ativo">Operacional</option>
+                    <option value="em_manutencao">Manutenção</option>
+                    <option value="disposicao">Disposição</option>
+                    <option value="inativo">Inativo</option>
+                  </select>
+                  <button onClick={() => salvarStatus(e.id)} disabled={inlineSavingId === e.id} style={{ border: "1px solid #d1d5db", background: "#111827", color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>Salvar</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (!podeEditarInline) return;
+                    setEditingStatusId(e.id);
+                    setDraftStatus(e.status || "ativo");
+                  }}
+                  disabled={!podeEditarInline || inlineSavingId === e.id}
+                  style={{ border: "none", background: "transparent", padding: 0, cursor: podeEditarInline ? "pointer" : "default" }}
+                >
+                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 10) : 10, fontWeight: 700, background: "#f3f4f6", color: "#374151", padding: presentationMode && presentationTvMode ? "4px 10px" : "3px 8px", borderRadius: 20, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid #e5e7eb" }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: badge.dot, display: "inline-block" }} /> {badge.label}
+                  </span>
+                </button>
+              )}
               {foraSp && !isManut && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#6d28d9", marginTop: 2, fontWeight: 700 }}>📍 Fora de SP</p>}
               {isManut && e.motivo_manutencao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#92400e", marginTop: 3 }}>⚠️ {e.motivo_manutencao}</p>}
               {isManut && e.previsao_liberacao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#1d4ed8", marginTop: 1 }}>📅 {fmtDate(e.previsao_liberacao)}</p>}
             </div>
             <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 11, fontWeight: 700, alignSelf: "center", color: terceiro ? "#1d4ed8" : "#166534", background: terceiro ? "#eff6ff" : "#f0fdf4", padding: presentationMode && presentationTvMode ? "4px 12px" : "3px 10px", borderRadius: 20, display: "inline-block", textAlign: "center" }}>{terceiro ? "Terceiro" : "Próprio"}</span>
-            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 12, fontWeight: e.valor_mensal > 0 ? 700 : 400, alignSelf: "center", color: e.valor_mensal > 0 ? "#ea580c" : "#9ca3af" }}>{formatBRL(e.valor_mensal)}</span>
+            <div style={{ alignSelf: "center" }}>
+              {podeEditarInline && editingValorId === e.id ? (
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    value={draftValor}
+                    onChange={(ev) => setDraftValor(ev.target.value)}
+                    placeholder="Ex.: 1350,00"
+                    disabled={inlineSavingId === e.id}
+                    style={{ width: 110, height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12 }}
+                  />
+                  <button onClick={() => salvarValor(e.id)} disabled={inlineSavingId === e.id} style={{ border: "1px solid #d1d5db", background: "#111827", color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>Salvar</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (!podeEditarInline) return;
+                    setEditingValorId(e.id);
+                    setDraftValor(e.valor_mensal ? String(e.valor_mensal).replace(".", ",") : "");
+                  }}
+                  disabled={!podeEditarInline || inlineSavingId === e.id}
+                  style={{ border: "none", background: "transparent", padding: 0, cursor: podeEditarInline ? "pointer" : "default" }}
+                >
+                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 12, fontWeight: e.valor_mensal > 0 ? 700 : 500, color: e.valor_mensal > 0 ? "#374151" : "#9ca3af" }}>{formatBRL(e.valor_mensal)}</span>
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
@@ -340,6 +457,7 @@ export default function GestaoFrotasDashboard() {
 
   const [canEditDashboard, setCanEditDashboard] = useState(false);
   const [loadingCanEditDashboard, setLoadingCanEditDashboard] = useState(true);
+  const [inlineSavingId, setInlineSavingId] = useState<string | null>(null);
 
   const [progData, setProgData] = useState<string>("2026-09-01");
   const [progPeriodo, setProgPeriodo] = useState<string>("INTEGRAL");
@@ -971,6 +1089,39 @@ export default function GestaoFrotasDashboard() {
       alert(`Falha ao aplicar lote: ${err?.message || "erro desconhecido"}`);
     } finally {
       setSalvandoLote(false);
+    }
+  }
+
+  async function salvarEdicaoIndividual(id: string, changes: { status?: string; setor?: string; valor_mensal?: number }) {
+    if (!canEditDashboard) {
+      alert("Você não tem permissão para editar equipamentos neste dashboard.");
+      return;
+    }
+
+    setInlineSavingId(id);
+    try {
+      const { data, error } = await (supabase as any).rpc("update_equipamentos_dashboard_lote", {
+        p_ids: [id],
+        p_status: typeof changes.status === "string" ? changes.status : null,
+        p_setor: typeof changes.setor === "string" ? changes.setor : null,
+        p_local_atual: null,
+        p_valor_mode: typeof changes.valor_mensal === "number" ? "definir" : "manter",
+        p_valor_mensal: typeof changes.valor_mensal === "number" ? changes.valor_mensal : null,
+      });
+
+      if (error) throw error;
+      const row = Array.isArray(data) && data.length ? data[0] : null;
+      const ok = Number(row?.updated_count || 0);
+      if (ok <= 0) {
+        alert("Edição bloqueada por permissão ou item não encontrado.");
+        return;
+      }
+
+      await carregarDadosBase();
+    } catch (err: any) {
+      alert(`Falha ao salvar edição: ${err?.message || "erro desconhecido"}`);
+    } finally {
+      setInlineSavingId(null);
     }
   }
 
@@ -1762,6 +1913,10 @@ export default function GestaoFrotasDashboard() {
             selectedIds={selecionados}
             onToggleItem={toggleSelecionado}
             onToggleAllFiltered={toggleSelecionarFiltrados}
+            canEditDashboard={canEditDashboard}
+            equipesCadastro={equipesCadastro}
+            onInlineUpdate={salvarEdicaoIndividual}
+            inlineSavingId={inlineSavingId}
           />
         )}
         {!presentationClean && !loading && kpiSel.custo > 0 && filtroStatus !== "operacional" && (
