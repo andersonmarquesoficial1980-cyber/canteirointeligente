@@ -443,7 +443,7 @@ function TabelaEquipamentos({
 
 const TOOLBAR_H = 50;
 const HEADER_H  = 38;
-const SIDEBAR_W = 220;
+const SIDEBAR_W = 190;
 
 export default function GestaoFrotasDashboard() {
   const navigate = useNavigate();
@@ -1565,13 +1565,13 @@ export default function GestaoFrotasDashboard() {
     const criticosNoFiltro = listaFiltrada.filter((e) => getStatusNorm(e) === "manutencao" || isForaSP(e)).length;
 
     return (
-      <main style={{ flex: 1, padding: presentationClean ? (tvMode ? "12px 16px" : "10px 14px") : "16px 18px", background: "#f0f4f8", minHeight: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+      <main style={{ flex: 1, padding: presentationClean ? (tvMode ? "8px 12px" : "8px 10px") : "16px 18px", background: "#f0f4f8", minHeight: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: presentationClean ? 6 : 10, flexWrap: "wrap", gap: 8 }}>
           <div>
-            <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: presentationClean ? (tvMode ? 28 : 22) : 18, color: "#0A0F2C", margin: 0 }}>
+            <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: presentationClean ? (tvMode ? 20 : 18) : 18, color: "#0A0F2C", margin: 0 }}>
               {presentationClean ? "Painel Executivo de Frotas" : (workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel)}
             </h2>
-            <p style={{ fontSize: presentationClean ? (tvMode ? 16 : 14) : 12, color: "#64748b", marginTop: 2 }}>
+            <p style={{ fontSize: presentationClean ? (tvMode ? 12 : 11) : 12, color: "#64748b", marginTop: 1 }}>
               {totalExibicao} equipamento{totalExibicao !== 1 ? "s" : ""}
               {kpiExib.manut > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}> · ⚠️ {kpiExib.manut} em manutenção</span>}
               {kpiExib.terceiros > 0 && <span style={{ color: "#1d4ed8", fontWeight: 600 }}> · {kpiExib.terceiros} terceiros</span>}
@@ -1625,7 +1625,7 @@ export default function GestaoFrotasDashboard() {
 
         {presentationClean && (
           <>
-            <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ marginBottom: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
               {[{ key: "todos", label: "Todos", cor: "#374151" }, { key: "operacional", label: "Operacional", cor: "#166534" }, { key: "manutencao", label: "Manutenção", cor: "#92400e" }, { key: "disposicao", label: "Disposição", cor: "#475569" }, { key: "terceiro", label: "Locados", cor: "#1d4ed8" }].map(f => (
                 <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: tvMode ? "5px 10px" : "5px 10px", borderRadius: 14, fontSize: tvMode ? 11 : 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
                   {f.label}
@@ -1633,7 +1633,7 @@ export default function GestaoFrotasDashboard() {
               ))}
             </div>
 
-            <div style={{ marginBottom: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ marginBottom: 6, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ fontSize: tvMode ? 12 : 11, color: "#64748b", fontWeight: 700 }}>Categoria:</span>
               <button
                 onClick={() => trocarModo("tipo")}
@@ -1649,7 +1649,7 @@ export default function GestaoFrotasDashboard() {
               </button>
             </div>
 
-            <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap", maxHeight: tvMode ? 112 : 98, overflowY: "auto", paddingRight: 4 }}>
+            <div style={{ marginBottom: 6, display: "flex", gap: 6, flexWrap: "wrap", maxHeight: tvMode ? 78 : 84, overflowY: "auto", paddingRight: 4 }}>
               <button
                 onClick={() => { setChipSel("todos"); setSubChipSel("todos"); }}
                 style={{ padding: "5px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === "todos" ? "#334155" : "#cbd5e1", background: chipSel === "todos" ? "#334155" : "white", color: chipSel === "todos" ? "white" : "#334155" }}
