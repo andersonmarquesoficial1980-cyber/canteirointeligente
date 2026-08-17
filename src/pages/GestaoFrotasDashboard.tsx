@@ -77,7 +77,7 @@ function getStatusNorm(e: Equip): "operacional" | "manutencao" | "inativo" | "di
 function isTerceiro(e: Equip) { return (e.condicao || "").toUpperCase() === "TERCEIRO" || (e.categoria || "").toLowerCase() === "locado"; }
 
 function getLocalizacaoLabel(e: Equip) {
-  return [e.obra_nome, e.local, e.cidade, e.uf || e.estado, e.setor]
+  return [e.obra_nome, e.local, e.cidade, e.uf || e.estado]
     .map(v => (v || "").trim())
     .filter(Boolean)
     .join(" · ");
@@ -252,7 +252,7 @@ function TabelaEquipamentos({
 
   if (!items.length) return <div style={{ textAlign: "center", padding: "60px 0", color: "#9ca3af", fontSize: 15 }}>Nenhum equipamento encontrado.</div>;
 
-  const colBase = "160px 170px 210px 130px 110px 100px 110px";
+  const colBase = presentationMode ? "210px 240px 320px 180px 150px 130px 150px" : "160px 170px 210px 130px 110px 100px 110px";
   const cols = workshopMode ? `40px ${colBase}` : colBase;
   const allSelected = sorted.length > 0 && sorted.every((e) => selectedIds.includes(e.id));
 
@@ -276,10 +276,9 @@ function TabelaEquipamentos({
             <input type="checkbox" checked={allSelected} onChange={onToggleAllFiltered} />
           </span>
         )}
-        {["Frota", "Tipo", "Equipe / Responsável", "Empresa", "Status", "Situação", "Valor/mês"].map((h, idx) => {
+        {["Frota", "Tipo", "Equipe", "Empresa", "Status", "Situação", "Valor/mês"].map((h, idx) => {
           const stickyFrota = presentationMode && idx === 0;
-          const stickyStatus = presentationMode && presentationTvMode && idx === 4;
-          const stickyStatusLeft = workshopMode ? 710 : 670;
+          const stickyStatus = false;
           return (
           <span
             key={h}
@@ -290,7 +289,7 @@ function TabelaEquipamentos({
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               position: (stickyFrota || stickyStatus) ? "sticky" : "static",
-              left: stickyFrota ? (workshopMode ? 48 : 0) : (stickyStatus ? stickyStatusLeft : undefined),
+              left: stickyFrota ? (workshopMode ? 48 : 0) : undefined,
               background: (stickyFrota || stickyStatus) ? "#f1f5f9" : undefined,
               zIndex: stickyFrota ? 7 : (stickyStatus ? 6 : undefined),
             }}
@@ -318,10 +317,10 @@ function TabelaEquipamentos({
               </div>
             )}
             <div style={{ position: presentationMode ? "sticky" : "static", left: presentationMode ? (workshopMode ? 48 : 0) : undefined, zIndex: presentationMode ? 5 : undefined, background: presentationMode ? rowBg : undefined, paddingRight: 6 }}>
-              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 17 : 15) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
+              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 15 : 13) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
               {e.placa && e.placa !== e.frota && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 10, color: "#9ca3af", marginTop: 1 }}>{e.placa}</p>}
             </div>
-            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 15 : 13) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo || e.nome || "—"}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo || e.nome || "—"}</span>
             <div style={{ alignSelf: "center", overflow: "hidden" }}>
               {podeEditarInline && editingEquipeId === e.id ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -354,15 +353,15 @@ function TabelaEquipamentos({
                     disabled={!podeEditarInline || inlineSavingId === e.id}
                     style={{ border: "none", background: "transparent", padding: 0, margin: 0, cursor: podeEditarInline ? "pointer" : "default", textAlign: "left" }}
                   >
-                    <p style={{ fontSize: presentationMode ? (presentationTvMode ? 15 : 13) : 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
+                    <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
                   </button>
                   {e.condutor_atual && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
                   {getLocalizacaoLabel(e) && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
                 </>
               )}
             </div>
-            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 14 : 12) : 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
-            <div style={{ alignSelf: "center", position: presentationMode && presentationTvMode ? "sticky" : "static", left: presentationMode && presentationTvMode ? (workshopMode ? 710 : 670) : undefined, background: presentationMode && presentationTvMode ? rowBg : undefined, zIndex: presentationMode && presentationTvMode ? 5 : undefined, paddingRight: presentationMode && presentationTvMode ? 6 : undefined }}>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
+            <div style={{ alignSelf: "center" }}>
               {podeEditarInline && editingStatusId === e.id ? (
                 <select
                   value={draftStatus}
@@ -390,7 +389,7 @@ function TabelaEquipamentos({
                   disabled={!podeEditarInline || inlineSavingId === e.id}
                   style={{ border: "none", background: "transparent", padding: 0, cursor: podeEditarInline ? "pointer" : "default" }}
                 >
-                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 10) : 10, fontWeight: 700, background: "#f3f4f6", color: "#374151", padding: presentationMode && presentationTvMode ? "4px 10px" : "3px 8px", borderRadius: 20, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid #e5e7eb" }}>
+                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, fontWeight: 700, background: "#f3f4f6", color: "#374151", padding: presentationMode && presentationTvMode ? "3px 8px" : "2px 7px", borderRadius: 16, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid #e5e7eb" }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: badge.dot, display: "inline-block" }} /> {badge.label}
                   </span>
                 </button>
@@ -401,7 +400,7 @@ function TabelaEquipamentos({
               {isManut && e.motivo_manutencao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#92400e", marginTop: 3 }}>⚠️ {e.motivo_manutencao}</p>}
               {isManut && e.previsao_liberacao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#1d4ed8", marginTop: 1 }}>📅 {fmtDate(e.previsao_liberacao)}</p>}
             </div>
-            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 11, fontWeight: 700, alignSelf: "center", color: terceiro ? "#1d4ed8" : "#166534", background: terceiro ? "#eff6ff" : "#f0fdf4", padding: presentationMode && presentationTvMode ? "4px 12px" : "3px 10px", borderRadius: 20, display: "inline-block", textAlign: "center" }}>{terceiro ? "Terceiro" : "Próprio"}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 11, fontWeight: 700, alignSelf: "center", color: terceiro ? "#1d4ed8" : "#166534", background: terceiro ? "#eff6ff" : "#f0fdf4", padding: presentationMode && presentationTvMode ? "3px 9px" : "2px 8px", borderRadius: 16, display: "inline-block", textAlign: "center" }}>{terceiro ? "Terceiro" : "Próprio"}</span>
             <div style={{ alignSelf: "center" }}>
               {podeEditarInline && editingValorId === e.id ? (
                 <input
@@ -1628,23 +1627,23 @@ export default function GestaoFrotasDashboard() {
           <>
             <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
               {[{ key: "todos", label: "Todos", cor: "#374151" }, { key: "operacional", label: "Operacional", cor: "#166534" }, { key: "manutencao", label: "Manutenção", cor: "#92400e" }, { key: "disposicao", label: "Disposição", cor: "#475569" }, { key: "terceiro", label: "Locados", cor: "#1d4ed8" }].map(f => (
-                <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: tvMode ? "9px 18px" : "7px 16px", borderRadius: 20, fontSize: tvMode ? 15 : 13, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
+                <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: tvMode ? "7px 14px" : "6px 12px", borderRadius: 16, fontSize: tvMode ? 13 : 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
                   {f.label}
                 </button>
               ))}
             </div>
 
             <div style={{ marginBottom: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: tvMode ? 14 : 12, color: "#64748b", fontWeight: 700 }}>Categoria:</span>
+              <span style={{ fontSize: tvMode ? 12 : 11, color: "#64748b", fontWeight: 700 }}>Categoria:</span>
               <button
                 onClick={() => trocarModo("tipo")}
-                style={{ padding: tvMode ? "8px 14px" : "6px 12px", borderRadius: 18, fontSize: tvMode ? 14 : 12, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "tipo" ? "#0f172a" : "#cbd5e1", background: modoVis === "tipo" ? "#0f172a" : "white", color: modoVis === "tipo" ? "white" : "#334155" }}
+                style={{ padding: tvMode ? "6px 12px" : "5px 10px", borderRadius: 14, fontSize: tvMode ? 12 : 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "tipo" ? "#0f172a" : "#cbd5e1", background: modoVis === "tipo" ? "#0f172a" : "white", color: modoVis === "tipo" ? "white" : "#334155" }}
               >
                 Por Frota
               </button>
               <button
                 onClick={() => trocarModo("equipe")}
-                style={{ padding: tvMode ? "8px 14px" : "6px 12px", borderRadius: 18, fontSize: tvMode ? 14 : 12, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "equipe" ? "#0f172a" : "#cbd5e1", background: modoVis === "equipe" ? "#0f172a" : "white", color: modoVis === "equipe" ? "white" : "#334155" }}
+                style={{ padding: tvMode ? "6px 12px" : "5px 10px", borderRadius: 14, fontSize: tvMode ? 12 : 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "equipe" ? "#0f172a" : "#cbd5e1", background: modoVis === "equipe" ? "#0f172a" : "white", color: modoVis === "equipe" ? "white" : "#334155" }}
               >
                 Por Equipe
               </button>
@@ -1653,7 +1652,7 @@ export default function GestaoFrotasDashboard() {
             <div style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap", maxHeight: tvMode ? 112 : 98, overflowY: "auto", paddingRight: 4 }}>
               <button
                 onClick={() => { setChipSel("todos"); setSubChipSel("todos"); }}
-                style={{ padding: tvMode ? "8px 14px" : "6px 12px", borderRadius: 18, fontSize: tvMode ? 14 : 12, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === "todos" ? "#334155" : "#cbd5e1", background: chipSel === "todos" ? "#334155" : "white", color: chipSel === "todos" ? "white" : "#334155" }}
+                style={{ padding: tvMode ? "6px 12px" : "5px 10px", borderRadius: 14, fontSize: tvMode ? 12 : 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === "todos" ? "#334155" : "#cbd5e1", background: chipSel === "todos" ? "#334155" : "white", color: chipSel === "todos" ? "white" : "#334155" }}
               >
                 Todos
               </button>
@@ -1661,7 +1660,7 @@ export default function GestaoFrotasDashboard() {
                 <button
                   key={c.key}
                   onClick={() => { setChipSel(c.key); setSubChipSel("todos"); }}
-                  style={{ padding: tvMode ? "8px 14px" : "6px 12px", borderRadius: 18, fontSize: tvMode ? 14 : 12, fontWeight: 600, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === c.key ? "#0f172a" : "#cbd5e1", background: chipSel === c.key ? "#0f172a" : "white", color: chipSel === c.key ? "white" : "#334155" }}
+                  style={{ padding: tvMode ? "6px 12px" : "5px 10px", borderRadius: 14, fontSize: tvMode ? 12 : 11, fontWeight: 600, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === c.key ? "#0f172a" : "#cbd5e1", background: chipSel === c.key ? "#0f172a" : "white", color: chipSel === c.key ? "white" : "#334155" }}
                 >
                   {c.label} ({c.count})
                 </button>
@@ -1924,11 +1923,13 @@ export default function GestaoFrotasDashboard() {
           </div>
         )}
 
-        <div style={{ position: "relative", marginBottom: 12 }}>
-          <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: presentationClean ? (tvMode ? 18 : 16) : 14, height: presentationClean ? (tvMode ? 18 : 16) : 14, color: "#9ca3af" }} />
-          <input placeholder="Buscar frota, placa, tipo, equipe/setor, empresa..." value={busca} onChange={e => setBusca(e.target.value)}
-            style={{ width: "100%", paddingLeft: 36, paddingRight: 12, height: presentationClean ? (tvMode ? 52 : 46) : 38, borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: presentationClean ? (tvMode ? 18 : 16) : 13, outline: "none", boxSizing: "border-box", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }} />
-        </div>
+        {!presentationClean && (
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#9ca3af" }} />
+            <input placeholder="Buscar frota, placa, tipo, equipe/setor, empresa..." value={busca} onChange={e => setBusca(e.target.value)}
+              style={{ width: "100%", paddingLeft: 36, paddingRight: 12, height: 38, borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }} />
+          </div>
+        )}
         {loading ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af", fontSize: 15 }}>Carregando...</div>
         ) : (
