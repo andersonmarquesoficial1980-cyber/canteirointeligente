@@ -86,6 +86,16 @@ function normCompact(value: string | null | undefined): string {
   return normTxt(value).replace(/[^A-Z0-9]/g, "");
 }
 
+function labelFrota(m: any): string {
+  return m?.centro_custo || m?.frota || "-";
+}
+
+function labelModelo(m: any): string {
+  return [m?.marca || m?.tipo_veiculo, m?.modelo_completo || m?.nome]
+    .filter(Boolean)
+    .join(" ") || m?.nome || m?.tipo || "-";
+}
+
 const SUBTIPO_VINCULO_HINTS: Record<string, string[]> = {
   MICROONIBUS: ["VEICULO_MICROONIBUS", "MICROONIBUS", "ONIBUS"],
   VAN: ["VEICULO_VAN", "VAN"],
@@ -346,7 +356,7 @@ export default function SectionEquipamentos({ entries, onChange, tipoRdo }: Prop
                             .filter((m: any) => String(m?.frota || "").trim() !== "")
                             .map((m: any) => (
                               <SelectItem key={m.id} value={m.frota}>
-                                {m.frota} — {m.nome}
+                                {labelFrota(m)} — {labelModelo(m)}
                               </SelectItem>
                             ))}
                         </SelectContent>

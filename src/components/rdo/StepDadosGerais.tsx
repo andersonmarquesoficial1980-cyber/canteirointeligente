@@ -15,6 +15,16 @@ interface StepDadosGeraisProps {
 const CLIMA_OPTIONS = ["Ensolarado", "Nublado", "Chuvoso", "Parcialmente Nublado"];
 const TURNO_OPTIONS = ["Diurno", "Noturno"];
 
+function labelFrota(m: any): string {
+  return m?.centro_custo || m?.frota || "-";
+}
+
+function labelModelo(m: any): string {
+  return [m?.marca || m?.tipo_veiculo, m?.modelo_completo || m?.nome]
+    .filter(Boolean)
+    .join(" ") || m?.nome || m?.tipo || "-";
+}
+
 export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps) {
   const { data: obras, isLoading: loadingObras } = useOgsReference();
   const { data: maquinas, isLoading: loadingMaquinas } = useMaquinasFrota();
@@ -129,7 +139,7 @@ export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps
                 .filter((m: any) => String(m?.frota || "").trim() !== "")
                 .map((m: any) => (
                   <SelectItem key={m.id} value={m.frota} className="py-3 text-base">
-                    {m.frota} — {m.nome} {m.tipo ? `(${m.tipo})` : ""}
+                    {labelFrota(m)} — {labelModelo(m)} {m.tipo ? `(${m.tipo})` : ""}
                   </SelectItem>
                 ))}
             </SelectContent>

@@ -32,6 +32,16 @@ interface Props {
 
 const STATUS_PATIO = ["Disposição", "Manutenção", "Inoperante"];
 
+function labelFrota(m: any): string {
+  return m?.centro_custo || m?.frota || "-";
+}
+
+function labelModelo(m: any): string {
+  return [m?.marca || m?.tipo_veiculo, m?.modelo_completo || m?.nome]
+    .filter(Boolean)
+    .join(" ") || m?.nome || m?.tipo || "-";
+}
+
 function emptyEntry(): EquipamentoPatioEntry {
   return { id: crypto.randomUUID(), categoria: "", frota: "", nome: "", tipo: "", status_patio: "Disposição", observacao: "" };
 }
@@ -109,7 +119,7 @@ export default function SectionEquipamentosPatio({ entries, onChange }: Props) {
                   {(maquinas as any[])
                     .filter((m: any) => String(m?.frota || "").trim() !== "" && (!entry.categoria || m.categoria === entry.categoria))
                     .map((m: any) => (
-                      <SelectItem key={m.id} value={m.frota}>{m.frota} — {m.nome}</SelectItem>
+                      <SelectItem key={m.id} value={m.frota}>{labelFrota(m)} — {labelModelo(m)}</SelectItem>
                     ))}
                 </SelectContent>
               </Select>
@@ -142,7 +152,7 @@ export default function SectionEquipamentosPatio({ entries, onChange }: Props) {
           )}
 
           {entry.frota && (
-            <p className="text-xs text-muted-foreground">{entry.tipo || ""} {entry.nome ? `— ${entry.nome}` : ""}</p>
+            <p className="text-xs text-muted-foreground">{[entry.tipo, entry.nome].filter(Boolean).join(" — ") || "-"}</p>
           )}
         </div>
       ))}
