@@ -18,7 +18,11 @@ interface StaffMember {
 interface EquipmentFleet {
   id: string;
   frota: string | null;
+  centro_custo?: string | null;
   tipo: string | null;
+  marca?: string | null;
+  modelo_completo?: string | null;
+  tipo_veiculo?: string | null;
   nome: string | null;
   status: string | null;
 }
@@ -82,7 +86,7 @@ export default function Diretorio() {
       setLoading(true);
       const [staffRes, equipRes] = await Promise.all([
         supabase.from("aero_pav_gru_staff").select("*").eq("ativo", true).order("nome"),
-        supabase.from("equipamentos").select("id, frota, tipo, nome, status").eq("ativo", true).order("frota"),
+        supabase.from("equipamentos").select("id, frota, centro_custo, tipo, marca, modelo_completo, tipo_veiculo, nome, status").eq("ativo", true).order("frota"),
       ]);
       if (staffRes.data) setStaff(staffRes.data as StaffMember[]);
       if (equipRes.data) setEquipment(equipRes.data as EquipmentFleet[]);
@@ -105,7 +109,10 @@ export default function Diretorio() {
     ? equipment.filter(
         (e) =>
           (e.frota || "").toLowerCase().includes(q) ||
+          (e.centro_custo || "").toLowerCase().includes(q) ||
           (e.tipo || "").toLowerCase().includes(q) ||
+          (e.marca || e.tipo_veiculo || "").toLowerCase().includes(q) ||
+          (e.modelo_completo || "").toLowerCase().includes(q) ||
           (e.nome || "").toLowerCase().includes(q)
       )
     : equipment;
@@ -122,7 +129,7 @@ export default function Diretorio() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nome, função ou frota..."
+              placeholder="Buscar por nome, função, frota/CC, tipo, marca ou modelo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -187,9 +194,9 @@ export default function Diretorio() {
                     <CardContent className="p-4 flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1 space-y-1">
                         <p className="font-semibold text-sm text-foreground">
-                          Frota: {e.frota || "—"}
+                          Frota/CC: {e.centro_custo || e.frota || "—"}
                         </p>
-                        <p className="text-xs text-muted-foreground">{e.nome || e.tipo || "—"}</p>
+                        <p className="text-xs text-muted-foreground">{[e.marca || e.tipo_veiculo, e.modelo_completo || e.nome || e.tipo].filter(Boolean).join(" ") || e.nome || e.tipo || "—"}</p>
                       </div>
                       <Badge variant="outline" className="shrink-0">
                         <Truck className="h-3 w-3 mr-1" /> Ativo

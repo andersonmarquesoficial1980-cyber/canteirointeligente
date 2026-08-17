@@ -20,6 +20,14 @@ function expandNomes(nome: string | null): string[] {
   return nome.split("|||").map((n) => n.trim()).filter(Boolean);
 }
 
+function labelFrotaEquip(e: any): string {
+  return e?.frota_label || e?.centro_custo || e?.frota || "-";
+}
+
+function labelModeloEquip(e: any): string {
+  return e?.modelo_label || [e?.marca || e?.tipo_veiculo, e?.modelo_completo || e?.nome || e?.patrimonio].filter(Boolean).join(" ") || e?.nome || e?.patrimonio || "-";
+}
+
 export default function VisualizarRdo() {
   const goBack = useSmartBack("/relatorios");
   const { id } = useParams<{ id: string }>();
@@ -120,17 +128,41 @@ export default function VisualizarRdo() {
         if (frotasParaBuscar.length > 0) {
           const { data: equipEmpresas } = await (supabase as any)
             .from("equipamentos")
-            .select("frota, empresa_proprietaria, condicao")
+            .select("frota, empresa_proprietaria, condicao, centro_custo, marca, modelo_completo, serie, chassi, tipo_veiculo")
             .in("frota", frotasParaBuscar);
-          const empresaMap: Record<string, { empresa: string | null; condicao: string | null }> = {};
+          const empresaMap: Record<string, {
+            empresa: string | null;
+            condicao: string | null;
+            centro_custo: string | null;
+            marca: string | null;
+            modelo_completo: string | null;
+            serie: string | null;
+          }> = {};
           (equipEmpresas || []).forEach((m: any) => {
-            if (m.frota) empresaMap[m.frota] = { empresa: m.empresa_proprietaria || null, condicao: m.condicao || null };
+            if (m.frota) {
+              empresaMap[m.frota] = {
+                empresa: m.empresa_proprietaria || null,
+                condicao: m.condicao || null,
+                centro_custo: m.centro_custo || null,
+                marca: m.marca || m.tipo_veiculo || null,
+                modelo_completo: m.modelo_completo || null,
+                serie: m.serie || m.chassi || null,
+              };
+            }
           });
           equipRowsEnriquecidos = equipRowsEnriquecidos.map((e: any) => {
-            if (e.empresa_dona) return e; // já tem empresa no RDO
             const info = empresaMap[e.frota];
             const empresaFallback = info?.empresa || (info?.condicao?.toUpperCase() === "PROPRIO" ? "PRÓPRIO" : null);
-            return { ...e, empresa_dona: empresaFallback };
+            return {
+              ...e,
+              empresa_dona: e.empresa_dona || empresaFallback,
+              centro_custo: info?.centro_custo || null,
+              marca: info?.marca || null,
+              modelo_completo: info?.modelo_completo || null,
+              serie: info?.serie || null,
+              frota_label: info?.centro_custo || e.frota || "-",
+              modelo_label: [info?.marca, info?.modelo_completo || e.nome || e.patrimonio].filter(Boolean).join(" ") || e.nome || e.patrimonio || "-",
+            };
           });
         }
 
@@ -270,18 +302,18 @@ export default function VisualizarRdo() {
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="bg-muted/40 text-muted-foreground">
-                        <th className="text-left p-2 border border-border">Frota</th>
+                        <th className="text-left p-2 border border-border">Frota/CC</th>
                         <th className="text-left p-2 border border-border">Equipamento</th>
-                        <th className="text-left p-2 border border-border">Modelo/Placa</th>
+                        <th className="text-left p-2 border border-border">Modelo</th>
                         <th className="text-left p-2 border border-border">Empresa</th>
                       </tr>
                     </thead>
                     <tbody>
                       {equipamentos.map((e, i) => (
                         <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/10"}>
-                          <td className="p-2 border border-border font-medium">{e.frota || "-"}</td>
+                          <td className="p-2 border border-border font-medium">{labelFrotaEquip(e)}</td>
                           <td className="p-2 border border-border">{e.sub_tipo || e.tipo || e.categoria || "-"}</td>
-                          <td className="p-2 border border-border text-muted-foreground">{e.nome || e.patrimonio || "-"}</td>
+                          <td className="p-2 border border-border text-muted-foreground">{labelModeloEquip(e)}</td>
                           <td className="p-2 border border-border text-muted-foreground">{e.empresa_dona || "-"}</td>
                         </tr>
                       ))}

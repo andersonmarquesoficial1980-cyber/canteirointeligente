@@ -186,7 +186,7 @@ export default function DetalhesDemanda() {
                 <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Equipamentos</p>
                 <ul className="text-sm space-y-1">
                   {equipamentos.map((e: any, idx) => (
-                    <li key={idx}>• {e.frota || e.id} {e.tipo ? `(${e.tipo})` : ""}</li>
+                    <li key={idx}>• {e.centro_custo || e.frota || e.id} {[e.marca || e.tipo_veiculo, e.modelo_completo || e.nome || e.tipo].filter(Boolean).join(" ") ? `(${[e.marca || e.tipo_veiculo, e.modelo_completo || e.nome || e.tipo].filter(Boolean).join(" ")})` : ""}</li>
                   ))}
                 </ul>
               </div>
