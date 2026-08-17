@@ -222,6 +222,7 @@ function TabelaEquipamentos({
   equipesCadastro,
   onInlineUpdate,
   inlineSavingId,
+  inlineSavedId,
 }: {
   items: Equip[];
   workshopMode: boolean;
@@ -234,6 +235,7 @@ function TabelaEquipamentos({
   equipesCadastro: string[];
   onInlineUpdate: (id: string, changes: { status?: string; setor?: string; valor_mensal?: number }) => Promise<boolean>;
   inlineSavingId: string | null;
+  inlineSavedId: string | null;
 }) {
   const [editingEquipeId, setEditingEquipeId] = useState<string | null>(null);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
@@ -394,6 +396,8 @@ function TabelaEquipamentos({
                   </span>
                 </button>
               )}
+              {inlineSavingId === e.id && <p style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>Salvando...</p>}
+              {inlineSavingId !== e.id && inlineSavedId === e.id && <p style={{ fontSize: 10, color: "#166534", marginTop: 4 }}>Salvo</p>}
               {foraSp && !isManut && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#6d28d9", marginTop: 2, fontWeight: 700 }}>📍 Fora de SP</p>}
               {isManut && e.motivo_manutencao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#92400e", marginTop: 3 }}>⚠️ {e.motivo_manutencao}</p>}
               {isManut && e.previsao_liberacao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#1d4ed8", marginTop: 1 }}>📅 {fmtDate(e.previsao_liberacao)}</p>}
@@ -468,6 +472,7 @@ export default function GestaoFrotasDashboard() {
   const [canEditDashboard, setCanEditDashboard] = useState(false);
   const [loadingCanEditDashboard, setLoadingCanEditDashboard] = useState(true);
   const [inlineSavingId, setInlineSavingId] = useState<string | null>(null);
+  const [inlineSavedId, setInlineSavedId] = useState<string | null>(null);
 
   const [progData, setProgData] = useState<string>("2026-09-01");
   const [progPeriodo, setProgPeriodo] = useState<string>("INTEGRAL");
@@ -502,6 +507,7 @@ export default function GestaoFrotasDashboard() {
   const svgRef        = useRef<SVGSVGElement>(null);
   const scrollRef     = useRef<HTMLDivElement>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inlineSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drawRef       = useRef<{ startPt: { x:number; y:number }; pts: { x:number; y:number }[] } | null>(null);
   const dragRef       = useRef<{ id: string; startPt: { x:number; y:number }; origForma: Forma } | null>(null);
   const zoomRef       = useRef(zoom);
@@ -522,6 +528,7 @@ export default function GestaoFrotasDashboard() {
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (inlineSavedTimerRef.current) clearTimeout(inlineSavedTimerRef.current);
     };
   }, []);
 
@@ -1128,6 +1135,9 @@ export default function GestaoFrotasDashboard() {
       }
 
       await carregarDadosBase();
+      setInlineSavedId(id);
+      if (inlineSavedTimerRef.current) clearTimeout(inlineSavedTimerRef.current);
+      inlineSavedTimerRef.current = setTimeout(() => setInlineSavedId((prev) => (prev === id ? null : prev)), 1800);
       return true;
     } catch (err: any) {
       alert(`Falha ao salvar edição: ${err?.message || "erro desconhecido"}`);
@@ -1929,6 +1939,7 @@ export default function GestaoFrotasDashboard() {
             equipesCadastro={equipesCadastro}
             onInlineUpdate={salvarEdicaoIndividual}
             inlineSavingId={inlineSavingId}
+            inlineSavedId={inlineSavedId}
           />
         )}
         {!presentationClean && !loading && kpiSel.custo > 0 && filtroStatus !== "operacional" && (
