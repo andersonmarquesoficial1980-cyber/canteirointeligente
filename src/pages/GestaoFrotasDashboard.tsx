@@ -590,6 +590,8 @@ export default function GestaoFrotasDashboard() {
   const [apenasCriticos, setApenasCriticos] = useState(false);
   const [ocultarPequenoPorteApres, setOcultarPequenoPorteApres] = useState(false);
   const [tiposOcultosApres, setTiposOcultosApres] = useState<string[]>([]);
+  const [prefsKeyApres, setPrefsKeyApres] = useState<string>("wf:frotas:apres:anon");
+  const [prefsHydratedApres, setPrefsHydratedApres] = useState(false);
   const [zoom, setZoom]             = useState(1);
   const [ferramenta, setFerramenta] = useState<Ferramenta>("nav");
   const [cor, setCor]               = useState("#ef4444");
@@ -765,6 +767,59 @@ export default function GestaoFrotasDashboard() {
     carregarDadosBase();
     carregarPermissaoEdicaoDashboard();
   }, []);
+
+  // Persistência por usuário: ocultações da apresentação
+  useEffect(() => {
+    let ativo = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!ativo) return;
+        const uid = data?.user?.id || "anon";
+        setPrefsKeyApres(`wf:frotas:apres:${uid}`);
+      } catch {
+        if (ativo) setPrefsKeyApres("wf:frotas:apres:anon");
+      }
+    })();
+    return () => { ativo = false; };
+  }, []);
+
+  useEffect(() => {
+    setPrefsHydratedApres(false);
+    try {
+      const raw = localStorage.getItem(prefsKeyApres);
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          ocultarPequenoPorteApres?: boolean;
+          tiposOcultosApres?: string[];
+        };
+
+        if (typeof parsed?.ocultarPequenoPorteApres === "boolean") {
+          setOcultarPequenoPorteApres(parsed.ocultarPequenoPorteApres);
+        }
+
+        if (Array.isArray(parsed?.tiposOcultosApres)) {
+          setTiposOcultosApres(parsed.tiposOcultosApres.filter((v) => typeof v === "string"));
+        }
+      }
+    } catch {
+      // noop
+    } finally {
+      setPrefsHydratedApres(true);
+    }
+  }, [prefsKeyApres]);
+
+  useEffect(() => {
+    if (!prefsHydratedApres) return;
+    try {
+      localStorage.setItem(
+        prefsKeyApres,
+        JSON.stringify({ ocultarPequenoPorteApres, tiposOcultosApres }),
+      );
+    } catch {
+      // noop
+    }
+  }, [prefsKeyApres, prefsHydratedApres, ocultarPequenoPorteApres, tiposOcultosApres]);
 
   // Delete key para remover selecionado
   useEffect(() => {
