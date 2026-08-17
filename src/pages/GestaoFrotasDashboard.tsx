@@ -443,7 +443,7 @@ function TabelaEquipamentos({
 // ─── PÁGINA PRINCIPAL ──────────────────────────────────────────────────────────
 
 const TOOLBAR_H = 50;
-const HEADER_H  = 46;
+const HEADER_H  = 38;
 const SIDEBAR_W = 220;
 
 export default function GestaoFrotasDashboard() {
@@ -1989,16 +1989,11 @@ export default function GestaoFrotasDashboard() {
 
         {/* ── HEADER ── */}
         <header style={{ height: HEADER_H, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, paddingInline: 14, background: "linear-gradient(135deg, #0A0F2C 0%, #0055AA 100%)", boxShadow: "0 2px 12px rgba(0,0,0,0.4)", zIndex: 9998 }}>
-          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 13, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              Painel Executivo
-            </span>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {kpis.total} equip. · {formatBRL(kpis.custoMensal)}/mês
-            </span>
-          </div>
-          <button onClick={() => setModoApres(false)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, cursor: "pointer", color: "white", fontSize: 12, fontWeight: 700 }}>
-            <Minimize2 size={13} /> Sair
+          <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 700, fontSize: 12, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+            Painel Executivo · {kpis.total} equip. · {formatBRL(kpis.custoMensal)}/mês
+          </span>
+          <button onClick={() => setModoApres(false)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}>
+            <Minimize2 size={12} /> Sair
           </button>
         </header>
 
