@@ -28,6 +28,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { startImpersonation } from "@/hooks/useImpersonation";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 import UsersManagerExternal from "@/components/admin/UsersManager";
 import FuncionariosManager from "@/components/admin/FuncionariosManager";
 import CentrosCustoManager from "@/components/admin/CentrosCustoManager";
@@ -506,8 +507,12 @@ function MaquinasManager() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [frota, setFrota] = useState("");
-  const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
+  const [placa, setPlaca] = useState("");
+  const [marca, setMarca] = useState("");
+  const [modelo, setModelo] = useState("");
+  const [ano, setAno] = useState("");
+  const [serie, setSerie] = useState("");
   const [companyId, setCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -523,8 +528,12 @@ function MaquinasManager() {
   const [vinculos, setVinculos] = useState<string[]>(["TODOS"]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFrota, setEditFrota] = useState("");
-  const [editNome, setEditNome] = useState("");
   const [editTipo, setEditTipo] = useState("");
+  const [editPlaca, setEditPlaca] = useState("");
+  const [editMarca, setEditMarca] = useState("");
+  const [editModelo, setEditModelo] = useState("");
+  const [editAno, setEditAno] = useState("");
+  const [editSerie, setEditSerie] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategoria, setFilterCategoria] = useState("");
   const [filterTipoDetalhado, setFilterTipoDetalhado] = useState("");
@@ -562,23 +571,62 @@ function MaquinasManager() {
   );
 
   const handleAdd = async () => {
-    if (!frota.trim() || !nome.trim()) {
-      toast({ title: "Atenção", description: "Preencha Frota e Nome.", variant: "destructive" });
+    if (!frota.trim() || !tipo.trim()) {
+      toast({ title: "Atenção", description: "Preencha Frota/Centro de Custo e Tipo.", variant: "destructive" });
       return;
     }
     if (!companyId) {
       toast({ title: "Erro", description: "Empresa não identificada. Faça login novamente.", variant: "destructive" });
       return;
     }
-    const ok = await add({ frota: frota.trim(), nome: nome.trim(), tipo: tipo.trim(), categoria_rdo: categoria, condicao, empresa_proprietaria: empresa.trim() || null, vinculos, vinculo_rdo: vinculos[0], status: "ativo", company_id: companyId });
-    if (ok) { setFrota(""); setNome(""); setTipo(""); setCategoria(""); setCondicao("PROPRIO"); setEmpresa("FREMIX"); setVinculos(["TODOS"]); }
+    const nomeFinal = [marca.trim(), modelo.trim()].filter(Boolean).join(" ").trim() || modelo.trim() || tipo.trim() || frota.trim();
+    const frotaOuCentro = frota.trim();
+    const marcaFinal = marca.trim();
+    const serieFinal = serie.trim();
+    const ok = await add({
+      frota: frotaOuCentro,
+      centro_custo: frotaOuCentro || null,
+      nome: nomeFinal,
+      tipo: tipo.trim(),
+      placa: placa.trim() || null,
+      marca: marcaFinal || null,
+      tipo_veiculo: marcaFinal || null,
+      modelo_completo: modelo.trim() || null,
+      ano: ano.trim() || null,
+      serie: serieFinal || null,
+      chassi: serieFinal || null,
+      categoria_rdo: categoria,
+      condicao,
+      empresa_proprietaria: empresa.trim() || null,
+      vinculos,
+      vinculo_rdo: vinculos[0],
+      status: "ativo",
+      company_id: companyId,
+    });
+    if (ok) {
+      setFrota("");
+      setTipo("");
+      setPlaca("");
+      setMarca("");
+      setModelo("");
+      setAno("");
+      setSerie("");
+      setCategoria("");
+      setCondicao("PROPRIO");
+      setEmpresa("FREMIX");
+      setVinculos(["TODOS"]);
+    }
   };
 
   const startEdit = (m: any) => {
     setEditingId(m.id);
-    setEditFrota(m.frota || "");
-    setEditNome(m.nome || "");
+    setEditFrota(m.centro_custo || m.frota || "");
     setEditTipo(m.tipo || "");
+    setEditPlaca(m.placa || "");
+    setEditMarca(m.marca || m.tipo_veiculo || "");
+    setEditModelo(m.modelo_completo || m.nome || "");
+    setEditAno(m.ano || "");
+    setEditSerie(m.serie || m.chassi || m.patrimonio || "");
     setEditCategoria(m.categoria_rdo || "");
     setEditCondicao(m.condicao || (m.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO'));
     setEditEmpresa(m.empresa_proprietaria || "");
@@ -586,8 +634,29 @@ function MaquinasManager() {
   };
 
   const saveEdit = async (id: string) => {
-    if (!editFrota.trim() || !editNome.trim()) { toast({ title: "Atenção", description: "Frota e Nome são obrigatórios.", variant: "destructive" }); return; }
-    const ok = await update(id, { frota: editFrota.trim(), nome: editNome.trim(), tipo: editTipo.trim(), categoria_rdo: editCategoria, condicao: editCondicao, empresa_proprietaria: editEmpresa.trim() || null, vinculos: editVinculos, vinculo_rdo: editVinculos[0] });
+    if (!editFrota.trim() || !editTipo.trim()) { toast({ title: "Atenção", description: "Frota/Centro de Custo e Tipo são obrigatórios.", variant: "destructive" }); return; }
+    const nomeFinal = [editMarca.trim(), editModelo.trim()].filter(Boolean).join(" ").trim() || editModelo.trim() || editTipo.trim() || editFrota.trim();
+    const frotaOuCentro = editFrota.trim();
+    const marcaFinal = editMarca.trim();
+    const serieFinal = editSerie.trim();
+    const ok = await update(id, {
+      frota: frotaOuCentro,
+      centro_custo: frotaOuCentro || null,
+      nome: nomeFinal,
+      tipo: editTipo.trim(),
+      placa: editPlaca.trim() || null,
+      marca: marcaFinal || null,
+      tipo_veiculo: marcaFinal || null,
+      modelo_completo: editModelo.trim() || null,
+      ano: editAno.trim() || null,
+      serie: serieFinal || null,
+      chassi: serieFinal || null,
+      categoria_rdo: editCategoria,
+      condicao: editCondicao,
+      empresa_proprietaria: editEmpresa.trim() || null,
+      vinculos: editVinculos,
+      vinculo_rdo: editVinculos[0],
+    });
     if (ok) setEditingId(null);
   };
 
@@ -645,19 +714,35 @@ function MaquinasManager() {
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Frota *</Label>
+            <Label className="text-xs text-muted-foreground">Frota / Centro de Custo *</Label>
             <Input value={frota} onChange={e => setFrota(e.target.value)} className="h-11 bg-secondary border-border" placeholder="FA12" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Nome/Modelo *</Label>
-            <Input value={nome} onChange={e => setNome(e.target.value)} className="h-11 bg-secondary border-border" placeholder="WIRTGEN W200" />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Tipo</Label>
+            <Label className="text-xs text-muted-foreground">Tipo *</Label>
             <TipoSelect value={tipo} onChange={setTipo} />
           </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Placa</Label>
+            <Input value={placa} onChange={e => setPlaca(e.target.value.toUpperCase())} className="h-11 bg-secondary border-border" placeholder="ABC1D23" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Marca</Label>
+            <Input value={marca} onChange={e => setMarca(e.target.value)} className="h-11 bg-secondary border-border" placeholder="WIRTGEN" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Modelo</Label>
+            <Input value={modelo} onChange={e => setModelo(e.target.value)} className="h-11 bg-secondary border-border" placeholder="W200" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Ano</Label>
+            <Input value={ano} onChange={e => setAno(e.target.value)} className="h-11 bg-secondary border-border" placeholder="2022" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Série</Label>
+          <Input value={serie} onChange={e => setSerie(e.target.value)} className="h-11 bg-secondary border-border" placeholder="Nº de série / chassi" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Condição</Label>
             <Select value={condicao} onValueChange={v => { setCondicao(v); setEmpresa(v === "PROPRIO" ? "FREMIX" : ""); }}>
@@ -692,7 +777,7 @@ function MaquinasManager() {
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="h-9 bg-secondary border-border text-sm"
-          placeholder="🔍 Buscar por frota, nome ou tipo..."
+          placeholder="🔍 Buscar por frota, tipo, placa, marca, modelo..."
         />
         <div className="flex flex-wrap gap-1.5">
           <button
@@ -765,7 +850,12 @@ function MaquinasManager() {
             const matchSearch = !q ||
               m.frota?.toLowerCase().includes(q) ||
               m.nome?.toLowerCase().includes(q) ||
-              m.tipo?.toLowerCase().includes(q);
+              m.tipo?.toLowerCase().includes(q) ||
+              m.placa?.toLowerCase().includes(q) ||
+              (m.marca || m.tipo_veiculo || "").toLowerCase().includes(q) ||
+              m.modelo_completo?.toLowerCase().includes(q) ||
+              m.ano?.toLowerCase().includes(q) ||
+              (m.serie || m.chassi || "").toLowerCase().includes(q);
             const categoriaItem = m.categoria_rdo || m.categoria || "";
             const matchCat = !filterCategoria || normTxt(categoriaItem) === normTxt(filterCategoria);
             const matchTipoDetalhado = !filterTipoDetalhado || normTxt(m.tipo || "") === filterTipoDetalhado;
@@ -779,9 +869,13 @@ function MaquinasManager() {
             {editingId === m.id ? (
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Frota *</Label><Input value={editFrota} onChange={e => setEditFrota(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
-                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Nome/Modelo *</Label><Input value={editNome} onChange={e => setEditNome(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
-                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Tipo</Label><TipoSelect value={editTipo} onChange={setEditTipo} /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Frota / Centro de Custo *</Label><Input value={editFrota} onChange={e => setEditFrota(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Tipo *</Label><TipoSelect value={editTipo} onChange={setEditTipo} /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Placa</Label><Input value={editPlaca} onChange={e => setEditPlaca(e.target.value.toUpperCase())} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Marca</Label><Input value={editMarca} onChange={e => setEditMarca(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Modelo</Label><Input value={editModelo} onChange={e => setEditModelo(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Ano</Label><Input value={editAno} onChange={e => setEditAno(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
+                  <div className="space-y-1"><Label className="text-xs text-muted-foreground">Série</Label><Input value={editSerie} onChange={e => setEditSerie(e.target.value)} className="h-9 bg-secondary border-border text-sm" /></div>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Condição</Label>
                     <Select value={editCondicao} onValueChange={v => { setEditCondicao(v); if (v === "PROPRIO") setEditEmpresa("FREMIX"); }}>
@@ -816,7 +910,8 @@ function MaquinasManager() {
             ) : (
               <div className="flex items-start justify-between">
                 <div className="space-y-1.5 flex-1 min-w-0 pr-2">
-                  <p className="font-medium text-sm text-foreground">{m.frota} — {m.tipo} ({m.nome})</p>
+                  <p className="font-medium text-sm text-foreground">{m.frota} — {m.tipo} ({m.modelo_completo || m.nome})</p>
+                  <p className="text-xs text-muted-foreground">{[m.placa, m.marca || m.tipo_veiculo, m.ano, m.serie || m.chassi].filter(Boolean).join(" • ") || "Sem placa/marca/ano/série"}</p>
                   <div className="flex flex-wrap gap-1">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${m.condicao === 'TERCEIRO' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{m.condicao === 'TERCEIRO' ? 'Terceiro' : 'Próprio'}</span>
                     {m.empresa_proprietaria && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{m.empresa_proprietaria}</span>}
@@ -4456,7 +4551,7 @@ function LixeiraManager() {
 }
 
 // ─── SST Responsáveis Manager ──────────────────────────────────────────────────────────────────
-const COMPANY_ID_ADMIN = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const COMPANY_ID_ADMIN = DEFAULT_COMPANY_ID;
 const CARGOS = [
   { key: "engenheiro", label: "Engenheiro da Obra" },
   { key: "encarregado", label: "Encarregado da Obra" },
@@ -5027,8 +5122,8 @@ export default function AdminConfiguracoes() {
       const { data: assignments, error: assignmentsError } = await supabase
         .from("user_admin_roles")
         .select("role_id")
-        .eq("employee_id", userId)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .or(`employee_id.eq.${userId},user_id.eq.${userId}`);
 
       if (assignmentsError) {
         console.error("[AdminConfiguracoes] erro ao buscar atribuições:", assignmentsError.message);
