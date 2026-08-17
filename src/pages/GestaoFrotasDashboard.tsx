@@ -1741,7 +1741,7 @@ export default function GestaoFrotasDashboard() {
             </div>
           </div>
         )}
-        {(workshopMode || canEditDashboard) && (
+        {!presentationClean && (workshopMode || canEditDashboard) && (
           <div style={{ marginBottom: 12, background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 14, padding: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
@@ -1946,7 +1946,7 @@ export default function GestaoFrotasDashboard() {
         ) : (
           <TabelaEquipamentos
             items={listaExibicao}
-            workshopMode={workshopMode || canEditDashboard}
+            workshopMode={!presentationClean && (workshopMode || canEditDashboard)}
             presentationMode={modoApres}
             presentationTvMode={apresTvMode}
             selectedIds={selecionados}
