@@ -1171,6 +1171,16 @@ export default function GestaoFrotasDashboard() {
     return chips.filter((c) => !isPequenoPorteTipo(c.key));
   }, [chips, modoVis, ocultarPequenoPorteApres]);
 
+  const pequenoPorteOcultoCount = useMemo(() => {
+    if (!ocultarPequenoPorteApres) return 0;
+    const set = new Set<string>();
+    listaFiltrada.forEach((e) => {
+      const k = getTipoKeyApresentacao(e);
+      if (k && isPequenoPorteTipo(k)) set.add(k);
+    });
+    return set.size;
+  }, [listaFiltrada, ocultarPequenoPorteApres]);
+
   const tiposDisponiveisFiltro = useMemo(() => {
     const set = new Set<string>();
     listaFiltrada.forEach((e) => {
@@ -2311,9 +2321,16 @@ export default function GestaoFrotasDashboard() {
 
         {/* ── HEADER ── */}
         <header style={{ height: HEADER_H, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, paddingInline: 14, background: "linear-gradient(135deg, #0A0F2C 0%, #0055AA 100%)", boxShadow: "0 2px 12px rgba(0,0,0,0.4)", zIndex: 9998 }}>
-          <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 700, fontSize: 12, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
-            Painel Executivo · {kpis.total} equip. · {formatBRL(kpis.custoMensal)}/mês
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 700, fontSize: 12, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+              Painel Executivo · {kpis.total} equip. · {formatBRL(kpis.custoMensal)}/mês
+            </span>
+            {ocultarPequenoPorteApres && pequenoPorteOcultoCount > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 800, color: "#f5f3ff", background: "rgba(124,58,237,0.45)", border: "1px solid rgba(167,139,250,0.9)", borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+                {pequenoPorteOcultoCount} tipo(s) pequeno porte oculto(s)
+              </span>
+            )}
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <button
               onClick={() => setOcultarPequenoPorteApres((v) => !v)}
