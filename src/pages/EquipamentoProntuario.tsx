@@ -192,7 +192,7 @@ export default function EquipamentoProntuario() {
           <div className="flex-1">
             <p className="text-xs opacity-70">Prontuário</p>
             <h1 className="text-xl font-display font-black">{equip.frota}</h1>
-            <p className="text-sm opacity-80">{equip.modelo_completo || equip.nome}</p>
+            <p className="text-sm opacity-80">{[equip.marca || equip.tipo_veiculo, equip.modelo_completo || equip.nome].filter(Boolean).join(" ") || equip.modelo_completo || equip.nome}</p>
           </div>
           <span className={`px-2 py-1 rounded-lg text-xs font-bold ${equip.condicao === "TERCEIRO" ? "bg-blue-400/30" : "bg-green-400/30"}`}>
             {equip.condicao === "TERCEIRO" ? "Terceiro" : "Próprio"}
@@ -230,9 +230,11 @@ export default function EquipamentoProntuario() {
               <h3 className="font-display font-bold text-sm">Dados Gerais</h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {[
-                  ["Frota", equip.frota],
+                  ["Frota / Centro de Custo", equip.centro_custo || equip.frota],
                   ["Tipo", equip.tipo],
                   ["Placa", equip.placa],
+                  ["Marca", equip.marca || equip.tipo_veiculo],
+                  ["Série", equip.serie || equip.chassi || equip.patrimonio],
                   ["Ano", equip.ano],
                   ["Condição", equip.condicao === "TERCEIRO" ? "Terceiro" : "Próprio (Fremix)"],
                   equip.condicao === "TERCEIRO" ? ["Empresa", equip.empresa_proprietaria] : ["Patrimônio", equip.patrimonio],

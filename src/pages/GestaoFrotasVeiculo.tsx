@@ -261,10 +261,12 @@ export default function GestaoFrotasVeiculo() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "Código / Frota",    value: veiculo.frota || "—" },
+              { label: "Frota / Centro de Custo", value: veiculo.centro_custo || veiculo.frota || "—" },
               { label: "Placa",             value: veiculo.placa || "—" },
               { label: "Tipo",              value: veiculo.tipo || veiculo.nome || "—" },
+              { label: "Marca",             value: veiculo.marca || veiculo.tipo_veiculo || "—" },
               { label: "Modelo / Nome",     value: veiculo.modelo_completo || veiculo.nome || "—" },
+              { label: "Série",             value: veiculo.serie || veiculo.chassi || veiculo.patrimonio || "—" },
               { label: "Condição",          value: condicaoLabel },
               { label: "Empresa",           value: veiculo.empresa_proprietaria || veiculo.locadora || "—" },
             ].map(({ label, value }) => (

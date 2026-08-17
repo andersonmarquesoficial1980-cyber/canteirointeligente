@@ -5,14 +5,18 @@ export interface Equipamento {
   id: string;
   company_id: string;
   frota: string;
+  centro_custo?: string;
   nome: string;
   modelo_completo?: string;
   tipo?: string;
+  marca?: string;
   categoria_rdo?: string;
   tipo_veiculo?: string;
   ano?: string;
   placa?: string;
+  serie?: string;
   patrimonio?: string;
+  chassi?: string;
   condicao: "PROPRIO" | "TERCEIRO";
   empresa_proprietaria?: string;
   vinculos: string[];
