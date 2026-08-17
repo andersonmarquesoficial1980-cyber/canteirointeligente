@@ -90,9 +90,8 @@ function isForaSP(e: Equip) {
   const estado = normTxt(e.estado || "");
   if (estado) return estado !== "SP" && estado !== "SAO PAULO";
 
-  const localMix = normTxt([e.cidade, e.local, e.obra_nome, e.setor].filter(Boolean).join(" "));
-  if (!localMix) return false;
-  return !(localMix.includes("SP") || localMix.includes("SAO PAULO"));
+  // Sem UF/estado confiável, não rotular como fora de SP.
+  return false;
 }
 
 function hasEquipeDefinida(e: Equip) {
