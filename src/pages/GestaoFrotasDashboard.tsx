@@ -8,7 +8,8 @@ import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 // ─── TYPES ─────────────────────────────────────────────────────────────────────
 
 interface Equip {
-  id: string; frota: string; placa: string; nome: string; modelo_completo: string;
+  id: string; frota: string; centro_custo?: string; placa: string; nome: string; modelo_completo: string;
+  marca?: string; serie?: string;
   tipo: string; setor: string; condutor_atual: string; condicao: string; categoria: string;
   empresa_proprietaria: string; locadora: string; valor_mensal: number; status: string;
   observacoes: string; motivo_manutencao: string; previsao_liberacao: string;

@@ -1103,7 +1103,7 @@ export default function GestaoFrotasHome() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-display font-bold text-sm">{v.frota || v.placa}</span>
+                      <span className="font-display font-bold text-sm">{v.centro_custo || v.frota || v.placa}</span>
                       {v.placa && v.placa !== v.frota && <span className="text-xs text-muted-foreground">{v.placa}</span>}
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                         (v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO'
@@ -1130,7 +1130,7 @@ export default function GestaoFrotasHome() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{v.nome || v.modelo_completo}</p>
+                    <p className="text-xs text-muted-foreground truncate">{[v.marca || v.tipo_veiculo, v.modelo_completo || v.nome].filter(Boolean).join(" ") || v.modelo_completo || v.nome}</p>
                     <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
                       {v.tipo && <span>🏷️ {v.tipo}</span>}
                       {v.setor && <span>🏢 {v.setor}</span>}
