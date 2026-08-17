@@ -156,6 +156,21 @@ function isPequenoPorteTipo(tipoKey: string) {
   return ["ROMPEDOR", "PLACA VIBRATORIA", "SAPO", "SERRA CLIPPER", "BANHEIRO", "GERADOR", "PMV"].some((k) => t.includes(k));
 }
 
+function isPequenoPorteEquip(e: Equip) {
+  const campos = [
+    e.tipo,
+    e.nome,
+    e.frota,
+    e.centro_custo,
+    e.modelo_completo,
+  ];
+
+  return campos.some((v) => {
+    const n = normTxt(v || "");
+    return n ? isPequenoPorteTipo(n) : false;
+  });
+}
+
 const STATUS_BADGE: Record<string, { bg: string; cor: string; label: string; dot: string }> = {
   operacional: { bg: "#dcfce7", cor: "#166534", label: "Operacional", dot: "#16a34a" },
   manutencao:  { bg: "#fef3c7", cor: "#92400e", label: "Manutenção",  dot: "#f59e0b" },
@@ -1175,8 +1190,9 @@ export default function GestaoFrotasDashboard() {
     if (!ocultarPequenoPorteApres) return 0;
     const set = new Set<string>();
     listaFiltrada.forEach((e) => {
+      if (!isPequenoPorteEquip(e)) return;
       const k = getTipoKeyApresentacao(e);
-      if (k && isPequenoPorteTipo(k)) set.add(k);
+      if (k) set.add(k);
     });
     return set.size;
   }, [listaFiltrada, ocultarPequenoPorteApres]);
@@ -1778,7 +1794,7 @@ export default function GestaoFrotasDashboard() {
       ? listaBase.filter((e) => {
           const tipoKey = getTipoKeyApresentacao(e);
           if (tiposOcultosApres.includes(tipoKey)) return false;
-          if (ocultarPequenoPorteApres && isPequenoPorteTipo(tipoKey)) return false;
+          if (ocultarPequenoPorteApres && isPequenoPorteEquip(e)) return false;
           return true;
         })
       : listaBase;
