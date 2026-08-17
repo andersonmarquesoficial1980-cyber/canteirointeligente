@@ -343,7 +343,7 @@ function TabelaEquipamentos({
             <div style={{ position: presentationMode ? "sticky" : "static", left: presentationMode ? (workshopMode ? 48 : 0) : undefined, zIndex: presentationMode ? 5 : undefined, background: presentationMode ? rowBg : undefined, paddingRight: 6 }}>
               <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 14 : 13) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
             </div>
-            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo || e.nome || "—"}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getTipoLabelExecutivo(e.tipo || e.nome || "")}</span>
             <div style={{ alignSelf: "center", overflow: "hidden" }}>
               {podeEditarInline && editingEquipeId === e.id ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
