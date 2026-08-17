@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,6 +133,9 @@ export default function GestaoFrotasHome() {
   const [filtroFrota, setFiltroFrota] = useState<string>(filtrosIniciais.frota);
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapido>("todos");
   const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
+  const [focoCardId, setFocoCardId] = useState<string | null>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const listaFiltradaIdsRef = useRef<string[]>([]);
 
   useEffect(() => {
     buscarTodos();
@@ -413,6 +416,10 @@ export default function GestaoFrotasHome() {
 
     if ((setorAnterior || null) === (setorNovo || null)) return;
 
+    const idsOrdenados = listaFiltradaIdsRef.current;
+    const idxAtual = idsOrdenados.indexOf(veiculoId);
+    const proximoId = idxAtual >= 0 ? idsOrdenados[idxAtual + 1] || null : null;
+
     setUpdatingEquipeId(veiculoId);
 
     try {
@@ -472,6 +479,8 @@ export default function GestaoFrotasHome() {
       }
 
       await carregarHistoricoTrocaEquipe({ silencioso: true });
+
+      if (proximoId) setFocoCardId(proximoId);
 
       toast({
         title: "Equipe atualizada",
@@ -541,6 +550,22 @@ export default function GestaoFrotasHome() {
       return frotaA.localeCompare(frotaB, "pt-BR", { sensitivity: "base", numeric: true });
     });
   }, [todos, tipoMetaMap, filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota, filtroRapido]);
+
+  useEffect(() => {
+    listaFiltradaIdsRef.current = listaFiltrada.map((item) => item.id);
+  }, [listaFiltrada]);
+
+  useEffect(() => {
+    if (!focoCardId) return;
+
+    const target = cardRefs.current[focoCardId];
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    const timer = window.setTimeout(() => setFocoCardId(null), 1200);
+    return () => window.clearTimeout(timer);
+  }, [focoCardId, listaFiltrada]);
 
   const filtrosAtivos = useMemo(() => {
     const chips: string[] = [];
@@ -1205,7 +1230,13 @@ export default function GestaoFrotasHome() {
               : equipesDisponiveis;
 
             return (
-              <div key={v.id} className="w-full rdo-card hover:shadow-md transition-all space-y-2">
+              <div
+                key={v.id}
+                ref={(el) => {
+                  cardRefs.current[v.id] = el;
+                }}
+                className={`w-full rdo-card hover:shadow-md transition-all space-y-2 ${focoCardId === v.id ? "ring-2 ring-primary/40" : ""}`}
+              >
                 <button onClick={() => navigate(`/gestao-frotas/veiculo/${v.id}`)} className="w-full text-left flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'bg-blue-50' : 'bg-green-50'}`}>
                     <Car className={`w-5 h-5 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'text-blue-600' : 'text-green-600'}`} />
