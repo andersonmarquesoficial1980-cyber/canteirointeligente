@@ -310,15 +310,14 @@ function TabelaEquipamentos({
               ? "#f5f3ff"
               : (i % 2 === 0 ? "white" : "#fafbfc");
         return (
-          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: presentationTvMode ? "9px 14px" : "10px 16px", gap: 8, borderBottom: "1px solid #f8fafc", background: rowBg, borderLeft: isManut ? "4px solid #f59e0b" : (foraSp ? "4px solid #8b5cf6" : "4px solid transparent") }}>
+          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: presentationTvMode ? "7px 12px" : "9px 14px", gap: 8, borderBottom: "1px solid #f8fafc", background: rowBg, borderLeft: isManut ? "4px solid #f59e0b" : (foraSp ? "4px solid #8b5cf6" : "4px solid transparent") }}>
             {workshopMode && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <input type="checkbox" checked={isChecked} onChange={() => onToggleItem(e.id)} />
               </div>
             )}
             <div style={{ position: presentationMode ? "sticky" : "static", left: presentationMode ? (workshopMode ? 48 : 0) : undefined, zIndex: presentationMode ? 5 : undefined, background: presentationMode ? rowBg : undefined, paddingRight: 6 }}>
-              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 15 : 13) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
-              {e.placa && e.placa !== e.frota && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 10, color: "#9ca3af", marginTop: 1 }}>{e.placa}</p>}
+              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 14 : 13) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
             </div>
             <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.tipo || e.nome || "—"}</span>
             <div style={{ alignSelf: "center", overflow: "hidden" }}>
@@ -1652,7 +1651,7 @@ export default function GestaoFrotasDashboard() {
               </button>
             </div>
 
-            <div style={{ marginBottom: 6, display: "flex", gap: 6, flexWrap: "wrap", maxHeight: tvMode ? 78 : 84, overflowY: "auto", paddingRight: 4 }}>
+            <div style={{ marginBottom: 6, display: "flex", gap: 6, flexWrap: "wrap", paddingRight: 2 }}>
               <button
                 onClick={() => { setChipSel("todos"); setSubChipSel("todos"); }}
                 style={{ padding: "5px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === "todos" ? "#334155" : "#cbd5e1", background: chipSel === "todos" ? "#334155" : "white", color: chipSel === "todos" ? "white" : "#334155" }}
