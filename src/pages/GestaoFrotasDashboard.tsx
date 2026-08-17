@@ -343,7 +343,7 @@ function TabelaEquipamentos({
               </div>
             )}
             <div style={{ position: presentationMode ? "sticky" : "static", left: presentationMode ? (workshopMode ? 48 : 0) : undefined, zIndex: presentationMode ? 5 : undefined, background: presentationMode ? rowBg : undefined, paddingRight: 6 }}>
-              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 14 : 13) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.frota || e.placa || "—"}</span>
+              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 14 : 13) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.centro_custo || e.frota || e.placa || "—"}</span>
             </div>
             <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getTipoLabelExecutivo(e.tipo || e.nome || "")}</span>
             <div style={{ alignSelf: "center", overflow: "hidden" }}>
@@ -847,7 +847,7 @@ export default function GestaoFrotasDashboard() {
       txt += "2. EQUIPAMENTOS EM MANUTENÇÃO\n";
       txt += sep + "\n";
       emManut.forEach(e => {
-        txt += `• ${e.frota || e.placa || "—"} — ${e.tipo || "—"}`;
+        txt += `• ${e.centro_custo || e.frota || e.placa || "—"} — ${e.tipo || "—"}`;
         if (e.setor) txt += ` (${e.setor})`;
         txt += "\n";
         if (e.motivo_manutencao) txt += `  Motivo  : ${e.motivo_manutencao}\n`;
@@ -871,7 +871,7 @@ export default function GestaoFrotasDashboard() {
         const custoEmp = equips.reduce((s, e) => s + (e.valor_mensal || 0), 0);
         txt += `\n  ${emp}${custoEmp > 0 ? ` — ${formatBRL(custoEmp)}/mês` : ""}:\n`;
         equips.forEach(e => {
-          txt += `    • ${e.frota || e.placa || "—"} — ${e.tipo || "—"}`;
+          txt += `    • ${e.centro_custo || e.frota || e.placa || "—"} — ${e.tipo || "—"}`;
           if (e.setor) txt += ` (${e.setor})`;
           if (e.valor_mensal > 0) txt += ` · ${formatBRL(e.valor_mensal)}/mês`;
           txt += "\n";
@@ -1007,7 +1007,7 @@ export default function GestaoFrotasDashboard() {
     if (busca.trim()) {
       const b = busca.toLowerCase();
       lista = lista.filter(e => [
-        e.frota, e.placa, e.tipo, e.nome, e.setor, e.condutor_atual,
+        e.centro_custo, e.frota, e.placa, e.tipo, e.nome, e.marca, e.setor, e.condutor_atual,
         e.empresa_proprietaria, e.locadora, e.uf, e.estado, e.cidade, e.local, e.obra_nome,
       ].some(f => f?.toLowerCase().includes(b)));
     }
@@ -1269,7 +1269,7 @@ export default function GestaoFrotasDashboard() {
       const situacao = isTerceiro(e) ? "Terceiro" : "Próprio";
       const empresa = e.empresa_proprietaria || e.locadora || "";
       return [
-        e.frota || e.placa || "",
+        e.centro_custo || e.frota || e.placa || "",
         e.tipo || "",
         e.setor || "",
         st,
@@ -1423,7 +1423,7 @@ export default function GestaoFrotasDashboard() {
         .filter((e) => getStatusNorm(e) === "manutencao" || isForaSP(e))
         .slice(0, 30);
       criticos.forEach((e) => {
-        const frota = e.frota || e.placa || "—";
+        const frota = e.centro_custo || e.frota || e.placa || "—";
         const tipo = e.tipo || e.nome || "—";
         const st = STATUS_BADGE[getStatusNorm(e)].label;
         const loc = getLocalizacaoLabel(e) || "(sem local definido)";
@@ -1438,7 +1438,7 @@ export default function GestaoFrotasDashboard() {
       txt += "- Sem locações no filtro atual.\n\n";
     } else {
       topCustos.forEach((e, i) => {
-        txt += `${i + 1}. ${e.frota || e.placa || "—"} | ${e.tipo || "—"} | ${formatBRL(e.valor_mensal || 0)}/mês\n`;
+        txt += `${i + 1}. ${e.centro_custo || e.frota || e.placa || "—"} | ${e.tipo || "—"} | ${formatBRL(e.valor_mensal || 0)}/mês\n`;
       });
       txt += "\n";
     }
