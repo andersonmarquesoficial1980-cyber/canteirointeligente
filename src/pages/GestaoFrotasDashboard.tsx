@@ -144,12 +144,16 @@ const TIPOS_PEQUENO_PORTE = [
   "SAPO COMPACTADOR",
   "SERRA CLIPPER",
   "TORRE DE ILUMINACAO",
+  "GERADOR",
+  "PMV",
+  "PAINEL DE MENSAGEM VARIAVEL",
+  "PAINEL MENSAGEM VARIAVEL",
 ];
 
 function isPequenoPorteTipo(tipoKey: string) {
   const t = normTxt(tipoKey);
   if (TIPOS_PEQUENO_PORTE.includes(t)) return true;
-  return ["ROMPEDOR", "PLACA VIBRATORIA", "SAPO", "SERRA CLIPPER", "BANHEIRO"].some((k) => t.includes(k));
+  return ["ROMPEDOR", "PLACA VIBRATORIA", "SAPO", "SERRA CLIPPER", "BANHEIRO", "GERADOR", "PMV"].some((k) => t.includes(k));
 }
 
 const STATUS_BADGE: Record<string, { bg: string; cor: string; label: string; dot: string }> = {
@@ -1162,6 +1166,11 @@ export default function GestaoFrotasDashboard() {
   }, [listaFiltrada]);
 
   const chips = modoVis === "tipo" ? chipsDoTipo : chipsDeEquipe;
+  const chipsVisiveis = useMemo(() => {
+    if (modoVis !== "tipo" || !ocultarPequenoPorteApres) return chips;
+    return chips.filter((c) => !isPequenoPorteTipo(c.key));
+  }, [chips, modoVis, ocultarPequenoPorteApres]);
+
   const tiposDisponiveisFiltro = useMemo(() => {
     const set = new Set<string>();
     listaFiltrada.forEach((e) => {
@@ -1174,6 +1183,15 @@ export default function GestaoFrotasDashboard() {
   function toggleTipoOcultoApres(tipoKey: string) {
     setTiposOcultosApres((prev) => (prev.includes(tipoKey) ? prev.filter((t) => t !== tipoKey) : [...prev, tipoKey]));
   }
+
+  useEffect(() => {
+    if (modoVis !== "tipo") return;
+    if (!ocultarPequenoPorteApres) return;
+    if (chipSel !== "todos" && isPequenoPorteTipo(chipSel)) {
+      setChipSel("todos");
+      setSubChipSel("todos");
+    }
+  }, [modoVis, ocultarPequenoPorteApres, chipSel]);
 
   const subTiposDisponiveis = useMemo(() => {
     if (modoVis !== "tipo" || chipSel === "todos") return [] as string[];
@@ -1694,7 +1712,7 @@ export default function GestaoFrotasDashboard() {
         <div style={{ padding: "10px 8px", flex: 1 }}>
           <p style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8, paddingLeft: 4 }}>{modoVis === "tipo" ? "Tipo" : "Equipe"}</p>
           <SideChip label="Todos" count={todos.length} ativo={chipSel === "todos"} manut={todos.filter(e => getStatusNorm(e) === "manutencao").length} onClick={() => setChipSel("todos")} />
-          {chips.map(c => (
+          {chipsVisiveis.map(c => (
             <div key={c.key}>
               <SideChip label={c.label} count={c.count} ativo={chipSel === c.key && subChipSel === "todos"}
                 manut={modoVis === "tipo"
@@ -1932,7 +1950,7 @@ export default function GestaoFrotasDashboard() {
               >
                 Todos
               </button>
-              {chips.map((c) => (
+              {chipsVisiveis.map((c) => (
                 <button
                   key={c.key}
                   onClick={() => { setChipSel(c.key); setSubChipSel("todos"); }}
