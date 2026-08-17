@@ -859,58 +859,59 @@ export default function GestaoFrotasHome() {
 
       {aba === "frotas" && (
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
-          <div className="rdo-card space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold">Busca rápida de equipamento</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 px-2 text-xs"
-                onClick={() => setMostrarFiltrosAvancados((prev) => !prev)}
-              >
-                {mostrarFiltrosAvancados ? "Ocultar filtros avançados" : "Mostrar filtros avançados"}
-              </Button>
+          <div className="sticky top-2 z-20 space-y-2">
+            <div className="rdo-card space-y-2 border border-primary/10 bg-white/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">Busca rápida de equipamento</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={() => setMostrarFiltrosAvancados((prev) => !prev)}
+                >
+                  {mostrarFiltrosAvancados ? "Ocultar filtros avançados" : "Mostrar filtros avançados"}
+                </Button>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Digite frota, placa, modelo ou nome"
+                  value={filtroFrota}
+                  onChange={(e) => setFiltroFrota(e.target.value)}
+                  className="pl-9 h-10 rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Select value={filtroCategoria} onValueChange={(valor) => {
+                  setFiltroCategoria(valor);
+                  setFiltroTipo("todos");
+                  setFiltroSubtipo("todos");
+                }}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas as categorias</SelectItem>
+                    {categoriasComCount.map((cat) => (
+                      <SelectItem key={cat.key} value={cat.key}>{cat.label} ({cat.count})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filtroEquipe} onValueChange={setFiltroEquipe}>
+                  <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas as equipes</SelectItem>
+                    {equipesDisponiveis.map((eq) => (
+                      <SelectItem key={eq} value={eq}>{eq}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Digite frota, placa, modelo ou nome"
-                value={filtroFrota}
-                onChange={(e) => setFiltroFrota(e.target.value)}
-                className="pl-9 h-10 rounded-xl"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Select value={filtroCategoria} onValueChange={(valor) => {
-                setFiltroCategoria(valor);
-                setFiltroTipo("todos");
-                setFiltroSubtipo("todos");
-              }}>
-                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Categoria" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todas as categorias</SelectItem>
-                  {categoriasComCount.map((cat) => (
-                    <SelectItem key={cat.key} value={cat.key}>{cat.label} ({cat.count})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={filtroEquipe} onValueChange={setFiltroEquipe}>
-                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas as equipes</SelectItem>
-                  {equipesDisponiveis.map((eq) => (
-                    <SelectItem key={eq} value={eq}>{eq}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex justify-end">
+            <div className="flex justify-end">
             <Button
               type="button"
               variant="ghost"
@@ -920,6 +921,7 @@ export default function GestaoFrotasHome() {
             >
               {mostrarBlocosAuxiliares ? "Ocultar atalhos e auditoria" : "Mostrar atalhos e auditoria"}
             </Button>
+          </div>
           </div>
 
           {mostrarBlocosAuxiliares && (
