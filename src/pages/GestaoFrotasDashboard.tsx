@@ -1627,34 +1627,34 @@ export default function GestaoFrotasDashboard() {
 
         {presentationClean && (
           <>
-            <div style={{ marginBottom: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div style={{ marginBottom: 4, display: "flex", gap: 4, flexWrap: "wrap" }}>
               {[{ key: "todos", label: "Todos", cor: "#374151" }, { key: "operacional", label: "Operacional", cor: "#166534" }, { key: "manutencao", label: "Manutenção", cor: "#92400e" }, { key: "disposicao", label: "Disposição", cor: "#475569" }, { key: "terceiro", label: "Locados", cor: "#1d4ed8" }].map(f => (
-                <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: tvMode ? "5px 10px" : "5px 10px", borderRadius: 14, fontSize: tvMode ? 11 : 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
+                <button key={f.key} onClick={() => setFiltroStatus(f.key as any)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: filtroStatus === f.key ? f.cor : "#cbd5e1", background: filtroStatus === f.key ? f.cor : "white", color: filtroStatus === f.key ? "white" : "#334155" }}>
                   {f.label}
                 </button>
               ))}
             </div>
 
-            <div style={{ marginBottom: 6, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: tvMode ? 12 : 11, color: "#64748b", fontWeight: 700 }}>Categoria:</span>
+            <div style={{ marginBottom: 4, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: "#64748b", fontWeight: 700 }}>Categoria:</span>
               <button
                 onClick={() => trocarModo("tipo")}
-                style={{ padding: "5px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "tipo" ? "#0f172a" : "#cbd5e1", background: modoVis === "tipo" ? "#0f172a" : "white", color: modoVis === "tipo" ? "white" : "#334155" }}
+                style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "tipo" ? "#0f172a" : "#cbd5e1", background: modoVis === "tipo" ? "#0f172a" : "white", color: modoVis === "tipo" ? "white" : "#334155" }}
               >
                 Por Frota
               </button>
               <button
                 onClick={() => trocarModo("equipe")}
-                style={{ padding: "5px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "equipe" ? "#0f172a" : "#cbd5e1", background: modoVis === "equipe" ? "#0f172a" : "white", color: modoVis === "equipe" ? "white" : "#334155" }}
+                style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: modoVis === "equipe" ? "#0f172a" : "#cbd5e1", background: modoVis === "equipe" ? "#0f172a" : "white", color: modoVis === "equipe" ? "white" : "#334155" }}
               >
                 Por Equipe
               </button>
             </div>
 
-            <div style={{ marginBottom: 6, display: "flex", gap: 6, flexWrap: "wrap", paddingRight: 2 }}>
+            <div style={{ marginBottom: 4, display: "flex", gap: 4, flexWrap: "wrap", paddingRight: 2 }}>
               <button
                 onClick={() => { setChipSel("todos"); setSubChipSel("todos"); }}
-                style={{ padding: "5px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === "todos" ? "#334155" : "#cbd5e1", background: chipSel === "todos" ? "#334155" : "white", color: chipSel === "todos" ? "white" : "#334155" }}
+                style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === "todos" ? "#334155" : "#cbd5e1", background: chipSel === "todos" ? "#334155" : "white", color: chipSel === "todos" ? "white" : "#334155" }}
               >
                 Todos
               </button>
@@ -1662,7 +1662,7 @@ export default function GestaoFrotasDashboard() {
                 <button
                   key={c.key}
                   onClick={() => { setChipSel(c.key); setSubChipSel("todos"); }}
-                  style={{ padding: "5px 10px", borderRadius: 12, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === c.key ? "#0f172a" : "#cbd5e1", background: chipSel === c.key ? "#0f172a" : "white", color: chipSel === c.key ? "white" : "#334155" }}
+                  style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, cursor: "pointer", border: "1.5px solid", borderColor: chipSel === c.key ? "#0f172a" : "#cbd5e1", background: chipSel === c.key ? "#0f172a" : "white", color: chipSel === c.key ? "white" : "#334155" }}
                 >
                   {c.label} ({c.count})
                 </button>
