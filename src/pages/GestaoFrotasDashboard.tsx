@@ -99,6 +99,30 @@ function hasEquipeDefinida(e: Equip) {
   return Boolean(setor && setor !== "—" && !setor.toLowerCase().includes("manutenção / frota"));
 }
 
+function getTipoLabelExecutivo(tipoRaw: string) {
+  const t = (tipoRaw || "").trim().toUpperCase();
+  const mapa: Record<string, string> = {
+    "CAMINHÃO BASCULANTE": "Basculante",
+    "CAMINHAO BASCULANTE": "Basculante",
+    "CAMINHÃO CARROCERIA": "Carroceria",
+    "CAMINHAO CARROCERIA": "Carroceria",
+    "CAMINHÃO COMBOIO": "Comboio",
+    "CAMINHAO COMBOIO": "Comboio",
+    "CAMINHÃO ESPARGIDOR": "Espargidor",
+    "CAMINHAO ESPARGIDOR": "Espargidor",
+    "CAMINHÃO PIPA": "Pipa",
+    "CAMINHAO PIPA": "Pipa",
+    "CAMINHÃO PLATAFORMA": "Plataforma",
+    "CAMINHAO PLATAFORMA": "Plataforma",
+    "CAVALO MECANICO": "Cavalo mecânico",
+    "PRANCHA REBOQUE": "Prancha reboque",
+    "MICROONIBUS": "Micro-ônibus",
+  };
+  if (mapa[t]) return mapa[t];
+  const n = (tipoRaw || "").trim().toLowerCase();
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : "—";
+}
+
 const STATUS_BADGE: Record<string, { bg: string; cor: string; label: string; dot: string }> = {
   operacional: { bg: "#dcfce7", cor: "#166534", label: "Operacional", dot: "#16a34a" },
   manutencao:  { bg: "#fef3c7", cor: "#92400e", label: "Manutenção",  dot: "#f59e0b" },
@@ -1685,24 +1709,15 @@ export default function GestaoFrotasDashboard() {
                 >
                   Todos do grupo
                 </button>
-                {subTiposDisponiveis.map((sub) => {
-                  const lbl = sub
-                    .replace("CAMINHÃO ", "")
-                    .replace("CAMINHAO ", "")
-                    .replace("CARRETA ", "")
-                    .replace("CARROCERIA", "CARROCERIA")
-                    .toLowerCase();
-                  const label = lbl.charAt(0).toUpperCase() + lbl.slice(1);
-                  return (
-                    <button
-                      key={sub}
-                      onClick={() => setSubChipSel(sub)}
-                      style={{ padding: "3px 7px", borderRadius: 9, fontSize: 9, fontWeight: 600, cursor: "pointer", border: "1.5px solid", borderColor: subChipSel === sub ? "#0f172a" : "#cbd5e1", background: subChipSel === sub ? "#0f172a" : "white", color: subChipSel === sub ? "white" : "#334155" }}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
+                {subTiposDisponiveis.map((sub) => (
+                  <button
+                    key={sub}
+                    onClick={() => setSubChipSel(sub)}
+                    style={{ padding: "3px 7px", borderRadius: 9, fontSize: 9, fontWeight: 600, cursor: "pointer", border: "1.5px solid", borderColor: subChipSel === sub ? "#0f172a" : "#cbd5e1", background: subChipSel === sub ? "#0f172a" : "white", color: subChipSel === sub ? "white" : "#334155" }}
+                  >
+                    {getTipoLabelExecutivo(sub)}
+                  </button>
+                ))}
               </div>
             )}
           </>
