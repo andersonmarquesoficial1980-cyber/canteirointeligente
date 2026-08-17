@@ -1988,29 +1988,15 @@ export default function GestaoFrotasDashboard() {
       <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", fontFamily: "Inter, sans-serif", overflow: "hidden" }}>
 
         {/* ── HEADER ── */}
-        <header style={{ height: HEADER_H, flexShrink: 0, display: "flex", alignItems: "center", gap: 12, paddingInline: 14, background: "linear-gradient(135deg, #0A0F2C 0%, #0055AA 100%)", boxShadow: "0 2px 12px rgba(0,0,0,0.4)", zIndex: 9998 }}>
-          <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 13, color: "white", whiteSpace: "nowrap" }}>Dashboard de Frotas — Reunião Semanal</span>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flex: 1 }}>
-            {[{ v: kpis.total, l: "total", c: "#93c5fd" }, { v: kpis.proprios, l: "próprios", c: "#86efac" }, { v: kpis.terceiros, l: "terceiros", c: "#fcd34d" }, { v: kpis.manutencao, l: "manutenção", c: "#fb923c" }].map(k => (
-              <div key={k.l} style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
-                <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 16, color: k.c }}>{k.v}</span>
-                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)" }}>{k.l}</span>
-              </div>
-            ))}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 3, borderLeft: "1px solid rgba(255,255,255,0.2)", paddingLeft: 10 }}>
-              <span style={{ fontWeight: 900, fontSize: 12, color: "#fb923c" }}>{formatBRL(kpis.custoMensal)}</span>
-              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)" }}>loc./mês</span>
-            </div>
+        <header style={{ height: HEADER_H, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, paddingInline: 14, background: "linear-gradient(135deg, #0A0F2C 0%, #0055AA 100%)", boxShadow: "0 2px 12px rgba(0,0,0,0.4)", zIndex: 9998 }}>
+          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: 13, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              Dashboard de Frotas — Reunião Semanal
+            </span>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {kpis.total} total · {kpis.manutencao} manutenção · {kpis.terceiros} terceiros · {formatBRL(kpis.custoMensal)}/mês
+            </span>
           </div>
-          {/* Zoom */}
-          <div style={{ display: "flex", alignItems: "center", gap: 0, background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: "2px 4px" }}>
-            <button onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.1).toFixed(1))))} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 8px", fontWeight: 300 }}>−</button>
-            <span style={{ fontSize: 12, color: "white", fontWeight: 700, minWidth: 38, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(2.5, parseFloat((z + 0.1).toFixed(1))))} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 8px", fontWeight: 300 }}>+</button>
-          </div>
-          <button onClick={() => setApresTvMode(v => !v)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: apresTvMode ? "rgba(34,197,94,0.22)" : "rgba(255,255,255,0.12)", border: apresTvMode ? "1px solid rgba(34,197,94,0.5)" : "1px solid rgba(255,255,255,0.2)", borderRadius: 8, cursor: "pointer", color: "white", fontSize: 12, fontWeight: 700 }}>
-            {apresTvMode ? "TV ON" : "TV OFF"}
-          </button>
           <button onClick={() => setModoApres(false)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, cursor: "pointer", color: "white", fontSize: 12, fontWeight: 700 }}>
             <Minimize2 size={13} /> Sair
           </button>
