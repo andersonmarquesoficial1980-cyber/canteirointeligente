@@ -1602,6 +1602,24 @@ export default function GestaoFrotasDashboard() {
                 {f.label}
               </button>
             ))}
+            <button
+              onClick={() => setFiltroGeo((prev) => (prev === "fora_sp" ? "todos" : "fora_sp"))}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                border: "1.5px solid",
+                borderColor: filtroGeo === "fora_sp" ? "#7c3aed" : "#e2e8f0",
+                background: filtroGeo === "fora_sp" ? "#7c3aed" : "white",
+                color: filtroGeo === "fora_sp" ? "white" : "#374151",
+                transition: "all 0.12s",
+              }}
+              title="Filtra apenas equipamentos com UF/estado confiável fora de SP"
+            >
+              Somente fora de SP
+            </button>
           </div>
           )}
         </div>
