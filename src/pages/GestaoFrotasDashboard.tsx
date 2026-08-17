@@ -62,8 +62,15 @@ function parseValorMensal(v: string): number | null {
 function getStatusNorm(e: Equip): "operacional" | "manutencao" | "inativo" | "disposicao" {
   const s = (e.status || "").toLowerCase().replace(/[_\s]/g, "");
   const setor = (e.setor || "").toLowerCase();
-  if (s.includes("manut") || setor.includes("manutenção") || setor === "manutenção") return "manutencao";
+
+  // Prioridade: status explícito salvo no banco
+  if (s.includes("manut")) return "manutencao";
+  if (s.includes("disposicao")) return "disposicao";
   if (s.includes("inativo") || s.includes("inoperante")) return "inativo";
+  if (s.includes("ativo") || s.includes("operacional")) return "operacional";
+
+  // Fallback legado por setor
+  if (setor.includes("manutenção") || setor.includes("manutencao")) return "manutencao";
   if (setor.includes("disposição") || setor.includes("disposicao")) return "disposicao";
   return "operacional";
 }
@@ -225,7 +232,7 @@ function TabelaEquipamentos({
   onToggleAllFiltered: () => void;
   canEditDashboard: boolean;
   equipesCadastro: string[];
-  onInlineUpdate: (id: string, changes: { status?: string; setor?: string; valor_mensal?: number }) => Promise<void>;
+  onInlineUpdate: (id: string, changes: { status?: string; setor?: string; valor_mensal?: number }) => Promise<boolean>;
   inlineSavingId: string | null;
 }) {
   const [editingEquipeId, setEditingEquipeId] = useState<string | null>(null);
@@ -256,8 +263,8 @@ function TabelaEquipamentos({
       alert("Informe um valor válido. Ex.: 1350,00");
       return;
     }
-    await onInlineUpdate(id, { valor_mensal: parsed });
-    setEditingValorId(null);
+    const ok = await onInlineUpdate(id, { valor_mensal: parsed });
+    if (ok) setEditingValorId(null);
   }
 
   return (
@@ -322,8 +329,8 @@ function TabelaEquipamentos({
                     onChange={async (ev) => {
                       const novoSetor = ev.target.value;
                       setDraftEquipe(novoSetor);
-                      await onInlineUpdate(e.id, { setor: novoSetor });
-                      setEditingEquipeId(null);
+                      const ok = await onInlineUpdate(e.id, { setor: novoSetor });
+                      if (ok) setEditingEquipeId(null);
                     }}
                     disabled={inlineSavingId === e.id}
                     style={{ height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12, background: "#fff" }}
@@ -361,8 +368,8 @@ function TabelaEquipamentos({
                   onChange={async (ev) => {
                     const novoStatus = ev.target.value;
                     setDraftStatus(novoStatus);
-                    await onInlineUpdate(e.id, { status: novoStatus });
-                    setEditingStatusId(null);
+                    const ok = await onInlineUpdate(e.id, { status: novoStatus });
+                    if (ok) setEditingStatusId(null);
                   }}
                   disabled={inlineSavingId === e.id}
                   style={{ height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12, background: "#fff", width: "100%" }}
@@ -1098,7 +1105,7 @@ export default function GestaoFrotasDashboard() {
   async function salvarEdicaoIndividual(id: string, changes: { status?: string; setor?: string; valor_mensal?: number }) {
     if (!canEditDashboard) {
       alert("Você não tem permissão para editar equipamentos neste dashboard.");
-      return;
+      return false;
     }
 
     setInlineSavingId(id);
@@ -1117,12 +1124,14 @@ export default function GestaoFrotasDashboard() {
       const ok = Number(row?.updated_count || 0);
       if (ok <= 0) {
         alert("Edição bloqueada por permissão ou item não encontrado.");
-        return;
+        return false;
       }
 
       await carregarDadosBase();
+      return true;
     } catch (err: any) {
       alert(`Falha ao salvar edição: ${err?.message || "erro desconhecido"}`);
+      return false;
     } finally {
       setInlineSavingId(null);
     }
