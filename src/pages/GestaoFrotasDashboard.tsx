@@ -1003,6 +1003,13 @@ export default function GestaoFrotasDashboard() {
   }, [listaFiltrada]);
 
   const chips = modoVis === "tipo" ? chipsDoTipo : chipsDeEquipe;
+  const subTiposDisponiveis = useMemo(() => {
+    if (modoVis !== "tipo" || chipSel === "todos") return [] as string[];
+    const grupo = GRUPOS_CHIP.find(g => g.key === chipSel);
+    if (!grupo) return [] as string[];
+    return grupo.tipos.filter(t => todos.some(e => (e.tipo || "").toUpperCase() === t.toUpperCase()));
+  }, [modoVis, chipSel, todos]);
+
   const chipLabel = chipSel === "todos"
     ? (modoVis === "tipo" ? "Todos os Equipamentos" : "Todas as Equipes")
     : subChipSel !== "todos" ? subChipSel.charAt(0) + subChipSel.slice(1).toLowerCase()
@@ -1668,6 +1675,36 @@ export default function GestaoFrotasDashboard() {
                 </button>
               ))}
             </div>
+
+            {modoVis === "tipo" && chipSel !== "todos" && subTiposDisponiveis.length > 1 && (
+              <div style={{ marginBottom: 4, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 10, color: "#64748b", fontWeight: 700 }}>Tipo:</span>
+                <button
+                  onClick={() => setSubChipSel("todos")}
+                  style={{ padding: "3px 7px", borderRadius: 9, fontSize: 9, fontWeight: 700, cursor: "pointer", border: "1.5px solid", borderColor: subChipSel === "todos" ? "#1e293b" : "#cbd5e1", background: subChipSel === "todos" ? "#1e293b" : "white", color: subChipSel === "todos" ? "white" : "#334155" }}
+                >
+                  Todos do grupo
+                </button>
+                {subTiposDisponiveis.map((sub) => {
+                  const lbl = sub
+                    .replace("CAMINHÃO ", "")
+                    .replace("CAMINHAO ", "")
+                    .replace("CARRETA ", "")
+                    .replace("CARROCERIA", "CARROCERIA")
+                    .toLowerCase();
+                  const label = lbl.charAt(0).toUpperCase() + lbl.slice(1);
+                  return (
+                    <button
+                      key={sub}
+                      onClick={() => setSubChipSel(sub)}
+                      style={{ padding: "3px 7px", borderRadius: 9, fontSize: 9, fontWeight: 600, cursor: "pointer", border: "1.5px solid", borderColor: subChipSel === sub ? "#0f172a" : "#cbd5e1", background: subChipSel === sub ? "#0f172a" : "white", color: subChipSel === sub ? "white" : "#334155" }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
 
