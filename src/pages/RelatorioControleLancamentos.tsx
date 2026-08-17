@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { toLocalISODate } from "@/lib/date-local";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ interface UsuarioCard {
 interface FrotaCard {
   key: string;
   frota: string;
+  label: string;
   tipo: string;
   rows: DiarioRow[];
   semLancamento: boolean;
@@ -75,7 +77,7 @@ function getAllDays(ini: string, fim: string): string[] {
   const cur = new Date(ini + "T12:00:00");
   const end = new Date(fim + "T12:00:00");
   while (cur <= end) {
-    days.push(cur.toISOString().split("T")[0]);
+    days.push(toLocalISODate(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return days;
@@ -141,8 +143,8 @@ export default function RelatorioControleLancamentos() {
   const companyId = profile?.company_id;
 
   const hoje = new Date();
-  const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split("T")[0];
-  const ultimoDia   = hoje.toISOString().split("T")[0];
+  const primeiroDia = toLocalISODate(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  const ultimoDia   = toLocalISODate(hoje);
 
   const [aba, setAba]           = useState<"usuario" | "equipamento">("usuario");
   const [dataIni, setDataIni]   = useState(primeiroDia);
@@ -153,7 +155,7 @@ export default function RelatorioControleLancamentos() {
   const [loading, setLoading]   = useState(false);
   const [diarios, setDiarios]   = useState<DiarioRow[]>([]);
   const [todosUsuarios, setTodosUsuarios] = useState<{ id: string; nome: string; email: string }[]>([]);
-  const [todasFrotas, setTodasFrotas]     = useState<{ frota: string; tipo: string }[]>([]);
+  const [todasFrotas, setTodasFrotas]     = useState<{ frota: string; tipo: string; centro_custo?: string }[]>([]);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ titulo: string; rows: DiarioRow[] } | null>(null);
 
@@ -225,12 +227,13 @@ export default function RelatorioControleLancamentos() {
       // 4 — todos equipamentos da empresa (para filtro sem lançamento)
       const { data: allEquip } = await (supabase as any)
         .from("equipamentos")
-        .select("frota, tipo")
+        .select("frota, tipo, centro_custo")
         .eq("company_id", companyId)
         .order("frota");
       setTodasFrotas(((allEquip || []) as any[]).map((e: any) => ({
         frota: e.frota || "—",
         tipo: e.tipo || "",
+        centro_custo: e.centro_custo || null,
       })));
 
     } catch (err) {
@@ -253,9 +256,14 @@ export default function RelatorioControleLancamentos() {
     };
   });
 
-  // Mapa frota → tipo canônico (fonte: tabela equipamentos)
+  // Mapas canônicos (fonte: tabela equipamentos)
   const frotaToTipo: Record<string, string> = {};
+  const frotaToLabel: Record<string, string> = {};
   todasFrotas.forEach(f => { if (f.frota) frotaToTipo[f.frota] = f.tipo; });
+  todasFrotas.forEach(f => {
+    if (!f.frota) return;
+    frotaToLabel[f.frota] = f.centro_custo || f.frota;
+  });
 
   // Agrupamento por usuário
   const porUsuario: Record<string, { nome: string; email: string; rows: DiarioRow[] }> = {};
@@ -266,11 +274,12 @@ export default function RelatorioControleLancamentos() {
   });
 
   // Agrupamento por frota — tipo SEMPRE vem do mapa canônico (equipamentos)
-  const porFrota: Record<string, { frota: string; tipo: string; rows: DiarioRow[] }> = {};
+  const porFrota: Record<string, { frota: string; label: string; tipo: string; rows: DiarioRow[] }> = {};
   diarios.forEach(r => {
     const k = r.equipment_fleet;
     const tipoCanon = frotaToTipo[r.equipment_fleet] || r.equipment_type || "";
-    if (!porFrota[k]) porFrota[k] = { frota: r.equipment_fleet, tipo: tipoCanon, rows: [] };
+    const labelCanon = frotaToLabel[r.equipment_fleet] || r.equipment_fleet;
+    if (!porFrota[k]) porFrota[k] = { frota: r.equipment_fleet, label: labelCanon, tipo: tipoCanon, rows: [] };
     porFrota[k].rows.push(r);
   });
 
@@ -299,13 +308,21 @@ export default function RelatorioControleLancamentos() {
     ? todasFrotas
         .filter(f => !frotasComLancamento.has(f.frota))
         .filter(f => !tipoFiltro || f.tipo.trim().toUpperCase() === tipoFiltro)
-        .filter(f => !busca || f.frota.toLowerCase().includes(busca.toLowerCase()) || f.tipo.toLowerCase().includes(busca.toLowerCase()))
-        .map(f => ({ key: f.frota, frota: f.frota, tipo: f.tipo, rows: [], semLancamento: true }))
+        .filter(f => {
+          const b = busca.toLowerCase();
+          if (!b) return true;
+          return (f.centro_custo || f.frota || "").toLowerCase().includes(b) || (f.frota || "").toLowerCase().includes(b) || (f.tipo || "").toLowerCase().includes(b);
+        })
+        .map(f => ({ key: f.frota, frota: f.frota, label: f.centro_custo || f.frota, tipo: f.tipo, rows: [], semLancamento: true }))
     : Object.entries(porFrota)
         .filter(([, v]) => !tipoFiltro || v.tipo.trim().toUpperCase() === tipoFiltro.trim().toUpperCase())
-        .filter(([, v]) => !busca || v.frota.toLowerCase().includes(busca.toLowerCase()) || v.tipo.toLowerCase().includes(busca.toLowerCase()))
+        .filter(([, v]) => {
+          const b = busca.toLowerCase();
+          if (!b) return true;
+          return v.label.toLowerCase().includes(b) || v.frota.toLowerCase().includes(b) || v.tipo.toLowerCase().includes(b);
+        })
         .sort((a, b) => a[1].frota.localeCompare(b[1].frota))
-        .map(([k, v]) => ({ key: k, frota: v.frota, tipo: v.tipo, rows: v.rows, semLancamento: false }));
+        .map(([k, v]) => ({ key: k, frota: v.frota, label: v.label, tipo: v.tipo, rows: v.rows, semLancamento: false }));
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const totalEnviados  = diarios.filter(d => d.status === "enviado").length;
@@ -380,7 +397,7 @@ export default function RelatorioControleLancamentos() {
 
               <div className="flex-1 min-w-48">
                 <label className="text-xs font-semibold text-gray-500 mb-1 block">BUSCAR</label>
-                <Input placeholder={aba === "usuario" ? "Nome ou email..." : "Frota ou tipo..."}
+                <Input placeholder={aba === "usuario" ? "Nome ou email..." : "Frota/CC ou tipo..."}
                   value={busca} onChange={e => setBusca(e.target.value)} className="h-9 text-sm" />
               </div>
 
@@ -578,9 +595,9 @@ export default function RelatorioControleLancamentos() {
                         <Wrench size={18}/>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-slate-800 text-base">{card.frota}</div>
+                        <div className="font-bold text-slate-800 text-base">{card.label}</div>
                         <div className="text-xs text-gray-400 truncate">
-                          {card.tipo || "—"}{ogsU ? ` | OGS: ${ogsU}` : ""}{operadoresU ? ` | ${operadoresU}` : ""}
+                          {card.frota && card.frota !== card.label ? `Frota: ${card.frota} | ` : ""}{card.tipo || "—"}{ogsU ? ` | OGS: ${ogsU}` : ""}{operadoresU ? ` | ${operadoresU}` : ""}
                         </div>
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
@@ -611,7 +628,7 @@ export default function RelatorioControleLancamentos() {
                                 return (
                                   <div key={d} className="w-20 flex-shrink-0">
                                     <CalCell rows={dayRows}
-                                      onClick={() => { if (dayRows.length > 0) setModal({ titulo: `${card.frota} — ${fmtDate(d)}`, rows: dayRows }); }}
+                                      onClick={() => { if (dayRows.length > 0) setModal({ titulo: `${card.label} — ${fmtDate(d)}`, rows: dayRows }); }}
                                     />
                                   </div>
                                 );

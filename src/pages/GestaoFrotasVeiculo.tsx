@@ -55,7 +55,7 @@ export default function GestaoFrotasVeiculo() {
   const [trocandoCondutor, setTrocandoCondutor] = useState(false);
   const [medidorAtual, setMedidorAtual] = useState<MedidorAtual>(null);
   const { equipesData, loading: carregandoEquipes } = useEquipes();
-  const breadcrumbLabel = `Frota ${veiculo?.frota || veiculo?.placa || "Veículo"}`;
+  const breadcrumbLabel = `Frota ${veiculo?.centro_custo || veiculo?.frota || veiculo?.placa || "Veículo"}`;
   const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
 
   const opcoesEquipe = useMemo(() => {
@@ -188,10 +188,10 @@ export default function GestaoFrotasVeiculo() {
         </button>
         <div className="flex-1">
           <span className="block font-display font-extrabold text-sm text-primary-foreground">
-            {veiculo.frota || veiculo.placa}
+            {veiculo.centro_custo || veiculo.frota || veiculo.placa}
           </span>
           <span className="block text-[11px] text-primary-foreground/80">
-            {veiculo.tipo || veiculo.nome} {veiculo.placa && veiculo.placa !== veiculo.frota ? `· ${veiculo.placa}` : ""}
+            {[veiculo.marca || veiculo.tipo_veiculo, veiculo.modelo_completo || veiculo.nome].filter(Boolean).join(" ") || veiculo.tipo || veiculo.nome} {veiculo.placa && veiculo.placa !== veiculo.frota ? `· ${veiculo.placa}` : ""}
           </span>
         </div>
         <Button
