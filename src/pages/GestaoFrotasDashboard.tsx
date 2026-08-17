@@ -1571,13 +1571,14 @@ export default function GestaoFrotasDashboard() {
             <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: presentationClean ? (tvMode ? 20 : 18) : 18, color: "#0A0F2C", margin: 0 }}>
               {presentationClean ? "Painel Executivo de Frotas" : (workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel)}
             </h2>
-            <p style={{ fontSize: presentationClean ? (tvMode ? 12 : 11) : 12, color: "#64748b", marginTop: 1 }}>
-              {totalExibicao} equipamento{totalExibicao !== 1 ? "s" : ""}
-              {kpiExib.manut > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}> · ⚠️ {kpiExib.manut} em manutenção</span>}
-              {kpiExib.terceiros > 0 && <span style={{ color: "#1d4ed8", fontWeight: 600 }}> · {kpiExib.terceiros} terceiros</span>}
-              {kpiExib.custo > 0 && <span style={{ color: "#ea580c", fontWeight: 700 }}> · {formatBRL(kpiExib.custo)}/mês</span>}
-              {presentationClean && apenasCriticos && <span style={{ color: "#7c3aed", fontWeight: 700 }}> · Somente críticos</span>}
-            </p>
+            {!presentationClean && (
+              <p style={{ fontSize: 12, color: "#64748b", marginTop: 1 }}>
+                {totalExibicao} equipamento{totalExibicao !== 1 ? "s" : ""}
+                {kpiExib.manut > 0 && <span style={{ color: "#b45309", fontWeight: 700 }}> · ⚠️ {kpiExib.manut} em manutenção</span>}
+                {kpiExib.terceiros > 0 && <span style={{ color: "#1d4ed8", fontWeight: 600 }}> · {kpiExib.terceiros} terceiros</span>}
+                {kpiExib.custo > 0 && <span style={{ color: "#ea580c", fontWeight: 700 }}> · {formatBRL(kpiExib.custo)}/mês</span>}
+              </p>
+            )}
           </div>
           {!presentationClean && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
