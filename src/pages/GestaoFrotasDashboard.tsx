@@ -250,17 +250,6 @@ function TabelaEquipamentos({
 
   const podeEditarInline = canEditDashboard && !presentationMode;
 
-  async function salvarEquipe(id: string) {
-    if (!draftEquipe.trim()) return;
-    await onInlineUpdate(id, { setor: draftEquipe.trim() });
-    setEditingEquipeId(null);
-  }
-
-  async function salvarStatus(id: string) {
-    await onInlineUpdate(id, { status: draftStatus });
-    setEditingStatusId(null);
-  }
-
   async function salvarValor(id: string) {
     const parsed = parseValorMensal(draftValor);
     if (parsed === null) {
@@ -330,7 +319,12 @@ function TabelaEquipamentos({
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <select
                     value={draftEquipe}
-                    onChange={(ev) => setDraftEquipe(ev.target.value)}
+                    onChange={async (ev) => {
+                      const novoSetor = ev.target.value;
+                      setDraftEquipe(novoSetor);
+                      await onInlineUpdate(e.id, { setor: novoSetor });
+                      setEditingEquipeId(null);
+                    }}
                     disabled={inlineSavingId === e.id}
                     style={{ height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12, background: "#fff" }}
                   >
@@ -339,10 +333,7 @@ function TabelaEquipamentos({
                       <option key={eq} value={eq}>{eq}</option>
                     ))}
                   </select>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => salvarEquipe(e.id)} disabled={inlineSavingId === e.id || !draftEquipe.trim()} style={{ border: "1px solid #d1d5db", background: "#111827", color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>Salvar</button>
-                    <button onClick={() => setEditingEquipeId(null)} disabled={inlineSavingId === e.id} style={{ border: "1px solid #d1d5db", background: "#fff", color: "#374151", borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>Cancelar</button>
-                  </div>
+                  <p style={{ margin: 0, fontSize: 10, color: "#6b7280" }}>Selecione para salvar</p>
                 </div>
               ) : (
                 <>
@@ -365,15 +356,22 @@ function TabelaEquipamentos({
             <span style={{ fontSize: presentationMode ? (presentationTvMode ? 14 : 12) : 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
             <div style={{ alignSelf: "center", position: presentationMode && presentationTvMode ? "sticky" : "static", left: presentationMode && presentationTvMode ? (workshopMode ? 710 : 670) : undefined, background: presentationMode && presentationTvMode ? rowBg : undefined, zIndex: presentationMode && presentationTvMode ? 5 : undefined, paddingRight: presentationMode && presentationTvMode ? 6 : undefined }}>
               {podeEditarInline && editingStatusId === e.id ? (
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <select value={draftStatus} onChange={(ev) => setDraftStatus(ev.target.value)} disabled={inlineSavingId === e.id} style={{ height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12, background: "#fff" }}>
-                    <option value="ativo">Operacional</option>
-                    <option value="em_manutencao">Manutenção</option>
-                    <option value="disposicao">Disposição</option>
-                    <option value="inativo">Inativo</option>
-                  </select>
-                  <button onClick={() => salvarStatus(e.id)} disabled={inlineSavingId === e.id} style={{ border: "1px solid #d1d5db", background: "#111827", color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>Salvar</button>
-                </div>
+                <select
+                  value={draftStatus}
+                  onChange={async (ev) => {
+                    const novoStatus = ev.target.value;
+                    setDraftStatus(novoStatus);
+                    await onInlineUpdate(e.id, { status: novoStatus });
+                    setEditingStatusId(null);
+                  }}
+                  disabled={inlineSavingId === e.id}
+                  style={{ height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12, background: "#fff", width: "100%" }}
+                >
+                  <option value="ativo">Operacional</option>
+                  <option value="em_manutencao">Manutenção</option>
+                  <option value="disposicao">Disposição</option>
+                  <option value="inativo">Inativo</option>
+                </select>
               ) : (
                 <button
                   onClick={() => {
@@ -396,16 +394,21 @@ function TabelaEquipamentos({
             <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 11, fontWeight: 700, alignSelf: "center", color: terceiro ? "#1d4ed8" : "#166534", background: terceiro ? "#eff6ff" : "#f0fdf4", padding: presentationMode && presentationTvMode ? "4px 12px" : "3px 10px", borderRadius: 20, display: "inline-block", textAlign: "center" }}>{terceiro ? "Terceiro" : "Próprio"}</span>
             <div style={{ alignSelf: "center" }}>
               {podeEditarInline && editingValorId === e.id ? (
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input
-                    value={draftValor}
-                    onChange={(ev) => setDraftValor(ev.target.value)}
-                    placeholder="Ex.: 1350,00"
-                    disabled={inlineSavingId === e.id}
-                    style={{ width: 110, height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12 }}
-                  />
-                  <button onClick={() => salvarValor(e.id)} disabled={inlineSavingId === e.id} style={{ border: "1px solid #d1d5db", background: "#111827", color: "#fff", borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>Salvar</button>
-                </div>
+                <input
+                  value={draftValor}
+                  onChange={(ev) => setDraftValor(ev.target.value)}
+                  onKeyDown={async (ev) => {
+                    if (ev.key === "Enter") {
+                      await salvarValor(e.id);
+                    }
+                    if (ev.key === "Escape") {
+                      setEditingValorId(null);
+                    }
+                  }}
+                  placeholder="Ex.: 1350,00 (Enter)"
+                  disabled={inlineSavingId === e.id}
+                  style={{ width: "100%", height: 30, borderRadius: 8, border: "1px solid #d1d5db", padding: "0 8px", fontSize: 12 }}
+                />
               ) : (
                 <button
                   onClick={() => {
