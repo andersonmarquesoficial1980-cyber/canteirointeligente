@@ -4,6 +4,8 @@ import type { EfetivoEntry } from "@/components/rdo/StepEfetivo";
 import type { EquipamentoEntry } from "@/components/rdo/SectionEquipamentos";
 import type { PVData } from "@/components/rdo/SectionPV";
 import type { InformacoesDmtData, SinalizacaoHorizontalData } from "@/components/rdo/SectionSinalizacaoDmt";
+import type { TerceirizadoEntry } from "@/components/rdo/SectionEfetivoTerceirizado";
+import type { EmpresaTerceira, FuncionarioTerceiro } from "@/hooks/useEmpresasTerceiras";
 
 
 interface HeaderData {
@@ -22,6 +24,13 @@ interface CanteiroReportData {
   atividadesCanteiro: string;
 }
 
+interface TerceirizadosReportData {
+  semEfetivosTerceirizados?: boolean;
+  entries?: TerceirizadoEntry[];
+  empresas?: EmpresaTerceira[];
+  funcionarios?: FuncionarioTerceiro[];
+}
+
 export function buildHtmlReport(
   rdoId: string,
   header: HeaderData,
@@ -38,6 +47,8 @@ export function buildHtmlReport(
   sinalizacoesHorizontais?: SinalizacaoHorizontalData[],
   informacoesDmt?: InformacoesDmtData,
   flags?: { semNota?: boolean; semProducao?: boolean },
+  observacoesGerais?: string,
+  terceirizadosData?: TerceirizadosReportData,
 ): string {
   const formatDate = (d: string) => {
     if (!d) return "";
@@ -84,6 +95,32 @@ th{background:#f3f4f6;font-weight:600}
       html += `<tr><td>${i + 1}</td><td>${e.nome}</td><td>${e.funcao}</td></tr>`;
     });
     html += `</table>`;
+  }
+
+  // Efetivo Terceirizado
+  if (terceirizadosData?.semEfetivosTerceirizados) {
+    html += `<h2>👷‍♂️ Efetivo Terceirizado</h2><p><strong>Sem efetivos terceirizados neste lançamento.</strong></p>`;
+  } else {
+    const validTerceiros = (terceirizadosData?.entries || []).filter(
+      (entry) => entry.empresa_id && entry.funcionario_ids.length > 0,
+    );
+
+    if (validTerceiros.length > 0) {
+      const empresasMap = new Map((terceirizadosData?.empresas || []).map((e) => [e.id, e.nome]));
+      const funcionariosMap = new Map((terceirizadosData?.funcionarios || []).map((f) => [f.id, f.nome]));
+      const totalTerceirizados = validTerceiros.reduce((sum, entry) => sum + entry.funcionario_ids.length, 0);
+
+      html += `<h2>👷‍♂️ Efetivo Terceirizado (${totalTerceirizados})</h2>
+<table><tr><th>#</th><th>Empresa</th><th>Funcionários</th><th>Quantidade</th></tr>`;
+
+      validTerceiros.forEach((entry, index) => {
+        const empresaNome = empresasMap.get(entry.empresa_id) || "Empresa não informada";
+        const nomes = entry.funcionario_ids.map((id) => funcionariosMap.get(id) || "Funcionário").join(", ");
+        html += `<tr><td>${index + 1}</td><td>${empresaNome}</td><td>${nomes || "—"}</td><td>${entry.funcionario_ids.length}</td></tr>`;
+      });
+
+      html += `</table>`;
+    }
   }
 
   // Equipamentos
@@ -228,6 +265,11 @@ ${canteiroData.atividadesCanteiro}
       html += `<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;margin:12px 0;border-radius:0 8px 8px 0">
 <strong>📝 Observações:</strong><br><span style="white-space:pre-wrap">${pvData.observacoes}</span></div>`;
     }
+  }
+
+  if (observacoesGerais?.trim()) {
+    html += `<h2>📝 Observações Gerais</h2>
+<div style="background:#f9fafb;border-left:4px solid #1d4ed8;padding:12px 16px;margin:12px 0;border-radius:0 8px 8px 0;white-space:pre-wrap">${observacoesGerais}</div>`;
   }
 
   html += `<hr><p style="color:#9ca3af;font-size:12px;margin-top:20px">Relatório gerado automaticamente pelo Workflux</p></body></html>`;

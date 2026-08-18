@@ -1437,6 +1437,13 @@ export default function RdoForm() {
         tipoRdo === "CAUQ" ? sinalizacoesHorizontais : undefined,
         tipoRdo === "CAUQ" ? informacoesDmt : undefined,
         { semNota, semProducao },
+        observacoesGerais,
+        {
+          semEfetivosTerceirizados: semEfetivoTerceirizado,
+          entries: terceirizados,
+          empresas: empresasTerceiras,
+          funcionarios: funcionariosTerceiros,
+        },
       );
       let emailSent = false;
       try {
