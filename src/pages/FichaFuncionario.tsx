@@ -41,6 +41,8 @@ interface Funcionario {
   foto_url?: string | null;
   company_id?: string | null;
   centro_custo?: string | null;
+  centro_custo_codigo?: string | null;
+  centro_custo_descricao?: string | null;
   origem?: string | null;
 }
 
@@ -268,59 +270,87 @@ function ResponsavelField({
 
 function CentroCustoField({
   editando,
-  value,
-  displayValue,
+  codigo,
+  descricao,
+  displayCodigo,
+  displayDescricao,
   onChange,
 }: {
   editando: boolean;
-  value: string;
-  displayValue: string;
-  onChange: (v: string) => void;
+  codigo: string;
+  descricao: string;
+  displayCodigo: string;
+  displayDescricao: string;
+  onChange: (codigo: string, descricao: string) => void;
 }) {
-  const [opcoes, setOpcoes] = useState<string[]>([]);
+  const [opcoes, setOpcoes] = useState<{ codigo: string; nome: string }[]>([]);
 
   useEffect(() => {
     if (!editando) return;
 
     (supabase as any)
       .from("ci_centros_custo")
-      .select("nome")
+      .select("codigo, nome")
       .eq("ativo", true)
       .order("nome")
       .then(({ data }: any) => {
-        const nomes: string[] = Array.from(new Set<string>(
-          (data || [])
-            .map((c: any) => String(c?.nome || "").trim().toUpperCase())
-            .filter(Boolean)
-        ));
-        nomes.sort((a, b) => a.localeCompare(b, "pt-BR"));
+        const list = (data || [])
+          .map((c: any) => ({
+            codigo: String(c?.codigo || "").trim(),
+            nome: String(c?.nome || "").trim().toUpperCase(),
+          }))
+          .filter((c: any) => c.nome);
 
-        if (displayValue && !nomes.includes(displayValue)) nomes.unshift(displayValue);
-        setOpcoes(nomes);
+        list.sort((a: any, b: any) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+        if (displayDescricao && !list.some((c: any) => c.nome === displayDescricao)) {
+          list.unshift({ codigo: displayCodigo || "", nome: displayDescricao });
+        }
+
+        setOpcoes(list);
       });
-  }, [editando, displayValue]);
+  }, [editando, displayCodigo, displayDescricao]);
+
+  const descricaoAtual = descricao || displayDescricao || "";
+  const codigoAtual = codigo || displayCodigo || "";
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-muted-foreground">Centro de Custo</p>
-        {editando ? (
-          <select
-            value={value || ""}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full text-sm bg-transparent border-b border-primary/40 outline-none py-0.5 text-foreground"
-          >
-            <option value="">Sem centro de custo</option>
-            {opcoes.map((op) => (
-              <option key={op} value={op}>{op}</option>
-            ))}
-          </select>
-        ) : (
-          <p className="text-sm font-medium text-foreground truncate">{displayValue || "—"}</p>
-        )}
+    <>
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-muted-foreground">Centro de Custo (descrição)</p>
+          {editando ? (
+            <select
+              value={descricaoAtual}
+              onChange={(e) => {
+                const nome = e.target.value;
+                const cc = opcoes.find((o) => o.nome === nome);
+                onChange(cc?.codigo || "", nome);
+              }}
+              className="w-full text-sm bg-transparent border-b border-primary/40 outline-none py-0.5 text-foreground"
+            >
+              <option value="">Sem centro de custo</option>
+              {opcoes.map((op) => (
+                <option key={`${op.codigo}-${op.nome}`} value={op.nome}>
+                  {op.codigo ? `[${op.codigo}] ` : ""}{op.nome}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-sm font-medium text-foreground truncate">{descricaoAtual || "—"}</p>
+          )}
+        </div>
       </div>
-    </div>
+
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Shield className="w-4 h-4 text-muted-foreground shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-muted-foreground">Centro de Custo (código)</p>
+          <p className="text-sm font-medium text-foreground truncate">{codigoAtual || "—"}</p>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -476,7 +506,9 @@ export default function FichaFuncionario() {
       equipe: form.equipe || null,
       responsavel: form.responsavel || null,
       responsavel_employee_id: form.responsavel_employee_id || null,
-      centro_custo: form.centro_custo || null,
+      centro_custo: (form.centro_custo_descricao || form.centro_custo || null) as any,
+      centro_custo_descricao: (form.centro_custo_descricao || form.centro_custo || null) as any,
+      centro_custo_codigo: (form.centro_custo_codigo || null) as any,
       data_admissao: form.data_admissao || null,
       data_demissao: statusFinal === "demitido" ? dataDemissaoFinal : null,
       data_nascimento: form.data_nascimento || null,
@@ -758,9 +790,16 @@ export default function FichaFuncionario() {
 
               <CentroCustoField
                 editando={editando}
-                value={String(form.centro_custo || "")}
-                displayValue={String((func as any).centro_custo || "")}
-                onChange={(v) => setForm((p) => ({ ...p, centro_custo: v }))}
+                codigo={String((form as any).centro_custo_codigo || "")}
+                descricao={String((form as any).centro_custo_descricao || form.centro_custo || "")}
+                displayCodigo={String((func as any).centro_custo_codigo || "")}
+                displayDescricao={String((func as any).centro_custo_descricao || (func as any).centro_custo || "")}
+                onChange={(codigo, descricao) => setForm((p) => ({
+                  ...p,
+                  centro_custo: descricao,
+                  centro_custo_descricao: descricao,
+                  centro_custo_codigo: codigo,
+                }))}
               />
 
               {/* Função — select oficial do cadastro de funções */}

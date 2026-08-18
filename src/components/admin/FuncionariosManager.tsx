@@ -22,6 +22,8 @@ interface Funcionario {
   responsavel: string;
   responsavel_employee_id: string;
   centro_custo: string;
+  centro_custo_codigo: string;
+  centro_custo_descricao: string;
   data_admissao: string;
   data_demissao: string;
   data_nascimento: string;
@@ -38,7 +40,7 @@ interface Funcionario {
 const EMPTY: Funcionario = {
   matricula: "", name: "", role: "", funcao_id: "", empresa_key: "FREMIX",
   empresa_nome: "FREMIX", equipe: "", responsavel: "", responsavel_employee_id: "",
-  centro_custo: "", data_admissao: "", data_demissao: "", data_nascimento: "", salario: "",
+  centro_custo: "", centro_custo_codigo: "", centro_custo_descricao: "", data_admissao: "", data_demissao: "", data_nascimento: "", salario: "",
   cpf: "", rg: "", telefone: "", email: "", status: "ativo", obs_geral: "",
 };
 
@@ -50,7 +52,7 @@ export default function FuncionariosManager() {
   const { empresas: empresasParceiras } = useEmpresasParceiras();
   const [items, setItems] = useState<any[]>([]);
   const [equipes, setEquipes] = useState<{ nome: string; responsavel: string | null }[]>([]);
-  const [centrosCusto, setCentrosCusto] = useState<{id:string, nome:string}[]>([]);
+  const [centrosCusto, setCentrosCusto] = useState<{id:string, nome:string, codigo?: string | null}[]>([]);
   const [search, setSearch] = useState("");
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ open: boolean; mode: "new" | "edit" }>({ open: false, mode: "new" });
@@ -71,7 +73,7 @@ export default function FuncionariosManager() {
       (supabase as any).from("employees").select("*, funcoes(nome), empresas_parceiras(nome)").eq("company_id", cid).order("name"),
       // Fonte única: tabela ci_equipes do Painel de Controle
       (supabase as any).from("ci_equipes").select("nome, responsavel").eq("ativa", true).order("nome"),
-      (supabase as any).from("ci_centros_custo").select("id, nome").eq("ativo", true).order("nome"),
+      (supabase as any).from("ci_centros_custo").select("id, codigo, nome").eq("ativo", true).order("nome"),
     ]);
     setItems(funcs || []);
     // SOMENTE equipes cadastradas no Painel de Controle (ci_equipes)
@@ -124,6 +126,8 @@ export default function FuncionariosManager() {
       responsavel: f.responsavel || "",
       responsavel_employee_id: f.responsavel_employee_id || "",
       centro_custo: f.centro_custo || "",
+      centro_custo_codigo: f.centro_custo_codigo || "",
+      centro_custo_descricao: f.centro_custo_descricao || f.centro_custo || "",
       data_admissao: f.data_admissao || "",
       data_demissao: f.data_demissao || "",
       data_nascimento: f.data_nascimento || "",
@@ -170,7 +174,9 @@ export default function FuncionariosManager() {
       equipe: form.equipe.trim() || null,
       responsavel: form.responsavel.trim() || null,
       responsavel_employee_id: form.responsavel_employee_id || null,
-      centro_custo: form.centro_custo.trim() || null,
+      centro_custo: form.centro_custo_descricao.trim() || form.centro_custo.trim() || null,
+      centro_custo_codigo: form.centro_custo_codigo.trim() || null,
+      centro_custo_descricao: form.centro_custo_descricao.trim() || form.centro_custo.trim() || null,
       data_admissao: form.data_admissao || null,
       data_demissao: form.status === "demitido" ? (form.data_demissao || null) : null,
       data_nascimento: form.data_nascimento || null,
@@ -379,18 +385,34 @@ export default function FuncionariosManager() {
                   </select>
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Centro de Custo</Label>
+                  <Label className="text-xs text-muted-foreground">Descrição de Centro de Custo</Label>
                   <select
-                    value={form.centro_custo}
-                    onChange={e => set("centro_custo", e.target.value)}
+                    value={form.centro_custo_descricao || form.centro_custo}
+                    onChange={e => {
+                      const nome = e.target.value;
+                      const cc = centrosCusto.find(c => c.nome === nome);
+                      set("centro_custo", nome);
+                      set("centro_custo_descricao", nome);
+                      set("centro_custo_codigo", String(cc?.codigo || ""));
+                    }}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
                   >
                     <option value="">— Selecione —</option>
-                    {form.centro_custo && !centrosCusto.find(c => c.nome === form.centro_custo) && (
-                      <option value={form.centro_custo}>{form.centro_custo} (legado)</option>
+                    {(form.centro_custo_descricao || form.centro_custo) && !centrosCusto.find(c => c.nome === (form.centro_custo_descricao || form.centro_custo)) && (
+                      <option value={form.centro_custo_descricao || form.centro_custo}>{form.centro_custo_descricao || form.centro_custo} (legado)</option>
                     )}
-                    {centrosCusto.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
+                    {centrosCusto.map(c => (
+                      <option key={c.id} value={c.nome}>{c.codigo ? `[${c.codigo}] ` : ""}{c.nome}</option>
+                    ))}
                   </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Centro de Custo (código)</Label>
+                  <Input value={form.centro_custo_codigo} readOnly className="h-10 rounded-xl bg-muted/40" placeholder="Ex: 300" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Centro de Custo (descrição)</Label>
+                  <Input value={form.centro_custo_descricao || form.centro_custo} readOnly className="h-10 rounded-xl bg-muted/40" placeholder="Ex: OPERACIONAL DE OBRAS" />
                 </div>
                 {renderField("Data de Admissão", "data_admissao", "date")}
                 {form.status === "demitido" && renderField("Data de Demissão *", "data_demissao", "date")}

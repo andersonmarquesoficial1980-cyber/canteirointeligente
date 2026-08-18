@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface CentroCusto {
   id: string;
+  codigo?: string | null;
   nome: string;
   ativo: boolean;
   created_at: string;
@@ -23,6 +24,7 @@ export default function CentrosCustoManager() {
   // Dialog state
   const [dialog, setDialog] = useState<{ open: boolean; mode: "new" | "edit" }>({ open: false, mode: "new" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export default function CentrosCustoManager() {
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from("ci_centros_custo")
-      .select("id, nome, ativo, created_at")
+      .select("id, codigo, nome, ativo, created_at")
       .order("nome");
     if (error) {
       toast({ title: "Erro ao carregar centros de custo", description: error.message, variant: "destructive" });
@@ -46,12 +48,14 @@ export default function CentrosCustoManager() {
   }
 
   function openNew() {
+    setCodigo("");
     setNome("");
     setEditingId(null);
     setDialog({ open: true, mode: "new" });
   }
 
   function openEdit(cc: CentroCusto) {
+    setCodigo(cc.codigo || "");
     setNome(cc.nome);
     setEditingId(cc.id);
     setDialog({ open: true, mode: "edit" });
@@ -63,16 +67,24 @@ export default function CentrosCustoManager() {
       return;
     }
     setSaving(true);
+    const codigoLimpo = codigo.trim();
     let error;
     if (dialog.mode === "edit" && editingId) {
       ({ error } = await (supabase as any)
         .from("ci_centros_custo")
-        .update({ nome: nome.trim().toUpperCase() })
+        .update({
+          codigo: codigoLimpo || null,
+          nome: nome.trim().toUpperCase(),
+        })
         .eq("id", editingId));
     } else {
       ({ error } = await (supabase as any)
         .from("ci_centros_custo")
-        .insert({ nome: nome.trim().toUpperCase(), ativo: true }));
+        .insert({
+          codigo: codigoLimpo || null,
+          nome: nome.trim().toUpperCase(),
+          ativo: true,
+        }));
     }
     setSaving(false);
     if (error) {
@@ -142,7 +154,7 @@ export default function CentrosCustoManager() {
                   aria-label={cc.ativo ? "Desativar" : "Ativar"}
                 />
                 <div>
-                  <p className="text-sm font-medium">{cc.nome}</p>
+                  <p className="text-sm font-medium">{cc.codigo ? `[${cc.codigo}] ` : ""}{cc.nome}</p>
                   <p className="text-xs text-muted-foreground">{cc.ativo ? "Ativo" : "Inativo"}</p>
                 </div>
               </div>
@@ -173,6 +185,16 @@ export default function CentrosCustoManager() {
             <DialogTitle>{dialog.mode === "new" ? "Novo Centro de Custo" : "Editar Centro de Custo"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Código (numérico)</Label>
+              <Input
+                value={codigo}
+                onChange={e => setCodigo(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="Ex: 300"
+                className="h-10 rounded-xl"
+                inputMode="numeric"
+              />
+            </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nome *</Label>
               <Input
