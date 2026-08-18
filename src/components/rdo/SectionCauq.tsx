@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, FileText } from "lucide-react";
 import NfPhotoCapture from "./NfPhotoCapture";
 import { useFornecedores, useMateriais } from "@/hooks/useFilteredData";
+import { sanitizeNotaFiscalNumero } from "@/lib/nf";
 
 export interface NotaFiscalMassaEntry {
   id: string;
@@ -75,7 +76,7 @@ export default function SectionCauq({ entries, onChange, tipoRdo, semNota, onTog
     }
 
     const ocrData: Partial<NotaFiscalMassaEntry> = {
-      nf: data.nf || "",
+      nf: sanitizeNotaFiscalNumero(data.nf),
       placa: (data.placa || "").toUpperCase(),
       tonelagem: data.tonelagem || "",
       usina: usinaMatch,
@@ -156,7 +157,7 @@ export default function SectionCauq({ entries, onChange, tipoRdo, semNota, onTog
                 </div>
                 <div className="space-y-1.5">
                   <span className="rdo-label">Nº NF *</span>
-                  <Input inputMode="numeric" value={entry.nf} onChange={e => update(entry.id, "nf", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+                  <Input inputMode="numeric" value={entry.nf} onChange={e => update(entry.id, "nf", sanitizeNotaFiscalNumero(e.target.value))} className="h-11 bg-white border-border rounded-xl" />
                 </div>
                 <div className="space-y-1.5">
                   <span className="rdo-label">Tonelagem *</span>

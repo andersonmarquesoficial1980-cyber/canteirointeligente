@@ -6,6 +6,7 @@ import NfPhotoCapture from "./NfPhotoCapture";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMateriais } from "@/hooks/useFilteredData";
+import { sanitizeNotaFiscalNumero } from "@/lib/nf";
 
 export interface NfConcretoEntry {
   id: string;
@@ -99,7 +100,7 @@ export default function SectionNfConcreto({ entries, onChange }: Props) {
         if (e.id !== id) return e;
         return {
           ...e,
-          nf: data.nf || e.nf,
+          nf: sanitizeNotaFiscalNumero(data.nf) || e.nf,
           quantidade_m3: data.quantidade || e.quantidade_m3,
           fornecedor: data.fornecedor || e.fornecedor,
           foto_url: photoUrl || e.foto_url,
@@ -141,7 +142,7 @@ export default function SectionNfConcreto({ entries, onChange }: Props) {
                 inputMode="numeric"
                 placeholder="Número"
                 value={entry.nf}
-                onChange={e => update(entry.id, "nf", e.target.value)}
+                onChange={e => update(entry.id, "nf", sanitizeNotaFiscalNumero(e.target.value))}
                 className="h-11 bg-white border-border rounded-xl"
               />
             </div>

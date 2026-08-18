@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Camera, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { sanitizeNotaFiscalNumero } from "@/lib/nf";
 
 interface Props {
-  tipo: "CAUQ" | "CANTEIRO";
+  tipo: "CAUQ" | "CANTEIRO" | "INFRA";
   onExtracted: (data: Record<string, string>, photoUrl: string) => void;
 }
 
@@ -51,13 +52,13 @@ export default function NfPhotoCapture({ tipo, onExtracted }: Props) {
       if (data?.extracted && Object.keys(data.extracted).length > 0) {
         const clean: Record<string, string> = {};
         if (tipo === "CAUQ") {
-          if (data.extracted.nf) clean.nf = data.extracted.nf;
+          if (data.extracted.nf) clean.nf = sanitizeNotaFiscalNumero(data.extracted.nf);
           if (data.extracted.placa) clean.placa = data.extracted.placa;
           if (data.extracted.tonelagem) clean.tonelagem = data.extracted.tonelagem;
           if (data.extracted.usina) clean.usina = data.extracted.usina;
           if (data.extracted.tipo_material) clean.tipo_material = data.extracted.tipo_material;
         } else {
-          if (data.extracted.nf) clean.nf = data.extracted.nf;
+          if (data.extracted.nf) clean.nf = sanitizeNotaFiscalNumero(data.extracted.nf);
           if (data.extracted.quantidade) clean.quantidade = data.extracted.quantidade;
           if (data.extracted.fornecedor) clean.fornecedor = data.extracted.fornecedor;
           if (data.extracted.material) clean.material = data.extracted.material;

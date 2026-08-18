@@ -29,6 +29,7 @@ import SectionProducaoCauq, { type ProducaoCauqData } from "@/components/rdo/Sec
 import SectionSinalizacaoDmt, { emptySinalizacaoHorizontal, type InformacoesDmtData, type SinalizacaoHorizontalData } from "@/components/rdo/SectionSinalizacaoDmt";
 import SectionAtividadesCanteiro from "@/components/rdo/SectionAtividadesCanteiro";
 import { buildHtmlReport } from "@/lib/buildHtmlReport";
+import { sanitizeNotaFiscalNumero } from "@/lib/nf";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
 
@@ -515,7 +516,7 @@ export default function RdoForm() {
           id: n.id,
           placa: n.placa || "",
           usina: n.usina || "",
-          nf: n.nf || "",
+          nf: sanitizeNotaFiscalNumero(n.nf),
           tonelagem: String(n.tonelagem || ""),
           tipo_material: n.tipo_material || "",
           tipo_material_outro: "",
@@ -526,7 +527,7 @@ export default function RdoForm() {
       if (nfConcretoRows?.length) {
         setNfConcreto(nfConcretoRows.map((n: any) => ({
           id: n.id || crypto.randomUUID(),
-          nf: n.nf || "",
+          nf: sanitizeNotaFiscalNumero(n.nf),
           quantidade_m3: n.quantidade_m3 != null ? String(n.quantidade_m3) : "",
           tipo_concreto: n.tipo_concreto || "",
           fornecedor: n.fornecedor || "",
@@ -756,7 +757,7 @@ export default function RdoForm() {
       .map(n => ({
         rdo_id: rdoId,
         company_id: profile?.company_id || null,
-        nf: n.nf || null,
+        nf: sanitizeNotaFiscalNumero(n.nf) || null,
         placa: n.placa || null,
         usina: n.usina || null,
         tonelagem: n.tonelagem ? parseFloat(n.tonelagem.replace(",", ".")) : null,
@@ -775,7 +776,7 @@ export default function RdoForm() {
         .map(n => ({
           rdo_id: rdoId,
           company_id: profile?.company_id || null,
-          nf: n.nf || null,
+          nf: sanitizeNotaFiscalNumero(n.nf) || null,
           quantidade_m3: n.quantidade_m3 ? parseFloat(String(n.quantidade_m3).replace(",", ".")) : null,
           tipo_concreto: n.tipo_concreto || null,
           fornecedor: n.fornecedor || null,

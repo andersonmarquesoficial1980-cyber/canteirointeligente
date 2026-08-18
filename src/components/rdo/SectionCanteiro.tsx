@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Package } from "lucide-react";
 import NfPhotoCapture from "./NfPhotoCapture";
 import { useFornecedores, useMateriais } from "@/hooks/useFilteredData";
+import { sanitizeNotaFiscalNumero } from "@/lib/nf";
 
 export interface NotaFiscalInsumoEntry {
   id: string;
@@ -36,7 +37,7 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
   const handleOcrExtracted = (data: Record<string, string>, photoUrl: string) => {
     const emptyIdx = entries.findIndex(e => !e.nf && !e.fornecedor && !e.quantidade);
     const ocrData: Partial<NotaFiscalInsumoEntry> = {
-      nf: data.nf || "", fornecedor: "", material: "", quantidade: data.quantidade || "", photo_url: photoUrl,
+      nf: sanitizeNotaFiscalNumero(data.nf), fornecedor: "", material: "", quantidade: data.quantidade || "", photo_url: photoUrl,
     };
     if (emptyIdx >= 0) {
       onChange(entries.map((e, i) => i === emptyIdx ? { ...e, ...ocrData } : e));
@@ -70,7 +71,7 @@ export default function SectionCanteiro({ entries, onChange, tipoRdo }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <span className="rdo-label">Nº NF</span>
-              <Input inputMode="numeric" value={entry.nf} onChange={e => update(entry.id, "nf", e.target.value)} className="h-11 bg-white border-border rounded-xl" />
+              <Input inputMode="numeric" value={entry.nf} onChange={e => update(entry.id, "nf", sanitizeNotaFiscalNumero(e.target.value))} className="h-11 bg-white border-border rounded-xl" />
             </div>
             <div className="space-y-1.5">
               <span className="rdo-label">Fornecedor</span>
