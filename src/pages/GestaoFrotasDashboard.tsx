@@ -694,6 +694,11 @@ export default function GestaoFrotasDashboard() {
     setZoom(1);
   }
 
+  function definirZoomApresentacao(valor: number) {
+    const next = Math.min(1.8, Math.max(0.8, valor));
+    setZoom(Number(next.toFixed(2)));
+  }
+
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -2478,6 +2483,13 @@ export default function GestaoFrotasDashboard() {
                 title="Aumentar zoom"
               >
                 +
+              </button>
+              <button
+                onClick={() => definirZoomApresentacao(1.3)}
+                style={{ height: 22, borderRadius: 6, border: "1px solid rgba(255,255,255,0.25)", background: Math.abs(zoom - 1.3) < 0.01 ? "rgba(56,189,248,0.35)" : "rgba(255,255,255,0.08)", color: "white", fontSize: 10, fontWeight: 800, cursor: "pointer", padding: "0 7px", whiteSpace: "nowrap" }}
+                title="Preset TV 85 (130%)"
+              >
+                TV 85”
               </button>
             </div>
             <button
