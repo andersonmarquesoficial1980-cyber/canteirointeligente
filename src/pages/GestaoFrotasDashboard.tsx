@@ -683,6 +683,17 @@ export default function GestaoFrotasDashboard() {
     else await enterBrowserFullscreen();
   }
 
+  function ajustarZoomApresentacao(delta: number) {
+    setZoom((prev) => {
+      const next = Math.min(1.8, Math.max(0.8, prev + delta));
+      return Number(next.toFixed(2));
+    });
+  }
+
+  function resetZoomApresentacao() {
+    setZoom(1);
+  }
+
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -862,6 +873,7 @@ export default function GestaoFrotasDashboard() {
           ocultarPequenoPorteApres?: boolean;
           ocultarDevolvidosApres?: boolean;
           tiposOcultosApres?: string[];
+          zoomApres?: number;
         };
 
         if (typeof parsed?.ocultarPequenoPorteApres === "boolean") {
@@ -874,6 +886,11 @@ export default function GestaoFrotasDashboard() {
 
         if (Array.isArray(parsed?.tiposOcultosApres)) {
           setTiposOcultosApres(parsed.tiposOcultosApres.filter((v) => typeof v === "string"));
+        }
+
+        if (typeof parsed?.zoomApres === "number" && Number.isFinite(parsed.zoomApres)) {
+          const z = Math.min(1.8, Math.max(0.8, parsed.zoomApres));
+          setZoom(Number(z.toFixed(2)));
         }
       }
     } catch {
@@ -888,12 +905,12 @@ export default function GestaoFrotasDashboard() {
     try {
       localStorage.setItem(
         prefsKeyApres,
-        JSON.stringify({ ocultarPequenoPorteApres, ocultarDevolvidosApres, tiposOcultosApres }),
+        JSON.stringify({ ocultarPequenoPorteApres, ocultarDevolvidosApres, tiposOcultosApres, zoomApres: zoom }),
       );
     } catch {
       // noop
     }
-  }, [prefsKeyApres, prefsHydratedApres, ocultarPequenoPorteApres, ocultarDevolvidosApres, tiposOcultosApres]);
+  }, [prefsKeyApres, prefsHydratedApres, ocultarPequenoPorteApres, ocultarDevolvidosApres, tiposOcultosApres, zoom]);
 
   // Delete key para remover selecionado
   useEffect(() => {
@@ -2439,6 +2456,30 @@ export default function GestaoFrotasDashboard() {
               {browserFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
               {browserFullscreen ? "Tela cheia: ON" : "Tela cheia"}
             </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 6px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.10)" }}>
+              <button
+                onClick={() => ajustarZoomApresentacao(-0.1)}
+                style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer", lineHeight: 1 }}
+                title="Diminuir zoom"
+              >
+                −
+              </button>
+              <button
+                onClick={() => resetZoomApresentacao()}
+                style={{ border: "none", background: "transparent", color: "white", fontSize: 11, fontWeight: 800, cursor: "pointer", padding: "0 4px" }}
+                title="Resetar zoom"
+              >
+                Zoom {Math.round(zoom * 100)}%
+              </button>
+              <button
+                onClick={() => ajustarZoomApresentacao(0.1)}
+                style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer", lineHeight: 1 }}
+                title="Aumentar zoom"
+              >
+                +
+              </button>
+            </div>
             <button
               onClick={() => setShowOcultacaoApresPanel((v) => !v)}
               style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", background: showOcultacaoApresPanel ? "#0f766e" : "rgba(255,255,255,0.12)", border: showOcultacaoApresPanel ? "1px solid #2dd4bf" : "1px solid rgba(255,255,255,0.2)", borderRadius: 7, cursor: "pointer", color: "white", fontSize: 11, fontWeight: 700 }}
@@ -2669,7 +2710,7 @@ export default function GestaoFrotasDashboard() {
             </div>
           </div>
         </div>
-        <button onClick={() => { setModoApres(true); setApresTvMode(true); aplicarPresetApresentacao("diretoria"); setWorkshopMode(false); setFerramenta("nav"); setZoom(1); setFormas([]); setSelectedId(null); setBusca(""); enterBrowserFullscreen(); }}
+        <button onClick={() => { setModoApres(true); setApresTvMode(true); aplicarPresetApresentacao("diretoria"); setWorkshopMode(false); setFerramenta("nav"); setFormas([]); setSelectedId(null); setBusca(""); enterBrowserFullscreen(); }}
           style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 18px", background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.3)", borderRadius: 9, cursor: "pointer", color: "white", fontSize: 13, fontWeight: 700, transition: "all 0.15s" }}>
           <Maximize2 size={14} /> Apresentação
         </button>
