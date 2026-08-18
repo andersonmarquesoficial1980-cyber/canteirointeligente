@@ -329,7 +329,7 @@ function TabelaEquipamentos({
 
   if (!items.length) return <div style={{ textAlign: "center", padding: "60px 0", color: "#9ca3af", fontSize: 15 }}>Nenhum equipamento encontrado.</div>;
 
-  const colBase = presentationMode ? "210px 220px 260px 150px 150px 260px 120px 140px" : "160px 160px 190px 120px 110px 200px 100px 110px";
+  const colBase = presentationMode ? "170px 170px 220px 130px 130px 170px 95px 110px" : "160px 160px 190px 120px 110px 200px 100px 110px";
   const cols = workshopMode ? `40px ${colBase}` : colBase;
   const allSelected = sorted.length > 0 && sorted.every((e) => selectedIds.includes(e.id));
 
@@ -347,7 +347,7 @@ function TabelaEquipamentos({
 
   return (
     <div style={{ background: "white", borderRadius: 14, overflow: presentationMode ? "auto" : "hidden", maxHeight: presentationMode ? "calc(100vh - 210px)" : undefined, boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
-      <div style={{ display: "grid", gridTemplateColumns: cols, background: "#f1f5f9", borderBottom: "2px solid #e2e8f0", padding: presentationMode ? "7px 14px" : "9px 16px", gap: 8, position: "sticky", top: 0, zIndex: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: cols, background: "#f1f5f9", borderBottom: "2px solid #e2e8f0", padding: presentationMode ? "6px 10px" : "9px 16px", gap: presentationMode ? 6 : 8, position: "sticky", top: 0, zIndex: 6 }}>
         {workshopMode && (
           <span style={{ display: "flex", alignItems: "center", justifyContent: "center", position: presentationMode ? "sticky" : "static", left: presentationMode ? 0 : undefined, background: "#f1f5f9", zIndex: presentationMode ? 8 : undefined }}>
             <input type="checkbox" checked={allSelected} onChange={onToggleAllFiltered} />
@@ -360,7 +360,7 @@ function TabelaEquipamentos({
           <span
             key={h}
             style={{
-              fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 10,
+              fontSize: presentationMode ? (presentationTvMode ? 15 : 14) : 10,
               fontWeight: 700,
               color: "#64748b",
               textTransform: "uppercase",
@@ -387,16 +387,16 @@ function TabelaEquipamentos({
               ? "#f5f3ff"
               : (i % 2 === 0 ? "white" : "#fafbfc");
         return (
-          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: presentationTvMode ? "7px 12px" : "9px 14px", gap: 8, borderBottom: "1px solid #f8fafc", background: rowBg, borderLeft: isManut ? "4px solid #f59e0b" : (foraSp ? "4px solid #8b5cf6" : "4px solid transparent") }}>
+          <div key={e.id} style={{ display: "grid", gridTemplateColumns: cols, padding: presentationTvMode ? "6px 10px" : "8px 10px", gap: presentationMode ? 6 : 8, borderBottom: "1px solid #f8fafc", background: rowBg, borderLeft: isManut ? "4px solid #f59e0b" : (foraSp ? "4px solid #8b5cf6" : "4px solid transparent") }}>
             {workshopMode && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <input type="checkbox" checked={isChecked} onChange={() => onToggleItem(e.id)} />
               </div>
             )}
             <div style={{ position: presentationMode ? "sticky" : "static", left: presentationMode ? (workshopMode ? 48 : 0) : undefined, zIndex: presentationMode ? 5 : undefined, background: presentationMode ? rowBg : undefined, paddingRight: 6 }}>
-              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 14 : 13) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.centro_custo || e.frota || e.placa || "—"}</span>
+              <span style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 800, fontSize: presentationMode ? (presentationTvMode ? 17 : 16) : 12, color: "#0A0F2C", wordBreak: "break-word", lineHeight: 1.2, display: "block" }}>{e.centro_custo || e.frota || e.placa || "—"}</span>
             </div>
-            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getTipoLabelExecutivo(e.tipo || e.nome || "")}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 15 : 14) : 11, color: "#374151", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getTipoLabelExecutivo(e.tipo || e.nome || "")}</span>
             <div style={{ alignSelf: "center", overflow: "hidden" }}>
               {podeEditarInline && editingEquipeId === e.id ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -429,14 +429,14 @@ function TabelaEquipamentos({
                     disabled={!podeEditarInline || inlineSavingId === e.id}
                     style={{ border: "none", background: "transparent", padding: 0, margin: 0, cursor: podeEditarInline ? "pointer" : "default", textAlign: "left" }}
                   >
-                    <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
+                    <p style={{ fontSize: presentationMode ? (presentationTvMode ? 15 : 14) : 12, color: "#1e3a5f", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", margin: 0 }}>{e.setor || "—"}</p>
                   </button>
-                  {e.condutor_atual && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
-                  {getLocalizacaoLabel(e) && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
+                  {e.condutor_atual && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 14 : 13) : 11, color: "#9ca3af" }}>👤 {e.condutor_atual}</p>}
+                  {getLocalizacaoLabel(e) && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 10, color: "#64748b", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 {getLocalizacaoLabel(e)}</p>}
                 </>
               )}
             </div>
-            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 14 : 13) : 12, color: terceiro ? "#1d4ed8" : "#166534", fontWeight: 600, alignSelf: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{empresa}</span>
             <div style={{ alignSelf: "center" }}>
               {podeEditarInline && editingStatusId === e.id ? (
                 <select
@@ -469,16 +469,16 @@ function TabelaEquipamentos({
                   disabled={!podeEditarInline || inlineSavingId === e.id}
                   style={{ border: "none", background: "transparent", padding: 0, cursor: podeEditarInline ? "pointer" : "default" }}
                 >
-                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, fontWeight: 700, background: "#f3f4f6", color: "#374151", padding: presentationMode && presentationTvMode ? "3px 8px" : "2px 7px", borderRadius: 16, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid #e5e7eb" }}>
+                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, fontWeight: 700, background: "#f3f4f6", color: "#374151", padding: presentationMode && presentationTvMode ? "3px 8px" : "2px 7px", borderRadius: 16, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid #e5e7eb" }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: badge.dot, display: "inline-block" }} /> {badge.label}
                   </span>
                 </button>
               )}
               {inlineSavingId === e.id && <p style={{ fontSize: 10, color: "#6b7280", marginTop: 4 }}>Salvando...</p>}
               {inlineSavingId !== e.id && inlineSavedId === e.id && <p style={{ fontSize: 10, color: "#166534", marginTop: 4 }}>Salvo</p>}
-              {foraSp && !isManut && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#6d28d9", marginTop: 2, fontWeight: 700 }}>📍 Fora de SP</p>}
-              {isManut && e.motivo_manutencao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#92400e", marginTop: 3 }}>⚠️ {e.motivo_manutencao}</p>}
-              {isManut && e.previsao_liberacao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 10, color: "#1d4ed8", marginTop: 1 }}>📅 {fmtDate(e.previsao_liberacao)}</p>}
+              {foraSp && !isManut && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, color: "#6d28d9", marginTop: 2, fontWeight: 700 }}>📍 Fora de SP</p>}
+              {isManut && e.motivo_manutencao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, color: "#92400e", marginTop: 3 }}>⚠️ {e.motivo_manutencao}</p>}
+              {isManut && e.previsao_liberacao && <p style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 10, color: "#1d4ed8", marginTop: 1 }}>📅 {fmtDate(e.previsao_liberacao)}</p>}
             </div>
             <div style={{ alignSelf: "center" }}>
               {podeEditarInline && editingObsId === e.id ? (
@@ -513,13 +513,13 @@ function TabelaEquipamentos({
                   disabled={!podeEditarInline || inlineSavingId === e.id}
                   style={{ border: "none", background: "transparent", padding: 0, cursor: podeEditarInline ? "pointer" : "default", width: "100%", textAlign: "left" }}
                 >
-                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 11, color: (e.observacoes || "").trim() ? "#334155" : "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
+                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 14 : 13) : 11, color: (e.observacoes || "").trim() ? "#334155" : "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
                     {(e.observacoes || "").trim() || "—"}
                   </span>
                 </button>
               )}
             </div>
-            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 11 : 10) : 11, fontWeight: 700, alignSelf: "center", color: terceiro ? "#1d4ed8" : "#166534", background: terceiro ? "#eff6ff" : "#f0fdf4", padding: presentationMode && presentationTvMode ? "3px 9px" : "2px 8px", borderRadius: 16, display: "inline-block", textAlign: "center" }}>{terceiro ? "Terceiro" : "Próprio"}</span>
+            <span style={{ fontSize: presentationMode ? (presentationTvMode ? 12 : 11) : 11, fontWeight: 700, alignSelf: "center", color: terceiro ? "#1d4ed8" : "#166534", background: terceiro ? "#eff6ff" : "#f0fdf4", padding: presentationMode && presentationTvMode ? "3px 9px" : "2px 8px", borderRadius: 16, display: "inline-block", textAlign: "center" }}>{terceiro ? "Terceiro" : "Próprio"}</span>
             <div style={{ alignSelf: "center" }}>
               {podeEditarInline && editingValorId === e.id ? (
                 <input
@@ -547,7 +547,7 @@ function TabelaEquipamentos({
                   disabled={!podeEditarInline || inlineSavingId === e.id}
                   style={{ border: "none", background: "transparent", padding: 0, cursor: podeEditarInline ? "pointer" : "default" }}
                 >
-                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 13 : 12) : 12, fontWeight: e.valor_mensal > 0 ? 700 : 500, color: e.valor_mensal > 0 ? "#374151" : "#9ca3af" }}>{formatBRL(e.valor_mensal)}</span>
+                  <span style={{ fontSize: presentationMode ? (presentationTvMode ? 14 : 13) : 12, fontWeight: e.valor_mensal > 0 ? 700 : 500, color: e.valor_mensal > 0 ? "#374151" : "#9ca3af" }}>{formatBRL(e.valor_mensal)}</span>
                 </button>
               )}
             </div>
