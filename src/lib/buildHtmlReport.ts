@@ -111,12 +111,15 @@ th{background:#f3f4f6;font-weight:600}
       const totalTerceirizados = validTerceiros.reduce((sum, entry) => sum + entry.funcionario_ids.length, 0);
 
       html += `<h2>👷‍♂️ Efetivo Terceirizado (${totalTerceirizados})</h2>
-<table><tr><th>#</th><th>Empresa</th><th>Funcionários</th><th>Quantidade</th></tr>`;
+<table><tr><th>#</th><th>Empresa</th><th>Funcionário</th></tr>`;
 
-      validTerceiros.forEach((entry, index) => {
+      let idxTerceiro = 1;
+      validTerceiros.forEach((entry) => {
         const empresaNome = empresasMap.get(entry.empresa_id) || "Empresa não informada";
-        const nomes = entry.funcionario_ids.map((id) => funcionariosMap.get(id) || "Funcionário").join(", ");
-        html += `<tr><td>${index + 1}</td><td>${empresaNome}</td><td>${nomes || "—"}</td><td>${entry.funcionario_ids.length}</td></tr>`;
+        entry.funcionario_ids.forEach((id) => {
+          const nome = funcionariosMap.get(id) || "Funcionário";
+          html += `<tr><td>${idxTerceiro++}</td><td>${empresaNome}</td><td>${nome}</td></tr>`;
+        });
       });
 
       html += `</table>`;

@@ -207,9 +207,12 @@ function buildCsvRdo(
   if (empresasTerceiras.length > 0) {
     const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
     linhas.push([`EFETIVO TERCEIRIZADO (${totalTerceiros})`]);
-    linhas.push(["Empresa", "Funcionários", "Quantidade"]);
+    linhas.push(["#", "Empresa", "Funcionário"]);
+    let idxTerceiro = 1;
     empresasTerceiras.forEach(([empresa, nomes]) => {
-      linhas.push([empresa || "-", nomes.join(", ") || "-", String(nomes.length)]);
+      nomes.forEach((nome) => {
+        linhas.push([String(idxTerceiro++), empresa || "-", nome || "-"]);
+      });
     });
     linhas.push([]);
   }
@@ -322,10 +325,23 @@ function gerarPdfRdoBlob(
   const empresasTerceiras = Object.entries(terceiros);
   if (empresasTerceiras.length > 0) {
     const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
+    let idxTerceiro = 1;
+    const linhasTerceiros = empresasTerceiras.flatMap(([empresa, nomes]) =>
+      nomes.map((nome) => [
+        String(idxTerceiro++),
+        empresa || "-",
+        nome || "-",
+      ]),
+    );
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(146, 64, 14);
+    doc.text(`Efetivo Terceirizado (${totalTerceiros})`, 14, y);
+    y += 3;
     autoTable(doc, {
       startY: y,
-      head: [[`Efetivo Terceirizado (${totalTerceiros})`, "Funcionários", "Qtd."]],
-      body: empresasTerceiras.map(([empresa, nomes]) => [empresa || "-", nomes.join(", ") || "-", String(nomes.length)]),
+      head: [["#", "Empresa", "Funcionário"]],
+      body: linhasTerceiros,
       theme: "grid",
       margin: { left: 14, right: 14 },
       headStyles: { fillColor: [217, 119, 6], textColor: [255, 255, 255], fontSize: 8 },
@@ -474,8 +490,11 @@ function exportarExcel(
     if (empresasTerceiras.length > 0) {
       const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
       linhas.push([`EFETIVO TERCEIRIZADO (${totalTerceiros})`]);
-      linhas.push(["Empresa", "Funcionários", "Quantidade"]);
-      empresasTerceiras.forEach(([empresa, nomes]) => linhas.push([empresa || "-", nomes.join(", ") || "-", String(nomes.length)]));
+      linhas.push(["#", "Empresa", "Funcionário"]);
+      let idxTerceiro = 1;
+      empresasTerceiras.forEach(([empresa, nomes]) => {
+        nomes.forEach((nome) => linhas.push([String(idxTerceiro++), empresa || "-", nome || "-"]));
+      });
       linhas.push([]);
     }
 
@@ -669,9 +688,12 @@ function exportarPdf(
     if (empresasTerceiras.length > 0) {
       const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
       html += `<h2>👷‍♂️ Efetivo Terceirizado (${totalTerceiros})</h2>
-      <table><tr><th>Empresa</th><th>Funcionários</th><th>Qtd.</th></tr>`;
+      <table><tr><th>#</th><th>Empresa</th><th>Funcionário</th></tr>`;
+      let idxTerceiro = 1;
       empresasTerceiras.forEach(([empresa, nomes]) => {
-        html += `<tr><td>${empresa || "-"}</td><td>${nomes.join(", ") || "-"}</td><td>${nomes.length}</td></tr>`;
+        nomes.forEach((nome) => {
+          html += `<tr><td>${idxTerceiro++}</td><td>${empresa || "-"}</td><td>${nome || "-"}</td></tr>`;
+        });
       });
       html += `</table>`;
     }
