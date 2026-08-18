@@ -34,6 +34,7 @@ interface RdoItem {
   preenchido_por: string | null;  // apontador/usuário logado
   turno: string | null;
   clima: string | null;
+  observacoes_gerais?: string | null;
 }
 
 interface EfetivoItem {
@@ -94,6 +95,14 @@ interface NfMassaItem {
   tonelagem: number | null;
   tipo_material: string | null;
 }
+
+interface EfetivoTerceiroItem {
+  rdo_id: string | null;
+  empresa_nome: string | null;
+  funcionario_nome: string | null;
+}
+
+type TerceirosPorRdo = Record<string, Record<string, string[]>>;
 
 function fmtDate(value: string | null) {
   if (!value) return "-";
@@ -172,6 +181,7 @@ function buildCsvRdo(
   ogs: string,
   rdo: RdoItem,
   efetivoByRdoId: Record<string, EfetivoItem[]>,
+  terceirosByRdoId: TerceirosPorRdo,
   producaoByRdoId: Record<string, ProducaoItem[]>,
   equipByRdoId: Record<string, EquipamentoItem[]>,
   nfByRdoId: Record<string, NfMassaItem[]>,
@@ -189,6 +199,24 @@ function buildCsvRdo(
     linhas.push([`EFETIVO (${pessoas.length})`]);
     linhas.push(["#", "Nome", "Matrícula", "Função", "Entrada", "Saída"]);
     pessoas.forEach((p, i) => linhas.push([String(i + 1), p.nome, p.matricula, p.funcao, p.entrada, p.saida]));
+    linhas.push([]);
+  }
+
+  const terceiros = terceirosByRdoId[rdo.id] || {};
+  const empresasTerceiras = Object.entries(terceiros);
+  if (empresasTerceiras.length > 0) {
+    const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
+    linhas.push([`EFETIVO TERCEIRIZADO (${totalTerceiros})`]);
+    linhas.push(["Empresa", "Funcionários", "Quantidade"]);
+    empresasTerceiras.forEach(([empresa, nomes]) => {
+      linhas.push([empresa || "-", nomes.join(", ") || "-", String(nomes.length)]);
+    });
+    linhas.push([]);
+  }
+
+  if ((rdo.observacoes_gerais || "").trim()) {
+    linhas.push(["OBSERVAÇÕES GERAIS"]);
+    linhas.push([rdo.observacoes_gerais || "-"]);
     linhas.push([]);
   }
 
@@ -238,6 +266,7 @@ function gerarPdfRdoBlob(
   ogs: string,
   rdo: RdoItem,
   efetivoByRdoId: Record<string, EfetivoItem[]>,
+  terceirosByRdoId: TerceirosPorRdo,
   producaoByRdoId: Record<string, ProducaoItem[]>,
   clienteNome: string,
   equipByRdoId: Record<string, EquipamentoItem[]>,
@@ -285,6 +314,36 @@ function gerarPdfRdoBlob(
       margin: { left: 14, right: 14 },
       headStyles: { fillColor: [26, 86, 219], textColor: [255, 255, 255], fontSize: 8 },
       styles: { fontSize: 8, cellPadding: 2 },
+    });
+    y = ((doc as any).lastAutoTable?.finalY || y) + 5;
+  }
+
+  const terceiros = terceirosByRdoId[rdo.id] || {};
+  const empresasTerceiras = Object.entries(terceiros);
+  if (empresasTerceiras.length > 0) {
+    const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
+    autoTable(doc, {
+      startY: y,
+      head: [[`Efetivo Terceirizado (${totalTerceiros})`, "Funcionários", "Qtd."]],
+      body: empresasTerceiras.map(([empresa, nomes]) => [empresa || "-", nomes.join(", ") || "-", String(nomes.length)]),
+      theme: "grid",
+      margin: { left: 14, right: 14 },
+      headStyles: { fillColor: [217, 119, 6], textColor: [255, 255, 255], fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 2 },
+    });
+    y = ((doc as any).lastAutoTable?.finalY || y) + 5;
+  }
+
+  if ((rdo.observacoes_gerais || "").trim()) {
+    autoTable(doc, {
+      startY: y,
+      head: [["Observações Gerais"]],
+      body: [[rdo.observacoes_gerais || "-"]],
+      theme: "grid",
+      margin: { left: 14, right: 14 },
+      headStyles: { fillColor: [30, 64, 175], textColor: [255, 255, 255], fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 2, overflow: "linebreak" },
+      columnStyles: { 0: { cellWidth: pageW - 28 } },
     });
     y = ((doc as any).lastAutoTable?.finalY || y) + 5;
   }
@@ -377,6 +436,7 @@ function exportarExcel(
   ogs: string,
   rdoList: RdoItem[],
   efetivoByRdoId: Record<string, EfetivoItem[]>,
+  terceirosByRdoId: TerceirosPorRdo,
   producaoByRdoId: Record<string, ProducaoItem[]>,
   equipByRdoId: Record<string, EquipamentoItem[]>,
   nfByRdoId: Record<string, NfMassaItem[]>,
@@ -406,6 +466,22 @@ function exportarExcel(
       linhas.push([`EFETIVO (${pessoas.length})`]);
       linhas.push(["#", "Nome", "Matrícula", "Função", "Entrada", "Saída"]);
       pessoas.forEach((p, i) => linhas.push([String(i + 1), p.nome, p.matricula, p.funcao, p.entrada, p.saida]));
+      linhas.push([]);
+    }
+
+    const terceiros = terceirosByRdoId[rdo.id] || {};
+    const empresasTerceiras = Object.entries(terceiros);
+    if (empresasTerceiras.length > 0) {
+      const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
+      linhas.push([`EFETIVO TERCEIRIZADO (${totalTerceiros})`]);
+      linhas.push(["Empresa", "Funcionários", "Quantidade"]);
+      empresasTerceiras.forEach(([empresa, nomes]) => linhas.push([empresa || "-", nomes.join(", ") || "-", String(nomes.length)]));
+      linhas.push([]);
+    }
+
+    if ((rdo.observacoes_gerais || "").trim()) {
+      linhas.push(["OBSERVAÇÕES GERAIS"]);
+      linhas.push([rdo.observacoes_gerais || "-"]);
       linhas.push([]);
     }
 
@@ -469,6 +545,7 @@ async function exportarExcelSeparadoZip(
   ogs: string,
   rdoList: RdoItem[],
   efetivoByRdoId: Record<string, EfetivoItem[]>,
+  terceirosByRdoId: TerceirosPorRdo,
   producaoByRdoId: Record<string, ProducaoItem[]>,
   equipByRdoId: Record<string, EquipamentoItem[]>,
   nfByRdoId: Record<string, NfMassaItem[]>,
@@ -477,7 +554,7 @@ async function exportarExcelSeparadoZip(
   const zip = new JSZip();
 
   rdoList.forEach((rdo, idx) => {
-    const csv = buildCsvRdo(ogs, rdo, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
+    const csv = buildCsvRdo(ogs, rdo, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
     const encarregado = sanitizeFilename((rdo as any).encarregado || rdo.responsavel || "sem_encarregado");
     const data = dataRdoParaArquivo(rdo.data, idx);
     zip.file(`RDO_${sanitizeFilename(ogs)}_${data}_${encarregado}.csv`, csv);
@@ -496,6 +573,7 @@ async function exportarPdfSeparadoZip(
   ogs: string,
   rdoList: RdoItem[],
   efetivoByRdoId: Record<string, EfetivoItem[]>,
+  terceirosByRdoId: TerceirosPorRdo,
   producaoByRdoId: Record<string, ProducaoItem[]>,
   clienteNome: string,
   equipByRdoId: Record<string, EquipamentoItem[]>,
@@ -505,7 +583,7 @@ async function exportarPdfSeparadoZip(
 
   for (let idx = 0; idx < rdoList.length; idx += 1) {
     const rdo = rdoList[idx];
-    const pdfBlob = gerarPdfRdoBlob(ogs, rdo, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
+    const pdfBlob = gerarPdfRdoBlob(ogs, rdo, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
     const encarregado = sanitizeFilename((rdo as any).encarregado || rdo.responsavel || "sem_encarregado");
     const data = dataRdoParaArquivo(rdo.data, idx);
     zip.file(`RDO_${sanitizeFilename(ogs)}_${data}_${encarregado}.pdf`, pdfBlob);
@@ -521,7 +599,16 @@ async function exportarPdfSeparadoZip(
 }
 
 // Exportar PDF via print
-function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<string, EfetivoItem[]>, producaoByRdoId: Record<string, ProducaoItem[]>, clienteNome: string, equipByRdoId?: Record<string, EquipamentoItem[]>, nfByRdoId?: Record<string, NfMassaItem[]>) {
+function exportarPdf(
+  ogs: string,
+  rdoList: RdoItem[],
+  efetivoByRdoId: Record<string, EfetivoItem[]>,
+  terceirosByRdoId: TerceirosPorRdo,
+  producaoByRdoId: Record<string, ProducaoItem[]>,
+  clienteNome: string,
+  equipByRdoId?: Record<string, EquipamentoItem[]>,
+  nfByRdoId?: Record<string, NfMassaItem[]>,
+) {
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>RDO OGS ${ogs}</title><style>
     body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#333;font-size:13px}
     h1{color:#1a56db;border-bottom:2px solid #1a56db;padding-bottom:8px;font-size:18px;margin-bottom:4px}
@@ -575,6 +662,23 @@ function exportarPdf(ogs: string, rdoList: RdoItem[], efetivoByRdoId: Record<str
         html += `<tr><td>${i + 1}</td><td>${p.nome}</td><td>${p.matricula}</td><td>${p.funcao}</td><td>${p.entrada}</td><td>${p.saida}</td></tr>`;
       });
       html += `</table>`;
+    }
+
+    const terceiros = terceirosByRdoId[rdo.id] || {};
+    const empresasTerceiras = Object.entries(terceiros);
+    if (empresasTerceiras.length > 0) {
+      const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
+      html += `<h2>👷‍♂️ Efetivo Terceirizado (${totalTerceiros})</h2>
+      <table><tr><th>Empresa</th><th>Funcionários</th><th>Qtd.</th></tr>`;
+      empresasTerceiras.forEach(([empresa, nomes]) => {
+        html += `<tr><td>${empresa || "-"}</td><td>${nomes.join(", ") || "-"}</td><td>${nomes.length}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+
+    if ((rdo.observacoes_gerais || "").trim()) {
+      html += `<h2>📝 Observações Gerais</h2>
+      <div style="background:#f9fafb;border-left:4px solid #1d4ed8;padding:12px 16px;margin:8px 0 12px;border-radius:0 8px 8px 0;white-space:pre-wrap">${rdo.observacoes_gerais}</div>`;
     }
 
     // Equipamentos
@@ -639,6 +743,7 @@ export default function RelatorioRdo() {
   const [loading, setLoading] = useState(true);
   const [rdoList, setRdoList] = useState<RdoItem[]>([]);
   const [efetivoByRdoId, setEfetivoByRdoId] = useState<Record<string, EfetivoItem[]>>({});
+  const [terceirosByRdoId, setTerceirosByRdoId] = useState<TerceirosPorRdo>({});
   const [producaoByRdoId, setProducaoByRdoId] = useState<Record<string, ProducaoItem[]>>({});
   const [equipByRdoId, setEquipByRdoId] = useState<Record<string, EquipamentoItem[]>>({});
   const [nfByRdoId, setNfByRdoId] = useState<Record<string, NfMassaItem[]>>({});
@@ -667,7 +772,7 @@ export default function RelatorioRdo() {
       // Buscar RDOs
       const { data: rdoData } = await (supabase as any)
         .from("rdo_diarios")
-        .select("id,data,tipo_rdo,responsavel,encarregado,preenchido_por,turno,clima")
+        .select("id,data,tipo_rdo,responsavel,encarregado,preenchido_por,turno,clima,observacoes_gerais")
         .eq("obra_nome", ogs)
         .gte("data", ini)
         .lte("data", fim)
@@ -698,6 +803,20 @@ export default function RelatorioRdo() {
         efGrupo[item.rdo_id].push(item as EfetivoItem);
       });
       setEfetivoByRdoId(efGrupo);
+
+      // Efetivo Terceirizado (agrupado por empresa)
+      const { data: terceirosRows } = await (supabase as any)
+        .from("rdo_efetivo_terceiros")
+        .select("rdo_id,empresa_nome,funcionario_nome")
+        .in("rdo_id", ids);
+      const tercGrupo: TerceirosPorRdo = {};
+      (terceirosRows || []).forEach((item: EfetivoTerceiroItem) => {
+        if (!item.rdo_id || !item.empresa_nome || !item.funcionario_nome) return;
+        if (!tercGrupo[item.rdo_id]) tercGrupo[item.rdo_id] = {};
+        if (!tercGrupo[item.rdo_id][item.empresa_nome]) tercGrupo[item.rdo_id][item.empresa_nome] = [];
+        tercGrupo[item.rdo_id][item.empresa_nome].push(item.funcionario_nome);
+      });
+      setTerceirosByRdoId(tercGrupo);
 
       // Produção
       const { data: prodRows } = await (supabase as any)
@@ -902,10 +1021,10 @@ export default function RelatorioRdo() {
                   <DropdownMenuSeparator />
 
                   <DropdownMenuLabel>Consolidado (arquivo único)</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
+                  <DropdownMenuItem onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
                     <Printer className="w-3.5 h-3.5 mr-2" /> PDF consolidado
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}>
+                  <DropdownMenuItem onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}>
                     <FileSpreadsheet className="w-3.5 h-3.5 mr-2" /> Excel consolidado
                   </DropdownMenuItem>
 
@@ -915,7 +1034,7 @@ export default function RelatorioRdo() {
                   <DropdownMenuItem
                     onClick={async () => {
                       try {
-                        await exportarPdfSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
+                        await exportarPdfSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
                         toast({ title: "✅ ZIP PDF gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
                       } catch (e: any) {
                         toast({ title: "Erro ao exportar PDF separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
@@ -928,7 +1047,7 @@ export default function RelatorioRdo() {
                   <DropdownMenuItem
                     onClick={async () => {
                       try {
-                        await exportarExcelSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
+                        await exportarExcelSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
                         toast({ title: "✅ ZIP CSV gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
                       } catch (e: any) {
                         toast({ title: "Erro ao exportar Excel separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
