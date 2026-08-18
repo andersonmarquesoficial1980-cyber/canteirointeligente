@@ -210,8 +210,8 @@ function buildCsvRdo(
     linhas.push(["#", "Empresa", "Funcionário"]);
     let idxTerceiro = 1;
     empresasTerceiras.forEach(([empresa, nomes]) => {
-      nomes.forEach((nome, idxNome) => {
-        linhas.push([String(idxTerceiro++), idxNome === 0 ? (empresa || "-") : "", nome || "-"]);
+      nomes.forEach((nome) => {
+        linhas.push([String(idxTerceiro++), empresa || "-", nome || "-"]);
       });
     });
     linhas.push([]);
@@ -327,9 +327,9 @@ function gerarPdfRdoBlob(
     const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
     let idxTerceiro = 1;
     const linhasTerceiros = empresasTerceiras.flatMap(([empresa, nomes]) =>
-      nomes.map((nome, idxNome) => [
+      nomes.map((nome) => [
         String(idxTerceiro++),
-        idxNome === 0 ? (empresa || "-") : "",
+        empresa || "-",
         nome || "-",
       ]),
     );
@@ -493,7 +493,7 @@ function exportarExcel(
       linhas.push(["#", "Empresa", "Funcionário"]);
       let idxTerceiro = 1;
       empresasTerceiras.forEach(([empresa, nomes]) => {
-        nomes.forEach((nome, idxNome) => linhas.push([String(idxTerceiro++), idxNome === 0 ? (empresa || "-") : "", nome || "-"]));
+        nomes.forEach((nome) => linhas.push([String(idxTerceiro++), empresa || "-", nome || "-"]));
       });
       linhas.push([]);
     }
@@ -691,8 +691,8 @@ function exportarPdf(
       <table><tr><th>#</th><th>Empresa</th><th>Funcionário</th></tr>`;
       let idxTerceiro = 1;
       empresasTerceiras.forEach(([empresa, nomes]) => {
-        nomes.forEach((nome, idxNome) => {
-          html += `<tr><td>${idxTerceiro++}</td><td>${idxNome === 0 ? (empresa || "-") : ""}</td><td>${nome || "-"}</td></tr>`;
+        nomes.forEach((nome) => {
+          html += `<tr><td>${idxTerceiro++}</td><td>${empresa || "-"}</td><td>${nome || "-"}</td></tr>`;
         });
       });
       html += `</table>`;
@@ -1099,6 +1099,10 @@ export default function RelatorioRdo() {
             const producao = producaoByRdoId[item.id] || [];
             const equipamentos = equipByRdoId[item.id] || [];
             const nfMassa = nfByRdoId[item.id] || [];
+            const terceiros = terceirosByRdoId[item.id] || {};
+            const terceirosRows = Object.entries(terceiros).flatMap(([empresa, nomes]) =>
+              nomes.map((nome) => ({ empresa: empresa || "-", nome: nome || "-" })),
+            );
 
             // Expandir nomes (suporte a nomes separados por |||)
             const pessoas: { nome: string; funcao: string; matricula: string; entrada: string; saida: string }[] = [];
@@ -1227,6 +1231,35 @@ export default function RelatorioRdo() {
                                   <td className="py-1.5 px-2 text-muted-foreground">{p.funcao}</td>
                                   <td className="py-1.5 px-2">{p.entrada}</td>
                                   <td className="py-1.5 px-2">{p.saida}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Efetivo Terceirizado */}
+                    {terceirosRows.length > 0 && (
+                      <div>
+                        <p className="text-xs font-display font-bold text-amber-700 uppercase mb-1">
+                          👷‍♂️ Efetivo Terceirizado ({terceirosRows.length})
+                        </p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border bg-amber-50/60">
+                                <th className="text-left py-1.5 px-2">#</th>
+                                <th className="text-left py-1.5 px-2">Empresa</th>
+                                <th className="text-left py-1.5 px-2">Funcionário</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {terceirosRows.map((t, i) => (
+                                <tr key={`${t.empresa}-${t.nome}-${i}`} className="border-b border-border/60 last:border-0">
+                                  <td className="py-1.5 px-2 text-muted-foreground">{i + 1}</td>
+                                  <td className="py-1.5 px-2 font-medium">{t.empresa}</td>
+                                  <td className="py-1.5 px-2">{t.nome}</td>
                                 </tr>
                               ))}
                             </tbody>

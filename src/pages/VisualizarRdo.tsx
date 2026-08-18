@@ -190,6 +190,9 @@ export default function VisualizarRdo() {
   }, 0);
   const totalTon = nfMassa.reduce((s, n) => s + (parseFloat(String(n.tonelagem || 0)) || 0), 0);
   const totalM3Concreto = nfConcreto.reduce((s, n) => s + (parseFloat(String(n.quantidade_m3 || 0)) || 0), 0);
+  const terceirosRows = Object.entries(efetivoTerceiros).flatMap(([empresa, nomes]) =>
+    nomes.map((nome) => ({ empresa: empresa || "-", nome: nome || "-" })),
+  );
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -274,23 +277,31 @@ export default function VisualizarRdo() {
             {/* Efetivo Terceirizado */}
             <div className="rdo-card space-y-3">
               <p className="text-sm font-display font-bold flex items-center gap-2 text-amber-700">
-                <HardHat className="w-4 h-4" /> Efetivo Terceirizado
+                <HardHat className="w-4 h-4" /> Efetivo Terceirizado ({terceirosRows.length})
               </p>
-              {Object.keys(efetivoTerceiros).length === 0 ? (
+              {terceirosRows.length === 0 ? (
                 <p className="text-xs text-muted-foreground italic">Nenhum efetivo terceirizado informado neste RDO.</p>
               ) : (
-                Object.entries(efetivoTerceiros).map(([empresa, nomes]) => (
-                  <div key={empresa}>
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1">{empresa}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {nomes.map((nome) => (
-                        <span key={nome} className="px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-800">
-                          {nome}
-                        </span>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-amber-50/70 text-amber-900">
+                        <th className="text-left p-2 border border-amber-200 w-8">#</th>
+                        <th className="text-left p-2 border border-amber-200">Empresa</th>
+                        <th className="text-left p-2 border border-amber-200">Funcionário</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {terceirosRows.map((t, i) => (
+                        <tr key={`${t.empresa}-${t.nome}-${i}`} className={i % 2 === 0 ? "bg-white" : "bg-amber-50/20"}>
+                          <td className="p-2 border border-amber-200 text-muted-foreground">{i + 1}</td>
+                          <td className="p-2 border border-amber-200 font-medium">{t.empresa}</td>
+                          <td className="p-2 border border-amber-200">{t.nome}</td>
+                        </tr>
                       ))}
-                    </div>
-                  </div>
-                ))
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 
