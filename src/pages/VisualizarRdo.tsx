@@ -285,18 +285,18 @@ export default function VisualizarRdo() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
                     <thead>
-                      <tr className="bg-amber-50/70 text-amber-900">
-                        <th className="text-left p-2 border border-amber-200 w-8">#</th>
-                        <th className="text-left p-2 border border-amber-200">Empresa</th>
-                        <th className="text-left p-2 border border-amber-200">Funcionário</th>
+                      <tr className="bg-amber-200/90 text-amber-950">
+                        <th className="text-left p-2 border border-amber-300 w-8">#</th>
+                        <th className="text-left p-2 border border-amber-300">Empresa</th>
+                        <th className="text-left p-2 border border-amber-300">Funcionário</th>
                       </tr>
                     </thead>
                     <tbody>
                       {terceirosRows.map((t, i) => (
-                        <tr key={`${t.empresa}-${t.nome}-${i}`} className={i % 2 === 0 ? "bg-white" : "bg-amber-50/20"}>
-                          <td className="p-2 border border-amber-200 text-muted-foreground">{i + 1}</td>
-                          <td className="p-2 border border-amber-200 font-medium">{t.empresa}</td>
-                          <td className="p-2 border border-amber-200">{t.nome}</td>
+                        <tr key={`${t.empresa}-${t.nome}-${i}`} className={i % 2 === 0 ? "bg-white" : "bg-amber-100/45"}>
+                          <td className="p-2 border border-amber-300 text-muted-foreground">{i + 1}</td>
+                          <td className="p-2 border border-amber-300 font-semibold text-amber-900">{t.empresa}</td>
+                          <td className="p-2 border border-amber-300 text-foreground">{t.nome}</td>
                         </tr>
                       ))}
                     </tbody>

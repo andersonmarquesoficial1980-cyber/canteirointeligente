@@ -1248,7 +1248,7 @@ export default function RelatorioRdo() {
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="border-b border-border bg-amber-50/60">
+                              <tr className="border-b border-amber-300 bg-amber-200/80 text-amber-950">
                                 <th className="text-left py-1.5 px-2">#</th>
                                 <th className="text-left py-1.5 px-2">Empresa</th>
                                 <th className="text-left py-1.5 px-2">Funcionário</th>
@@ -1256,10 +1256,13 @@ export default function RelatorioRdo() {
                             </thead>
                             <tbody>
                               {terceirosRows.map((t, i) => (
-                                <tr key={`${t.empresa}-${t.nome}-${i}`} className="border-b border-border/60 last:border-0">
+                                <tr
+                                  key={`${t.empresa}-${t.nome}-${i}`}
+                                  className={`border-b border-amber-200 last:border-0 ${i % 2 === 0 ? "bg-white" : "bg-amber-50/60"}`}
+                                >
                                   <td className="py-1.5 px-2 text-muted-foreground">{i + 1}</td>
-                                  <td className="py-1.5 px-2 font-medium">{t.empresa}</td>
-                                  <td className="py-1.5 px-2">{t.nome}</td>
+                                  <td className="py-1.5 px-2 font-semibold text-amber-900">{t.empresa}</td>
+                                  <td className="py-1.5 px-2 text-foreground">{t.nome}</td>
                                 </tr>
                               ))}
                             </tbody>
