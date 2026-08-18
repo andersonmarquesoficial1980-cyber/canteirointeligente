@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Search, X, Trash2 } from "lucide-react";
 import { useFuncoes } from "@/hooks/useFuncoes";
 import { useEmpresasParceiras } from "@/hooks/useEmpresasParceiras";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
 interface Funcionario {
   id?: string;
@@ -62,7 +63,7 @@ export default function FuncionariosManager() {
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return;
     const { data: profile } = await supabase.from("profiles").select("company_id, role").eq("user_id", user.user.id).maybeSingle();
-    const cid = (profile as any)?.company_id || "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    const cid = (profile as any)?.company_id || DEFAULT_COMPANY_ID;
     setCompanyId(cid);
 
     const [{ data: funcs }, { data: eqs }, { data: ccs }] = await Promise.all([
@@ -83,6 +84,22 @@ export default function FuncionariosManager() {
       !q || f.name?.toLowerCase().includes(q) || f.role?.toLowerCase().includes(q) || f.matricula?.includes(q)
     );
   }, [items, search]);
+
+  const responsavelOptions = useMemo(() => {
+    const names = new Set<string>();
+    const options: { id: string; nome: string }[] = [];
+
+    for (const emp of items) {
+      const status = String(emp?.status || "ativo").toLowerCase();
+      const nome = String(emp?.name || "").trim().toUpperCase();
+      if (!nome || status === "demitido") continue;
+      if (names.has(nome)) continue;
+      names.add(nome);
+      options.push({ id: String(emp?.id || nome), nome });
+    }
+
+    return options.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [items]);
 
   function openNew() {
     setForm({ ...EMPTY });
@@ -322,15 +339,19 @@ export default function FuncionariosManager() {
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs text-muted-foreground">Responsável / Encarregado</Label>
-                  <Input
+                  <select
                     value={form.responsavel}
                     onChange={e => set("responsavel", e.target.value)}
-                    placeholder="Preenchido automaticamente pela equipe"
-                    className="h-10 rounded-xl"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                  />
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">— Selecione do cadastro de funcionários —</option>
+                    {form.responsavel && !responsavelOptions.find((r) => r.nome === form.responsavel) && (
+                      <option value={form.responsavel}>{form.responsavel} (legado)</option>
+                    )}
+                    {responsavelOptions.map((r) => (
+                      <option key={r.id} value={r.nome}>{r.nome}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs text-muted-foreground">Centro de Custo</Label>

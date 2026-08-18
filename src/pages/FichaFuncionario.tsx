@@ -241,6 +241,63 @@ function ResponsavelField({
   );
 }
 
+function CentroCustoField({
+  editando,
+  value,
+  displayValue,
+  onChange,
+}: {
+  editando: boolean;
+  value: string;
+  displayValue: string;
+  onChange: (v: string) => void;
+}) {
+  const [opcoes, setOpcoes] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!editando) return;
+
+    (supabase as any)
+      .from("ci_centros_custo")
+      .select("nome")
+      .eq("ativo", true)
+      .order("nome")
+      .then(({ data }: any) => {
+        const nomes = [...new Set(
+          (data || [])
+            .map((c: any) => String(c?.nome || "").trim().toUpperCase())
+            .filter(Boolean)
+        )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+        if (displayValue && !nomes.includes(displayValue)) nomes.unshift(displayValue);
+        setOpcoes(nomes);
+      });
+  }, [editando, displayValue]);
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] text-muted-foreground">Centro de Custo</p>
+        {editando ? (
+          <select
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full text-sm bg-transparent border-b border-primary/40 outline-none py-0.5 text-foreground"
+          >
+            <option value="">Sem centro de custo</option>
+            {opcoes.map((op) => (
+              <option key={op} value={op}>{op}</option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-sm font-medium text-foreground truncate">{displayValue || "—"}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function FichaFuncionario() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -671,17 +728,12 @@ export default function FichaFuncionario() {
                 onChange={(v) => setForm((p) => ({ ...p, responsavel: v }))}
               />
 
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-muted-foreground">Centro de Custo</p>
-                  {editando
-                    ? <input value={(form.centro_custo as string) || ""} onChange={e => setForm(p => ({ ...p, centro_custo: e.target.value }))}
-                        className="w-full text-sm bg-transparent border-b border-primary/40 outline-none py-0.5 text-foreground" />
-                    : <p className="text-sm font-medium text-foreground truncate">{(func as any).centro_custo || "—"}</p>
-                  }
-                </div>
-              </div>
+              <CentroCustoField
+                editando={editando}
+                value={String(form.centro_custo || "")}
+                displayValue={String((func as any).centro_custo || "")}
+                onChange={(v) => setForm((p) => ({ ...p, centro_custo: v }))}
+              />
 
               {/* Função — select oficial do cadastro de funções */}
               <div className="flex items-center gap-3 px-4 py-3">
