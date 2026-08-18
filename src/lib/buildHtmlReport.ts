@@ -116,9 +116,9 @@ th{background:#f3f4f6;font-weight:600}
       let idxTerceiro = 1;
       validTerceiros.forEach((entry) => {
         const empresaNome = empresasMap.get(entry.empresa_id) || "Empresa não informada";
-        entry.funcionario_ids.forEach((id) => {
+        entry.funcionario_ids.forEach((id, idxNome) => {
           const nome = funcionariosMap.get(id) || "Funcionário";
-          html += `<tr><td>${idxTerceiro++}</td><td>${empresaNome}</td><td>${nome}</td></tr>`;
+          html += `<tr><td>${idxTerceiro++}</td><td>${idxNome === 0 ? empresaNome : ""}</td><td>${nome}</td></tr>`;
         });
       });
 

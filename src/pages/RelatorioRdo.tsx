@@ -210,8 +210,8 @@ function buildCsvRdo(
     linhas.push(["#", "Empresa", "Funcionário"]);
     let idxTerceiro = 1;
     empresasTerceiras.forEach(([empresa, nomes]) => {
-      nomes.forEach((nome) => {
-        linhas.push([String(idxTerceiro++), empresa || "-", nome || "-"]);
+      nomes.forEach((nome, idxNome) => {
+        linhas.push([String(idxTerceiro++), idxNome === 0 ? (empresa || "-") : "", nome || "-"]);
       });
     });
     linhas.push([]);
@@ -327,9 +327,9 @@ function gerarPdfRdoBlob(
     const totalTerceiros = empresasTerceiras.reduce((sum, [, nomes]) => sum + nomes.length, 0);
     let idxTerceiro = 1;
     const linhasTerceiros = empresasTerceiras.flatMap(([empresa, nomes]) =>
-      nomes.map((nome) => [
+      nomes.map((nome, idxNome) => [
         String(idxTerceiro++),
-        empresa || "-",
+        idxNome === 0 ? (empresa || "-") : "",
         nome || "-",
       ]),
     );
@@ -493,7 +493,7 @@ function exportarExcel(
       linhas.push(["#", "Empresa", "Funcionário"]);
       let idxTerceiro = 1;
       empresasTerceiras.forEach(([empresa, nomes]) => {
-        nomes.forEach((nome) => linhas.push([String(idxTerceiro++), empresa || "-", nome || "-"]));
+        nomes.forEach((nome, idxNome) => linhas.push([String(idxTerceiro++), idxNome === 0 ? (empresa || "-") : "", nome || "-"]));
       });
       linhas.push([]);
     }
@@ -691,8 +691,8 @@ function exportarPdf(
       <table><tr><th>#</th><th>Empresa</th><th>Funcionário</th></tr>`;
       let idxTerceiro = 1;
       empresasTerceiras.forEach(([empresa, nomes]) => {
-        nomes.forEach((nome) => {
-          html += `<tr><td>${idxTerceiro++}</td><td>${empresa || "-"}</td><td>${nome || "-"}</td></tr>`;
+        nomes.forEach((nome, idxNome) => {
+          html += `<tr><td>${idxTerceiro++}</td><td>${idxNome === 0 ? (empresa || "-") : ""}</td><td>${nome || "-"}</td></tr>`;
         });
       });
       html += `</table>`;
