@@ -20,6 +20,7 @@ interface Funcionario {
   empresa_nome: string;   // nome para exibição
   equipe: string;
   responsavel: string;
+  responsavel_employee_id: string;
   centro_custo: string;
   data_admissao: string;
   data_demissao: string;
@@ -36,7 +37,7 @@ interface Funcionario {
 
 const EMPTY: Funcionario = {
   matricula: "", name: "", role: "", funcao_id: "", empresa_key: "FREMIX",
-  empresa_nome: "FREMIX", equipe: "", responsavel: "",
+  empresa_nome: "FREMIX", equipe: "", responsavel: "", responsavel_employee_id: "",
   centro_custo: "", data_admissao: "", data_demissao: "", data_nascimento: "", salario: "",
   cpf: "", rg: "", telefone: "", email: "", status: "ativo", obs_geral: "",
 };
@@ -121,6 +122,7 @@ export default function FuncionariosManager() {
       empresa_nome: empresaNome,
       equipe: f.equipe || "",
       responsavel: f.responsavel || "",
+      responsavel_employee_id: f.responsavel_employee_id || "",
       centro_custo: f.centro_custo || "",
       data_admissao: f.data_admissao || "",
       data_demissao: f.data_demissao || "",
@@ -167,6 +169,7 @@ export default function FuncionariosManager() {
       empresa_nome: isFremix ? "FREMIX" : (empresaParceira?.nome || null),
       equipe: form.equipe.trim() || null,
       responsavel: form.responsavel.trim() || null,
+      responsavel_employee_id: form.responsavel_employee_id || null,
       centro_custo: form.centro_custo.trim() || null,
       data_admissao: form.data_admissao || null,
       data_demissao: form.status === "demitido" ? (form.data_demissao || null) : null,
@@ -326,7 +329,11 @@ export default function FuncionariosManager() {
                       set("equipe", nome);
                       // Auto-preenche responsável a partir do cadastro de equipes
                       const eq = equipes.find(eq => eq.nome === nome);
-                      if (eq?.responsavel) set("responsavel", eq.responsavel);
+                      if (eq?.responsavel) {
+                        set("responsavel", eq.responsavel);
+                        const resp = responsavelOptions.find((r) => r.nome === eq.responsavel);
+                        set("responsavel_employee_id", resp?.id || "");
+                      }
                     }}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
                   >
@@ -340,16 +347,34 @@ export default function FuncionariosManager() {
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs text-muted-foreground">Responsável / Encarregado</Label>
                   <select
-                    value={form.responsavel}
-                    onChange={e => set("responsavel", e.target.value)}
+                    value={form.responsavel_employee_id || (form.responsavel ? `legacy:${form.responsavel}` : "")}
+                    onChange={(e) => {
+                      const selected = e.target.value;
+                      if (!selected) {
+                        set("responsavel", "");
+                        set("responsavel_employee_id", "");
+                        return;
+                      }
+
+                      if (selected.startsWith("legacy:")) {
+                        const legacyName = selected.replace("legacy:", "");
+                        set("responsavel", legacyName);
+                        set("responsavel_employee_id", "");
+                        return;
+                      }
+
+                      const opt = responsavelOptions.find((r) => r.id === selected);
+                      set("responsavel", opt?.nome || "");
+                      set("responsavel_employee_id", selected);
+                    }}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
                   >
                     <option value="">— Selecione do cadastro de funcionários —</option>
-                    {form.responsavel && !responsavelOptions.find((r) => r.nome === form.responsavel) && (
-                      <option value={form.responsavel}>{form.responsavel} (legado)</option>
+                    {form.responsavel && !form.responsavel_employee_id && (
+                      <option value={`legacy:${form.responsavel}`}>{form.responsavel} (legado)</option>
                     )}
                     {responsavelOptions.map((r) => (
-                      <option key={r.id} value={r.nome}>{r.nome}</option>
+                      <option key={r.id} value={r.id}>{r.nome}</option>
                     ))}
                   </select>
                 </div>

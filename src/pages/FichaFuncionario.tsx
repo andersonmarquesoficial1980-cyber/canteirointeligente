@@ -26,6 +26,7 @@ interface Funcionario {
   matricula: string;
   equipe: string;
   responsavel: string;
+  responsavel_employee_id?: string | null;
   data_admissao: string;
   data_demissao?: string | null;
   data_nascimento: string;
@@ -181,6 +182,7 @@ function EquipeField({ editando, value, displayValue, onChange }: { editando: bo
 function ResponsavelField({
   editando,
   value,
+  selectedId,
   displayValue,
   companyId,
   employeeId,
@@ -188,12 +190,13 @@ function ResponsavelField({
 }: {
   editando: boolean;
   value: string;
+  selectedId?: string | null;
   displayValue: string;
   companyId?: string | null;
   employeeId?: string;
-  onChange: (v: string) => void;
+  onChange: (nome: string, id: string | null) => void;
 }) {
-  const [opcoes, setOpcoes] = useState<string[]>([]);
+  const [opcoes, setOpcoes] = useState<{ id: string; nome: string }[]>([]);
 
   useEffect(() => {
     if (!editando || !companyId) return;
@@ -204,15 +207,22 @@ function ResponsavelField({
       .eq("company_id", companyId)
       .order("name")
       .then(({ data }: any) => {
-        const nomes = [...new Set(
-          (data || [])
-            .filter((e: any) => e?.id !== employeeId)
-            .filter((e: any) => String(e?.status || "ativo").toLowerCase() !== "demitido")
-            .map((e: any) => String(e?.name || "").trim().toUpperCase())
-            .filter(Boolean)
-        )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+        const byId = new Map<string, { id: string; nome: string }>();
+        for (const e of (data || [])) {
+          if (e?.id === employeeId) continue;
+          if (String(e?.status || "ativo").toLowerCase() === "demitido") continue;
+          const id = String(e?.id || "").trim();
+          const nome = String(e?.name || "").trim().toUpperCase();
+          if (!id || !nome) continue;
+          byId.set(id, { id, nome });
+        }
 
-        if (displayValue && !nomes.includes(displayValue)) nomes.unshift(displayValue);
+        const nomes: { id: string; nome: string }[] = Array.from(byId.values()) as { id: string; nome: string }[];
+        nomes.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+        if (displayValue && !nomes.some((n) => n.nome === displayValue)) {
+          nomes.unshift({ id: "", nome: displayValue });
+        }
         setOpcoes(nomes);
       });
   }, [editando, companyId, employeeId, displayValue]);
@@ -224,13 +234,28 @@ function ResponsavelField({
         <p className="text-[10px] text-muted-foreground">Responsável</p>
         {editando ? (
           <select
-            value={value || ""}
-            onChange={(e) => onChange(e.target.value)}
+            value={selectedId || (value ? `legacy:${value}` : "")}
+            onChange={(e) => {
+              const selected = e.target.value;
+              if (!selected) {
+                onChange("", null);
+                return;
+              }
+              if (selected.startsWith("legacy:")) {
+                onChange(selected.replace("legacy:", ""), null);
+                return;
+              }
+              const opt = opcoes.find((o) => o.id === selected);
+              onChange(opt?.nome || "", selected);
+            }}
             className="w-full text-sm bg-transparent border-b border-primary/40 outline-none py-0.5 text-foreground"
           >
             <option value="">Sem responsável</option>
+            {value && !selectedId && (
+              <option value={`legacy:${value}`}>{value} (legado)</option>
+            )}
             {opcoes.map((op) => (
-              <option key={op} value={op}>{op}</option>
+              <option key={op.id} value={op.id}>{op.nome}</option>
             ))}
           </select>
         ) : (
@@ -263,11 +288,12 @@ function CentroCustoField({
       .eq("ativo", true)
       .order("nome")
       .then(({ data }: any) => {
-        const nomes = [...new Set(
+        const nomes: string[] = Array.from(new Set<string>(
           (data || [])
             .map((c: any) => String(c?.nome || "").trim().toUpperCase())
             .filter(Boolean)
-        )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+        ));
+        nomes.sort((a, b) => a.localeCompare(b, "pt-BR"));
 
         if (displayValue && !nomes.includes(displayValue)) nomes.unshift(displayValue);
         setOpcoes(nomes);
@@ -449,6 +475,7 @@ export default function FichaFuncionario() {
       matricula: form.matricula || func.matricula,
       equipe: form.equipe || null,
       responsavel: form.responsavel || null,
+      responsavel_employee_id: form.responsavel_employee_id || null,
       centro_custo: form.centro_custo || null,
       data_admissao: form.data_admissao || null,
       data_demissao: statusFinal === "demitido" ? dataDemissaoFinal : null,
@@ -722,10 +749,11 @@ export default function FichaFuncionario() {
               <ResponsavelField
                 editando={editando}
                 value={form.responsavel || ""}
+                selectedId={form.responsavel_employee_id || null}
                 displayValue={(func as any).responsavel || ""}
                 companyId={func.company_id || null}
                 employeeId={func.id}
-                onChange={(v) => setForm((p) => ({ ...p, responsavel: v }))}
+                onChange={(nome, id) => setForm((p) => ({ ...p, responsavel: nome, responsavel_employee_id: id }))}
               />
 
               <CentroCustoField
