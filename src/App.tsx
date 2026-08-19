@@ -96,6 +96,7 @@ import MedicoesHome from "./pages/MedicoesHome";
 import AdminRolesPage from "./pages/AdminRolesPage";
 import RelatorioCarreteiros from "./pages/RelatorioCarreteiros";
 import RelatorioFuncionario from "./pages/RelatorioFuncionario";
+import RelatorioFuncionariosPersonalizado from "./pages/RelatorioFuncionariosPersonalizado";
 import RelatorioEquipamentosRdo from "./pages/RelatorioEquipamentosRdo";
 import RelatorioNotasFiscais from "./pages/RelatorioNotasFiscais";
 import RelatorioNotasFiscaisConcreto from "./pages/RelatorioNotasFiscaisConcreto";
@@ -506,6 +507,7 @@ function AppRoutes() {
         <Route path="/medicoes" element={<RequireModule moduleId="medicoes"><MedicoesHome /></RequireModule>} />
         <Route path="/relatorios/carreteiros" element={<RequireModule moduleId="carreteiros"><RelatorioCarreteiros /></RequireModule>} />
         <Route path="/relatorios/funcionario" element={<RequireModule moduleId="relatorios"><RelatorioFuncionario /></RequireModule>} />
+        <Route path="/relatorios/funcionarios-personalizado" element={<RequireModule moduleId="relatorios"><RelatorioFuncionariosPersonalizado /></RequireModule>} />
         <Route path="/relatorios/equipamentos-rdo" element={<RequireModule moduleId="relatorios"><RelatorioEquipamentosRdo /></RequireModule>} />
         <Route path="/relatorios/notas-fiscais" element={<RequireModule moduleId="relatorios"><RelatorioNotasFiscais /></RequireModule>} />
         <Route path="/relatorios/notas-fiscais-concreto" element={<RequireModule moduleId="relatorios"><RelatorioNotasFiscaisConcreto /></RequireModule>} />

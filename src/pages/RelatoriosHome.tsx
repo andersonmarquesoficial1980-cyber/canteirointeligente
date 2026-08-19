@@ -19,6 +19,7 @@ const TIPOS_RELATORIO = [
   { id: "carreteiros", label: "Carreteiros (Fechamento)", emoji: "📋", desc: "Fechamento mensal de viagens por placa" },
   { id: "checklist", label: "Checklist Pré-Operação", emoji: "✔️", desc: "Histórico de checklists enviados pelos operadores" },
   { id: "funcionario", label: "Localização de Funcionário", emoji: "👷", desc: "Onde esteve em determinado período (via RDO)" },
+  { id: "funcionarios_personalizado", label: "Funcionários Personalizado", emoji: "👥", desc: "Monte lista manual de colaboradores com campos configuráveis" },
   { id: "equipamentos_rdo", label: "Localização de Equipamentos (RDO)", emoji: "🚜", desc: "Onde a frota estava por período (via RDO)" },
   { id: "notas_fiscais", label: "Notas Fiscais de Massa", emoji: "📄", desc: "Todas as NFs por OGS e período" },
   { id: "notas_fiscais_concreto", label: "Notas Fiscais de Concreto", emoji: "🏛️", desc: "NFs de concreto lançadas no RDO de Infra" },
@@ -363,6 +364,7 @@ export default function RelatoriosHome() {
                   if (t.id === "carreteiros") { navigate(`/relatorios/carreteiros${origemQueryPrefix}`); return; }
                   if (t.id === "checklist") { navigate(`/relatorios/checklist${origemQueryPrefix}`); return; }
                   if (t.id === "funcionario") { navigate(`/relatorios/funcionario${origemQueryPrefix}`); return; }
+                  if (t.id === "funcionarios_personalizado") { navigate(`/relatorios/funcionarios-personalizado${origemQueryPrefix}`); return; }
                   if (t.id === "equipamentos_rdo") { navigate(`/relatorios/equipamentos-rdo${origemQueryPrefix}`); return; }
                   if (t.id === "notas_fiscais") { navigate(`/relatorios/notas-fiscais${origemQueryPrefix}`); return; }
                   if (t.id === "notas_fiscais_concreto") { navigate(`/relatorios/notas-fiscais-concreto${origemQueryPrefix}`); return; }
