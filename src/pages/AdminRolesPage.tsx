@@ -101,6 +101,58 @@ const ADMIN_ROLE_LABELS: Record<string, string> = {
 
 const getAdminRoleLabel = (roleName: string) => ADMIN_ROLE_LABELS[roleName] || roleName;
 
+const QUICK_ADMIN_PROFILES = [
+  {
+    key: "equipment",
+    label: "Administrador de Equipamentos",
+    description: "Acesso rápido para lançamentos e gestão de equipamentos.",
+    roleNames: ["Equipment_Admin"],
+    panelSections: ["dashboard", "maquinas", "tipos_equipamento", "operadores_habilitados", "caminhoes"] as string[],
+  },
+  {
+    key: "rdo",
+    label: "Administrador de RDO",
+    description: "Acesso rápido para operação e gestão de RDO/Obras.",
+    roleNames: ["RDO_Admin"],
+    panelSections: ["dashboard", "ogs", "engenheiros_ogs", "encarregados_ogs", "tipos_servico", "desbloquear"] as string[],
+  },
+  {
+    key: "rh",
+    label: "Administrador de RH",
+    description: "Acesso rápido para funcionários e equipes.",
+    roleNames: ["HR_Admin"],
+    panelSections: ["dashboard", "funcionarios", "equipes", "funcoes", "centros_custo", "engenheiros", "encarregados", "sst"] as string[],
+  },
+  {
+    key: "fuel",
+    label: "Administrador de Abastecimento",
+    description: "Acesso rápido para fornecedores, materiais e configurações de abastecimento.",
+    roleNames: ["Fuel_Admin"],
+    panelSections: ["dashboard", "materiais", "fornecedores", "destinos", "abastecimento_config"] as string[],
+  },
+  {
+    key: "maintenance",
+    label: "Administrador de Manutenção",
+    description: "Acesso rápido para manutenção com visão operacional.",
+    roleNames: ["Maintenance_Admin"],
+    panelSections: ["dashboard", "maquinas", "operadores_habilitados", "auditoria"] as string[],
+  },
+  {
+    key: "unlock",
+    label: "Desbloqueio de Lançamentos (somente)",
+    description: "Perfil enxuto para aprovar/liberar bloqueios sem acesso administrativo completo.",
+    roleNames: ["Unlock_Admin"],
+    panelSections: ["dashboard", "desbloquear"] as string[],
+  },
+  {
+    key: "super",
+    label: "Administrador Geral (Super Admin)",
+    description: "Acesso total ao painel e áreas administrativas.",
+    roleNames: ["Super_Admin"],
+    panelSections: [...ADMIN_PANEL_SECTIONS] as string[],
+  },
+] as const;
+
 const OWNER_ONLY_ADMIN_EMAILS = new Set([
   "andersonmarquesoficial1980@gmail.com",
   "anderson@fremix.workflux.app",
@@ -183,7 +235,22 @@ function RolesTab() {
         if (error) throw error;
         toast.success("Role atualizado com sucesso");
       } else {
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id;
+        if (!userId) throw new Error("Sessão expirada. Faça login novamente.");
+
+        const { data: currentProfile, error: profileError } = await supabase
+          .from("profiles")
+          .select("company_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+        const companyId = currentProfile?.company_id;
+        if (!companyId) throw new Error("company_id do usuário atual não encontrado.");
+
         const { error } = await supabase.from("admin_roles").insert({
+          company_id: companyId,
           name: formData.name,
           description: formData.description || null,
           is_system_role: formData.is_system_role,
@@ -441,7 +508,11 @@ function PermissionsTab() {
           .select("*")
           .eq("company_id", cid)
           .order("created_at", { ascending: false }),
-        supabase.from("admin_roles").select("*").eq("company_id", cid),
+        supabase
+          .from("admin_roles")
+          .select("*")
+          .or(`company_id.is.null,company_id.eq.${cid}`)
+          .eq("active", true),
       ]);
 
       if (permissionsRes.error) throw permissionsRes.error;
@@ -985,6 +1056,8 @@ function AssignmentsTab() {
   const [explicitUserPerms, setExplicitUserPerms] = useState<Record<string, boolean>>({});
   const [permRows, setPermRows] = useState<UserAdminPermission[]>([]);
   const [draftByUser, setDraftByUser] = useState<Record<string, string[]>>({});
+  const [quickProfileByUser, setQuickProfileByUser] = useState<Record<string, string>>({});
+  const [showAdvancedByUser, setShowAdvancedByUser] = useState<Record<string, boolean>>({});
   const [savingUser, setSavingUser] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -1067,7 +1140,7 @@ function AssignmentsTab() {
 
       for (const p of profilesData) {
         const roleIds = assignmentsData
-          .filter((a) => a.employee_id === p.user_id)
+          .filter((a) => (a.user_id ?? a.employee_id) === p.user_id)
           .map((a) => a.role_id);
         initialDraft[p.user_id] = Array.from(new Set(roleIds));
 
@@ -1140,6 +1213,7 @@ function AssignmentsTab() {
       else current.add(roleId);
       return { ...prev, [userId]: Array.from(current) };
     });
+    setQuickProfileByUser((prev) => ({ ...prev, [userId]: "" }));
   };
 
   const setAllRoles = (userId: string, enabled: boolean) => {
@@ -1147,6 +1221,40 @@ function AssignmentsTab() {
       ...prev,
       [userId]: enabled ? roles.map((r) => r.id) : [],
     }));
+    setQuickProfileByUser((prev) => ({ ...prev, [userId]: "" }));
+  };
+
+  const applyQuickProfile = (userId: string, profileKey: string) => {
+    const selectedProfile = QUICK_ADMIN_PROFILES.find((p) => p.key === profileKey);
+    if (!selectedProfile) return;
+
+    const roleNameSet = new Set<string>([...selectedProfile.roleNames]);
+    const roleIds = roles
+      .filter((r) => roleNameSet.has(r.name))
+      .map((r) => r.id);
+
+    if (roleIds.length === 0) {
+      toast.error(`Nenhum role encontrado para o perfil rápido: ${selectedProfile.label}`);
+      return;
+    }
+
+    const sections = selectedProfile.panelSections.filter((s) => ADMIN_PANEL_SECTIONS.includes(s as any));
+
+    setDraftByUser((prev) => ({ ...prev, [userId]: roleIds }));
+    setPanelAccessByUser((prev) => ({
+      ...prev,
+      [userId]: {
+        canAccess: true,
+        sections,
+      },
+    }));
+    // Limpa customizações detalhadas para voltar ao padrão do role.
+    // No save, isso remove user_admin_permissions explícitas e simplifica o modelo.
+    setUserPermissionsByUser((prev) => ({ ...prev, [userId]: [] }));
+    setExplicitUserPerms((prev) => ({ ...prev, [userId]: true }));
+    setQuickProfileByUser((prev) => ({ ...prev, [userId]: profileKey }));
+
+    toast.success(`Perfil rápido aplicado: ${selectedProfile.label}. Clique em "Salvar Acessos".`);
   };
 
   const setPanelAccessEnabled = (userId: string, enabled: boolean) => {
@@ -1233,7 +1341,7 @@ function AssignmentsTab() {
       const desired = new Set(draftByUser[userId] || []);
       const current = new Set(
         assignments
-          .filter((a) => a.employee_id === userId)
+          .filter((a) => (a.user_id ?? a.employee_id) === userId)
           .map((a) => a.role_id)
       );
 
@@ -1262,7 +1370,7 @@ function AssignmentsTab() {
           .from("user_admin_roles")
           .update({ is_active: false, revoked_at: new Date().toISOString() })
           .eq("company_id", companyId)
-          .eq("employee_id", userId)
+          .or(`employee_id.eq.${userId},user_id.eq.${userId}`)
           .in("role_id", toRemove)
           .eq("is_active", true);
 
@@ -1385,6 +1493,13 @@ function AssignmentsTab() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
+      <Card className="border-blue-200 bg-blue-50/60">
+        <CardContent className="py-3 text-sm text-blue-900 space-y-1">
+          <p className="font-semibold">Fluxo simples (recomendado)</p>
+          <p>1) Escolha um perfil rápido de administrador → 2) Ajuste as áreas visíveis (se precisar) → 3) Salve acessos.</p>
+        </CardContent>
+      </Card>
+
       {filteredProfiles.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center text-gray-500">Nenhum usuário encontrado</CardContent>
@@ -1404,6 +1519,40 @@ function AssignmentsTab() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="rounded-md border bg-slate-50 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">Perfil rápido de administrador</p>
+                      <p className="text-xs text-gray-600">Aplicação automática para reduzir erros de configuração.</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <select
+                      className="w-full md:w-[320px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={quickProfileByUser[profile.user_id] || ""}
+                      onChange={(e) => setQuickProfileByUser((prev) => ({ ...prev, [profile.user_id]: e.target.value }))}
+                    >
+                      <option value="">Selecione um perfil rápido...</option>
+                      {QUICK_ADMIN_PROFILES.map((preset) => (
+                        <option key={preset.key} value={preset.key}>{preset.label}</option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => applyQuickProfile(profile.user_id, quickProfileByUser[profile.user_id] || "")}
+                      disabled={!quickProfileByUser[profile.user_id]}
+                    >
+                      Aplicar perfil
+                    </Button>
+                  </div>
+                  {(quickProfileByUser[profile.user_id] || "") && (
+                    <p className="text-[11px] text-gray-600">
+                      {QUICK_ADMIN_PROFILES.find((p) => p.key === quickProfileByUser[profile.user_id])?.description}
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -1499,85 +1648,106 @@ function AssignmentsTab() {
                   )}
                 </div>
 
-                <div className="rounded-lg border bg-white p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold">Permissões detalhadas por usuário</p>
-                      <p className="text-xs text-gray-600">
-                        Aqui você define ação por ação para este usuário. Isso sobrepõe o padrão do role.
-                        Ao marcar uma ação de seção, a seção entra automaticamente na visibilidade do painel.
-                      </p>
-                    </div>
-                    <span className={`text-[10px] px-2 py-1 rounded-full ${explicitUserPerms[profile.user_id] ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
-                      {explicitUserPerms[profile.user_id] ? "Personalizado" : "Baseado no role"}
-                    </span>
+                <div className="flex items-center justify-between rounded-lg border bg-white p-3">
+                  <div>
+                    <p className="text-sm font-semibold">Ajustes avançados (opcional)</p>
+                    <p className="text-xs text-gray-600">Use apenas quando precisar personalizar ação por ação.</p>
                   </div>
-
-                  <div className="flex gap-3 text-xs">
-                    <button
-                      type="button"
-                      className="text-primary underline"
-                      onClick={() => setAllUserPermissions(profile.user_id, true)}
-                    >
-                      Marcar tudo
-                    </button>
-                    <button
-                      type="button"
-                      className="text-gray-500 underline"
-                      onClick={() => setAllUserPermissions(profile.user_id, false)}
-                    >
-                      Limpar tudo
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {ADMIN_SECTION_GROUPS.map((group) => (
-                      <div key={`${profile.user_id}-${group.key}`} className="rounded-md border p-2 bg-slate-50">
-                        <p className="text-xs font-semibold mb-2">{group.label}</p>
-                        <div className="space-y-2">
-                          {group.sections.map((section) => {
-                            const selectedPerms = new Set(userPermissionsByUser[profile.user_id] || []);
-                            const allSectionChecked = ADMIN_PERMISSION_ACTIONS.every((a) =>
-                              selectedPerms.has(userPermKey(section, a.key))
-                            );
-
-                            return (
-                              <div key={`${profile.user_id}-${section}`} className="rounded border bg-white p-2">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs font-medium">{adminSectionLabel(section)}</span>
-                                  <button
-                                    type="button"
-                                    className="text-[11px] text-primary underline"
-                                    onClick={() => setAllSectionActionsForUser(profile.user_id, section, !allSectionChecked)}
-                                  >
-                                    {allSectionChecked ? "Desmarcar seção" : "Marcar seção"}
-                                  </button>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
-                                  {ADMIN_PERMISSION_ACTIONS.map((action) => {
-                                    const key = userPermKey(section, action.key);
-                                    const checked = selectedPerms.has(key);
-                                    return (
-                                      <label key={key} className="flex items-center gap-1.5 text-[11px] rounded border px-2 py-1 cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          checked={checked}
-                                          onChange={() => toggleUserPermission(profile.user_id, section, action.key)}
-                                          className="h-3.5 w-3.5"
-                                        />
-                                        <span>{action.label}</span>
-                                      </label>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setShowAdvancedByUser((prev) => ({
+                        ...prev,
+                        [profile.user_id]: !prev[profile.user_id],
+                      }))
+                    }
+                  >
+                    {showAdvancedByUser[profile.user_id] ? "Ocultar ajustes" : "Mostrar ajustes"}
+                  </Button>
                 </div>
+
+                {showAdvancedByUser[profile.user_id] && (
+                  <div className="rounded-lg border bg-white p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">Permissões detalhadas por usuário</p>
+                        <p className="text-xs text-gray-600">
+                          Aqui você define ação por ação para este usuário. Isso sobrepõe o padrão do role.
+                          Ao marcar uma ação de seção, a seção entra automaticamente na visibilidade do painel.
+                        </p>
+                      </div>
+                      <span className={`text-[10px] px-2 py-1 rounded-full ${explicitUserPerms[profile.user_id] ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                        {explicitUserPerms[profile.user_id] ? "Personalizado" : "Baseado no role"}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-3 text-xs">
+                      <button
+                        type="button"
+                        className="text-primary underline"
+                        onClick={() => setAllUserPermissions(profile.user_id, true)}
+                      >
+                        Marcar tudo
+                      </button>
+                      <button
+                        type="button"
+                        className="text-gray-500 underline"
+                        onClick={() => setAllUserPermissions(profile.user_id, false)}
+                      >
+                        Limpar tudo
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {ADMIN_SECTION_GROUPS.map((group) => (
+                        <div key={`${profile.user_id}-${group.key}`} className="rounded-md border p-2 bg-slate-50">
+                          <p className="text-xs font-semibold mb-2">{group.label}</p>
+                          <div className="space-y-2">
+                            {group.sections.map((section) => {
+                              const selectedPerms = new Set(userPermissionsByUser[profile.user_id] || []);
+                              const allSectionChecked = ADMIN_PERMISSION_ACTIONS.every((a) =>
+                                selectedPerms.has(userPermKey(section, a.key))
+                              );
+
+                              return (
+                                <div key={`${profile.user_id}-${section}`} className="rounded border bg-white p-2">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-medium">{adminSectionLabel(section)}</span>
+                                    <button
+                                      type="button"
+                                      className="text-[11px] text-primary underline"
+                                      onClick={() => setAllSectionActionsForUser(profile.user_id, section, !allSectionChecked)}
+                                    >
+                                      {allSectionChecked ? "Desmarcar seção" : "Marcar seção"}
+                                    </button>
+                                  </div>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+                                    {ADMIN_PERMISSION_ACTIONS.map((action) => {
+                                      const key = userPermKey(section, action.key);
+                                      const checked = selectedPerms.has(key);
+                                      return (
+                                        <label key={key} className="flex items-center gap-1.5 text-[11px] rounded border px-2 py-1 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() => toggleUserPermission(profile.user_id, section, action.key)}
+                                            className="h-3.5 w-3.5"
+                                          />
+                                          <span>{action.label}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex justify-end">
                   <Button size="sm" onClick={() => saveUserAssignments(profile)} disabled={isSaving}>
