@@ -180,9 +180,23 @@ export default function RelatorioFuncionariosPersonalizado() {
   const [selectedColumns, setSelectedColumns] = useState<ColumnKey[]>(["name", "role", "equipe", "cpf"]);
   const [checkinDates, setCheckinDates] = useState<Record<string, string>>({});
   const [showDemitidos, setShowDemitidos] = useState(false);
+  const [filtroEquipe, setFiltroEquipe] = useState("TODAS");
+  const [filtroFuncao, setFiltroFuncao] = useState("TODAS");
   const [observacao, setObservacao] = useState(
     "Rua Porto Alegre, nº 137 – Jardim Caçula – Capitão Leônidas Marques/PR",
   );
+
+  const equipesDisponiveis = useMemo(() => {
+    return Array.from(new Set(employees.map((e) => (e.equipe || "").trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "pt-BR"),
+    );
+  }, [employees]);
+
+  const funcoesDisponiveis = useMemo(() => {
+    return Array.from(new Set(employees.map((e) => (e.role || "").trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "pt-BR"),
+    );
+  }, [employees]);
 
   useEffect(() => {
     if (!profile?.company_id) return;
@@ -217,12 +231,15 @@ export default function RelatorioFuncionariosPersonalizado() {
       const status = String(e.status || "").toLowerCase();
       if (!showDemitidos && status === "demitido") return false;
 
+      if (filtroEquipe !== "TODAS" && (e.equipe || "").trim() !== filtroEquipe) return false;
+      if (filtroFuncao !== "TODAS" && (e.role || "").trim() !== filtroFuncao) return false;
+
       if (!q) return true;
       return [e.name, e.role, e.equipe, e.cpf, e.rg, e.matricula]
         .map((v) => String(v || "").toLowerCase())
         .some((v) => v.includes(q));
     });
-  }, [employees, search, showDemitidos]);
+  }, [employees, search, showDemitidos, filtroEquipe, filtroFuncao]);
 
   const selectedEmployees = useMemo(() => {
     const selectedSet = new Set(selectedIds);
@@ -322,6 +339,40 @@ export default function RelatorioFuncionariosPersonalizado() {
             </div>
           </div>
 
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filtro por equipe</label>
+              <select
+                value={filtroEquipe}
+                onChange={(e) => setFiltroEquipe(e.target.value)}
+                className="h-11 w-full px-3 bg-secondary border border-border rounded-md text-sm"
+              >
+                <option value="TODAS">Todas as equipes</option>
+                {equipesDisponiveis.map((eq) => (
+                  <option key={eq} value={eq}>
+                    {eq}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filtro por função</label>
+              <select
+                value={filtroFuncao}
+                onChange={(e) => setFiltroFuncao(e.target.value)}
+                className="h-11 w-full px-3 bg-secondary border border-border rounded-md text-sm"
+              >
+                <option value="TODAS">Todas as funções</option>
+                {funcoesDisponiveis.map((fn) => (
+                  <option key={fn} value={fn}>
+                    {fn}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant={showDemitidos ? "default" : "outline"} onClick={() => setShowDemitidos((v) => !v)}>
               {showDemitidos ? "Mostrando demitidos" : "Ocultar demitidos"}
@@ -331,6 +382,17 @@ export default function RelatorioFuncionariosPersonalizado() {
             </Button>
             <Button type="button" variant="outline" onClick={clearSelection} disabled={selectedIds.length === 0}>
               Limpar seleção total
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFiltroEquipe("TODAS");
+                setFiltroFuncao("TODAS");
+                setSearch("");
+              }}
+            >
+              Limpar filtros
             </Button>
           </div>
 
