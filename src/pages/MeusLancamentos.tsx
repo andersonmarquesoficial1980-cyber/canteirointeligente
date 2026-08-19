@@ -134,15 +134,17 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-const FILTER_KEY = "meusLancamentos_filtros";
+const FILTER_KEY_BASE = "meusLancamentos_filtros";
 
-function salvarFiltros(filtros: Record<string, string>) {
-  try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(filtros)); } catch {}
+const buildFilterKey = (userId?: string | null) => `${FILTER_KEY_BASE}:${userId || "anon"}`;
+
+function salvarFiltros(filterKey: string, filtros: Record<string, string>) {
+  try { sessionStorage.setItem(filterKey, JSON.stringify(filtros)); } catch {}
 }
 
-function restaurarFiltros(): Record<string, string> {
+function restaurarFiltros(filterKey: string): Record<string, string> {
   try {
-    const raw = sessionStorage.getItem(FILTER_KEY);
+    const raw = sessionStorage.getItem(filterKey);
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
 }
@@ -167,13 +169,14 @@ export default function MeusLancamentos() {
   const [subtipos, setSubtipos] = useState<string[]>([]);
   const [frotas, setFrotas] = useState<string[]>([]);
 
-  // Inicializa filtros a partir do sessionStorage (preserva após edição)
-  const filtrosSalvos = restaurarFiltros();
-  const [tipoEquipamento, setTipoEquipamento] = useState(filtrosSalvos.tipoEquipamento || "todos");
-  const [subtipoEquipamento, setSubtipoEquipamento] = useState(filtrosSalvos.subtipoEquipamento || "todos");
-  const [frotaSelecionada, setFrotaSelecionada] = useState(filtrosSalvos.frotaSelecionada || "todas");
-  const [dataInicio, setDataInicio] = useState(filtrosSalvos.dataInicio || "");
-  const [dataFim, setDataFim] = useState(filtrosSalvos.dataFim || "");
+  // Filtros persistidos por usuário (evita vazar filtro entre usuários/impersonação)
+  const [filtroKey, setFiltroKey] = useState(buildFilterKey(null));
+  const [filtrosHidratados, setFiltrosHidratados] = useState(false);
+  const [tipoEquipamento, setTipoEquipamento] = useState("todos");
+  const [subtipoEquipamento, setSubtipoEquipamento] = useState("todos");
+  const [frotaSelecionada, setFrotaSelecionada] = useState("todas");
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
 
   // Abre na aba correta se vier de WF Obras ou WF Equipamentos
   const abaInicial = (() => {
@@ -255,7 +258,7 @@ export default function MeusLancamentos() {
 
   const handleEditarLancamento = async (item: Lancamento) => {
     // Salva filtros ativos antes de sair para edição
-    salvarFiltros({ tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim });
+    salvarFiltros(filtroKey, { tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim });
     setEditandoId(item.id);
     await new Promise((resolve) => setTimeout(resolve, 200));
     navigate(
@@ -263,6 +266,17 @@ export default function MeusLancamentos() {
         item.equipment_type || "",
       )}&frota=${encodeURIComponent(item.equipment_fleet || "")}`,
     );
+  };
+
+  const handleLimparFiltros = () => {
+    setTipoEquipamento("todos");
+    setSubtipoEquipamento("todos");
+    setFrotaSelecionada("todas");
+    setDataInicio("");
+    setDataFim("");
+    try {
+      sessionStorage.removeItem(filtroKey);
+    } catch {}
   };
 
   const carregar = async () => {
@@ -763,6 +777,33 @@ export default function MeusLancamentos() {
     setLoading(false);
   };
 
+  // Hidrata filtros salvos por usuário logado (evita herdar filtro de outro usuário)
+  useEffect(() => {
+    let ativo = true;
+
+    (async () => {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const key = buildFilterKey(authData?.user?.id || null);
+        if (!ativo) return;
+
+        setFiltroKey(key);
+        const salvos = restaurarFiltros(key);
+        setTipoEquipamento(salvos.tipoEquipamento || "todos");
+        setSubtipoEquipamento(salvos.subtipoEquipamento || "todos");
+        setFrotaSelecionada(salvos.frotaSelecionada || "todas");
+        setDataInicio(salvos.dataInicio || "");
+        setDataFim(salvos.dataFim || "");
+      } finally {
+        if (ativo) setFiltrosHidratados(true);
+      }
+    })();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
   // Resetar subtipo e frota ao mudar tipo
   useEffect(() => {
     setSubtipoEquipamento("todos");
@@ -776,12 +817,14 @@ export default function MeusLancamentos() {
 
   // Persiste filtros no sessionStorage sempre que mudam
   useEffect(() => {
-    salvarFiltros({ tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim });
-  }, [tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim]);
+    if (!filtrosHidratados) return;
+    salvarFiltros(filtroKey, { tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim });
+  }, [filtroKey, filtrosHidratados, tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim]);
 
   useEffect(() => {
+    if (!filtrosHidratados) return;
     carregar();
-  }, [tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim, categorias]);
+  }, [filtrosHidratados, tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim, categorias]);
 
   const resumo = useMemo(() => {
     return `${lancamentos.length} lançamento${lancamentos.length === 1 ? "" : "s"}`;
@@ -971,6 +1014,12 @@ export default function MeusLancamentos() {
                 className="h-11 rounded-xl"
               />
             </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={handleLimparFiltros}>
+              Limpar filtros
+            </Button>
           </div>
         </div>}
 
