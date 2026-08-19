@@ -95,6 +95,7 @@ function valueForColumn(col: ColumnKey, employee: EmployeeRow, checkinDate?: str
 }
 
 function exportCsv(
+  reportTitle: string,
   selectedColumns: ColumnKey[],
   selectedEmployees: EmployeeRow[],
   checkinDates: Record<string, string>,
@@ -106,7 +107,7 @@ function exportCsv(
   );
 
   const lines: string[][] = [];
-  lines.push(["Relatório Personalizado de Funcionários (Cadastro RH)"]);
+  lines.push([reportTitle.trim() || "Relatório Personalizado de Funcionários"]);
   lines.push([`Gerado em: ${new Date().toLocaleString("pt-BR")}`]);
   if (observacao.trim()) lines.push([`Observação/Endereço: ${observacao.trim()}`]);
   lines.push([]);
@@ -129,14 +130,16 @@ function exportCsv(
 }
 
 function exportPdf(
+  reportTitle: string,
   selectedColumns: ColumnKey[],
   selectedEmployees: EmployeeRow[],
   checkinDates: Record<string, string>,
   observacao: string,
 ) {
   const headers = selectedColumns.map((c) => COLUMN_OPTIONS.find((co) => co.key === c)?.label || c);
+  const title = reportTitle.trim() || "Relatório Personalizado de Funcionários";
 
-  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório Personalizado de Funcionários</title><style>
+  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>
     body{font-family:Arial,sans-serif;padding:18px;color:#111827;font-size:12px}
     h1{color:#0f172a;border-bottom:2px solid #0f172a;padding-bottom:6px;font-size:16px;margin-bottom:8px}
     p{margin:4px 0;color:#374151}
@@ -145,7 +148,7 @@ function exportPdf(
     th{background:#f3f4f6;font-weight:700}
     @media print{body{padding:8px}}
   </style></head><body>
-  <h1>👥 Relatório Personalizado de Funcionários</h1>
+  <h1>👥 ${title}</h1>
   <p><strong>Gerado em:</strong> ${new Date().toLocaleString("pt-BR")}</p>
   ${observacao.trim() ? `<p><strong>Observação/Endereço:</strong> ${observacao.trim()}</p>` : ""}
   <p><strong>Total de funcionários:</strong> ${selectedEmployees.length}</p>
@@ -182,9 +185,8 @@ export default function RelatorioFuncionariosPersonalizado() {
   const [showDemitidos, setShowDemitidos] = useState(false);
   const [filtroEquipe, setFiltroEquipe] = useState("TODAS");
   const [filtroFuncao, setFiltroFuncao] = useState("TODAS");
-  const [observacao, setObservacao] = useState(
-    "Rua Porto Alegre, nº 137 – Jardim Caçula – Capitão Leônidas Marques/PR",
-  );
+  const [reportTitle, setReportTitle] = useState("Relatório Personalizado de Funcionários");
+  const [observacao, setObservacao] = useState("");
 
   const equipesDisponiveis = useMemo(() => {
     return Array.from(new Set(employees.map((e) => (e.equipe || "").trim()).filter(Boolean))).sort((a, b) =>
@@ -314,26 +316,36 @@ export default function RelatorioFuncionariosPersonalizado() {
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configuração do relatório</p>
 
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Buscar no cadastro</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Nome, função, equipe, CPF, R.G, matrícula..."
+                className="pl-9 h-11 bg-secondary border-border"
+              />
+            </div>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Buscar no cadastro</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Nome, função, equipe, CPF, R.G, matrícula..."
-                  className="pl-9 h-11 bg-secondary border-border"
-                />
-              </div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Título do relatório</label>
+              <Input
+                value={reportTitle}
+                onChange={(e) => setReportTitle(e.target.value)}
+                placeholder="Ex.: Hospedagem Conforto Plaza - Check-in"
+                className="h-11 bg-secondary border-border"
+              />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observação / Endereço</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observação / Endereço (opcional)</label>
               <Input
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
-                placeholder="Ex.: endereço do hotel"
+                placeholder="Ex.: Rua Porto Alegre, nº 137 – Jardim Caçula – Capitão Leônidas Marques/PR"
                 className="h-11 bg-secondary border-border"
               />
             </div>
@@ -464,7 +476,7 @@ export default function RelatorioFuncionariosPersonalizado() {
               <h2 className="font-semibold text-sm">Selecionados ({selectedEmployees.length})</h2>
               <div className="flex gap-2">
                 <Button
-                  onClick={() => exportCsv(selectedColumns, selectedEmployees, checkinDates, observacao)}
+                  onClick={() => exportCsv(reportTitle, selectedColumns, selectedEmployees, checkinDates, observacao)}
                   disabled={!canExport}
                   variant="outline"
                   className="gap-2"
@@ -472,7 +484,7 @@ export default function RelatorioFuncionariosPersonalizado() {
                   <FileSpreadsheet className="w-4 h-4" /> CSV
                 </Button>
                 <Button
-                  onClick={() => exportPdf(selectedColumns, selectedEmployees, checkinDates, observacao)}
+                  onClick={() => exportPdf(reportTitle, selectedColumns, selectedEmployees, checkinDates, observacao)}
                   disabled={!canExport}
                   variant="outline"
                   className="gap-2"
