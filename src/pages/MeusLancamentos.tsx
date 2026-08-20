@@ -653,6 +653,7 @@ export default function MeusLancamentos() {
       let q = (supabase as any)
         .from("rdo_diarios")
         .select("id,data,obra_nome,tipo_rdo,responsavel,encarregado,turno,clima,user_id,company_id,status_validacao,created_at")
+        .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .order("data", { ascending: false })
         .order("created_at", { ascending: false });
 

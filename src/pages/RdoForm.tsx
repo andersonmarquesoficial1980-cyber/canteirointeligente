@@ -1367,6 +1367,8 @@ export default function RdoForm() {
       user_id: user.id,
       tipo_rdo: tipoRdo || null,
       company_id: profile?.company_id || null,
+      // Envio deve retirar o registro da seção de rascunhos em Meus Lançamentos
+      status_validacao: "enviado",
     };
 
     if (!isOnline) {
