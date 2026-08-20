@@ -10,6 +10,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 type MedidorAtual = {
   valor: number;
@@ -60,6 +61,7 @@ const STATUS_LABELS: Record<string, { label: string; bg: string; cor: string }> 
 export default function GestaoFrotasVeiculo() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useSmartBack("/gestao-frotas");
   const [veiculo, setVeiculo] = useState<any>(null);
   const [documentos, setDocumentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -262,7 +264,7 @@ export default function GestaoFrotasVeiculo() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/gestao-frotas")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">

@@ -7,9 +7,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const COMPANY_ID = DEFAULT_COMPANY_ID;
 
 interface Employee {
   id: string;
@@ -420,12 +421,11 @@ export default function ProgramacaoFerias() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const rotaVoltar = useOrigemBack("/gestao-pessoas", { "gestao-frotas": "/gestao-frotas" });
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
   const origem = searchParams.get("origem") || "";
   const buscaInicial = searchParams.get("q") || "";
   const focoFuncionarioId = searchParams.get("funcionario_id") || "";
-  const returnToParam = searchParams.get("returnTo") || "";
-  const filtroParam = searchParams.get("filtro");
+    const filtroParam = searchParams.get("filtro");
   const filtroInicial: "todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" =
     filtroParam === "pendente" || filtroParam === "vencido" || filtroParam === "coletiva" || filtroParam === "em_ferias"
       ? filtroParam
@@ -571,7 +571,7 @@ export default function ProgramacaoFerias() {
       {/* Header */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
         <button
-          onClick={() => returnToParam ? navigate(returnToParam) : navigate(rotaVoltar)}
+          onClick={goBack}
           className="p-1.5 rounded-lg hover:bg-white/10 transition"
         >
           <ArrowLeft className="h-5 w-5" />

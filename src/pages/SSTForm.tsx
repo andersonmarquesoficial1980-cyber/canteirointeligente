@@ -5,9 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
 import jsPDF from "jspdf";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const COMPANY_ID = DEFAULT_COMPANY_ID;
 
 interface OgsRef { id: string; ogs_number: string; client_name: string; location_address: string; }
 interface Employee { id: string; name: string; role: string; }
@@ -273,7 +274,7 @@ const CHECKLIST_SEG = [
 export default function SSTForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const rotaVoltar = useOrigemBack("/sst", { "gestao-frotas": "/gestao-frotas" });
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/sst");
   const origem = searchParams.get("origem") || "";
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { id } = useParams();
@@ -472,7 +473,7 @@ export default function SSTForm() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

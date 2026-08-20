@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Search, Package, Maximize2, Minimize2, Download, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
@@ -566,6 +567,7 @@ const SIDEBAR_W = 190;
 
 export default function GestaoFrotasDashboard() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/gestao-frotas");
   const { trail, goTo } = useNavigationTrail({ label: "Dashboard de Frotas" });
   const [todos, setTodos]           = useState<Equip[]>([]);
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
@@ -2704,7 +2706,7 @@ export default function GestaoFrotasDashboard() {
   return (
     <div style={{ minHeight: "100vh", background: "#f0f4f8", fontFamily: "Inter, sans-serif", display: "flex", flexDirection: "column" }}>
       <header className="flex items-center gap-3 px-4 py-2.5 bg-header-gradient shadow-md" style={{ flexShrink: 0 }}>
-        <button onClick={() => navigate("/gestao-frotas")} className="text-primary-foreground hover:bg-white/15 p-1.5 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-1.5 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 24 }}>

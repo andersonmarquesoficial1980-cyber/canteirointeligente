@@ -3,8 +3,8 @@
  * Rota: /relatorios/carreteiros
  */
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, FileSpreadsheet, Search, Loader2, AlertTriangle, MapPin, Truck, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -70,7 +70,9 @@ function loadStatusBadgeClasses(status: string | null | undefined) {
 
 export default function RelatorioCarreteiros() {
   const navigate = useNavigate();
-  const goBack = useOrigemBack("/relatorios", { "gestao-frotas": "/gestao-frotas" });
+  const [searchParams] = useSearchParams();
+  const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/relatorios");
   const { isAdmin } = useIsAdmin();
   const { canDelete } = useCanDelete();
   const { trail, goTo } = useNavigationTrail({ label: "Relatório Carreteiros" });

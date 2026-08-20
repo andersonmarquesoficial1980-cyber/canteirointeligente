@@ -10,6 +10,7 @@ import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -96,6 +97,7 @@ function carregarFiltrosIniciais(): FiltrosGF {
 
 export default function GestaoFrotasHome() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/");
   const { trail, goTo } = useNavigationTrail({ label: "WF Gestão de Frotas", resetToHome: true });
   const { toast } = useToast();
   const { categorias, loading: loadingTipos } = useEquipamentoTipos();
@@ -861,7 +863,7 @@ export default function GestaoFrotasHome() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">

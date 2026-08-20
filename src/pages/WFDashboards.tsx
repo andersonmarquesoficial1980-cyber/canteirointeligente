@@ -6,6 +6,7 @@
 import { useNavigate } from "react-router-dom";
 import { HardHat, Wrench, Truck, Monitor, Maximize2, ArrowLeft, LayoutDashboard } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 interface DashOption {
   id: string;
@@ -61,6 +62,7 @@ const DASHBOARDS: DashOption[] = [
 
 export default function WFDashboards() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/admin/configuracoes");
 
   const openFullscreen = (route: string) => {
     navigate(route);
@@ -75,7 +77,7 @@ export default function WFDashboards() {
       {/* Header */}
       <header className="flex items-center justify-between px-8 py-5 border-b border-white/10">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/admin/configuracoes")}
+          <button onClick={goBack}
             className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>

@@ -11,6 +11,7 @@ import {
   ArrowLeft, Bus, MapPin, Clock, Route, Search, Loader2, DollarSign,
 } from "lucide-react";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 declare global {
   interface Window {
@@ -353,6 +354,7 @@ function estimateFareFromSteps(steps: TransitStep[], tarifas: Tarifa[]): number 
 
 export default function TrajetoVT() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/rh");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [loading, setLoading] = useState(false);
@@ -505,7 +507,7 @@ export default function TrajetoVT() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/rh")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { fmtNum } from "@/lib/fmt";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO", "BUS"];
 const MACARICO_TYPE_VALUE = "MACARICO";
@@ -217,7 +217,9 @@ function buildOgsOptions(ogsData: any[]) {
 
 export default function AbastecimentoHome() {
   const navigate = useNavigate();
-  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const [searchParams] = useSearchParams();
+  const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const { categorias } = useEquipamentoTipos();
 
   // ── Dados da tela principal ──
@@ -950,7 +952,7 @@ export default function AbastecimentoHome() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate(rotaVoltar)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">

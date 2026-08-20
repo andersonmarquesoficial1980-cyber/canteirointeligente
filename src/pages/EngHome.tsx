@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardHat, ArrowLeft, History } from "lucide-react";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 const VALIDATION_START_DATE = "2026-07-17";
 
@@ -26,7 +26,7 @@ interface MinhaOgs {
 export default function EngHome() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [rdosPendentes, setRdosPendentes] = useState<RdoPendente[]>([]);
@@ -138,7 +138,7 @@ export default function EngHome() {
         <ProgramacoesDoDia />
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(rotaVoltar)} className="p-2 rounded-lg hover:bg-muted">
+          <button onClick={goBack} className="p-2 rounded-lg hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">

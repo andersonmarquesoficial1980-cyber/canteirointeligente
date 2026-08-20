@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, Clock, MapPin, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 interface Funcionario {
   id: string;
@@ -48,7 +48,7 @@ function fmtHoras(h: number): string {
 }
 
 export default function EspelhoPonto() {
-  const navigate = useNavigate();
+  const goBack = useSmartBack("/rh");
   const { isAdmin } = useIsAdmin();
   const { profile } = useUserProfile();
 
@@ -133,7 +133,7 @@ export default function EspelhoPonto() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/rh")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">

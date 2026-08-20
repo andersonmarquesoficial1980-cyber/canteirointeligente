@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 const STATUS_FUNC = ["TRABALHOU", "AFASTADO", "DISPOSIÇÃO", "FÉRIAS", "FALTA"];
 const STATUS_EQUIP = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE"];
@@ -30,7 +30,7 @@ type ModoEquip = "status" | "transferencia";
 export default function ProgramadorHome() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { toast } = useToast();
@@ -220,7 +220,7 @@ export default function ProgramadorHome() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(rotaVoltar)} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+          <button onClick={goBack} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <LogoHomeButton className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />

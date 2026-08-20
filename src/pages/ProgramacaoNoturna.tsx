@@ -2,7 +2,7 @@
 // Compartilha via WhatsApp nativo (wa.me), sem número integrado
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -82,8 +82,8 @@ function montarTextoWA(prog: Programacao): string {
 export default function ProgramacaoNoturna() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const goBack = useOrigemBack("/programador", { "gestao-frotas": "/gestao-frotas" });
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/programador");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { toast } = useToast();
 

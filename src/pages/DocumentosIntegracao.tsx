@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, Brain, Loader2, CheckCircle, AlertTriangle, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import NovoDocumentoModal from "@/components/documentos/NovoDocumentoModal";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 interface Documento {
   id: string;
@@ -35,6 +36,7 @@ const STATUS_CONFIG = {
 export default function DocumentosIntegracao() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useSmartBack("/documentos");
   const [integracao, setIntegracao] = useState<Integracao | null>(null);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,7 +110,7 @@ export default function DocumentosIntegracao() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate("/documentos")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1 min-w-0">

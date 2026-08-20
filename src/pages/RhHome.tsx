@@ -3,7 +3,7 @@ import { ArrowLeft, Bus, MapPin, LogOut, Camera, ClipboardList, MessageSquare, C
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 const RH_SECTIONS = [
   {
@@ -59,14 +59,14 @@ const RH_SECTIONS = [
 export default function RhHome() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

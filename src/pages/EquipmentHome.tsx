@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { LogOut, ChevronRight, FileSpreadsheet, ClipboardList, Truck, MapPin, ExternalLink, Clock } from "lucide-react";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
-import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 import imgFresadora from "@/assets/equip-fresadora.png";
 import imgBobcat from "@/assets/equip-bobcat.webp";
@@ -118,6 +119,7 @@ function OrdemTransporteCard({ ordem }: { ordem: OrdemTransporte }) {
 
 export default function EquipmentHome() {
   const navigate = useNavigate();
+  const goBackToHub = useSmartBack("/");
   const [loggingOut, setLoggingOut] = useState(false);
   const { isAdmin } = useIsAdmin();
   const [equipamentosPermitidos, setEquipamentosPermitidos] = useState<string[]>([]);
@@ -287,7 +289,7 @@ export default function EquipmentHome() {
         <Button
           variant="ghost"
           className="w-full text-muted-foreground text-sm font-semibold"
-          onClick={() => navigate("/")}
+          onClick={goBackToHub}
         >
           ← Voltar ao Hub
         </Button>

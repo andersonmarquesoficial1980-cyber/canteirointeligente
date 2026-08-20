@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -111,6 +112,7 @@ function ObraCard({ obra }: { obra: ObraStats }) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function DashboardObras() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/wf-dashboards");
   const [obras, setObras] = useState<ObraStats[]>([]);
   const [rdosHoje, setRdosHoje] = useState<RdoDia[]>([]);
   const [rdosSemana, setRdosSemana] = useState<{ data: string; count: number }[]>([]);
@@ -222,7 +224,7 @@ export default function DashboardObras() {
       <header className="flex items-center justify-between px-8 py-4 border-b border-white/10"
         style={{ background: "rgba(15,23,42,0.95)" }}>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/wf-dashboards")}
+          <button onClick={goBack}
             className="text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10">
             <ArrowLeft className="w-5 h-5" />
           </button>

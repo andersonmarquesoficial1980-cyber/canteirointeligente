@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Building2, Users, ChevronRight, Clock, X, Settings, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const COMPANY_ID = DEFAULT_COMPANY_ID;
 
 const CONCESSIONARIAS = ["CCR", "MOTIVA", "ECOVIAS", "AUTOBAN", "INVEPAR", "Aeroporto GRU", "Outra"];
 
@@ -91,7 +92,9 @@ function isVencido(d: string | null) {
 
 export default function SSTObrasIntegracao() {
   const navigate = useNavigate();
-  const rotaVoltarIntegracao = useOrigemBack("/sst/integracao", { "gestao-frotas": "/gestao-frotas" });
+  const [searchParams] = useSearchParams();
+  const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/sst/integracao");
   const { toast } = useToast();
   const [obras, setObras] = useState<Obra[]>([]);
   const [obraSelecionada, setObraSelecionada] = useState<Obra | null>(null);
@@ -344,7 +347,7 @@ export default function SSTObrasIntegracao() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
         <button
-          onClick={() => obraSelecionada ? setObraSelecionada(null) : navigate(rotaVoltarIntegracao)}
+          onClick={() => obraSelecionada ? setObraSelecionada(null) : goBack()}
           className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>

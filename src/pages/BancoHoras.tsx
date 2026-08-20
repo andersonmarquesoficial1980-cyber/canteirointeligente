@@ -3,10 +3,10 @@
  * Calcula automaticamente: horas trabalhadas vs jornada padrão
  */
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 interface Funcionario { id: string; nome: string; funcao: string; matricula: string; }
 interface Registro { staff_id: string; data: string; hora: string; tipo: string; turno: string | null; }
@@ -33,7 +33,7 @@ function toMin(hora: string): number {
 }
 
 export default function BancoHoras() {
-  const navigate = useNavigate();
+  const goBack = useSmartBack("/rh");
   const { profile } = useUserProfile();
 
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
@@ -118,7 +118,7 @@ export default function BancoHoras() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/rh")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">

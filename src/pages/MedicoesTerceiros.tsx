@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Search, FileText, Plus, Loader2, Check, X, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 function fmtDate(d: string) {
   if (!d) return "—";
@@ -17,6 +18,7 @@ function fmtBRL(v: number) {
 
 export default function MedicoesTerceiros() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/medicoes");
   const { toast } = useToast();
 
   const [step, setStep] = useState<"busca" | "config" | "resultado" | "historico">("busca");
@@ -213,7 +215,7 @@ export default function MedicoesTerceiros() {
       {/* Header */}
       <div className="bg-gradient-to-r from-violet-600 to-violet-500 text-white px-4 pt-12 pb-5">
         <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate("/medicoes")} className="hover:bg-white/15 p-2 rounded-lg">
+          <button onClick={goBack} className="hover:bg-white/15 p-2 rounded-lg">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">

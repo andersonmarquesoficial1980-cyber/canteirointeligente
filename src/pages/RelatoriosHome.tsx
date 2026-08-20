@@ -6,9 +6,10 @@ import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, Search } from "lucide-
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import AdvancedReports from "@/components/dashboard/AdvancedReports";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import { toLocalISODate } from "@/lib/date-local";
 
 const TIPOS_RELATORIO = [
   { id: "equipamento", label: "Equipamentos", emoji: "🚜", desc: "Diário, consumo, manutenção, produção" },
@@ -47,7 +48,7 @@ export default function RelatoriosHome() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
   const origemQuery = origem ? `&origem=${encodeURIComponent(origem)}` : "";
   const origemQueryPrefix = origem ? `?origem=${encodeURIComponent(origem)}` : "";
@@ -84,7 +85,7 @@ export default function RelatoriosHome() {
   const [tipoPeriodo, setTipoPeriodo] = useState<"dia" | "periodo">(
     (saved.tipoPeriodo as any) || "dia"
   );
-  const [dataDia, setDataDia] = useState(saved.dataDia || new Date().toISOString().split("T")[0]);
+  const [dataDia, setDataDia] = useState(saved.dataDia || toLocalISODate());
   const [dataIni, setDataIni] = useState(saved.dataIni || "");
   const [dataFim, setDataFim] = useState(saved.dataFim || "");
   const alvoSelecionado = tipoRel === "rdo" ? ogsSelecionada : frotaSelecionada;
@@ -279,7 +280,7 @@ export default function RelatoriosHome() {
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
         <button
-          onClick={step === "tipo" ? () => navigate(rotaVoltar) : voltar}
+          onClick={step === "tipo" ? goBack : voltar}
           className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -373,8 +374,9 @@ export default function RelatoriosHome() {
                   if (t.id === "controle_lancamentos") { navigate(`/relatorios/controle-lancamentos${origemQueryPrefix}`); return; }
                   if (t.id === "rdo_tecnico_dashboard") { navigate(`/relatorios/rdo-tecnico-dashboard${origemQueryPrefix}`); return; }
                   if (t.id === "abastecimento") {
-                    const hoje = new Date().toISOString().split("T")[0];
-                    const ini = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
+                    const hoje = toLocalISODate();
+                    const now = new Date();
+                    const ini = toLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1));
                     navigate(`/relatorios/abastecimento/TODAS?ini=${ini}&fim=${hoje}${origemQuery}`);
                     return;
                   }

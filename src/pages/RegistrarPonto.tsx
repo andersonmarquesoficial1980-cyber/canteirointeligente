@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, MapPin, AlertTriangle, CheckCircle2, Loader2, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 interface Funcionario {
@@ -55,7 +55,7 @@ async function detectarTipoPonto(staffId: string, companyId: string | null): Pro
 
 // ── Componente principal ───────────────────────────────────────────────────
 export default function RegistrarPonto() {
-  const navigate = useNavigate();
+  const goBack = useSmartBack("/rh");
   const { toast } = useToast();
   const { profile } = useUserProfile();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -262,7 +262,7 @@ export default function RegistrarPonto() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/rh")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">

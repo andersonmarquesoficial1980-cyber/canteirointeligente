@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowLeft, Plus, FileCheck, ChevronRight, CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 interface Integracao {
   id: string;
@@ -27,8 +27,8 @@ const PLATAFORMAS = ["Bexap", "GPA", "Sienge", "Totvs", "Outra"];
 export default function DocumentosHome() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [integracoes, setIntegracoes] = useState<Integracao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +101,7 @@ export default function DocumentosHome() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={() => navigate(rotaVoltar)} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">

@@ -6,10 +6,12 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
-const SUPABASE_FUNCTIONS_URL = "https://ucgcqexunnsrffzrfhqu.supabase.co/functions/v1";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVjZ2NxZXh1bm5zcmZmenJmaHF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTYzODIsImV4cCI6MjA4Nzg5MjM4Mn0.p4nBtBDqpEuhJamtK9O1PiljQ-rU2StmbkWsbZRir5o";
+const COMPANY_ID = DEFAULT_COMPANY_ID;
+const SUPABASE_FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || "https://ucgcqexunnsrffzrfhqu.supabase.co/functions/v1";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 const INSTANCE = "fremix-rh";
 
 interface Conversation {
@@ -60,6 +62,7 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function WhatsAppInbox() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/gestao-pessoas");
   const location = useLocation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
@@ -120,6 +123,11 @@ export default function WhatsAppInbox() {
     setText("");
 
     try {
+      if (!SUPABASE_ANON_KEY) {
+        alert("Configuração ausente: VITE_SUPABASE_ANON_KEY");
+        return;
+      }
+
       // Enviar via túnel HTTPS
       const resp = await fetch(`${SUPABASE_FUNCTIONS_URL}/whatsapp-send`, {
         method: "POST",
@@ -159,7 +167,7 @@ export default function WhatsAppInbox() {
     <div className="min-h-screen bg-background flex flex-col" style={{ maxHeight: "100vh", overflow: "hidden" }}>
       {/* Header */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md shrink-0">
-        <button onClick={() => navigate("/gestao-pessoas")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

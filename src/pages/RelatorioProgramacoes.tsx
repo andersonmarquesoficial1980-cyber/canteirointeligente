@@ -3,7 +3,7 @@
 // Cruzamento programado vs executado (diários de equipamento)
 
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,8 @@ import {
   ArrowLeft, BarChart3, CheckCircle2, XCircle, Clock, AlertCircle,
   Download, RefreshCw, TrendingUp, Hammer, CalendarRange, Search,
 } from "lucide-react";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
+import { toLocalISODate } from "@/lib/date-local";
 
 // ───── types ─────────────────────────────────────────────────────────────────
 interface Programacao {
@@ -58,7 +59,7 @@ function fmtDate(d: string) {
 }
 
 function hoje() {
-  return new Date().toISOString().split("T")[0];
+  return toLocalISODate();
 }
 
 function primeiroDiaMes() {
@@ -76,7 +77,9 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }>
 // ───── componente ─────────────────────────────────────────────────────────────
 export default function RelatorioProgramacoes() {
   const navigate = useNavigate();
-  const rotaVoltar = useOrigemBack("/programador/programacao-noturna", { "gestao-frotas": "/gestao-frotas" });
+  const [searchParams] = useSearchParams();
+  const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/programador/programacao-noturna");
 
   // filtros
   const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
@@ -284,7 +287,7 @@ export default function RelatorioProgramacoes() {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(rotaVoltar)}>
+        <Button variant="ghost" size="icon" onClick={goBack}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="flex-1">

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Building2, ChevronDown, ChevronUp, Shield, Users } from "lucide-react";
 
 import logoCi from "@/assets/logo-workflux.png";
@@ -86,6 +87,7 @@ function formatLastAccess(raw: string | null): string {
 
 export default function SuperAdmin() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/");
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -95,6 +97,9 @@ export default function SuperAdmin() {
   const [updatingModuleKey, setUpdatingModuleKey] = useState<string | null>(null);
   const [creatingUserCompanyId, setCreatingUserCompanyId] = useState<string | null>(null);
   const [newUserForms, setNewUserForms] = useState<Record<string, NovoUsuarioForm>>({});
+  const [newCompanyName, setNewCompanyName] = useState("");
+  const [newCompanyLoginDomain, setNewCompanyLoginDomain] = useState("");
+  const [creatingCompany, setCreatingCompany] = useState(false);
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -369,6 +374,56 @@ export default function SuperAdmin() {
     await loadData();
   };
 
+  const handleCreateCompany = async () => {
+    const name = newCompanyName.trim();
+    const rawDomain = newCompanyLoginDomain.trim().toLowerCase();
+
+    if (!name) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Informe o nome da empresa cliente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const normalizedDomain = rawDomain.replace(/^@+/, "").replace(/\s+/g, "");
+    if (normalizedDomain && !/^[a-z0-9.-]+$/.test(normalizedDomain)) {
+      toast({
+        title: "Domínio inválido",
+        description: "Use apenas letras minúsculas, números, ponto e hífen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingCompany(true);
+    const { error } = await (supabase as any).from("companies").insert({
+      name,
+      status: "ativo",
+      login_domain: normalizedDomain || null,
+    });
+    setCreatingCompany(false);
+
+    if (error) {
+      toast({
+        title: "Erro ao criar empresa",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Empresa criada",
+      description: "Agora você já pode abrir detalhes, ativar módulos e criar o admin do cliente.",
+    });
+
+    setNewCompanyName("");
+    setNewCompanyLoginDomain("");
+    await loadData();
+  };
+
   if (!authorized && loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
@@ -393,7 +448,7 @@ export default function SuperAdmin() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => navigate("/")}
+            onClick={goBack}
             className="border-blue-300/30 bg-blue-900/20 text-blue-100 hover:bg-blue-900/40"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -403,6 +458,43 @@ export default function SuperAdmin() {
       </header>
 
       <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6">
+        <section>
+          <Card className="border-blue-800/40 bg-slate-900/70">
+            <CardContent className="space-y-3 p-5">
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-blue-200">Novo cliente</h2>
+                <p className="text-xs text-slate-400">Cadastro manual da empresa cliente para liberar módulos sob demanda.</p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-4">
+                <Input
+                  placeholder="Nome da empresa"
+                  value={newCompanyName}
+                  onChange={(e) => setNewCompanyName(e.target.value)}
+                  className="md:col-span-2 border-slate-600 bg-slate-800 text-slate-100"
+                />
+                <Input
+                  placeholder="Domínio de login (ex: cliente.workflux.app)"
+                  value={newCompanyLoginDomain}
+                  onChange={(e) => setNewCompanyLoginDomain(e.target.value)}
+                  className="md:col-span-2 border-slate-600 bg-slate-800 text-slate-100"
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={handleCreateCompany}
+                  disabled={creatingCompany}
+                  className="bg-emerald-600 text-white hover:bg-emerald-500"
+                >
+                  {creatingCompany ? "Criando empresa..." : "➕ Criar Empresa"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
         <section className="grid gap-4 md:grid-cols-3">
           <Card className="border-blue-800/40 bg-slate-900/70">
             <CardContent className="p-5">

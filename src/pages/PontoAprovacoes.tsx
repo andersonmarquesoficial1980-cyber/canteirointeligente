@@ -2,12 +2,12 @@
  * PontoAprovacoes — Gestor/Admin aprova ou reprova solicitações de ponto
  */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 interface Solicitacao {
   id: string;
@@ -40,7 +40,7 @@ function fmtDateHour(dt: string) {
 }
 
 export default function PontoAprovacoes() {
-  const navigate = useNavigate();
+  const goBack = useSmartBack("/rh");
   const { toast } = useToast();
   const { profile } = useUserProfile();
 
@@ -109,7 +109,7 @@ export default function PontoAprovacoes() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate("/rh")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">

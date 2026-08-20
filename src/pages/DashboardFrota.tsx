@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -46,6 +47,7 @@ function KpiCard({ icon: Icon, label, value, sub, color }: {
 
 export default function DashboardFrota() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/wf-dashboards");
   const [diarios, setDiarios] = useState<any[]>([]);
   const [abast, setAbast] = useState<any[]>([]);
   const [maiUsados, setMaisUsados] = useState<{ frota: string; dias: number }[]>([]);
@@ -137,7 +139,7 @@ export default function DashboardFrota() {
       <header className="flex items-center justify-between px-8 py-4 border-b border-white/10"
         style={{ background: "rgba(15,23,42,0.95)" }}>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/wf-dashboards")}
+          <button onClick={goBack}
             className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ClipboardList, MapPin, ExternalLink, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { Demanda, StatusDemanda } from "@/hooks/useDemandas";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 const STATUS_LABELS: Record<StatusDemanda, string> = {
   aberta: "Aberta",
@@ -124,7 +124,9 @@ function TransporteCard({ descricao }: { descricao: string }) {
 
 export default function MinhasDemandas() {
   const navigate = useNavigate();
-  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const [searchParams] = useSearchParams();
+  const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const { toast } = useToast();
   const [demandas, setDemandas] = useState<Demanda[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,7 +207,7 @@ export default function MinhasDemandas() {
     <div className="min-h-screen bg-page flex flex-col">
       <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(rotaVoltar)} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+          <button onClick={goBack} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <LogoHomeButton className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />

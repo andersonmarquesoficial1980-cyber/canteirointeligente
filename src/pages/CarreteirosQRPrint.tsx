@@ -8,9 +8,10 @@ import { ArrowLeft, Printer, Search, Truck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const COMPANY_ID = DEFAULT_COMPANY_ID;
 const BASE_URL = "https://app.workflux.com.br";
 
 interface TruckReg {
@@ -24,7 +25,7 @@ interface TruckReg {
 export default function CarreteirosQRPrint() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const rotaVoltar = useOrigemBack("/carreteiros", { "gestao-frotas": "/gestao-frotas" });
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/carreteiros");
   const origem = searchParams.get("origem") || "";
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [trucks, setTrucks] = useState<TruckReg[]>([]);
@@ -68,7 +69,7 @@ export default function CarreteirosQRPrint() {
     <div className="min-h-screen bg-background">
       {/* Header — não aparece na impressão */}
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md print:hidden">
-        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <img src={logoCi} alt="CI" className="h-7 object-contain" />

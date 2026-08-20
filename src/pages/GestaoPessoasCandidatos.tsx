@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Search, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface Candidato {
@@ -42,7 +42,7 @@ export default function GestaoPessoasCandidatos() {
   const [searchParams] = useSearchParams();
   const origem = searchParams.get("origem") || "";
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
-  const rotaVoltar = useOrigemBack("/gestao-pessoas", { "gestao-frotas": "/gestao-frotas" });
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
   const { profile } = useUserProfile();
 
   const [loading, setLoading] = useState(true);
@@ -100,7 +100,7 @@ export default function GestaoPessoasCandidatos() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
-        <button onClick={() => navigate(rotaVoltar)} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+        <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

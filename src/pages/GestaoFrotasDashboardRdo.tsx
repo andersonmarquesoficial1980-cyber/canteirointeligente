@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, MapPin, Users, Wrench, CalendarDays, RefreshCw } from "lucide-react";
+import { ArrowLeft, Search, MapPin, CalendarDays, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserProfile } from "@/hooks/useUserProfile";
-import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 interface RdoRow {
@@ -238,6 +240,7 @@ type ModoVis = "tipo" | "equipe";
 
 export default function GestaoFrotasDashboardRdo() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/gestao-frotas");
   const { profile } = useUserProfile();
   const { trail, goTo } = useNavigationTrail({ label: "Dashboard RDO Frotas" });
 
@@ -501,7 +504,7 @@ export default function GestaoFrotasDashboardRdo() {
 
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
       <header className="flex items-center gap-3 px-4 py-2.5 bg-header-gradient shadow-md" style={{ flexShrink: 0 }}>
-        <button onClick={() => navigate("/gestao-frotas")} className="text-primary-foreground hover:bg-white/15 p-1.5 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-1.5 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>

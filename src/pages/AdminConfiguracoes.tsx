@@ -27,6 +27,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { startImpersonation } from "@/hooks/useImpersonation";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 import UsersManagerExternal from "@/components/admin/UsersManager";
@@ -5072,6 +5073,7 @@ function EmpresasParceirasManager() {
 
 export default function AdminConfiguracoes() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/");
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAdmin, loading: loadingAdmin } = useIsAdmin();
   const { permissions, loading: loadingPerms } = usePermissions();
@@ -5364,7 +5366,7 @@ export default function AdminConfiguracoes() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-header-gradient text-primary-foreground px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-white/10 transition">
+          <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <LogoHomeButton className="h-7 object-contain" />

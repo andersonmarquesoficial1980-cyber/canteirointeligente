@@ -16,8 +16,9 @@
  * NÃO MISTURA fontes — o setor do cadastro é o fallback quando não há diário.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import {
   ArrowLeft, RefreshCw, MapPin, AlertTriangle,
   Truck, Bot, CheckCircle2, Wrench, Clock,
@@ -27,8 +28,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const COMPANY_ID = DEFAULT_COMPANY_ID;
 
 type FonteInfo = "diario_manual" | "diario_auto" | "setor_cadastro" | "sem_info";
 type StatusOperacao = "trabalhando" | "disposicao" | "manutencao" | "transporte" | "folga" | "patio" | "sem_info";
@@ -110,6 +112,7 @@ function corDias(d: number | null): string {
 
 export default function GestaoFrotasRastreamento() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/gestao-frotas");
   const { trail, goTo } = useNavigationTrail({ label: "Rastreamento de Frotas" });
   const [lista, setLista] = useState<EquipRastreio[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,7 +316,7 @@ export default function GestaoFrotasRastreamento() {
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg sticky top-0 z-10">
-        <button onClick={() => navigate("/gestao-frotas")} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <LogoHomeButton className="h-7 object-contain" />

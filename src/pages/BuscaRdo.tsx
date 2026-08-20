@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import { addDaysLocalISO, toLocalISODate } from "@/lib/date-local";
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -41,8 +42,8 @@ export default function BuscaRdo() {
   const goBack = useSmartBack("/relatorios");
   const { trail, goTo } = useNavigationTrail({ label: "Busca RDOs" });
 
-  const hoje = new Date().toISOString().split("T")[0];
-  const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+  const hoje = toLocalISODate();
+  const mesAtras = addDaysLocalISO(new Date(), -30);
 
   const [ogs, setOgs] = useState(searchParams.get("ogs") || "");
   const [ini, setIni] = useState(searchParams.get("ini") || mesAtras);

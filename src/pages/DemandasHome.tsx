@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ClipboardList, Plus, RefreshCw, Pencil, Trash2, X, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { useDemandas, type Demanda } from "@/hooks/useDemandas";
 import NovaDemandaModal from "@/components/demandas/NovaDemandaModal";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { getSetorLabel, getStatusLabel, getTipoMeta, getUrgenciaMeta, TRANSPORTE_HORARIOS } from "@/lib/demandas";
-import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 type FiltroStatus = "todas" | "abertas" | "andamento" | "concluidas";
 type FiltroSetor = "todos" | string;
@@ -242,11 +242,15 @@ function EditarDemandaModal({
 
 // ── Tela principal ────────────────────────────────────────────────────────────
 export default function DemandasHome() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const rotaVoltar = useOrigemBack("/", { "gestao-frotas": "/gestao-frotas" });
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
-  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
+  const detalheParams = new URLSearchParams();
+  if (origem) detalheParams.set("origem", origem);
+  detalheParams.set("returnTo", `${location.pathname}${location.search}`);
+  const detalheQuery = `?${detalheParams.toString()}`;
   const [novoOpen, setNovoOpen] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todas");
   const [filtroSetor, setFiltroSetor] = useState<FiltroSetor>("todos");
@@ -301,7 +305,7 @@ export default function DemandasHome() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(rotaVoltar)} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+          <button onClick={goBack} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <LogoHomeButton className="w-8 h-8 rounded-full border-2 border-white/30 shadow-md" />
@@ -391,7 +395,7 @@ export default function DemandasHome() {
             <CardDemanda
               key={demanda.id}
               demanda={demanda}
-              onClick={() => navigate(`/demandas/${demanda.id}${origemQuery}`)}
+              onClick={() => navigate(`/demandas/${demanda.id}${detalheQuery}`)}
               onEditar={d => setDemandaParaEditar(d)}
               onExcluir={d => setDemandaParaExcluir(d)}
             />
