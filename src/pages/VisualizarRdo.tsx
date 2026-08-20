@@ -41,6 +41,8 @@ export default function VisualizarRdo() {
   const [producao, setProducao] = useState<any[]>([]);
   const [nfMassa, setNfMassa] = useState<any[]>([]);
   const [nfConcreto, setNfConcreto] = useState<any[]>([]);
+  const [sinalizacaoHorizontal, setSinalizacaoHorizontal] = useState<any[]>([]);
+  const [informacoesDmt, setInformacoesDmt] = useState<any[]>([]);
   const breadcrumbLabel = rdo?.obra_nome && rdo?.data
     ? `OGS ${rdo.obra_nome} ${fmtDate(rdo.data)}`
     : "Visualizar RDO";
@@ -66,6 +68,8 @@ export default function VisualizarRdo() {
           { data: prodRows },
           { data: nfRows },
           { data: nfConcretoRows },
+          { data: sinalizacaoRows },
+          { data: dmtRows },
         ] = await Promise.all([
           supabase.from("rdo_diarios").select("*").eq("id", id).maybeSingle(),
           supabase.from("rdo_efetivo").select("id,nome,funcao,matricula,entrada,saida,quantidade").eq("rdo_id", id).order("funcao", { ascending: true }),
@@ -74,6 +78,8 @@ export default function VisualizarRdo() {
           (supabase as any).from("rdo_producao").select("id,tipo_servico,sentido_faixa,sentido,faixa,estaca_inicial,estaca_final,comprimento_m,largura_m,espessura_cm,area_m2,volume_m3,densidade,tonelagem,is_retrabalho").eq("rdo_id", id),
           (supabase as any).from("rdo_nf_massa").select("id,nf,placa,usina,tonelagem,tipo_material").eq("rdo_id", id).order("nf", { ascending: true }),
           (supabase as any).from("rdo_nf_concreto").select("id,nf,equipamento,quantidade_m3,tipo_concreto,fornecedor,foto_url").eq("rdo_id", id).order("nf", { ascending: true }),
+          (supabase as any).from("rdo_sinalizacao_horizontal").select("id,tipo,sentido,faixa,estaca_inicial,estaca_final,quantidade,quantidade_taxas,comprimento_m,largura_m").eq("rdo_id", id),
+          (supabase as any).from("rdo_informacoes_dmt").select("id,dmt_usina_km,dmt_canteiro_km").eq("rdo_id", id),
         ]);
 
         if (rdoError) throw rdoError;
@@ -170,6 +176,8 @@ export default function VisualizarRdo() {
         setProducao(prodRows || []);
         setNfMassa(nfRows || []);
         setNfConcreto(nfConcretoRows || []);
+        setSinalizacaoHorizontal(sinalizacaoRows || []);
+        setInformacoesDmt(dmtRows || []);
       } catch (err: any) {
         setError(err?.message || "Erro ao carregar RDO.");
       } finally {
@@ -190,6 +198,11 @@ export default function VisualizarRdo() {
   }, 0);
   const totalTon = nfMassa.reduce((s, n) => s + (parseFloat(String(n.tonelagem || 0)) || 0), 0);
   const totalM3Concreto = nfConcreto.reduce((s, n) => s + (parseFloat(String(n.quantidade_m3 || 0)) || 0), 0);
+  const totalAreaSinalizacao = sinalizacaoHorizontal.reduce((sum, s) => {
+    const comp = parseFloat(String(s.comprimento_m || 0)) || 0;
+    const larg = parseFloat(String(s.largura_m || 0)) || 0;
+    return sum + (comp > 0 && larg > 0 ? comp * larg : 0);
+  }, 0);
   const terceirosRows = Object.entries(efetivoTerceiros).flatMap(([empresa, nomes]) =>
     nomes.map((nome) => ({ empresa: empresa || "-", nome: nome || "-" })),
   );
@@ -463,6 +476,83 @@ export default function VisualizarRdo() {
               </div>
               );
             })()}
+
+            {/* Sinalização Horizontal */}
+            {sinalizacaoHorizontal.length > 0 && (
+              <div className="rdo-card space-y-2">
+                <p className="text-sm font-display font-bold text-primary">🛣️ SINALIZAÇÃO HORIZONTAL ({sinalizacaoHorizontal.length})</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-blue-50 text-blue-900">
+                        <th className="text-left p-2 border border-blue-200">Tipo</th>
+                        <th className="text-left p-2 border border-blue-200">Sentido</th>
+                        <th className="text-left p-2 border border-blue-200">Faixa</th>
+                        <th className="text-left p-2 border border-blue-200">Est. Ini</th>
+                        <th className="text-left p-2 border border-blue-200">Est. Fim</th>
+                        <th className="text-right p-2 border border-blue-200">Qtd</th>
+                        <th className="text-right p-2 border border-blue-200">Taxas</th>
+                        <th className="text-right p-2 border border-blue-200">Comp(m)</th>
+                        <th className="text-right p-2 border border-blue-200">Larg(m)</th>
+                        <th className="text-right p-2 border border-blue-200">Área(m²)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sinalizacaoHorizontal.map((s, i) => {
+                        const comp = parseFloat(String(s.comprimento_m || 0)) || 0;
+                        const larg = parseFloat(String(s.largura_m || 0)) || 0;
+                        const area = comp > 0 && larg > 0 ? comp * larg : null;
+                        return (
+                          <tr key={s.id || i} className={i % 2 === 0 ? "bg-white" : "bg-blue-50/40"}>
+                            <td className="p-2 border border-blue-200 font-medium">{s.tipo || "-"}</td>
+                            <td className="p-2 border border-blue-200">{s.sentido || "-"}</td>
+                            <td className="p-2 border border-blue-200">{s.faixa || "-"}</td>
+                            <td className="p-2 border border-blue-200">{s.estaca_inicial || "-"}</td>
+                            <td className="p-2 border border-blue-200">{s.estaca_final || "-"}</td>
+                            <td className="p-2 border border-blue-200 text-right">{s.quantidade ?? "-"}</td>
+                            <td className="p-2 border border-blue-200 text-right">{s.quantidade_taxas ?? "-"}</td>
+                            <td className="p-2 border border-blue-200 text-right">{s.comprimento_m ?? "-"}</td>
+                            <td className="p-2 border border-blue-200 text-right">{s.largura_m ?? "-"}</td>
+                            <td className="p-2 border border-blue-200 text-right">{area != null ? area.toFixed(2) : "-"}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="bg-blue-100/70 font-bold">
+                        <td colSpan={9} className="p-2 border border-blue-200 text-right">TOTAL ÁREA</td>
+                        <td className="p-2 border border-blue-200 text-right">{totalAreaSinalizacao.toFixed(2)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Informações de DMT */}
+            {informacoesDmt.length > 0 && (
+              <div className="rdo-card space-y-2">
+                <p className="text-sm font-display font-bold text-primary">📏 INFORMAÇÕES DE DMT</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-cyan-50 text-cyan-900">
+                        <th className="text-left p-2 border border-cyan-200 w-8">#</th>
+                        <th className="text-right p-2 border border-cyan-200">DMT Usina (km)</th>
+                        <th className="text-right p-2 border border-cyan-200">DMT Canteiro (km)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {informacoesDmt.map((d, i) => (
+                        <tr key={d.id || i} className={i % 2 === 0 ? "bg-white" : "bg-cyan-50/35"}>
+                          <td className="p-2 border border-cyan-200">{i + 1}</td>
+                          <td className="p-2 border border-cyan-200 text-right">{d.dmt_usina_km ?? "-"}</td>
+                          <td className="p-2 border border-cyan-200 text-right">{d.dmt_canteiro_km ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Observações Gerais */}
             <div className="rdo-card space-y-2">

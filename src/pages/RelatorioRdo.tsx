@@ -102,6 +102,27 @@ interface EfetivoTerceiroItem {
   funcionario_nome: string | null;
 }
 
+interface SinalizacaoHorizontalItem {
+  id: string;
+  rdo_id: string | null;
+  tipo: string | null;
+  sentido: string | null;
+  faixa: string | null;
+  estaca_inicial: string | null;
+  estaca_final: string | null;
+  quantidade: number | null;
+  quantidade_taxas: number | null;
+  comprimento_m: number | null;
+  largura_m: number | null;
+}
+
+interface DmtInfoItem {
+  id: string;
+  rdo_id: string | null;
+  dmt_usina_km: number | null;
+  dmt_canteiro_km: number | null;
+}
+
 type TerceirosPorRdo = Record<string, Record<string, string[]>>;
 
 function fmtDate(value: string | null) {
@@ -185,6 +206,8 @@ function buildCsvRdo(
   producaoByRdoId: Record<string, ProducaoItem[]>,
   equipByRdoId: Record<string, EquipamentoItem[]>,
   nfByRdoId: Record<string, NfMassaItem[]>,
+  sinalizacaoByRdoId: Record<string, SinalizacaoHorizontalItem[]>,
+  dmtByRdoId: Record<string, DmtInfoItem[]>,
   clienteNome: string,
 ) {
   const linhas: string[][] = [];
@@ -262,6 +285,51 @@ function buildCsvRdo(
     linhas.push([]);
   }
 
+  const sinalizacao = sinalizacaoByRdoId[rdo.id] || [];
+  if (sinalizacao.length > 0) {
+    const totalAreaSinalizacao = sinalizacao.reduce((sum, s) => {
+      const comp = Number(s.comprimento_m || 0);
+      const larg = Number(s.largura_m || 0);
+      return sum + (comp > 0 && larg > 0 ? comp * larg : 0);
+    }, 0);
+
+    linhas.push(["SINALIZAÇÃO HORIZONTAL"]);
+    linhas.push(["Tipo", "Sentido", "Faixa", "Est. Ini", "Est. Fim", "Qtd", "Qtd Taxas", "Comp (m)", "Larg (m)", "Área (m²)"]);
+    sinalizacao.forEach((s) => {
+      const comp = Number(s.comprimento_m || 0);
+      const larg = Number(s.largura_m || 0);
+      const area = comp > 0 && larg > 0 ? comp * larg : null;
+      linhas.push([
+        s.tipo || "-",
+        s.sentido || "-",
+        s.faixa || "-",
+        s.estaca_inicial || "-",
+        s.estaca_final || "-",
+        s.quantidade != null ? fmtNumCsv(Number(s.quantidade), 2) : "-",
+        s.quantidade_taxas != null ? fmtNumCsv(Number(s.quantidade_taxas), 2) : "-",
+        s.comprimento_m != null ? fmtNumCsv(Number(s.comprimento_m), 2) : "-",
+        s.largura_m != null ? fmtNumCsv(Number(s.largura_m), 2) : "-",
+        area != null ? fmtNumCsv(area, 2) : "-",
+      ]);
+    });
+    linhas.push(["TOTAL ÁREA", "", "", "", "", "", "", "", "", fmtNumCsv(totalAreaSinalizacao, 2)]);
+    linhas.push([]);
+  }
+
+  const infosDmt = dmtByRdoId[rdo.id] || [];
+  if (infosDmt.length > 0) {
+    linhas.push(["INFORMAÇÕES DE DMT"]);
+    linhas.push(["#", "DMT Usina (km)", "DMT Canteiro (km)"]);
+    infosDmt.forEach((d, idx) => {
+      linhas.push([
+        String(idx + 1),
+        d.dmt_usina_km != null ? fmtNumCsv(Number(d.dmt_usina_km), 2) : "-",
+        d.dmt_canteiro_km != null ? fmtNumCsv(Number(d.dmt_canteiro_km), 2) : "-",
+      ]);
+    });
+    linhas.push([]);
+  }
+
   return "\uFEFF" + linhas.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
 }
 
@@ -274,6 +342,8 @@ function gerarPdfRdoBlob(
   clienteNome: string,
   equipByRdoId: Record<string, EquipamentoItem[]>,
   nfByRdoId: Record<string, NfMassaItem[]>,
+  sinalizacaoByRdoId: Record<string, SinalizacaoHorizontalItem[]>,
+  dmtByRdoId: Record<string, DmtInfoItem[]>,
 ) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -283,6 +353,8 @@ function gerarPdfRdoBlob(
   const producao = producaoByRdoId[rdo.id] || [];
   const equipamentos = equipByRdoId[rdo.id] || [];
   const nfMassa = nfByRdoId[rdo.id] || [];
+  const sinalizacao = sinalizacaoByRdoId[rdo.id] || [];
+  const infosDmt = dmtByRdoId[rdo.id] || [];
 
   const encRdo = (rdo as any).encarregado || rdo.responsavel || "-";
   const preenchidoRdo = (rdo as any).preenchido_por || "-";
@@ -434,6 +506,67 @@ function gerarPdfRdoBlob(
         }
       },
     });
+    y = ((doc as any).lastAutoTable?.finalY || y) + 5;
+  }
+
+  if (sinalizacao.length > 0) {
+    const totalAreaSinalizacao = sinalizacao.reduce((sum, s) => {
+      const comp = Number(s.comprimento_m || 0);
+      const larg = Number(s.largura_m || 0);
+      return sum + (comp > 0 && larg > 0 ? comp * larg : 0);
+    }, 0);
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Tipo", "Sentido", "Faixa", "Est.Ini", "Est.Fim", "Qtd", "Taxas", "Comp (m)", "Larg (m)", "Área (m²)"]],
+      body: [
+        ...sinalizacao.map((s) => {
+          const comp = Number(s.comprimento_m || 0);
+          const larg = Number(s.largura_m || 0);
+          const area = comp > 0 && larg > 0 ? comp * larg : null;
+          return [
+            s.tipo || "-",
+            s.sentido || "-",
+            s.faixa || "-",
+            s.estaca_inicial || "-",
+            s.estaca_final || "-",
+            s.quantidade != null ? fmtNum(Number(s.quantidade), 2) : "-",
+            s.quantidade_taxas != null ? fmtNum(Number(s.quantidade_taxas), 2) : "-",
+            s.comprimento_m != null ? fmtNum(Number(s.comprimento_m), 2) : "-",
+            s.largura_m != null ? fmtNum(Number(s.largura_m), 2) : "-",
+            area != null ? fmtNum(area, 2) : "-",
+          ];
+        }),
+        ["TOTAL ÁREA", "", "", "", "", "", "", "", "", fmtNum(totalAreaSinalizacao, 2)],
+      ],
+      theme: "grid",
+      margin: { left: 8, right: 8 },
+      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontSize: 7 },
+      styles: { fontSize: 7, cellPadding: 1.4 },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.row.index === sinalizacao.length) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [219, 234, 254];
+        }
+      },
+    });
+    y = ((doc as any).lastAutoTable?.finalY || y) + 5;
+  }
+
+  if (infosDmt.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      head: [["#", "DMT Usina (km)", "DMT Canteiro (km)"]],
+      body: infosDmt.map((d, idx) => [
+        String(idx + 1),
+        d.dmt_usina_km != null ? fmtNum(Number(d.dmt_usina_km), 2) : "-",
+        d.dmt_canteiro_km != null ? fmtNum(Number(d.dmt_canteiro_km), 2) : "-",
+      ]),
+      theme: "grid",
+      margin: { left: 14, right: 14 },
+      headStyles: { fillColor: [2, 132, 199], textColor: [255, 255, 255], fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 2 },
+    });
   }
 
   const pageCount = doc.getNumberOfPages();
@@ -456,6 +589,8 @@ function exportarExcel(
   producaoByRdoId: Record<string, ProducaoItem[]>,
   equipByRdoId: Record<string, EquipamentoItem[]>,
   nfByRdoId: Record<string, NfMassaItem[]>,
+  sinalizacaoByRdoId: Record<string, SinalizacaoHorizontalItem[]>,
+  dmtByRdoId: Record<string, DmtInfoItem[]>,
   clienteNome: string,
 ) {
   const linhas: string[][] = [];
@@ -546,6 +681,51 @@ function exportarExcel(
       linhas.push([]);
     }
 
+    const sinalizacao = sinalizacaoByRdoId[rdo.id] || [];
+    if (sinalizacao.length > 0) {
+      const totalAreaSinalizacao = sinalizacao.reduce((sum, s) => {
+        const comp = Number(s.comprimento_m || 0);
+        const larg = Number(s.largura_m || 0);
+        return sum + (comp > 0 && larg > 0 ? comp * larg : 0);
+      }, 0);
+
+      linhas.push(["SINALIZAÇÃO HORIZONTAL"]);
+      linhas.push(["Tipo", "Sentido", "Faixa", "Est. Ini", "Est. Fim", "Qtd", "Qtd Taxas", "Comp (m)", "Larg (m)", "Área (m²)"]);
+      sinalizacao.forEach((s) => {
+        const comp = Number(s.comprimento_m || 0);
+        const larg = Number(s.largura_m || 0);
+        const area = comp > 0 && larg > 0 ? comp * larg : null;
+        linhas.push([
+          s.tipo || "-",
+          s.sentido || "-",
+          s.faixa || "-",
+          s.estaca_inicial || "-",
+          s.estaca_final || "-",
+          s.quantidade != null ? fmtNumCsv(Number(s.quantidade), 2) : "-",
+          s.quantidade_taxas != null ? fmtNumCsv(Number(s.quantidade_taxas), 2) : "-",
+          s.comprimento_m != null ? fmtNumCsv(Number(s.comprimento_m), 2) : "-",
+          s.largura_m != null ? fmtNumCsv(Number(s.largura_m), 2) : "-",
+          area != null ? fmtNumCsv(area, 2) : "-",
+        ]);
+      });
+      linhas.push(["TOTAL ÁREA", "", "", "", "", "", "", "", "", fmtNumCsv(totalAreaSinalizacao, 2)]);
+      linhas.push([]);
+    }
+
+    const infosDmt = dmtByRdoId[rdo.id] || [];
+    if (infosDmt.length > 0) {
+      linhas.push(["INFORMAÇÕES DE DMT"]);
+      linhas.push(["#", "DMT Usina (km)", "DMT Canteiro (km)"]);
+      infosDmt.forEach((d, idx) => {
+        linhas.push([
+          String(idx + 1),
+          d.dmt_usina_km != null ? fmtNumCsv(Number(d.dmt_usina_km), 2) : "-",
+          d.dmt_canteiro_km != null ? fmtNumCsv(Number(d.dmt_canteiro_km), 2) : "-",
+        ]);
+      });
+      linhas.push([]);
+    }
+
     linhas.push(["---"]);
     linhas.push([]);
   });
@@ -568,12 +748,25 @@ async function exportarExcelSeparadoZip(
   producaoByRdoId: Record<string, ProducaoItem[]>,
   equipByRdoId: Record<string, EquipamentoItem[]>,
   nfByRdoId: Record<string, NfMassaItem[]>,
+  sinalizacaoByRdoId: Record<string, SinalizacaoHorizontalItem[]>,
+  dmtByRdoId: Record<string, DmtInfoItem[]>,
   clienteNome: string,
 ) {
   const zip = new JSZip();
 
   rdoList.forEach((rdo, idx) => {
-    const csv = buildCsvRdo(ogs, rdo, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
+    const csv = buildCsvRdo(
+      ogs,
+      rdo,
+      efetivoByRdoId,
+      terceirosByRdoId,
+      producaoByRdoId,
+      equipByRdoId,
+      nfByRdoId,
+      sinalizacaoByRdoId,
+      dmtByRdoId,
+      clienteNome,
+    );
     const encarregado = sanitizeFilename((rdo as any).encarregado || rdo.responsavel || "sem_encarregado");
     const data = dataRdoParaArquivo(rdo.data, idx);
     zip.file(`RDO_${sanitizeFilename(ogs)}_${data}_${encarregado}.csv`, csv);
@@ -597,12 +790,25 @@ async function exportarPdfSeparadoZip(
   clienteNome: string,
   equipByRdoId: Record<string, EquipamentoItem[]>,
   nfByRdoId: Record<string, NfMassaItem[]>,
+  sinalizacaoByRdoId: Record<string, SinalizacaoHorizontalItem[]>,
+  dmtByRdoId: Record<string, DmtInfoItem[]>,
 ) {
   const zip = new JSZip();
 
   for (let idx = 0; idx < rdoList.length; idx += 1) {
     const rdo = rdoList[idx];
-    const pdfBlob = gerarPdfRdoBlob(ogs, rdo, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
+    const pdfBlob = gerarPdfRdoBlob(
+      ogs,
+      rdo,
+      efetivoByRdoId,
+      terceirosByRdoId,
+      producaoByRdoId,
+      clienteNome,
+      equipByRdoId,
+      nfByRdoId,
+      sinalizacaoByRdoId,
+      dmtByRdoId,
+    );
     const encarregado = sanitizeFilename((rdo as any).encarregado || rdo.responsavel || "sem_encarregado");
     const data = dataRdoParaArquivo(rdo.data, idx);
     zip.file(`RDO_${sanitizeFilename(ogs)}_${data}_${encarregado}.pdf`, pdfBlob);
@@ -627,6 +833,8 @@ function exportarPdf(
   clienteNome: string,
   equipByRdoId?: Record<string, EquipamentoItem[]>,
   nfByRdoId?: Record<string, NfMassaItem[]>,
+  sinalizacaoByRdoId?: Record<string, SinalizacaoHorizontalItem[]>,
+  dmtByRdoId?: Record<string, DmtInfoItem[]>,
 ) {
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>RDO OGS ${ogs}</title><style>
     body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#333;font-size:13px}
@@ -646,6 +854,8 @@ function exportarPdf(
     const producao = producaoByRdoId[rdo.id] || [];
     const equipamentos = equipByRdoId?.[rdo.id] || [];
     const nfMassa = nfByRdoId?.[rdo.id] || [];
+    const sinalizacao = sinalizacaoByRdoId?.[rdo.id] || [];
+    const infosDmt = dmtByRdoId?.[rdo.id] || [];
 
     // Expandir efetivo com matrícula correta
     const pessoas: { nome: string; matricula: string; funcao: string; entrada: string; saida: string }[] = [];
@@ -735,6 +945,33 @@ function exportarPdf(
       html += `<tr style="font-weight:bold;background:#f3f4f6"><td colspan="6">TOTAL</td><td>${fmtNum(totalArea, 2)}</td><td></td><td></td><td></td><td>${fmtNum(totalTonProd, 2)}</td></tr></table>`;
     }
 
+    if (sinalizacao.length > 0) {
+      const totalAreaSinalizacao = sinalizacao.reduce((sum, s) => {
+        const comp = Number(s.comprimento_m || 0);
+        const larg = Number(s.largura_m || 0);
+        return sum + (comp > 0 && larg > 0 ? comp * larg : 0);
+      }, 0);
+
+      html += `<h2>🛣️ Sinalização Horizontal</h2>
+      <table><tr><th>Tipo</th><th>Sentido</th><th>Faixa</th><th>Est. Ini</th><th>Est. Fim</th><th>Qtd</th><th>Qtd Taxas</th><th>Comp(m)</th><th>Larg(m)</th><th>Área(m²)</th></tr>`;
+      sinalizacao.forEach((s) => {
+        const comp = Number(s.comprimento_m || 0);
+        const larg = Number(s.largura_m || 0);
+        const area = comp > 0 && larg > 0 ? comp * larg : null;
+        html += `<tr><td>${s.tipo || "-"}</td><td>${s.sentido || "-"}</td><td>${s.faixa || "-"}</td><td>${s.estaca_inicial || "-"}</td><td>${s.estaca_final || "-"}</td><td>${s.quantidade != null ? fmtNum(Number(s.quantidade), 2) : "-"}</td><td>${s.quantidade_taxas != null ? fmtNum(Number(s.quantidade_taxas), 2) : "-"}</td><td>${s.comprimento_m != null ? fmtNum(Number(s.comprimento_m), 2) : "-"}</td><td>${s.largura_m != null ? fmtNum(Number(s.largura_m), 2) : "-"}</td><td>${area != null ? fmtNum(area, 2) : "-"}</td></tr>`;
+      });
+      html += `<tr style="font-weight:bold;background:#eff6ff"><td colspan="9">TOTAL ÁREA</td><td>${fmtNum(totalAreaSinalizacao, 2)}</td></tr></table>`;
+    }
+
+    if (infosDmt.length > 0) {
+      html += `<h2>📏 Informações de DMT</h2>
+      <table><tr><th>#</th><th>DMT Usina (km)</th><th>DMT Canteiro (km)</th></tr>`;
+      infosDmt.forEach((d, idx) => {
+        html += `<tr><td>${idx + 1}</td><td>${d.dmt_usina_km != null ? fmtNum(Number(d.dmt_usina_km), 2) : "-"}</td><td>${d.dmt_canteiro_km != null ? fmtNum(Number(d.dmt_canteiro_km), 2) : "-"}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+
     if (idx < rdoList.length - 1) html += `<div class="page-break"></div>`;
   });
 
@@ -769,6 +1006,8 @@ export default function RelatorioRdo() {
   const [producaoByRdoId, setProducaoByRdoId] = useState<Record<string, ProducaoItem[]>>({});
   const [equipByRdoId, setEquipByRdoId] = useState<Record<string, EquipamentoItem[]>>({});
   const [nfByRdoId, setNfByRdoId] = useState<Record<string, NfMassaItem[]>>({});
+  const [sinalizacaoByRdoId, setSinalizacaoByRdoId] = useState<Record<string, SinalizacaoHorizontalItem[]>>({});
+  const [dmtByRdoId, setDmtByRdoId] = useState<Record<string, DmtInfoItem[]>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [clienteNome, setClienteNome] = useState("");
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
@@ -923,6 +1162,32 @@ export default function RelatorioRdo() {
       });
       setNfByRdoId(nfGrupo);
 
+      // Sinalização Horizontal
+      const { data: sinalizacaoRows } = await (supabase as any)
+        .from("rdo_sinalizacao_horizontal")
+        .select("id,rdo_id,tipo,sentido,faixa,estaca_inicial,estaca_final,quantidade,quantidade_taxas,comprimento_m,largura_m")
+        .in("rdo_id", ids);
+      const sinalizacaoGrupo: Record<string, SinalizacaoHorizontalItem[]> = {};
+      (sinalizacaoRows || []).forEach((item: any) => {
+        if (!item.rdo_id) return;
+        if (!sinalizacaoGrupo[item.rdo_id]) sinalizacaoGrupo[item.rdo_id] = [];
+        sinalizacaoGrupo[item.rdo_id].push(item as SinalizacaoHorizontalItem);
+      });
+      setSinalizacaoByRdoId(sinalizacaoGrupo);
+
+      // Informações de DMT
+      const { data: dmtRows } = await (supabase as any)
+        .from("rdo_informacoes_dmt")
+        .select("id,rdo_id,dmt_usina_km,dmt_canteiro_km")
+        .in("rdo_id", ids);
+      const dmtGrupo: Record<string, DmtInfoItem[]> = {};
+      (dmtRows || []).forEach((item: any) => {
+        if (!item.rdo_id) return;
+        if (!dmtGrupo[item.rdo_id]) dmtGrupo[item.rdo_id] = [];
+        dmtGrupo[item.rdo_id].push(item as DmtInfoItem);
+      });
+      setDmtByRdoId(dmtGrupo);
+
       setLoading(false);
     };
     carregar();
@@ -966,13 +1231,15 @@ export default function RelatorioRdo() {
       const producao = producaoByRdoId[id] || [];
       const equipamentos = equipByRdoId[id] || [];
       const nfs = nfByRdoId[id] || [];
+      const sinalizacao = sinalizacaoByRdoId[id] || [];
+      const infosDmt = dmtByRdoId[id] || [];
 
       // Salvar na lixeira
       await supabase.from("lixeira" as any).insert({
         company_id: (profile as any)?.company_id,
         tabela: "rdo_diarios",
         registro_id: id,
-        dados: { rdo: rdoItem, efetivo, producao, equipamentos, nfs, ogs, clienteNome },
+        dados: { rdo: rdoItem, efetivo, producao, equipamentos, nfs, sinalizacao, infosDmt, ogs, clienteNome },
         excluido_por: user?.id,
         excluido_por_nome: (profile as any)?.nome_completo || user?.email,
       });
@@ -983,6 +1250,8 @@ export default function RelatorioRdo() {
         supabase.from("rdo_producao" as any).delete().eq("rdo_id", id),
         supabase.from("rdo_equipamentos" as any).delete().eq("rdo_id", id),
         supabase.from("rdo_nf_massa" as any).delete().eq("rdo_id", id),
+        (supabase as any).from("rdo_sinalizacao_horizontal").delete().eq("rdo_id", id),
+        (supabase as any).from("rdo_informacoes_dmt").delete().eq("rdo_id", id),
       ]);
       const { error } = await supabase.from("rdo_diarios" as any).delete().eq("id", id);
       if (error) throw error;
@@ -1043,10 +1312,10 @@ export default function RelatorioRdo() {
                   <DropdownMenuSeparator />
 
                   <DropdownMenuLabel>Consolidado (arquivo único)</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId)}>
+                  <DropdownMenuItem onClick={() => exportarPdf(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId, sinalizacaoByRdoId, dmtByRdoId)}>
                     <Printer className="w-3.5 h-3.5 mr-2" /> PDF consolidado
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome)}>
+                  <DropdownMenuItem onClick={() => exportarExcel(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, sinalizacaoByRdoId, dmtByRdoId, clienteNome)}>
                     <FileSpreadsheet className="w-3.5 h-3.5 mr-2" /> Excel consolidado
                   </DropdownMenuItem>
 
@@ -1056,7 +1325,7 @@ export default function RelatorioRdo() {
                   <DropdownMenuItem
                     onClick={async () => {
                       try {
-                        await exportarPdfSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId);
+                        await exportarPdfSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, clienteNome, equipByRdoId, nfByRdoId, sinalizacaoByRdoId, dmtByRdoId);
                         toast({ title: "✅ ZIP PDF gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
                       } catch (e: any) {
                         toast({ title: "Erro ao exportar PDF separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
@@ -1069,7 +1338,7 @@ export default function RelatorioRdo() {
                   <DropdownMenuItem
                     onClick={async () => {
                       try {
-                        await exportarExcelSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, clienteNome);
+                        await exportarExcelSeparadoZip(ogs, rdosParaExportar, efetivoByRdoId, terceirosByRdoId, producaoByRdoId, equipByRdoId, nfByRdoId, sinalizacaoByRdoId, dmtByRdoId, clienteNome);
                         toast({ title: "✅ ZIP CSV gerado", description: `${rdosParaExportar.length} RDO(s) exportados em arquivos separados.` });
                       } catch (e: any) {
                         toast({ title: "Erro ao exportar Excel separado", description: e?.message || "Falha ao gerar ZIP", variant: "destructive" });
@@ -1099,6 +1368,8 @@ export default function RelatorioRdo() {
             const producao = producaoByRdoId[item.id] || [];
             const equipamentos = equipByRdoId[item.id] || [];
             const nfMassa = nfByRdoId[item.id] || [];
+            const sinalizacao = sinalizacaoByRdoId[item.id] || [];
+            const infosDmt = dmtByRdoId[item.id] || [];
             const terceiros = terceirosByRdoId[item.id] || {};
             const terceirosRows = Object.entries(terceiros).flatMap(([empresa, nomes]) =>
               nomes.map((nome) => ({ empresa: empresa || "-", nome: nome || "-" })),
@@ -1392,7 +1663,92 @@ export default function RelatorioRdo() {
                       );
                     })()}
 
-                    {pessoas.length === 0 && producao.length === 0 && equipamentos.length === 0 && nfMassa.length === 0 && (
+                    {/* Sinalização Horizontal */}
+                    {sinalizacao.length > 0 && (() => {
+                      const totalAreaSinalizacao = sinalizacao.reduce((sum, s) => {
+                        const comp = Number(s.comprimento_m || 0);
+                        const larg = Number(s.largura_m || 0);
+                        return sum + (comp > 0 && larg > 0 ? comp * larg : 0);
+                      }, 0);
+
+                      return (
+                        <div>
+                          <p className="text-xs font-display font-bold text-primary uppercase mb-1">🛣️ Sinalização Horizontal ({sinalizacao.length})</p>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-border bg-blue-50 text-blue-900">
+                                  <th className="text-left py-1.5 px-2">Tipo</th>
+                                  <th className="text-left py-1.5 px-2">Sentido</th>
+                                  <th className="text-left py-1.5 px-2">Faixa</th>
+                                  <th className="text-left py-1.5 px-2">Est. Ini</th>
+                                  <th className="text-left py-1.5 px-2">Est. Fim</th>
+                                  <th className="text-right py-1.5 px-2">Qtd</th>
+                                  <th className="text-right py-1.5 px-2">Taxas</th>
+                                  <th className="text-right py-1.5 px-2">Comp(m)</th>
+                                  <th className="text-right py-1.5 px-2">Larg(m)</th>
+                                  <th className="text-right py-1.5 px-2">Área(m²)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sinalizacao.map((s) => {
+                                  const comp = Number(s.comprimento_m || 0);
+                                  const larg = Number(s.largura_m || 0);
+                                  const area = comp > 0 && larg > 0 ? comp * larg : null;
+                                  return (
+                                    <tr key={s.id} className="border-b border-border/60 last:border-0">
+                                      <td className="py-1.5 px-2 font-medium">{s.tipo || "-"}</td>
+                                      <td className="py-1.5 px-2">{s.sentido || "-"}</td>
+                                      <td className="py-1.5 px-2">{s.faixa || "-"}</td>
+                                      <td className="py-1.5 px-2">{s.estaca_inicial || "-"}</td>
+                                      <td className="py-1.5 px-2">{s.estaca_final || "-"}</td>
+                                      <td className="py-1.5 px-2 text-right">{s.quantidade != null ? fmtNum(Number(s.quantidade), 2) : "-"}</td>
+                                      <td className="py-1.5 px-2 text-right">{s.quantidade_taxas != null ? fmtNum(Number(s.quantidade_taxas), 2) : "-"}</td>
+                                      <td className="py-1.5 px-2 text-right">{s.comprimento_m != null ? fmtNum(Number(s.comprimento_m), 2) : "-"}</td>
+                                      <td className="py-1.5 px-2 text-right">{s.largura_m != null ? fmtNum(Number(s.largura_m), 2) : "-"}</td>
+                                      <td className="py-1.5 px-2 text-right">{area != null ? fmtNum(area, 2) : "-"}</td>
+                                    </tr>
+                                  );
+                                })}
+                                <tr className="border-t-2 border-blue-200 font-bold bg-blue-50">
+                                  <td colSpan={9} className="py-1.5 px-2">TOTAL ÁREA</td>
+                                  <td className="py-1.5 px-2 text-right">{fmtNum(totalAreaSinalizacao, 2)}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Informações de DMT */}
+                    {infosDmt.length > 0 && (
+                      <div>
+                        <p className="text-xs font-display font-bold text-primary uppercase mb-1">📏 Informações de DMT</p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border bg-cyan-50 text-cyan-900">
+                                <th className="text-left py-1.5 px-2">#</th>
+                                <th className="text-right py-1.5 px-2">DMT Usina (km)</th>
+                                <th className="text-right py-1.5 px-2">DMT Canteiro (km)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {infosDmt.map((d, idx) => (
+                                <tr key={d.id} className="border-b border-border/60 last:border-0">
+                                  <td className="py-1.5 px-2">{idx + 1}</td>
+                                  <td className="py-1.5 px-2 text-right">{d.dmt_usina_km != null ? fmtNum(Number(d.dmt_usina_km), 2) : "-"}</td>
+                                  <td className="py-1.5 px-2 text-right">{d.dmt_canteiro_km != null ? fmtNum(Number(d.dmt_canteiro_km), 2) : "-"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {pessoas.length === 0 && producao.length === 0 && equipamentos.length === 0 && nfMassa.length === 0 && sinalizacao.length === 0 && infosDmt.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-3">Sem dados detalhados neste RDO.</p>
                     )}
                   </div>
