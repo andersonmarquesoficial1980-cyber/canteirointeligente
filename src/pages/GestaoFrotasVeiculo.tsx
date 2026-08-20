@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Edit2, Save, UserCheck, History, FileText, Loader2, Gauge, Lock, Settings } from "lucide-react";
+import { ArrowLeft, Edit2, Save, FileText, Loader2, Gauge, Lock, Settings, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipes } from "@/hooks/useEquipes";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
@@ -14,6 +14,12 @@ type MedidorAtual = {
   tipo: "horímetro" | "odômetro";
   data: string;
   fonte: string;
+} | null;
+
+type CondutorAtualInfo = {
+  nome: string;
+  data: string | null;
+  origem: "diario" | "cadastro" | "nenhum";
 } | null;
 
 function fmtDate(d: string) {
@@ -53,15 +59,12 @@ export default function GestaoFrotasVeiculo() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [veiculo, setVeiculo] = useState<any>(null);
-  const [historico, setHistorico] = useState<any[]>([]);
   const [documentos, setDocumentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  const [novoCondutor, setNovoCondutor] = useState("");
-  const [motivoTroca, setMotivoTroca] = useState("");
-  const [trocandoCondutor, setTrocandoCondutor] = useState(false);
   const [medidorAtual, setMedidorAtual] = useState<MedidorAtual>(null);
+  const [condutorAtualInfo, setCondutorAtualInfo] = useState<CondutorAtualInfo>(null);
   const { equipesData, loading: carregandoEquipes } = useEquipes();
   const breadcrumbLabel = `Frota ${veiculo?.centro_custo || veiculo?.frota || veiculo?.placa || "Veículo"}`;
   const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
@@ -83,13 +86,14 @@ export default function GestaoFrotasVeiculo() {
 
   async function buscarDados() {
     setLoading(true);
-    const [{ data: v }, { data: h }, { data: d }] = await Promise.all([
+
+    const [{ data: v }, { data: d }] = await Promise.all([
       (supabase as any).from("equipamentos").select("*").eq("id", id).single(),
-      supabase.from("frotas_historico_condutor").select("*").eq("frota_id", id).order("created_at", { ascending: false }),
       supabase.from("manutencao_documentos").select("*").eq("equipment_fleet", id).order("data_vencimento"),
     ]);
+
     if (v) setVeiculo(v);
-    if (h) setHistorico(h);
+
     if (v) {
       const { data: docsByPlaca } = await supabase.from("manutencao_documentos").select("*").eq("equipment_fleet", v.placa);
       setDocumentos(docsByPlaca || d || []);
@@ -135,7 +139,71 @@ export default function GestaoFrotasVeiculo() {
         }
       }
       setMedidorAtual(melhor);
+
+      const chavesFrota = Array.from(new Set([v.frota, v.placa, v.centro_custo].map((x) => (x || "").trim()).filter(Boolean)));
+
+      const formatarNome = (valor: string | null | undefined) => {
+        const txt = (valor || "").trim();
+        if (!txt) return "";
+        if (!txt.includes("@")) return txt;
+        const antesArroba = txt.split("@")[0] || txt;
+        return antesArroba.replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim();
+      };
+
+      let condutorInfo: CondutorAtualInfo = null;
+
+      if (chavesFrota.length > 0) {
+        let query = (supabase as any)
+          .from("equipment_diaries")
+          .select("equipment_fleet,operator_name,operator_solo,created_by,date,created_at,status")
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        query = chavesFrota.length === 1
+          ? query.eq("equipment_fleet", chavesFrota[0])
+          : query.in("equipment_fleet", chavesFrota);
+
+        const { data: diariosCondutor } = await query;
+
+        const ultimoComCondutor = (diariosCondutor || []).find((row: any) => {
+          const status = String(row?.status || "").toLowerCase();
+          if (status === "auto") return false;
+
+          const nomeOperador = (row?.operator_name || row?.operator_solo || "").trim();
+          const nomeCriador = formatarNome(row?.created_by);
+          return Boolean(nomeOperador || nomeCriador);
+        });
+
+        if (ultimoComCondutor) {
+          const nome = (ultimoComCondutor.operator_name || ultimoComCondutor.operator_solo || formatarNome(ultimoComCondutor.created_by) || "").trim();
+          condutorInfo = {
+            nome,
+            data: ultimoComCondutor.date || null,
+            origem: "diario",
+          };
+        }
+      }
+
+      if (!condutorInfo && (v.condutor_atual || "").trim()) {
+        condutorInfo = {
+          nome: String(v.condutor_atual).trim(),
+          data: null,
+          origem: "cadastro",
+        };
+      }
+
+      if (!condutorInfo) {
+        condutorInfo = {
+          nome: "Sem condutor",
+          data: null,
+          origem: "nenhum",
+        };
+      }
+
+      setCondutorAtualInfo(condutorInfo);
     }
+
     setLoading(false);
   }
 
@@ -145,7 +213,6 @@ export default function GestaoFrotasVeiculo() {
     await (supabase as any).from("equipamentos").update({
       status: veiculo.status,
       setor: veiculo.setor,
-      condutor_atual: veiculo.condutor_atual,
       valor_mensal: veiculo.valor_mensal,
       observacoes: veiculo.observacoes || null,
       motivo_manutencao: veiculo.motivo_manutencao,
@@ -154,25 +221,6 @@ export default function GestaoFrotasVeiculo() {
     }).eq("id", id);
     setEditando(false);
     setSalvando(false);
-  }
-
-  async function trocarCondutor() {
-    if (!novoCondutor) return;
-    setTrocandoCondutor(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from("frotas_historico_condutor").insert({
-      frota_id: id,
-      condutor_anterior: veiculo.condutor_atual,
-      condutor_novo: novoCondutor,
-      data_troca: new Date().toISOString().split("T")[0],
-      motivo: motivoTroca || null,
-      registrado_por: user?.email,
-    });
-    await (supabase as any).from("equipamentos").update({ condutor_atual: novoCondutor, updated_at: new Date().toISOString() }).eq("id", id);
-    setNovoCondutor("");
-    setMotivoTroca("");
-    buscarDados();
-    setTrocandoCondutor(false);
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -432,23 +480,21 @@ export default function GestaoFrotasVeiculo() {
           )}
         </div>
 
-        {/* ── CONDUTOR ── */}
+        {/* ── CONDUTOR (somente leitura, vindo dos Diários) ── */}
         <div className="rdo-card space-y-3">
           <h3 className="font-display font-bold text-sm flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-primary" /> Condutor
+            <User className="w-4 h-4 text-primary" /> Condutor
           </h3>
-          <div className="bg-primary/5 rounded-xl p-3">
-            <p className="text-xs text-muted-foreground">Condutor Atual</p>
-            <p className="font-display font-bold text-base">{veiculo.condutor_atual || "Sem condutor"}</p>
-          </div>
-          <div className="space-y-2">
-            <span className="rdo-label">Trocar Condutor</span>
-            <Input value={novoCondutor} onChange={e => setNovoCondutor(e.target.value)} placeholder="Nome do novo condutor" className="h-10 rounded-xl" />
-            <Input value={motivoTroca} onChange={e => setMotivoTroca(e.target.value)} placeholder="Motivo (opcional)" className="h-10 rounded-xl" />
-            <Button onClick={trocarCondutor} disabled={trocandoCondutor || !novoCondutor} className="w-full h-10 rounded-xl text-sm font-semibold gap-2">
-              {trocandoCondutor ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
-              Confirmar Troca
-            </Button>
+          <div className="bg-primary/5 rounded-xl p-3 space-y-1">
+            <p className="text-xs text-muted-foreground">Condutor atual (automático)</p>
+            <p className="font-display font-bold text-base">{condutorAtualInfo?.nome || "Sem condutor"}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {condutorAtualInfo?.origem === "diario"
+                ? `Fonte: último Diário de Equipamento${condutorAtualInfo?.data ? ` em ${fmtDate(condutorAtualInfo.data)}` : ""}`
+                : condutorAtualInfo?.origem === "cadastro"
+                  ? "Fonte: cadastro legado (sem diário recente com operador informado)"
+                  : "Sem diário recente com operador identificado"}
+            </p>
           </div>
         </div>
 
@@ -477,20 +523,6 @@ export default function GestaoFrotasVeiculo() {
           )}
         </div>
 
-        {/* ── HISTÓRICO DE CONDUTORES ── */}
-        {historico.length > 0 && (
-          <div className="rdo-card space-y-2">
-            <h3 className="font-display font-bold text-sm flex items-center gap-2">
-              <History className="w-4 h-4 text-muted-foreground" /> Histórico de Condutores
-            </h3>
-            {historico.map((h, i) => (
-              <div key={i} className="text-xs border-b border-border pb-1.5 last:border-0">
-                <p><span className="text-muted-foreground">{fmtDate(h.data_troca)}</span> — <strong>{h.condutor_anterior || "Sem condutor"}</strong> → <strong>{h.condutor_novo}</strong></p>
-                {h.motivo && <p className="text-muted-foreground">{h.motivo}</p>}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

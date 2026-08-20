@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,10 +132,6 @@ export default function GestaoFrotasHome() {
   const [filtroEquipe, setFiltroEquipe] = useState<string>(filtrosIniciais.equipe);
   const [filtroFrota, setFiltroFrota] = useState<string>(filtrosIniciais.frota);
   const [filtroRapido, setFiltroRapido] = useState<FiltroRapido>("todos");
-  const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
-  const [focoCardId, setFocoCardId] = useState<string | null>(null);
-  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const listaFiltradaIdsRef = useRef<string[]>([]);
 
   useEffect(() => {
     buscarTodos();
@@ -409,94 +405,6 @@ export default function GestaoFrotasHome() {
     setFiltroRapido("todos");
   }
 
-  async function alterarEquipeNoCard(veiculoId: string, novaEquipe: string) {
-    const setorNovo = novaEquipe === "__sem_equipe" ? null : novaEquipe;
-    const veiculoAtual = todos.find((v) => v.id === veiculoId);
-    const setorAnterior = veiculoAtual?.setor || null;
-
-    if ((setorAnterior || null) === (setorNovo || null)) return;
-
-    const idsOrdenados = listaFiltradaIdsRef.current;
-    const idxAtual = idsOrdenados.indexOf(veiculoId);
-    const proximoId = idxAtual >= 0 ? idsOrdenados[idxAtual + 1] || null : null;
-
-    setUpdatingEquipeId(veiculoId);
-
-    try {
-      const { error: errorUpdate } = await (supabase as any)
-        .from("equipamentos")
-        .update({ setor: setorNovo, updated_at: new Date().toISOString() })
-        .eq("id", veiculoId);
-
-      if (errorUpdate) {
-        toast({
-          title: "Erro ao atualizar equipe",
-          description: errorUpdate.message,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setTodos((prev) => prev.map((v) => (v.id === veiculoId ? { ...v, setor: setorNovo } : v)));
-
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
-      const userNome =
-        (user?.user_metadata?.name as string | undefined) ||
-        (user?.user_metadata?.full_name as string | undefined) ||
-        user?.email ||
-        "Usuário";
-
-      const { error: errorAudit } = await (supabase as any)
-        .from("audit_log")
-        .insert({
-          acao: "ALTERACAO_EQUIPE_RAPIDA",
-          tabela: "equipamentos",
-          registro_id: veiculoId,
-          company_id: veiculoAtual?.company_id || null,
-          user_id: user?.id || null,
-          user_nome: userNome,
-          dados_antes: {
-            campo: "setor",
-            valor: setorAnterior,
-            frota: veiculoAtual?.frota || veiculoAtual?.placa || null,
-          },
-          dados_depois: {
-            campo: "setor",
-            valor: setorNovo,
-            frota: veiculoAtual?.frota || veiculoAtual?.placa || null,
-            origem: "gestao_frotas_home_card",
-          },
-        });
-
-      if (errorAudit) {
-        toast({
-          title: "Equipe alterada com alerta",
-          description: `Mudança aplicada, mas falhou auditoria: ${errorAudit.message}`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      await carregarHistoricoTrocaEquipe({ silencioso: true });
-
-      if (proximoId) setFocoCardId(proximoId);
-
-      toast({
-        title: "Equipe atualizada",
-        description: `${veiculoAtual?.frota || veiculoAtual?.placa || "Equipamento"}: ${setorAnterior || "Sem equipe"} → ${setorNovo || "Sem equipe"}`,
-      });
-    } catch (err: any) {
-      toast({
-        title: "Erro inesperado",
-        description: err?.message || "Não foi possível alterar a equipe agora.",
-        variant: "destructive",
-      });
-    } finally {
-      setUpdatingEquipeId(null);
-    }
-  }
-
   // Lista de equipamentos filtrada (tipo/subtipo/frota/equipe + filtros rápidos)
   const listaFiltrada = useMemo(() => {
     const filtrados = todos.filter((v) => {
@@ -550,22 +458,6 @@ export default function GestaoFrotasHome() {
       return frotaA.localeCompare(frotaB, "pt-BR", { sensitivity: "base", numeric: true });
     });
   }, [todos, tipoMetaMap, filtroCategoria, filtroTipo, filtroSubtipo, filtroEquipe, filtroFrota, filtroRapido]);
-
-  useEffect(() => {
-    listaFiltradaIdsRef.current = listaFiltrada.map((item) => item.id);
-  }, [listaFiltrada]);
-
-  useEffect(() => {
-    if (!focoCardId) return;
-
-    const target = cardRefs.current[focoCardId];
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-
-    const timer = window.setTimeout(() => setFocoCardId(null), 1200);
-    return () => window.clearTimeout(timer);
-  }, [focoCardId, listaFiltrada]);
 
   const filtrosAtivos = useMemo(() => {
     const chips: string[] = [];
@@ -1225,17 +1117,10 @@ export default function GestaoFrotasHome() {
           {(loading || loadingTipos) ? (
             <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
           ) : listaFiltrada.map(v => {
-            const opcoesEquipe = v.setor && !equipesDisponiveis.includes(v.setor)
-              ? [v.setor, ...equipesDisponiveis]
-              : equipesDisponiveis;
-
             return (
               <div
                 key={v.id}
-                ref={(el) => {
-                  cardRefs.current[v.id] = el;
-                }}
-                className={`w-full rdo-card hover:shadow-md transition-all space-y-2 ${focoCardId === v.id ? "ring-2 ring-primary/40" : ""}`}
+                className="w-full rdo-card hover:shadow-md transition-all space-y-2"
               >
                 <button onClick={() => navigate(`/gestao-frotas/veiculo/${v.id}`)} className="w-full text-left flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'bg-blue-50' : 'bg-green-50'}`}>
@@ -1294,25 +1179,12 @@ export default function GestaoFrotasHome() {
                   <ChevronRight className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
                 </button>
 
-                <div className="pt-1 border-t border-slate-100" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-muted-foreground whitespace-nowrap">Editar equipe:</span>
-                    <Select
-                      value={v.setor || "__sem_equipe"}
-                      onValueChange={(valor) => alterarEquipeNoCard(v.id, valor)}
-                      disabled={updatingEquipeId === v.id}
-                    >
-                      <SelectTrigger className="h-8 rounded-lg text-xs">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__sem_equipe">Sem equipe</SelectItem>
-                        {opcoesEquipe.map((eq) => (
-                          <SelectItem key={`${v.id}-${eq}`} value={eq}>{eq}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {updatingEquipeId === v.id && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
+                <div className="pt-1 border-t border-slate-100">
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="text-muted-foreground">
+                      Equipe: <strong className="text-foreground">{v.setor || "Sem equipe"}</strong>
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/80">Edição restrita</span>
                   </div>
                 </div>
               </div>
