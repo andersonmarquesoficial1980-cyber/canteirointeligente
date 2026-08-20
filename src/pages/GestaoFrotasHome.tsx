@@ -114,7 +114,6 @@ export default function GestaoFrotasHome() {
   const [auditVisibleCount, setAuditVisibleCount] = useState<number>(AUDIT_PAGE_SIZE);
   const [mostrarHistoricoAuditoria, setMostrarHistoricoAuditoria] = useState(false);
   const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(false);
-  const [mostrarBlocosAuxiliares, setMostrarBlocosAuxiliares] = useState(false);
 
   const [consumoRows, setConsumoRows] = useState<ConsumoRow[]>([]);
   const [consumoLoading, setConsumoLoading] = useState(false);
@@ -864,22 +863,9 @@ export default function GestaoFrotasHome() {
               </div>
             </div>
 
-            <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground"
-              onClick={() => setMostrarBlocosAuxiliares((prev) => !prev)}
-            >
-              {mostrarBlocosAuxiliares ? "Ocultar atalhos e auditoria" : "Mostrar atalhos e auditoria"}
-            </Button>
-          </div>
           </div>
 
-          {mostrarBlocosAuxiliares && (
-            <>
-              <ProgramacoesDoDia />
+          <ProgramacoesDoDia />
 
               {/* Dashboards auxiliares */}
           <button onClick={() => navigate("/gestao-frotas/dashboard")} className="w-full rdo-card border-l-4 border-l-blue-400 hover:shadow-md transition-all flex items-center gap-3">
@@ -1015,8 +1001,6 @@ export default function GestaoFrotasHome() {
               </div>
             )}
           </div>
-            </>
-          )}
 
           {mostrarFiltrosAvancados && (
             <div className="rdo-card space-y-3">
