@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useOrigemBack } from "@/hooks/useOrigemBack";
+import { useEquipamentos } from "@/hooks/useEquipamentos";
 
 const TIPOS_DOC = ["CRLV", "Licença Especial", "Nota Fiscal", "Seguro", "Tacógrafo", "AVCB", "Outro"];
 
 interface Doc {
   id: string;
+  equipamento_id?: string | null;
   equipment_fleet: string;
   equipment_type: string;
   tipo_documento: string;
@@ -46,7 +48,24 @@ export default function ManutencaoDocumentos() {
   const [modal, setModal] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [arquivo, setArquivo] = useState<File | null>(null);
-  const [form, setForm] = useState({ equipment_fleet: "", equipment_type: "", tipo_documento: "", descricao: "", numero_documento: "", data_emissao: "", data_vencimento: "", alerta_dias: "30" });
+  const [form, setForm] = useState({ equipamento_id: "", equipment_fleet: "", equipment_type: "", tipo_documento: "", descricao: "", numero_documento: "", data_emissao: "", data_vencimento: "", alerta_dias: "30" });
+  const { equipamentos } = useEquipamentos();
+
+  const opcoesEquipamentos = useMemo(() => {
+    return (equipamentos || []).map((e: any) => {
+      const frota = (e.frota || "").trim();
+      const placa = (e.placa || "").trim();
+      const tipo = (e.tipo || e.tipo_veiculo || "").trim();
+      const labelBase = [frota, tipo].filter(Boolean).join(" • ");
+      const label = placa ? `${labelBase} (${placa})` : labelBase;
+      return {
+        id: e.id,
+        frota,
+        tipo,
+        label: label || e.id,
+      };
+    });
+  }, [equipamentos]);
 
   const canCreateDoc = Boolean(
     isAdmin ||
@@ -66,7 +85,7 @@ export default function ManutencaoDocumentos() {
   }
 
   async function salvar() {
-    if (!canCreateDoc || !form.equipment_fleet || !form.tipo_documento) return;
+    if (!canCreateDoc || !form.equipamento_id || !form.equipment_fleet || !form.tipo_documento) return;
     setSalvando(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -80,7 +99,8 @@ export default function ManutencaoDocumentos() {
         arquivo_url = urlData.publicUrl;
       }
 
-      await supabase.from("manutencao_documentos").insert({
+      await (supabase as any).from("manutencao_documentos").insert({
+        equipamento_id: form.equipamento_id,
         equipment_fleet: form.equipment_fleet,
         equipment_type: form.equipment_type || null,
         tipo_documento: form.tipo_documento,
@@ -95,13 +115,23 @@ export default function ManutencaoDocumentos() {
 
       setModal(false);
       setArquivo(null);
-      setForm({ equipment_fleet: "", equipment_type: "", tipo_documento: "", descricao: "", numero_documento: "", data_emissao: "", data_vencimento: "", alerta_dias: "30" });
+      setForm({ equipamento_id: "", equipment_fleet: "", equipment_type: "", tipo_documento: "", descricao: "", numero_documento: "", data_emissao: "", data_vencimento: "", alerta_dias: "30" });
       buscarDocs();
     } catch (e: any) { console.error(e); }
     finally { setSalvando(false); }
   }
 
   const f = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
+
+  function onSelectEquipamento(equipamentoId: string) {
+    const escolhido = opcoesEquipamentos.find(e => e.id === equipamentoId);
+    setForm(p => ({
+      ...p,
+      equipamento_id: equipamentoId,
+      equipment_fleet: escolhido?.frota || "",
+      equipment_type: escolhido?.tipo || "",
+    }));
+  }
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -164,9 +194,18 @@ export default function ManutencaoDocumentos() {
         <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-display font-bold">Novo Documento</DialogTitle></DialogHeader>
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <span className="rdo-label">Equipamento *</span>
+              <Select value={form.equipamento_id} onValueChange={onSelectEquipamento}>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Selecione a frota" /></SelectTrigger>
+                <SelectContent className="max-h-[250px]">
+                  {opcoesEquipamentos.map(e => <SelectItem key={e.id} value={e.id}>{e.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5"><span className="rdo-label">Frota *</span><Input value={form.equipment_fleet} onChange={e => f("equipment_fleet", e.target.value)} placeholder="Ex: FA14" className="h-11 rounded-xl" /></div>
-              <div className="space-y-1.5"><span className="rdo-label">Tipo Equip.</span><Input value={form.equipment_type} onChange={e => f("equipment_type", e.target.value)} placeholder="Ex: Fresadora" className="h-11 rounded-xl" /></div>
+              <div className="space-y-1.5"><span className="rdo-label">Frota vinculada</span><Input value={form.equipment_fleet} readOnly placeholder="Selecione um equipamento" className="h-11 rounded-xl bg-muted/30" /></div>
+              <div className="space-y-1.5"><span className="rdo-label">Tipo vinculado</span><Input value={form.equipment_type} readOnly placeholder="Automático" className="h-11 rounded-xl bg-muted/30" /></div>
             </div>
             <div className="space-y-1.5">
               <span className="rdo-label">Tipo de Documento *</span>
@@ -201,7 +240,7 @@ export default function ManutencaoDocumentos() {
                 <input type="file" accept=".pdf,image/*" className="hidden" onChange={e => setArquivo(e.target.files?.[0] ?? null)} />
               </label>
             </div>
-            <Button onClick={salvar} disabled={salvando || !form.equipment_fleet || !form.tipo_documento} className="w-full h-11 rounded-xl font-display font-bold gap-2">
+            <Button onClick={salvar} disabled={salvando || !form.equipamento_id || !form.equipment_fleet || !form.tipo_documento} className="w-full h-11 rounded-xl font-display font-bold gap-2">
               {salvando ? <><Loader2 className="w-4 h-4 animate-spin" />Salvando...</> : "Salvar Documento"}
             </Button>
           </div>

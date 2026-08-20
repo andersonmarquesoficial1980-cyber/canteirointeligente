@@ -1798,6 +1798,7 @@ export type Database = {
           data_emissao: string | null
           data_vencimento: string | null
           descricao: string | null
+          equipamento_id: string | null
           equipment_fleet: string
           equipment_type: string | null
           id: string
@@ -1813,6 +1814,7 @@ export type Database = {
           data_emissao?: string | null
           data_vencimento?: string | null
           descricao?: string | null
+          equipamento_id?: string | null
           equipment_fleet: string
           equipment_type?: string | null
           id?: string
@@ -1828,6 +1830,7 @@ export type Database = {
           data_emissao?: string | null
           data_vencimento?: string | null
           descricao?: string | null
+          equipamento_id?: string | null
           equipment_fleet?: string
           equipment_type?: string | null
           id?: string
@@ -1840,6 +1843,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manutencao_documentos_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "equipamentos"
             referencedColumns: ["id"]
           },
         ]

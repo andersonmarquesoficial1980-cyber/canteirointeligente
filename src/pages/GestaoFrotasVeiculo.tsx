@@ -96,16 +96,24 @@ export default function GestaoFrotasVeiculo() {
   async function buscarDados() {
     setLoading(true);
 
-    const [{ data: v }, { data: d }] = await Promise.all([
-      (supabase as any).from("equipamentos").select("*").eq("id", id).single(),
-      supabase.from("manutencao_documentos").select("*").eq("equipment_fleet", id).order("data_vencimento"),
-    ]);
+    const { data: v } = await (supabase as any).from("equipamentos").select("*").eq("id", id).single();
 
     if (v) setVeiculo(v);
 
     if (v) {
-      const { data: docsByPlaca } = await supabase.from("manutencao_documentos").select("*").eq("equipment_fleet", v.placa);
-      setDocumentos(docsByPlaca || d || []);
+      const filtros = [
+        id ? `equipamento_id.eq.${id}` : null,
+        v.frota ? `equipment_fleet.eq.${v.frota}` : null,
+        v.placa ? `equipment_fleet.eq.${v.placa}` : null,
+      ].filter(Boolean).join(",");
+
+      const { data: docsLinked } = await (supabase as any)
+        .from("manutencao_documentos")
+        .select("*")
+        .or(filtros)
+        .order("data_vencimento");
+
+      setDocumentos(docsLinked || []);
 
       const frota = v.frota || v.placa;
       const usaOdometro = ["CAMINHÃO", "CARRETA", "VEÍCULO", "VAN", "MICRO-ÔNIBUS"].some(
