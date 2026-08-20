@@ -1501,7 +1501,7 @@ export default function GestaoFrotasDashboard() {
           equipamentos_designados: frotas,
           carretas_designadas: [],
           engenheiro_responsavel: null,
-          obs: progObs || "Programação criada no Workshop Executivo de Frotas",
+          obs: progObs || "Programação criada no Controle de Equipamentos",
           tipo_servico: progTipoServico || "OUTRO",
           confirmado_manutencao: false,
         };
@@ -1610,11 +1610,11 @@ export default function GestaoFrotasDashboard() {
       .slice(0, 12)
       .join(", ");
 
-    const subject = `Workshop Frotas Fremix — decisões e programação ${progData}`;
+    const subject = `Controle de Equipamentos Fremix — decisões e programação ${progData}`;
     const body = [
       "Prezados,",
       "",
-      "Segue consolidado do Workshop Executivo de Frotas:",
+      "Segue consolidado do Controle de Equipamentos:",
       `• Total analisado: ${total}`,
       `• Em manutenção: ${manut}`,
       `• Fora de SP: ${fora}`,
@@ -1892,7 +1892,7 @@ export default function GestaoFrotasDashboard() {
           <div>
             {!presentationClean && (
               <h2 style={{ fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 18, color: "#0A0F2C", margin: 0 }}>
-                {workshopMode ? "Workshop Executivo — Gestão de Frotas" : chipLabel}
+                {workshopMode ? "Controle de Equipamentos" : chipLabel}
               </h2>
             )}
             {!presentationClean && (
@@ -2165,7 +2165,7 @@ export default function GestaoFrotasDashboard() {
             </div>
           </div>
         )}
-        {!presentationClean && (workshopMode || canEditDashboard) && (
+        {!presentationClean && workshopMode && canEditDashboard && (
           <div style={{ marginBottom: 12, background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 14, padding: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
@@ -2263,7 +2263,7 @@ export default function GestaoFrotasDashboard() {
           </div>
         )}
 
-        {!presentationClean && workshopMode && (
+        {!presentationClean && workshopMode && canEditDashboard && (
           <div style={{ marginBottom: 12, background: "#fff", border: "1px solid #dbeafe", borderRadius: 14, padding: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#1e3a8a" }}>
@@ -2333,7 +2333,7 @@ export default function GestaoFrotasDashboard() {
           </div>
         )}
 
-        {!presentationClean && workshopMode && (
+        {!presentationClean && workshopMode && canEditDashboard && (
           <div style={{ marginBottom: 12, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 12 }}>
             <p style={{ margin: "0 0 8px 0", fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
               Exportação e encaminhamento
@@ -2376,7 +2376,7 @@ export default function GestaoFrotasDashboard() {
         ) : (
           <TabelaEquipamentos
             items={listaExibicao}
-            workshopMode={!presentationClean && (workshopMode || canEditDashboard)}
+            workshopMode={!presentationClean && workshopMode && canEditDashboard}
             presentationMode={modoApres}
             presentationTvMode={apresTvMode}
             selectedIds={selecionados}

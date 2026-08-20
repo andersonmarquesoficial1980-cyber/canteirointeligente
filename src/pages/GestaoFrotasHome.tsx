@@ -115,6 +115,8 @@ export default function GestaoFrotasHome() {
   const [mostrarHistoricoAuditoria, setMostrarHistoricoAuditoria] = useState(false);
   const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(false);
   const [mostrarBlocosAuxiliares, setMostrarBlocosAuxiliares] = useState(false);
+  const [canAccessDashboardEquipeTipo, setCanAccessDashboardEquipeTipo] = useState(false);
+  const [loadingCanAccessDashboardEquipeTipo, setLoadingCanAccessDashboardEquipeTipo] = useState(true);
 
   const [consumoRows, setConsumoRows] = useState<ConsumoRow[]>([]);
   const [consumoLoading, setConsumoLoading] = useState(false);
@@ -137,6 +139,7 @@ export default function GestaoFrotasHome() {
     buscarTodos();
     carregarEquipesCadastro();
     carregarHistoricoTrocaEquipe({ silencioso: true });
+    carregarPermissaoDashboardEquipeTipo();
 
     try {
       const params = new URLSearchParams(window.location.search);
@@ -246,6 +249,103 @@ export default function GestaoFrotasHome() {
       .filter(Boolean);
 
     setEquipesCadastro(nomes);
+  }
+
+  async function carregarPermissaoDashboardEquipeTipo() {
+    setLoadingCanAccessDashboardEquipeTipo(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) {
+        setCanAccessDashboardEquipeTipo(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id, role")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!profile?.company_id) {
+        setCanAccessDashboardEquipeTipo(false);
+        return;
+      }
+
+      if (profile.role === "superadmin" || profile.role === "admin") {
+        setCanAccessDashboardEquipeTipo(true);
+        return;
+      }
+
+      const { data: panelAccessRow } = await (supabase as any)
+        .from("user_admin_panel_access")
+        .select("can_access_panel, allowed_sections")
+        .eq("user_id", userId)
+        .eq("company_id", profile.company_id)
+        .maybeSingle();
+
+      if (panelAccessRow?.can_access_panel === false) {
+        setCanAccessDashboardEquipeTipo(false);
+        return;
+      }
+
+      const { data: assignments } = await supabase
+        .from("user_admin_roles")
+        .select("role_id")
+        .eq("is_active", true)
+        .or(`employee_id.eq.${userId},user_id.eq.${userId}`);
+
+      const roleIds = (assignments || []).map((a: any) => a.role_id).filter(Boolean);
+      if (roleIds.length === 0) {
+        setCanAccessDashboardEquipeTipo(false);
+        return;
+      }
+
+      const { data: userPermRows } = await (supabase as any)
+        .from("user_admin_permissions")
+        .select("resource, action")
+        .eq("company_id", profile.company_id)
+        .eq("user_id", userId);
+
+      let perms: Array<{ resource: string; action: string }> = [];
+      if ((userPermRows || []).length > 0) {
+        perms = userPermRows as Array<{ resource: string; action: string }>;
+      } else {
+        const { data: rolePerms } = await supabase
+          .from("admin_permissions")
+          .select("resource, action")
+          .in("role_id", roleIds);
+        perms = (rolePerms || []) as Array<{ resource: string; action: string }>;
+      }
+
+      const hasManageMaquinas = perms.some((perm) => {
+        const resource = String(perm.resource || "");
+        const action = String(perm.action || "");
+        if (resource === "all" && action === "manage") return true;
+        if (resource === "admin_section.maquinas" && (action === "manage" || action === "edit")) return true;
+        return false;
+      });
+
+      if (!hasManageMaquinas) {
+        setCanAccessDashboardEquipeTipo(false);
+        return;
+      }
+
+      const allowedSections = Array.isArray(panelAccessRow?.allowed_sections)
+        ? (panelAccessRow.allowed_sections as string[])
+        : [];
+
+      if (allowedSections.length > 0 && !allowedSections.includes("maquinas")) {
+        setCanAccessDashboardEquipeTipo(false);
+        return;
+      }
+
+      setCanAccessDashboardEquipeTipo(true);
+    } catch {
+      setCanAccessDashboardEquipeTipo(false);
+    } finally {
+      setLoadingCanAccessDashboardEquipeTipo(false);
+    }
   }
 
   async function buscarMedidores(veiculos: any[]) {
@@ -882,16 +982,18 @@ export default function GestaoFrotasHome() {
               <ProgramacoesDoDia />
 
               {/* Dashboards auxiliares */}
-          <button onClick={() => navigate("/gestao-frotas/dashboard")} className="w-full rdo-card border-l-4 border-l-blue-400 hover:shadow-md transition-all flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-              <BarChart3 className="w-5 h-5 text-blue-500" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="font-display font-bold text-sm">Dashboard por Equipe / Tipo</p>
-              <p className="text-xs text-muted-foreground">Visão detalhada com tabelas para apresentação</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-          </button>
+          {!loadingCanAccessDashboardEquipeTipo && canAccessDashboardEquipeTipo && (
+            <button onClick={() => navigate("/gestao-frotas/dashboard")} className="w-full rdo-card border-l-4 border-l-blue-400 hover:shadow-md transition-all flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <BarChart3 className="w-5 h-5 text-blue-500" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-display font-bold text-sm">Dashboard por Equipe / Tipo</p>
+                <p className="text-xs text-muted-foreground">Visão detalhada com tabelas para apresentação</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+            </button>
+          )}
 
           <button onClick={() => navigate("/gestao-frotas/dashboard-rdo")} className="w-full rdo-card border-l-4 border-l-green-400 hover:shadow-md transition-all flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
