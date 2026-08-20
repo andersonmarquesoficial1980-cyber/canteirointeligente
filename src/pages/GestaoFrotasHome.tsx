@@ -114,6 +114,7 @@ export default function GestaoFrotasHome() {
   const [auditVisibleCount, setAuditVisibleCount] = useState<number>(AUDIT_PAGE_SIZE);
   const [mostrarHistoricoAuditoria, setMostrarHistoricoAuditoria] = useState(false);
   const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(false);
+  const [canViewHistoricoMovimentacao, setCanViewHistoricoMovimentacao] = useState(false);
 
   const [consumoRows, setConsumoRows] = useState<ConsumoRow[]>([]);
   const [consumoLoading, setConsumoLoading] = useState(false);
@@ -136,6 +137,7 @@ export default function GestaoFrotasHome() {
     buscarTodos();
     carregarEquipesCadastro();
     carregarHistoricoTrocaEquipe({ silencioso: true });
+    carregarPermissaoHistoricoMovimentacao();
 
     try {
       const params = new URLSearchParams(window.location.search);
@@ -245,6 +247,100 @@ export default function GestaoFrotasHome() {
       .filter(Boolean);
 
     setEquipesCadastro(nomes);
+  }
+
+  async function carregarPermissaoHistoricoMovimentacao() {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) {
+        setCanViewHistoricoMovimentacao(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id, role")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!profile?.company_id) {
+        setCanViewHistoricoMovimentacao(false);
+        return;
+      }
+
+      if (profile.role === "superadmin" || profile.role === "admin") {
+        setCanViewHistoricoMovimentacao(true);
+        return;
+      }
+
+      const { data: panelAccessRow } = await (supabase as any)
+        .from("user_admin_panel_access")
+        .select("can_access_panel, allowed_sections")
+        .eq("user_id", userId)
+        .eq("company_id", profile.company_id)
+        .maybeSingle();
+
+      if (panelAccessRow?.can_access_panel === false) {
+        setCanViewHistoricoMovimentacao(false);
+        return;
+      }
+
+      const { data: assignments } = await supabase
+        .from("user_admin_roles")
+        .select("role_id")
+        .eq("is_active", true)
+        .or(`employee_id.eq.${userId},user_id.eq.${userId}`);
+
+      const roleIds = (assignments || []).map((a: any) => a.role_id).filter(Boolean);
+      if (roleIds.length === 0) {
+        setCanViewHistoricoMovimentacao(false);
+        return;
+      }
+
+      const { data: userPermRows } = await (supabase as any)
+        .from("user_admin_permissions")
+        .select("resource, action")
+        .eq("company_id", profile.company_id)
+        .eq("user_id", userId);
+
+      let perms: Array<{ resource: string; action: string }> = [];
+      if ((userPermRows || []).length > 0) {
+        perms = userPermRows as Array<{ resource: string; action: string }>;
+      } else {
+        const { data: rolePerms } = await supabase
+          .from("admin_permissions")
+          .select("resource, action")
+          .in("role_id", roleIds);
+        perms = (rolePerms || []) as Array<{ resource: string; action: string }>;
+      }
+
+      const hasManageMaquinas = perms.some((perm) => {
+        const resource = String(perm.resource || "");
+        const action = String(perm.action || "");
+        if (resource === "all" && action === "manage") return true;
+        if (resource === "admin_section.maquinas" && (action === "manage" || action === "edit")) return true;
+        return false;
+      });
+
+      if (!hasManageMaquinas) {
+        setCanViewHistoricoMovimentacao(false);
+        return;
+      }
+
+      const allowedSections = Array.isArray(panelAccessRow?.allowed_sections)
+        ? (panelAccessRow.allowed_sections as string[])
+        : [];
+
+      if (allowedSections.length > 0 && !allowedSections.includes("maquinas")) {
+        setCanViewHistoricoMovimentacao(false);
+        return;
+      }
+
+      setCanViewHistoricoMovimentacao(true);
+    } catch {
+      setCanViewHistoricoMovimentacao(false);
+    }
   }
 
   async function buscarMedidores(veiculos: any[]) {
@@ -901,7 +997,8 @@ export default function GestaoFrotasHome() {
             <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
 
-          <div className="rdo-card space-y-2">
+          {canViewHistoricoMovimentacao && (
+            <div className="rdo-card space-y-2">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-primary" />
@@ -1001,6 +1098,7 @@ export default function GestaoFrotasHome() {
               </div>
             )}
           </div>
+          )}
 
           {mostrarFiltrosAvancados && (
             <div className="rdo-card space-y-3">
