@@ -543,8 +543,8 @@ export default function GestaoPessoasEquipe() {
   const location = useLocation();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
   const abaParam = searchParams.get("aba") as Aba | null;
   const buscaParam = searchParams.get("q") || "";
   const abaInicial: Aba = abaParam && ["lista", "funcao", "equipe", "responsavel", "centro_custo", "aniversariantes"].includes(abaParam)

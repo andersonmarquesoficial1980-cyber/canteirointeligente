@@ -245,8 +245,8 @@ export default function DemandasHome() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const detalheParams = new URLSearchParams();
   if (origem) detalheParams.set("origem", origem);
   detalheParams.set("returnTo", `${location.pathname}${location.search}`);

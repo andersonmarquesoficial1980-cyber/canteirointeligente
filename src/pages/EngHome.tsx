@@ -26,8 +26,8 @@ interface MinhaOgs {
 export default function EngHome() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [rdosPendentes, setRdosPendentes] = useState<RdoPendente[]>([]);
   const [minhasOgs, setMinhasOgs] = useState<MinhaOgs[]>([]);

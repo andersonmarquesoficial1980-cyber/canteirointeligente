@@ -421,8 +421,8 @@ export default function ProgramacaoFerias() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
   const buscaInicial = searchParams.get("q") || "";
   const focoFuncionarioId = searchParams.get("funcionario_id") || "";
     const filtroParam = searchParams.get("filtro");

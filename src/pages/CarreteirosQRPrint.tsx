@@ -25,8 +25,8 @@ interface TruckReg {
 export default function CarreteirosQRPrint() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/carreteiros");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/carreteiros");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [trucks, setTrucks] = useState<TruckReg[]>([]);
   const [filtro, setFiltro] = useState("");

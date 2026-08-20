@@ -38,8 +38,8 @@ function StatusBadge({ status }: { status: string }) {
 export default function SSTInspecoes() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/sst");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/sst");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [inspecoes, setInspecoes] = useState<Inspecao[]>([]);
   const [loading, setLoading] = useState(true);

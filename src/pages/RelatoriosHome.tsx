@@ -48,8 +48,8 @@ export default function RelatoriosHome() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `&origem=${encodeURIComponent(origem)}` : "";
   const origemQueryPrefix = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);

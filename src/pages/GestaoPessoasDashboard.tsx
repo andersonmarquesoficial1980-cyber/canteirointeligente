@@ -341,8 +341,8 @@ type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "centro_custo" | "ani
 export default function GestaoPessoasDashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { isAdmin } = useIsAdmin();
   const [todos, setTodos] = useState<Funcionario[]>([]);

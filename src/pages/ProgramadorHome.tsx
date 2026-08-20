@@ -30,8 +30,8 @@ type ModoEquip = "status" | "transferencia";
 export default function ProgramadorHome() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { toast } = useToast();
   const [aba, setAba] = useState<Aba>("equipes");

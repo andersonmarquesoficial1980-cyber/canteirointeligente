@@ -29,8 +29,8 @@ const HUB_ITEMS = [
 export default function SSTHome() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origem = searchParams.get("origem") || "";
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [totalInspecoes, setTotalInspecoes] = useState<number | null>(null);
 
