@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Edit2, Save, FileText, Loader2, Gauge, Lock, Settings, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipes } from "@/hooks/useEquipes";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
@@ -66,6 +68,9 @@ export default function GestaoFrotasVeiculo() {
   const [medidorAtual, setMedidorAtual] = useState<MedidorAtual>(null);
   const [condutorAtualInfo, setCondutorAtualInfo] = useState<CondutorAtualInfo>(null);
   const { equipesData, loading: carregandoEquipes } = useEquipes();
+  const { isAdmin, loading: loadingIsAdmin } = useIsAdmin();
+  const { permissions, loading: loadingPermissoes } = usePermissions();
+  const canEditGestaoFrotas = Boolean(isAdmin || permissions?.is_admin);
   const breadcrumbLabel = `Frota ${veiculo?.centro_custo || veiculo?.frota || veiculo?.placa || "Veículo"}`;
   const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
 
@@ -83,6 +88,10 @@ export default function GestaoFrotasVeiculo() {
   }, [equipesData, veiculo?.setor]);
 
   useEffect(() => { if (id) buscarDados(); }, [id]);
+
+  useEffect(() => {
+    if (!canEditGestaoFrotas && editando) setEditando(false);
+  }, [canEditGestaoFrotas, editando]);
 
   async function buscarDados() {
     setLoading(true);
@@ -208,6 +217,11 @@ export default function GestaoFrotasVeiculo() {
   }
 
   async function salvarEdicao() {
+    if (!canEditGestaoFrotas) {
+      setEditando(false);
+      return;
+    }
+
     setSalvando(true);
     // Salva APENAS os campos operacionais — não toca nos dados cadastrais
     await (supabase as any).from("equipamentos").update({
@@ -251,14 +265,20 @@ export default function GestaoFrotasVeiculo() {
             {[veiculo.marca || veiculo.tipo_veiculo, veiculo.modelo_completo || veiculo.nome].filter(Boolean).join(" ") || veiculo.tipo || veiculo.nome} {veiculo.placa && veiculo.placa !== veiculo.frota ? `· ${veiculo.placa}` : ""}
           </span>
         </div>
-        <Button
-          size="sm"
-          onClick={() => editando ? salvarEdicao() : setEditando(true)}
-          disabled={salvando}
-          className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1"
-        >
-          {editando ? <><Save className="w-4 h-4" /> Salvar</> : <><Edit2 className="w-4 h-4" /> Editar</>}
-        </Button>
+        {!loadingIsAdmin && !loadingPermissoes && canEditGestaoFrotas ? (
+          <Button
+            size="sm"
+            onClick={() => editando ? salvarEdicao() : setEditando(true)}
+            disabled={salvando}
+            className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1"
+          >
+            {editando ? <><Save className="w-4 h-4" /> Salvar</> : <><Edit2 className="w-4 h-4" /> Editar</>}
+          </Button>
+        ) : (
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/20 text-white/90 border border-white/30">
+            Somente leitura
+          </span>
+        )}
       </header>
 
       <div className="px-4 pb-2 bg-header-gradient">
@@ -504,7 +524,7 @@ export default function GestaoFrotasVeiculo() {
             <h3 className="font-display font-bold text-sm flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" /> Documentos ({documentos.length})
             </h3>
-            <button onClick={() => navigate("/manutencao/documentos?origem=gestao-frotas")} className="text-xs text-primary underline">Ver todos</button>
+            <button onClick={() => navigate("/gestao-frotas/documentos?origem=gestao-frotas")} className="text-xs text-primary underline">Ver todos</button>
           </div>
           {documentos.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">Nenhum documento cadastrado para este veículo.</p>

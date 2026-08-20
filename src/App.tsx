@@ -411,6 +411,7 @@ function AppRoutes() {
         <Route path="/gestao-frotas/dashboard" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboard /></RequireModule>} />
         <Route path="/gestao-frotas/dashboard-rdo" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboardRdo /></RequireModule>} />
         <Route path="/gestao-frotas/rastreamento" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasRastreamento /></RequireModule>} />
+        <Route path="/gestao-frotas/documentos" element={<RequireModule moduleId="gestao-frotas"><ManutencaoDocumentos /></RequireModule>} />
         <Route path="/equipamentos/prontuario/:id" element={<RequireModule moduleId="equipamentos"><EquipamentoProntuario /></RequireModule>} />
         <Route path="/manutencao/ocorrencias" element={<RequireModule moduleId="equipamentos"><EquipamentoOcorrencias /></RequireModule>} />
         <Route path="/manutencao/ocorrencia/:id" element={<RequireModule moduleId="equipamentos"><OcorrenciaDetalhe /></RequireModule>} />

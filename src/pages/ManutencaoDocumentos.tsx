@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ArrowLeft, Plus, Upload, FileText, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useOrigemBack } from "@/hooks/useOrigemBack";
 
 const TIPOS_DOC = ["CRLV", "Licença Especial", "Nota Fiscal", "Seguro", "Tacógrafo", "AVCB", "Outro"];
@@ -37,7 +38,8 @@ function diasRestantes(d: string): number {
 
 export default function ManutencaoDocumentos() {
   const navigate = useNavigate();
-  const isAdmin = useIsAdmin();
+  const { isAdmin, loading: loadingIsAdmin } = useIsAdmin();
+  const { permissions, loading: loadingPermissoes } = usePermissions();
   const rotaVoltar = useOrigemBack("/manutencao", { "gestao-frotas": "/gestao-frotas" });
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,14 @@ export default function ManutencaoDocumentos() {
   const [salvando, setSalvando] = useState(false);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [form, setForm] = useState({ equipment_fleet: "", equipment_type: "", tipo_documento: "", descricao: "", numero_documento: "", data_emissao: "", data_vencimento: "", alerta_dias: "30" });
+
+  const canCreateDoc = Boolean(
+    isAdmin ||
+    permissions?.is_admin ||
+    permissions?.modulo_gestao_frotas ||
+    permissions?.modulo_manutencao ||
+    permissions?.modulo_documentos
+  );
 
   useEffect(() => { buscarDocs(); }, []);
 
@@ -56,7 +66,7 @@ export default function ManutencaoDocumentos() {
   }
 
   async function salvar() {
-    if (!form.equipment_fleet || !form.tipo_documento) return;
+    if (!canCreateDoc || !form.equipment_fleet || !form.tipo_documento) return;
     setSalvando(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -101,7 +111,7 @@ export default function ManutencaoDocumentos() {
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Documentos de Veículos</span>
           <span className="block text-[11px] text-primary-foreground/80">CRLV, Licenças, NFs</span>
         </div>
-        {isAdmin && (
+        {!loadingIsAdmin && !loadingPermissoes && canCreateDoc && (
           <Button size="sm" onClick={() => setModal(true)} className="bg-white/20 hover:bg-white/30 text-white border-0 gap-1">
             <Plus className="w-4 h-4" /> Novo
           </Button>
