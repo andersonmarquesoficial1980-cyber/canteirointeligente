@@ -515,7 +515,7 @@ export default function GestaoFrotasMultas() {
                 onClick={() => setMostrarFormularioNovo((prev) => !prev)}
               >
                 <Plus className="w-4 h-4" />
-                {mostrarFormularioNovo ? "Ocultar formulário" : "Inserir nova multa"}
+                {mostrarFormularioNovo ? "Ocultar formulário" : "+ Cadastrar nova multa"}
               </Button>
             </div>
           </div>
@@ -602,7 +602,7 @@ export default function GestaoFrotasMultas() {
               </div>
             </>
           ) : (
-            <p className="text-xs text-muted-foreground">Formulário oculto. Clique em <strong>Inserir nova multa</strong> para cadastrar.</p>
+            <p className="text-xs text-muted-foreground">Formulário oculto. Clique em <strong>+ Cadastrar nova multa</strong> para cadastrar.</p>
           )}
         </div>
 
