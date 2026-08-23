@@ -24,6 +24,18 @@ type MultaRow = {
   condutor_nome: string | null;
   condutor_employee_id: string | null;
   observacoes: string | null;
+  pontos: number | null;
+  tipo_registro: string | null;
+  codigo_orgao: string | null;
+  codigo_infracao: string | null;
+  orgao_autuador: string | null;
+  gravidade: string | null;
+  data_vencimento: string | null;
+  municipio: string | null;
+  uf: string | null;
+  veiculo_modelo: string | null;
+  cobranca_condutor: string | null;
+  cnh_condutor: string | null;
   created_at: string;
 };
 
@@ -98,6 +110,18 @@ export default function GestaoFrotasMultas() {
   const [filtroDataInicio, setFiltroDataInicio] = useState("");
   const [filtroDataFim, setFiltroDataFim] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("__todos_status");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    condutor_nome: "",
+    condutor_employee_id: "",
+    auto_infracao: "",
+    valor: "",
+    pontos: "",
+    local_infracao: "",
+    descricao: "",
+    data_vencimento: "",
+    observacoes: "",
+  });
 
   const [form, setForm] = useState({
     data_infracao: new Date().toISOString().slice(0, 10),
@@ -109,6 +133,15 @@ export default function GestaoFrotasMultas() {
     local_infracao: "",
     descricao: "",
     valor: "",
+    pontos: "",
+    gravidade: "",
+    codigo_infracao: "",
+    orgao_autuador: "",
+    data_vencimento: "",
+    municipio: "",
+    uf: "",
+    veiculo_modelo: "",
+    cobranca_condutor: "",
     status: "pendente",
     condutor_nome: "",
     condutor_employee_id: "",
@@ -336,6 +369,15 @@ export default function GestaoFrotasMultas() {
         local_infracao: form.local_infracao.trim() || null,
         descricao: form.descricao.trim() || null,
         valor: form.valor ? Number(form.valor.replace(",", ".")) : 0,
+        pontos: form.pontos ? Number(form.pontos) : null,
+        gravidade: form.gravidade.trim() || null,
+        codigo_infracao: form.codigo_infracao.trim() || null,
+        orgao_autuador: form.orgao_autuador.trim() || null,
+        data_vencimento: form.data_vencimento || null,
+        municipio: form.municipio.trim() || null,
+        uf: form.uf.trim().toUpperCase() || null,
+        veiculo_modelo: form.veiculo_modelo.trim() || null,
+        cobranca_condutor: form.cobranca_condutor.trim() || null,
         status: form.status || "pendente",
         condutor_nome: form.condutor_nome.trim() || null,
         condutor_employee_id: form.condutor_employee_id || null,
@@ -357,6 +399,15 @@ export default function GestaoFrotasMultas() {
         local_infracao: "",
         descricao: "",
         valor: "",
+        pontos: "",
+        gravidade: "",
+        codigo_infracao: "",
+        orgao_autuador: "",
+        data_vencimento: "",
+        municipio: "",
+        uf: "",
+        veiculo_modelo: "",
+        cobranca_condutor: "",
         status: "pendente",
         condutor_nome: "",
         condutor_employee_id: "",
@@ -383,6 +434,50 @@ export default function GestaoFrotasMultas() {
     if (error) {
       setMultas(old);
       toast({ title: "Falha ao atualizar status", description: error.message, variant: "destructive" });
+    }
+  }
+
+  function iniciarEdicao(m: MultaRow) {
+    setEditingId(m.id);
+    setEditForm({
+      condutor_nome: m.condutor_nome || "",
+      condutor_employee_id: m.condutor_employee_id || "",
+      auto_infracao: m.auto_infracao || "",
+      valor: m.valor == null ? "" : String(m.valor),
+      pontos: m.pontos == null ? "" : String(m.pontos),
+      local_infracao: m.local_infracao || "",
+      descricao: m.descricao || "",
+      data_vencimento: m.data_vencimento || "",
+      observacoes: m.observacoes || "",
+    });
+  }
+
+  async function salvarEdicaoMulta(multaId: string) {
+    try {
+      const payload = {
+        condutor_nome: editForm.condutor_nome.trim() || null,
+        condutor_employee_id: editForm.condutor_employee_id || null,
+        auto_infracao: editForm.auto_infracao.trim().toUpperCase() || null,
+        valor: editForm.valor ? Number(editForm.valor.replace(",", ".")) : 0,
+        pontos: editForm.pontos ? Number(editForm.pontos) : null,
+        local_infracao: editForm.local_infracao.trim() || null,
+        descricao: editForm.descricao.trim() || null,
+        data_vencimento: editForm.data_vencimento || null,
+        observacoes: editForm.observacoes.trim() || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await (supabase as any)
+        .from("gestao_frotas_multas")
+        .update(payload)
+        .eq("id", multaId);
+
+      if (error) throw error;
+      toast({ title: "Multa atualizada" });
+      setEditingId(null);
+      await carregarTudo();
+    } catch (e: any) {
+      toast({ title: "Erro ao atualizar multa", description: e?.message || "", variant: "destructive" });
     }
   }
 
@@ -428,8 +523,22 @@ export default function GestaoFrotasMultas() {
             <Input placeholder="Auto de infração" value={form.auto_infracao} onChange={(e) => setForm((p) => ({ ...p, auto_infracao: e.target.value }))} />
             <Input placeholder="Valor (R$)" value={form.valor} onChange={(e) => setForm((p) => ({ ...p, valor: e.target.value }))} />
 
+            <Input placeholder="Pontos" value={form.pontos} onChange={(e) => setForm((p) => ({ ...p, pontos: e.target.value }))} />
+            <Input placeholder="Gravidade" value={form.gravidade} onChange={(e) => setForm((p) => ({ ...p, gravidade: e.target.value }))} />
+
             <Input className="sm:col-span-2" placeholder="Local da infração" value={form.local_infracao} onChange={(e) => setForm((p) => ({ ...p, local_infracao: e.target.value }))} />
             <Input className="sm:col-span-2" placeholder="Descrição" value={form.descricao} onChange={(e) => setForm((p) => ({ ...p, descricao: e.target.value }))} />
+
+            <Input placeholder="Código da infração" value={form.codigo_infracao} onChange={(e) => setForm((p) => ({ ...p, codigo_infracao: e.target.value }))} />
+            <Input placeholder="Órgão autuador" value={form.orgao_autuador} onChange={(e) => setForm((p) => ({ ...p, orgao_autuador: e.target.value }))} />
+
+            <Input type="date" placeholder="Vencimento" value={form.data_vencimento} onChange={(e) => setForm((p) => ({ ...p, data_vencimento: e.target.value }))} />
+            <Input placeholder="Cobrança ao condutor (Sim/Não)" value={form.cobranca_condutor} onChange={(e) => setForm((p) => ({ ...p, cobranca_condutor: e.target.value }))} />
+
+            <Input placeholder="Município" value={form.municipio} onChange={(e) => setForm((p) => ({ ...p, municipio: e.target.value }))} />
+            <Input placeholder="UF" value={form.uf} onChange={(e) => setForm((p) => ({ ...p, uf: e.target.value.toUpperCase() }))} />
+
+            <Input className="sm:col-span-2" placeholder="Veículo / Modelo" value={form.veiculo_modelo} onChange={(e) => setForm((p) => ({ ...p, veiculo_modelo: e.target.value }))} />
 
             <Select
               value={form.condutor_employee_id || "__manual"}
@@ -534,6 +643,14 @@ export default function GestaoFrotasMultas() {
                   <p><strong>Auto:</strong> {m.auto_infracao || "—"}</p>
                   <p><strong>Local:</strong> {m.local_infracao || "—"}</p>
                   <p><strong>Valor:</strong> {fmtBRL(m.valor)}</p>
+                  <p><strong>Pontos:</strong> {m.pontos ?? "—"}</p>
+                  <p><strong>Gravidade:</strong> {m.gravidade || "—"}</p>
+                  <p><strong>Cód. Infração:</strong> {m.codigo_infracao || "—"}</p>
+                  <p><strong>Vencimento:</strong> {fmtDate(m.data_vencimento)}</p>
+                  <p className="sm:col-span-2"><strong>Órgão autuador:</strong> {m.orgao_autuador || "—"}</p>
+                  <p><strong>Município/UF:</strong> {m.municipio || "—"}{m.uf ? ` • ${m.uf}` : ""}</p>
+                  <p><strong>Cobrança condutor:</strong> {m.cobranca_condutor || "—"}</p>
+                  <p className="sm:col-span-2"><strong>Veículo/Modelo:</strong> {m.veiculo_modelo || "—"}</p>
                 </div>
 
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1">
@@ -558,6 +675,49 @@ export default function GestaoFrotasMultas() {
                     <p className="text-xs text-orange-700">Sem CNH anexada para este condutor.</p>
                   )}
                 </div>
+
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" size="sm" onClick={() => (editingId === m.id ? setEditingId(null) : iniciarEdicao(m))}>
+                    {editingId === m.id ? "Fechar edição" : "Editar multa"}
+                  </Button>
+                </div>
+
+                {editingId === m.id && (
+                  <div className="rounded-lg border border-primary/20 bg-white p-3 space-y-2">
+                    <p className="text-xs font-semibold text-slate-700">Edição manual (ajuste de condutor e dados da multa)</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Input placeholder="Nome do condutor" value={editForm.condutor_nome} onChange={(e) => setEditForm((p) => ({ ...p, condutor_nome: e.target.value }))} />
+                      <Select value={editForm.condutor_employee_id || "__manual"} onValueChange={(value) => {
+                        if (value === "__manual") {
+                          setEditForm((p) => ({ ...p, condutor_employee_id: "" }));
+                          return;
+                        }
+                        const empSel = employeeById.get(value);
+                        setEditForm((p) => ({ ...p, condutor_employee_id: value, condutor_nome: empSel?.name || p.condutor_nome }));
+                      }}>
+                        <SelectTrigger><SelectValue placeholder="Vincular funcionário" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__manual">Sem vínculo (manual)</SelectItem>
+                          {employees.map((e) => (
+                            <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Input placeholder="Auto de infração" value={editForm.auto_infracao} onChange={(e) => setEditForm((p) => ({ ...p, auto_infracao: e.target.value }))} />
+                      <Input placeholder="Valor (R$)" value={editForm.valor} onChange={(e) => setEditForm((p) => ({ ...p, valor: e.target.value }))} />
+                      <Input placeholder="Pontos" value={editForm.pontos} onChange={(e) => setEditForm((p) => ({ ...p, pontos: e.target.value }))} />
+                      <Input type="date" value={editForm.data_vencimento} onChange={(e) => setEditForm((p) => ({ ...p, data_vencimento: e.target.value }))} />
+                      <Input className="sm:col-span-2" placeholder="Local da infração" value={editForm.local_infracao} onChange={(e) => setEditForm((p) => ({ ...p, local_infracao: e.target.value }))} />
+                      <Input className="sm:col-span-2" placeholder="Descrição" value={editForm.descricao} onChange={(e) => setEditForm((p) => ({ ...p, descricao: e.target.value }))} />
+                      <Input className="sm:col-span-2" placeholder="Observações" value={editForm.observacoes} onChange={(e) => setEditForm((p) => ({ ...p, observacoes: e.target.value }))} />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(null)}>Cancelar</Button>
+                      <Button type="button" size="sm" onClick={() => salvarEdicaoMulta(m.id)}>Salvar edição</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
