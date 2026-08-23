@@ -112,6 +112,7 @@ export default function GestaoFrotasMultas() {
   const [filtroStatus, setFiltroStatus] = useState("__todos_status");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detalhesAbertos, setDetalhesAbertos] = useState<Record<string, boolean>>({});
+  const [mostrarFormularioNovo, setMostrarFormularioNovo] = useState(false);
   const [editForm, setEditForm] = useState({
     condutor_nome: "",
     condutor_employee_id: "",
@@ -415,6 +416,8 @@ export default function GestaoFrotasMultas() {
         observacoes: "",
       });
 
+      setMostrarFormularioNovo(false);
+
       await carregarTudo();
     } catch (e: any) {
       toast({ title: "Erro ao salvar multa", description: e?.message || "", variant: "destructive" });
@@ -500,84 +503,107 @@ export default function GestaoFrotasMultas() {
 
       <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
         <div className="rdo-card space-y-3 border border-primary/10">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="font-semibold text-sm">Nova multa operacional</p>
-            <span className="text-xs text-muted-foreground">{multas.length} registrada(s)</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{multas.length} registrada(s)</span>
+              <Button
+                type="button"
+                variant={mostrarFormularioNovo ? "outline" : "default"}
+                size="sm"
+                className="gap-2"
+                onClick={() => setMostrarFormularioNovo((prev) => !prev)}
+              >
+                <Plus className="w-4 h-4" />
+                {mostrarFormularioNovo ? "Ocultar formulário" : "Inserir nova multa"}
+              </Button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Input type="date" value={form.data_infracao} onChange={(e) => {
-              const data = e.target.value;
-              setForm((p) => ({ ...p, data_infracao: data }));
-              if (form.placa) sugerirPorPlacaEData(form.placa, data);
-            }} />
-            <Input type="time" value={form.hora_infracao} onChange={(e) => setForm((p) => ({ ...p, hora_infracao: e.target.value }))} />
+          {mostrarFormularioNovo ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input type="date" value={form.data_infracao} onChange={(e) => {
+                  const data = e.target.value;
+                  setForm((p) => ({ ...p, data_infracao: data }));
+                  if (form.placa) sugerirPorPlacaEData(form.placa, data);
+                }} />
+                <Input type="time" value={form.hora_infracao} onChange={(e) => setForm((p) => ({ ...p, hora_infracao: e.target.value }))} />
 
-            <Input
-              placeholder="Placa (ex.: FNP7D91)"
-              value={form.placa}
-              onChange={(e) => setForm((p) => ({ ...p, placa: e.target.value.toUpperCase() }))}
-              onBlur={() => sugerirPorPlacaEData(form.placa, form.data_infracao)}
-            />
-            <Input placeholder="Frota (automático)" value={form.equipment_fleet} onChange={(e) => setForm((p) => ({ ...p, equipment_fleet: e.target.value }))} />
+                <Input
+                  placeholder="Placa (ex.: FNP7D91)"
+                  value={form.placa}
+                  onChange={(e) => setForm((p) => ({ ...p, placa: e.target.value.toUpperCase() }))}
+                  onBlur={() => sugerirPorPlacaEData(form.placa, form.data_infracao)}
+                />
+                <Input placeholder="Frota (automático)" value={form.equipment_fleet} onChange={(e) => setForm((p) => ({ ...p, equipment_fleet: e.target.value }))} />
 
-            <Input placeholder="Auto de infração" value={form.auto_infracao} onChange={(e) => setForm((p) => ({ ...p, auto_infracao: e.target.value }))} />
-            <Input placeholder="Valor (R$)" value={form.valor} onChange={(e) => setForm((p) => ({ ...p, valor: e.target.value }))} />
+                <Input placeholder="Auto de infração" value={form.auto_infracao} onChange={(e) => setForm((p) => ({ ...p, auto_infracao: e.target.value }))} />
+                <Input placeholder="Valor (R$)" value={form.valor} onChange={(e) => setForm((p) => ({ ...p, valor: e.target.value }))} />
 
-            <Input placeholder="Pontos" value={form.pontos} onChange={(e) => setForm((p) => ({ ...p, pontos: e.target.value }))} />
-            <Input placeholder="Gravidade" value={form.gravidade} onChange={(e) => setForm((p) => ({ ...p, gravidade: e.target.value }))} />
+                <Input placeholder="Pontos" value={form.pontos} onChange={(e) => setForm((p) => ({ ...p, pontos: e.target.value }))} />
+                <Input placeholder="Gravidade" value={form.gravidade} onChange={(e) => setForm((p) => ({ ...p, gravidade: e.target.value }))} />
 
-            <Input className="sm:col-span-2" placeholder="Local da infração" value={form.local_infracao} onChange={(e) => setForm((p) => ({ ...p, local_infracao: e.target.value }))} />
-            <Input className="sm:col-span-2" placeholder="Descrição" value={form.descricao} onChange={(e) => setForm((p) => ({ ...p, descricao: e.target.value }))} />
+                <Input className="sm:col-span-2" placeholder="Local da infração" value={form.local_infracao} onChange={(e) => setForm((p) => ({ ...p, local_infracao: e.target.value }))} />
+                <Input className="sm:col-span-2" placeholder="Descrição" value={form.descricao} onChange={(e) => setForm((p) => ({ ...p, descricao: e.target.value }))} />
 
-            <Input placeholder="Código da infração" value={form.codigo_infracao} onChange={(e) => setForm((p) => ({ ...p, codigo_infracao: e.target.value }))} />
-            <Input placeholder="Órgão autuador" value={form.orgao_autuador} onChange={(e) => setForm((p) => ({ ...p, orgao_autuador: e.target.value }))} />
+                <Input placeholder="Código da infração" value={form.codigo_infracao} onChange={(e) => setForm((p) => ({ ...p, codigo_infracao: e.target.value }))} />
+                <Input placeholder="Órgão autuador" value={form.orgao_autuador} onChange={(e) => setForm((p) => ({ ...p, orgao_autuador: e.target.value }))} />
 
-            <Input type="date" placeholder="Vencimento" value={form.data_vencimento} onChange={(e) => setForm((p) => ({ ...p, data_vencimento: e.target.value }))} />
-            <Input placeholder="Cobrança ao condutor (Sim/Não)" value={form.cobranca_condutor} onChange={(e) => setForm((p) => ({ ...p, cobranca_condutor: e.target.value }))} />
+                <Input type="date" placeholder="Vencimento" value={form.data_vencimento} onChange={(e) => setForm((p) => ({ ...p, data_vencimento: e.target.value }))} />
+                <Input placeholder="Cobrança ao condutor (Sim/Não)" value={form.cobranca_condutor} onChange={(e) => setForm((p) => ({ ...p, cobranca_condutor: e.target.value }))} />
 
-            <Input placeholder="Município" value={form.municipio} onChange={(e) => setForm((p) => ({ ...p, municipio: e.target.value }))} />
-            <Input placeholder="UF" value={form.uf} onChange={(e) => setForm((p) => ({ ...p, uf: e.target.value.toUpperCase() }))} />
+                <Input placeholder="Município" value={form.municipio} onChange={(e) => setForm((p) => ({ ...p, municipio: e.target.value }))} />
+                <Input placeholder="UF" value={form.uf} onChange={(e) => setForm((p) => ({ ...p, uf: e.target.value.toUpperCase() }))} />
 
-            <Input className="sm:col-span-2" placeholder="Veículo / Modelo" value={form.veiculo_modelo} onChange={(e) => setForm((p) => ({ ...p, veiculo_modelo: e.target.value }))} />
+                <Input className="sm:col-span-2" placeholder="Veículo / Modelo" value={form.veiculo_modelo} onChange={(e) => setForm((p) => ({ ...p, veiculo_modelo: e.target.value }))} />
 
-            <Select
-              value={form.condutor_employee_id || "__manual"}
-              onValueChange={(value) => {
-                if (value === "__manual") {
-                  setForm((p) => ({ ...p, condutor_employee_id: "" }));
-                  return;
-                }
-                const emp = employeeById.get(value);
-                setForm((p) => ({ ...p, condutor_employee_id: value, condutor_nome: emp?.name || p.condutor_nome }));
-              }}
-            >
-              <SelectTrigger><SelectValue placeholder="Condutor (opcional)" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__manual">Selecionar manualmente (sem vínculo)</SelectItem>
-                {employees.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select
+                  value={form.condutor_employee_id || "__manual"}
+                  onValueChange={(value) => {
+                    if (value === "__manual") {
+                      setForm((p) => ({ ...p, condutor_employee_id: "" }));
+                      return;
+                    }
+                    const emp = employeeById.get(value);
+                    setForm((p) => ({ ...p, condutor_employee_id: value, condutor_nome: emp?.name || p.condutor_nome }));
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Condutor (opcional)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__manual">Selecionar manualmente (sem vínculo)</SelectItem>
+                    {employees.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <Input placeholder="Nome do condutor" value={form.condutor_nome} onChange={(e) => setForm((p) => ({ ...p, condutor_nome: e.target.value }))} />
+                <Input placeholder="Nome do condutor" value={form.condutor_nome} onChange={(e) => setForm((p) => ({ ...p, condutor_nome: e.target.value }))} />
 
-            <Select value={form.status} onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}>
-              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select value={form.status} onValueChange={(v) => setForm((p) => ({ ...p, status: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <Input placeholder="Observações" value={form.observacoes} onChange={(e) => setForm((p) => ({ ...p, observacoes: e.target.value }))} />
-          </div>
+                <Input placeholder="Observações" value={form.observacoes} onChange={(e) => setForm((p) => ({ ...p, observacoes: e.target.value }))} />
+              </div>
 
-          <Button onClick={salvarMulta} disabled={saving} className="w-full gap-2">
-            {saving ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {saving ? "Salvando..." : "Cadastrar multa"}
-          </Button>
+              <div className="flex gap-2">
+                <Button onClick={salvarMulta} disabled={saving} className="flex-1 gap-2">
+                  {saving ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {saving ? "Salvando..." : "Cadastrar multa"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setMostrarFormularioNovo(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">Formulário oculto. Clique em <strong>Inserir nova multa</strong> para cadastrar.</p>
+          )}
         </div>
 
         <div className="rdo-card space-y-3 border border-primary/10">
