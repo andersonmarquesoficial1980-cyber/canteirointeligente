@@ -50,6 +50,7 @@ import GestaoFrotasDashboard from "./pages/GestaoFrotasDashboard";
 import GestaoFrotasDashboardRdo from "./pages/GestaoFrotasDashboardRdo";
 import GestaoFrotasHome from "./pages/GestaoFrotasHome";
 import GestaoFrotasRastreamento from "./pages/GestaoFrotasRastreamento";
+import GestaoFrotasMultas from "./pages/GestaoFrotasMultas";
 import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
 import EquipamentoProntuario from "./pages/EquipamentoProntuario";
 import EquipamentoOcorrencias from "./pages/EquipamentoOcorrencias";
@@ -411,6 +412,7 @@ function AppRoutes() {
         <Route path="/gestao-frotas/dashboard" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboard /></RequireModule>} />
         <Route path="/gestao-frotas/dashboard-rdo" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasDashboardRdo /></RequireModule>} />
         <Route path="/gestao-frotas/rastreamento" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasRastreamento /></RequireModule>} />
+        <Route path="/gestao-frotas/multas" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasMultas /></RequireModule>} />
         <Route path="/gestao-frotas/documentos" element={<RequireModule moduleId="gestao-frotas"><ManutencaoDocumentos /></RequireModule>} />
         <Route path="/equipamentos/prontuario/:id" element={<RequireModule moduleId="equipamentos"><EquipamentoProntuario /></RequireModule>} />
         <Route path="/manutencao/ocorrencias" element={<RequireModule moduleId="equipamentos"><EquipamentoOcorrencias /></RequireModule>} />
