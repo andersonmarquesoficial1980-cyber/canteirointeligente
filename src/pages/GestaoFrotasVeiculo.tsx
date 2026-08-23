@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Edit2, Save, FileText, Loader2, Gauge, Lock, Settings, User } from "lucide-react";
+import { ArrowLeft, Edit2, Save, FileText, Loader2, Gauge, Lock, Settings, User, IdCard, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipes } from "@/hooks/useEquipes";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -24,6 +24,17 @@ type CondutorAtualInfo = {
   data: string | null;
   origem: "diario" | "cadastro" | "nenhum";
 } | null;
+
+type CnhDocumentoInfo = {
+  employeeId: string;
+  employeeName: string;
+  employeeRole: string | null;
+  employeeMatricula: string | null;
+  tipo: string | null;
+  validade: string | null;
+  status: string | null;
+  arquivo_url: string | null;
+}[];
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -69,6 +80,7 @@ export default function GestaoFrotasVeiculo() {
   const [salvando, setSalvando] = useState(false);
   const [medidorAtual, setMedidorAtual] = useState<MedidorAtual>(null);
   const [condutorAtualInfo, setCondutorAtualInfo] = useState<CondutorAtualInfo>(null);
+  const [cnhCondutor, setCnhCondutor] = useState<CnhDocumentoInfo>([]);
   const { equipesData, loading: carregandoEquipes } = useEquipes();
   const { isAdmin, loading: loadingIsAdmin } = useIsAdmin();
   const { permissions, loading: loadingPermissoes } = usePermissions();
@@ -221,6 +233,89 @@ export default function GestaoFrotasVeiculo() {
       }
 
       setCondutorAtualInfo(condutorInfo);
+
+      // Busca CNH anexada na ficha do funcionário (Gestão de Pessoas)
+      if (
+        condutorInfo &&
+        condutorInfo.origem !== "nenhum" &&
+        condutorInfo.nome &&
+        (v.company_id || "").trim()
+      ) {
+        const nomeCondutor = condutorInfo.nome.trim();
+        const nomeUpper = nomeCondutor.toUpperCase();
+
+        let { data: candidatos } = await (supabase as any)
+          .from("employees")
+          .select("id,name,matricula,role,status")
+          .eq("company_id", v.company_id)
+          .ilike("name", nomeUpper)
+          .limit(10);
+
+        if (!candidatos || candidatos.length === 0) {
+          const nomeCurto = nomeUpper.split(" ").slice(0, 2).join(" ");
+          const buscaLike = nomeCurto ? `%${nomeCurto}%` : `%${nomeUpper}%`;
+          const { data: candidatosLike } = await (supabase as any)
+            .from("employees")
+            .select("id,name,matricula,role,status")
+            .eq("company_id", v.company_id)
+            .ilike("name", buscaLike)
+            .limit(20);
+          candidatos = candidatosLike || [];
+        }
+
+        const normalizar = (txt: string) =>
+          String(txt || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toUpperCase();
+
+        const nomeCondutorNorm = normalizar(nomeUpper);
+        const candidatosOrdenados = [...(candidatos || [])].sort((a: any, b: any) => {
+          const aNome = normalizar(a?.name || "");
+          const bNome = normalizar(b?.name || "");
+          const aExato = aNome === nomeCondutorNorm ? 1 : 0;
+          const bExato = bNome === nomeCondutorNorm ? 1 : 0;
+          if (aExato !== bExato) return bExato - aExato;
+
+          const aMotorista = String(a?.role || "").toUpperCase().includes("MOTORISTA") ? 1 : 0;
+          const bMotorista = String(b?.role || "").toUpperCase().includes("MOTORISTA") ? 1 : 0;
+          if (aMotorista !== bMotorista) return bMotorista - aMotorista;
+
+          const aAtivo = String(a?.status || "").toLowerCase() === "ativo" ? 1 : 0;
+          const bAtivo = String(b?.status || "").toLowerCase() === "ativo" ? 1 : 0;
+          return bAtivo - aAtivo;
+        });
+
+        const funcionarioSelecionado = candidatosOrdenados[0];
+
+        if (funcionarioSelecionado?.id) {
+          const { data: docsCnh } = await (supabase as any)
+            .from("employee_documentos")
+            .select("employee_id,tipo,validade,status,arquivo_url")
+            .eq("employee_id", funcionarioSelecionado.id)
+            .ilike("tipo", "%CNH%")
+            .order("created_at", { ascending: false });
+
+          const docsComMeta = (docsCnh || []).map((doc: any) => ({
+            employeeId: funcionarioSelecionado.id,
+            employeeName: funcionarioSelecionado.name,
+            employeeRole: funcionarioSelecionado.role || null,
+            employeeMatricula: funcionarioSelecionado.matricula || null,
+            tipo: doc.tipo || null,
+            validade: doc.validade || null,
+            status: doc.status || null,
+            arquivo_url: doc.arquivo_url || null,
+          }));
+
+          setCnhCondutor(docsComMeta);
+        } else {
+          setCnhCondutor([]);
+        }
+      } else {
+        setCnhCondutor([]);
+      }
     }
 
     setLoading(false);
@@ -260,6 +355,15 @@ export default function GestaoFrotasVeiculo() {
   const statusAtual = STATUS_LABELS[veiculo.status] || STATUS_LABELS["ativo"];
   const condicaoLabel = (veiculo.condicao === "TERCEIRO" || veiculo.categoria === "locado") ? "Terceiro (Locado)" : "Próprio (Fremix)";
   const isTerceiro = veiculo.condicao === "TERCEIRO" || veiculo.categoria === "locado";
+  const cnhPrincipal = cnhCondutor[0] || null;
+
+  const cnhValidadeLabel = (validade: string | null) => {
+    if (!validade) return { texto: "Sem validade informada", classe: "text-muted-foreground" };
+    const dias = Math.ceil((new Date(`${validade}T12:00:00`).getTime() - Date.now()) / 86400000);
+    if (dias < 0) return { texto: `⛔ Vencida em ${fmtDate(validade)}`, classe: "text-red-600 font-semibold" };
+    if (dias <= 30) return { texto: `⚠️ Vence em ${fmtDate(validade)} (${dias} dias)`, classe: "text-orange-600 font-semibold" };
+    return { texto: `✅ Válida até ${fmtDate(validade)}`, classe: "text-emerald-700 font-semibold" };
+  };
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
@@ -525,6 +629,62 @@ export default function GestaoFrotasVeiculo() {
                   ? "Fonte: cadastro legado (sem diário recente com operador informado)"
                   : "Sem diário recente com operador identificado"}
             </p>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
+              <IdCard className="w-3.5 h-3.5" /> CNH anexada na ficha do funcionário
+            </p>
+
+            {cnhPrincipal ? (
+              <>
+                <div className="text-sm">
+                  <p className="font-semibold">{cnhPrincipal.employeeName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {cnhPrincipal.employeeRole || "Função não informada"}
+                    {cnhPrincipal.employeeMatricula ? ` • Mat. ${cnhPrincipal.employeeMatricula}` : ""}
+                  </p>
+                </div>
+
+                <p className={`text-xs ${cnhValidadeLabel(cnhPrincipal.validade).classe}`}>
+                  {cnhValidadeLabel(cnhPrincipal.validade).texto}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {cnhPrincipal.arquivo_url ? (
+                    <a
+                      href={cnhPrincipal.arquivo_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/15"
+                    >
+                      <ExternalLink className="w-3 h-3" /> Ver CNH
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Documento sem link de arquivo.</span>
+                  )}
+
+                  {cnhPrincipal.employeeId ? (
+                    <button
+                      onClick={() => navigate(`/gestao-pessoas/${cnhPrincipal.employeeId}`)}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+                    >
+                      <User className="w-3 h-3" /> Abrir ficha do funcionário
+                    </button>
+                  ) : null}
+
+                  {cnhCondutor.length > 1 ? (
+                    <span className="text-[11px] text-muted-foreground">
+                      +{cnhCondutor.length - 1} anexo(s) de CNH para este funcionário
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-orange-700">
+                Sem CNH anexada para o condutor atual na ficha do funcionário.
+              </p>
+            )}
           </div>
         </div>
 
