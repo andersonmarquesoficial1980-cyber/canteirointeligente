@@ -67,6 +67,9 @@ type MultaImportPreview = {
   condutor_employee_id: string | null;
   observacoes: string | null;
   origem_linha: number;
+  chave_duplicidade: string;
+  pode_importar: boolean;
+  motivo_bloqueio: string | null;
 };
 
 const STATUS_OPTIONS = [
@@ -184,6 +187,12 @@ function pickField(row: Record<string, any>, aliases: string[]) {
   }
 
   return null;
+}
+
+function buildDuplicateKey(dataInfracao: string, placa: string, autoInfracao: string | null | undefined) {
+  const auto = String(autoInfracao || "").trim().toUpperCase();
+  if (!auto) return "";
+  return `${dataInfracao}|${normPlate(placa)}|${auto}`;
 }
 
 export default function GestaoFrotasMultas() {
@@ -436,6 +445,7 @@ export default function GestaoFrotasMultas() {
 
         const employeeId = sugestao?.employeeId || null;
         const nomeSug = employeeId ? (employeeById.get(employeeId)?.name || sugestao?.nome || null) : (sugestao?.nome || null);
+        const autoInfracao = autoRaw ? String(autoRaw).trim().toUpperCase() : null;
 
         preview.push({
           data_infracao: dataIso,
@@ -443,7 +453,7 @@ export default function GestaoFrotasMultas() {
           placa,
           equipment_fleet: eq?.frota || eq?.centro_custo || null,
           equipamento_id: eq?.id || null,
-          auto_infracao: autoRaw ? String(autoRaw).trim() : null,
+          auto_infracao: autoInfracao,
           local_infracao: localRaw ? String(localRaw).trim() : null,
           descricao: descricaoRaw ? String(descricaoRaw).trim() : null,
           valor,
@@ -452,11 +462,63 @@ export default function GestaoFrotasMultas() {
           condutor_employee_id: employeeId,
           observacoes: "Importado de planilha",
           origem_linha: i + 2,
+          chave_duplicidade: buildDuplicateKey(dataIso, placa, autoInfracao),
+          pode_importar: true,
+          motivo_bloqueio: null,
         });
       }
 
+      const usadosNaPlanilha = new Set<string>();
+      for (const p of preview) {
+        if (!p.chave_duplicidade) continue;
+        if (usadosNaPlanilha.has(p.chave_duplicidade)) {
+          p.pode_importar = false;
+          p.motivo_bloqueio = "Duplicada na própria planilha (Auto+Placa+Data).";
+          continue;
+        }
+        usadosNaPlanilha.add(p.chave_duplicidade);
+      }
+
+      const autos = Array.from(new Set(preview.map((p) => p.auto_infracao).filter(Boolean))) as string[];
+      const placas = Array.from(new Set(preview.map((p) => p.placa).filter(Boolean))) as string[];
+      const datas = preview.map((p) => p.data_infracao).filter(Boolean);
+
+      const minData = datas.length ? datas.slice().sort()[0] : null;
+      const maxData = datas.length ? datas.slice().sort().at(-1) || null : null;
+
+      const existingKeys = new Set<string>();
+      if (autos.length && placas.length && minData && maxData) {
+        const { data: existentes } = await (supabase as any)
+          .from("gestao_frotas_multas")
+          .select("data_infracao,placa,auto_infracao")
+          .eq("company_id", companyId)
+          .in("auto_infracao", autos)
+          .in("placa", placas)
+          .gte("data_infracao", minData)
+          .lte("data_infracao", maxData);
+
+        for (const row of (existentes || []) as Array<{ data_infracao: string; placa: string; auto_infracao: string | null }>) {
+          const k = buildDuplicateKey(String(row.data_infracao || ""), String(row.placa || ""), row.auto_infracao);
+          if (k) existingKeys.add(k);
+        }
+      }
+
+      for (const p of preview) {
+        if (!p.chave_duplicidade) continue;
+        if (existingKeys.has(p.chave_duplicidade)) {
+          p.pode_importar = false;
+          p.motivo_bloqueio = "Já existe no banco (Auto+Placa+Data).";
+        }
+      }
+
       setImportPreview(preview);
-      toast({ title: "Pré-visualização gerada", description: `${preview.length} linha(s) pronta(s) para importar` });
+
+      const aptas = preview.filter((p) => p.pode_importar).length;
+      const bloqueadas = preview.length - aptas;
+      toast({
+        title: "Pré-visualização gerada",
+        description: `${preview.length} linha(s): ${aptas} apta(s), ${bloqueadas} bloqueada(s) por duplicidade.`,
+      });
     } catch (e: any) {
       toast({ title: "Falha ao processar planilha", description: e?.message || "", variant: "destructive" });
       setImportPreview([]);
@@ -468,9 +530,15 @@ export default function GestaoFrotasMultas() {
   async function importarPreview() {
     if (!companyId || importPreview.length === 0) return;
 
+    const aptas = importPreview.filter((p) => p.pode_importar);
+    if (aptas.length === 0) {
+      toast({ title: "Nenhuma linha apta para importação", description: "Todas as linhas estão bloqueadas por duplicidade.", variant: "destructive" });
+      return;
+    }
+
     setImporting(true);
     try {
-      const payload = importPreview.map((p) => ({
+      const payload = aptas.map((p) => ({
         company_id: companyId,
         data_infracao: p.data_infracao,
         hora_infracao: p.hora_infracao,
@@ -490,7 +558,8 @@ export default function GestaoFrotasMultas() {
       const { error } = await (supabase as any).from("gestao_frotas_multas").insert(payload);
       if (error) throw error;
 
-      toast({ title: "Importação concluída", description: `${payload.length} multa(s) inserida(s)` });
+      const bloqueadas = importPreview.length - aptas.length;
+      toast({ title: "Importação concluída", description: `${payload.length} inserida(s) • ${bloqueadas} bloqueada(s) por duplicidade` });
       setImportPreview([]);
       await carregarTudo();
     } catch (e: any) {
@@ -509,14 +578,34 @@ export default function GestaoFrotasMultas() {
 
     setSaving(true);
     try {
+      const autoNormalizado = form.auto_infracao.trim().toUpperCase() || null;
+      const placaNormalizada = form.placa.trim().toUpperCase();
+
+      if (autoNormalizado) {
+        const { data: jaExiste } = await (supabase as any)
+          .from("gestao_frotas_multas")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("data_infracao", form.data_infracao)
+          .eq("placa", placaNormalizada)
+          .eq("auto_infracao", autoNormalizado)
+          .limit(1)
+          .maybeSingle();
+
+        if (jaExiste?.id) {
+          toast({ title: "Multa já cadastrada", description: "Mesmo Auto+Placa+Data já existe no banco.", variant: "destructive" });
+          return;
+        }
+      }
+
       const payload = {
         company_id: companyId,
         data_infracao: form.data_infracao,
         hora_infracao: form.hora_infracao || null,
-        placa: form.placa.trim().toUpperCase(),
+        placa: placaNormalizada,
         equipment_fleet: form.equipment_fleet || null,
         equipamento_id: form.equipamento_id || null,
-        auto_infracao: form.auto_infracao.trim() || null,
+        auto_infracao: autoNormalizado,
         local_infracao: form.local_infracao.trim() || null,
         descricao: form.descricao.trim() || null,
         valor: form.valor ? Number(form.valor.replace(",", ".")) : 0,
@@ -607,16 +696,25 @@ export default function GestaoFrotasMultas() {
               <div className="text-xs text-muted-foreground">
                 {importPreview.filter((x) => x.equipment_fleet).length}/{importPreview.length} com frota resolvida • {importPreview.filter((x) => x.condutor_nome).length}/{importPreview.length} com condutor sugerido
               </div>
+              <div className="text-xs font-medium">
+                <span className="text-emerald-700">{importPreview.filter((x) => x.pode_importar).length} apta(s)</span>
+                <span className="text-muted-foreground"> • </span>
+                <span className="text-red-700">{importPreview.filter((x) => !x.pode_importar).length} bloqueada(s)</span>
+              </div>
               <div className="max-h-44 overflow-auto border rounded-lg p-2 space-y-1 bg-slate-50">
                 {importPreview.slice(0, 20).map((r) => (
                   <div key={`${r.origem_linha}-${r.placa}-${r.data_infracao}`} className="text-xs flex items-center justify-between gap-2">
                     <span>L{r.origem_linha} • {r.placa} • {fmtDate(r.data_infracao)} • {fmtBRL(r.valor)}</span>
-                    <span className="text-muted-foreground">{r.equipment_fleet || "sem frota"} • {r.condutor_nome || "sem condutor"}</span>
+                    {r.pode_importar ? (
+                      <span className="text-muted-foreground">{r.equipment_fleet || "sem frota"} • {r.condutor_nome || "sem condutor"}</span>
+                    ) : (
+                      <span className="text-red-700">{r.motivo_bloqueio}</span>
+                    )}
                   </div>
                 ))}
               </div>
-              <Button onClick={importarPreview} disabled={importing} className="w-full gap-2">
-                <Upload className="w-4 h-4" /> {importing ? "Importando..." : `Importar ${importPreview.length} multas`}
+              <Button onClick={importarPreview} disabled={importing || importPreview.filter((x) => x.pode_importar).length === 0} className="w-full gap-2">
+                <Upload className="w-4 h-4" /> {importing ? "Importando..." : `Importar ${importPreview.filter((x) => x.pode_importar).length} multas aptas`}
               </Button>
             </div>
           )}
