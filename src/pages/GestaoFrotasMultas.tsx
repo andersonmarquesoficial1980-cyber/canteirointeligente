@@ -644,6 +644,7 @@ export default function GestaoFrotasMultas() {
                   <p><strong>Auto:</strong> {m.auto_infracao || "—"}</p>
                   <p><strong>Local:</strong> {m.local_infracao || "—"}</p>
                   <p><strong>Valor:</strong> {fmtBRL(m.valor)}</p>
+                  <p className="sm:col-span-2"><strong>Descrição da multa:</strong> {m.descricao || "—"}</p>
                 </div>
 
                 {detalhesAbertos[m.id] && (
