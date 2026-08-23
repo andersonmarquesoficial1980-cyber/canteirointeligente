@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, IdCard, Plus, Save, Upload, User } from "lucide-react";
-import * as XLSX from "xlsx";
+import { ArrowLeft, IdCard, Plus, Save, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,26 +51,6 @@ type CnhDoc = {
   tipo: string | null;
 };
 
-type MultaImportPreview = {
-  data_infracao: string;
-  hora_infracao: string | null;
-  placa: string;
-  equipment_fleet: string | null;
-  equipamento_id: string | null;
-  auto_infracao: string | null;
-  local_infracao: string | null;
-  descricao: string | null;
-  valor: number;
-  status: string;
-  condutor_nome: string | null;
-  condutor_employee_id: string | null;
-  observacoes: string | null;
-  origem_linha: number;
-  chave_duplicidade: string;
-  pode_importar: boolean;
-  motivo_bloqueio: string | null;
-};
-
 const STATUS_OPTIONS = [
   { value: "pendente", label: "Pendente" },
   { value: "contestada", label: "Contestada" },
@@ -104,97 +83,6 @@ function normText(v: string | null | undefined) {
     .toUpperCase();
 }
 
-function excelNumberDateToISO(excelNumber: number) {
-  const utcDays = Math.floor(excelNumber - 25569);
-  const utcValue = utcDays * 86400;
-  const dateInfo = new Date(utcValue * 1000);
-  const year = dateInfo.getUTCFullYear();
-  const month = `${dateInfo.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${dateInfo.getUTCDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function parseDateToISO(value: any): string {
-  if (value == null || value === "") return new Date().toISOString().slice(0, 10);
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
-  }
-  if (typeof value === "number") {
-    return excelNumberDateToISO(value);
-  }
-  const raw = String(value).trim();
-  if (!raw) return new Date().toISOString().slice(0, 10);
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-
-  const br = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (br) {
-    const d = br[1].padStart(2, "0");
-    const m = br[2].padStart(2, "0");
-    const y = br[3].length === 2 ? `20${br[3]}` : br[3];
-    return `${y}-${m}-${d}`;
-  }
-
-  const dt = new Date(raw);
-  if (!Number.isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
-
-  return new Date().toISOString().slice(0, 10);
-}
-
-function parseTimeHHmm(value: any): string | null {
-  if (value == null || value === "") return null;
-  if (typeof value === "number") {
-    const totalMinutes = Math.round(value * 24 * 60);
-    const h = String(Math.floor(totalMinutes / 60) % 24).padStart(2, "0");
-    const m = String(totalMinutes % 60).padStart(2, "0");
-    return `${h}:${m}`;
-  }
-
-  const raw = String(value).trim();
-  const m = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (m) {
-    return `${m[1].padStart(2, "0")}:${m[2]}`;
-  }
-
-  return null;
-}
-
-function parseBRLToNumber(value: any): number {
-  if (value == null || value === "") return 0;
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-
-  const raw = String(value).trim();
-  if (!raw) return 0;
-  const normalized = raw.replace(/R\$/gi, "").replace(/\./g, "").replace(/,/g, ".").replace(/\s/g, "");
-  const n = Number(normalized);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function pickField(row: Record<string, any>, aliases: string[]) {
-  const keys = Object.keys(row);
-  const map = new Map(keys.map((k) => [normText(k), k]));
-
-  for (const alias of aliases) {
-    const found = map.get(normText(alias));
-    if (found) return row[found];
-  }
-
-  for (const k of keys) {
-    const nk = normText(k);
-    if (aliases.some((a) => nk.includes(normText(a)))) {
-      return row[k];
-    }
-  }
-
-  return null;
-}
-
-function buildDuplicateKey(dataInfracao: string, placa: string, autoInfracao: string | null | undefined) {
-  const auto = String(autoInfracao || "").trim().toUpperCase();
-  if (!auto) return "";
-  return `${dataInfracao}|${normPlate(placa)}|${auto}`;
-}
-
 export default function GestaoFrotasMultas() {
   const navigate = useNavigate();
   const goBack = useSmartBack("/gestao-frotas");
@@ -202,13 +90,11 @@ export default function GestaoFrotasMultas() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [companyId, setCompanyId] = useState<string>("");
   const [multas, setMultas] = useState<MultaRow[]>([]);
   const [equipamentos, setEquipamentos] = useState<EquipRow[]>([]);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [cnhByEmployee, setCnhByEmployee] = useState<Record<string, CnhDoc | null>>({});
-  const [importPreview, setImportPreview] = useState<MultaImportPreview[]>([]);
   const [filtroDataInicio, setFiltroDataInicio] = useState("");
   const [filtroDataFim, setFiltroDataFim] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("__todos_status");
@@ -410,206 +296,6 @@ export default function GestaoFrotasMultas() {
     }
   }
 
-  async function processarArquivoMultas(file: File) {
-    if (!companyId) {
-      toast({ title: "Empresa não carregada ainda", variant: "destructive" });
-      return;
-    }
-
-    setImporting(true);
-    try {
-      const buffer = await file.arrayBuffer();
-      const wb = XLSX.read(buffer, { type: "array", cellDates: true });
-      const firstSheetName = wb.SheetNames[0];
-      if (!firstSheetName) throw new Error("Planilha sem abas.");
-
-      const sheet = wb.Sheets[firstSheetName];
-      const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
-      if (!json.length) {
-        toast({ title: "Planilha vazia", variant: "destructive" });
-        setImportPreview([]);
-        return;
-      }
-
-      const diariosCache = new Map<string, { employeeId: string | null; nome: string | null }>();
-      const preview: MultaImportPreview[] = [];
-
-      for (let i = 0; i < json.length; i++) {
-        const row = json[i];
-
-        const placaRaw = pickField(row, ["placa", "placa veículo", "placa veiculo", "veiculo", "frota"]);
-        const placa = normPlate(placaRaw);
-        if (!placa) continue;
-
-        const dataRaw = pickField(row, ["data da infração", "data da infracao", "data", "dt infração", "dt infracao"]);
-        const horaRaw = pickField(row, ["hora", "horário", "horario"]);
-        const autoRaw = pickField(row, ["auto de infração", "auto de infracao", "auto", "número auto", "numero auto"]);
-        const localRaw = pickField(row, ["local", "local da infração", "local da infracao", "endereço", "endereco"]);
-        const descricaoRaw = pickField(row, ["descrição", "descricao", "enquadramento", "observação", "observacao"]);
-        const valorRaw = pickField(row, ["valor", "valor multa", "valor da multa"]);
-
-        const dataIso = parseDateToISO(dataRaw);
-        const hora = parseTimeHHmm(horaRaw);
-        const valor = parseBRLToNumber(valorRaw);
-
-        const eq = equipamentosByPlaca.get(placa) || null;
-        const cacheKey = `${placa}-${dataIso}`;
-
-        let sugestao = diariosCache.get(cacheKey);
-        if (!sugestao && eq) {
-          sugestao = await sugerirCondutorPorEquipData(eq, dataIso);
-          diariosCache.set(cacheKey, sugestao);
-        }
-
-        const employeeId = sugestao?.employeeId || null;
-        const nomeSug = employeeId ? (employeeById.get(employeeId)?.name || sugestao?.nome || null) : (sugestao?.nome || null);
-        const autoInfracao = autoRaw ? String(autoRaw).trim().toUpperCase() : null;
-
-        preview.push({
-          data_infracao: dataIso,
-          hora_infracao: hora,
-          placa,
-          equipment_fleet: eq?.frota || eq?.centro_custo || null,
-          equipamento_id: eq?.id || null,
-          auto_infracao: autoInfracao,
-          local_infracao: localRaw ? String(localRaw).trim() : null,
-          descricao: descricaoRaw ? String(descricaoRaw).trim() : null,
-          valor,
-          status: "pendente",
-          condutor_nome: nomeSug,
-          condutor_employee_id: employeeId,
-          observacoes: "Importado de planilha",
-          origem_linha: i + 2,
-          chave_duplicidade: buildDuplicateKey(dataIso, placa, autoInfracao),
-          pode_importar: true,
-          motivo_bloqueio: null,
-        });
-      }
-
-      const usadosNaPlanilha = new Set<string>();
-      for (const p of preview) {
-        if (!p.chave_duplicidade) continue;
-        if (usadosNaPlanilha.has(p.chave_duplicidade)) {
-          p.pode_importar = false;
-          p.motivo_bloqueio = "Duplicada na própria planilha (Auto+Placa+Data).";
-          continue;
-        }
-        usadosNaPlanilha.add(p.chave_duplicidade);
-      }
-
-      const autos = Array.from(new Set(preview.map((p) => p.auto_infracao).filter(Boolean))) as string[];
-      const placas = Array.from(new Set(preview.map((p) => p.placa).filter(Boolean))) as string[];
-      const datas = preview.map((p) => p.data_infracao).filter(Boolean);
-
-      const minData = datas.length ? datas.slice().sort()[0] : null;
-      const maxData = datas.length ? datas.slice().sort().at(-1) || null : null;
-
-      const existingKeys = new Set<string>();
-      if (autos.length && placas.length && minData && maxData) {
-        const { data: existentes } = await (supabase as any)
-          .from("gestao_frotas_multas")
-          .select("data_infracao,placa,auto_infracao")
-          .eq("company_id", companyId)
-          .in("auto_infracao", autos)
-          .in("placa", placas)
-          .gte("data_infracao", minData)
-          .lte("data_infracao", maxData);
-
-        for (const row of (existentes || []) as Array<{ data_infracao: string; placa: string; auto_infracao: string | null }>) {
-          const k = buildDuplicateKey(String(row.data_infracao || ""), String(row.placa || ""), row.auto_infracao);
-          if (k) existingKeys.add(k);
-        }
-      }
-
-      for (const p of preview) {
-        if (!p.chave_duplicidade) continue;
-        if (existingKeys.has(p.chave_duplicidade)) {
-          p.pode_importar = false;
-          p.motivo_bloqueio = "Já existe no banco (Auto+Placa+Data).";
-        }
-      }
-
-      setImportPreview(preview);
-
-      const aptas = preview.filter((p) => p.pode_importar).length;
-      const bloqueadas = preview.length - aptas;
-      toast({
-        title: "Pré-visualização gerada",
-        description: `${preview.length} linha(s): ${aptas} apta(s), ${bloqueadas} bloqueada(s) por duplicidade.`,
-      });
-    } catch (e: any) {
-      toast({ title: "Falha ao processar planilha", description: e?.message || "", variant: "destructive" });
-      setImportPreview([]);
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  async function importarPreview() {
-    if (!companyId || importPreview.length === 0) return;
-
-    const aptas = importPreview.filter((p) => p.pode_importar);
-    if (aptas.length === 0) {
-      toast({ title: "Nenhuma linha apta para importação", description: "Todas as linhas estão bloqueadas por duplicidade.", variant: "destructive" });
-      return;
-    }
-
-    setImporting(true);
-    try {
-      const payload = aptas.map((p) => ({
-        company_id: companyId,
-        data_infracao: p.data_infracao,
-        hora_infracao: p.hora_infracao,
-        placa: p.placa,
-        equipment_fleet: p.equipment_fleet,
-        equipamento_id: p.equipamento_id,
-        auto_infracao: p.auto_infracao,
-        local_infracao: p.local_infracao,
-        descricao: p.descricao,
-        valor: p.valor,
-        status: p.status,
-        condutor_nome: p.condutor_nome,
-        condutor_employee_id: p.condutor_employee_id,
-        observacoes: p.observacoes,
-      }));
-
-      const { error } = await (supabase as any).from("gestao_frotas_multas").insert(payload);
-      if (error) throw error;
-
-      const bloqueadas = importPreview.length - aptas.length;
-      toast({ title: "Importação concluída", description: `${payload.length} inserida(s) • ${bloqueadas} bloqueada(s) por duplicidade` });
-      setImportPreview([]);
-      await carregarTudo();
-    } catch (e: any) {
-      toast({ title: "Erro ao importar", description: e?.message || "", variant: "destructive" });
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  function exportarBloqueadasCsv() {
-    const bloqueadas = importPreview.filter((p) => !p.pode_importar);
-    if (!bloqueadas.length) {
-      toast({ title: "Sem linhas bloqueadas para exportar" });
-      return;
-    }
-
-    const linhas = bloqueadas.map((b) => ({
-      linha_planilha: b.origem_linha,
-      data_infracao: b.data_infracao,
-      placa: b.placa,
-      auto_infracao: b.auto_infracao || "",
-      frota_resolvida: b.equipment_fleet || "",
-      condutor_sugerido: b.condutor_nome || "",
-      motivo_bloqueio: b.motivo_bloqueio || "",
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(linhas);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "bloqueadas");
-    XLSX.writeFile(wb, `multas_bloqueadas_${new Date().toISOString().slice(0, 10)}.xlsx`);
-  }
-
   async function salvarMulta() {
     if (!companyId) return;
     if (!form.data_infracao || !form.placa.trim()) {
@@ -717,57 +403,6 @@ export default function GestaoFrotasMultas() {
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-4 space-y-4">
-        <div className="rdo-card space-y-3 border border-primary/10">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <p className="font-semibold text-sm">Importar planilha de multas (.xlsx)</p>
-            <span className="text-xs text-muted-foreground">Prévia: {importPreview.length}</span>
-          </div>
-
-          <Input
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) processarArquivoMultas(file);
-            }}
-          />
-
-          {importPreview.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs text-muted-foreground">
-                {importPreview.filter((x) => x.equipment_fleet).length}/{importPreview.length} com frota resolvida • {importPreview.filter((x) => x.condutor_nome).length}/{importPreview.length} com condutor sugerido
-              </div>
-              <div className="text-xs font-medium flex items-center justify-between gap-2 flex-wrap">
-                <div>
-                  <span className="text-emerald-700">{importPreview.filter((x) => x.pode_importar).length} apta(s)</span>
-                  <span className="text-muted-foreground"> • </span>
-                  <span className="text-red-700">{importPreview.filter((x) => !x.pode_importar).length} bloqueada(s)</span>
-                </div>
-                {importPreview.filter((x) => !x.pode_importar).length > 0 && (
-                  <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs gap-1" onClick={exportarBloqueadasCsv}>
-                    <Download className="w-3.5 h-3.5" /> Exportar bloqueadas
-                  </Button>
-                )}
-              </div>
-              <div className="max-h-44 overflow-auto border rounded-lg p-2 space-y-1 bg-slate-50">
-                {importPreview.slice(0, 20).map((r) => (
-                  <div key={`${r.origem_linha}-${r.placa}-${r.data_infracao}`} className="text-xs flex items-center justify-between gap-2">
-                    <span>L{r.origem_linha} • {r.placa} • {fmtDate(r.data_infracao)} • {fmtBRL(r.valor)}</span>
-                    {r.pode_importar ? (
-                      <span className="text-muted-foreground">{r.equipment_fleet || "sem frota"} • {r.condutor_nome || "sem condutor"}</span>
-                    ) : (
-                      <span className="text-red-700">{r.motivo_bloqueio}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <Button onClick={importarPreview} disabled={importing || importPreview.filter((x) => x.pode_importar).length === 0} className="w-full gap-2">
-                <Upload className="w-4 h-4" /> {importing ? "Importando..." : `Importar ${importPreview.filter((x) => x.pode_importar).length} multas aptas`}
-              </Button>
-            </div>
-          )}
-        </div>
-
         <div className="rdo-card space-y-3 border border-primary/10">
           <div className="flex items-center justify-between">
             <p className="font-semibold text-sm">Nova multa operacional</p>
