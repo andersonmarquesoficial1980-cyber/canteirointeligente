@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, IdCard, Plus, Save, Upload, User } from "lucide-react";
+import { ArrowLeft, Download, IdCard, Plus, Save, Upload, User } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -569,6 +569,29 @@ export default function GestaoFrotasMultas() {
     }
   }
 
+  function exportarBloqueadasCsv() {
+    const bloqueadas = importPreview.filter((p) => !p.pode_importar);
+    if (!bloqueadas.length) {
+      toast({ title: "Sem linhas bloqueadas para exportar" });
+      return;
+    }
+
+    const linhas = bloqueadas.map((b) => ({
+      linha_planilha: b.origem_linha,
+      data_infracao: b.data_infracao,
+      placa: b.placa,
+      auto_infracao: b.auto_infracao || "",
+      frota_resolvida: b.equipment_fleet || "",
+      condutor_sugerido: b.condutor_nome || "",
+      motivo_bloqueio: b.motivo_bloqueio || "",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "bloqueadas");
+    XLSX.writeFile(wb, `multas_bloqueadas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
   async function salvarMulta() {
     if (!companyId) return;
     if (!form.data_infracao || !form.placa.trim()) {
@@ -696,10 +719,17 @@ export default function GestaoFrotasMultas() {
               <div className="text-xs text-muted-foreground">
                 {importPreview.filter((x) => x.equipment_fleet).length}/{importPreview.length} com frota resolvida • {importPreview.filter((x) => x.condutor_nome).length}/{importPreview.length} com condutor sugerido
               </div>
-              <div className="text-xs font-medium">
-                <span className="text-emerald-700">{importPreview.filter((x) => x.pode_importar).length} apta(s)</span>
-                <span className="text-muted-foreground"> • </span>
-                <span className="text-red-700">{importPreview.filter((x) => !x.pode_importar).length} bloqueada(s)</span>
+              <div className="text-xs font-medium flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <span className="text-emerald-700">{importPreview.filter((x) => x.pode_importar).length} apta(s)</span>
+                  <span className="text-muted-foreground"> • </span>
+                  <span className="text-red-700">{importPreview.filter((x) => !x.pode_importar).length} bloqueada(s)</span>
+                </div>
+                {importPreview.filter((x) => !x.pode_importar).length > 0 && (
+                  <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs gap-1" onClick={exportarBloqueadasCsv}>
+                    <Download className="w-3.5 h-3.5" /> Exportar bloqueadas
+                  </Button>
+                )}
               </div>
               <div className="max-h-44 overflow-auto border rounded-lg p-2 space-y-1 bg-slate-50">
                 {importPreview.slice(0, 20).map((r) => (
