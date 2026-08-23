@@ -209,6 +209,9 @@ export default function GestaoFrotasMultas() {
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [cnhByEmployee, setCnhByEmployee] = useState<Record<string, CnhDoc | null>>({});
   const [importPreview, setImportPreview] = useState<MultaImportPreview[]>([]);
+  const [filtroDataInicio, setFiltroDataInicio] = useState("");
+  const [filtroDataFim, setFiltroDataFim] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("__todos_status");
 
   const [form, setForm] = useState({
     data_infracao: new Date().toISOString().slice(0, 10),
@@ -240,6 +243,21 @@ export default function GestaoFrotasMultas() {
     }
     return map;
   }, [equipamentos]);
+
+  const multasFiltradas = useMemo(() => {
+    return multas.filter((m) => {
+      if (filtroDataInicio && m.data_infracao < filtroDataInicio) return false;
+      if (filtroDataFim && m.data_infracao > filtroDataFim) return false;
+      if (filtroStatus !== "__todos_status" && m.status !== filtroStatus) return false;
+      return true;
+    });
+  }, [multas, filtroDataInicio, filtroDataFim, filtroStatus]);
+
+  const resumoMultasFiltradas = useMemo(() => {
+    const total = multasFiltradas.length;
+    const totalValor = multasFiltradas.reduce((acc, m) => acc + Number(m.valor || 0), 0);
+    return { total, totalValor };
+  }, [multasFiltradas]);
 
   useEffect(() => {
     carregarTudo();
@@ -817,10 +835,48 @@ export default function GestaoFrotasMultas() {
           </Button>
         </div>
 
+        <div className="rdo-card space-y-3 border border-primary/10">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="font-semibold text-sm">Filtros da lista de multas</p>
+            <span className="text-xs text-muted-foreground">
+              {resumoMultasFiltradas.total} registro(s) • {fmtBRL(resumoMultasFiltradas.totalValor)}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Input type="date" value={filtroDataInicio} onChange={(e) => setFiltroDataInicio(e.target.value)} />
+            <Input type="date" value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)} />
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__todos_status">Todos os status</SelectItem>
+                {STATUS_OPTIONS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFiltroDataInicio("");
+                setFiltroDataFim("");
+                setFiltroStatus("__todos_status");
+              }}
+            >
+              Limpar filtros
+            </Button>
+          </div>
+        </div>
+
         <div className="space-y-3">
-          {multas.length === 0 ? (
-            <div className="rdo-card text-sm text-muted-foreground">Nenhuma multa cadastrada ainda.</div>
-          ) : multas.map((m) => {
+          {multasFiltradas.length === 0 ? (
+            <div className="rdo-card text-sm text-muted-foreground">Nenhuma multa no filtro selecionado.</div>
+          ) : multasFiltradas.map((m) => {
             const cnh = m.condutor_employee_id ? cnhByEmployee[m.condutor_employee_id] : null;
             const emp = m.condutor_employee_id ? employeeById.get(m.condutor_employee_id) : null;
 
