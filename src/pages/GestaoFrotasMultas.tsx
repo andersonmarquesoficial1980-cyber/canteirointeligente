@@ -111,6 +111,7 @@ export default function GestaoFrotasMultas() {
   const [filtroDataFim, setFiltroDataFim] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("__todos_status");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [detalhesAbertos, setDetalhesAbertos] = useState<Record<string, boolean>>({});
   const [editForm, setEditForm] = useState({
     condutor_nome: "",
     condutor_employee_id: "",
@@ -643,15 +644,20 @@ export default function GestaoFrotasMultas() {
                   <p><strong>Auto:</strong> {m.auto_infracao || "—"}</p>
                   <p><strong>Local:</strong> {m.local_infracao || "—"}</p>
                   <p><strong>Valor:</strong> {fmtBRL(m.valor)}</p>
-                  <p><strong>Pontos:</strong> {m.pontos ?? "—"}</p>
-                  <p><strong>Gravidade:</strong> {m.gravidade || "—"}</p>
-                  <p><strong>Cód. Infração:</strong> {m.codigo_infracao || "—"}</p>
-                  <p><strong>Vencimento:</strong> {fmtDate(m.data_vencimento)}</p>
-                  <p className="sm:col-span-2"><strong>Órgão autuador:</strong> {m.orgao_autuador || "—"}</p>
-                  <p><strong>Município/UF:</strong> {m.municipio || "—"}{m.uf ? ` • ${m.uf}` : ""}</p>
-                  <p><strong>Cobrança condutor:</strong> {m.cobranca_condutor || "—"}</p>
-                  <p className="sm:col-span-2"><strong>Veículo/Modelo:</strong> {m.veiculo_modelo || "—"}</p>
                 </div>
+
+                {detalhesAbertos[m.id] && (
+                  <div className="text-xs text-muted-foreground grid grid-cols-1 sm:grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                    <p><strong>Pontos:</strong> {m.pontos ?? "—"}</p>
+                    <p><strong>Gravidade:</strong> {m.gravidade || "—"}</p>
+                    <p><strong>Cód. Infração:</strong> {m.codigo_infracao || "—"}</p>
+                    <p><strong>Vencimento:</strong> {fmtDate(m.data_vencimento)}</p>
+                    <p className="sm:col-span-2"><strong>Órgão autuador:</strong> {m.orgao_autuador || "—"}</p>
+                    <p><strong>Município/UF:</strong> {m.municipio || "—"}{m.uf ? ` • ${m.uf}` : ""}</p>
+                    <p><strong>Cobrança condutor:</strong> {m.cobranca_condutor || "—"}</p>
+                    <p className="sm:col-span-2"><strong>Veículo/Modelo:</strong> {m.veiculo_modelo || "—"}</p>
+                  </div>
+                )}
 
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1">
                   <p className="text-xs flex items-center gap-1"><User className="w-3.5 h-3.5" /> <strong>Condutor:</strong> {m.condutor_nome || "Não informado"}</p>
@@ -676,7 +682,15 @@ export default function GestaoFrotasMultas() {
                   )}
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDetalhesAbertos((prev) => ({ ...prev, [m.id]: !prev[m.id] }))}
+                  >
+                    {detalhesAbertos[m.id] ? "Ocultar detalhes" : "Ver detalhes"}
+                  </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => (editingId === m.id ? setEditingId(null) : iniciarEdicao(m))}>
                     {editingId === m.id ? "Fechar edição" : "Editar multa"}
                   </Button>
