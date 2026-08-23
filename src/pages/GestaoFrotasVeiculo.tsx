@@ -23,6 +23,7 @@ type CondutorAtualInfo = {
   nome: string;
   data: string | null;
   origem: "diario" | "cadastro" | "nenhum";
+  employeeId?: string | null;
 } | null;
 
 type CnhDocumentoInfo = {
@@ -186,7 +187,7 @@ export default function GestaoFrotasVeiculo() {
       if (chavesFrota.length > 0) {
         let query = (supabase as any)
           .from("equipment_diaries")
-          .select("equipment_fleet,operator_name,operator_solo,created_by,date,created_at,status")
+          .select("equipment_fleet,operator_name,operator_solo,operator_id,operator_solo_id,user_id,created_by,date,created_at,status")
           .order("date", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(30);
@@ -208,10 +209,12 @@ export default function GestaoFrotasVeiculo() {
 
         if (ultimoComCondutor) {
           const nome = (ultimoComCondutor.operator_name || ultimoComCondutor.operator_solo || formatarNome(ultimoComCondutor.created_by) || "").trim();
+          const employeeId = ultimoComCondutor.operator_id || ultimoComCondutor.operator_solo_id || null;
           condutorInfo = {
             nome,
             data: ultimoComCondutor.date || null,
             origem: "diario",
+            employeeId,
           };
         }
       }
@@ -221,6 +224,7 @@ export default function GestaoFrotasVeiculo() {
           nome: String(v.condutor_atual).trim(),
           data: null,
           origem: "cadastro",
+          employeeId: null,
         };
       }
 
@@ -229,6 +233,7 @@ export default function GestaoFrotasVeiculo() {
           nome: "Sem condutor",
           data: null,
           origem: "nenhum",
+          employeeId: null,
         };
       }
 
@@ -244,14 +249,31 @@ export default function GestaoFrotasVeiculo() {
         const nomeCondutor = condutorInfo.nome.trim();
         const nomeUpper = nomeCondutor.toUpperCase();
 
-        let { data: candidatos } = await (supabase as any)
-          .from("employees")
-          .select("id,name,matricula,role,status")
-          .eq("company_id", v.company_id)
-          .ilike("name", nomeUpper)
-          .limit(10);
+        let funcionarioSelecionado: any = null;
 
-        if (!candidatos || candidatos.length === 0) {
+        if (condutorInfo.employeeId) {
+          const { data: funcionarioPorId } = await (supabase as any)
+            .from("employees")
+            .select("id,name,matricula,role,status")
+            .eq("company_id", v.company_id)
+            .eq("id", condutorInfo.employeeId)
+            .maybeSingle();
+          funcionarioSelecionado = funcionarioPorId || null;
+        }
+
+        let candidatos: any[] = [];
+
+        if (!funcionarioSelecionado) {
+          const { data: candidatosExatos } = await (supabase as any)
+            .from("employees")
+            .select("id,name,matricula,role,status")
+            .eq("company_id", v.company_id)
+            .ilike("name", nomeUpper)
+            .limit(10);
+          candidatos = candidatosExatos || [];
+        }
+
+        if (!funcionarioSelecionado && candidatos.length === 0) {
           const nomeCurto = nomeUpper.split(" ").slice(0, 2).join(" ");
           const buscaLike = nomeCurto ? `%${nomeCurto}%` : `%${nomeUpper}%`;
           const { data: candidatosLike } = await (supabase as any)
@@ -288,7 +310,9 @@ export default function GestaoFrotasVeiculo() {
           return bAtivo - aAtivo;
         });
 
-        const funcionarioSelecionado = candidatosOrdenados[0];
+        if (!funcionarioSelecionado) {
+          funcionarioSelecionado = candidatosOrdenados[0] || null;
+        }
 
         if (funcionarioSelecionado?.id) {
           const { data: docsCnh } = await (supabase as any)
