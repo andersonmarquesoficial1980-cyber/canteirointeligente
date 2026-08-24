@@ -145,6 +145,7 @@ export default function RelatorioNotasFiscaisConcreto() {
         .from("rdo_diarios")
         .select("id, obra_nome, data, encarregado, empreiteiro, preenchido_por, tipo_rdo")
         .eq("company_id", profile.company_id)
+        .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .gte("data", dataIni)
         .lte("data", dataFim)
         .in("tipo_rdo", ["INFRAESTRUTURA", "INFRA"]);

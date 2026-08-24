@@ -172,6 +172,7 @@ export default function RelatorioControleLancamentos() {
           meter_initial, meter_final, odometer_initial, odometer_final,
           fuel_type, fuel_liters, observations, status, created_at, user_id`)
         .eq("company_id", companyId)
+        .or("status.is.null,status.neq.rascunho")
         .gte("date", dataIni)
         .lte("date", dataFim)
         .order("date", { ascending: true });

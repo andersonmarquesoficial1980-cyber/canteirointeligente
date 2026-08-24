@@ -192,6 +192,7 @@ export default function RelatorioNotasFiscais() {
         .from("rdo_diarios")
         .select("id, obra_nome, ogs_id, local, data, user_id, encarregado, preenchido_por")
         .eq("company_id", profile.company_id)
+        .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .gte("data", dataIni)
         .lte("data", dataFim);
 

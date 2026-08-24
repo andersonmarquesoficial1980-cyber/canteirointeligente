@@ -244,6 +244,7 @@ export default function RelatorioEquipamento() {
       .from("equipment_diaries")
       .select("*")
       .ilike("equipment_fleet", fleetParam)
+      .or("status.is.null,status.neq.rascunho")
       .gte("date", ini)
       .lte("date", fim)
       .order("date", { ascending: false });

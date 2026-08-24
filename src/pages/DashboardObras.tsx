@@ -131,14 +131,17 @@ export default function DashboardObras() {
     ] = await Promise.all([
       (supabase as any).from("rdo_diarios")
         .select("obra_nome, data, clima, tipo_rdo")
+        .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .gte("data", new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0])
         .order("data", { ascending: false }),
       (supabase as any).from("rdo_diarios")
         .select("obra_nome, turno, tipo_rdo, responsavel, clima, data")
+        .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .eq("data", hoje)
         .order("obra_nome"),
       (supabase as any).from("rdo_diarios")
         .select("data")
+        .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .gte("data", sevenDaysAgo)
         .order("data"),
     ]);

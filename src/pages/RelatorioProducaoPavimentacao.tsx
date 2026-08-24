@@ -250,6 +250,7 @@ export default function RelatorioProducaoPavimentacao() {
         .from("rdo_diarios")
         .select("id, obra_nome, ogs_id, local, data, encarregado, preenchido_por")
         .eq("company_id", profile.company_id)
+        .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .eq("tipo_rdo", "CAUQ")
         .gte("data", dataIni)
         .lte("data", dataFim);

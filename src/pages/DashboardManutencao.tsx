@@ -94,7 +94,8 @@ export default function DashboardManutencao() {
       (supabase as any).from("manutencao_documentos").select("equipment_fleet,tipo_documento,data_vencimento")
         .not("data_vencimento", "is", null),
       (supabase as any).from("equipment_diaries").select("equipment_fleet,work_status")
-        .eq("date", new Date().toISOString().split("T")[0]).eq("work_status", "Inoperante"),
+        .eq("date", new Date().toISOString().split("T")[0]).eq("work_status", "Inoperante")
+        .or("status.is.null,status.neq.rascunho"),
     ]);
 
     setOsAbertas(osOpen || []);

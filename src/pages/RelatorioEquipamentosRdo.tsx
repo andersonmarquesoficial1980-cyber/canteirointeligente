@@ -270,6 +270,7 @@ export default function RelatorioEquipamentosRdo() {
             .from("rdo_diarios")
             .select("obra_nome")
             .eq("company_id", profile.company_id!)
+            .or("status_validacao.is.null,status_validacao.neq.rascunho")
             .not("obra_nome", "is", null)
             .order("obra_nome", { ascending: true });
 
@@ -292,6 +293,7 @@ export default function RelatorioEquipamentosRdo() {
             .from("rdo_diarios")
             .select("encarregado")
             .eq("company_id", profile.company_id!)
+            .or("status_validacao.is.null,status_validacao.neq.rascunho")
             .not("encarregado", "is", null)
             .order("encarregado", { ascending: true });
 
@@ -328,7 +330,8 @@ export default function RelatorioEquipamentosRdo() {
       let rdoQuery = supabase
         .from("rdo_diarios")
         .select("id, user_id, data, encarregado, obra_nome, turno, preenchido_por, company_id, responsavel")
-        .eq("company_id", profile.company_id!);
+        .eq("company_id", profile.company_id!)
+        .or("status_validacao.is.null,status_validacao.neq.rascunho");
 
       // Aplicar filtro de obra via RDO
       if (filterType === "obra") {

@@ -65,12 +65,14 @@ export default function DashboardFrota() {
     ] = await Promise.all([
       (supabase as any).from("equipment_diaries")
         .select("equipment_fleet, equipment_type, work_status, operator_name, ogs_number, fuel_liters")
+        .or("status.is.null,status.neq.rascunho")
         .eq("date", hoje).order("equipment_fleet"),
       (supabase as any).from("abastecimentos")
         .select("equipment_fleet, litros, fonte")
         .eq("data", hoje).order("litros", { ascending: false }),
       (supabase as any).from("equipment_diaries")
         .select("equipment_fleet")
+        .or("status.is.null,status.neq.rascunho")
         .gte("date", trinta).eq("work_status", "Trabalhando"),
     ]);
 

@@ -251,9 +251,10 @@ export default function RelatorioProducaoInfra() {
       // 1. RDOs de INFRAESTRUTURA no período
       let rdoQ = (supabase as any)
         .from("rdo_diarios")
-        .select("id, obra_nome, data, encarregado, preenchido_por")
-        .eq("company_id", profile.company_id)
-        .eq("tipo_rdo", "INFRAESTRUTURA")
+        .select("id, obra_nome, ogs_id, local, data, encarregado, preenchido_por")
+                .eq("company_id", profile.company_id)
+                .or("status_validacao.is.null,status_validacao.neq.rascunho")
+                .eq("tipo_rdo", "INFRAESTRUTURA")
         .gte("data", dataIni)
         .lte("data", dataFim);
 

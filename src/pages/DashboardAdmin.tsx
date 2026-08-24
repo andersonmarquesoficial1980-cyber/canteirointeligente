@@ -51,6 +51,7 @@ function BuscaHistorica() {
         let q = supabase.from("equipment_diaries")
           .select("*", { count: "exact" })
           .eq("date", data)
+          .or("status.is.null,status.neq.rascunho")
           .order("equipment_fleet")
           .range(from, to);
         if (frota) q = q.ilike("equipment_fleet", `%${frota}%`);
@@ -61,6 +62,7 @@ function BuscaHistorica() {
         let q = supabase.from("rdo_diarios")
           .select("*", { count: "exact" })
           .eq("data", data)
+          .or("status_validacao.is.null,status_validacao.neq.rascunho")
           .order("created_at", { ascending: false })
           .range(from, to);
         if (ogs) q = q.ilike("obra_nome", `%${ogs}%`);
@@ -197,6 +199,7 @@ function StatusDia() {
       .from("equipment_diaries")
       .select("equipment_fleet, equipment_type, work_status, operator_name, ogs_number, client_name, location_address, period")
       .eq("date", data)
+      .or("status.is.null,status.neq.rascunho")
       .order("equipment_fleet");
     setDiarios(res || []);
     setLoading(false);

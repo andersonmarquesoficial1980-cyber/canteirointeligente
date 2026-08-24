@@ -151,6 +151,7 @@ export default function RelatorioProgramacoes() {
           .from("equipment_diaries")
           .select("ogs_number, date, equipment_fleet, operator_name, work_status")
           .eq("company_id", companyId)
+          .or("status.is.null,status.neq.rascunho")
           .gte("date", dataMinima)
           .lte("date", dataMaxima)
           .in("ogs_number", ogsList as string[]);

@@ -145,9 +145,10 @@ export default function RelatorioFuncionario() {
       try {
         const { data } = await (supabase as any)
           .from("rdo_efetivo")
-          .select("nome, rdo_diarios!inner(company_id)")
+          .select("nome, rdo_diarios!inner(company_id, status_validacao)")
           .eq("funcao", funcao)
           .eq("rdo_diarios.company_id", profile.company_id!)
+          .neq("rdo_diarios.status_validacao", "rascunho")
           .not("nome", "is", null);
         // Split por ||| para não mostrar nomes compostos no dropdown
         const allNomes = (data || []).flatMap((d: any) =>
@@ -176,6 +177,7 @@ export default function RelatorioFuncionario() {
             .from("rdo_diarios")
             .select("obra_nome")
             .eq("company_id", profile.company_id!)
+            .or("status_validacao.is.null,status_validacao.neq.rascunho")
             .not("obra_nome", "is", null)
             .order("obra_nome", { ascending: true });
           const unique = Array.from(new Map((data || []).map((d: any) => [d.obra_nome, d])).values()).map((d: any) => d.obra_nome) as string[];
@@ -185,6 +187,7 @@ export default function RelatorioFuncionario() {
             .from("rdo_diarios")
             .select("encarregado")
             .eq("company_id", profile.company_id!)
+            .or("status_validacao.is.null,status_validacao.neq.rascunho")
             .not("encarregado", "is", null)
             .order("encarregado", { ascending: true });
           const unique = Array.from(new Map((data || []).map((d: any) => [d.encarregado, d])).values()).map((d: any) => d.encarregado) as string[];
@@ -227,8 +230,9 @@ export default function RelatorioFuncionario() {
         // Busca direta em rdo_efetivo com join
         let query = (supabase as any)
           .from("rdo_efetivo")
-          .select("nome, funcao, entrada, saida, rdo_id, rdo_diarios!inner(id, data, obra_nome, encarregado, turno, clima, company_id)")
+          .select("nome, funcao, entrada, saida, rdo_id, rdo_diarios!inner(id, data, obra_nome, encarregado, turno, clima, company_id, status_validacao)")
           .eq("rdo_diarios.company_id", profile.company_id!)
+          .neq("rdo_diarios.status_validacao", "rascunho")
           .eq("funcao", funcao);
 
         if (nome.trim()) query = query.eq("nome", nome.trim());
@@ -274,7 +278,8 @@ export default function RelatorioFuncionario() {
         let rdoQuery = supabase
           .from("rdo_diarios")
           .select("id, data, obra_nome, encarregado, turno, clima, company_id")
-          .eq("company_id", profile.company_id!);
+          .eq("company_id", profile.company_id!)
+          .or("status_validacao.is.null,status_validacao.neq.rascunho");
 
         if (filterType === "obra") rdoQuery = rdoQuery.ilike("obra_nome", `%${obra.trim()}%`);
         if (filterType === "encarregado") rdoQuery = rdoQuery.eq("encarregado", encarregado.trim());

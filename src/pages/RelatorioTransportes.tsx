@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import { toLocalISODate } from "@/lib/date-local";
 
 function fmtDate(d: string) {
   if (!d) return "";
@@ -85,8 +86,9 @@ export default function RelatorioTransportes() {
   const frotaParam = searchParams.get("frota") || "";
   const breadcrumbLabel = `Relatório Transportes · ${frotaParam && frotaParam !== "TODAS" ? frotaParam : "Todas as Carretas"}`;
   const { trail, goTo } = useNavigationTrail({ label: breadcrumbLabel });
-  const today = new Date().toISOString().split("T")[0];
-  const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
+  const today = toLocalISODate();
+  const now = new Date();
+  const firstDay = toLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1));
 
   const [ini, setIni] = useState(searchParams.get("ini") || firstDay);
   const [fim, setFim] = useState(searchParams.get("fim") || today);
@@ -103,6 +105,7 @@ export default function RelatorioTransportes() {
       .from("equipment_diaries")
       .select("*")
       .eq("equipment_type", "Carreta")
+      .or("status.is.null,status.neq.rascunho")
       .gte("date", ini)
       .lte("date", fim)
       .order("date", { ascending: true })

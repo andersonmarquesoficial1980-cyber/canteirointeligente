@@ -1034,6 +1034,7 @@ export default function RelatorioRdo() {
       const { data: rdoData } = await (supabase as any)
         .from("rdo_diarios")
         .select("id,data,tipo_rdo,responsavel,encarregado,preenchido_por,turno,clima,observacoes_gerais")
+        .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .eq("obra_nome", ogs)
         .gte("data", ini)
         .lte("data", fim)
