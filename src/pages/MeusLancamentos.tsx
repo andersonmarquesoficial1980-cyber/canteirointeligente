@@ -371,9 +371,11 @@ export default function MeusLancamentos() {
     const equipamentosPromise = (() => {
       let eqQuery = (supabase as any)
         .from("equipamentos")
-        .select("id, frota, tipo, categoria_rdo")
-        .eq("status", "ativo");
+        .select("id, frota, tipo, categoria_rdo, status");
 
+      // IMPORTANTE: para mapear subtipo corretamente no histórico de Meus Lançamentos,
+      // precisamos considerar TODAS as frotas da empresa (ativo, devolvido, manutenção, etc.),
+      // e não somente status "ativo".
       if (effectiveCompanyId) {
         eqQuery = eqQuery.eq("company_id", effectiveCompanyId);
       }
