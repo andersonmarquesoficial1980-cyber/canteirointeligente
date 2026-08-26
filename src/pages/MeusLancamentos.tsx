@@ -100,6 +100,11 @@ interface LinkedRowsCacheEntry {
   rows: Lancamento[];
 }
 
+interface EquipamentosCacheEntry {
+  at: number;
+  rows: EquipamentoCadastro[];
+}
+
 function fmtDate(value: string | null) {
   if (!value) return "-";
   const [y, m, d] = value.split("-");
@@ -189,6 +194,7 @@ export default function MeusLancamentos() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [accessContext, setAccessContext] = useState<AccessContext | null>(null);
   const linkedRowsCacheRef = useRef<Map<string, LinkedRowsCacheEntry>>(new Map());
+  const equipamentosCacheRef = useRef<Map<string, EquipamentosCacheEntry>>(new Map());
   const [filtrosHidratados, setFiltrosHidratados] = useState(false);
   const [tipoEquipamento, setTipoEquipamento] = useState("todos");
   const [subtipoEquipamento, setSubtipoEquipamento] = useState("todos");
@@ -321,6 +327,7 @@ export default function MeusLancamentos() {
       setCurrentUserId(null);
       setAccessContext(null);
       linkedRowsCacheRef.current.clear();
+      equipamentosCacheRef.current.clear();
       setLancamentos([]);
       setTipos([]);
       setLoading(false);
@@ -434,20 +441,33 @@ export default function MeusLancamentos() {
     const shouldLoadOcorrencias = aba === "ocorrencias";
     stamp(`accessContext.${contextCacheHit ? "hit" : "miss"}`);
 
-    const equipamentosPromise = (() => {
-      let eqQuery = (supabase as any)
-        .from("equipamentos")
-        .select("id, frota, tipo, categoria_rdo, status");
+    const equipamentosCacheKey = effectiveCompanyId || "__all__";
+    const cachedEquipamentos = equipamentosCacheRef.current.get(equipamentosCacheKey);
+    const equipamentosCacheValid =
+      !!cachedEquipamentos && (Date.now() - cachedEquipamentos.at) < 60_000;
 
-      // IMPORTANTE: para mapear subtipo corretamente no histórico de Meus Lançamentos,
-      // precisamos considerar TODAS as frotas da empresa (ativo, devolvido, manutenção, etc.),
-      // e não somente status "ativo".
-      if (effectiveCompanyId) {
-        eqQuery = eqQuery.eq("company_id", effectiveCompanyId);
-      }
+    const equipamentosPromise: Promise<{ data: EquipamentoCadastro[] }> = equipamentosCacheValid
+      ? Promise.resolve({ data: cachedEquipamentos.rows })
+      : (async () => {
+          let eqQuery = (supabase as any)
+            .from("equipamentos")
+            .select("id, frota, tipo, categoria_rdo, status");
 
-      return eqQuery;
-    })();
+          // IMPORTANTE: para mapear subtipo corretamente no histórico de Meus Lançamentos,
+          // precisamos considerar TODAS as frotas da empresa (ativo, devolvido, manutenção, etc.),
+          // e não somente status "ativo".
+          if (effectiveCompanyId) {
+            eqQuery = eqQuery.eq("company_id", effectiveCompanyId);
+          }
+
+          const { data } = await eqQuery;
+          const rows = (data || []) as EquipamentoCadastro[];
+          equipamentosCacheRef.current.set(equipamentosCacheKey, {
+            at: Date.now(),
+            rows,
+          });
+          return { data: rows };
+        })();
 
     const buildEquipBaseQuery = () => {
       let q = (supabase as any)
@@ -648,7 +668,7 @@ export default function MeusLancamentos() {
 
     const { data: equipamentosRows } = await equipamentosPromise;
     const equipamentosAtivos = (equipamentosRows || []) as EquipamentoCadastro[];
-    stamp("equipamentos.metadata");
+    stamp(`equipamentos.metadata.${equipamentosCacheValid ? "hit" : "miss"}`);
 
     const categoriaBySubtipoNorm = new Map<string, string>();
     categorias.forEach((cat) => {
