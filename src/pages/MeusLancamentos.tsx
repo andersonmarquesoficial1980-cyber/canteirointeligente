@@ -195,6 +195,7 @@ export default function MeusLancamentos() {
   const [accessContext, setAccessContext] = useState<AccessContext | null>(null);
   const linkedRowsCacheRef = useRef<Map<string, LinkedRowsCacheEntry>>(new Map());
   const equipamentosCacheRef = useRef<Map<string, EquipamentosCacheEntry>>(new Map());
+  const loadRequestRef = useRef(0);
   const [filtrosHidratados, setFiltrosHidratados] = useState(false);
   const [tipoEquipamento, setTipoEquipamento] = useState("todos");
   const [subtipoEquipamento, setSubtipoEquipamento] = useState("todos");
@@ -306,6 +307,9 @@ export default function MeusLancamentos() {
   };
 
   const carregar = async () => {
+    const requestId = ++loadRequestRef.current;
+    const isStale = () => requestId !== loadRequestRef.current;
+
     const perfEnabled = new URLSearchParams(location.search).get("wfPerf") === "1";
     const perfRunId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
     const t0 = performance.now();
@@ -321,9 +325,11 @@ export default function MeusLancamentos() {
     setLoading(true);
     const { data: authData } = await supabase.auth.getUser();
     stamp("auth.getUser");
+    if (isStale()) return;
     const user = authData.user;
 
     if (!user) {
+      if (isStale()) return;
       setCurrentUserId(null);
       setAccessContext(null);
       linkedRowsCacheRef.current.clear();
@@ -430,11 +436,14 @@ export default function MeusLancamentos() {
         nomesResponsavel,
       };
 
+      if (isStale()) return;
       setAccessContext(ctx);
     }
 
+    if (isStale()) return;
     const { companyId, effectiveCompanyId, isAdminUser, permRdoViewAll, permEquipViewAll, nomesResponsavel } = ctx;
 
+    if (isStale()) return;
     setIsAdmin(isAdminUser || permEquipViewAll || permRdoViewAll);
     const isAdmin = isAdminUser || permEquipViewAll || permRdoViewAll;
     const shouldLoadRdos = aba === "rdos";
@@ -667,6 +676,7 @@ export default function MeusLancamentos() {
     stamp(`equipmentRows.loaded.${isAdmin ? "admin" : "user"}.linkedCache_${linkedCacheStatus}`);
 
     const { data: equipamentosRows } = await equipamentosPromise;
+    if (isStale()) return;
     const equipamentosAtivos = (equipamentosRows || []) as EquipamentoCadastro[];
     stamp(`equipamentos.metadata.${equipamentosCacheValid ? "hit" : "miss"}`);
 
@@ -724,6 +734,7 @@ export default function MeusLancamentos() {
       setSubtipoEquipamento("todos");
     }
 
+    if (isStale()) return;
     const lancamentosEnriquecidos = ((rows || []) as Lancamento[]).map((r) => {
       const subtipo = resolveSubtipoByDiary(r.equipment_fleet, r.equipment_type);
       return {
@@ -741,6 +752,7 @@ export default function MeusLancamentos() {
       return true;
     });
 
+    if (isStale()) return;
     setLancamentos(lancamentosFiltrados);
     stamp("equipamentos.filtered");
 
@@ -794,6 +806,7 @@ export default function MeusLancamentos() {
         // RDO_Admin/Administrador com view_all: vê todos os RDOs da empresa
         const { data: rdoRows } = await buildRdoBaseQuery();
         const rdosComApontador = await enriquecerRdosComApontador(rdoRows || []);
+        if (isStale()) return;
         setRdos(rdosComApontador);
       } else {
         const consultasRdo: Promise<any>[] = [buildRdoBaseQuery().eq("user_id", user.id)];
@@ -819,6 +832,7 @@ export default function MeusLancamentos() {
         });
 
         const rdosComApontador = await enriquecerRdosComApontador(rdoRows);
+        if (isStale()) return;
         setRdos(rdosComApontador);
       }
       stamp("rdos.loaded");
@@ -836,6 +850,7 @@ export default function MeusLancamentos() {
         ocorrQuery = ocorrQuery.eq("created_by", user.id);
       }
       const { data: ocorrRows } = await ocorrQuery;
+      if (isStale()) return;
       setOcorrencias(ocorrRows || []);
       stamp("ocorrencias.loaded");
     }
@@ -843,6 +858,7 @@ export default function MeusLancamentos() {
     // Tipos/Subtipos devem refletir a estrutura atual cadastrada em equipamento_tipos,
     // independente de equipamentos ativos (evita sumir opções após reestruturação).
     const tiposDisponiveis = categorias.map((cat) => ({ value: cat.key, label: cat.label }));
+    if (isStale()) return;
     setTipos(tiposDisponiveis.map((t) => t.value));
 
     const subtiposDaCategoria =
@@ -850,6 +866,7 @@ export default function MeusLancamentos() {
         ? []
         : (categorias.find((cat) => cat.key === tipoEquipamentoAtivo)?.tipos || [])
             .map((t) => t.tipoValor);
+    if (isStale()) return;
     setSubtipos(subtiposDaCategoria);
 
     const frotasFiltradas = equipamentosAtivos
@@ -868,6 +885,7 @@ export default function MeusLancamentos() {
       .filter(Boolean) as string[];
 
     const frotasUnicas = Array.from(new Set(frotasFiltradas));
+    if (isStale()) return;
     setFrotas(frotasUnicas.sort((a: string, b: string) => a.localeCompare(b, "pt-BR")));
     stamp("filtros.opcoes");
     setLoading(false);
