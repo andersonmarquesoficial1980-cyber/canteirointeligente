@@ -3877,7 +3877,7 @@ export default function EquipmentDiaryForm() {
             </button>
             <Button
               onClick={() => handleSave(false)}
-              disabled={saving || !!horimeterError || loadingEditData}
+              disabled={saving || loadingEditData}
               className="w-full font-extrabold text-base py-6 rounded-2xl bg-header-gradient hover:opacity-90 shadow-lg glow-primary"
             >
               <Send className="w-5 h-5 mr-2" />
