@@ -2,7 +2,7 @@
  * BuscaEquipamentos — Busca avançada de diários de equipamentos
  * Filtros: OGS, Data, Tipo de Equipamento, Frota, Motorista/Operador
  * Rota: /relatorios/busca-equipamentos
- * Filtros persistidos na URL para sobreviver ao navigate(-1)
+ * Filtros persistidos na URL para sobreviver ao retorno pelo histórico
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -14,6 +14,7 @@ import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import { addDaysLocalISO, toLocalISODate } from "@/lib/date-local";
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -106,8 +107,8 @@ export default function BuscaEquipamentos() {
   const { categorias } = useEquipamentoTipos();
   const { trail, goTo } = useNavigationTrail({ label: "Busca Equipamentos" });
 
-  const hoje = new Date().toISOString().split("T")[0];
-  const mesAtras = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+  const hoje = toLocalISODate();
+  const mesAtras = addDaysLocalISO(new Date(), -30);
 
   // Filtros lidos da URL — persistem ao voltar
   const ini = searchParams.get("ini") || mesAtras;
