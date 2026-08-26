@@ -264,7 +264,7 @@ export default function MeusLancamentos() {
     navigate(
       `/equipamentos/diario?edit=${item.id}&tipo=${encodeURIComponent(
         item.equipment_type || "",
-      )}&frota=${encodeURIComponent(item.equipment_fleet || "")}`,
+      )}&frota=${encodeURIComponent(item.equipment_fleet || "")}&returnTo=${returnTo}`,
     );
   };
 
@@ -367,6 +367,8 @@ export default function MeusLancamentos() {
 
     setIsAdmin(isAdminUser || permEquipViewAll || permRdoViewAll);
     const isAdmin = isAdminUser || permEquipViewAll || permRdoViewAll;
+    const shouldLoadRdos = aba === "rdos";
+    const shouldLoadOcorrencias = aba === "ocorrencias";
 
     const equipamentosPromise = (() => {
       let eqQuery = (supabase as any)
@@ -693,36 +695,38 @@ export default function MeusLancamentos() {
       }));
     };
 
-    if ((isAdmin && companyId) || (permRdoViewAll && effectiveCompanyId)) {
-      // RDO_Admin/Administrador com view_all: vê todos os RDOs da empresa
-      const { data: rdoRows } = await buildRdoBaseQuery();
-      const rdosComApontador = await enriquecerRdosComApontador(rdoRows || []);
-      setRdos(rdosComApontador);
-    } else {
-      const consultasRdo: Promise<any>[] = [buildRdoBaseQuery().eq("user_id", user.id)];
+    if (shouldLoadRdos) {
+      if ((isAdmin && companyId) || (permRdoViewAll && effectiveCompanyId)) {
+        // RDO_Admin/Administrador com view_all: vê todos os RDOs da empresa
+        const { data: rdoRows } = await buildRdoBaseQuery();
+        const rdosComApontador = await enriquecerRdosComApontador(rdoRows || []);
+        setRdos(rdosComApontador);
+      } else {
+        const consultasRdo: Promise<any>[] = [buildRdoBaseQuery().eq("user_id", user.id)];
 
-      nomesResponsavel.forEach((nome) => {
-        consultasRdo.push(buildRdoBaseQuery().ilike("encarregado", nome));
-        consultasRdo.push(buildRdoBaseQuery().ilike("responsavel", nome));
-      });
-
-      const resultadosRdo = await Promise.all(consultasRdo);
-      const mergedById = new Map<string, any>();
-      resultadosRdo.forEach((res) => {
-        const linhas = res?.data || [];
-        linhas.forEach((row: any) => {
-          if (row?.id && !mergedById.has(row.id)) mergedById.set(row.id, row);
+        nomesResponsavel.forEach((nome) => {
+          consultasRdo.push(buildRdoBaseQuery().ilike("encarregado", nome));
+          consultasRdo.push(buildRdoBaseQuery().ilike("responsavel", nome));
         });
-      });
 
-      const rdoRows = Array.from(mergedById.values()).sort((a: any, b: any) => {
-        const dtA = `${a?.data || ""}|${a?.created_at || ""}`;
-        const dtB = `${b?.data || ""}|${b?.created_at || ""}`;
-        return dtB.localeCompare(dtA);
-      });
+        const resultadosRdo = await Promise.all(consultasRdo);
+        const mergedById = new Map<string, any>();
+        resultadosRdo.forEach((res) => {
+          const linhas = res?.data || [];
+          linhas.forEach((row: any) => {
+            if (row?.id && !mergedById.has(row.id)) mergedById.set(row.id, row);
+          });
+        });
 
-      const rdosComApontador = await enriquecerRdosComApontador(rdoRows);
-      setRdos(rdosComApontador);
+        const rdoRows = Array.from(mergedById.values()).sort((a: any, b: any) => {
+          const dtA = `${a?.data || ""}|${a?.created_at || ""}`;
+          const dtB = `${b?.data || ""}|${b?.created_at || ""}`;
+          return dtB.localeCompare(dtA);
+        });
+
+        const rdosComApontador = await enriquecerRdosComApontador(rdoRows);
+        setRdos(rdosComApontador);
+      }
     }
 
     // Buscar rascunhos de RDO do próprio usuário
@@ -735,18 +739,20 @@ export default function MeusLancamentos() {
       .order("created_at", { ascending: false });
     setRascunhosRdo(rascunhosRdoRows || []);
 
-    // Buscar ocorrências do próprio usuário
-    let ocorrQuery = (supabase as any)
-      .from("equipamentos_ocorrencias")
-      .select("id, frota, titulo, tipo, prioridade, status, created_at, resposta_manutencao, respondido_em, respondido_por")
-      .order("created_at", { ascending: false });
-    if (isAdmin && companyId) {
-      ocorrQuery = ocorrQuery.eq("company_id", companyId);
-    } else {
-      ocorrQuery = ocorrQuery.eq("created_by", user.id);
+    // Buscar ocorrências somente quando aba ativa é ocorrências
+    if (shouldLoadOcorrencias) {
+      let ocorrQuery = (supabase as any)
+        .from("equipamentos_ocorrencias")
+        .select("id, frota, titulo, tipo, prioridade, status, created_at, resposta_manutencao, respondido_em, respondido_por")
+        .order("created_at", { ascending: false });
+      if (isAdmin && companyId) {
+        ocorrQuery = ocorrQuery.eq("company_id", companyId);
+      } else {
+        ocorrQuery = ocorrQuery.eq("created_by", user.id);
+      }
+      const { data: ocorrRows } = await ocorrQuery;
+      setOcorrencias(ocorrRows || []);
     }
-    const { data: ocorrRows } = await ocorrQuery;
-    setOcorrencias(ocorrRows || []);
 
     // Tipos/Subtipos devem refletir a estrutura atual cadastrada em equipamento_tipos,
     // independente de equipamentos ativos (evita sumir opções após reestruturação).
@@ -827,7 +833,7 @@ export default function MeusLancamentos() {
   useEffect(() => {
     if (!filtrosHidratados) return;
     carregar();
-  }, [filtrosHidratados, tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim, categorias]);
+  }, [filtrosHidratados, aba, tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim, categorias]);
 
   const resumo = useMemo(() => {
     return `${lancamentos.length} lançamento${lancamentos.length === 1 ? "" : "s"}`;

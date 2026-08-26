@@ -1187,7 +1187,7 @@ export default function EquipmentDiaryForm() {
             description: err?.message || "Não foi possível carregar os dados para edição.",
             variant: "destructive",
           });
-          navigate("/meus-lancamentos");
+          goBack();
         }
       } finally {
         if (!cancelled) {
@@ -1213,7 +1213,7 @@ export default function EquipmentDiaryForm() {
     isFresadora,
     isUsinaKma,
     fleetFromQuery,
-    navigate,
+    goBack,
     toast,
   ]);
 
@@ -2479,7 +2479,11 @@ export default function EquipmentDiaryForm() {
         } catch {}
       }
 
-      navigate(isEditMode ? "/meus-lancamentos" : "/equipamentos");
+      if (isEditMode) {
+        goBack();
+      } else {
+        navigate("/equipamentos");
+      }
     } catch (err: any) {
       const msg = err?.message || "Erro desconhecido";
       if (msg.includes("row-level security") || msg.includes("policy")) {
