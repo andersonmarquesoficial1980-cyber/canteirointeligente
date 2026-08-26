@@ -1797,7 +1797,7 @@ export default function EquipmentDiaryForm() {
           description: "Conecte-se à internet para editar um lançamento existente.",
           variant: "destructive",
         });
-        return;
+        return cancelSave();
       }
 
       await saveDiaryOffline(
@@ -1839,7 +1839,7 @@ export default function EquipmentDiaryForm() {
         description: "Será sincronizado quando a internet voltar.",
       });
       goBack();
-      return;
+      return cancelSave();
     }
 
     setSaving(true);
