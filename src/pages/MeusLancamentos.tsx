@@ -300,8 +300,21 @@ export default function MeusLancamentos() {
   };
 
   const carregar = async () => {
+    const perfEnabled = new URLSearchParams(location.search).get("wfPerf") === "1";
+    const perfRunId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const t0 = performance.now();
+    let tMark = t0;
+    const perfSteps: Array<{ step: string; ms: number }> = [];
+    const stamp = (step: string) => {
+      if (!perfEnabled) return;
+      const now = performance.now();
+      perfSteps.push({ step, ms: Math.round((now - tMark) * 100) / 100 });
+      tMark = now;
+    };
+
     setLoading(true);
     const { data: authData } = await supabase.auth.getUser();
+    stamp("auth.getUser");
     const user = authData.user;
 
     if (!user) {
@@ -311,10 +324,19 @@ export default function MeusLancamentos() {
       setLancamentos([]);
       setTipos([]);
       setLoading(false);
+      if (perfEnabled) {
+        console.info("[WF PERF] MeusLancamentos.carregar", {
+          runId: perfRunId,
+          totalMs: Math.round((performance.now() - t0) * 100) / 100,
+          user: "anon",
+          steps: perfSteps,
+        });
+      }
       return;
     }
 
     let ctx = accessContext;
+    const contextCacheHit = !!ctx && ctx.userId === user.id;
 
     if (!ctx || ctx.userId !== user.id) {
       // Verificar perfil do usuário — admin vê todos os lançamentos da empresa
@@ -410,6 +432,7 @@ export default function MeusLancamentos() {
     const isAdmin = isAdminUser || permEquipViewAll || permRdoViewAll;
     const shouldLoadRdos = aba === "rdos";
     const shouldLoadOcorrencias = aba === "ocorrencias";
+    stamp(`accessContext.${contextCacheHit ? "hit" : "miss"}`);
 
     const equipamentosPromise = (() => {
       let eqQuery = (supabase as any)
@@ -442,6 +465,7 @@ export default function MeusLancamentos() {
     };
 
     let rows: Lancamento[] = [];
+    let linkedCacheStatus: "n/a" | "hit" | "miss" = "n/a";
 
     if ((isAdmin && companyId) || (permEquipViewAll && effectiveCompanyId)) {
       const { data } = await buildEquipBaseQuery();
@@ -461,6 +485,7 @@ export default function MeusLancamentos() {
 
       const cachedLinkedEntry = linkedRowsCacheRef.current.get(linkedCacheKey);
       const isLinkedCacheValid = !!cachedLinkedEntry && (Date.now() - cachedLinkedEntry.at) < 45_000;
+      linkedCacheStatus = isLinkedCacheValid ? "hit" : "miss";
       let linkedRows: Lancamento[] = isLinkedCacheValid ? cachedLinkedEntry.rows : [];
 
       const ownResult = await ownPromise;
@@ -619,9 +644,11 @@ export default function MeusLancamentos() {
         return dtB.localeCompare(dtA);
       });
     }
+    stamp(`equipmentRows.loaded.${isAdmin ? "admin" : "user"}.linkedCache_${linkedCacheStatus}`);
 
     const { data: equipamentosRows } = await equipamentosPromise;
     const equipamentosAtivos = (equipamentosRows || []) as EquipamentoCadastro[];
+    stamp("equipamentos.metadata");
 
     const categoriaBySubtipoNorm = new Map<string, string>();
     categorias.forEach((cat) => {
@@ -695,6 +722,7 @@ export default function MeusLancamentos() {
     });
 
     setLancamentos(lancamentosFiltrados);
+    stamp("equipamentos.filtered");
 
     // Buscar RDOs
     // Regra: usuário comum vê os próprios RDOs + RDOs em que ele é encarregado/responsável.
@@ -773,6 +801,7 @@ export default function MeusLancamentos() {
         const rdosComApontador = await enriquecerRdosComApontador(rdoRows);
         setRdos(rdosComApontador);
       }
+      stamp("rdos.loaded");
     }
 
     // Buscar ocorrências somente quando aba ativa é ocorrências
@@ -788,6 +817,7 @@ export default function MeusLancamentos() {
       }
       const { data: ocorrRows } = await ocorrQuery;
       setOcorrencias(ocorrRows || []);
+      stamp("ocorrencias.loaded");
     }
 
     // Tipos/Subtipos devem refletir a estrutura atual cadastrada em equipamento_tipos,
@@ -819,7 +849,26 @@ export default function MeusLancamentos() {
 
     const frotasUnicas = Array.from(new Set(frotasFiltradas));
     setFrotas(frotasUnicas.sort((a: string, b: string) => a.localeCompare(b, "pt-BR")));
+    stamp("filtros.opcoes");
     setLoading(false);
+
+    if (perfEnabled) {
+      console.info("[WF PERF] MeusLancamentos.carregar", {
+        runId: perfRunId,
+        totalMs: Math.round((performance.now() - t0) * 100) / 100,
+        aba,
+        contextCacheHit,
+        linkedCacheStatus,
+        filtros: {
+          tipoEquipamento,
+          subtipoEquipamento,
+          frotaSelecionada,
+          dataInicio,
+          dataFim,
+        },
+        steps: perfSteps,
+      });
+    }
   };
 
   // Hidrata filtros salvos por usuário logado (evita herdar filtro de outro usuário)
