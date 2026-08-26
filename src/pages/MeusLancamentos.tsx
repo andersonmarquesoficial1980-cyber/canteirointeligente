@@ -85,6 +85,16 @@ interface KmaOperationDetail {
   total_volume_machined_ton: number | null;
 }
 
+interface AccessContext {
+  userId: string;
+  companyId: string | null;
+  effectiveCompanyId: string | null;
+  isAdminUser: boolean;
+  permRdoViewAll: boolean;
+  permEquipViewAll: boolean;
+  nomesResponsavel: string[];
+}
+
 function fmtDate(value: string | null) {
   if (!value) return "-";
   const [y, m, d] = value.split("-");
@@ -172,6 +182,7 @@ export default function MeusLancamentos() {
   // Filtros persistidos por usuário (evita vazar filtro entre usuários/impersonação)
   const [filtroKey, setFiltroKey] = useState(buildFilterKey(null));
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [accessContext, setAccessContext] = useState<AccessContext | null>(null);
   const [filtrosHidratados, setFiltrosHidratados] = useState(false);
   const [tipoEquipamento, setTipoEquipamento] = useState("todos");
   const [subtipoEquipamento, setSubtipoEquipamento] = useState("todos");
@@ -286,85 +297,105 @@ export default function MeusLancamentos() {
     const user = authData.user;
 
     if (!user) {
+      setCurrentUserId(null);
+      setAccessContext(null);
       setLancamentos([]);
       setTipos([]);
       setLoading(false);
       return;
     }
 
-    // Verificar perfil do usuário — admin vê todos os lançamentos da empresa
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("perfil, role, company_id, nome_completo")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    let ctx = accessContext;
 
-    const isAdminByProfile = (profileData as any)?.perfil === "Administrador" || (profileData as any)?.role === "superadmin";
-    const companyId = (profileData as any)?.company_id;
-
-    // Buscar TODOS os roles do usuário em user_admin_roles (pode ter múltiplos)
-    const { data: roleAssignments } = await (supabase as any)
-      .from("user_admin_roles")
-      .select("role_id, company_id")
-      .eq("user_id", user.id)
-      .eq("is_active", true);
-
-    let permRdoViewAll = false;
-    let permEquipViewAll = false;
-    let roleCompanyId: string | null = null;
-
-    if (roleAssignments && roleAssignments.length > 0) {
-      // Pega o company_id de qualquer assignment (todos devem ser da mesma empresa)
-      roleCompanyId = roleAssignments[0]?.company_id || null;
-
-      // Busca permissões de TODOS os roles do usuário de uma vez
-      const roleIds = roleAssignments.map((r: any) => r.role_id).filter(Boolean);
-      const { data: perms } = await (supabase as any)
-        .from("admin_permissions")
-        .select("resource, action")
-        .in("role_id", roleIds);
-
-      (perms || []).forEach((p: any) => {
-        if ((p.resource === "rdo_diarios" || p.resource === "all") && (p.action === "view_all" || p.action === "manage")) {
-          permRdoViewAll = true;
-        }
-        if ((p.resource === "equipment_diaries" || p.resource === "all") && (p.action === "view_all" || p.action === "manage")) {
-          permEquipViewAll = true;
-        }
-      });
-    }
-
-    const isAdminUser = isAdminByProfile;
-    const effectiveCompanyId = companyId || roleCompanyId;
-    const profileFullName = ((profileData as any)?.nome_completo || "").trim();
-
-    // Nome canônico do encarregado/responsável na base (employees.name), para casar com rdo_diarios.encarregado/responsavel
-    let nomeCanonicoEncarregado: string | null = null;
-    const nameParts = profileFullName
-      .split(/\s+/)
-      .map((p) => p.trim())
-      .filter((p) => p.length > 2);
-
-    if (effectiveCompanyId && nameParts.length >= 2) {
-      const primeiro = nameParts[0];
-      const ultimo = nameParts[nameParts.length - 1];
-      const { data: emp } = await (supabase as any)
-        .from("employees")
-        .select("name")
-        .eq("company_id", effectiveCompanyId)
-        .ilike("name", `%${primeiro}%`)
-        .ilike("name", `%${ultimo}%`)
+    if (!ctx || ctx.userId !== user.id) {
+      // Verificar perfil do usuário — admin vê todos os lançamentos da empresa
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("perfil, role, company_id, nome_completo")
+        .eq("user_id", user.id)
         .maybeSingle();
-      nomeCanonicoEncarregado = (emp?.name || "").trim() || null;
+
+      const isAdminByProfile = (profileData as any)?.perfil === "Administrador" || (profileData as any)?.role === "superadmin";
+      const companyId = (profileData as any)?.company_id;
+
+      // Buscar TODOS os roles do usuário em user_admin_roles (pode ter múltiplos)
+      const { data: roleAssignments } = await (supabase as any)
+        .from("user_admin_roles")
+        .select("role_id, company_id")
+        .eq("user_id", user.id)
+        .eq("is_active", true);
+
+      let permRdoViewAll = false;
+      let permEquipViewAll = false;
+      let roleCompanyId: string | null = null;
+
+      if (roleAssignments && roleAssignments.length > 0) {
+        // Pega o company_id de qualquer assignment (todos devem ser da mesma empresa)
+        roleCompanyId = roleAssignments[0]?.company_id || null;
+
+        // Busca permissões de TODOS os roles do usuário de uma vez
+        const roleIds = roleAssignments.map((r: any) => r.role_id).filter(Boolean);
+        const { data: perms } = await (supabase as any)
+          .from("admin_permissions")
+          .select("resource, action")
+          .in("role_id", roleIds);
+
+        (perms || []).forEach((p: any) => {
+          if ((p.resource === "rdo_diarios" || p.resource === "all") && (p.action === "view_all" || p.action === "manage")) {
+            permRdoViewAll = true;
+          }
+          if ((p.resource === "equipment_diaries" || p.resource === "all") && (p.action === "view_all" || p.action === "manage")) {
+            permEquipViewAll = true;
+          }
+        });
+      }
+
+      const isAdminUser = isAdminByProfile;
+      const effectiveCompanyId = companyId || roleCompanyId;
+      const profileFullName = ((profileData as any)?.nome_completo || "").trim();
+
+      // Nome canônico do encarregado/responsável na base (employees.name), para casar com rdo_diarios.encarregado/responsavel
+      let nomeCanonicoEncarregado: string | null = null;
+      const nameParts = profileFullName
+        .split(/\s+/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 2);
+
+      if (effectiveCompanyId && nameParts.length >= 2) {
+        const primeiro = nameParts[0];
+        const ultimo = nameParts[nameParts.length - 1];
+        const { data: emp } = await (supabase as any)
+          .from("employees")
+          .select("name")
+          .eq("company_id", effectiveCompanyId)
+          .ilike("name", `%${primeiro}%`)
+          .ilike("name", `%${ultimo}%`)
+          .maybeSingle();
+        nomeCanonicoEncarregado = (emp?.name || "").trim() || null;
+      }
+
+      const nomesResponsavel = Array.from(
+        new Set(
+          [profileFullName, nomeCanonicoEncarregado]
+            .map((n) => (n || "").trim())
+            .filter(Boolean),
+        ),
+      );
+
+      ctx = {
+        userId: user.id,
+        companyId,
+        effectiveCompanyId,
+        isAdminUser,
+        permRdoViewAll,
+        permEquipViewAll,
+        nomesResponsavel,
+      };
+
+      setAccessContext(ctx);
     }
 
-    const nomesResponsavel = Array.from(
-      new Set(
-        [profileFullName, nomeCanonicoEncarregado]
-          .map((n) => (n || "").trim())
-          .filter(Boolean),
-      ),
-    );
+    const { companyId, effectiveCompanyId, isAdminUser, permRdoViewAll, permEquipViewAll, nomesResponsavel } = ctx;
 
     setIsAdmin(isAdminUser || permEquipViewAll || permRdoViewAll);
     const isAdmin = isAdminUser || permEquipViewAll || permRdoViewAll;
