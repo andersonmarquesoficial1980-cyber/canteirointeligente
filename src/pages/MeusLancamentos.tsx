@@ -832,7 +832,10 @@ export default function MeusLancamentos() {
 
   useEffect(() => {
     if (!filtrosHidratados) return;
-    carregar();
+    const timer = setTimeout(() => {
+      carregar();
+    }, 220);
+    return () => clearTimeout(timer);
   }, [filtrosHidratados, aba, tipoEquipamento, subtipoEquipamento, frotaSelecionada, dataInicio, dataFim, categorias]);
 
   const resumo = useMemo(() => {
