@@ -171,6 +171,7 @@ export default function MeusLancamentos() {
 
   // Filtros persistidos por usuário (evita vazar filtro entre usuários/impersonação)
   const [filtroKey, setFiltroKey] = useState(buildFilterKey(null));
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [filtrosHidratados, setFiltrosHidratados] = useState(false);
   const [tipoEquipamento, setTipoEquipamento] = useState("todos");
   const [subtipoEquipamento, setSubtipoEquipamento] = useState("todos");
@@ -636,20 +637,6 @@ export default function MeusLancamentos() {
 
     setLancamentos(lancamentosFiltrados);
 
-    // Buscar rascunhos do próprio usuário (sempre pelo user_id, nunca pelo admin)
-    const { data: rascunhosRows } = await (supabase as any)
-      .from("equipment_diaries")
-      .select("*")
-      .eq("status", "rascunho")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    setRascunhos(
-      ((rascunhosRows || []) as Lancamento[]).map((r) => ({
-        ...r,
-        equipment_type: normalizarTipoEquipamento(r.equipment_type),
-      })),
-    );
-
     // Buscar RDOs
     // Regra: usuário comum vê os próprios RDOs + RDOs em que ele é encarregado/responsável.
     // Admin/RDO view_all continua vendo todos da empresa.
@@ -729,16 +716,6 @@ export default function MeusLancamentos() {
       }
     }
 
-    // Buscar rascunhos de RDO do próprio usuário
-    // NOTA: coluna "status" não existe — rascunhos são identificados por status_validacao = 'rascunho'
-    const { data: rascunhosRdoRows } = await (supabase as any)
-      .from("rdo_diarios")
-      .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,status_validacao")
-      .eq("status_validacao", "rascunho")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    setRascunhosRdo(rascunhosRdoRows || []);
-
     // Buscar ocorrências somente quando aba ativa é ocorrências
     if (shouldLoadOcorrencias) {
       let ocorrQuery = (supabase as any)
@@ -793,9 +770,11 @@ export default function MeusLancamentos() {
     (async () => {
       try {
         const { data: authData } = await supabase.auth.getUser();
-        const key = buildFilterKey(authData?.user?.id || null);
+        const userId = authData?.user?.id || null;
+        const key = buildFilterKey(userId);
         if (!ativo) return;
 
+        setCurrentUserId(userId);
         setFiltroKey(key);
         const salvos = restaurarFiltros(key);
         setTipoEquipamento(salvos.tipoEquipamento || "todos");
@@ -812,6 +791,50 @@ export default function MeusLancamentos() {
       ativo = false;
     };
   }, []);
+
+  // Rascunhos independem dos filtros (evita refetch pesado em cada troca de tipo/subtipo/frota/data)
+  useEffect(() => {
+    let ativo = true;
+
+    if (!currentUserId) {
+      setRascunhos([]);
+      setRascunhosRdo([]);
+      return () => {
+        ativo = false;
+      };
+    }
+
+    (async () => {
+      const [rascunhosEqRes, rascunhosRdoRes] = await Promise.all([
+        (supabase as any)
+          .from("equipment_diaries")
+          .select("*")
+          .eq("status", "rascunho")
+          .eq("user_id", currentUserId)
+          .order("created_at", { ascending: false }),
+        (supabase as any)
+          .from("rdo_diarios")
+          .select("id,data,obra_nome,tipo_rdo,responsavel,turno,clima,user_id,status_validacao")
+          .eq("status_validacao", "rascunho")
+          .eq("user_id", currentUserId)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (!ativo) return;
+
+      setRascunhos(
+        ((rascunhosEqRes.data || []) as Lancamento[]).map((r) => ({
+          ...r,
+          equipment_type: normalizarTipoEquipamento(r.equipment_type),
+        })),
+      );
+      setRascunhosRdo(rascunhosRdoRes.data || []);
+    })();
+
+    return () => {
+      ativo = false;
+    };
+  }, [currentUserId]);
 
   // Resetar subtipo e frota ao mudar tipo
   useEffect(() => {
