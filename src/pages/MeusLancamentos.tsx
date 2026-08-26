@@ -322,8 +322,9 @@ export default function MeusLancamentos() {
       tMark = now;
     };
 
-    setLoading(true);
-    const { data: authData } = await supabase.auth.getUser();
+    try {
+      setLoading(true);
+      const { data: authData } = await supabase.auth.getUser();
     stamp("auth.getUser");
     if (isStale()) return;
     const user = authData.user;
@@ -890,22 +891,27 @@ export default function MeusLancamentos() {
     stamp("filtros.opcoes");
     setLoading(false);
 
-    if (perfEnabled) {
-      console.info("[WF PERF] MeusLancamentos.carregar", {
-        runId: perfRunId,
-        totalMs: Math.round((performance.now() - t0) * 100) / 100,
-        aba,
-        contextCacheHit,
-        linkedCacheStatus,
-        filtros: {
-          tipoEquipamento,
-          subtipoEquipamento,
-          frotaSelecionada,
-          dataInicio,
-          dataFim,
-        },
-        steps: perfSteps,
-      });
+      if (perfEnabled) {
+        console.info("[WF PERF] MeusLancamentos.carregar", {
+          runId: perfRunId,
+          totalMs: Math.round((performance.now() - t0) * 100) / 100,
+          aba,
+          contextCacheHit,
+          linkedCacheStatus,
+          filtros: {
+            tipoEquipamento,
+            subtipoEquipamento,
+            frotaSelecionada,
+            dataInicio,
+            dataFim,
+          },
+          steps: perfSteps,
+        });
+      }
+    } catch (error) {
+      if (isStale()) return;
+      console.error("[WF] Erro ao carregar Meus Lançamentos", error);
+      setLoading(false);
     }
   };
 
@@ -935,6 +941,13 @@ export default function MeusLancamentos() {
 
     return () => {
       ativo = false;
+    };
+  }, []);
+
+  // Invalida respostas assíncronas pendentes quando componente desmonta
+  useEffect(() => {
+    return () => {
+      loadRequestRef.current += 1;
     };
   }, []);
 
