@@ -1,0 +1,16 @@
+Assunto: Acesso Workflux — WF Equipamentos
+
+Pessoal, segue o acesso ao módulo WF Equipamentos no Workflux.
+
+Link de acesso:
+https://app.workflux.com.br
+
+Primeiro acesso:
+1) Entrar com usuário e senha inicial
+2) Alterar senha no primeiro login (Perfil > Alterar senha)
+
+Materiais de apoio:
+Tutorial completo: https://apresentacao-sooty-one.vercel.app/wf-equipamentos-tutorial.html
+Resumo executivo: https://apresentacao-sooty-one.vercel.app/wf-equipamentos-resumo-executivo.html
+
+Se tiverem dificuldade no acesso, me chamem.

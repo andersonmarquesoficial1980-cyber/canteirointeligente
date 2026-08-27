@@ -1,0 +1,27 @@
+﻿name,matricula,cpf,status_db,status_sheet,match_method,confidence
+RICARDO FERREIRA DIAS,44,065.747.015-54,ativo,Demitido,cpf,alta
+ROMARIO PEREIRA DE SOUSA,46,017.352.893-70,ativo,Demitido,cpf,alta
+ALESSANDRO SANTOS NASCIMENTO,71,312.522.478-00,ativo,Demitido,cpf,alta
+ANTONIO DOS SANTOS A LIMA,73,276.090.878-07,ativo,Demitido,cpf,alta
+WESLEY PEREIRA ALVES MACHADO,78,405.049.228-82,ativo,Demitido,cpf,alta
+GILSON VIEIRA MANCO,81,018.021.619-88,ativo,Demitido,cpf,alta
+CLAUDIONE DE OLIVEIRA AMORIM,91,425.284.978-06,ativo,Demitido,cpf,alta
+DIEGO SILVA SANTOS,97,457.822.178-47,ativo,Demitido,cpf,alta
+MIQUIAS DA SILVA ALVES,102,936.504.692-00,ativo,Demitido,cpf,alta
+CARLOS NACELIO DE LIMA,111,856.984.153-15,ativo,Demitido,cpf,alta
+WALISSON SILVA DOS SANTOS,117,424.626.568-39,ativo,Demitido,cpf,alta
+OSCAR SILVA OLIVEIRA,129,264.506.508-26,ativo,Demitido,cpf,alta
+CLEITON OLIVEIRA DE JESUS,138,389.918.908-65,ativo,Demitido,cpf,alta
+JAELESON MAURICIO VIEIRA,142,059.149.425-60,ativo,Demitido,matricula+nome,media
+RODRIGO TADEU PIMENTA,151,197.657.228-26,ativo,Demitido,cpf,alta
+BRUNO MANOEL F DOS SANTOS,152,214.215.338-04,ativo,Demitido,cpf,alta
+JOSE SATURNINO DA SILVA,154,084.836.784-70,ativo,Demitido,cpf,alta
+CICERO RODRIGO GOMES SABINO,164,464.445.438-94,ativo,Demitido,cpf,alta
+MAXWELL ALVES NUNES,168,488.213.798-41,ativo,Demitido,cpf,alta
+GERALDO JOSE DOS SANTOS,177,484.931.308-69,ativo,Demitido,matricula+nome,media
+DARLON ANTONIO ALMEIDA GOMES,182,093.221.077-58,ativo,Demitido,cpf,alta
+THIAGO DOS R DA S SANT ANA,196,345.681.138-14,ativo,Demitido,cpf,alta
+LUCAS MUNIZ DOS SANTOS,197,438.269.998-35,ativo,Demitido,cpf,alta
+CLAUDEMIRO BIRAGA DOS SANTOS,200,806.031.065-87,ativo,Demitido,cpf,alta
+CAIO CESAR OLIVEIRA,4,416.378.628-73,ativo,Demitido,cpf,alta
+ARNALDO ALVES DA SILVA,5,112.422.894-29,ativo,Demitido,cpf,alta

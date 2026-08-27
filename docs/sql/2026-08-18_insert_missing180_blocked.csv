@@ -1,0 +1,3 @@
+﻿name,matricula,cpf,rg,status,role,funcao_id,data_admissao,data_demissao,centro_custo,centro_custo_codigo,centro_custo_descricao,block_reason
+EDUARDO PEREIRA DA S JUNIOR,1655,344.495.678-97,35243181,ativo,ASSISTENTE ADMINISTRATIVO,64c2d46e-46d0-46e7-91b6-8a889bbd6e72,2025-04-09,,TRANSPORTE E LOGÍSTICA,312,TRANSPORTE E LOGÍSTICA,name_ja_existe
+EDJA DOS SANTOS LOPES,145,324.407.398-04,469394092,demitido,ANALISTA DE RH,,2026-04-01,2026-06-01,GRU - AIRPORT,2529,GRU - AIRPORT,nome_duplicado_no_lote

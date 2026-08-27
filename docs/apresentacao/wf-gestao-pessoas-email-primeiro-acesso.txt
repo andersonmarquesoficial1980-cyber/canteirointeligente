@@ -1,0 +1,33 @@
+Assunto: Acesso Workflux — WF Gestão de Pessoas
+
+Pessoal, segue acesso ao Workflux (módulo WF Gestão de Pessoas).
+
+Link de acesso:
+https://app.workflux.com.br
+
+Usuários:
+eliane.martins
+tatiane.eloi
+mariana.galdino
+aila.rodrigues
+beatriz.santos
+gabrielly.sobral
+edja.lopes
+mainara.sanches
+
+Senha inicial (todos):
+fremix
+
+Primeiro acesso:
+1) Entrar no link com usuário + senha inicial
+2) Alterar senha no primeiro login (Perfil > Alterar senha)
+
+Tutorial ilustrado WF Gestão de Pessoas:
+https://apresentacao-sooty-one.vercel.app/wf-gestao-pessoas-tutorial.html
+
+O tutorial já inclui:
+- Ficha do funcionário (cadastro)
+- Anexo de documentos
+- Histórico/Prontuário de ocorrências individuais
+
+Se tiverem dificuldade de acesso, me chamem.

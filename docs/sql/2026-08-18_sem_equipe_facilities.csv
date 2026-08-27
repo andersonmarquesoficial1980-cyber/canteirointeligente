@@ -1,0 +1,11 @@
+﻿employee_id,name,matricula,status,role,origem,centro_custo_codigo,centro_custo_descricao,sugestao_equipe,confianca,criterio
+1cee03e3-cc0c-45ad-98aa-bedbda40ab18,DIVA MARIA DOS SANTOS CAMILLO,815,ferias,COZINHEIRA,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+e916e9ef-d3f9-4b51-be4e-b4a012dc1db7,GUILHERME ARTUR F FERREIRA,1700,ativo,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+4fdcc211-0202-488d-94dc-d59988e65c33,ISABELLA SILVA SANTOS,1697,ativo,RECEPCIONISTA,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+51fcfcff-f7d3-4861-b6ed-85c2a1685cfd,ISMAEL LIMA XAVIER,1642,ativo,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+84676db4-d34d-4587-a0bc-f4510ed92812,JEANE MARTINS DE LIMA,828,ativo,AUXILIAR DE LIMPEZA,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+0460a716-42ec-4ce2-a9d0-591187bd40f4,JOEL ALVES DE LUCENA,495,ativo,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+5f894f43-82ad-44c6-8824-a53a32f2f599,MARIA MARLENE DA SILVA,54,ativo,AUXILIAR DE LIMPEZA,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+7cc8a6af-cf80-4c6d-aac8-e7e1beb1e0cf,WELITON DE AGUIAR WANDERLEY,988,ferias,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+c77e5949-e6d6-4d5a-ba6b-637fc7e46e01,WELLINGTON DE FRANÇA,1526,ferias,AJUDANTE GERAL,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+e016f016-d1ff-4fbd-a8e9-52a47b075837,WILLIAM ROSA DA SILVA,1698,ativo,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao

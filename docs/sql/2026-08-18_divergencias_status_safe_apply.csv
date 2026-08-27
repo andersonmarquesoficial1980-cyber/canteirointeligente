@@ -1,0 +1,14 @@
+﻿employee_id,name_db,matricula_db,cpf_db,status_db,status_planilha,status_planilha_norm,match_method,confidence
+3839cfbe-4a70-411e-adef-ead5a302f94d,GERALDO ALVES PEREIRA,001047,055.993.638-99,afastado,Ativo,ativo,cpf,alta
+0ff3215c-2a75-4d30-b88b-40ec25a668a4,BATISTA NETO DA S BASTOS,1136,395.073.628-00,ativo,Demitido,demitido,cpf,alta
+7ad47aad-717a-4fca-9119-3b58facf577a,DOUGLAS ALVES DE OLIVEIRA,1737,070.645.813-37,afastado,Ativo,ativo,cpf,alta
+855589d5-5757-473b-9cd0-90226796c8aa,ANAILSON GIL SOUTO CARVALHO,1488,968.061.686-04,ativo,Afastado,afastado,cpf,alta
+13408e90-56f6-45e1-977a-4414ba4e25d9,ANDRE DE CARVALHO LEITE,1630,310.759.508-05,ferias,Ativo,ativo,cpf,alta
+3ecf8a9f-ecb9-4f88-b639-98de3af10cac,EMERSON CARLOS DO NASCIMENTO,001634,358.026.468-02,afastado,Ativo,ativo,cpf,alta
+cf2f1452-8f65-4868-9514-e15aa2ef10fb,ALAN CARLOS DA COSTA,1652,050.449.666-22,ativo,Demitido,demitido,cpf,alta
+6c42b6ed-89f1-4671-9842-b8969e8cb297,JOHNI CESAR G DE OLIVEIRA,1704,095.104.996-84,ativo,Demitido,demitido,cpf,alta
+26dec74b-9196-49e9-ab36-e83ad1b33b8f,EURISMAR ALVES DE MOURA,1709,299.335.648-89,afastado,Ativo,ativo,cpf,alta
+c4b9369f-e151-427d-a004-65003c9657e6,ALEX SILVA DOS SANTOS,1460,083.035.905-29,afastado,Ativo,ativo,cpf,alta
+0463eac9-a1f2-43d1-ac0f-9861ebfda04d,GOUBHERTO T DE SOUZA MARTINS,37,002.252.265-45,ativo,Demitido,demitido,cpf,alta
+21291485-b163-4ee0-887d-ed2574eece1c,LILIANE SILVA ROCHA DA CRUZ,47,321.447.128-75,ativo,Demitido,demitido,cpf,alta
+baa14dff-7312-4aca-93c0-961592316e6c,FERNANDO HONORIO DE MELO,158,034.231.854-30,ativo,Demitido,demitido,cpf,alta

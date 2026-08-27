@@ -1,0 +1,32 @@
+data,odo_inicial,odo_final,status,apontamento
+2026-07-01,55759,55761,Trabalhando,07:00-17:00 Trabalhando
+2026-07-02,55761,55763,Trabalhando,07:00-17:00 Trabalhando
+2026-07-03,55763,55765,Trabalhando,07:00-17:00 Trabalhando
+2026-07-04,55765,55767,Trabalhando,07:00-17:00 Trabalhando
+2026-07-05,55767,55769,Trabalhando,07:00-17:00 Trabalhando
+2026-07-06,55769,55784,Trabalhando,06:30-11:30 Check e Preparação | 11:30-15:10 À Disposição | 15:10-15:47 Transporte | 15:47-17:00 À Disposição | 17:00-17:42 Trabalhando | 17:42-18:20 Transporte
+2026-07-07,55784,55808,Trabalhando,14:30-14:47 Transporte | 14:47-15:50 À Disposição | 15:50-18:05 Transporte
+2026-07-08,55808,55808,Trabalhando,07:00-17:00 Trabalhando
+2026-07-09,55802,55820,Trabalhando,07:51-08:10 Transporte | 08:10-09:40 À Disposição | 09:40-10:00 Transporte | 10:00-15:42 À Disposição | 15:42-16:00 À Disposição
+2026-07-10,55820,55822,Trabalhando,07:00-17:00 Trabalhando
+2026-07-11,55822,55824,Trabalhando,07:00-17:00 Trabalhando
+2026-07-12,55824,55826,Trabalhando,07:00-17:00 Trabalhando
+2026-07-13,55826,55828,Trabalhando,07:00-17:00 Trabalhando
+2026-07-14,55828,55831,Trabalhando,07:00-17:00 Trabalhando
+2026-07-15,55831,55834,Trabalhando,07:00-17:00 Trabalhando
+2026-07-16,55834,55882,Trabalhando,06:42-07:10 Transporte | 07:10-11:00 À Disposição | 11:00-11:38 Transporte | 11:38-16:51 Trabalhando | 16:51-17:10 Transporte
+2026-07-17,55882,55913,Trabalhando,06:30-06:58 Check e Preparação | 06:58-07:18 Transporte | 07:18-11:32 À Disposição | 11:32-17:30 Trabalhando | 17:30-17:41 Transporte
+2026-07-18,55913,55919,Trabalhando,07:00-17:00 Trabalhando
+2026-07-19,55919,55925,Trabalhando,07:00-17:00 Trabalhando
+2026-07-20,55925,55931,Trabalhando,07:00-17:00 Trabalhando
+2026-07-21,55931,55937,Trabalhando,07:00-17:00 Trabalhando
+2026-07-22,55937,55943,Trabalhando,07:00-17:00 Trabalhando
+2026-07-23,55943,55949,Trabalhando,07:00-17:00 Trabalhando
+2026-07-24,55949,55955,Trabalhando,07:00-17:00 Trabalhando
+2026-07-25,55955,55960,Trabalhando,07:00-17:00 Trabalhando
+2026-07-26,55960,55965,Trabalhando,07:00-17:00 Trabalhando
+2026-07-27,55965,55991,Trabalhando,06:00-09:56 Check e Preparação | 09:56-10:20 Transporte | 10:20-21:16 Trabalhando | 21:16-21:38 Transporte
+2026-07-28,55991,55995,Trabalhando,07:00-17:00 Trabalhando
+2026-07-29,55995,55999,Trabalhando,07:00-17:00 Trabalhando
+2026-07-30,55999,56004,Trabalhando,07:00-17:00 Trabalhando
+2026-07-31,56004,56030,Trabalhando,06:00-08:49 Check e Preparação | 08:49-09:49 Transporte | 09:49-10:30 À Disposição | 10:30-22:00 Trabalhando | 22:00-22:37 Transporte

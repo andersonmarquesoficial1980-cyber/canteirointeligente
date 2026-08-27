@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WF Equipamentos — Tutorial Ilustrado</title>
+  <style>
+    :root {
+      --bg:#f3f6fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#dbe3ef;
+      --wf:#0055aa; --wf-dark:#0a1f44; --ok:#0f766e; --warn:#9a3412;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+    .hero{background:linear-gradient(135deg,var(--wf-dark),var(--wf));color:#fff;padding:36px 20px}
+    .container{max-width:1180px;margin:0 auto}
+    h1{margin:0 0 8px;font-size:30px}
+    h2{font-size:24px;margin:0 0 10px;color:#0b2f5c}
+    h3{font-size:18px;margin:0 0 8px;color:#0b3b72}
+    p{margin:8px 0;color:var(--muted)}
+    .hero p{color:rgba(255,255,255,.92)}
+
+    .layout{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:18px}
+    .toc{position:sticky;top:10px;align-self:start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;max-height:92vh;overflow:auto}
+    .toc a{display:block;text-decoration:none;color:#1e3a5f;font-size:14px;padding:6px 8px;border-radius:8px}
+    .toc a:hover{background:#eff6ff}
+
+    .section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+    .row{display:grid;grid-template-columns:1.05fr .95fr;gap:12px;align-items:start}
+    .row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .shot{width:100%;border:1px solid #c7d2e4;border-radius:12px;display:block;background:#fff}
+    .box{border:1px solid var(--line);border-radius:10px;padding:10px;background:#f8fbff}
+
+    .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:4px}
+    .tag.ok{background:#ccfbf1;color:var(--ok)}
+    .tag.warn{background:#ffedd5;color:var(--warn)}
+
+    ul{margin:8px 0 0 16px;padding:0}
+    li{margin:5px 0;color:#334155}
+    .checklist li{list-style:'✅  '}
+    .alert li{list-style:'⚠️  '}
+
+    .crop{border:1px solid #c7d2e4;border-radius:12px;overflow:hidden;background:#fff}
+    .crop img{width:100%;height:100%;object-fit:cover;display:block}
+    .crop.reportar{height:270px}
+    .crop.reportar img{object-position:center 88%}
+
+    @media (max-width:980px){
+      .layout{grid-template-columns:1fr}
+      .toc{position:static;max-height:none}
+      .row,.row-2{grid-template-columns:1fr}
+      .crop.reportar{height:220px}
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>WF Equipamentos — Tutorial Ilustrado</h1>
+      <p>Apresentação operacional para cliente: visão clara de lançamento, acompanhamento e consulta dos diários.</p>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <aside class="toc">
+      <h3>Índice</h3>
+      <a href="#visao">1) Visão geral do fluxo</a>
+      <a href="#selecao">2) Seleção do equipamento</a>
+      <a href="#informacoes">3) Informações gerais</a>
+      <a href="#checklist">4) Checklist pré-operação</a>
+      <a href="#status-horas">5) Status e apontamento de horas</a>
+      <a href="#fresadora">6) Bloco técnico da fresadora</a>
+      <a href="#abastecimento">7) Abastecimento e medidor final</a>
+      <a href="#fotos">8) Relatório fotográfico</a>
+      <a href="#problema">9) Reportar problema no equipamento</a>
+      <a href="#fechamento">10) Fechamento do diário</a>
+      <a href="#meus-lancamentos">11) Meus Lançamentos (após envio)</a>
+      <a href="#detalhes-modal">12) Detalhes rápidos do lançamento</a>
+      <a href="#diario-final">13) Como o diário fica pronto</a>
+      <a href="#relatorios">14) Consulta histórica em WF Relatórios</a>
+    </aside>
+
+    <div>
+      <section id="visao" class="section">
+        <h2>1) Visão geral do fluxo</h2>
+        <span class="tag ok">Fluxo único para todos os equipamentos</span>
+        <p>O WF Equipamentos padroniza a rotina diária em 5 etapas:</p>
+        <ul class="checklist">
+          <li>Escolher o equipamento.</li>
+          <li>Preencher dados gerais do turno.</li>
+          <li>Executar checklist pré-operação.</li>
+          <li>Lançar horas, abastecimento e evidências.</li>
+          <li>Enviar diário ou salvar rascunho.</li>
+        </ul>
+        <ul class="alert">
+          <li>O <strong>Checklist Pré-Operação</strong> se aplica para todos os equipamentos do módulo.</li>
+        </ul>
+      </section>
+
+      <section id="selecao" class="section">
+        <h2>2) Seleção do equipamento</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-equipamentos-01-selecao-equipamento.png" alt="Tela de seleção do equipamento" /></div>
+          <div class="box">
+            <h3>Entrada simples para o operador</h3>
+            <ul class="checklist">
+              <li>Seleciona a categoria usada no turno.</li>
+              <li>O formulário abre já no contexto correto da operação.</li>
+              <li>Atende toda a frota da obra no mesmo padrão.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="informacoes" class="section">
+        <h2>3) Informações gerais</h2>
+        <div class="row">
+          <div class="row-2">
+            <img class="shot" src="./assets/wf-equipamentos-06-caminhoes-informacoes-gerais.png" alt="Informações gerais de caminhões" />
+            <img class="shot" src="./assets/wf-equipamentos-10-rolo-informacoes-gerais.png" alt="Informações gerais de rolo" />
+          </div>
+          <div class="box">
+            <h3>Sequência recomendada</h3>
+            <ul class="checklist">
+              <li>Escolher tipo específico (quando houver).</li>
+              <li>Selecionar frota e data.</li>
+              <li>Selecionar operador/motorista.</li>
+              <li>Selecionar OGS e validar local.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="checklist" class="section">
+        <h2>4) Checklist pré-operação</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-equipamentos-07-checklist-pre-operacao.png" alt="Checklist pré-operação" /></div>
+          <div class="box">
+            <h3>Regra operacional</h3>
+            <ul class="checklist">
+              <li>Responder item a item: C, NC ou NA.</li>
+              <li>Se for NC, registrar não conformidade.</li>
+              <li>Enviar checklist antes de concluir o diário.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="status-horas" class="section">
+        <h2>5) Status e apontamento de horas</h2>
+        <div class="row">
+          <div class="row-2">
+            <img class="shot" src="./assets/wf-equipamentos-11-rolo-periodo-status-horas.png" alt="Período e status operacional" />
+            <img class="shot" src="./assets/wf-equipamentos-03-status-apontamento.png" alt="Apontamento de horas" />
+          </div>
+          <div class="box">
+            <h3>Controle do turno</h3>
+            <ul class="checklist">
+              <li>Definir período: diurno ou noturno.</li>
+              <li>Selecionar status operacional.</li>
+              <li>Lançar início/fim por atividade.</li>
+              <li>Conferir total de horas na própria tela.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="fresadora" class="section">
+        <h2>6) Bloco técnico da fresadora</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-equipamentos-04-producao-bits-abastecimento.png" alt="Produção da fresadora e gestão de bits" /></div>
+          <div class="box">
+            <h3>Diferencial para medição</h3>
+            <ul class="checklist">
+              <li>Áreas com cálculo automático de M² e M³.</li>
+              <li>Troca de bits no mesmo fluxo.</li>
+              <li>Resumo do desempenho do turno.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="abastecimento" class="section">
+        <h2>7) Abastecimento e medidor final</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-equipamentos-12-rolo-abastecimento-fotos.png" alt="Abastecimento e horímetro final" /></div>
+          <div class="box">
+            <h3>Conferência obrigatória</h3>
+            <ul class="checklist">
+              <li>Informar combustível e litros.</li>
+              <li>Preencher horímetro/odômetro final.</li>
+              <li>Validar coerência com o turno lançado.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="fotos" class="section">
+        <h2>8) Relatório fotográfico</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-equipamentos-05-fotos-observacoes-envio.png" alt="Relatório fotográfico e observações" /></div>
+          <div class="box">
+            <h3>Evidência do estado do equipamento</h3>
+            <ul class="checklist">
+              <li>Até 4 fotos padrão: frente, lados e traseira.</li>
+              <li>Observações curtas com contexto do turno.</li>
+              <li>Histórico visual já fica no diário.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="problema" class="section">
+        <h2>9) Reportar problema no equipamento</h2>
+        <div class="row">
+          <div class="crop reportar">
+            <img src="./assets/wf-equipamentos-09-caminhoes-abastecimento-fotos.png" alt="Ação reportar problema no equipamento" />
+          </div>
+          <div class="box">
+            <h3>Ação rápida de incidente</h3>
+            <ul class="checklist">
+              <li>Botão dedicado para abrir ocorrência na hora.</li>
+              <li>Registro com prioridade e descrição objetiva.</li>
+              <li>Reduz perda de informação entre campo e manutenção.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="fechamento" class="section">
+        <h2>10) Fechamento do diário</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-equipamentos-08-caminhoes-periodo-status-horas.png" alt="Fluxo final do diário" /></div>
+          <div class="box">
+            <h3>Saída operacional</h3>
+            <ul class="checklist">
+              <li><strong>Enviar Diário</strong> quando completo.</li>
+              <li><strong>Salvar Rascunho</strong> quando faltar informação.</li>
+              <li>Consulta posterior em Meus Lançamentos.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="meus-lancamentos" class="section">
+        <h2>11) Meus Lançamentos (após envio)</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-equipamentos-13-meus-lancamentos-lista.png" alt="Tela Meus Lançamentos com filtros e cards" /></div>
+          <div class="box">
+            <h3>Painel de acompanhamento diário</h3>
+            <ul class="checklist">
+              <li>Lista todos os diários por equipamento, com status e turno.</li>
+              <li>Filtros rápidos por tipo, subtipo, frota e período.</li>
+              <li>Ações diretas de visualizar, editar e excluir lançamento.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="detalhes-modal" class="section">
+        <h2>12) Detalhes rápidos do lançamento</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-equipamentos-14-meus-lancamentos-modal-detalhes.png" alt="Modal detalhes do lançamento" /></div>
+          <div class="box">
+            <h3>Consulta imediata sem sair da lista</h3>
+            <ul class="checklist">
+              <li>Abre resumo completo: frota, operador, OGS, local e status.</li>
+              <li>Mostra apontamento de horas e abastecimento no mesmo modal.</li>
+              <li>Permite ir direto para edição quando necessário.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="diario-final" class="section">
+        <h2>13) Como o diário fica pronto</h2>
+        <div class="row">
+          <div class="row-2">
+            <img class="shot" src="./assets/wf-equipamentos-15-detalhe-diario-fresadora.png" alt="Detalhe completo do diário de fresadora" />
+            <img class="shot" src="./assets/wf-equipamentos-18-detalhe-diario-bobcat.png" alt="Detalhe completo do diário de bobcat" />
+          </div>
+          <div class="box">
+            <h3>Resultado final para gestão</h3>
+            <ul class="checklist">
+              <li>Diário consolidado com cabeçalho operacional completo.</li>
+              <li>Horas lançadas por atividade, com origem/destino quando houver transporte.</li>
+              <li>Blocos específicos por equipamento (ex.: produção e bits da fresadora).</li>
+              <li>Abastecimento e dados-chave prontos para auditoria e tomada de decisão.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="relatorios" class="section">
+        <h2>14) Consulta histórica em WF Relatórios</h2>
+        <div class="row">
+          <div class="row-2">
+            <img class="shot" src="./assets/wf-equipamentos-16-relatorios-tipos.png" alt="WF Relatórios por tipo de equipamento" />
+            <img class="shot" src="./assets/wf-equipamentos-17-relatorios-frotas-fresadora.png" alt="WF Relatórios por frota" />
+          </div>
+          <div class="box">
+            <h3>Do operacional ao gerencial</h3>
+            <ul class="checklist">
+              <li>Navegação por tipo de equipamento e frota.</li>
+              <li>Acesso rápido ao histórico de diários lançados.</li>
+              <li>Base pronta para exportação e análises gerenciais.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WF Gestão de Pessoas — Tutorial Ilustrado</title>
+  <style>
+    :root {
+      --bg:#f3f6fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#dbe3ef;
+      --wf:#0055aa; --wf-dark:#0a1f44; --op:#0f766e; --admin:#64748b; --warn:#9a3412;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+    .hero{background:linear-gradient(135deg,var(--wf-dark),var(--wf));color:#fff;padding:36px 20px}
+    .container{max-width:1180px;margin:0 auto}
+    h1{margin:0 0 8px;font-size:30px} h2{font-size:24px;margin:0 0 10px;color:#0b2f5c} h3{font-size:18px;margin:0 0 8px;color:#0b3b72}
+    p{margin:8px 0;color:var(--muted)} .hero p{color:rgba(255,255,255,.92)}
+
+    .layout{display:grid;grid-template-columns:280px 1fr;gap:18px;padding:18px}
+    .toc{position:sticky;top:10px;align-self:start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+    .toc a{display:block;text-decoration:none;color:#1e3a5f;font-size:14px;padding:6px 8px;border-radius:8px}
+    .toc a:hover{background:#eff6ff}
+
+    .section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+    .row{display:grid;grid-template-columns:1.05fr .95fr;gap:12px;align-items:start}
+    .shot{width:100%;border:1px solid #c7d2e4;border-radius:12px;display:block;background:#fff}
+    .box{border:1px solid var(--line);border-radius:10px;padding:10px;background:#f8fbff}
+
+    .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:4px}
+    .tag.op{background:#ccfbf1;color:var(--op)}
+    .tag.admin{background:#e2e8f0;color:var(--admin)}
+    .tag.warn{background:#ffedd5;color:var(--warn)}
+
+    ul{margin:8px 0 0 16px;padding:0} li{margin:5px 0;color:#334155}
+    .checklist li{list-style:'✅  '}
+    .alert li{list-style:'⚠️  '}
+    .muted{color:#64748b;font-size:13px}
+
+    @media (max-width:980px){
+      .layout{grid-template-columns:1fr}
+      .toc{position:static}
+      .row{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>WF Gestão de Pessoas — Tutorial Ilustrado</h1>
+      <p>Material visual no mesmo padrão do tutorial de Frotas/Manutenção, com fluxo operacional direto por tela.</p>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <aside class="toc">
+      <h3>Índice</h3>
+      <a href="#escopo">1) Escopo da apresentação</a>
+      <a href="#menu">2) Menu do módulo</a>
+      <a href="#funcionarios">3) Cadastro de Funcionários</a>
+      <a href="#ficha">4) Ficha (Dados Cadastrais)</a>
+      <a href="#ficha-documentos">5) Ficha: Anexo de Documentos</a>
+      <a href="#ficha-historico">6) Ficha: Histórico individual</a>
+      <a href="#candidatos">7) Banco de Candidatos</a>
+      <a href="#candidato-detalhe">8) Processo Seletivo (detalhe)</a>
+      <a href="#ferias">9) Programação de Férias</a>
+      <a href="#whatsapp">10) WhatsApp RH</a>
+      <a href="#vt-menu">11) Gerenciamento de VT</a>
+      <a href="#vt-trajeto">12) Trajeto e VT (cálculo)</a>
+      <a href="#vt-custo">13) Itinerário e custo mensal</a>
+      <a href="#integracoes">14) Integrações por Obra (SST)</a>
+      <a href="#integrados">15) Integrados por obra (lista)</a>
+      <a href="#checklist">16) Checklist diário</a>
+    </aside>
+
+    <div>
+      <section id="escopo" class="section">
+        <h2>1) Escopo da apresentação</h2>
+        <span class="tag op">Usuário operacional</span>
+        <span class="tag admin">RH / liderança</span>
+        <p>Este tutorial cobre os fluxos principais do WF Gestão de Pessoas: cadastro de funcionários, candidatos, férias, atendimento via WhatsApp RH, vale-transporte e leitura de integrações SST por obra.</p>
+        <ul class="alert">
+          <li>Tela de <strong>Integrações por Obra</strong> é somente leitura no RH (manutenção pelo WF Segurança do Trabalho).</li>
+        </ul>
+      </section>
+
+      <section id="menu" class="section">
+        <h2>2) Menu do módulo</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-01-menu-rh.png" alt="Menu do WF Gestão de Pessoas" /></div>
+          <div class="box">
+            <h3>Como navegar</h3>
+            <ul class="checklist">
+              <li>Cadastros e RH: Funcionários, Banco de Candidatos, Férias e WhatsApp RH.</li>
+              <li>Jornadas e Benefícios: Ponto e VT.</li>
+              <li>Integrações por Obra: visão de status SST por OGS.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="funcionarios" class="section">
+        <h2>3) Cadastro de Funcionários</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-02-cadastro-funcionarios.png" alt="Lista de funcionários com filtros e ações" /></div>
+          <div class="box">
+            <h3>Leitura rápida da tela</h3>
+            <ul class="checklist">
+              <li>Resumo no topo: Total, Equipes, Funções e Centros de Custo.</li>
+              <li>Abas de filtro: Todos, Por Função, Por Equipe, Responsável, Centro de Custo, Aniversariantes.</li>
+              <li>Busca por nome, matrícula, função ou equipe.</li>
+              <li>Ação por colaborador: ajustar equipe/status e <strong>Programar férias</strong>.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="ficha" class="section">
+        <h2>4) Ficha (Dados Cadastrais)</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-03-dados-cadastrais.png" alt="Ficha de dados cadastrais do funcionário" /></div>
+          <div class="box">
+            <h3>Pontos críticos da conferência</h3>
+            <ul class="checklist">
+              <li>Validar Nome, Matrícula, Centro de Custo e Equipe.</li>
+              <li>Conferir Função vigente e Data de Admissão.</li>
+              <li>Completar campos pendentes (Responsável, Nascimento, Salário) quando necessário.</li>
+              <li>Usar botão <strong>Editar</strong> para atualizar cadastro.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="ficha-documentos" class="section">
+        <h2>5) Ficha: Anexo de Documentos</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-13-ficha-documentos.png" alt="Aba documentos da ficha do funcionário" /></div>
+          <div class="box">
+            <h3>Controle documental individual</h3>
+            <ul class="checklist">
+              <li>Acessar aba <strong>Documentos</strong> dentro da ficha do funcionário.</li>
+              <li>Usar botão <strong>Adicionar</strong> para anexar CNH, ASO, CTPS e certificados.</li>
+              <li>Conferir contador de documentos por colaborador para evitar pendências ocultas.</li>
+              <li>Padronizar nomes/descrições dos anexos para facilitar auditoria e busca.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="ficha-historico" class="section">
+        <h2>6) Ficha: Histórico individual (ocorrências)</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-14-ficha-historico.png" alt="Aba histórico prontuário com eventos individuais" /></div>
+          <div class="box">
+            <h3>Prontuário por colaborador</h3>
+            <ul class="checklist">
+              <li>Registrar no <strong>Histórico/Prontuário</strong> ocorrências como advertência, férias e mudança de equipe.</li>
+              <li>Usar <strong>Novo evento</strong> com descrição objetiva e data correta.</li>
+              <li>Manter rastreabilidade individual para decisões de RH e liderança.</li>
+              <li>Revisar periodicamente eventos antigos para manter histórico confiável.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="candidatos" class="section">
+        <h2>7) Banco de Candidatos</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-04-banco-candidatos.png" alt="Lista do banco de candidatos com funil e status" /></div>
+          <div class="box">
+            <h3>Gestão de funil</h3>
+            <ul class="checklist">
+              <li>Monitorar cards de status: Triagem, Em teste, Aprovados e Reprovados.</li>
+              <li>Filtrar por etapa para priorizar atendimento diário.</li>
+              <li>Buscar por nome, função e telefone.</li>
+              <li>Abrir candidato para registrar entrevista, teste e observações.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="candidato-detalhe" class="section">
+        <h2>8) Processo Seletivo (detalhe do candidato)</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-05-candidato-detalhe.png" alt="Ficha detalhada de candidato com status e observações" /></div>
+          <div class="box">
+            <h3>O que registrar na ficha</h3>
+            <ul class="checklist">
+              <li>Dados do candidato: nome, função, idade e indicação.</li>
+              <li>Contato: telefone principal e recado.</li>
+              <li>Processo seletivo: status, data de entrevista, data/resultado de teste.</li>
+              <li>Motivo de reprovação e observações gerais com texto objetivo.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="ferias" class="section">
+        <h2>9) Programação de Férias</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-06-ferias.png" alt="Tela de programação de férias por funcionário" /></div>
+          <div class="box">
+            <h3>Operação diária</h3>
+            <ul class="checklist">
+              <li>Usar filtros: pendentes, coletiva e em férias.</li>
+              <li>Buscar por nome/matrícula para localizar rápido.</li>
+              <li>No card do colaborador: abrir ficha e registrar período.</li>
+              <li>Conferir admissão e saldo/período antes de confirmar.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="whatsapp" class="section">
+        <h2>10) WhatsApp RH</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-07-whatsapp-rh.png" alt="Conversa do WhatsApp RH com menu e respostas automáticas" /></div>
+          <div class="box">
+            <h3>Atendimento e rastreabilidade</h3>
+            <ul class="checklist">
+              <li>Menu principal orienta: Férias, VT, Espelho de Ponto e Atendente.</li>
+              <li>Mensagens ficam registradas por matrícula e telefone.</li>
+              <li>Usar <strong>Ver ficha</strong> para consultar o colaborador sem sair do atendimento.</li>
+              <li>Escalar para atendente humano quando o bot não resolve.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="vt-menu" class="section">
+        <h2>11) Gerenciamento de VT</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-08-vt-menu.png" alt="Menu do gerenciamento de vale-transporte" /></div>
+          <div class="box">
+            <h3>Duas frentes do VT</h3>
+            <ul class="checklist">
+              <li><strong>Trajeto e VT:</strong> calcula rota e custo por trecho.</li>
+              <li><strong>Gestão de VT:</strong> controla conduções, tarifas e custo mensal por funcionário.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="vt-trajeto" class="section">
+        <h2>12) Trajeto e VT (cálculo)</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-09-vt-calculo.png" alt="Tela de cálculo de trajeto e rotas de vale-transporte" /></div>
+          <div class="box">
+            <h3>Passo a passo</h3>
+            <ul class="checklist">
+              <li>Informar origem (residência) e destino (obra/aeroporto).</li>
+              <li>Clicar em <strong>Calcular Trajeto</strong>.</li>
+              <li>Comparar opções por tempo, distância e custo por trecho.</li>
+              <li>Selecionar rota para ver itinerário detalhado.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="vt-custo" class="section">
+        <h2>13) Itinerário e custo mensal</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-10-vt-itinerario-custo.png" alt="Itinerário de transporte e estimativa de custo diário e mensal" /></div>
+          <div class="box">
+            <h3>Como validar custo</h3>
+            <ul class="checklist">
+              <li>Conferir segmentos: ônibus, trem e caminhada.</li>
+              <li>Checar tarifa por trecho e integração quando houver.</li>
+              <li>Validar <strong>custo diário (ida + volta)</strong> e <strong>custo mensal (22 dias)</strong>.</li>
+              <li>Registrar eventual ajuste quando a tarifa real divergir da tabela.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="integracoes" class="section">
+        <h2>14) Integrações por Obra (SST)</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-11-integracoes-obra.png" alt="Resumo de integrações por obra em modo visualização" /></div>
+          <div class="box">
+            <h3>Leitura de status</h3>
+            <span class="tag warn">Somente leitura</span>
+            <ul class="checklist">
+              <li>Ver total de funcionários, integrados e pendentes por OGS.</li>
+              <li>Abrir obra para listar quem está integrado.</li>
+              <li>Atualizações dessa tela são gerenciadas pelo WF Segurança do Trabalho.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="integrados" class="section">
+        <h2>15) Integrados por obra (lista)</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-gp-12-integrados-lista.png" alt="Lista de funcionários integrados na obra" /></div>
+          <div class="box">
+            <h3>Conferência operacional</h3>
+            <ul class="checklist">
+              <li>Filtrar/buscar colaborador para checagem rápida em campo.</li>
+              <li>Conferir validade da integração (data de vencimento).</li>
+              <li>Identificar pendentes para encaminhar ao SST.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="checklist" class="section">
+        <h2>16) Checklist diário (rápido)</h2>
+        <ul class="checklist">
+          <li>Conferir entrada no menu e abrir o submódulo correto (Funcionários, Candidatos, Férias, VT ou WhatsApp).</li>
+          <li>Atualizar dados críticos de cadastro e status de processo seletivo.</li>
+          <li>Anexar documentos obrigatórios na ficha (CNH, ASO, CTPS, certificados).</li>
+          <li>Registrar ocorrências individuais no Histórico/Prontuário.</li>
+          <li>Registrar férias com período/saldo corretos.</li>
+          <li>Validar rota e custo de VT antes de consolidar benefício.</li>
+          <li>Consultar Integrações por Obra e encaminhar pendências ao SST.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

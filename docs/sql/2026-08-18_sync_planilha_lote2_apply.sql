@@ -1,0 +1,27 @@
+-- Lote2 seguro: status demitido (cpf alta) + funcoes equivalentes deterministicas
+begin;
+update employees set status='demitido', data_demissao='2026-07-21' where id='666c5a8e-c1af-42a9-bc1b-c30ee110d5fb' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-06-24' where id='81a28cc1-9cd4-49ee-bef4-fbaa225b0238' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-06-10' where id='991b0d8c-3a03-41db-a354-db8edd8174e2' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-15' where id='8bf6e9da-4409-433f-842e-ae9b05358a64' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-01' where id='fb726831-6c60-4998-ba44-cc2980c2cd9a' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-06' where id='cf9c5c6e-8fed-42cb-bbbd-e60ec2276e05' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-08' where id='8d1e8513-5a53-4018-bfdb-43bc08aa638f' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-02' where id='516dafef-ee49-4874-907b-fb624f7dc8a7' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-05-27' where id='dce651b5-63bb-4fe0-a1b7-d7bc515558d6' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-07' where id='fd327377-5d93-4846-a06a-a4c01dafb761' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-14' where id='814a9a4b-5c92-471c-90fd-1fd769d4d3e4' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-06-24' where id='10664ffa-89c7-40ca-99dc-e04175c50d2a' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-06-23' where id='2abc6b80-a099-449c-ba85-a86fd825391b' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-14' where id='c2da45ad-4102-4560-a278-e6881f8ffb31' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-06-26' where id='5d16152b-c1fa-46e7-8266-1c9f1bf30717' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-06-08' where id='9ea74fb0-655a-4824-b1ff-5bf17d19a540' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-13' where id='6bfcccaf-dbc6-490a-bea9-12a5945317a6' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-05-15' where id='abdae76c-8273-4c86-88d4-d426b7fdaf8d' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-25' where id='9abc3fd7-6793-4bb2-8bd1-75922abe7695' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-08-11' where id='3a1cb5d1-0363-4abf-b225-eb68fb33ea09' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-06-24' where id='b876cb07-2133-4f22-980a-c5814b43ee90' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-07-13' where id='9ae604a6-60c9-424a-a1be-80ae32377778' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-06-10' where id='13a4654a-f0f3-48c7-9d91-eddf12a318f0' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+update employees set status='demitido', data_demissao='2026-05-25' where id='d03215c5-de96-41da-aa64-10f2aeb266dc' and company_id='a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+commit;

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WF Manutenção — Tutorial Ilustrado</title>
+  <style>
+    :root {
+      --bg:#f3f6fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#dbe3ef;
+      --wf:#0055aa; --wf-dark:#0a1f44; --op:#0f766e; --admin:#64748b; --warn:#9a3412;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+    .hero{background:linear-gradient(135deg,var(--wf-dark),var(--wf));color:#fff;padding:36px 20px}
+    .container{max-width:1180px;margin:0 auto}
+    h1{margin:0 0 8px;font-size:30px} h2{font-size:24px;margin:0 0 10px;color:#0b2f5c} h3{font-size:18px;margin:0 0 8px;color:#0b3b72}
+    p{margin:8px 0;color:var(--muted)} .hero p{color:rgba(255,255,255,.92)}
+
+    .layout{display:grid;grid-template-columns:280px 1fr;gap:18px;padding:18px}
+    .toc{position:sticky;top:10px;align-self:start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+    .toc a{display:block;text-decoration:none;color:#1e3a5f;font-size:14px;padding:6px 8px;border-radius:8px}
+    .toc a:hover{background:#eff6ff}
+
+    .section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+    .row{display:grid;grid-template-columns:1.05fr .95fr;gap:12px;align-items:start}
+    .shot{width:100%;border:1px solid #c7d2e4;border-radius:12px;display:block;background:#fff}
+    .box{border:1px solid var(--line);border-radius:10px;padding:10px;background:#f8fbff}
+
+    .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:4px}
+    .tag.op{background:#ccfbf1;color:var(--op)}
+    .tag.admin{background:#e2e8f0;color:var(--admin)}
+    .tag.warn{background:#ffedd5;color:var(--warn)}
+
+    ul{margin:8px 0 0 16px;padding:0} li{margin:5px 0;color:#334155}
+    .checklist li{list-style:'✅  '}
+    .alert li{list-style:'⚠️  '}
+    .muted{color:#64748b;font-size:13px}
+
+    @media (max-width:980px){
+      .layout{grid-template-columns:1fr}
+      .toc{position:static}
+      .row{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>WF Manutenção — Tutorial Ilustrado</h1>
+      <p>Material visual no mesmo padrão do tutorial de Frotas: fluxo operacional direto, tela por tela.</p>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <aside class="toc">
+      <h3>Índice</h3>
+      <a href="#escopo">1) Escopo da apresentação</a>
+      <a href="#home">2) Home Manutenção</a>
+      <a href="#nova-os">3) Nova Ordem de Serviço</a>
+      <a href="#ocorrencias-lista">4) Ocorrências (lista)</a>
+      <a href="#ocorrencia-detalhe">5) Ocorrência (detalhe)</a>
+      <a href="#nova-ocorrencia">6) Nova Ocorrência</a>
+      <a href="#fila">7) Fila de Manutenção</a>
+      <a href="#checklist">8) Checklist de uso diário</a>
+    </aside>
+
+    <div>
+      <section id="escopo" class="section">
+        <h2>1) Escopo da apresentação</h2>
+        <span class="tag op">Usuário operacional</span>
+        <span class="tag admin">Coordenação / gestão</span>
+        <p>Este tutorial cobre o fluxo de manutenção de ponta a ponta: abrir demanda, transformar em OS, executar e acompanhar pendências.</p>
+        <p><strong>Importante:</strong> as ocorrências são abertas na ponta por <strong>operadores, motoristas, encarregados e engenheiros</strong>. A manutenção recebe, prioriza e trata essas solicitações.</p>
+      </section>
+
+      <section id="home" class="section">
+        <h2>2) Home Manutenção (entrada do módulo)</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="./assets/wf-manutencao-01-home.png" alt="WF Manutenção - tela inicial" />
+          </div>
+          <div class="box">
+            <h3>Leitura rápida da tela</h3>
+            <span class="tag op">Uso principal</span>
+            <ul class="checklist">
+              <li>Cards de status: Abertas, Em andamento e Aguardando peça.</li>
+              <li>Filtros por situação: Ativas, Abertas, Em andamento e Histórico.</li>
+              <li>Ações no topo: Ocorrências, Fila de Manutenção e Nova OS.</li>
+            </ul>
+            <p class="muted">Quando não houver OS, o botão “Abrir OS” vira o atalho da operação.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="nova-os" class="section">
+        <h2>3) Modal “Nova Ordem de Serviço”</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="./assets/wf-manutencao-02-nova-os.png" alt="Modal de nova ordem de serviço" />
+          </div>
+          <div class="box">
+            <h3>Campos obrigatórios e sequência</h3>
+            <span class="tag op">Fluxo padrão</span>
+            <ul class="checklist">
+              <li>Selecionar Tipo Equip. → Frota.</li>
+              <li>Preencher Título e Descrição clara do problema.</li>
+              <li>Definir Tipo OS e Prioridade.</li>
+              <li>Informar Local (OGS), Mecânico e Data prevista.</li>
+            </ul>
+            <ul class="alert">
+              <li>Prioridade correta evita fila desordenada e atraso em urgências.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="ocorrencias-lista" class="section">
+        <h2>4) Ocorrências (lista operacional)</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="./assets/wf-manutencao-03-ocorrencias-lista.png" alt="Lista de ocorrências de equipamentos" />
+          </div>
+          <div class="box">
+            <h3>Como priorizar</h3>
+            <span class="tag op">Uso diário</span>
+            <span class="tag warn">Origem: campo</span>
+            <ul class="checklist">
+              <li>As ocorrências são registradas por operadores, motoristas, encarregados e engenheiros.</li>
+              <li>Filtrar por status (Aberta / Em andamento / Concluída).</li>
+              <li>Usar busca por frota ou título.</li>
+              <li>Atacar primeiro badges de prioridade Alta/Urgente.</li>
+              <li>Abrir o card para responder e/ou vincular OS.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="ocorrencia-detalhe" class="section">
+        <h2>5) Ocorrência (detalhe e tratativa)</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="./assets/wf-manutencao-04-ocorrencia-detalhe.png" alt="Detalhe da ocorrência com resposta da manutenção" />
+          </div>
+          <div class="box">
+            <h3>Ações da manutenção</h3>
+            <span class="tag op">Execução</span>
+            <ul class="checklist">
+              <li>Responder operador no bloco “Resposta da Manutenção”.</li>
+              <li>Atualizar status para refletir andamento real.</li>
+              <li>Abrir OS quando o serviço exigir rastreio formal.</li>
+              <li>Consultar prontuário do equipamento quando necessário.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="nova-ocorrencia" class="section">
+        <h2>6) Nova Ocorrência (abertura em campo)</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="./assets/wf-manutencao-05-nova-ocorrencia.png" alt="Formulário de nova ocorrência" />
+          </div>
+          <div class="box">
+            <h3>Boas práticas de registro</h3>
+            <span class="tag op">Qualidade do dado</span>
+            <ul class="checklist">
+              <li>Esta abertura é feita por operadores, motoristas, encarregados e engenheiros em campo.</li>
+              <li>Equipamento correto e título objetivo do defeito.</li>
+              <li>Descrição curta, mas acionável para o mecânico.</li>
+              <li>Definir prioridade real (Normal, Alta, Urgente).</li>
+              <li>Anexar foto sempre que houver evidência visual.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="fila" class="section">
+        <h2>7) Fila de Manutenção (TV/equipe)</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="./assets/wf-manutencao-06-fila-vazia.png" alt="Fila de manutenção sem demandas" />
+          </div>
+          <div class="box">
+            <h3>Leitura operacional</h3>
+            <span class="tag op">Painel de execução</span>
+            <ul class="checklist">
+              <li>Mostra total de demandas abertas em tempo real.</li>
+              <li>Quando zerada, indica operação sem pendências na manutenção.</li>
+              <li>Botão Atualizar para sincronizar acompanhamento em reunião.</li>
+            </ul>
+            <p class="muted">Ideal para monitoramento contínuo da equipe.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="checklist" class="section">
+        <h2>8) Checklist de uso diário (rápido)</h2>
+        <ul class="checklist">
+          <li>Abrir WF Manutenção e revisar cards de status.</li>
+          <li>Conferir Ocorrências abertas e priorizar Urgentes/Altas.</li>
+          <li>Abrir/atualizar OS com serviço realizado e peças usadas.</li>
+          <li>Atualizar resposta para o solicitante no detalhe da ocorrência.</li>
+          <li>Checar Fila de Manutenção para garantir zero pendência crítica.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

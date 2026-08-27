@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WF Gestão de Frotas — Tutorial Ilustrado</title>
+  <style>
+    :root {
+      --bg:#f3f6fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#dbe3ef;
+      --wf:#0055aa; --wf-dark:#0a1f44; --ok:#166534; --warn:#9a3412; --danger:#b91c1c;
+      --op:#0f766e; --admin:#64748b;
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+    .hero{background:linear-gradient(135deg,var(--wf-dark),var(--wf));color:#fff;padding:36px 20px}
+    .container{max-width:1180px;margin:0 auto}
+    h1{margin:0 0 8px;font-size:30px} h2{font-size:24px;margin:0 0 10px;color:#0b2f5c} h3{font-size:18px;margin:0 0 8px;color:#0b3b72}
+    p{margin:8px 0;color:var(--muted)}
+    .hero p{color:rgba(255,255,255,.92)}
+
+    .layout{display:grid;grid-template-columns:280px 1fr;gap:18px;padding:18px}
+    .toc{position:sticky;top:10px;align-self:start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+    .toc a{display:block;text-decoration:none;color:#1e3a5f;font-size:14px;padding:6px 8px;border-radius:8px}
+    .toc a:hover{background:#eff6ff}
+
+    .section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+    .row{display:grid;grid-template-columns:1.05fr .95fr;gap:12px;align-items:start}
+    .shot{width:100%;border:1px solid #c7d2e4;border-radius:12px;display:block;background:#fff}
+    .box{border:1px solid var(--line);border-radius:10px;padding:10px;background:#f8fbff}
+
+    .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:4px}
+    .tag.op{background:#ccfbf1;color:var(--op)}
+    .tag.admin{background:#e2e8f0;color:var(--admin)}
+    .tag.warn{background:#ffedd5;color:var(--warn)}
+
+    ul{margin:8px 0 0 16px;padding:0} li{margin:5px 0;color:#334155}
+
+    .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .kpi .c{border:1px dashed #bfd7ff;background:#f8fbff;border-radius:10px;padding:10px}
+
+    .checklist li{list-style:'✅  '}
+    .alert li{list-style:'⚠️  '}
+    .muted{color:#64748b;font-size:13px}
+
+    @media (max-width:980px){
+      .layout{grid-template-columns:1fr}
+      .toc{position:static}
+      .row{grid-template-columns:1fr}
+      .kpi{grid-template-columns:1fr 1fr}
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>WF Gestão de Frotas — Tutorial Ilustrado</h1>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <aside class="toc">
+      <h3>Índice</h3>
+      <a href="#escopo">1) Escopo da apresentação</a>
+      <a href="#home">2) Home de Frotas</a>
+      <a href="#lista">3) Lista de equipamentos</a>
+      <a href="#dash">4) Dashboard Equipe/Tipo</a>
+      <a href="#rdo">5) Dashboard RDO</a>
+      <a href="#rast">6) Rastreamento</a>
+      <a href="#multas">7) Multas</a>
+      <a href="#docs">8) Documentos</a>
+
+    </aside>
+
+    <div>
+      <section id="escopo" class="section">
+        <h2>1) Escopo da apresentação</h2>
+        <span class="tag op">Usuário operacional</span>
+        <span class="tag admin">Admin (opcional)</span>
+        <p>Este material prioriza consulta, filtro, acompanhamento e atualização operacional. Recursos avançados de gestão ficam só como observação.</p>
+
+        <div class="kpi" style="margin-top:8px">
+          <div class="c"><strong>Objetivo</strong><br><span class="muted">Decidir rápido: onde está, status, custo e pendência.</span></div>
+          <div class="c"><strong>Entrada</strong><br><span class="muted">Busca rápida + filtros simples.</span></div>
+          <div class="c"><strong>Ação diária</strong><br><span class="muted">Rastreamento, RDO, multas e docs.</span></div>
+          <div class="c"><strong>Resultado</strong><br><span class="muted">Menos retrabalho e mais previsibilidade.</span></div>
+        </div>
+      </section>
+
+      <section id="home" class="section">
+        <h2>2) Home de Frotas — ponto de partida</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="assets/wf-gestao-frotas/01.png" alt="Home Frotas com busca e atalhos" />
+          </div>
+          <div class="box">
+            <h3>O que o time faz aqui</h3>
+            <span class="tag op">Uso principal</span>
+            <ul class="checklist">
+              <li>Pesquisar por frota, placa, modelo ou nome.</li>
+              <li>Filtrar por categoria, equipe e chips rápidos.</li>
+              <li>Entrar nos 4 cards: Dashboard, RDO, Rastreamento e Multas.</li>
+            </ul>
+            <p class="muted">Mensagem de treinamento: “Comece sempre pela busca rápida.”</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="lista" class="section">
+        <h2>3) Lista de equipamentos</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="assets/wf-gestao-frotas/02.png" alt="Lista de equipamentos com cards e status" />
+          </div>
+          <div class="box">
+            <h3>Como ler os cards</h3>
+            <span class="tag op">Uso principal</span>
+            <ul class="checklist">
+              <li>Identificar rápido: próprio x terceiro, status, equipe e valor/mês.</li>
+              <li>Abrir ficha completa ao tocar no card.</li>
+              <li>Priorizar itens “Sem equipe” e “Sem placa” quando necessário.</li>
+            </ul>
+            <p class="muted">No print, “Edição restrita” reforça que nem todo perfil pode editar.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="dash" class="section">
+        <h2>4) Dashboard por Equipe / Tipo</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="assets/wf-gestao-frotas/03.png" alt="Dashboard por equipe e tipo" />
+          </div>
+          <div class="box">
+            <h3>Para reunião e decisão</h3>
+            <span class="tag op">Uso principal</span>
+            <span class="tag admin">Há controles avançados</span>
+            <ul class="checklist">
+              <li>Filtrar por tipo/equipe para leitura executiva da frota.</li>
+              <li>Ver manutenção, terceiros e custo mensal em uma única tela.</li>
+              <li>Usar busca para localizar ativo específico em reunião.</li>
+            </ul>
+            <ul class="alert">
+              <li>Recursos como “Workshop ON” e blocos de edição em lote são de perfil mais alto.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="rdo" class="section">
+        <h2>5) Dashboard RDO (localização por apontamento)</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="assets/wf-gestao-frotas/04.png" alt="Dashboard RDO com filtros de período e snapshot" />
+          </div>
+          <div class="box">
+            <h3>Uso no dia a dia</h3>
+            <span class="tag op">Uso principal</span>
+            <ul class="checklist">
+              <li>Trocar período (semana/mês/custom).</li>
+              <li>Alternar entre Snapshot (última posição) e Período completo.</li>
+              <li>Responder: “onde cada frota esteve” e “qual foi o último RDO”.</li>
+            </ul>
+            <p class="muted">Perfeito para auditoria de operação e conversa com obra/encarregado.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="rast" class="section">
+        <h2>6) Rastreamento de Frotas (priorização operacional)</h2>
+        <div class="row">
+          <div>
+            <img class="shot" src="assets/wf-gestao-frotas/05.png" alt="Rastreamento com KPIs e lista de ativos" />
+          </div>
+          <div class="box">
+            <h3>Checklist de uso diário</h3>
+            <span class="tag op">Uso principal</span>
+            <ul class="checklist">
+              <li>Olhar KPIs: total, trabalhando, manutenção e sem diário hoje.</li>
+              <li>Filtrar por status (trabalhando/manutenção/disposição).</li>
+              <li>Abrir linha e validar data do último diário + local + OGS.</li>
+            </ul>
+            <p class="muted">Regra importante para o time: “Sem diário hoje” não significa sem localização; pode usar último diário registrado.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="multas" class="section">
+        <h2>7) Multas operacionais</h2>
+        <div class="row" style="margin-bottom:10px">
+          <div>
+            <img class="shot" src="assets/wf-gestao-frotas/06.png" alt="Tela de multas com filtros e cards" />
+          </div>
+          <div class="box">
+            <h3>Fluxo prático</h3>
+            <span class="tag op">Uso principal</span>
+            <ul class="checklist">
+              <li>Cadastrar multa nova quando necessário.</li>
+              <li>Filtrar por período e status.</li>
+              <li>Abrir detalhes/editar e acompanhar vínculo de condutor/CNH.</li>
+            </ul>
+            <p class="muted">Tela pensada para operação, sem depender de planilha no dia a dia.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="docs" class="section">
+        <h2>8) Documentos da frota</h2>
+        <div class="row" style="margin-bottom:10px">
+          <div>
+            <img class="shot" src="assets/wf-gestao-frotas/07.png" alt="Aba documentos com botões principais" style="margin-bottom:10px" />
+            <img class="shot" src="assets/wf-gestao-frotas/08.png" alt="Modal novo documento" />
+          </div>
+          <div class="box">
+            <h3>O que o usuário comum precisa dominar</h3>
+            <span class="tag op">Uso principal</span>
+            <ul class="checklist">
+              <li>Adicionar documento (equipamento, tipo, emissão, vencimento).</li>
+              <li>Configurar alerta (ex.: 30 dias antes do vencimento).</li>
+              <li>Anexar PDF/imagem e salvar.</li>
+              <li>Consultar lista completa de documentos.</li>
+            </ul>
+            <p class="muted">Esse bloco é essencial para reduzir risco de vencimento e parada de ativo.</p>
+          </div>
+        </div>
+      </section>
+
+
+    </div>
+  </main>
+</body>
+</html>

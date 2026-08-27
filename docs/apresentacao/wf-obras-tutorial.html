@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WF Obras — Tutorial Ilustrado</title>
+  <style>
+    :root {
+      --bg:#f3f6fb; --card:#fff; --text:#0f172a; --muted:#475569; --line:#dbe3ef;
+      --wf:#0055aa; --wf-dark:#0a1f44; --op:#0f766e; --admin:#64748b; --warn:#9a3412;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+    .hero{background:linear-gradient(135deg,var(--wf-dark),var(--wf));color:#fff;padding:36px 20px}
+    .container{max-width:1180px;margin:0 auto}
+    h1{margin:0 0 8px;font-size:30px} h2{font-size:24px;margin:0 0 10px;color:#0b2f5c} h3{font-size:18px;margin:0 0 8px;color:#0b3b72}
+    p{margin:8px 0;color:var(--muted)} .hero p{color:rgba(255,255,255,.92)}
+
+    .layout{display:grid;grid-template-columns:280px 1fr;gap:18px;padding:18px}
+    .toc{position:sticky;top:10px;align-self:start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+    .toc a{display:block;text-decoration:none;color:#1e3a5f;font-size:14px;padding:6px 8px;border-radius:8px}
+    .toc a:hover{background:#eff6ff}
+
+    .section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+    .row{display:grid;grid-template-columns:1.05fr .95fr;gap:12px;align-items:start}
+    .shot{width:100%;border:1px solid #c7d2e4;border-radius:12px;display:block;background:#fff}
+    .box{border:1px solid var(--line);border-radius:10px;padding:10px;background:#f8fbff}
+
+    .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:4px}
+    .tag.op{background:#ccfbf1;color:var(--op)}
+    .tag.admin{background:#e2e8f0;color:var(--admin)}
+    .tag.warn{background:#ffedd5;color:var(--warn)}
+
+    ul{margin:8px 0 0 16px;padding:0} li{margin:5px 0;color:#334155}
+    .checklist li{list-style:'✅  '}
+    .alert li{list-style:'⚠️  '}
+    .muted{color:#64748b;font-size:13px}
+
+    @media (max-width:980px){
+      .layout{grid-template-columns:1fr}
+      .toc{position:static}
+      .row{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>WF Obras — Tutorial Ilustrado</h1>
+      <p>Material visual no padrão Frotas/Manutenção/Gestão de Pessoas, com fluxo operacional do RDO digital tela por tela.</p>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <aside class="toc">
+      <h3>Índice</h3>
+      <a href="#escopo">1) Escopo da apresentação</a>
+      <a href="#home-obras">2) Entrada do módulo WF Obras</a>
+      <a href="#tipo-rdo">3) Tipo de RDO</a>
+      <a href="#informacoes-gerais">4) Informações Gerais</a>
+      <a href="#notas-fiscais">5) Notas Fiscais de Massa</a>
+      <a href="#producao-cauq">6) Produção do Dia (CAUQ)</a>
+      <a href="#sinalizacao">7) Tonelagem e Sinalização Horizontal</a>
+      <a href="#equipamentos">8) Equipamentos</a>
+      <a href="#equipe-campo">9) Equipe em Campo</a>
+      <a href="#terceirizado-observacoes">10) Efetivo Terceirizado, Observações e Envio</a>
+      <a href="#checklist">11) Checklist diário (rápido)</a>
+    </aside>
+
+    <div>
+      <section id="escopo" class="section">
+        <h2>1) Escopo da apresentação</h2>
+        <span class="tag op">Usuário operacional</span>
+        <span class="tag admin">Encarregado / engenharia / gestão</span>
+        <p>Este tutorial cobre o fluxo completo do <strong>RDO Digital no WF Obras</strong>: abrir novo RDO, preencher dados gerais, registrar produção/equipamentos/equipe e enviar.</p>
+        <ul class="alert">
+          <li>Preencher campos obrigatórios (*) antes do envio para evitar retrabalho no fechamento do dia.</li>
+          <li>Em NF de massa, manter padrão de identificação por sigla da usina/fornecedor quando aplicável (ex.: ELL-, AUP-, USP-).</li>
+        </ul>
+      </section>
+
+      <section id="home-obras" class="section">
+        <h2>2) Entrada do módulo WF Obras</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-obras-01-home-modulo.png" alt="Home do módulo WF Obras com botão Novo RDO" /></div>
+          <div class="box">
+            <h3>Leitura rápida da tela</h3>
+            <ul class="checklist">
+              <li>Breadcrumb confirma contexto: <strong>Home &gt; WF Obras</strong>.</li>
+              <li>Botão principal <strong>Novo RDO</strong> inicia o lançamento diário.</li>
+              <li>Bloco <strong>Meus Lançamentos (RDOs)</strong> concentra histórico e retomada de rascunhos.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="tipo-rdo" class="section">
+        <h2>3) Tipo de RDO</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-obras-02-tipo-rdo.png" alt="Seleção do tipo de RDO com cards por frente de obra" /></div>
+          <div class="box">
+            <h3>Escolha da frente correta</h3>
+            <ul class="checklist">
+              <li>Selecionar o card conforme atividade do dia: Pavimentação, Infra, Canteiro, PV, Drenagem/Terraplanagem ou Pátio Central.</li>
+              <li>Usar <strong>Salvar Rascunho</strong> quando faltar dado de campo.</li>
+              <li>Usar <strong>Enviar RDO</strong> apenas após conferência dos blocos obrigatórios.</li>
+            </ul>
+            <p class="muted">A escolha do tipo orienta os formulários das próximas etapas.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="informacoes-gerais" class="section">
+        <h2>4) Informações Gerais</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-obras-03-informacoes-gerais.png" alt="Bloco de informações gerais do RDO com data, turno, obra e status" /></div>
+          <div class="box">
+            <h3>Campos-base do lançamento</h3>
+            <ul class="checklist">
+              <li>Conferir <strong>Data</strong> e <strong>Turno</strong> antes de seguir.</li>
+              <li>Selecionar <strong>OGS (Obra)</strong> correto para rastreabilidade.</li>
+              <li>Definir <strong>Status</strong> do dia (ex.: Trabalhou).</li>
+              <li>Preencher cliente e responsável quando a operação exigir identificação formal.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="notas-fiscais" class="section">
+        <h2>5) Notas Fiscais de Massa</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-obras-04-notas-fiscais-massa.png" alt="Formulário de notas fiscais de massa com placa, usina e tonelagem" /></div>
+          <div class="box">
+            <h3>Registro de carga por NF</h3>
+            <ul class="checklist">
+              <li>Marcar <strong>Sem Nota neste dia</strong> somente quando não houver carregamento (isso desobriga o bloco de NF naquele RDO).</li>
+              <li>Sem marcar "Sem Nota", é obrigatório ter pelo menos 1 NF completa: <strong>Placa, Usina, Nº NF, Tonelagem e Tipo de Material</strong>.</li>
+              <li><strong>Tirar Foto da Nota</strong> usa IA para preencher automaticamente os campos da NF.</li>
+              <li>Depois, só revisar rapidamente os dados antes de enviar.</li>
+              <li>Padronizar identificação da origem com sigla do fornecedor/usina quando aplicável.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="producao-cauq" class="section">
+        <h2>6) Produção do Dia (CAUQ)</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-obras-05-producao-cauq.png" alt="Tela de produção do dia CAUQ com campos de trecho e medidas" /></div>
+          <div class="box">
+            <h3>Apontamento técnico do trecho</h3>
+            <ul class="checklist">
+              <li>Selecionar tipo de serviço, sentido e faixa.</li>
+              <li>Preencher estaca inicial/final, comprimento, largura e espessura.</li>
+              <li>Conferir área, volume, densidade e tonelagem calculada antes de fechar o trecho.</li>
+              <li>Marcar <strong>Sem Produção neste dia</strong> apenas quando realmente não houve execução.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="sinalizacao" class="section">
+        <h2>7) Tonelagem e Sinalização Horizontal</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-obras-06-sinalizacao-horizontal.png" alt="Bloco de tonelagem e formulário de sinalização horizontal" /></div>
+          <div class="box">
+            <h3>Conferência de consistência</h3>
+            <ul class="checklist">
+              <li>Comparar <strong>Total via NF (auto)</strong> com <strong>Total calculado (trechos)</strong>.</li>
+              <li>No lançamento de sinalização: preencher tipo, sentido, faixa, estacas e quantidade.</li>
+              <li>Usar resumo da tela para validar total de sinalizações lançadas no dia.</li>
+            </ul>
+            <ul class="alert">
+              <li>Diferença entre NF e cálculo de trechos deve ser revisada antes do envio do RDO.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="equipamentos" class="section">
+        <h2>8) Equipamentos</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-obras-07-equipamentos.png" alt="Bloco de equipamentos do RDO com categoria obrigatória" /></div>
+          <div class="box">
+            <h3>Lançamento por equipamento</h3>
+            <ul class="checklist">
+              <li>Marcar <strong>Sem Equipamentos</strong> somente quando nenhum equipamento foi usado.</li>
+              <li>Para cada item, selecionar categoria correta e completar os dados solicitados.</li>
+              <li>Usar opção <strong>Menor?</strong> conforme regra operacional da frente.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="equipe-campo" class="section">
+        <h2>9) Equipe em Campo</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-obras-08-equipe-campo.png" alt="Seção de equipe em campo com carregamento automático e horários" /></div>
+          <div class="box">
+            <h3>Composição e horário</h3>
+            <ul class="checklist">
+              <li>Tentar primeiro <strong>Carregar Equipe Automático</strong>.</li>
+              <li>Se necessário, selecionar equipe manualmente e clicar em <strong>Carregar</strong>.</li>
+              <li>Conferir horário geral de entrada e saída.</li>
+              <li>Definir função para habilitar o preenchimento do efetivo por função.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="terceirizado-observacoes" class="section">
+        <h2>10) Efetivo Terceirizado, Observações e Envio</h2>
+        <div class="row">
+          <div><img class="shot" src="./assets/wf-obras-09-efetivo-terceirizado-observacoes.png" alt="Efetivo terceirizado, observações gerais e ações finais do RDO" /></div>
+          <div class="box">
+            <h3>Fechamento do RDO</h3>
+            <ul class="checklist">
+              <li>Quando houver terceiros, informar empresa(s) terceirizada(s); quando não houver, marcar opção correspondente.</li>
+              <li>Registrar <strong>Observações Gerais</strong> com fatos relevantes do dia (ocorrências, restrições, decisões).</li>
+              <li>Opcional: gerar <strong>Resumo WhatsApp</strong> para comunicação rápida.</li>
+              <li>Finalizar com <strong>Enviar RDO</strong> após revisão final dos campos obrigatórios.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="checklist" class="section">
+        <h2>11) Checklist diário (rápido)</h2>
+        <ul class="checklist">
+          <li>Abrir WF Obras e iniciar em <strong>Novo RDO</strong>.</li>
+          <li>Selecionar o tipo correto de RDO para a frente executada.</li>
+          <li>Preencher Informações Gerais (Data, Turno, OGS, Status).</li>
+          <li>Lançar NFs de massa completas; usar foto como apoio de OCR e sempre validar os campos antes do envio.</li>
+          <li>Registrar produção por trecho (medidas e cálculos conferidos).</li>
+          <li>Conferir Tonelagem total vs total calculado.</li>
+          <li>Completar equipamentos, equipe em campo e efetivo terceirizado.</li>
+          <li>Registrar observações e enviar RDO.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

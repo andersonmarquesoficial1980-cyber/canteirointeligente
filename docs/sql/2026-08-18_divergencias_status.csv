@@ -1,0 +1,56 @@
+﻿employee_id,name_db,matricula_db,cpf_db,status_db,status_planilha,status_planilha_norm,match_method,confidence
+08ddf558-6b6e-484c-8460-87f434f0ad3b,THIAGO PAES DA SILVA,000505,319.209.398-65,ativo,Férias,ferias,cpf,alta
+9c85590c-08f9-4ac3-ae7c-1a83bdbcbd40,JOAQUIM SILVA BESERRA,1220,185.548.778-02,ativo,Férias,ferias,cpf,alta
+bffd82cf-edfe-49e3-b4dd-5dd8ca4c120c,BRUNO ALVES DE LIMA,895,379.470.088-09,ativo,Férias,ferias,cpf,alta
+fe26b9c9-eec4-444a-84ea-d2650eb72c76,FERNANDO MIRANDA SOUZA SILVA,914,338.974.858-00,ativo,Férias,ferias,cpf,alta
+667872ef-9a6d-4b54-a1c3-d0950d80c1d6,WERGLEI ALVES DE SOUZA,925,273.323.448-07,ativo,Férias,ferias,cpf,alta
+3839cfbe-4a70-411e-adef-ead5a302f94d,GERALDO ALVES PEREIRA,001047,055.993.638-99,afastado,Ativo,ativo,cpf,alta
+0ff3215c-2a75-4d30-b88b-40ec25a668a4,BATISTA NETO DA S BASTOS,1136,395.073.628-00,ativo,Demitido,demitido,cpf,alta
+7246963b-dd11-4934-a4e8-94bddbdd7aa5,GEANDSON ALEXANDRE DA SILVA,1153,413.920.388-98,ativo,Férias,ferias,cpf,alta
+04c08c91-0a96-4e84-8300-504e584fd72b,ALCIMAR GONCALVES DA COSTA,1154,105.508.754-09,ativo,Férias,ferias,cpf,alta
+6faf99ea-ecea-422d-bc62-60c48aa60cac,ALEX ALVES COSTA,1164,146.149.908-94,ativo,Férias,ferias,cpf,alta
+f525a03f-d79a-400a-8101-d2fd2da7a216,EDIMAR NOVAIS SILVA,1193,038.460.465-07,ativo,Férias,ferias,cpf,alta
+7ad47aad-717a-4fca-9119-3b58facf577a,DOUGLAS ALVES DE OLIVEIRA,1737,070.645.813-37,afastado,Ativo,ativo,cpf,alta
+855589d5-5757-473b-9cd0-90226796c8aa,ANAILSON GIL SOUTO CARVALHO,1488,968.061.686-04,ativo,Afastado,afastado,cpf,alta
+7dd288fe-36cd-4e03-ad6a-2fe43c19aff8,ELIANE DE MATOS MARTINS,001492,334.281.648-14,ativo,Férias,ferias,cpf,alta
+e9837d1f-ac05-45a2-9835-b5e1785f5adb,LUIZ HENRIQUE DA SILVA,917,412.389.268-00,ativo,Férias,ferias,cpf,alta
+01b9bcff-d559-4f1c-ad86-86946dfac759,LEANDRO SILVA RIBEIRO,1533,143.768.296-09,ativo,Férias,ferias,cpf,alta
+13408e90-56f6-45e1-977a-4414ba4e25d9,ANDRE DE CARVALHO LEITE,1630,310.759.508-05,ferias,Ativo,ativo,cpf,alta
+3ecf8a9f-ecb9-4f88-b639-98de3af10cac,EMERSON CARLOS DO NASCIMENTO,001634,358.026.468-02,afastado,Ativo,ativo,cpf,alta
+55bdad5f-b5d3-4cd0-a166-a4d95f940ed7,MARCO AURELIO G DOS SANTOS,1644,972.695.736-20,ativo,Férias,ferias,cpf,alta
+31177ad2-5586-48df-bb16-12a4a6a09e8d,MARCOS PAULO C DO AMARAL,1646,067.047.475-40,ativo,Férias,ferias,cpf,alta
+cf2f1452-8f65-4868-9514-e15aa2ef10fb,ALAN CARLOS DA COSTA,1652,050.449.666-22,ativo,Demitido,demitido,cpf,alta
+3e129569-55ac-4d79-b107-3782a6ffc56e,JEISSON LUIZ VIEIRA VARRICHIO,1666,341.051.568-29,ativo,Férias,ferias,cpf,alta
+5791d11c-3319-4395-bcd7-f0369431dd7a,ADALBERTO SILVA MALAQUIAS,1677,084.558.514-22,ativo,Férias,ferias,cpf,alta
+6c42b6ed-89f1-4671-9842-b8969e8cb297,JOHNI CESAR G DE OLIVEIRA,1704,095.104.996-84,ativo,Demitido,demitido,cpf,alta
+26dec74b-9196-49e9-ab36-e83ad1b33b8f,EURISMAR ALVES DE MOURA,1709,299.335.648-89,afastado,Ativo,ativo,cpf,alta
+c4b9369f-e151-427d-a004-65003c9657e6,ALEX SILVA DOS SANTOS,1460,083.035.905-29,afastado,Ativo,ativo,cpf,alta
+0463eac9-a1f2-43d1-ac0f-9861ebfda04d,GOUBHERTO T DE SOUZA MARTINS,37,002.252.265-45,ativo,Demitido,demitido,cpf,alta
+666c5a8e-c1af-42a9-bc1b-c30ee110d5fb,RICARDO FERREIRA DIAS,44,,ativo,Demitido,demitido,matricula+nome,media
+81a28cc1-9cd4-49ee-bef4-fbaa225b0238,ROMARIO PEREIRA DE SOUSA,46,,ativo,Demitido,demitido,matricula+nome,media
+21291485-b163-4ee0-887d-ed2574eece1c,LILIANE SILVA ROCHA DA CRUZ,47,321.447.128-75,ativo,Demitido,demitido,cpf,alta
+991b0d8c-3a03-41db-a354-db8edd8174e2,ALESSANDRO SANTOS NASCIMENTO,71,,ativo,Demitido,demitido,matricula+nome,media
+8bf6e9da-4409-433f-842e-ae9b05358a64,ANTONIO DOS SANTOS A LIMA,73,,ativo,Demitido,demitido,matricula+nome,media
+fb726831-6c60-4998-ba44-cc2980c2cd9a,WESLEY PEREIRA ALVES MACHADO,78,,ativo,Demitido,demitido,matricula+nome,media
+cf9c5c6e-8fed-42cb-bbbd-e60ec2276e05,GILSON VIEIRA MANCO,81,,ativo,Demitido,demitido,matricula+nome,media
+8d1e8513-5a53-4018-bfdb-43bc08aa638f,CLAUDIONE DE OLIVEIRA AMORIM,91,,ativo,Demitido,demitido,matricula+nome,media
+516dafef-ee49-4874-907b-fb624f7dc8a7,DIEGO SILVA SANTOS,97,,ativo,Demitido,demitido,matricula+nome,media
+dce651b5-63bb-4fe0-a1b7-d7bc515558d6,MIQUIAS DA SILVA ALVES,102,,ativo,Demitido,demitido,matricula+nome,media
+fd327377-5d93-4846-a06a-a4c01dafb761,CARLOS NACELIO DE LIMA,111,,ativo,Demitido,demitido,matricula+nome,media
+814a9a4b-5c92-471c-90fd-1fd769d4d3e4,WALISSON SILVA DOS SANTOS,117,,ativo,Demitido,demitido,matricula+nome,media
+10664ffa-89c7-40ca-99dc-e04175c50d2a,OSCAR SILVA OLIVEIRA,129,,ativo,Demitido,demitido,matricula+nome,media
+2abc6b80-a099-449c-ba85-a86fd825391b,CLEITON OLIVEIRA DE JESUS,138,,ativo,Demitido,demitido,matricula+nome,media
+ed10bdfb-53ac-4958-88c5-35946ae1352e,JAELESON MAURICIO VIEIRA,142,059.149.425-60,ativo,Demitido,demitido,matricula+nome,media
+c2da45ad-4102-4560-a278-e6881f8ffb31,RODRIGO TADEU PIMENTA,151,,ativo,Demitido,demitido,matricula+nome,media
+5d16152b-c1fa-46e7-8266-1c9f1bf30717,BRUNO MANOEL F DOS SANTOS,152,,ativo,Demitido,demitido,matricula+nome,media
+9ea74fb0-655a-4824-b1ff-5bf17d19a540,JOSE SATURNINO DA SILVA,154,,ativo,Demitido,demitido,matricula+nome,media
+baa14dff-7312-4aca-93c0-961592316e6c,FERNANDO HONORIO DE MELO,158,034.231.854-30,ativo,Demitido,demitido,cpf,alta
+6bfcccaf-dbc6-490a-bea9-12a5945317a6,CICERO RODRIGO GOMES SABINO,164,,ativo,Demitido,demitido,matricula+nome,media
+abdae76c-8273-4c86-88d4-d426b7fdaf8d,MAXWELL ALVES NUNES,168,,ativo,Demitido,demitido,matricula+nome,media
+3ce0b6eb-d373-4b24-9b3a-bff8266cb9bb,GERALDO JOSE DOS SANTOS,177,484.931.308-69,ativo,Demitido,demitido,matricula+nome,media
+9abc3fd7-6793-4bb2-8bd1-75922abe7695,DARLON ANTONIO ALMEIDA GOMES,182,,ativo,Demitido,demitido,matricula+nome,media
+3a1cb5d1-0363-4abf-b225-eb68fb33ea09,THIAGO DOS R DA S SANT ANA,196,,ativo,Demitido,demitido,matricula+nome,media
+b876cb07-2133-4f22-980a-c5814b43ee90,LUCAS MUNIZ DOS SANTOS,197,,ativo,Demitido,demitido,matricula+nome,media
+9ae604a6-60c9-424a-a1be-80ae32377778,CLAUDEMIRO BIRAGA DOS SANTOS,200,,ativo,Demitido,demitido,matricula+nome,media
+13a4654a-f0f3-48c7-9d91-eddf12a318f0,CAIO CESAR OLIVEIRA,4,,ativo,Demitido,demitido,matricula+nome,media
+d03215c5-de96-41da-aa64-10f2aeb266dc,ARNALDO ALVES DA SILVA,5,,ativo,Demitido,demitido,matricula+nome,media

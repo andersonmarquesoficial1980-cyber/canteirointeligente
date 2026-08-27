@@ -1,0 +1,213 @@
+﻿employee_id,name,matricula,status,role,origem,centro_custo_codigo,centro_custo_descricao,sugestao_equipe,confianca,criterio
+71d8c015-bad7-4f94-8302-b1db9d8e0e22,GABRIELLY VITORIA V MOREIRA,1720,ativo,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,304,COMERCIAL,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+34654606-bc57-4e5b-9b94-cc0b4301b0b6,LARISSA APARECIDA DOS SANTOS,1735,ativo,ASSISTENTE DE LICITAÇÃO,PROPRIO,304,COMERCIAL,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+04e0f6d5-ef6d-4933-8f02-8839e56a3c14,ALAECIO FERREIRA CAVALCANTI,10,demitido,APONTADOR DE OBRAS,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+80a2b73c-c297-4e08-a3c6-a898059c5e6e,CARLOS DANIEL DIAS SANTOS,12,ativo,ALMOXARIFE,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+146b6d26-13d0-429d-a209-38e54df1db5b,FRANCISCO SILVINO DA SILVA,1787,ativo,CARPINTEIRO,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+a6db539f-28ef-4d81-8307-1fb28f10df2e,HUMBERTO AUGUSTO M DA SILVA,2,demitido,ALMOXARIFE,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+cac31633-16cc-468c-8fdc-16127847132c,IRANILDO SILVA DE LIRA,9,ativo,ELETRICISTA,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+54541627-8199-4ddc-bc45-6869f98f0e77,JEFERSON SANTOS DA SILVEIRA,7,demitido,AJUDANTE GERAL,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+b55dd3af-6757-4709-9a4f-f87bf7672fcc,JHONATHAN WARICK DE FIGUEIREDO,6,ativo,ENCARREGADO DE OBRAS,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+76914cb8-aa20-4cca-bede-e14240a9f605,KATIA POSSIDONIO ANTONINI,1,demitido,ADMINISTRATIVO DE OBRAS,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+8caaa5dc-d3a5-46d1-afa2-4846f7d34eea,MICHAEL BARBOSA DA SILVA,8,ativo,CARPINTEIRO,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+0fd8efa3-69b3-4310-8524-1e4581478f6d,NIVALDO DOS SANTOS SOUZA,13,ativo,PEDREIRO,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+46e0c11f-9474-4bc1-8169-a14d88636cdc,WENDEL CALSONARI NOGUEIRA,11,demitido,ALMOXARIFE,PROPRIO,2525,CONS REQUALIFICAÇÃO INTEGRADA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+42079ac5-2308-4096-9b0e-ab3582250391,ALEXANDRE TORQUATO DE OLIVEIRA,1356,ativo,ASSISTENTE CONTABIL,PROPRIO,203,CONTABILIDADE,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+b613bb91-bbd7-4388-bac7-8e6b2cf4406b,LORENA ANDRADE SOARES,1724,demitido,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,203,CONTABILIDADE,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+214a22ff-4cd8-4d9b-8c5a-643f26fc159b,THAINA SANTOS ALMEIDA,1776,ativo,ANALISTA FISCAL,PROPRIO,203,CONTABILIDADE,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+6ab23799-b999-4b21-b642-2ff37929d579,ARNALDO ALMEIDA FELICIDADE,1792,ativo,AJUDANTE GERAL,PROPRIO,2339,COPASA  PV,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+b5304291-7f5c-4450-a39c-3a18d063cfa4,ARTUR BRUNO OLIVEIRA DOS REIS,1777,ativo,AJUDANTE GERAL,PROPRIO,2339,COPASA  PV,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+e47ef2bd-182f-45fd-9bd0-6a4d208b71dc,CARLOS EMANUEL DA SILVA,1796,ativo,AJUDANTE GERAL,PROPRIO,2339,COPASA  PV,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+cc1828ed-8a88-4753-b74c-a61ccedb2c09,DALILA PRISCILLA GONCALVES,1483,ativo,ASSISTENTE ADMINISTRATIVO,PROPRIO,2339,COPASA  PV,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+160b25a3-dab6-4d5d-85cc-57f19b9a88d4,GUSTAVO LEANDRO DA SILVA,1778,ativo,AJUDANTE GERAL,PROPRIO,2339,COPASA  PV,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+c1ff66c4-65b6-470e-9207-01d16eb4d25a,ISABELA PAIXAO ARAUJO,1660,ativo,ASSISTENTE ADMINISTRATIVO,PROPRIO,2339,COPASA  PV,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+89a7a222-26be-4e37-95c0-d671e9391220,ROBSON SILVA SOUZA,1780,ativo,MOTORISTA DE CAMINHÃO,PROPRIO,2339,COPASA  PV,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+1cee03e3-cc0c-45ad-98aa-bedbda40ab18,DIVA MARIA DOS SANTOS CAMILLO,815,ferias,COZINHEIRA,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+e916e9ef-d3f9-4b51-be4e-b4a012dc1db7,GUILHERME ARTUR F FERREIRA,1700,ativo,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+4fdcc211-0202-488d-94dc-d59988e65c33,ISABELLA SILVA SANTOS,1697,ativo,RECEPCIONISTA,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+51fcfcff-f7d3-4861-b6ed-85c2a1685cfd,ISMAEL LIMA XAVIER,1642,ativo,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+84676db4-d34d-4587-a0bc-f4510ed92812,JEANE MARTINS DE LIMA,828,ativo,AUXILIAR DE LIMPEZA,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+0460a716-42ec-4ce2-a9d0-591187bd40f4,JOEL ALVES DE LUCENA,495,ativo,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+5f894f43-82ad-44c6-8824-a53a32f2f599,MARIA MARLENE DA SILVA,54,ativo,AUXILIAR DE LIMPEZA,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+7cc8a6af-cf80-4c6d-aac8-e7e1beb1e0cf,WELITON DE AGUIAR WANDERLEY,988,ferias,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+c77e5949-e6d6-4d5a-ba6b-637fc7e46e01,WELLINGTON DE FRANÇA,1526,ferias,AJUDANTE GERAL,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+e016f016-d1ff-4fbd-a8e9-52a47b075837,WILLIAM ROSA DA SILVA,1698,ativo,CONTROLADOR DE ACESSO,PROPRIO,199,FACILITIES,FACILITIES,alta,nome_da_equipe == centro_custo_descricao
+183d78d7-7dfa-404d-9f5c-27f693a47f69,GABRIEL LAMENTE ANGIOLUCCI,1732,ativo,ANALISTA FINANCEIRO,PROPRIO,202,FINANCEIRO,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+08f47934-8efa-4cd9-b2cf-74251dfc6691,MAYARA STEFANI REIS FERNANDES,974,ativo,ANALISTA FINANCEIRO,PROPRIO,202,FINANCEIRO,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+705952a1-2b78-4d88-99ee-03c8d435b9a4,RAVENNA R DOS SANTOS MARTINS,1635,ativo,ANALISTA FINANCEIRO,PROPRIO,202,FINANCEIRO,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+94e06452-1e92-46dc-b2a0-80bfa6f824be,ADEILSON DA COSTA VICENTE,70,demitido,OPERADOR DE TRATOR ESTEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+c6e176e9-8ff5-4c3c-920a-4d23616125b3,ADRIANO SANTOS RAMOS,225,ativo,OPERADOR DE RETROESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+bc822ada-9435-4b48-89f9-ef4f57008150,ALAN PEREIRA DOS SANTOS,229,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+0e427f4f-7d73-45d8-a89c-1b42afedf015,ALESSANDRO JOSE DOS SANTOS,140,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+18ff9f60-385e-437a-8348-996286048464,ALEXANDRE VIEIRA DE SOUSA,49,demitido,OPERADOR DE ROLO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+e5c3758a-0df5-40d4-b122-f21dfcd21939,ALEXSANDRO MATOS ARCANJO,243,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+dd1c5bb2-cce2-4bf7-a078-17b7abfb1ce4,ANDERSON EUCLIDES DOS REIS,19,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+e7f316fb-c7c9-433a-9ff4-2a24d8998931,ANDERSON HENRIQUE DE SOUSA,11,demitido,OPERADOR DE RETROESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+e206b304-21ae-4234-9c15-b7e344f2ef1f,ANDERSON LUIS DE SOUZA,221,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+c85c5a22-528c-47ac-a32c-e018f62a9dc9,ANDERSON PINHEIRO DOS SANTOS,216,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+c1ffc6ca-5b34-44b2-9c0f-a3dc365e9bcb,ANDRE LUIZ BERNARDINO COSTA,217,ativo,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+9fa4b67d-d7ff-4541-a37f-35b0a08b38fc,ANTONIO ALVES DE SOUSA,50,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+5e9b62ee-a7f6-44d1-9b7b-eb8a1a8c503b,ANTONIO MARCOS BENTO GOMES,212,ativo,CARPINTEIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+dd8237fa-32bb-4d4a-a31e-5f6ed663a9cb,ANTONIO VALDI DOS SANTOS,226,ativo,PEDREIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+de84e6d1-e851-4eba-a194-e7d61d213f03,ARNALDO DE ASSIS,244,ativo,MOTORISTA DE MUNCK,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+b16ac412-2f98-454d-91bf-cb54c4513b0e,BRUNA DE MENDONCA FERRAZ,162,ativo,ASSISTENTE DE RH,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+1f6baff1-56a2-4bc4-b624-5485a5278b88,CAIO CESAR MAIA DOS SANTOS,33,demitido,OPERADOR DE RETROESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+c49eee2a-ac09-4213-a2b8-01679bf33da3,CAIQUE DE CASTRO SILVA,237,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+279bf423-aa7b-4cc4-8380-197075f5e924,CARLOS EDUARDO B DA SILVA,42,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+4675fc59-1ad0-4f08-b7ec-c1c9173615cb,CHARLI BARBOSA AZEVEDO,12,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+1262b306-7fc8-4d6b-8fd6-234300ca445e,CHRISTIAN JORDI G DOS SANTOS,233,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+49ec4352-9794-4367-81b9-91c111205b5c,CICERO PEREIRA MANCO,207,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+09ca205c-56a9-42f7-bfa9-44a10744da46,CLAYTON FERREIRA DA SILVA,228,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+bc9f2457-8a77-4c83-8706-4a030f2553e2,CRISNEYLANE CRISTINA DA SILVA,52,demitido,APONTADOR DE OBRAS,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+f4ce261f-f1d7-44ff-bf97-54da4fe80d2d,DAIMARIO MARQUES GONÇALVES,74,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+3548620f-0d4b-4c5e-a670-4d42d8cd2f9e,DANILO THOMAZ DO N URBANO,75,demitido,MECÂNICO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+6e9a9fa1-e090-4143-a32b-cc2d2a2728b4,DIEGO ALVES DE ARAUJO,86,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+cb5f887a-2a3e-4a52-a68d-b0c0156c6274,ED CARLOS DE SOUZA,239,ativo,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+f1094c38-b563-450f-934d-50e1c89c8d0b,EDGAR DE SOUZA,55,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+72a3f4a7-8e38-4f4f-8d34-4e38f2c4938a,EDIFRANCO DE SENA BARBOSA,87,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+6fb52f60-2413-4fa4-a25a-b3cdab6b63fb,ELY CORREIA DA SILVA,56,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+2d84a0b5-003f-4853-9d79-b475e29636ca,ENRIQUE ALEXANDRE M DA SILVA,220,ativo,MECÂNICO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+6c744e49-330f-4460-9d89-1026609ccfea,FELIPE CARVALHO CAMILO,24,demitido,AJUDANTE DE MECÂNICA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+321c8077-869d-451a-ba2a-1cff4cc40e7f,FRANCISCO ANDRERLANDIO D SOUSA,232,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+8f4d5ba6-47a7-47c8-831f-6f80ef984b3a,FRANCISCO TADEU T DE OLIVEIRA,210,ativo,AUXILIAR DE TOPOGRAFO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+25d86496-27b8-4d30-9016-10c6aab52e28,GABRIEL TOMAZ CORREIA,230,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+b6f60e75-5198-4c3d-aa9a-732abf4c0689,GENIZAN GENERINO D DOS SANTOS,21,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+283db959-11fc-4624-aedf-1fc8c04a75b4,GILBERTO BARRETO SILVA,242,ativo,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+69f14507-dad8-42c2-880d-9b0052d98baf,GIRLENO CARVALHO DE SOUSA,227,ativo,ARMADOR,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+06906bc7-d733-44d3-a2c0-0fd193f8e4dc,GUILHERME RAPHAEL DA S MACHADO,100,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+114a48c2-0c15-4941-a736-bacace2c0447,GUSTAVO GAVIOLI ALMEIDA,172,ativo,COMPRADOR,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+55855af2-8f75-42b2-8abc-5e01bd94f58e,IGOR SOUSA ANDRADE,143,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+08892530-99ec-4632-8565-b50ac1031b7b,IRAPONILDO OLIVEIRA DE ARAUJO,59,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+f2d62f37-9380-4675-ab54-b0fb01abaf2f,ISAEL DO AMARAL FERREIRA,22,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+8aeee24b-b781-458d-882a-a9903796ae18,JACKSON SOUZA SANTOS,123,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+d6ed6705-52a0-4b12-a389-15695e201b05,JAILSON SABINO DA SILVA,246,ativo,OPERADOR DE PÁ CARREGADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+3a93403c-11f4-4e29-ace1-21a4213a3988,JARBAS DOS SANTOS ARAUJO,60,demitido,PEDREIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+f76fad71-cda2-4f8b-8baa-8528fb6b04a4,JEFFERSON DE NOVAES SANTOS,45,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+dcafbb03-b2f4-41eb-86af-8fb110e7cf30,JEFFERSON LUIS DE SOUZA,88,demitido,SINALEIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+78950cf7-2a80-466b-8791-eaa431bbb393,JHONATAN DE SOUZA F LIMA,222,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+ad2c7dc3-b497-49b3-9da7-7242cf5d409f,JOAO MIGUEL VIANA SANTANA,144,ativo,ALMOXARIFE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+d92738a9-f140-449b-b3e4-c9070c2f0334,JOAO PAULO NEGREIROS,62,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+38a2396a-cf69-4652-beee-6effdb5b4bf0,JOAO VITOR DE LIMA CAVALCANTE,241,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+8ff80edf-c5ff-43bb-96ce-73b5675bd574,JOEL MARQUES TEIXEIRA,231,ativo,SINALEIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+593d0eee-e644-4f8b-aa31-234af11d2113,JOEL MATAMOROS MASTRAPA,214,ativo,CARPINTEIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+56d7708a-25bf-4849-8238-4c64323633d9,JOSE ALEX DA SILVA LINO,206,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+1476a895-2efd-44ce-ba8d-1d4ac90447ef,JOSE ANDESON DA SILVA,124,ativo,ELETRICISTA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+f1ebeee0-a00c-40e6-8869-b5b472cb1d2e,JOSE ANTONIO NUNES DO PRADO,64,ativo,AJUDANTE DE MECÂNICA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+cd1f66b3-6d79-4e2b-894e-c565ef735813,JOSE ANTONIO TARESEVICINTE,25,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+458248c9-8fe6-4aa7-85ed-bb2721e38caa,JOSE APARECIDO DOS SANTOS,90,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+ef9d3a38-b638-4ca9-9a88-7c28680e3fe8,JOSE WILLIAN PEREIRA NERY,240,ativo,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+4f414971-e8e8-4ad0-a8fa-968f181de29c,JOSENILDO ARAGAO DOS SANTOS,126,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+3247003b-22f7-46e5-bd73-1f67627bf822,JUCIEL JURANDI DA SILVA,219,ativo,CARPINTEIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+ad76f951-8f91-49c2-b852-ccc804e53752,JULIO CESAR GONCALVES PEREIRA,215,ativo,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+086241f9-23c6-479b-8cd3-9915e29311a4,KAUA FRANCISCO M ALVES,122,demitido,AJUDANTE DE MECÂNICA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+21a27261-9205-41e6-9824-295a12d45294,KAUE MATHEUS FERREIRA,28,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+feb87fb5-13bf-4d98-9b1e-a36cb28235f5,KEREN RIBEIRO PEREIRA MOREIRA,213,ativo,ASSISTENTE DE RH,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+7c9551af-856c-4be4-bf9a-fdaf6437cfbc,LEANDRO DE OLIVEIRA MATOS,105,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+8f12b3f2-8777-4488-90e4-d6ab6208eb40,LEANDRO VALENTIN TEIXEIRA,16,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+01609d16-3ab6-45d7-bcd7-da1c91796531,LINDOMAR DOS REIS FARIA,29,demitido,AJUDANTE DE MECÂNICA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+1f11a644-1fdd-4181-aec4-27ca5d8b987c,LUCAS WINDER BAPTISTA CARDOSO,224,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+d0162f71-65ab-4c8f-9124-c85eeb1841cc,LUCIO YURI PEREIRA DA SILVA,2,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+aa56b076-974f-4759-a9cf-19b5450057a3,LUIS HENRIQUE LOPES DA SILVA,234,ativo,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+0a214945-995a-40e6-bc66-e460647f7213,LUIS PAULO CLEMENTINO DA SILVA,211,ativo,OPERADOR DE MOTONIVELADORA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+60b7ca61-c000-49cf-a396-c80996feb511,MANOEL MENDES COUTINHO,125,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+7bdadcef-b21d-4f1f-95d4-c3de2a5c9300,MARCOS APOLINARIO,96,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+3b78ce43-cbf8-4017-b342-e7e1c0fbda3b,MARCOS PAULO FERREIRA MELO,1,demitido,ALMOXARIFE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+98359351-4ec1-4b42-9dee-f5af7ba73af8,MARCOS VINICIUS T DE MIRANDA,92,demitido,OPERADOR DE ROLO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+6c89cdcf-f02f-4518-af8d-50e4af88df45,MARIO MARTINS GRIGORIO,130,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+11c2d1a7-34e0-42fb-80e0-23d6c75443f6,MATHEUS ARGOLO,208,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+6db7566c-0ccd-4664-aab2-14411e6c46cc,NEILTON BARBOSA DE BRITO,41,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+b54c7b05-8a9b-47f2-ba35-aa685c8a841b,OSVALDO ANTONIO CORREA FILHO,66,demitido,CARPINTEIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+74643fee-d781-43ce-84d5-2d10682d20aa,PAULO HENRIQUE GARCIA SOUZA,153,demitido,AJUDANTE DE MECÂNICA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+d5b97aec-cad8-48a6-8293-313d59e9c22f,PAULO SERGIO CORDEIRO,167,demitido,MOTORISTA DE CAMINHÃO PIPA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+22a63108-7722-4237-99d8-a4811efcb1fe,PEDRO MARTINS DE CARVALHO,236,ativo,ELETRICISTA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+d337f08b-1428-47b0-8d33-8f1354825912,RAFAEL ALMEIDA C  NASCIMENTO,137,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+67c3f74c-feb9-44c4-ae8b-1815c340c79b,RAMON SOUZA SANTOS,89,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+fd4ccf97-ec60-4318-b702-38fc4a8b1530,REGINALDO PEREIRA DE ANDRADE,13,ativo,OPERADOR DE ROLO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+734d9960-0704-43b1-a438-6d84b881e018,RENIVALDO SAMPAIO DE ALMEIDA,83,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+265c1e53-262c-4f80-b0c1-fef3eaa63c90,RICARDO DE SALES,248,ativo,MOTORISTA DE MUNCK,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+e92bfddf-d0be-43fe-97b3-6f5b02821cb2,ROBERTY NATAN T DA SILVA,127,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+9f462ffe-5c18-460e-a3eb-b09080f5f51b,RODRIGO SILVA PINHEIRO,238,ativo,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+d067c2ad-2bbc-4e76-9612-dd81f010d829,ROGERIO ALVES SANTOS,235,ativo,ELETRICISTA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+bb0cae11-2639-4c9a-986b-e1bf2a30fa5c,SANDRA PAULA DE OLIVEIRA,30,ativo,ANALISTA DE RH,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+031c724c-4bd7-4768-9756-ba0dcaed7103,UENDSON SILVA SIQUEIRA,15,demitido,OPERADOR DE ROLO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+8b2a763e-7faf-4f58-8905-44a141d11faa,URBANO SANTOS DO CARMO JUNIOR,76,demitido,SINALEIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+ac90115f-4d3a-4966-8175-d4a8c5d61a55,VAGNER RAMOS GOMES,169,demitido,OPERADOR DE ROLO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+814a6872-af46-4cf1-bf42-0d2a75047980,VALDERI FERNANDES DE CARVALHO,209,ativo,ENCARREGADO DE DRENAGEM,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+0f86073e-1083-4b9c-8f20-f6c896d5fc63,VALDERI SANTOS NASCIMENTO,128,demitido,PEDREIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+03570e1f-412c-43ce-a904-2271a5d26d51,VANILDO MOREIRA DE LIMA,118,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+2f916a4a-90ef-4471-ae33-fc0b2ac28af4,VILSON VICENTE ANTONIO SANTOS,68,demitido,CARPINTEIRO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+b5612a88-f104-4f05-917e-83b51bdc80c1,VINICIUS DE ANDRADE SANTOS,108,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+c55b1ab5-20c7-495d-9ca5-4ba27700756f,VITOR EDUARDO FARIAS DE SOUZA,247,ativo,AUXILIAR DE ALMOXARIFADO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+370eb527-a2d1-4d18-b62b-0aa7d294c58e,VITOR XAVIER DE ARAUJO,112,demitido,AJUDANTE GERAL,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+f522f966-32c5-40e6-862c-7051fe8a53cc,WAGNER RODRIGUES FRANCISCO,67,demitido,APONTADOR DE OBRAS,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+9476497b-b32a-4e1e-8514-6b539a140f53,WALDECI OLIVEIRA DA CUNHA,132,demitido,OPERADOR DE ESCAVADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+9edb3abd-9a56-4493-9fa2-50aac49dc5f3,WENER DA SILVA VERONEZ,116,ativo,MOTORISTA DE CAMINHÃO,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+68452df8-bc0f-4c06-9d14-034f29495259,WESLLEY ABREU BERNARDES,39,demitido,OPERADOR DE PÁ CARREGADEIRA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+e4b280d9-233c-456d-a1fc-0b2df0e06746,WILLIAN BISPO SANTOS,249,ativo,OPERADOR DE MOTONIVELADORA,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+a2fae546-20ff-4238-9d62-1ccdad77506f,WILOMAR DA SILVA GALINDO,160,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+17f8dc5f-07f5-44da-b716-ccd85fefdfa5,WILSON FERREIRA DE LIMA,93,demitido,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2529,GRU - AIRPORT,GRU - AIRPORT,alta,nome_da_equipe == centro_custo_descricao
+06a5099c-820a-4c9f-b022-1870ca1fb6ce,GUILHERME DE PAULA SILVA,1721,ativo,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,210,JURÍDICO,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+ca59e000-6682-4c13-add8-41a2d122b4d7,CICERO GOMES DA SILVA,1314,ferias,ASSISTENTE DE FACILITES,PROPRIO,302,MANUTENÇÃO / FROTA,MANUTENÇÃO / FROTA,alta,nome_da_equipe == centro_custo_descricao
+118341a1-4070-4524-968e-32abbf78d9bd,FLAVIO COSMO,498,ativo,VIGILANTE,PROPRIO,302,MANUTENÇÃO / FROTA,MANUTENÇÃO / FROTA,alta,nome_da_equipe == centro_custo_descricao
+2abb5b1a-3ad4-41bf-b3bb-3aa85570880c,MAX ALAM DA SILVA,820,afastado,MOTORISTA DE COMBOIO,PROPRIO,302,MANUTENÇÃO / FROTA,MANUTENÇÃO / FROTA,alta,nome_da_equipe == centro_custo_descricao
+856cfcc6-a50d-4f22-bb81-144f25be677b,ROBSON GARCIA CARMONA,001511,ativo,MECÂNICO,PROPRIO,302,MANUTENÇÃO / FROTA,MANUTENÇÃO / FROTA,alta,nome_da_equipe == centro_custo_descricao
+9227bdb0-9572-47b1-b2f2-9361d46342e3,LUCIANO DE SOUZA CESAR,1784,ativo,MOTORISTA DE CAMINHÃO BASCULANTE,PROPRIO,2539,MOTIVA RODOVIAS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+8965faaa-9862-4a86-bd00-7d061b028aa7,JOSENILDO MOREIRA CRUZ,1036,ativo,OPERADOR DE ROLO,PROPRIO,300,OPERACIONAL DE OBRAS,CARRETEIROS | DEPARTAMENTO ENGENHARIA | GRU - AIRPORT - LUIZ GONZAGA | LOCAÇÃO | RETRABALHOS / PV / OUTROS,baixa,multiplas_equipes_no_mesmo_centro_custo
+e5af8187-3944-4853-a4b7-1878c29587b7,ROGERIO DE SANTANA,1800,ativo,MOTORISTA DE CAMINHÃO,PROPRIO,300,OPERACIONAL DE OBRAS,CARRETEIROS | DEPARTAMENTO ENGENHARIA | GRU - AIRPORT - LUIZ GONZAGA | LOCAÇÃO | RETRABALHOS / PV / OUTROS,baixa,multiplas_equipes_no_mesmo_centro_custo
+ba9fda27-8d96-47ca-aa36-d939887a1d98,MATEUS ROCHA BORITI,1730,demitido,AJUDANTE GERAL,PROPRIO,317,PROJETO ASFALTO FRIO,MASSA FRIA,media,equipe_unica_com_mesmo_centro_custo
+47773108-5e8d-4566-8beb-dad53601488a,LUIZ FERNANDO LAURENTINO SILVA,1774,ativo,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,212,QSMS / EHS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+5e18a4ea-3fe5-4251-96bf-c265711cd1c1,NICOLAS VIEIRA PEREIRA,1719,ativo,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,212,QSMS / EHS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+224f420d-0806-4a13-9a19-34b0d692630f,BEATRIZ P DOS SANTOS ASSIS,1406,ativo,ANALISTA DE RH,PROPRIO,206,RH / GESTAO DE PESSOAS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+c3dd3379-4f92-40b5-a2ac-7d59d0e2fe41,EDJA DOS SANTOS LOPES,1775,ativo,ANALISTA DE RH,PROPRIO,206,RH / GESTAO DE PESSOAS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+bbdccd14-35ae-4a31-af07-06f904672758,GABRIELLY SOBRAL DA SILVA,1738,ativo,ESPECIALISTA DE DESENVOLVIMENTO,PROPRIO,206,RH / GESTAO DE PESSOAS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+f2e5ccda-1448-493b-8b0b-8415372c6fb1,MAINARA DE LIMA GARCIA SANCHES,1484,ativo,ANALISTA R&S,PROPRIO,206,RH / GESTAO DE PESSOAS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+5df28fbf-9183-4012-876e-f026ca483f6e,MARIANA GALDINO DOS SANTOS,1725,ativo,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,206,RH / GESTAO DE PESSOAS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+c7e0b929-a11b-4898-bb20-f7315c94391b,JOSE FRANCISCO DA SILVA FILHO,15,ativo,AUXILIAR DE LIMPEZA,PROPRIO,213,STAFF,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+99f656d7-3f73-4d0f-9763-138175be60e9,TADEU DE LIMA GONCALEZ,239,ferias,MOTORISTA DIRETORIA,PROPRIO,213,STAFF,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+2ed38d0b-31dc-4d3d-b9d1-d3c25cd63b37,ALYSSON CASSIANO LOPES,1439,ferias,ALMOXARIFE,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+5bcd2e83-3e7b-483b-b5d6-de2304bb3878,ERIC MACEDO NION,1794,ativo,COMPRADOR,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+486d8c81-73d5-404a-8d22-dee9a1af66c0,GUSTAVO CERQUEIRA DE ALMEIDA,1498,ativo,COMPRADOR,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+08551c0a-593a-425d-b5e2-085ba3c73b66,HENRIQUE KHATCHIKIAN,1773,ativo,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+a133b694-492b-429e-a455-fc9af9684d0a,HENRIQUE SOARES DA SILVA,1582,demitido,COMPRADOR,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+2476784a-bdf5-444c-a0db-50067088ab49,IGOR ALEXANDRE CASTRO,94,ativo,ALMOXARIFE,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+8317ee90-9884-4874-8696-6b0686ac8181,JONATA FAGUNDES DE JESUS,001744,ativo,SUPERVISOR DE ALMOXARIFADO,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+46f46ab8-2e4b-48a5-8d60-4150198a7823,KLERYSTON WILKY R PEREIRA,1771,ativo,ALMOXARIFE,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+517ccff6-5a1c-4480-af19-5c93afe189a3,LEONARDO MENEZES LOPES,1316,ferias,COMPRADOR,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+3ceb840c-c0d7-414f-ba7f-eb0e557e8023,LUCAS ALVES DA SILVA,1764,ativo,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+4ba4e81a-70f9-4574-b018-5e99f5ea1b2e,MATHEUS MOREIRA B DOS SANTOS,1716,demitido,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+0ee18e98-c8fa-449d-a9d6-4684d944afe1,MAX MARTINS OLIVEIRA SILVA,1287,ativo,COORDENADOR DE SUPRIMENTOS,PROPRIO,303,SUPRIMENTOS,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+7fa4921b-f45b-4ef1-bdbc-a691e8a62fef,ARTHUR AMARAL DE SOUZA,1654,ativo,ANALISTA DE SUPORTE,PROPRIO,204,TI / INFORMATICA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+447b078d-5f00-4db6-8c02-72875c9070ed,HENRIQUE JOANCI VAZ,1723,ativo,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,204,TI / INFORMATICA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+a4650521-17d1-49a9-9ef8-329dac676d2f,MATHEUS FERREIRA DE ABREU,1265,ativo,ANALISTA DE SUPORTE,PROPRIO,204,TI / INFORMATICA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+a0e74d66-de82-4d35-afdf-4af0e247f5ca,GABRIELLI DE SOUSA,1419,ativo,ASSISTENTE ADMINISTRATIVO,PROPRIO,312,TRANSPORTE E LOGÍSTICA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+16f0195f-f44f-4d7c-a216-a9f08f661e8d,GUSTAVO HENRIQUE C DE J SOUZA,1722,ativo,JOVEM APRENDIZ ADMINISTRATIVO,PROPRIO,312,TRANSPORTE E LOGÍSTICA,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+ece284b9-6e46-47b7-b5ce-a62372330025,ALLAN FREITAS,,demitido,ENGENHEIRO CIVIL,PROPRIO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+6c1478f5-b2ec-4651-8bc2-98446f042e6f,ALMIR JOSÉ DA SILVA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+802989d1-d1dd-4746-8c19-ae9af4622aff,ALMIR JOSÉ DA SILVA SANTOS,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+ce7d0763-d8f7-44ee-ba71-f2a15cee0182,ANTONIO DIEGO SILVA DE OLIVEIRA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+3877ef3b-6803-461d-95e4-56c395fbb959,ANTONIO TIAGO PEREIRA GOMES,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+219883fd-249f-465c-9f1d-4119a0b44e64,BARBARA NICOLI DOS SANTOS DUARTE,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+57fb1462-0a86-47f1-87d1-dc083bc73845,CAIO MULLER,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+e29c90b9-fb64-43c9-a299-a7d83086b751,CARLOS SANTOS DA SILVA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+f5f76f35-3b1c-4718-8c29-80cff94b3032,CLESSIO LUCENA DE CARVALHO,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+368c4e9c-deb5-48d9-a413-1c43997eacba,DANIEL PEREIRA DA SILVA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+0d521702-c707-404a-b08f-234f9d44e650,DOMINGOS CRUZ SANTANA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+e90e9425-36a8-4f47-b5d6-ffd0a63e74ea,EDUARDO SANTOS DE SOUZA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+d0624d55-fa4a-4224-9daf-4e64535dd748,ELIEZER - VIGENT,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+0b8ef737-1533-4cde-b679-5aea294b5140,IGOR CAPUCHO,,demitido,ENGENHEIRO CIVIL,PROPRIO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+d2441122-2e8d-402f-962e-58237a61d64e,IRLAN SANTOS FERREIRA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+9dbf5e1e-5422-49e4-bfa2-01aa711c0eaf,JOSÉ AILTON QUIRINO DOS SANTOS,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+7f9ecf9a-d86e-4582-9937-e9a4636b3b1e,KAECIO MATIAS MINERVINO,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+2fed2156-a468-4ec9-a540-64ea810ef695,KLESSIO LUCENA DE CARVALHO,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+0e6bc1a8-4a74-4a17-a2e0-45ac5a4c7913,LUCAS CORREIA XAVIER DE JESUS,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+c22ee456-ce3c-430a-b460-87daba8f229e,LUIZ CARLOS LOPES ARRUDA DA SILVA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+365bb408-0513-43dd-8b30-fbb258ff163b,LUIZ EDUARDO,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+9955b489-d400-452e-a0d2-6740ebe2334e,LUIZ HENRIQUE LOPES DA SILVA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+0ca647bb-f8b6-4479-af54-c22a42a9064e,MIKAEL ALVES SILVA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+ed576db5-2a5f-41f5-bc85-edabf648dc6f,PAULINHO JESUS DE OLIVEIRA,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+cbcee9b9-b5bb-47c2-baf2-09850d37c484,PAULO JESUS DE OLIVEIRA,,inativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+80fb048e-292c-41ef-89b7-a7f431d498ad,PAULO RICARDO SOUZA GUIMARÃES,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+0bd6bda3-dc0e-4887-99ad-94842cb153d5,ROMILDO FREIRE MARTINS,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+b4618a84-3885-4497-9786-7e3add32d1d6,VICTOR GUEDES LEMOS,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+d1a981f3-d67a-49aa-a13f-408bf07e39c2,VINICIUS DOS SANTOS,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc
+477bab2f-e8f6-460e-b3d8-89b5cd4d67d9,WALLA WILLIAM DA SILVA NEVES,,ativo,,TERCEIRO,,,,sem_match,sem_equipe_ativa_com_mesmo_nome_ou_cc

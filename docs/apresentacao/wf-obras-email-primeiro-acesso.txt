@@ -1,0 +1,26 @@
+Assunto: Acesso Workflux — WF Obras
+
+Pessoal, segue o acesso ao módulo WF Obras no Workflux.
+
+Acesso:
+https://app.workflux.com.br
+
+Usuários (preencher depois):
+- [usuario_1]
+- [usuario_2]
+- [usuario_3]
+
+Login:
+- Entrar somente com o usuário (sem @fremix.workflux.app).
+
+Senha inicial (todos):
+fremix
+
+Primeiro acesso:
+1) Entrar no link com usuário + senha inicial
+2) Alterar a senha no primeiro login (Perfil > Alterar senha)
+
+Tutorial ilustrado WF Obras:
+https://apresentacao-sooty-one.vercel.app/wf-obras-tutorial.html
+
+Qualquer dificuldade de acesso, me chamem.

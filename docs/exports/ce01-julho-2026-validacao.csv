@@ -1,0 +1,32 @@
+data,odo_inicial,odo_final,status,apontamento
+2026-07-01,193536,193577,Trabalhando,06:30-07:45 Transporte | 07:45-14:15 À Disposição
+2026-07-02,193578,193610,Trabalhando,07:00-08:19 Check e Preparação | 08:19-09:10 Transporte | 09:10-19:02 Trabalhando
+2026-07-03,193610,193629,Trabalhando,07:00-17:00 Trabalhando
+2026-07-04,193629,193646,Trabalhando,06:30-07:30 Check e Preparação | 07:30-09:15 Transporte | 09:15-20:00 Trabalhando | 20:00-20:30 Transporte
+2026-07-05,193646,193656,Trabalhando,07:00-17:00 Trabalhando
+2026-07-06,193656,193667,Trabalhando,07:00-17:00 Trabalhando
+2026-07-07,193667,193678,Trabalhando,07:00-17:00 Trabalhando
+2026-07-08,193678,193689,Trabalhando,07:00-17:00 Trabalhando
+2026-07-09,193689,193700,Trabalhando,07:00-17:00 Trabalhando
+2026-07-10,193700,193716,Trabalhando,06:00-07:00 Check e Preparação | 07:00-07:30 Transporte | 07:30-12:00 Trabalhando | 12:00-14:00 Transporte
+2026-07-11,193716,193731,Trabalhando,07:00-17:00 Trabalhando
+2026-07-12,193731,193746,Trabalhando,07:00-17:00 Trabalhando
+2026-07-13,193746,193761,Trabalhando,07:00-17:00 Trabalhando
+2026-07-14,193761,193816,Trabalhando,06:00-08:00 Check e Preparação | 08:00-10:00 Transporte | 10:00-17:18 Trabalhando | 17:18-19:00 Transporte
+2026-07-15,193816,193816,Trabalhando,07:00-17:00 Trabalhando
+2026-07-16,193816,193816,Trabalhando,07:00-17:00 Trabalhando
+2026-07-17,193816,193816,Trabalhando,07:00-17:00 Trabalhando
+2026-07-18,193816,193816,Trabalhando,07:00-17:00 Trabalhando
+2026-07-19,193816,193816,Trabalhando,07:00-17:00 Trabalhando
+2026-07-20,193816,193816,Trabalhando,07:00-17:00 Trabalhando
+2026-07-21,193816,193816,Disposição,07:00-18:30 À Disposição
+2026-07-22,193816,193821,Trabalhando,07:00-17:00 Trabalhando
+2026-07-23,193821,193826,Trabalhando,07:00-17:00 Trabalhando
+2026-07-24,193826,193831,Trabalhando,07:00-17:00 Trabalhando
+2026-07-25,193831,193836,Trabalhando,07:00-17:00 Trabalhando
+2026-07-26,193836,193841,Trabalhando,07:00-17:00 Trabalhando
+2026-07-27,193841,193846,Trabalhando,07:00-17:00 Trabalhando
+2026-07-28,193846,193865,Em Transporte,08:42-09:57 Transporte | 09:57-14:25 À Disposição | 14:25-14:38 Transporte
+2026-07-29,193865,193865,Trabalhando,07:00-17:00 Trabalhando
+2026-07-30,193865,193865,Trabalhando,07:00-17:00 Trabalhando
+2026-07-31,193865,193865,Trabalhando,07:00-17:00 Trabalhando

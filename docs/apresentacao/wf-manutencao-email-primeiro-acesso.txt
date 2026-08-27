@@ -1,0 +1,23 @@
+Assunto: Acesso Workflux — WF Manutenção
+
+Pessoal, segue acesso ao Workflux (módulo WF Manutenção).
+
+Link de acesso:
+https://app.workflux.com.br
+
+Usuários:
+<usuario1>
+<usuario2>
+<usuario3>
+
+Senha inicial (todos):
+<senha-inicial>
+
+Primeiro acesso:
+1) Entrar no link com usuário + senha inicial
+2) Alterar senha no primeiro login (Perfil > Alterar senha)
+
+Tutorial ilustrado WF Manutenção:
+https://apresentacao-sooty-one.vercel.app/wf-manutencao-tutorial.html
+
+Se tiverem dificuldade de acesso, me chamem.

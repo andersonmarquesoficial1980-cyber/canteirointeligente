@@ -1,0 +1,14 @@
+﻿metrica,valor
+planilha_total,542
+workflux_total,418
+casados_com_seguranca,353
+planilha_ambiguos,9
+planilha_nao_encontrados_no_workflux,180
+workflux_nao_encontrados_na_planilha,68
+divergencias_status_finais,0
+divergencias_funcao_reais_finais,0
+demitidos_total,44
+demitidos_com_data_demissao,44
+cpf_preenchido,366
+rg_preenchido,346
+centro_custo_codigo_preenchido,366
