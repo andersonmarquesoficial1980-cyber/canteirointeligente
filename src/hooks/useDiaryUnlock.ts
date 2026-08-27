@@ -10,9 +10,8 @@ interface UseDiaryUnlockResult {
   prazoLabel: string;
 }
 
-// Flag temporária — desativa bloqueio de prazo durante implantação
-// Mudar para false quando a empresa estiver rodando em produção
-const DIARY_DEADLINE_DISABLED = true;
+// Bloqueio de prazo ativo em produção
+const DIARY_DEADLINE_DISABLED = false;
 
 const ADMIN_PERFIS = new Set(["admin", "administrador", "superadmin"]);
 const ADMIN_ROLES = new Set(["admin", "superadmin"]);
@@ -42,8 +41,8 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
   const [isLoading, setIsLoading] = useState(false);
 
   const prazoLabel = useMemo(
-    () => (tipo === "equipamento" ? "hoje ou ontem" : "somente hoje"),
-    [tipo],
+    () => "até 48h (dia do lançamento + 2 dias)",
+    [],
   );
 
   useEffect(() => {
@@ -81,10 +80,11 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
         }
 
         const todaySp = getTodayInSaoPauloIso();
-        const yesterdaySp = shiftIsoDate(todaySp, -1);
-        const withinDeadline = tipo === "equipamento"
-          ? date === todaySp || date === yesterdaySp
-          : date === todaySp;
+        const twoDaysAgoSp = shiftIsoDate(todaySp, -2);
+
+        // Regra operacional: lançamento permitido até 48h
+        // Ex.: dia 10 pode lançar até dia 12; no dia 13 bloqueia.
+        const withinDeadline = date >= twoDaysAgoSp && date <= todaySp;
 
         if (withinDeadline) {
           if (!cancelled) setIsBlocked(false);

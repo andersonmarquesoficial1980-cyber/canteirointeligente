@@ -5,11 +5,12 @@ import { ArrowLeft, Building2, Users, ChevronRight, Search } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
 // Tela somente leitura — visível para Engenharia, Gestão de Pessoas, Programador e Encarregado
 // WF Segurança do Trabalho é quem alimenta. Os outros só visualizam.
 
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const COMPANY_ID = DEFAULT_COMPANY_ID;
 
 const STATUS_CONFIG: Record<string, { bg: string; color: string; label: string }> = {
   pendente:  { bg: "#fef3c7", color: "#d97706", label: "Pendente" },

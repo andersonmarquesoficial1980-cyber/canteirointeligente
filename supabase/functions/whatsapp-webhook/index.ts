@@ -11,10 +11,10 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const VERIFY_TOKEN   = "fremix_rh_webhook_2026";
-const META_TOKEN     = "EAAOLYV9BPj0BRldtLsCOsZB1ZAZB2w4JiMS1ZCoTVdZCEhHm6ZAAGZCpPbym3g3vQv8pbBUSunPjD8QmGVteGMaTHenL2DWDlgzTwBZA8ft30UF5anO8aZAq8RZAhrNXJCFVlUWTpDQ3Nral0SH9KNpJe6m7Qbl16msAnaEZAOwuZCRRSLdN2rZAdVDHQY0Xmx29RYBZCMZCQZDZD";
-const PHONE_ID       = "1194682490386542";
-const COMPANY_ID     = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const VERIFY_TOKEN   = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "";
+const META_TOKEN     = Deno.env.get("META_TOKEN") || "";
+const PHONE_ID       = Deno.env.get("META_PHONE_ID") || "";
+const COMPANY_ID     = Deno.env.get("DEFAULT_COMPANY_ID") || "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -267,6 +267,13 @@ async function bot(sb: any, conv: any, empId: string | null, empName: string | n
 // ─── Handler principal ────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  if (!VERIFY_TOKEN || !META_TOKEN || !PHONE_ID) {
+    return new Response(JSON.stringify({ ok: false, error: "Secrets ausentes: WHATSAPP_VERIFY_TOKEN/META_TOKEN/META_PHONE_ID" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
 
   if (req.method === "GET") {
     const url = new URL(req.url);

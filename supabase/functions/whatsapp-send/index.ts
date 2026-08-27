@@ -3,9 +3,9 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const META_TOKEN = "EAAOLYV9BPj0BRldtLsCOsZB1ZAZB2w4JiMS1ZCoTVdZCEhHm6ZAAGZCpPbym3g3vQv8pbBUSunPjD8QmGVteGMaTHenL2DWDlgzTwBZA8ft30UF5anO8aZAq8RZAhrNXJCFVlUWTpDQ3Nral0SH9KNpJe6m7Qbl16msAnaEZAOwuZCRRSLdN2rZAdVDHQY0Xmx29RYBZCMZCQZDZD";
-const PHONE_NUMBER_ID = "1194682490386542";
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const META_TOKEN = Deno.env.get("META_TOKEN") || "";
+const PHONE_NUMBER_ID = Deno.env.get("META_PHONE_ID") || "";
+const COMPANY_ID = Deno.env.get("DEFAULT_COMPANY_ID") || "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +17,13 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
   try {
+    if (!META_TOKEN || !PHONE_NUMBER_ID) {
+      return new Response(JSON.stringify({ ok: false, error: "Secrets ausentes: META_TOKEN/META_PHONE_ID" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!

@@ -20,8 +20,9 @@ import { toast } from "sonner";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const COMPANY_ID = DEFAULT_COMPANY_ID;
 const CARRETAS_PROPRIAS = ["PR001", "PR007"];
 
 interface Equipamento {

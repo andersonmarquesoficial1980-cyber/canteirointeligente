@@ -58,21 +58,33 @@ export function useEquipes() {
     const nome = nomeResponsavel.trim().toLowerCase();
     // Requer mínimo de 4 caracteres para evitar auto-fill com texto parcial
     if (nome.length < 4) return [];
-    // 1. Match exato
+
+    // 1) Match exato
     const exato = membros.filter((m) => m.responsavel.trim().toLowerCase() === nome);
-    if (exato.length > 0) return exato;
-    // 2. O nome selecionado (completo) começa com o valor do campo (abreviado)
-    // mas exige que o valor tenha pelo menos uma palavra completa (sem match de "gi" para "Givanildo")
+
+    // 2) Match de abreviação (nome selecionado completo começa com responsável abreviado)
     const parcial = membros.filter((m) => {
       const resp = m.responsavel.trim().toLowerCase();
       return resp.length > 0 && nome.startsWith(resp);
     });
-    if (parcial.length > 0) return parcial;
-    // 3. Match por início — só se tiver pelo menos 2 palavras digitadas
+
+    // 3) Match por prefixo de 2 palavras (cobre casos "THIAGO HENRIQUE" vs "THIAGO HENRIQUE F PIMENTEL")
     const palavras = nome.split(" ").filter(Boolean);
-    if (palavras.length < 2) return [];
-    const prefixo = palavras.slice(0, 2).join(" ");
-    return membros.filter((m) => m.responsavel.trim().toLowerCase().startsWith(prefixo));
+    const prefixo = palavras.length >= 2 ? palavras.slice(0, 2).join(" ") : "";
+    const porPrefixo = prefixo
+      ? membros.filter((m) => m.responsavel.trim().toLowerCase().startsWith(prefixo))
+      : [];
+
+    // Combina estratégias e remove duplicados por employee.id
+    const combinados = [...exato, ...parcial, ...porPrefixo];
+    if (combinados.length === 0) return [];
+
+    const unicos = new Map<string, MembroEquipe>();
+    combinados.forEach((m) => {
+      if (!unicos.has(m.id)) unicos.set(m.id, m);
+    });
+
+    return Array.from(unicos.values());
   };
 
   /** Retorna todos os membros de uma equipe (case-insensitive) */

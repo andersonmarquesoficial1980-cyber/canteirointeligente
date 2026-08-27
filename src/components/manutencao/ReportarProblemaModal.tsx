@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
 interface Props {
   onClose: () => void;
@@ -43,7 +44,7 @@ export default function ReportarProblemaModal({ onClose, profile }: Props) {
           .from("equipamentos")
           .select("id")
           .eq("frota", frota.trim().toUpperCase())
-          .eq("company_id", profile?.company_id || "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+          .eq("company_id", profile?.company_id || DEFAULT_COMPANY_ID)
           .maybeSingle();
         equipamentoId = equip?.id || null;
       }

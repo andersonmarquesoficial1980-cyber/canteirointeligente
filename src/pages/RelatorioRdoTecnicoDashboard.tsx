@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { toLocalISODate } from "@/lib/date-local";
 
 interface RdoTecnicoRow {
   id: string;
@@ -119,8 +120,8 @@ export default function RelatorioRdoTecnicoDashboard() {
   const { profile } = useUserProfile();
 
   const hoje = new Date();
-  const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split("T")[0];
-  const hojeISO = hoje.toISOString().split("T")[0];
+  const primeiroDiaMes = toLocalISODate(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  const hojeISO = toLocalISODate(hoje);
 
   const [dataIni, setDataIni] = useState(primeiroDiaMes);
   const [dataFim, setDataFim] = useState(hojeISO);

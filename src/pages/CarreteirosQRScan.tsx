@@ -10,8 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOgsReference } from "@/hooks/useOgsReference";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { getLegacyModeState, isLegacyFallbackEnabled } from "@/lib/materialsFeatureFlags";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
-const COMPANY_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const COMPANY_ID = DEFAULT_COMPANY_ID;
 const GPS_REASON_OPTIONS = [
   { value: "SEM_SINAL_RODOVIA", label: "Sem sinal na rodovia" },
   { value: "GPS_DESATIVADO_APARELHO", label: "GPS desativado no aparelho" },

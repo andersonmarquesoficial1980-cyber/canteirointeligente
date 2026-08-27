@@ -11,6 +11,7 @@ import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtNum as fmtNumLib, fmtNumCsv as fmtNumCsvLib } from "@/lib/fmt";
+import { toLocalISODate } from "@/lib/date-local";
 
 interface AbastecimentoRow {
   id: string;
@@ -163,8 +164,9 @@ export default function RelatorioAbastecimento() {
 
   const iniParam = searchParams.get("ini") || "";
   const fimParam = searchParams.get("fim") || "";
-  const today = new Date().toISOString().split("T")[0];
-  const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
+  const today = toLocalISODate();
+  const now = new Date();
+  const primeiroDiaMes = toLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1));
 
   // Filtros
   const [tipoPeriodo, setTipoPeriodo] = useState<"dia" | "periodo">(iniParam && iniParam !== fimParam ? "periodo" : "periodo");
