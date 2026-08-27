@@ -61,6 +61,7 @@ import GestaoPessoasEquipe from "./pages/GestaoPessoasEquipe";
 import GestaoPessoasCandidatos from "./pages/GestaoPessoasCandidatos";
 import GestaoPessoasGerenciamentoPonto from "./pages/GestaoPessoasGerenciamentoPonto";
 import GestaoPessoasGerenciamentoVT from "./pages/GestaoPessoasGerenciamentoVT";
+import GestaoPessoasPendencias from "./pages/GestaoPessoasPendencias";
 import FichaCandidato from "./pages/FichaCandidato";
 import ProgramacaoFerias from "./pages/ProgramacaoFerias";
 import WhatsAppInbox from "./pages/WhatsAppInbox";
@@ -421,6 +422,7 @@ function AppRoutes() {
         <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
         <Route path="/gestao-pessoas/gerenciamento-ponto" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasGerenciamentoPonto /></RequireModule>} />
         <Route path="/gestao-pessoas/gerenciamento-vt" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasGerenciamentoVT /></RequireModule>} />
+        <Route path="/gestao-pessoas/pendencias" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasPendencias /></RequireModule>} />
         <Route path="/gestao-pessoas/equipe" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasEquipe /></RequireModule>} />
         <Route path="/gestao-pessoas/candidatos" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasCandidatos /></RequireModule>} />
         <Route path="/gestao-pessoas/candidatos/novo" element={<RequireModule moduleId="gestao-pessoas"><FichaCandidato /></RequireModule>} />

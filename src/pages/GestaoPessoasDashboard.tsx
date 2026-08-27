@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Search, ChevronRight, Wrench,
   User, Bus, MapPin, Camera, ClipboardList, ChevronDown, ChevronUp,
-  MessageSquare, CheckSquare, Clock, Calendar, Smartphone, X
+  MessageSquare, CheckSquare, Clock, Calendar, Smartphone, X, ListChecks
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
@@ -202,6 +202,7 @@ const RH_ITEMS = [
   { label: "Aprovações",           desc: "Aprovar ou reprovar solicitações da equipe",           icon: CheckSquare,  rota: "/rh/aprovacoes",               cor: "bg-teal-500/20 text-teal-600" },
   { label: "Banco de Horas",       desc: "Saldo de horas por funcionário no mês",                icon: Clock,        rota: "/rh/banco-horas",              cor: "bg-indigo-500/20 text-indigo-600" },
   { label: "Programação de Férias",desc: "Controle de férias, coletivas e saldo por funcionário",icon: Calendar,    rota: "/gestao-pessoas/ferias",       cor: "bg-green-500/20 text-green-600" },
+  { label: "Pendências RH",        desc: "Solicitações de classificação, aumento, demissão e substituição", icon: ListChecks, rota: "/gestao-pessoas/pendencias", cor: "bg-amber-500/20 text-amber-700" },
   { label: "WhatsApp RH",          desc: "Inbox de mensagens dos funcionários via WhatsApp",     icon: Smartphone,   rota: "/gestao-pessoas/whatsapp",     cor: "bg-green-600/20 text-green-700" },
 ];
 

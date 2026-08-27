@@ -9,11 +9,12 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import {
   ArrowLeft, User, Clock, Bus, FileText, Plus, Trash2,
   Calendar, Briefcase, Phone, Mail, Shield, Edit2, Check, X,
-  Camera, Upload, FolderOpen, AlertTriangle, CheckCircle2, Eye
+  Camera, Upload, FolderOpen, AlertTriangle, CheckCircle2, Eye, ListChecks
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useFuncoes } from "@/hooks/useFuncoes";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { toast } from "@/hooks/use-toast";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 
@@ -70,6 +71,21 @@ interface PontoResumo {
   faltas: number;
 }
 
+interface RhPendencia {
+  id: string;
+  tipo: "classificacao" | "aumento_salarial" | "demissao" | "substituicao";
+  status: "aberta" | "em_analise" | "aprovada" | "reprovada" | "cancelada";
+  prioridade: "baixa" | "normal" | "alta" | "urgente";
+  justificativa: string;
+  data_efetiva: string | null;
+  payload: Record<string, any> | null;
+  parecer_gp: string | null;
+  motivo_reprovacao: string | null;
+  solicitado_por_nome: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const TIPOS_DOCUMENTO = [
   // Documentos pessoais
   "RG", "CPF", "CNH", "CTPS", "PIS/PASEP",
@@ -103,6 +119,29 @@ const STATUS_CONFIG: Record<string, { label: string; cor: string }> = {
   ferias:   { label: "Férias",   cor: "bg-sky-500/20 text-sky-400 border-sky-500/30" },
   afastado: { label: "Afastado", cor: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
   demitido: { label: "Demitido", cor: "bg-red-500/20 text-red-400 border-red-500/30" },
+};
+
+const PENDENCIA_TIPO_LABEL: Record<RhPendencia["tipo"], string> = {
+  classificacao: "Classificação",
+  aumento_salarial: "Aumento Salarial",
+  demissao: "Demissão",
+  substituicao: "Substituição",
+};
+
+const PENDENCIA_STATUS_LABEL: Record<RhPendencia["status"], string> = {
+  aberta: "Aberta",
+  em_analise: "Em análise",
+  aprovada: "Aprovada",
+  reprovada: "Reprovada",
+  cancelada: "Cancelada",
+};
+
+const PENDENCIA_STATUS_BADGE: Record<RhPendencia["status"], string> = {
+  aberta: "bg-yellow-100 text-yellow-700 border-yellow-300",
+  em_analise: "bg-blue-100 text-blue-700 border-blue-300",
+  aprovada: "bg-green-100 text-green-700 border-green-300",
+  reprovada: "bg-red-100 text-red-700 border-red-300",
+  cancelada: "bg-zinc-100 text-zinc-700 border-zinc-300",
 };
 
 function fmtDate(d?: string | null) {
@@ -360,6 +399,7 @@ export default function FichaFuncionario() {
   const goBack = useSmartBack("/gestao-pessoas/equipe");
   const { isAdmin } = useIsAdmin();
   const { funcoes } = useFuncoes();
+  const { profile } = useUserProfile();
   const fotoRef = useRef<HTMLInputElement>(null);
   const docFileRef = useRef<HTMLInputElement>(null);
 
@@ -367,11 +407,25 @@ export default function FichaFuncionario() {
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aba, setAba] = useState<"cadastro" | "documentos" | "ponto" | "vt" | "historico">("cadastro");
+  const [aba, setAba] = useState<"cadastro" | "documentos" | "ponto" | "vt" | "historico" | "pendencias">("cadastro");
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState<Partial<Funcionario>>({});
   const [salvando, setSalvando] = useState(false);
   const [uploadandoFoto, setUploadandoFoto] = useState(false);
+
+  const [pendencias, setPendencias] = useState<RhPendencia[]>([]);
+  const [carregandoPendencias, setCarregandoPendencias] = useState(false);
+  const [abrirNovaPendencia, setAbrirNovaPendencia] = useState(false);
+  const [salvandoPendencia, setSalvandoPendencia] = useState(false);
+  const [tipoPendencia, setTipoPendencia] = useState<RhPendencia["tipo"]>("classificacao");
+  const [prioridadePendencia, setPrioridadePendencia] = useState<RhPendencia["prioridade"]>("normal");
+  const [dataEfetivaPendencia, setDataEfetivaPendencia] = useState("");
+  const [justificativaPendencia, setJustificativaPendencia] = useState("");
+  const [classificacaoNova, setClassificacaoNova] = useState("");
+  const [novoSalario, setNovoSalario] = useState("");
+  const [tipoDemissao, setTipoDemissao] = useState("sem_justa_causa");
+  const [substitutoSugerido, setSubstitutoSugerido] = useState("");
+  const [observacaoExtra, setObservacaoExtra] = useState("");
 
   // Modal novo documento
   const [modalDoc, setModalDoc] = useState(false);
@@ -431,8 +485,127 @@ export default function FichaFuncionario() {
         const total = vtData.reduce((s: number, c: any) => s + (c.vt_tarifas?.valor || 0) * c.quantidade * 2, 0);
         setVtTotal(total);
       }
+
+      await carregarPendencias();
     } catch {}
     setLoading(false);
+  }
+
+  async function carregarPendencias() {
+    if (!id) return;
+    setCarregandoPendencias(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("rh_pendencias_funcionario")
+        .select("*")
+        .eq("employee_id", id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setPendencias((data || []) as RhPendencia[]);
+    } catch {
+      // tabela pode não existir antes da migration
+      setPendencias([]);
+    } finally {
+      setCarregandoPendencias(false);
+    }
+  }
+
+  function resetFormPendencia() {
+    setTipoPendencia("classificacao");
+    setPrioridadePendencia("normal");
+    setDataEfetivaPendencia("");
+    setJustificativaPendencia("");
+    setClassificacaoNova("");
+    setNovoSalario("");
+    setTipoDemissao("sem_justa_causa");
+    setSubstitutoSugerido("");
+    setObservacaoExtra("");
+    setAbrirNovaPendencia(false);
+  }
+
+  async function criarPendencia() {
+    if (!func) return;
+    if (!justificativaPendencia.trim()) {
+      toast({ title: "Informe a justificativa", variant: "destructive" });
+      return;
+    }
+    if (tipoPendencia === "classificacao" && !classificacaoNova.trim()) {
+      toast({ title: "Informe a nova classificação", variant: "destructive" });
+      return;
+    }
+    if (tipoPendencia === "aumento_salarial" && !novoSalario.trim()) {
+      toast({ title: "Informe o novo salário", variant: "destructive" });
+      return;
+    }
+
+    const payload: Record<string, any> = {
+      observacao_extra: observacaoExtra || null,
+    };
+    if (tipoPendencia === "classificacao") payload.classificacao_nova = classificacaoNova.trim().toUpperCase();
+    if (tipoPendencia === "aumento_salarial") payload.novo_salario = Number(novoSalario.replace(",", ".")) || null;
+    if (tipoPendencia === "demissao") payload.tipo_demissao = tipoDemissao;
+    if (tipoPendencia === "substituicao") payload.substituto_sugerido = substitutoSugerido.trim().toUpperCase() || null;
+
+    setSalvandoPendencia(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("rh_pendencias_funcionario")
+        .insert({
+          company_id: func.company_id,
+          employee_id: func.id,
+          tipo: tipoPendencia,
+          status: "aberta",
+          prioridade: prioridadePendencia,
+          justificativa: justificativaPendencia.trim(),
+          data_efetiva: dataEfetivaPendencia || null,
+          payload,
+          solicitado_por_user_id: profile?.user_id || null,
+          solicitado_por_nome: profile?.nome_completo || profile?.email || null,
+        });
+      if (error) throw error;
+      toast({ title: "✅ Solicitação registrada" });
+      resetFormPendencia();
+      await carregarPendencias();
+    } catch (err: any) {
+      toast({ title: "Erro ao registrar pendência", description: err?.message || "Tente novamente", variant: "destructive" });
+    } finally {
+      setSalvandoPendencia(false);
+    }
+  }
+
+  async function atualizarStatusPendencia(p: RhPendencia, novoStatus: RhPendencia["status"]) {
+    const comentario = novoStatus === "reprovada"
+      ? window.prompt("Motivo da reprovação:", p.motivo_reprovacao || "")
+      : window.prompt("Observação da tramitação (opcional):", p.parecer_gp || "");
+
+    if (novoStatus === "reprovada" && !comentario?.trim()) {
+      toast({ title: "Motivo da reprovação é obrigatório", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const updatePayload: Record<string, any> = {
+        status: novoStatus,
+        parecer_gp: comentario?.trim() || null,
+      };
+      if (novoStatus === "reprovada") updatePayload.motivo_reprovacao = comentario?.trim();
+      if (novoStatus === "aprovada" || novoStatus === "reprovada" || novoStatus === "cancelada") {
+        updatePayload.resolved_at = new Date().toISOString();
+        updatePayload.resolved_by = profile?.user_id || null;
+      }
+
+      const { error } = await (supabase as any)
+        .from("rh_pendencias_funcionario")
+        .update(updatePayload)
+        .eq("id", p.id);
+      if (error) throw error;
+
+      toast({ title: `Pendência marcada como ${PENDENCIA_STATUS_LABEL[novoStatus].toLowerCase()}` });
+      await carregarPendencias();
+    } catch (err: any) {
+      toast({ title: "Erro ao atualizar pendência", description: err?.message || "Tente novamente", variant: "destructive" });
+    }
   }
 
   async function uploadFoto(file: File) {
@@ -619,6 +792,8 @@ export default function FichaFuncionario() {
   const tipoHistLabel = (tipo: string) => TIPO_HISTORICO.find(t => t.value === tipo)?.label || tipo;
   const docsVencidos = documentos.filter(d => docVencido(d.validade)).length;
   const docsVenceBreve = documentos.filter(d => docVenceBreve(d.validade)).length;
+  const pendenciasAbertas = pendencias.filter((p) => p.status === "aberta" || p.status === "em_analise").length;
+  const podeTramitarPendencias = isAdmin || ["Administrador", "Gerente", "RH", "Gestão de Pessoas"].includes(String(profile?.perfil || ""));
 
   const ABAS = [
     { id: "cadastro",   label: "Cadastro",   icon: User },
@@ -626,6 +801,7 @@ export default function FichaFuncionario() {
     { id: "ponto",      label: "Ponto",      icon: Clock },
     { id: "vt",         label: "VT",         icon: Bus },
     { id: "historico",  label: "Histórico",  icon: FileText },
+    { id: "pendencias", label: "Pendências", icon: ListChecks, badge: pendenciasAbertas > 0 ? pendenciasAbertas : undefined },
   ] as const;
 
   return (
@@ -1108,6 +1284,174 @@ export default function FichaFuncionario() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── ABA PENDÊNCIAS ─────────────────────────────────────────────────── */}
+        {aba === "pendencias" && (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Pendências de Gestão de Pessoas</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={carregarPendencias}
+                  className="text-xs border border-border rounded-lg px-2.5 py-1.5 hover:bg-muted"
+                >
+                  Atualizar
+                </button>
+                <button
+                  onClick={() => setAbrirNovaPendencia((v) => !v)}
+                  className="text-xs bg-primary text-primary-foreground rounded-lg px-3 py-1.5 hover:opacity-90"
+                >
+                  {abrirNovaPendencia ? "Fechar" : "Nova Solicitação"}
+                </button>
+              </div>
+            </div>
+
+            {abrirNovaPendencia && (
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <h3 className="text-sm font-semibold">Abrir solicitação</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase">Tipo *</label>
+                    <select value={tipoPendencia} onChange={(e) => setTipoPendencia(e.target.value as RhPendencia["tipo"])} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm">
+                      <option value="classificacao">Classificação</option>
+                      <option value="aumento_salarial">Aumento Salarial</option>
+                      <option value="demissao">Demissão</option>
+                      <option value="substituicao">Substituição</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase">Prioridade</label>
+                    <select value={prioridadePendencia} onChange={(e) => setPrioridadePendencia(e.target.value as RhPendencia["prioridade"])} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm">
+                      <option value="baixa">Baixa</option>
+                      <option value="normal">Normal</option>
+                      <option value="alta">Alta</option>
+                      <option value="urgente">Urgente</option>
+                    </select>
+                  </div>
+                </div>
+
+                {tipoPendencia === "classificacao" && (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase">Nova classificação *</label>
+                    <input value={classificacaoNova} onChange={(e) => setClassificacaoNova(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm" placeholder="Ex: OPERADOR DE ROLO SR" />
+                  </div>
+                )}
+
+                {tipoPendencia === "aumento_salarial" && (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase">Novo salário (R$) *</label>
+                    <input type="number" step="0.01" value={novoSalario} onChange={(e) => setNovoSalario(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm" placeholder="Ex: 4200.00" />
+                  </div>
+                )}
+
+                {tipoPendencia === "demissao" && (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase">Tipo de demissão</label>
+                    <select value={tipoDemissao} onChange={(e) => setTipoDemissao(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm">
+                      <option value="sem_justa_causa">Sem justa causa</option>
+                      <option value="com_justa_causa">Com justa causa</option>
+                      <option value="termino_contrato">Término de contrato</option>
+                    </select>
+                  </div>
+                )}
+
+                {tipoPendencia === "substituicao" && (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase">Substituto sugerido</label>
+                    <input value={substitutoSugerido} onChange={(e) => setSubstitutoSugerido(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm" placeholder="Nome do substituto" />
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase">Data efetiva desejada</label>
+                  <input type="date" value={dataEfetivaPendencia} onChange={(e) => setDataEfetivaPendencia(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm" />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase">Justificativa *</label>
+                  <textarea value={justificativaPendencia} onChange={(e) => setJustificativaPendencia(e.target.value)} rows={3} className="w-full mt-1 rounded-lg border border-border bg-background px-2 py-2 text-sm" placeholder="Descreva o motivo da solicitação" />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase">Observações adicionais</label>
+                  <input value={observacaoExtra} onChange={(e) => setObservacaoExtra(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm" placeholder="Opcional" />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button onClick={resetFormPendencia} className="h-9 px-3 rounded-lg border border-border text-xs hover:bg-muted">Cancelar</button>
+                  <button onClick={criarPendencia} disabled={salvandoPendencia} className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-60">
+                    {salvandoPendencia ? "Salvando..." : "Abrir solicitação"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {carregandoPendencias ? (
+              <p className="text-sm text-muted-foreground">Carregando pendências...</p>
+            ) : pendencias.length === 0 ? (
+              <div className="rounded-xl border border-border bg-card p-6 text-center">
+                <ListChecks className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhuma pendência registrada para este funcionário.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendencias.map((p) => (
+                  <div key={p.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{PENDENCIA_TIPO_LABEL[p.tipo]}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Aberta em {new Date(p.created_at).toLocaleDateString("pt-BR")} por {p.solicitado_por_nome || "—"}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${PENDENCIA_STATUS_BADGE[p.status]}`}>
+                        {PENDENCIA_STATUS_LABEL[p.status]}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">Prioridade: <strong>{p.prioridade.toUpperCase()}</strong>{p.data_efetiva ? ` · Data efetiva: ${fmtDate(p.data_efetiva)}` : ""}</p>
+                    <p className="text-sm">{p.justificativa}</p>
+
+                    {p.tipo === "classificacao" && p.payload?.classificacao_nova && (
+                      <p className="text-xs">Nova classificação: <strong>{String(p.payload.classificacao_nova)}</strong></p>
+                    )}
+                    {p.tipo === "aumento_salarial" && p.payload?.novo_salario != null && (
+                      <p className="text-xs">Novo salário: <strong>{fmtBRL(Number(p.payload.novo_salario))}</strong></p>
+                    )}
+                    {p.tipo === "demissao" && p.payload?.tipo_demissao && (
+                      <p className="text-xs">Tipo demissão: <strong>{String(p.payload.tipo_demissao)}</strong></p>
+                    )}
+                    {p.tipo === "substituicao" && p.payload?.substituto_sugerido && (
+                      <p className="text-xs">Substituto sugerido: <strong>{String(p.payload.substituto_sugerido)}</strong></p>
+                    )}
+
+                    {p.parecer_gp && <p className="text-xs text-muted-foreground">Parecer GP: {p.parecer_gp}</p>}
+                    {p.motivo_reprovacao && <p className="text-xs text-red-600">Motivo reprovação: {p.motivo_reprovacao}</p>}
+
+                    {podeTramitarPendencias && (p.status === "aberta" || p.status === "em_analise") && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {p.status === "aberta" && (
+                          <button onClick={() => atualizarStatusPendencia(p, "em_analise")} className="text-[11px] px-2.5 py-1 rounded border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100">
+                            Marcar em análise
+                          </button>
+                        )}
+                        <button onClick={() => atualizarStatusPendencia(p, "aprovada")} className="text-[11px] px-2.5 py-1 rounded border border-green-300 text-green-700 bg-green-50 hover:bg-green-100">
+                          Aprovar
+                        </button>
+                        <button onClick={() => atualizarStatusPendencia(p, "reprovada")} className="text-[11px] px-2.5 py-1 rounded border border-red-300 text-red-700 bg-red-50 hover:bg-red-100">
+                          Reprovar
+                        </button>
+                        <button onClick={() => atualizarStatusPendencia(p, "cancelada")} className="text-[11px] px-2.5 py-1 rounded border border-zinc-300 text-zinc-700 bg-zinc-50 hover:bg-zinc-100">
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </>
