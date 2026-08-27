@@ -29,3 +29,14 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Local agent/workbench artifacts
+.hermes/
+.claude/
+.venv-hermes/
+
+# Local temp SQL/exports snapshots
+tmp_*.sql
+tmp_*.csv
+tmp_*.json
+.tmp_*.sql
