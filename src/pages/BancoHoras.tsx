@@ -90,6 +90,7 @@ export default function BancoHoras() {
   const [jornadaPadrao, setJornadaPadrao] = useState(8);
   const [busca, setBusca] = useState("");
   const [equipeFiltro, setEquipeFiltro] = useState<string>("TODAS");
+  const [somentePositivos, setSomentePositivos] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingFechamento, setLoadingFechamento] = useState(false);
   const [rolePerfil, setRolePerfil] = useState<{ role: string | null; perfil: string | null }>({ role: null, perfil: null });
@@ -308,23 +309,32 @@ export default function BancoHoras() {
     const q = busca.trim().toLowerCase();
     return resumosImportados.filter((r) => {
       const equipe = (r.equipe_nome || "Sem equipe").trim();
+      const saldo = Number(r.credito_horas || 0) - Number(r.debito_horas || 0);
       const matchEquipe = equipeFiltro === "TODAS" || equipe === equipeFiltro;
-      if (!matchEquipe) return false;
+      const matchSaldo = !somentePositivos || saldo > 0;
+      if (!matchEquipe || !matchSaldo) return false;
       if (!q) return true;
       return [r.colaborador_nome, equipe].join(" ").toLowerCase().includes(q);
     });
-  }, [resumosImportados, busca, equipeFiltro]);
+  }, [resumosImportados, busca, equipeFiltro, somentePositivos]);
 
   const totalCredito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.credito_horas || 0), 0), [importadosFiltrados]);
   const totalDebito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.debito_horas || 0), 0), [importadosFiltrados]);
   const totalHE = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.total_horas_extras_horas || 0), 0), [importadosFiltrados]);
 
   const filtradosCalc = busca.trim()
-    ? saldosCalculados.filter((s) => s.funcionario.nome.toLowerCase().includes(busca.toLowerCase()) || s.funcionario.matricula?.includes(busca))
-    : saldosCalculados;
+    ? saldosCalculados.filter((s) => {
+      const matchBusca = s.funcionario.nome.toLowerCase().includes(busca.toLowerCase()) || s.funcionario.matricula?.includes(busca);
+      const matchSaldo = !somentePositivos || s.saldo > 0;
+      return matchBusca && matchSaldo;
+    })
+    : saldosCalculados.filter((s) => !somentePositivos || s.saldo > 0);
 
   const totalPositivo = saldosCalculados.filter((s) => s.saldo > 0).reduce((acc, s) => acc + s.saldo, 0);
   const totalNegativo = saldosCalculados.filter((s) => s.saldo < 0).reduce((acc, s) => acc + s.saldo, 0);
+
+  const totalBaseAtual = temImportado ? resumosImportados.length : saldosCalculados.length;
+  const totalFiltradoAtual = temImportado ? importadosFiltrados.length : filtradosCalc.length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -341,7 +351,7 @@ export default function BancoHoras() {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-4 space-y-4 pb-10">
-        <div className="space-y-3">
+        <div className="sticky top-[58px] z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 -mx-4 px-4 py-2 space-y-3 border-b border-border/40">
           {/* Navegação de competência mais intuitiva */}
           <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-2">
             <button
@@ -404,34 +414,55 @@ export default function BancoHoras() {
             )}
           </div>
 
+          {/* Filtros rápidos */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setSomentePositivos((v) => !v)}
+              className={`h-8 px-3 rounded-full text-xs font-semibold border transition ${
+                somentePositivos
+                  ? "bg-green-600 text-white border-green-600"
+                  : "bg-secondary border-border text-foreground hover:bg-muted"
+              }`}
+            >
+              {somentePositivos ? "✓ Somente saldos positivos" : "Somente saldos positivos"}
+            </button>
+
+            <span className="text-xs text-muted-foreground">
+              Mostrando <b>{totalFiltradoAtual}</b> de <b>{totalBaseAtual}</b>
+            </span>
+          </div>
+
           {/* Filtros por equipe (quando importado) */}
           {temImportado && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setEquipeFiltro("TODAS")}
-                className={`h-8 px-3 rounded-full text-xs font-semibold border transition ${
-                  equipeFiltro === "TODAS"
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-secondary border-border text-foreground hover:bg-muted"
-                }`}
-              >
-                Todas as equipes
-              </button>
-              {equipesDisponiveis.map((eq) => (
+            <div className="overflow-x-auto scrollbar-thin">
+              <div className="flex gap-2 min-w-max pr-2">
                 <button
-                  key={eq}
                   type="button"
-                  onClick={() => setEquipeFiltro(eq)}
-                  className={`h-8 px-3 rounded-full text-xs font-semibold border transition ${
-                    equipeFiltro === eq
+                  onClick={() => setEquipeFiltro("TODAS")}
+                  className={`h-8 px-3 rounded-full text-xs font-semibold border transition whitespace-nowrap ${
+                    equipeFiltro === "TODAS"
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-secondary border-border text-foreground hover:bg-muted"
                   }`}
                 >
-                  {eq}
+                  Todas as equipes
                 </button>
-              ))}
+                {equipesDisponiveis.map((eq) => (
+                  <button
+                    key={eq}
+                    type="button"
+                    onClick={() => setEquipeFiltro(eq)}
+                    className={`h-8 px-3 rounded-full text-xs font-semibold border transition whitespace-nowrap ${
+                      equipeFiltro === eq
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary border-border text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {eq}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
