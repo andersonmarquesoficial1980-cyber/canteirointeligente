@@ -43,6 +43,13 @@ interface CompetenciaStatus {
   reaberto_em: string | null;
 }
 
+type FiltroSaldo = "TODOS" | "POSITIVOS" | "NEGATIVOS";
+interface ResumoImportadoEnriquecido extends ResumoImportado {
+  equipe_label: string;
+  funcao_label: string;
+  saldo: number;
+}
+
 function fmtHoras(h: number): string {
   const abs = Math.abs(h);
   const hh = Math.floor(abs);
@@ -71,6 +78,15 @@ function fmtDateTime(dt: string | null): string {
   });
 }
 
+function normalizeText(v: string): string {
+  return (v || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 export default function BancoHoras() {
   const goBack = useSmartBack("/rh");
   const { profile } = useUserProfile();
@@ -90,7 +106,8 @@ export default function BancoHoras() {
   const [jornadaPadrao, setJornadaPadrao] = useState(8);
   const [busca, setBusca] = useState("");
   const [equipeFiltro, setEquipeFiltro] = useState<string>("TODAS");
-  const [somentePositivos, setSomentePositivos] = useState(false);
+  const [funcaoFiltro, setFuncaoFiltro] = useState<string>("TODAS");
+  const [saldoFiltro, setSaldoFiltro] = useState<FiltroSaldo>("TODOS");
   const [loading, setLoading] = useState(false);
   const [loadingFechamento, setLoadingFechamento] = useState(false);
   const [rolePerfil, setRolePerfil] = useState<{ role: string | null; perfil: string | null }>({ role: null, perfil: null });
@@ -295,9 +312,34 @@ export default function BancoHoras() {
 
   const temImportado = resumosImportados.length > 0;
 
+  const funcaoByNome = useMemo(() => {
+    return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.funcao || "Sem função"]));
+  }, [funcionarios]);
+
+  const resumosEnriquecidos = useMemo<ResumoImportadoEnriquecido[]>(() => {
+    return resumosImportados.map((r) => {
+      const equipe = (r.equipe_nome || "Sem equipe").trim();
+      const funcao = funcaoByNome.get(normalizeText(r.colaborador_nome)) || "Sem função";
+      const saldo = Number(r.credito_horas || 0) - Number(r.debito_horas || 0);
+      return {
+        ...r,
+        equipe_label: equipe,
+        funcao_label: funcao,
+        saldo,
+      };
+    });
+  }, [resumosImportados, funcaoByNome]);
+
   const equipesDisponiveis = useMemo(() => {
-    return Array.from(new Set(resumosImportados.map((r) => (r.equipe_nome || "Sem equipe").trim()))).sort();
-  }, [resumosImportados]);
+    return Array.from(new Set(resumosEnriquecidos.map((r) => r.equipe_label))).sort();
+  }, [resumosEnriquecidos]);
+
+  const funcoesDisponiveis = useMemo(() => {
+    const base = equipeFiltro === "TODAS"
+      ? resumosEnriquecidos
+      : resumosEnriquecidos.filter((r) => r.equipe_label === equipeFiltro);
+    return Array.from(new Set(base.map((r) => r.funcao_label))).sort();
+  }, [resumosEnriquecidos, equipeFiltro]);
 
   useEffect(() => {
     if (equipeFiltro !== "TODAS" && !equipesDisponiveis.includes(equipeFiltro)) {
@@ -305,18 +347,29 @@ export default function BancoHoras() {
     }
   }, [equipesDisponiveis, equipeFiltro]);
 
+  useEffect(() => {
+    if (funcaoFiltro !== "TODAS" && !funcoesDisponiveis.includes(funcaoFiltro)) {
+      setFuncaoFiltro("TODAS");
+    }
+  }, [funcoesDisponiveis, funcaoFiltro]);
+
   const importadosFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return resumosImportados.filter((r) => {
-      const equipe = (r.equipe_nome || "Sem equipe").trim();
-      const saldo = Number(r.credito_horas || 0) - Number(r.debito_horas || 0);
-      const matchEquipe = equipeFiltro === "TODAS" || equipe === equipeFiltro;
-      const matchSaldo = !somentePositivos || saldo > 0;
-      if (!matchEquipe || !matchSaldo) return false;
+    return resumosEnriquecidos.filter((r) => {
+      const matchEquipe = equipeFiltro === "TODAS" || r.equipe_label === equipeFiltro;
+      const matchFuncao = funcaoFiltro === "TODAS" || r.funcao_label === funcaoFiltro;
+      const matchSaldo = saldoFiltro === "TODOS"
+        ? true
+        : saldoFiltro === "POSITIVOS"
+          ? r.saldo > 0
+          : r.saldo < 0;
+
+      if (!matchEquipe || !matchFuncao || !matchSaldo) return false;
       if (!q) return true;
-      return [r.colaborador_nome, equipe].join(" ").toLowerCase().includes(q);
+
+      return [r.colaborador_nome, r.equipe_label, r.funcao_label].join(" ").toLowerCase().includes(q);
     });
-  }, [resumosImportados, busca, equipeFiltro, somentePositivos]);
+  }, [resumosEnriquecidos, busca, equipeFiltro, funcaoFiltro, saldoFiltro]);
 
   const totalCredito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.credito_horas || 0), 0), [importadosFiltrados]);
   const totalDebito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.debito_horas || 0), 0), [importadosFiltrados]);
@@ -325,10 +378,18 @@ export default function BancoHoras() {
   const filtradosCalc = busca.trim()
     ? saldosCalculados.filter((s) => {
       const matchBusca = s.funcionario.nome.toLowerCase().includes(busca.toLowerCase()) || s.funcionario.matricula?.includes(busca);
-      const matchSaldo = !somentePositivos || s.saldo > 0;
+      const matchSaldo = saldoFiltro === "TODOS"
+        ? true
+        : saldoFiltro === "POSITIVOS"
+          ? s.saldo > 0
+          : s.saldo < 0;
       return matchBusca && matchSaldo;
     })
-    : saldosCalculados.filter((s) => !somentePositivos || s.saldo > 0);
+    : saldosCalculados.filter((s) => {
+      if (saldoFiltro === "TODOS") return true;
+      if (saldoFiltro === "POSITIVOS") return s.saldo > 0;
+      return s.saldo < 0;
+    });
 
   const totalPositivo = saldosCalculados.filter((s) => s.saldo > 0).reduce((acc, s) => acc + s.saldo, 0);
   const totalNegativo = saldosCalculados.filter((s) => s.saldo < 0).reduce((acc, s) => acc + s.saldo, 0);
@@ -414,57 +475,69 @@ export default function BancoHoras() {
             )}
           </div>
 
-          {/* Filtros rápidos */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => setSomentePositivos((v) => !v)}
-              className={`h-8 px-3 rounded-full text-xs font-semibold border transition ${
-                somentePositivos
-                  ? "bg-green-600 text-white border-green-600"
-                  : "bg-secondary border-border text-foreground hover:bg-muted"
-              }`}
-            >
-              {somentePositivos ? "✓ Somente saldos positivos" : "Somente saldos positivos"}
-            </button>
+          {/* Filtros suspensos */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border bg-card px-3 py-2">
+              <label className="text-[10px] font-semibold uppercase text-muted-foreground">Equipe</label>
+              <select
+                value={equipeFiltro}
+                onChange={(e) => {
+                  const valor = e.target.value;
+                  setEquipeFiltro(valor);
+                  setFuncaoFiltro("TODAS");
+                }}
+                className="w-full mt-1 h-8 bg-transparent text-sm outline-none"
+              >
+                <option value="TODAS">Todas as equipes</option>
+                {equipesDisponiveis.map((eq) => (
+                  <option key={eq} value={eq}>{eq}</option>
+                ))}
+              </select>
+            </div>
 
-            <span className="text-xs text-muted-foreground">
-              Mostrando <b>{totalFiltradoAtual}</b> de <b>{totalBaseAtual}</b>
-            </span>
+            <div className="rounded-xl border border-border bg-card px-3 py-2">
+              <label className="text-[10px] font-semibold uppercase text-muted-foreground">Função</label>
+              <select
+                value={funcaoFiltro}
+                onChange={(e) => setFuncaoFiltro(e.target.value)}
+                className="w-full mt-1 h-8 bg-transparent text-sm outline-none"
+              >
+                <option value="TODAS">Todas as funções</option>
+                {funcoesDisponiveis.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card px-3 py-2">
+              <label className="text-[10px] font-semibold uppercase text-muted-foreground">Saldo</label>
+              <select
+                value={saldoFiltro}
+                onChange={(e) => setSaldoFiltro(e.target.value as FiltroSaldo)}
+                className="w-full mt-1 h-8 bg-transparent text-sm outline-none"
+              >
+                <option value="TODOS">Todos</option>
+                <option value="POSITIVOS">Somente positivos</option>
+                <option value="NEGATIVOS">Somente negativos</option>
+              </select>
+            </div>
           </div>
 
-          {/* Filtros por equipe (quando importado) */}
-          {temImportado && (
-            <div className="overflow-x-auto scrollbar-thin">
-              <div className="flex gap-2 min-w-max pr-2">
-                <button
-                  type="button"
-                  onClick={() => setEquipeFiltro("TODAS")}
-                  className={`h-8 px-3 rounded-full text-xs font-semibold border transition whitespace-nowrap ${
-                    equipeFiltro === "TODAS"
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-secondary border-border text-foreground hover:bg-muted"
-                  }`}
-                >
-                  Todas as equipes
-                </button>
-                {equipesDisponiveis.map((eq) => (
-                  <button
-                    key={eq}
-                    type="button"
-                    onClick={() => setEquipeFiltro(eq)}
-                    className={`h-8 px-3 rounded-full text-xs font-semibold border transition whitespace-nowrap ${
-                      equipeFiltro === eq
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary border-border text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {eq}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>Mostrando <b>{totalFiltradoAtual}</b> de <b>{totalBaseAtual}</b></span>
+            <button
+              type="button"
+              onClick={() => {
+                setEquipeFiltro("TODAS");
+                setFuncaoFiltro("TODAS");
+                setSaldoFiltro("TODOS");
+                setBusca("");
+              }}
+              className="underline underline-offset-2"
+            >
+              Limpar filtros
+            </button>
+          </div>
         </div>
 
         {/* Fechamento da competência */}
@@ -526,16 +599,15 @@ export default function BancoHoras() {
 
             <div className="space-y-2">
               {importadosFiltrados.map((r) => {
-                const saldo = Number(r.credito_horas || 0) - Number(r.debito_horas || 0);
                 return (
                   <div key={r.id} className="bg-card rounded-xl border border-border p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <div>
                         <p className="font-semibold text-sm">{r.colaborador_nome}</p>
-                        <p className="text-xs text-muted-foreground">{r.equipe_nome || "Sem equipe"}</p>
+                        <p className="text-xs text-muted-foreground">{r.equipe_label} · {r.funcao_label}</p>
                       </div>
-                      <span className={`text-xs font-bold ${saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        Saldo {saldo >= 0 ? "+" : ""}{fmtDec(saldo)} h
+                      <span className={`text-xs font-bold ${r.saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        Saldo {r.saldo >= 0 ? "+" : ""}{fmtDec(r.saldo)} h
                       </span>
                     </div>
 
