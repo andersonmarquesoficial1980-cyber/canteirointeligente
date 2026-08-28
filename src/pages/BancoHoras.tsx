@@ -396,6 +396,7 @@ export default function BancoHoras() {
 
   const totalBaseAtual = temImportado ? resumosImportados.length : saldosCalculados.length;
   const totalFiltradoAtual = temImportado ? importadosFiltrados.length : filtradosCalc.length;
+  const equipeSelecionada = equipeFiltro !== "TODAS";
 
   return (
     <div className="min-h-screen bg-background">
@@ -500,13 +501,19 @@ export default function BancoHoras() {
               <select
                 value={funcaoFiltro}
                 onChange={(e) => setFuncaoFiltro(e.target.value)}
-                className="w-full mt-1 h-8 bg-transparent text-sm outline-none"
+                disabled={!equipeSelecionada}
+                className="w-full mt-1 h-8 bg-transparent text-sm outline-none disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <option value="TODAS">Todas as funções</option>
-                {funcoesDisponiveis.map((f) => (
+                <option value="TODAS">
+                  {equipeSelecionada ? "Todas as funções" : "Selecione uma equipe primeiro"}
+                </option>
+                {equipeSelecionada && funcoesDisponiveis.map((f) => (
                   <option key={f} value={f}>{f}</option>
                 ))}
               </select>
+              {!equipeSelecionada && (
+                <p className="text-[10px] text-muted-foreground mt-1">Escolha a equipe para liberar as funções.</p>
+              )}
             </div>
 
             <div className="rounded-xl border border-border bg-card px-3 py-2">
