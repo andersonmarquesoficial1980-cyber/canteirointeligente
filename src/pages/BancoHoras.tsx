@@ -5,10 +5,12 @@
  * Modo B (fallback): cálculo a partir de ponto_registros
  */
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 interface Funcionario { id: string; nome: string; funcao: string; matricula: string; }
 interface Registro { staff_id: string; data: string; hora: string; tipo: string; turno: string | null; }
@@ -34,6 +36,13 @@ interface ResumoImportado {
   total_horas_extras_horas: number;
 }
 
+interface CompetenciaStatus {
+  status: "aberto" | "fechado";
+  observacao: string | null;
+  fechado_em: string | null;
+  reaberto_em: string | null;
+}
+
 function fmtHoras(h: number): string {
   const abs = Math.abs(h);
   const hh = Math.floor(abs);
@@ -51,21 +60,115 @@ function toMin(hora: string): number {
   return h * 60 + (m || 0);
 }
 
+function fmtDateTime(dt: string | null): string {
+  if (!dt) return "";
+  return new Date(dt).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function BancoHoras() {
   const goBack = useSmartBack("/rh");
   const { profile } = useUserProfile();
+  const { toast } = useToast();
 
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [resumosImportados, setResumosImportados] = useState<ResumoImportado[]>([]);
+  const [competenciaStatus, setCompetenciaStatus] = useState<CompetenciaStatus>({ status: "aberto", observacao: null, fechado_em: null, reaberto_em: null });
 
   const [mes, setMes] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
+  const competenciaAtual = `${mes}-01`;
+
   const [jornadaPadrao, setJornadaPadrao] = useState(8);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingFechamento, setLoadingFechamento] = useState(false);
+  const [rolePerfil, setRolePerfil] = useState<{ role: string | null; perfil: string | null }>({ role: null, perfil: null });
+
+  useEffect(() => {
+    const loadAcl = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const uid = authData.user?.id;
+      if (!uid) return;
+
+      const { data } = await (supabase as any)
+        .from("profiles")
+        .select("role, perfil")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (data) {
+        setRolePerfil({ role: data.role ?? null, perfil: data.perfil ?? null });
+      }
+    };
+    loadAcl();
+  }, []);
+
+  const canManageFechamento = useMemo(() => {
+    const role = (rolePerfil.role || "").toLowerCase();
+    const perfil = rolePerfil.perfil || "";
+    if (role === "superadmin" || role === "admin") return true;
+    return ["Administrador", "Gerente", "RH", "Gestão de Pessoas"].includes(perfil);
+  }, [rolePerfil]);
+
+  const carregarDados = async () => {
+    if (!mes || !profile?.company_id) return;
+    setLoading(true);
+
+    const [y, m] = mes.split("-");
+    const ini = `${y}-${m}-01`;
+    const fim = `${y}-${m}-${new Date(Number(y), Number(m), 0).getDate()}`;
+
+    // 1) Tenta resumo importado (PDF)
+    const { data: imported } = await (supabase as any)
+      .from("ponto_he_resumo_mensal")
+      .select("id, colaborador_nome, equipe_nome, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas")
+      .eq("company_id", profile.company_id)
+      .eq("competencia", ini)
+      .order("colaborador_nome", { ascending: true });
+
+    setResumosImportados((imported || []) as ResumoImportado[]);
+
+    // 2) Status da competência (aberto/fechado)
+    const { data: statusData } = await (supabase as any)
+      .from("ponto_he_competencias")
+      .select("status, observacao, fechado_em, reaberto_em")
+      .eq("company_id", profile.company_id)
+      .eq("competencia", ini)
+      .maybeSingle();
+
+    if (statusData?.status) {
+      setCompetenciaStatus({
+        status: statusData.status,
+        observacao: statusData.observacao || null,
+        fechado_em: statusData.fechado_em || null,
+        reaberto_em: statusData.reaberto_em || null,
+      });
+    } else {
+      setCompetenciaStatus({ status: "aberto", observacao: null, fechado_em: null, reaberto_em: null });
+    }
+
+    // 3) Fallback para cálculo no ponto bruto
+    const { data: regs } = await (supabase as any)
+      .from("ponto_registros")
+      .select("staff_id, data, hora, tipo, turno")
+      .eq("company_id", profile.company_id)
+      .gte("data", ini)
+      .lte("data", fim)
+      .order("data")
+      .order("hora");
+
+    if (regs) setRegistros(regs);
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (!profile?.company_id) return;
@@ -85,39 +188,53 @@ export default function BancoHoras() {
   }, [profile?.company_id]);
 
   useEffect(() => {
-    if (!mes || !profile?.company_id) return;
-    setLoading(true);
-    const [y, m] = mes.split("-");
-    const ini = `${y}-${m}-01`;
-    const fim = `${y}-${m}-${new Date(Number(y), Number(m), 0).getDate()}`;
-
-    const load = async () => {
-      // 1) Tenta resumo importado (PDF)
-      const { data: imported } = await (supabase as any)
-        .from("ponto_he_resumo_mensal")
-        .select("id, colaborador_nome, equipe_nome, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas")
-        .eq("company_id", profile.company_id)
-        .eq("competencia", ini)
-        .order("colaborador_nome", { ascending: true });
-
-      setResumosImportados((imported || []) as ResumoImportado[]);
-
-      // 2) Fallback para cálculo no ponto bruto
-      const { data: regs } = await (supabase as any)
-        .from("ponto_registros")
-        .select("staff_id, data, hora, tipo, turno")
-        .eq("company_id", profile.company_id)
-        .gte("data", ini)
-        .lte("data", fim)
-        .order("data")
-        .order("hora");
-
-      if (regs) setRegistros(regs);
-      setLoading(false);
-    };
-
-    load();
+    carregarDados();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mes, profile?.company_id]);
+
+  const fecharCompetencia = async () => {
+    if (!profile?.company_id) return;
+    if (!window.confirm(`Confirmar FECHAMENTO da competência ${mes}?`)) return;
+
+    setLoadingFechamento(true);
+    const { error } = await (supabase as any).rpc("fn_ponto_he_fechar_competencia", {
+      p_company_id: profile.company_id,
+      p_competencia: competenciaAtual,
+      p_observacao: `Fechado via UI em ${new Date().toISOString()}`,
+    });
+
+    if (error) {
+      toast({ title: "Erro ao fechar competência", description: error.message, variant: "destructive" });
+      setLoadingFechamento(false);
+      return;
+    }
+
+    toast({ title: "✅ Competência fechada com sucesso" });
+    await carregarDados();
+    setLoadingFechamento(false);
+  };
+
+  const reabrirCompetencia = async () => {
+    if (!profile?.company_id) return;
+    if (!window.confirm(`Confirmar REABERTURA da competência ${mes}?`)) return;
+
+    setLoadingFechamento(true);
+    const { error } = await (supabase as any).rpc("fn_ponto_he_reabrir_competencia", {
+      p_company_id: profile.company_id,
+      p_competencia: competenciaAtual,
+      p_observacao: `Reaberto via UI em ${new Date().toISOString()}`,
+    });
+
+    if (error) {
+      toast({ title: "Erro ao reabrir competência", description: error.message, variant: "destructive" });
+      setLoadingFechamento(false);
+      return;
+    }
+
+    toast({ title: "✅ Competência reaberta com sucesso" });
+    await carregarDados();
+    setLoadingFechamento(false);
+  };
 
   const saldosCalculados = useMemo((): SaldoFuncionario[] => {
     const byFunc = new Map<string, Map<string, Registro[]>>();
@@ -162,9 +279,7 @@ export default function BancoHoras() {
   const importadosFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
     if (!q) return resumosImportados;
-    return resumosImportados.filter((r) =>
-      [r.colaborador_nome, r.equipe_nome || ""].join(" ").toLowerCase().includes(q)
-    );
+    return resumosImportados.filter((r) => [r.colaborador_nome, r.equipe_nome || ""].join(" ").toLowerCase().includes(q));
   }, [resumosImportados, busca]);
 
   const totalCredito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.credito_horas || 0), 0), [importadosFiltrados]);
@@ -209,6 +324,39 @@ export default function BancoHoras() {
               placeholder={temImportado ? "Buscar colaborador/equipe..." : "Buscar funcionário..."}
               className="w-full h-10 pl-9 rounded-xl border border-border bg-secondary text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
+          </div>
+        </div>
+
+        {/* Fechamento da competência */}
+        <div className={`rounded-xl border p-3 ${competenciaStatus.status === "fechado" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold flex items-center gap-2">
+                {competenciaStatus.status === "fechado" ? <Lock className="w-4 h-4 text-red-600" /> : <Unlock className="w-4 h-4 text-green-600" />}
+                Competência {mes} — {competenciaStatus.status === "fechado" ? "FECHADA" : "ABERTA"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {competenciaStatus.status === "fechado"
+                  ? `Fechada em ${fmtDateTime(competenciaStatus.fechado_em)}`
+                  : competenciaStatus.reaberto_em
+                    ? `Reaberta em ${fmtDateTime(competenciaStatus.reaberto_em)}`
+                    : "Ainda sem fechamento"}
+              </p>
+            </div>
+
+            {canManageFechamento && (
+              <div>
+                {competenciaStatus.status === "aberto" ? (
+                  <Button size="sm" onClick={fecharCompetencia} disabled={loadingFechamento} className="bg-red-600 hover:bg-red-700">
+                    <Lock className="w-3.5 h-3.5 mr-1" /> Fechar Competência
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={reabrirCompetencia} disabled={loadingFechamento}>
+                    <Unlock className="w-3.5 h-3.5 mr-1" /> Reabrir Competência
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
