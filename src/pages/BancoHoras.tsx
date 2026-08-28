@@ -5,7 +5,7 @@
  * Modo B (fallback): cálculo a partir de ponto_registros
  */
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock } from "lucide-react";
+import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock, ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -89,6 +89,7 @@ export default function BancoHoras() {
 
   const [jornadaPadrao, setJornadaPadrao] = useState(8);
   const [busca, setBusca] = useState("");
+  const [equipeFiltro, setEquipeFiltro] = useState<string>("TODAS");
   const [loading, setLoading] = useState(false);
   const [loadingFechamento, setLoadingFechamento] = useState(false);
   const [rolePerfil, setRolePerfil] = useState<{ role: string | null; perfil: string | null }>({ role: null, perfil: null });
@@ -118,6 +119,23 @@ export default function BancoHoras() {
     if (role === "superadmin" || role === "admin") return true;
     return ["Administrador", "Gerente", "RH", "Gestão de Pessoas"].includes(perfil);
   }, [rolePerfil]);
+
+  const labelCompetencia = useMemo(() => {
+    const [ano, mesNum] = mes.split("-").map(Number);
+    const dt = new Date(ano, (mesNum || 1) - 1, 1);
+    return dt.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  }, [mes]);
+
+  const irMesAtual = () => {
+    const now = new Date();
+    setMes(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+  };
+
+  const navegarMes = (delta: number) => {
+    const [ano, mesNum] = mes.split("-").map(Number);
+    const dt = new Date(ano, (mesNum || 1) - 1 + delta, 1);
+    setMes(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`);
+  };
 
   const carregarDados = async () => {
     if (!mes || !profile?.company_id) return;
@@ -276,11 +294,26 @@ export default function BancoHoras() {
 
   const temImportado = resumosImportados.length > 0;
 
+  const equipesDisponiveis = useMemo(() => {
+    return Array.from(new Set(resumosImportados.map((r) => (r.equipe_nome || "Sem equipe").trim()))).sort();
+  }, [resumosImportados]);
+
+  useEffect(() => {
+    if (equipeFiltro !== "TODAS" && !equipesDisponiveis.includes(equipeFiltro)) {
+      setEquipeFiltro("TODAS");
+    }
+  }, [equipesDisponiveis, equipeFiltro]);
+
   const importadosFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    if (!q) return resumosImportados;
-    return resumosImportados.filter((r) => [r.colaborador_nome, r.equipe_nome || ""].join(" ").toLowerCase().includes(q));
-  }, [resumosImportados, busca]);
+    return resumosImportados.filter((r) => {
+      const equipe = (r.equipe_nome || "Sem equipe").trim();
+      const matchEquipe = equipeFiltro === "TODAS" || equipe === equipeFiltro;
+      if (!matchEquipe) return false;
+      if (!q) return true;
+      return [r.colaborador_nome, equipe].join(" ").toLowerCase().includes(q);
+    });
+  }, [resumosImportados, busca, equipeFiltro]);
 
   const totalCredito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.credito_horas || 0), 0), [importadosFiltrados]);
   const totalDebito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.debito_horas || 0), 0), [importadosFiltrados]);
@@ -308,23 +341,99 @@ export default function BancoHoras() {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-4 space-y-4 pb-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input
-            type="month"
-            value={mes}
-            onChange={(e) => setMes(e.target.value)}
-            className="h-11 px-3 rounded-xl border border-border bg-secondary text-sm"
-          />
-          <div className="relative md:col-span-2">
+        <div className="space-y-3">
+          {/* Navegação de competência mais intuitiva */}
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-2">
+            <button
+              type="button"
+              onClick={() => navegarMes(-1)}
+              className="h-9 w-9 shrink-0 rounded-lg border border-border bg-secondary hover:bg-muted flex items-center justify-center"
+              aria-label="Mês anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <label className="flex-1 h-9 rounded-lg border border-border bg-secondary px-3 flex items-center justify-center text-sm font-semibold capitalize cursor-pointer">
+              {labelCompetencia}
+              <input
+                type="month"
+                value={mes}
+                onChange={(e) => setMes(e.target.value)}
+                className="sr-only"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => navegarMes(1)}
+              className="h-9 w-9 shrink-0 rounded-lg border border-border bg-secondary hover:bg-muted flex items-center justify-center"
+              aria-label="Próximo mês"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={irMesAtual}
+              className="h-9 px-3 shrink-0 rounded-lg border border-border bg-secondary hover:bg-muted text-xs font-semibold flex items-center gap-1"
+              aria-label="Ir para mês atual"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Atual
+            </button>
+          </div>
+
+          {/* Busca */}
+          <div className="relative">
             <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder={temImportado ? "Buscar colaborador/equipe..." : "Buscar funcionário..."}
-              className="w-full h-10 pl-9 rounded-xl border border-border bg-secondary text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full h-10 pl-9 pr-9 rounded-xl border border-border bg-secondary text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            {busca && (
+              <button
+                type="button"
+                onClick={() => setBusca("")}
+                className="absolute right-2 top-2 h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center"
+                aria-label="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            )}
           </div>
+
+          {/* Filtros por equipe (quando importado) */}
+          {temImportado && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setEquipeFiltro("TODAS")}
+                className={`h-8 px-3 rounded-full text-xs font-semibold border transition ${
+                  equipeFiltro === "TODAS"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-secondary border-border text-foreground hover:bg-muted"
+                }`}
+              >
+                Todas as equipes
+              </button>
+              {equipesDisponiveis.map((eq) => (
+                <button
+                  key={eq}
+                  type="button"
+                  onClick={() => setEquipeFiltro(eq)}
+                  className={`h-8 px-3 rounded-full text-xs font-semibold border transition ${
+                    equipeFiltro === eq
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {eq}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Fechamento da competência */}
