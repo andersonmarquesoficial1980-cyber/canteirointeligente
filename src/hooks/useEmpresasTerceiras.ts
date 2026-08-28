@@ -15,8 +15,6 @@ export interface FuncionarioTerceiro {
   is_encarregado: boolean;
 }
 
-const EMPRESAS_DEFAULT = ["Geoservice", "RGSE", "Barão", "Copavel", "JBA", "Premark"];
-
 export function useEmpresasTerceiras() {
   const [empresas, setEmpresas] = useState<EmpresaTerceira[]>([]);
   const [funcionarios, setFuncionarios] = useState<FuncionarioTerceiro[]>([]);
@@ -47,22 +45,6 @@ export function useEmpresasTerceiras() {
     ]);
 
     const empList: EmpresaTerceira[] = emps || [];
-
-    // Seed automático na primeira vez
-    if (empList.length === 0) {
-      const companyId = await getCompanyId();
-      if (companyId) {
-        const seedRows = EMPRESAS_DEFAULT.map((nome) => ({ nome, company_id: companyId, tipo: "MAO_DE_OBRA" }));
-        const { data: inserted } = await (supabase as any)
-          .from("empresas_parceiras")
-          .insert(seedRows)
-          .select("id, nome, ativo");
-        setEmpresas(inserted || []);
-        setFuncionarios([]);
-        setLoading(false);
-        return;
-      }
-    }
 
     // Normaliza employees para interface FuncionarioTerceiro
     const funcList: FuncionarioTerceiro[] = (funcs || []).map((f: any) => ({
