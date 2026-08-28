@@ -3810,7 +3810,17 @@ function DesbloqueioLancamentosManager() {
 import { useEmpresasTerceiras } from "@/hooks/useEmpresasTerceiras";
 
 function TerceirizadosManager() {
-  const { empresas, funcionarios, loading, addEmpresa, removeEmpresa, addFuncionario, removeFuncionario } = useEmpresasTerceiras();
+  const {
+    empresas,
+    funcionarios,
+    loading,
+    addEmpresa,
+    updateEmpresa,
+    removeEmpresa,
+    addFuncionario,
+    updateFuncionario,
+    removeFuncionario,
+  } = useEmpresasTerceiras();
   const { toast } = useToast();
 
   const [novaEmpresa, setNovaEmpresa] = useState("");
@@ -3821,6 +3831,16 @@ function TerceirizadosManager() {
   const [filterEmpresa, setFilterEmpresa] = useState("");
   const [savingFunc, setSavingFunc] = useState(false);
   const [novoFuncEncarregado, setNovoFuncEncarregado] = useState(false);
+
+  const [editingEmpresaId, setEditingEmpresaId] = useState<string | null>(null);
+  const [editingEmpresaNome, setEditingEmpresaNome] = useState("");
+  const [savingEmpresaEdit, setSavingEmpresaEdit] = useState(false);
+
+  const [editingFuncId, setEditingFuncId] = useState<string | null>(null);
+  const [editingFuncNome, setEditingFuncNome] = useState("");
+  const [editingFuncEmpresaId, setEditingFuncEmpresaId] = useState("");
+  const [editingFuncEncarregado, setEditingFuncEncarregado] = useState(false);
+  const [savingFuncEdit, setSavingFuncEdit] = useState(false);
 
   const handleAddEmpresa = async () => {
     if (!novaEmpresa.trim()) return;
@@ -3858,6 +3878,64 @@ function TerceirizadosManager() {
     else toast({ title: "Erro ao remover funcionário", variant: "destructive" });
   };
 
+  const startEditarEmpresa = (id: string, nome: string) => {
+    setEditingEmpresaId(id);
+    setEditingEmpresaNome(nome);
+  };
+
+  const cancelarEditarEmpresa = () => {
+    setEditingEmpresaId(null);
+    setEditingEmpresaNome("");
+  };
+
+  const salvarEditarEmpresa = async () => {
+    if (!editingEmpresaId || !editingEmpresaNome.trim()) return;
+    setSavingEmpresaEdit(true);
+    const ok = await updateEmpresa(editingEmpresaId, editingEmpresaNome.trim());
+    setSavingEmpresaEdit(false);
+    if (ok) {
+      toast({ title: "Empresa atualizada!" });
+      cancelarEditarEmpresa();
+      return;
+    }
+    toast({
+      title: "Erro ao atualizar empresa",
+      description: "Verifique se já existe empresa ativa com este nome.",
+      variant: "destructive",
+    });
+  };
+
+  const startEditarFunc = (func: { id: string; nome: string; empresa_id: string; is_encarregado: boolean }) => {
+    setEditingFuncId(func.id);
+    setEditingFuncNome(func.nome);
+    setEditingFuncEmpresaId(func.empresa_id);
+    setEditingFuncEncarregado(!!func.is_encarregado);
+  };
+
+  const cancelarEditarFunc = () => {
+    setEditingFuncId(null);
+    setEditingFuncNome("");
+    setEditingFuncEmpresaId("");
+    setEditingFuncEncarregado(false);
+  };
+
+  const salvarEditarFunc = async () => {
+    if (!editingFuncId || !editingFuncNome.trim() || !editingFuncEmpresaId) return;
+    setSavingFuncEdit(true);
+    const ok = await updateFuncionario(editingFuncId, {
+      nome: editingFuncNome.trim(),
+      empresa_id: editingFuncEmpresaId,
+      is_encarregado: editingFuncEncarregado,
+    });
+    setSavingFuncEdit(false);
+    if (ok) {
+      toast({ title: "Funcionário atualizado!" });
+      cancelarEditarFunc();
+      return;
+    }
+    toast({ title: "Erro ao atualizar funcionário", variant: "destructive" });
+  };
+
   const funcsFiltrados = (filterEmpresa && filterEmpresa !== "__all__")
     ? funcionarios.filter(f => f.empresa_id === filterEmpresa)
     : funcionarios;
@@ -3891,17 +3969,49 @@ function TerceirizadosManager() {
           {empresas.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma empresa cadastrada.</p>
           ) : (
-            empresas.map(emp => (
-              <div key={emp.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2">
-                <span className="text-sm font-medium">{emp.nome}</span>
-                <button
-                  onClick={() => handleRemoveEmpresa(emp.id, emp.nome)}
-                  className="text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))
+            empresas.map(emp => {
+              const isEditing = editingEmpresaId === emp.id;
+              return (
+                <div key={emp.id} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+                  {isEditing ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editingEmpresaNome}
+                        onChange={e => setEditingEmpresaNome(e.target.value)}
+                        className="h-9 bg-background border-border flex-1"
+                        onKeyDown={e => e.key === "Enter" && salvarEditarEmpresa()}
+                      />
+                      <Button size="sm" onClick={salvarEditarEmpresa} disabled={savingEmpresaEdit || !editingEmpresaNome.trim()} className="h-9 px-3">
+                        {savingEmpresaEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={cancelarEditarEmpresa} className="h-9 px-3">
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{emp.nome}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => startEditarEmpresa(emp.id, emp.nome)}
+                          className="text-muted-foreground hover:bg-accent p-1 rounded transition-colors"
+                          title="Editar empresa"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveEmpresa(emp.id, emp.nome)}
+                          className="text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"
+                          title="Remover empresa"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
@@ -3974,23 +4084,76 @@ function TerceirizadosManager() {
               ) : (
                 funcsFiltrados.map(func => {
                   const empresa = empresas.find(e => e.id === func.empresa_id);
+                  const isEditingFunc = editingFuncId === func.id;
+
                   return (
-                    <div key={func.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2">
-                      <div>
-                        <span className="text-sm font-medium">{func.nome}</span>
-                        <span className="text-xs text-muted-foreground ml-2">— {empresa?.nome || "?"}</span>
-                        {func.is_encarregado && (
-                          <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
-                            Encarregado
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleRemoveFunc(func.id, func.nome)}
-                        className="text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div key={func.id} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+                      {isEditingFunc ? (
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <Input
+                              value={editingFuncNome}
+                              onChange={e => setEditingFuncNome(e.target.value)}
+                              placeholder="Nome do funcionário"
+                              className="h-9 bg-background border-border flex-1"
+                              onKeyDown={e => e.key === "Enter" && salvarEditarFunc()}
+                            />
+                            <Button size="sm" onClick={salvarEditarFunc} disabled={savingFuncEdit || !editingFuncNome.trim() || !editingFuncEmpresaId} className="h-9 px-3">
+                              {savingFuncEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={cancelarEditarFunc} className="h-9 px-3">
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <Select value={editingFuncEmpresaId} onValueChange={setEditingFuncEmpresaId}>
+                            <SelectTrigger className="h-9 bg-background border-border">
+                              <SelectValue placeholder="Selecione a empresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {empresas.map(emp => (
+                                <SelectItem key={emp.id} value={emp.id}>{emp.nome}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <input
+                              type="checkbox"
+                              checked={editingFuncEncarregado}
+                              onChange={e => setEditingFuncEncarregado(e.target.checked)}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                            Encarregado de obra (aparece no RDO)
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span className="text-sm font-medium">{func.nome}</span>
+                            <span className="text-xs text-muted-foreground ml-2">— {empresa?.nome || "?"}</span>
+                            {func.is_encarregado && (
+                              <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                                Encarregado
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => startEditarFunc(func)}
+                              className="text-muted-foreground hover:bg-accent p-1 rounded transition-colors"
+                              title="Editar funcionário"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleRemoveFunc(func.id, func.nome)}
+                              className="text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"
+                              title="Remover funcionário"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })

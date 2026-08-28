@@ -102,6 +102,35 @@ export function useEmpresasTerceiras() {
     return !error;
   };
 
+  const updateEmpresa = async (id: string, nome: string): Promise<boolean> => {
+    if (!id || !nome.trim()) return false;
+    const { error } = await (supabase as any)
+      .from("empresas_parceiras")
+      .update({ nome: nome.trim(), updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("ativo", true);
+    if (!error) await fetchAll();
+    return !error;
+  };
+
+  const updateFuncionario = async (
+    id: string,
+    payload: { nome: string; empresa_id: string; is_encarregado: boolean }
+  ): Promise<boolean> => {
+    if (!id || !payload.nome.trim() || !payload.empresa_id) return false;
+    const { error } = await (supabase as any)
+      .from("employees")
+      .update({
+        name: payload.nome.trim(),
+        empresa_id: payload.empresa_id,
+        is_encarregado: payload.is_encarregado,
+      })
+      .eq("id", id)
+      .eq("origem", "TERCEIRO");
+    if (!error) await fetchAll();
+    return !error;
+  };
+
   const removeFuncionario = async (id: string): Promise<boolean> => {
     // Inativa o funcionário terceirizado em employees
     const { error } = await (supabase as any)
@@ -118,8 +147,10 @@ export function useEmpresasTerceiras() {
     funcionarios,
     loading,
     addEmpresa,
+    updateEmpresa,
     removeEmpresa,
     addFuncionario,
+    updateFuncionario,
     removeFuncionario,
     refetch: fetchAll,
   };
