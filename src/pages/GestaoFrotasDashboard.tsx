@@ -22,6 +22,18 @@ interface Equip {
   obra_nome?: string;
 }
 
+type ClasseObservabilidade = "confirmado_manual" | "confirmado_transporte" | "elegivel_auto_parado" | "pendencia_humana";
+
+interface ObservabilidadeResumo {
+  confirmadosManual: number;
+  confirmadosTransporte: number;
+  confirmados: number;
+  elegiveisAuto: number;
+  pendenciasHumanas: number;
+  inconsistenciasFrota: number;
+  semRastreio7d: number;
+}
+
 type Ferramenta = "nav" | "selecionar" | "caneta" | "seta" | "circulo" | "retangulo" | "texto";
 
 interface Forma {
@@ -102,6 +114,22 @@ function isForaSP(e: Equip) {
 function hasEquipeDefinida(e: Equip) {
   const setor = (e.setor || "").trim();
   return Boolean(setor && setor !== "—" && !setor.toLowerCase().includes("manutenção / frota"));
+}
+
+function isParadoParaAuto(e: Equip) {
+  const statusNorm = getStatusNorm(e);
+  if (statusNorm === "manutencao" || statusNorm === "disposicao" || statusNorm === "inoperante") return true;
+  const setor = normTxt(e.setor || "");
+  if (setor.includes("MANUTENCAO") || setor.includes("DISPOSICAO") || setor.includes("PATIO") || setor.includes("BASE")) return true;
+  return false;
+}
+
+function diasDesde(dataStr: string | null): number | null {
+  if (!dataStr) return null;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const data = new Date(`${dataStr}T00:00:00`);
+  return Math.round((hoje.getTime() - data.getTime()) / 86400000);
 }
 
 function getTipoLabelExecutivo(tipoRaw: string) {
@@ -603,6 +631,16 @@ export default function GestaoFrotasDashboard() {
   const [toastMsg, setToastMsg] = useState<string>("");
 
   const [busca, setBusca]           = useState("");
+  const [obsResumo, setObsResumo] = useState<ObservabilidadeResumo>({
+    confirmadosManual: 0,
+    confirmadosTransporte: 0,
+    confirmados: 0,
+    elegiveisAuto: 0,
+    pendenciasHumanas: 0,
+    inconsistenciasFrota: 0,
+    semRastreio7d: 0,
+  });
+  const [loadingObsResumo, setLoadingObsResumo] = useState(false);
 
   // Apresentação
   const [modoApres, setModoApres]   = useState(false);
@@ -728,7 +766,12 @@ export default function GestaoFrotasDashboard() {
       (supabase as any).from("ci_equipes").select("*").eq("ativa", true).order("nome"),
     ]);
 
-    if (equipRes?.data) setTodos(equipRes.data);
+    if (equipRes?.data) {
+      const equipRows = equipRes.data as Equip[];
+      setTodos(equipRows);
+      await carregarResumoObservabilidade(equipRows);
+    }
+
     if (equipesRes?.data) {
       const rows = (equipesRes.data as any[]) || [];
       setEquipesRows(rows);
@@ -750,6 +793,121 @@ export default function GestaoFrotasDashboard() {
       }
     }
     setLoading(false);
+  }
+
+  async function carregarResumoObservabilidade(equips: Equip[]) {
+    if (!equips?.length) {
+      setObsResumo({
+        confirmadosManual: 0,
+        confirmadosTransporte: 0,
+        confirmados: 0,
+        elegiveisAuto: 0,
+        pendenciasHumanas: 0,
+        inconsistenciasFrota: 0,
+        semRastreio7d: 0,
+      });
+      return;
+    }
+
+    setLoadingObsResumo(true);
+    try {
+      const hoje = new Date().toISOString().split("T")[0];
+      const frotas = equips.map((e) => (e.frota || "").trim()).filter(Boolean);
+      const frotasSet = new Set(frotas.map((f) => f.toUpperCase()));
+
+      const [diariosRes, diariosHojeRes, transportesRes] = await Promise.all([
+        (supabase as any)
+          .from("equipment_diaries")
+          .select("equipment_fleet, date, is_auto, status")
+          .in("status", ["enviado", "auto"])
+          .in("equipment_fleet", frotas)
+          .gte("date", (() => { const d = new Date(); d.setDate(d.getDate() - 90); return d.toISOString().split("T")[0]; })())
+          .order("date", { ascending: false }),
+        (supabase as any)
+          .from("equipment_diaries")
+          .select("equipment_fleet, date")
+          .in("status", ["enviado", "auto"])
+          .eq("date", hoje)
+          .not("equipment_fleet", "is", null),
+        (supabase as any)
+          .from("equipamento_transportes")
+          .select("equipment_fleet, data")
+          .eq("data", hoje)
+          .not("equipment_fleet", "is", null),
+      ]);
+
+      const diarios = (diariosRes?.data || []) as any[];
+      const diariosHojeRaw = (diariosHojeRes?.data || []) as any[];
+      const transportesHojeRaw = (transportesRes?.data || []) as any[];
+
+      const temManualHoje = new Set<string>();
+      const temTransporteHoje = new Set<string>();
+      const ultimoDiario = new Map<string, string>();
+
+      diarios.forEach((d) => {
+        const frota = String(d?.equipment_fleet || "").trim();
+        if (!frota) return;
+        if (!ultimoDiario.has(frota)) ultimoDiario.set(frota, d.date);
+        if (d.date === hoje && !d.is_auto) temManualHoje.add(frota.toUpperCase());
+      });
+
+      transportesHojeRaw.forEach((t) => {
+        const frota = String(t?.equipment_fleet || "").trim();
+        if (!frota) return;
+        temTransporteHoje.add(frota.toUpperCase());
+      });
+
+      const classes: ClasseObservabilidade[] = equips.map((e) => {
+        const f = (e.frota || "").toUpperCase();
+        if (temTransporteHoje.has(f)) return "confirmado_transporte";
+        if (temManualHoje.has(f)) return "confirmado_manual";
+        if (isParadoParaAuto(e)) return "elegivel_auto_parado";
+        return "pendencia_humana";
+      });
+
+      const inconsistDiario = diariosHojeRaw.filter((d) => {
+        const frota = String(d?.equipment_fleet || "").trim().toUpperCase();
+        return frota && !frotasSet.has(frota);
+      }).length;
+
+      const inconsistTransporte = transportesHojeRaw.filter((t) => {
+        const frota = String(t?.equipment_fleet || "").trim().toUpperCase();
+        return frota && !frotasSet.has(frota);
+      }).length;
+
+      const semRastreio7d = equips.filter((e) => {
+        const last = ultimoDiario.get(e.frota || "") || null;
+        const d = diasDesde(last);
+        return (d ?? 999) > 7;
+      }).length;
+
+      const confirmadosManual = classes.filter((c) => c === "confirmado_manual").length;
+      const confirmadosTransporte = classes.filter((c) => c === "confirmado_transporte").length;
+      const elegiveisAuto = classes.filter((c) => c === "elegivel_auto_parado").length;
+      const pendenciasHumanas = classes.filter((c) => c === "pendencia_humana").length;
+
+      setObsResumo({
+        confirmadosManual,
+        confirmadosTransporte,
+        confirmados: confirmadosManual + confirmadosTransporte,
+        elegiveisAuto,
+        pendenciasHumanas,
+        inconsistenciasFrota: inconsistDiario + inconsistTransporte,
+        semRastreio7d,
+      });
+    } catch {
+      setObsResumo({
+        confirmadosManual: 0,
+        confirmadosTransporte: 0,
+        confirmados: 0,
+        elegiveisAuto: 0,
+        pendenciasHumanas: 0,
+        inconsistenciasFrota: 0,
+        semRastreio7d: 0,
+      });
+    } finally {
+      setLoadingObsResumo(false);
+    }
   }
 
   async function carregarPermissaoEdicaoDashboard() {
@@ -1949,6 +2107,36 @@ export default function GestaoFrotasDashboard() {
           </div>
           )}
         </div>
+
+        {!presentationClean && (
+          <div style={{ marginBottom: 12, background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
+                Observabilidade do Rastreamento (Fase 1)
+              </p>
+              <span style={{ fontSize: 11, color: "#64748b" }}>
+                {loadingObsResumo ? "Atualizando..." : "Somente leitura — sem automação aplicada aqui"}
+              </span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
+              {[
+                { label: "Confirmados", value: obsResumo.confirmados, tone: "#166534", bg: "#f0fdf4" },
+                { label: "Elegíveis auto (parados)", value: obsResumo.elegiveisAuto, tone: "#1d4ed8", bg: "#eff6ff" },
+                { label: "Pendências humanas", value: obsResumo.pendenciasHumanas, tone: "#b45309", bg: "#fff7ed" },
+                { label: "Inconsistências de frota", value: obsResumo.inconsistenciasFrota, tone: "#b91c1c", bg: "#fef2f2" },
+                { label: "Sem rastreio > 7 dias", value: obsResumo.semRastreio7d, tone: "#7f1d1d", bg: "#fef2f2" },
+              ].map((k) => (
+                <div key={k.label} style={{ background: k.bg, border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 10px" }}>
+                  <p style={{ margin: 0, fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 20, color: k.tone }}>{k.value}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: "#475569", fontWeight: 700 }}>{k.label}</p>
+                </div>
+              ))}
+            </div>
+            <p style={{ margin: "8px 0 0", fontSize: 11, color: "#64748b" }}>
+              Detalhe de confirmados: {obsResumo.confirmadosManual} manual · {obsResumo.confirmadosTransporte} transporte.
+            </p>
+          </div>
+        )}
 
         {!presentationClean && (
           <div style={{ marginBottom: 12, background: "#ffffff", border: "1px solid #dbeafe", borderRadius: 12, padding: 10 }}>
