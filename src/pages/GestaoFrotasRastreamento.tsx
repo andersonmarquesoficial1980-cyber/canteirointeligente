@@ -34,6 +34,15 @@ const COMPANY_ID = DEFAULT_COMPANY_ID;
 
 type FonteInfo = "diario_manual" | "diario_auto" | "setor_cadastro" | "sem_info";
 type StatusOperacao = "trabalhando" | "disposicao" | "manutencao" | "transporte" | "folga" | "patio" | "sem_info";
+type ClasseObservabilidade = "confirmado_manual" | "confirmado_transporte" | "elegivel_auto_parado" | "pendencia_humana";
+type ConfiancaRastreio = "alta" | "media" | "baixa";
+
+interface InconsistenciaItem {
+  frotaInformada: string;
+  origem: "diario" | "transporte";
+  data: string;
+  detalhe: string;
+}
 
 interface EquipRastreio {
   id: string;
@@ -54,6 +63,9 @@ interface EquipRastreio {
   // Transporte via carreta
   carretaTransporte: string | null;
   destinoTransporte: string | null;
+  classeObservabilidade: ClasseObservabilidade;
+  confianca: ConfiancaRastreio;
+  motivoClasse: string;
 }
 
 const STATUS_CFG: Record<StatusOperacao, { label: string; dot: string; badge: string; bgRow: string }> = {
@@ -110,6 +122,48 @@ function corDias(d: number | null): string {
   return "text-red-600 font-semibold";
 }
 
+function isParado(eqStatus: string | null, setor: string | null, statusOperacao: StatusOperacao) {
+  const st = (eqStatus || "").toLowerCase().replace(/[_\s]/g, "");
+  const s = (setor || "").toLowerCase();
+  if (st.includes("manut") || st.includes("disposicao") || st.includes("inativo")) return true;
+  if (s.includes("manutenção") || s.includes("manutencao") || s.includes("disposição") || s.includes("disposicao") || s.includes("pátio") || s.includes("patio") || s.includes("base")) return true;
+  return statusOperacao === "manutencao" || statusOperacao === "disposicao" || statusOperacao === "patio" || statusOperacao === "folga";
+}
+
+function classificarObservabilidade(params: {
+  fonte: FonteInfo;
+  statusOperacao: StatusOperacao;
+  temDiarioHoje: boolean;
+  isAutoHoje: boolean;
+  temTransporteHoje: boolean;
+  eqStatus: string | null;
+  setor: string | null;
+}): { classe: ClasseObservabilidade; confianca: ConfiancaRastreio; motivo: string } {
+  const { fonte, statusOperacao, temDiarioHoje, isAutoHoje, temTransporteHoje, eqStatus, setor } = params;
+
+  if (temTransporteHoje) {
+    return { classe: "confirmado_transporte", confianca: "alta", motivo: "Transporte registrado hoje." };
+  }
+
+  if (temDiarioHoje && fonte === "diario_manual") {
+    return { classe: "confirmado_manual", confianca: "alta", motivo: "Diário manual válido hoje." };
+  }
+
+  if (isParado(eqStatus, setor, statusOperacao) && !temDiarioHoje) {
+    return {
+      classe: "elegivel_auto_parado",
+      confianca: fonte === "setor_cadastro" ? "media" : "alta",
+      motivo: "Sem diário manual hoje e equipamento em manutenção/disposição/pátio.",
+    };
+  }
+
+  if (fonte === "sem_info") {
+    return { classe: "pendencia_humana", confianca: "baixa", motivo: "Sem diário e sem setor cadastrado." };
+  }
+
+  return { classe: "pendencia_humana", confianca: temDiarioHoje ? "media" : "baixa", motivo: "Exige lançamento/validação humana." };
+}
+
 export default function GestaoFrotasRastreamento() {
   const navigate = useNavigate();
   const goBack = useSmartBack("/gestao-frotas");
@@ -119,7 +173,9 @@ export default function GestaoFrotasRastreamento() {
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<StatusOperacao | "todos">("todos");
+  const [filtroClasse, setFiltroClasse] = useState<ClasseObservabilidade | "todos">("todos");
   const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [inconsistencias, setInconsistencias] = useState<InconsistenciaItem[]>([]);
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
 
   useEffect(() => { buscarDados(); }, []);
@@ -155,9 +211,18 @@ export default function GestaoFrotasRastreamento() {
     // 3. Transportes de hoje (equipamento sendo carregado por carreta)
     const { data: transportes } = await (supabase as any)
       .from("equipamento_transportes")
-      .select("equipment_fleet, transportador_nome, destino_descricao, destino_ogs")
+      .select("equipment_fleet, transportador_nome, destino_descricao, destino_ogs, data")
       .eq("data", hoje)
       .eq("company_id", COMPANY_ID);
+
+    // 4. Diários de hoje sem filtro por frota — para detectar erro de apontamento
+    const { data: diariosHojeRaw } = await (supabase as any)
+      .from("equipment_diaries")
+      .select("equipment_fleet, date, status")
+      .eq("company_id", COMPANY_ID)
+      .in("status", ["enviado", "auto"])
+      .eq("date", hoje)
+      .not("equipment_fleet", "is", null);
 
     // Montar mapa: último diário manual por frota, e se tem diário hoje
     const ultimoDiarioMap = new Map<string, typeof diarios extends (infer T)[] | null ? T : never>();
@@ -201,11 +266,21 @@ export default function GestaoFrotasRastreamento() {
 
       // Transporte de hoje tem prioridade sobre o diário para localização
       if (transporte) {
+        const statusOperacao = "transporte" as StatusOperacao;
+        const cls = classificarObservabilidade({
+          fonte: "diario_manual",
+          statusOperacao,
+          temDiarioHoje,
+          isAutoHoje,
+          temTransporteHoje: true,
+          eqStatus: eq.status ?? null,
+          setor: eq.setor ?? null,
+        });
         return {
           ...eq,
           localAtual: transporte.destino || "Em rota",
           ogsAtual: transporte.destinoOgs,
-          statusOperacao: "transporte" as StatusOperacao,
+          statusOperacao,
           operador: ultimoDiario?.operator_name ?? null,
           fonte: "diario_manual" as FonteInfo,
           ultimaDiarioData: ultimoDiario?.date ?? null,
@@ -214,44 +289,98 @@ export default function GestaoFrotasRastreamento() {
           isAutoHoje,
           carretaTransporte: transporte.carreta,
           destinoTransporte: transporte.destino,
+          classeObservabilidade: cls.classe,
+          confianca: cls.confianca,
+          motivoClasse: cls.motivo,
         };
       }
 
       if (ultimoDiario) {
+        const statusOperacao = resolverStatus(ultimoDiario.work_status, eq.setor, ultimoDiario.date);
+        const fonte = ultimoDiario.is_auto ? "diario_auto" : "diario_manual";
+        const cls = classificarObservabilidade({
+          fonte,
+          statusOperacao,
+          temDiarioHoje,
+          isAutoHoje,
+          temTransporteHoje: false,
+          eqStatus: eq.status ?? null,
+          setor: eq.setor ?? null,
+        });
         return {
           ...eq,
           localAtual: ultimoDiario.location_address || eq.setor || "—",
           ogsAtual: ultimoDiario.ogs_number || null,
-          statusOperacao: resolverStatus(ultimoDiario.work_status, eq.setor, ultimoDiario.date),
+          statusOperacao,
           operador: ultimoDiario.operator_name ?? null,
-          fonte: ultimoDiario.is_auto ? "diario_auto" : "diario_manual",
+          fonte,
           ultimaDiarioData: ultimoDiario.date,
           diasSemDiario: dAtras,
           temDiarioHoje,
           isAutoHoje,
           carretaTransporte: null,
           destinoTransporte: null,
+          classeObservabilidade: cls.classe,
+          confianca: cls.confianca,
+          motivoClasse: cls.motivo,
         };
       }
 
       // Sem nenhum diário — usar setor do cadastro como localização
       const setor = eq.setor;
+      const statusOperacao = resolverStatus(null, setor, null);
+      const fonte = setor ? "setor_cadastro" : "sem_info";
+      const cls = classificarObservabilidade({
+        fonte,
+        statusOperacao,
+        temDiarioHoje: false,
+        isAutoHoje: false,
+        temTransporteHoje: false,
+        eqStatus: eq.status ?? null,
+        setor: eq.setor ?? null,
+      });
       return {
         ...eq,
         localAtual: setor || "—",
         ogsAtual: null,
-        statusOperacao: resolverStatus(null, setor, null),
+        statusOperacao,
         operador: null,
-        fonte: setor ? "setor_cadastro" : "sem_info",
+        fonte,
         ultimaDiarioData: null,
         diasSemDiario: null,
         temDiarioHoje: false,
         isAutoHoje: false,
         carretaTransporte: null,
         destinoTransporte: null,
+        classeObservabilidade: cls.classe,
+        confianca: cls.confianca,
+        motivoClasse: cls.motivo,
       };
     });
 
+    const frotasSet = new Set(frotas.map((f: string) => (f || "").toUpperCase()));
+    const inconsistDiario: InconsistenciaItem[] = (diariosHojeRaw || [])
+      .filter((d: any) => d?.equipment_fleet && !frotasSet.has(String(d.equipment_fleet).toUpperCase()))
+      .map((d: any) => ({
+        frotaInformada: String(d.equipment_fleet),
+        origem: "diario" as const,
+        data: d.date,
+        detalhe: "Frota informada no diário não encontrada no cadastro de equipamentos.",
+      }));
+
+    const inconsistTransporte: InconsistenciaItem[] = (transportes || [])
+      .filter((t: any) => t?.equipment_fleet && !frotasSet.has(String(t.equipment_fleet).toUpperCase()))
+      .map((t: any) => ({
+        frotaInformada: String(t.equipment_fleet),
+        origem: "transporte" as const,
+        data: t.data || hoje,
+        detalhe: "Frota informada no transporte não encontrada no cadastro de equipamentos.",
+      }));
+
+    const allIncons = [...inconsistDiario, ...inconsistTransporte]
+      .sort((a, b) => b.data.localeCompare(a.data));
+
+    setInconsistencias(allIncons);
     setLista(result);
     setUltimaAtualizacao(new Date());
     setLoading(false);
@@ -266,7 +395,12 @@ export default function GestaoFrotasRastreamento() {
     disposicao: lista.filter((e) => e.statusOperacao === "disposicao" || e.statusOperacao === "patio" || e.statusOperacao === "folga").length,
     semDiarioHoje: lista.filter((e) => !e.temDiarioHoje).length,
     semInfo: lista.filter((e) => e.fonte === "sem_info").length,
-  }), [lista]);
+    confirmados: lista.filter((e) => e.classeObservabilidade === "confirmado_manual" || e.classeObservabilidade === "confirmado_transporte").length,
+    elegiveisAuto: lista.filter((e) => e.classeObservabilidade === "elegivel_auto_parado").length,
+    pendenciasHumanas: lista.filter((e) => e.classeObservabilidade === "pendencia_humana").length,
+    semRastreio7d: lista.filter((e) => (e.diasSemDiario ?? 0) > 7).length,
+    inconsistencias: inconsistencias.length,
+  }), [lista, inconsistencias]);
 
   const tiposUnicos = useMemo(() =>
     Array.from(new Set(lista.map((e) => e.tipo || "").filter(Boolean))).sort(),
@@ -275,6 +409,7 @@ export default function GestaoFrotasRastreamento() {
   const listaFiltrada = useMemo(() => {
     let r = lista;
     if (filtroStatus !== "todos") r = r.filter((e) => e.statusOperacao === filtroStatus);
+    if (filtroClasse !== "todos") r = r.filter((e) => e.classeObservabilidade === filtroClasse);
     if (filtroTipo !== "todos") r = r.filter((e) => e.tipo === filtroTipo);
     if (busca.trim()) {
       const q = busca.toLowerCase();
@@ -284,6 +419,7 @@ export default function GestaoFrotasRastreamento() {
         e.localAtual?.toLowerCase().includes(q) ||
         e.operador?.toLowerCase().includes(q) ||
         e.setor?.toLowerCase().includes(q) ||
+        e.motivoClasse?.toLowerCase().includes(q) ||
         e.ogsAtual?.toLowerCase().includes(q)
       );
     }
@@ -297,7 +433,7 @@ export default function GestaoFrotasRastreamento() {
       if (diff !== 0) return diff;
       return (a.diasSemDiario ?? 999) - (b.diasSemDiario ?? 999);
     });
-  }, [lista, filtroStatus, filtroTipo, busca]);
+  }, [lista, filtroStatus, filtroClasse, filtroTipo, busca]);
 
   const fmtHora = (d: Date) => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const fmtData = (s: string) => {
@@ -311,6 +447,14 @@ export default function GestaoFrotasRastreamento() {
     { key: "transporte" as const,  label: "🚛 Transporte",  count: kpis.transporte,   cor: "bg-purple-100 text-purple-700 border border-purple-200" },
     { key: "manutencao" as const,  label: "🔧 Manutenção",  count: kpis.manutencao,   cor: "bg-amber-100 text-amber-700 border border-amber-200" },
     { key: "disposicao" as const,  label: "📦 Disp./Pátio", count: kpis.disposicao,   cor: "bg-blue-100 text-blue-700 border border-blue-200" },
+  ];
+
+  const CHIPS_CLASSE = [
+    { key: "todos" as const, label: "Todos", count: kpis.total, cor: "bg-slate-100 text-slate-700 border border-slate-200" },
+    { key: "confirmado_manual" as const, label: "✅ Confirmado (manual)", count: lista.filter((e) => e.classeObservabilidade === "confirmado_manual").length, cor: "bg-emerald-100 text-emerald-700 border border-emerald-200" },
+    { key: "confirmado_transporte" as const, label: "🚛 Confirmado (transporte)", count: lista.filter((e) => e.classeObservabilidade === "confirmado_transporte").length, cor: "bg-purple-100 text-purple-700 border border-purple-200" },
+    { key: "elegivel_auto_parado" as const, label: "🤖 Elegível auto (parado)", count: kpis.elegiveisAuto, cor: "bg-blue-100 text-blue-700 border border-blue-200" },
+    { key: "pendencia_humana" as const, label: "⚠️ Pendência humana", count: kpis.pendenciasHumanas, cor: "bg-orange-100 text-orange-700 border border-orange-200" },
   ];
 
   return (
@@ -340,12 +484,14 @@ export default function GestaoFrotasRastreamento() {
       <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {[
             { label: "Total ativos", value: kpis.total, cor: "text-gray-700" },
-            { label: "Trabalhando", value: kpis.trabalhando, cor: "text-emerald-600" },
-            { label: "Manutenção", value: kpis.manutencao, cor: kpis.manutencao > 0 ? "text-amber-600 font-bold" : "text-gray-400" },
-            { label: "Sem diário hoje", value: kpis.semDiarioHoje, cor: kpis.semDiarioHoje > 0 ? "text-orange-600" : "text-gray-400" },
+            { label: "Confirmados (manual/transporte)", value: kpis.confirmados, cor: "text-emerald-600" },
+            { label: "Elegíveis auto (parados)", value: kpis.elegiveisAuto, cor: "text-blue-600" },
+            { label: "Pendências humanas", value: kpis.pendenciasHumanas, cor: kpis.pendenciasHumanas > 0 ? "text-orange-600" : "text-gray-400" },
+            { label: "Inconsistências de frota", value: kpis.inconsistencias, cor: kpis.inconsistencias > 0 ? "text-red-600 font-bold" : "text-gray-400" },
+            { label: "Sem rastreio > 7 dias", value: kpis.semRastreio7d, cor: kpis.semRastreio7d > 0 ? "text-red-600" : "text-gray-400" },
           ].map((k) => (
             <div key={k.label} className="bg-white rounded-xl border border-border px-3 py-2.5 text-center">
               <p className={`text-2xl font-display font-extrabold ${k.cor}`}>{k.value}</p>
@@ -370,6 +516,18 @@ export default function GestaoFrotasRastreamento() {
             <button key={c.key} onClick={() => setFiltroStatus(c.key)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${c.cor} ${
                 filtroStatus === c.key ? "ring-2 ring-offset-1 ring-primary/50 scale-105" : "opacity-80 hover:opacity-100"
+              }`}>
+              {c.label} <span className="font-bold ml-1">{c.count}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Filtros de observabilidade (Fase 1) */}
+        <div className="flex flex-wrap gap-2">
+          {CHIPS_CLASSE.map((c) => (
+            <button key={c.key} onClick={() => setFiltroClasse(c.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${c.cor} ${
+                filtroClasse === c.key ? "ring-2 ring-offset-1 ring-primary/50 scale-105" : "opacity-80 hover:opacity-100"
               }`}>
               {c.label} <span className="font-bold ml-1">{c.count}</span>
             </button>
@@ -411,6 +569,11 @@ export default function GestaoFrotasRastreamento() {
               const cfg = STATUS_CFG[eq.statusOperacao];
               const isOpen = expandido[eq.frota];
               const dAtras = eq.diasSemDiario;
+              const confCfg = eq.confianca === "alta"
+                ? { label: "Confiança alta", cls: "bg-emerald-100 text-emerald-700 border border-emerald-200" }
+                : eq.confianca === "media"
+                ? { label: "Confiança média", cls: "bg-amber-100 text-amber-700 border border-amber-200" }
+                : { label: "Confiança baixa", cls: "bg-red-100 text-red-700 border border-red-200" };
 
               return (
                 <div key={eq.frota} className={`rounded-xl border border-border overflow-hidden ${cfg.bgRow}`}>
@@ -452,6 +615,11 @@ export default function GestaoFrotasRastreamento() {
                       {cfg.label}
                     </span>
 
+                    {/* Badge confiança */}
+                    <span className={`hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${confCfg.cls}`}>
+                      {confCfg.label}
+                    </span>
+
                     {/* Badge "sem diário hoje" */}
                     {!eq.temDiarioHoje && eq.fonte !== "setor_cadastro" && eq.fonte !== "sem_info" && (
                       <span className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-orange-100 text-orange-700 border border-orange-200">
@@ -469,6 +637,7 @@ export default function GestaoFrotasRastreamento() {
                     <div className="px-4 pb-3 pt-0 border-t border-border/50 bg-black/[0.02] space-y-2">
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-2">
                         <div><span className="text-muted-foreground">Status: </span><span className="font-medium">{cfg.label}</span></div>
+                        <div><span className="text-muted-foreground">Classe Fase 1: </span><span className="font-medium">{eq.classeObservabilidade.replaceAll("_", " ")}</span></div>
                         {eq.setor && <div><span className="text-muted-foreground">Equipe/Setor: </span><span className="font-medium">{eq.setor}</span></div>}
                         {eq.operador && <div><span className="text-muted-foreground">Operador: </span><span className="font-medium">{eq.operador}</span></div>}
                         {eq.ogsAtual && eq.ogsAtual !== "000" && (
@@ -488,6 +657,10 @@ export default function GestaoFrotasRastreamento() {
                              eq.fonte === "setor_cadastro" ? "📋 Setor cadastrado" :
                              "❓ Sem informação"}
                           </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Motivo da classe: </span>
+                          <span className="font-medium">{eq.motivoClasse}</span>
                         </div>
                         {eq.ultimaDiarioData && (
                           <div>
@@ -523,6 +696,28 @@ export default function GestaoFrotasRastreamento() {
             })}
           </div>
         )}
+
+        {/* Painel de exceções (Fase 1) */}
+        <div className="bg-white rounded-xl border border-border p-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-xs font-bold text-muted-foreground">Fila de exceções — frota inconsistente</p>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${kpis.inconsistencias > 0 ? "bg-red-100 text-red-700 border border-red-200" : "bg-emerald-100 text-emerald-700 border border-emerald-200"}`}>
+              {kpis.inconsistencias} pendência(s)
+            </span>
+          </div>
+          {inconsistencias.length === 0 ? (
+            <p className="text-xs text-emerald-700">Nenhuma inconsistência de frota detectada hoje.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {inconsistencias.slice(0, 12).map((item, idx) => (
+                <div key={`${item.frotaInformada}-${idx}`} className="text-xs rounded-lg border border-red-200 bg-red-50 px-2.5 py-2">
+                  <p className="font-semibold text-red-800">{item.frotaInformada} · {item.origem === "diario" ? "Diário" : "Transporte"} · {fmtData(item.data)}</p>
+                  <p className="text-red-700">{item.detalhe}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Legenda */}
         <div className="bg-white rounded-xl border border-border p-3 mt-2">
