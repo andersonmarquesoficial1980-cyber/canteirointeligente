@@ -31,6 +31,14 @@ interface EquipSemRdo {
   status: string | null;
 }
 
+interface ObservRdoResumo {
+  confirmadasRdo: number;
+  semApontamento: number;
+  inconsistenciasFrota: number;
+  semEquipeSetor: number;
+  ultimoRdoAtrasado2d: number;
+}
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function fmtDate(d: string) {
   if (!d) return "—";
@@ -77,6 +85,14 @@ function normTxt(v: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toUpperCase();
+}
+
+function diasDesde(dataStr: string) {
+  if (!dataStr) return null;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const d = new Date(`${dataStr}T00:00:00`);
+  return Math.round((hoje.getTime() - d.getTime()) / 86400000);
 }
 
 // Grupos de tipo (mesmo padrão do dashboard de frotas)
@@ -266,6 +282,13 @@ export default function GestaoFrotasDashboardRdo() {
   // Dados
   const [allRows, setAllRows] = useState<RdoRow[]>([]);
   const [equipSemRdo, setEquipSemRdo] = useState<EquipSemRdo[]>([]);
+  const [obsResumo, setObsResumo] = useState<ObservRdoResumo>({
+    confirmadasRdo: 0,
+    semApontamento: 0,
+    inconsistenciasFrota: 0,
+    semEquipeSetor: 0,
+    ultimoRdoAtrasado2d: 0,
+  });
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastFetch, setLastFetch] = useState("");
@@ -303,7 +326,19 @@ export default function GestaoFrotasDashboardRdo() {
         .gte("data", dataIni)
         .lte("data", dataFim);
 
-      if (!rdos || rdos.length === 0) { setAllRows([]); setLoading(false); return; }
+      if (!rdos || rdos.length === 0) {
+        setAllRows([]);
+        setEquipSemRdo([]);
+        setObsResumo({
+          confirmadasRdo: 0,
+          semApontamento: 0,
+          inconsistenciasFrota: 0,
+          semEquipeSetor: 0,
+          ultimoRdoAtrasado2d: 0,
+        });
+        setLoading(false);
+        return;
+      }
 
       const rdoIds = rdos.map((r: any) => r.id);
       const rdoMap: Record<string, any> = {};
@@ -316,7 +351,19 @@ export default function GestaoFrotasDashboardRdo() {
         .in("rdo_id", rdoIds)
         .not("frota", "is", null);
 
-      if (!equips || equips.length === 0) { setAllRows([]); setLoading(false); return; }
+      if (!equips || equips.length === 0) {
+        setAllRows([]);
+        setEquipSemRdo([]);
+        setObsResumo({
+          confirmadasRdo: 0,
+          semApontamento: 0,
+          inconsistenciasFrota: 0,
+          semEquipeSetor: 0,
+          ultimoRdoAtrasado2d: 0,
+        });
+        setLoading(false);
+        return;
+      }
 
       // 3. Enriquecer com dados de equipamentos (tipo, empresa, condicao)
       const frotaNames = [...new Set(equips.map((e: any) => e.frota).filter(Boolean))];
@@ -385,8 +432,47 @@ export default function GestaoFrotasDashboardRdo() {
         .sort((a: EquipSemRdo, b: EquipSemRdo) => (a.tipo || "").localeCompare(b.tipo || "") || (a.frota || "").localeCompare(b.frota || ""));
 
       setEquipSemRdo(semRdo);
+
+      // ── Resumo de observabilidade (foco em qualidade do apontamento) ──
+      const frotasConfirmadas = new Set(rows.map((r) => (r.frota || "").trim().toUpperCase())).size;
+
+      const frotasInconsistentes = new Set(
+        (equips || [])
+          .map((e: any) => String(e?.frota || "").trim())
+          .filter((f: string) => !!f && !maqMap[f])
+          .map((f: string) => f.toUpperCase())
+      ).size;
+
+      const snapshotMap: Record<string, RdoRow> = {};
+      rows.forEach((r) => {
+        const key = (r.frota || "").trim().toUpperCase();
+        if (!key) return;
+        if (!snapshotMap[key] || r.data > snapshotMap[key].data) snapshotMap[key] = r;
+      });
+      const ultimasPosicoes = Object.values(snapshotMap);
+
+      const semEquipeSetor = ultimasPosicoes.filter((r) => !(r.equipe || "").trim()).length;
+      const ultimoRdoAtrasado2d = ultimasPosicoes.filter((r) => {
+        const d = diasDesde(r.data);
+        return (d ?? 0) > 2;
+      }).length;
+
+      setObsResumo({
+        confirmadasRdo: frotasConfirmadas,
+        semApontamento: semRdo.length,
+        inconsistenciasFrota: frotasInconsistentes,
+        semEquipeSetor,
+        ultimoRdoAtrasado2d,
+      });
     } catch (err) {
       console.error(err);
+      setObsResumo({
+        confirmadasRdo: 0,
+        semApontamento: 0,
+        inconsistenciasFrota: 0,
+        semEquipeSetor: 0,
+        ultimoRdoAtrasado2d: 0,
+      });
     } finally {
       setLoading(false);
     }
@@ -723,6 +809,32 @@ export default function GestaoFrotasDashboardRdo() {
                     ? `${listaFiltrada.length} frota${listaFiltrada.length !== 1 ? "s" : ""} (última posição)`
                     : `${listaFiltrada.length} registro${listaFiltrada.length !== 1 ? "s" : ""}`}
               </p>
+            </div>
+          </div>
+
+          {/* Observabilidade (Fase 1 - RDO) */}
+          <div style={{ marginBottom: 12, background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
+                Observabilidade RDO (qualidade de apontamento)
+              </p>
+              <span style={{ fontSize: 11, color: "#64748b" }}>
+                Somente leitura — sem autopreenchimento nesta tela
+              </span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))", gap: 8 }}>
+              {[
+                { label: "Frotas confirmadas no RDO", value: obsResumo.confirmadasRdo, tone: "#166534", bg: "#f0fdf4" },
+                { label: "Sem apontamento no período", value: obsResumo.semApontamento, tone: "#b45309", bg: "#fff7ed" },
+                { label: "Inconsistências de frota", value: obsResumo.inconsistenciasFrota, tone: "#b91c1c", bg: "#fef2f2" },
+                { label: "Sem equipe/setor no RDO", value: obsResumo.semEquipeSetor, tone: "#1d4ed8", bg: "#eff6ff" },
+                { label: "Último RDO > 2 dias", value: obsResumo.ultimoRdoAtrasado2d, tone: "#7f1d1d", bg: "#fef2f2" },
+              ].map((k) => (
+                <div key={k.label} style={{ background: k.bg, border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 10px" }}>
+                  <p style={{ margin: 0, fontFamily: "Montserrat, sans-serif", fontWeight: 900, fontSize: 20, color: k.tone }}>{k.value}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: "#475569", fontWeight: 700 }}>{k.label}</p>
+                </div>
+              ))}
             </div>
           </div>
 
