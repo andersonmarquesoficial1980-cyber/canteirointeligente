@@ -543,6 +543,10 @@ export default function ProgramacaoFerias() {
   const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar">(filtroInicial);
   const [focoAplicado, setFocoAplicado] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [naoConfirmarRecordId, setNaoConfirmarRecordId] = useState<string | null>(null);
+  const [naoConfirmarMotivo, setNaoConfirmarMotivo] = useState("");
+  const [naoConfirmarErro, setNaoConfirmarErro] = useState("");
+  const [naoConfirmarSaving, setNaoConfirmarSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -702,22 +706,12 @@ export default function ProgramacaoFerias() {
     navigate(`/gestao-pessoas/${emp.id}?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
-  const atualizarWorkflowFerias = async (recordId: string, novoStatus: VacationWorkflowStatus) => {
+  const atualizarWorkflowFerias = async (
+    recordId: string,
+    novoStatus: VacationWorkflowStatus,
+    observacao?: string,
+  ) => {
     if (!currentUserId) return;
-
-    let observacaoConfirmacao: string | null = null;
-
-    if (novoStatus === "nao_confirmada") {
-      const motivo = window.prompt("Informe o motivo da não confirmação dessas férias:");
-      if (motivo === null) return;
-
-      const motivoLimpo = motivo.trim();
-      if (!motivoLimpo) {
-        window.alert("Para marcar como 'Não ocorrerá', informe um motivo.");
-        return;
-      }
-      observacaoConfirmacao = motivoLimpo;
-    }
 
     const payload: Record<string, any> = {
       workflow_status: novoStatus,
@@ -726,7 +720,7 @@ export default function ProgramacaoFerias() {
     };
 
     if (novoStatus === "nao_confirmada") {
-      payload.confirmacao_observacao = observacaoConfirmacao;
+      payload.confirmacao_observacao = (observacao || "").trim();
     }
 
     if (novoStatus === "confirmada") {
@@ -740,6 +734,42 @@ export default function ProgramacaoFerias() {
       .eq("company_id", COMPANY_ID);
 
     load();
+  };
+
+  const abrirModalNaoConfirmada = (recordId: string) => {
+    setNaoConfirmarRecordId(recordId);
+    setNaoConfirmarMotivo("");
+    setNaoConfirmarErro("");
+  };
+
+  const fecharModalNaoConfirmada = () => {
+    if (naoConfirmarSaving) return;
+    setNaoConfirmarRecordId(null);
+    setNaoConfirmarMotivo("");
+    setNaoConfirmarErro("");
+  };
+
+  const confirmarNaoOcorrera = async () => {
+    if (!naoConfirmarRecordId) return;
+
+    const motivo = naoConfirmarMotivo.trim();
+    if (!motivo) {
+      setNaoConfirmarErro("Informe o motivo para marcar como 'Não ocorrerá'.");
+      return;
+    }
+
+    setNaoConfirmarSaving(true);
+    setNaoConfirmarErro("");
+    try {
+      await atualizarWorkflowFerias(naoConfirmarRecordId, "nao_confirmada", motivo);
+      setNaoConfirmarRecordId(null);
+      setNaoConfirmarMotivo("");
+      setNaoConfirmarErro("");
+    } catch (e: any) {
+      setNaoConfirmarErro(e?.message || "Erro ao salvar confirmação.");
+    } finally {
+      setNaoConfirmarSaving(false);
+    }
   };
 
   // Filtros
@@ -887,7 +917,7 @@ export default function ProgramacaoFerias() {
               onRegistrar={() => { setModalEmp(emp); setExpandedId(null); }}
               onAbrirFicha={() => abrirFichaFuncionario(emp)}
               onConfirmarProgramacao={(recordId) => atualizarWorkflowFerias(recordId, "confirmada")}
-              onMarcarNaoConfirmada={(recordId) => atualizarWorkflowFerias(recordId, "nao_confirmada")}
+              onMarcarNaoConfirmada={(recordId) => abrirModalNaoConfirmada(recordId)}
               canManageWorkflow={isAdmin}
             />
           ))
@@ -902,6 +932,48 @@ export default function ProgramacaoFerias() {
           onClose={() => setModalEmp(null)}
           onSaved={() => { setModalEmp(null); load(); }}
         />
+      )}
+
+      {naoConfirmarRecordId && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 110, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: "white", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 540, padding: "22px 20px 28px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <p style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: 16, color: "#0A0F2C" }}>Não confirmar férias</p>
+              <button onClick={fecharModalNaoConfirmada} disabled={naoConfirmarSaving}><X size={20} color="#9ca3af" /></button>
+            </div>
+
+            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
+              Informe o motivo. Esse texto ficará no histórico para auditoria do RH.
+            </p>
+
+            <textarea
+              value={naoConfirmarMotivo}
+              onChange={(e) => setNaoConfirmarMotivo(e.target.value)}
+              rows={4}
+              placeholder="Ex.: colaborador reagendou para próxima quinzena por necessidade operacional"
+              style={{ width: "100%", borderRadius: 10, border: "1.5px solid #e5e7eb", fontSize: 13, padding: "10px 12px", resize: "none", boxSizing: "border-box", marginBottom: 10 }}
+            />
+
+            {naoConfirmarErro && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 10 }}>{naoConfirmarErro}</p>}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <button
+                onClick={fecharModalNaoConfirmada}
+                disabled={naoConfirmarSaving}
+                style={{ height: 42, borderRadius: 10, border: "1px solid #d1d5db", background: "white", color: "#374151", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarNaoOcorrera}
+                disabled={naoConfirmarSaving}
+                style={{ height: 42, borderRadius: 10, border: "none", background: naoConfirmarSaving ? "#e5e7eb" : "#b45309", color: "white", fontWeight: 700, fontSize: 13, cursor: naoConfirmarSaving ? "wait" : "pointer" }}
+              >
+                {naoConfirmarSaving ? "Salvando..." : "Confirmar não ocorrência"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
