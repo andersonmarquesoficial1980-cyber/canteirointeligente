@@ -45,6 +45,10 @@ interface AjusteDiario {
 
 interface LinhaHistoricoDiario {
   data: string;
+  entrada1: string;
+  saida1: string;
+  entrada2: string;
+  saida2: string;
   horasTrabalhadas: number;
   saldoEstimado: number;
   he70Reducao: string;
@@ -193,6 +197,17 @@ function calcHorasTrabalhadasPorDia(regs: Registro[]): number {
     totalMin += diff;
   }
   return Number((totalMin / 60).toFixed(2));
+}
+
+function extrairBatidasPorDia(regs: Registro[]): { entrada1: string; saida1: string; entrada2: string; saida2: string } {
+  const entradas = regs.filter((r) => r.tipo === "entrada").map((r) => r.hora).sort();
+  const saidas = regs.filter((r) => r.tipo === "saida").map((r) => r.hora).sort();
+  return {
+    entrada1: entradas[0] || "-",
+    saida1: saidas[0] || "-",
+    entrada2: entradas[1] || "-",
+    saida2: saidas[1] || "-",
+  };
 }
 
 export default function BancoHoras() {
@@ -494,8 +509,13 @@ export default function BancoHoras() {
       const horasDia = calcHorasTrabalhadasPorDia(regsDia);
       const saldoEstimado = Number((horasDia - jornadaPadrao).toFixed(2));
       const ajuste = ajusteMap.get(dataIso);
+      const batidas = extrairBatidasPorDia(regsDia);
       return {
         data: dataIso,
+        entrada1: batidas.entrada1,
+        saida1: batidas.saida1,
+        entrada2: batidas.entrada2,
+        saida2: batidas.saida2,
         horasTrabalhadas: horasDia,
         saldoEstimado,
         he70Reducao: ajuste ? String(Number(ajuste.he70_reducao || 0).toFixed(2)).replace(".", ",") : "0,00",
@@ -1128,6 +1148,10 @@ export default function BancoHoras() {
                                 <thead className="sticky top-0 bg-muted">
                                   <tr>
                                     <th className="text-left p-2">Data</th>
+                                    <th className="text-center p-2">1ª Entrada</th>
+                                    <th className="text-center p-2">1ª Saída</th>
+                                    <th className="text-center p-2">2ª Entrada</th>
+                                    <th className="text-center p-2">2ª Saída</th>
                                     <th className="text-right p-2">Trab. (h)</th>
                                     <th className="text-right p-2">Saldo estimado</th>
                                     <th className="text-right p-2">Reduzir HE70</th>
@@ -1139,6 +1163,10 @@ export default function BancoHoras() {
                                   {historicoDias.map((linha, idx) => (
                                     <tr key={linha.data} className="border-t">
                                       <td className="p-2 whitespace-nowrap">{fmtDate(linha.data)}</td>
+                                      <td className="p-2 text-center whitespace-nowrap">{linha.entrada1}</td>
+                                      <td className="p-2 text-center whitespace-nowrap">{linha.saida1}</td>
+                                      <td className="p-2 text-center whitespace-nowrap">{linha.entrada2}</td>
+                                      <td className="p-2 text-center whitespace-nowrap">{linha.saida2}</td>
                                       <td className="p-2 text-right">{fmtDec(linha.horasTrabalhadas)}</td>
                                       <td className={`p-2 text-right ${linha.saldoEstimado >= 0 ? "text-green-700" : "text-red-700"}`}>
                                         {linha.saldoEstimado >= 0 ? "+" : ""}{fmtDec(linha.saldoEstimado)}
@@ -1170,7 +1198,7 @@ export default function BancoHoras() {
                                             const val = e.target.value;
                                             setHistoricoDias((prev) => prev.map((d, i) => (i === idx ? { ...d, motivo: val } : d)));
                                           }}
-                                          className="w-full min-w-[180px] h-8 rounded border px-2"
+                                          className="w-full min-w-[220px] h-8 rounded border px-2"
                                           placeholder="motivo do ajuste"
                                         />
                                       </td>
