@@ -547,6 +547,8 @@ export default function ProgramacaoFerias() {
   const [naoConfirmarMotivo, setNaoConfirmarMotivo] = useState("");
   const [naoConfirmarErro, setNaoConfirmarErro] = useState("");
   const [naoConfirmarSaving, setNaoConfirmarSaving] = useState(false);
+  const LIMITE_MOTIVO_NAO_CONFIRMACAO = 300;
+  const MIN_MOTIVO_NAO_CONFIRMACAO = 8;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -750,11 +752,11 @@ export default function ProgramacaoFerias() {
   };
 
   const confirmarNaoOcorrera = async () => {
-    if (!naoConfirmarRecordId) return;
+    if (!naoConfirmarRecordId || naoConfirmarSaving) return;
 
     const motivo = naoConfirmarMotivo.trim();
-    if (!motivo) {
-      setNaoConfirmarErro("Informe o motivo para marcar como 'Não ocorrerá'.");
+    if (motivo.length < MIN_MOTIVO_NAO_CONFIRMACAO) {
+      setNaoConfirmarErro(`Informe um motivo com pelo menos ${MIN_MOTIVO_NAO_CONFIRMACAO} caracteres.`);
       return;
     }
 
@@ -948,11 +950,25 @@ export default function ProgramacaoFerias() {
 
             <textarea
               value={naoConfirmarMotivo}
-              onChange={(e) => setNaoConfirmarMotivo(e.target.value)}
+              onChange={(e) => {
+                const valor = e.target.value.slice(0, LIMITE_MOTIVO_NAO_CONFIRMACAO);
+                setNaoConfirmarMotivo(valor);
+                if (naoConfirmarErro) setNaoConfirmarErro("");
+              }}
               rows={4}
+              maxLength={LIMITE_MOTIVO_NAO_CONFIRMACAO}
               placeholder="Ex.: colaborador reagendou para próxima quinzena por necessidade operacional"
-              style={{ width: "100%", borderRadius: 10, border: "1.5px solid #e5e7eb", fontSize: 13, padding: "10px 12px", resize: "none", boxSizing: "border-box", marginBottom: 10 }}
+              style={{ width: "100%", borderRadius: 10, border: "1.5px solid #e5e7eb", fontSize: 13, padding: "10px 12px", resize: "none", boxSizing: "border-box", marginBottom: 6 }}
             />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <p style={{ fontSize: 11, color: "#6b7280" }}>
+                Mínimo de {MIN_MOTIVO_NAO_CONFIRMACAO} caracteres para confirmar.
+              </p>
+              <p style={{ fontSize: 11, color: "#9ca3af", fontWeight: 700 }}>
+                {naoConfirmarMotivo.trim().length}/{LIMITE_MOTIVO_NAO_CONFIRMACAO}
+              </p>
+            </div>
 
             {naoConfirmarErro && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 10 }}>{naoConfirmarErro}</p>}
 
@@ -960,14 +976,23 @@ export default function ProgramacaoFerias() {
               <button
                 onClick={fecharModalNaoConfirmada}
                 disabled={naoConfirmarSaving}
-                style={{ height: 42, borderRadius: 10, border: "1px solid #d1d5db", background: "white", color: "#374151", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                style={{ height: 42, borderRadius: 10, border: "1px solid #d1d5db", background: "white", color: "#374151", fontWeight: 700, fontSize: 13, cursor: naoConfirmarSaving ? "not-allowed" : "pointer" }}
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmarNaoOcorrera}
-                disabled={naoConfirmarSaving}
-                style={{ height: 42, borderRadius: 10, border: "none", background: naoConfirmarSaving ? "#e5e7eb" : "#b45309", color: "white", fontWeight: 700, fontSize: 13, cursor: naoConfirmarSaving ? "wait" : "pointer" }}
+                disabled={naoConfirmarSaving || naoConfirmarMotivo.trim().length < MIN_MOTIVO_NAO_CONFIRMACAO}
+                style={{
+                  height: 42,
+                  borderRadius: 10,
+                  border: "none",
+                  background: naoConfirmarSaving || naoConfirmarMotivo.trim().length < MIN_MOTIVO_NAO_CONFIRMACAO ? "#e5e7eb" : "#b45309",
+                  color: "white",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: naoConfirmarSaving || naoConfirmarMotivo.trim().length < MIN_MOTIVO_NAO_CONFIRMACAO ? "not-allowed" : "pointer",
+                }}
               >
                 {naoConfirmarSaving ? "Salvando..." : "Confirmar não ocorrência"}
               </button>
