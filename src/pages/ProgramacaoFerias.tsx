@@ -480,6 +480,11 @@ function CardFuncionario({
                     <p style={{ flex: 1, fontSize: 12, color: "#374151" }}>{fmtDate(r.data_inicio)} → {fmtDate(r.data_fim)}</p>
                     <p style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{r.dias}d</p>
                   </div>
+                  {r.confirmacao_observacao && (
+                    <p style={{ fontSize: 11, color: "#6b7280" }}>
+                      {r.workflow_status === "nao_confirmada" ? "Motivo:" : "Confirmação:"} {r.confirmacao_observacao}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -700,13 +705,37 @@ export default function ProgramacaoFerias() {
   const atualizarWorkflowFerias = async (recordId: string, novoStatus: VacationWorkflowStatus) => {
     if (!currentUserId) return;
 
+    let observacaoConfirmacao: string | null = null;
+
+    if (novoStatus === "nao_confirmada") {
+      const motivo = window.prompt("Informe o motivo da não confirmação dessas férias:");
+      if (motivo === null) return;
+
+      const motivoLimpo = motivo.trim();
+      if (!motivoLimpo) {
+        window.alert("Para marcar como 'Não ocorrerá', informe um motivo.");
+        return;
+      }
+      observacaoConfirmacao = motivoLimpo;
+    }
+
+    const payload: Record<string, any> = {
+      workflow_status: novoStatus,
+      confirmado_em: new Date().toISOString(),
+      confirmado_por_user_id: currentUserId,
+    };
+
+    if (novoStatus === "nao_confirmada") {
+      payload.confirmacao_observacao = observacaoConfirmacao;
+    }
+
+    if (novoStatus === "confirmada") {
+      payload.confirmacao_observacao = "Período confirmado para ocorrer conforme programado.";
+    }
+
     await (supabase as any)
       .from("vacation_records")
-      .update({
-        workflow_status: novoStatus,
-        confirmado_em: new Date().toISOString(),
-        confirmado_por_user_id: currentUserId,
-      })
+      .update(payload)
       .eq("id", recordId)
       .eq("company_id", COMPANY_ID);
 
