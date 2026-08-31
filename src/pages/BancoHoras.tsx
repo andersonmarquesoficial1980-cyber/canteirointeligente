@@ -5,7 +5,7 @@
  * Modo B (fallback): cálculo a partir de ponto_registros
  */
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock, ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock, ChevronLeft, ChevronRight, RotateCcw, X, Printer, SlidersHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -23,6 +23,17 @@ interface SaldoFuncionario {
   diasTrabalhados: number;
 }
 
+interface AjusteSnapshot {
+  he_70_horas: number;
+  he_100_horas: number;
+  total_horas_extras_horas: number;
+  credito_horas: number;
+  debito_horas: number;
+  at: string;
+  by?: string | null;
+  motivo?: string | null;
+}
+
 interface ResumoImportado {
   id: string;
   colaborador_nome: string;
@@ -34,6 +45,14 @@ interface ResumoImportado {
   he_100_horas: number;
   adicional_noturno_horas: number;
   total_horas_extras_horas: number;
+  payload?: {
+    he_manual?: {
+      initial?: AjusteSnapshot;
+      last?: AjusteSnapshot;
+      history?: AjusteSnapshot[];
+    };
+    [key: string]: any;
+  } | null;
 }
 
 interface CompetenciaStatus {
@@ -48,6 +67,25 @@ interface ResumoImportadoEnriquecido extends ResumoImportado {
   equipe_label: string;
   funcao_label: string;
   saldo: number;
+}
+
+interface ComparativoAjuste {
+  colaborador: string;
+  equipe: string;
+  funcao: string;
+  he70_antes: number;
+  he70_depois: number;
+  he100_antes: number;
+  he100_depois: number;
+  total_antes: number;
+  total_depois: number;
+  reducao_total: number;
+  credito_antes: number;
+  credito_depois: number;
+  debito_antes: number;
+  debito_depois: number;
+  atualizado_em: string;
+  motivo: string;
 }
 
 function fmtHoras(h: number): string {
@@ -87,6 +125,25 @@ function normalizeText(v: string): string {
     .toLowerCase();
 }
 
+function fmtDate(d: string): string {
+  if (!d) return "";
+  const [y, m, day] = d.split("-");
+  if (!y || !m || !day) return d;
+  return `${day}/${m}/${y}`;
+}
+
+function parseHorasInput(v: string): number {
+  const raw = String(v || "").trim();
+  if (!raw) return NaN;
+
+  const clean = raw.includes(",")
+    ? raw.replace(/\./g, "").replace(",", ".")
+    : raw.replace(/\s+/g, "");
+
+  const n = Number(clean);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 export default function BancoHoras() {
   const goBack = useSmartBack("/rh");
   const { profile } = useUserProfile();
@@ -111,6 +168,11 @@ export default function BancoHoras() {
   const [loading, setLoading] = useState(false);
   const [loadingFechamento, setLoadingFechamento] = useState(false);
   const [rolePerfil, setRolePerfil] = useState<{ role: string | null; perfil: string | null }>({ role: null, perfil: null });
+  const [ajusteAbertoId, setAjusteAbertoId] = useState<string | null>(null);
+  const [novoHe70, setNovoHe70] = useState<string>("");
+  const [novoHe100, setNovoHe100] = useState<string>("");
+  const [motivoAjuste, setMotivoAjuste] = useState<string>("");
+  const [salvandoAjusteId, setSalvandoAjusteId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadAcl = async () => {
@@ -137,6 +199,8 @@ export default function BancoHoras() {
     if (role === "superadmin" || role === "admin") return true;
     return ["Administrador", "Gerente", "RH", "Gestão de Pessoas"].includes(perfil);
   }, [rolePerfil]);
+
+  const canManageAjustes = canManageFechamento;
 
   const labelCompetencia = useMemo(() => {
     const [ano, mesNum] = mes.split("-").map(Number);
@@ -166,7 +230,7 @@ export default function BancoHoras() {
     // 1) Tenta resumo importado (PDF)
     const { data: imported } = await (supabase as any)
       .from("ponto_he_resumo_mensal")
-      .select("id, colaborador_nome, equipe_nome, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas")
+      .select("id, colaborador_nome, equipe_nome, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas, payload")
       .eq("company_id", profile.company_id)
       .eq("competencia", ini)
       .order("colaborador_nome", { ascending: true });
@@ -398,6 +462,262 @@ export default function BancoHoras() {
   const totalFiltradoAtual = temImportado ? importadosFiltrados.length : filtradosCalc.length;
   const equipeSelecionada = equipeFiltro !== "TODAS";
 
+  const comparativoAjustes = useMemo<ComparativoAjuste[]>(() => {
+    return resumosEnriquecidos
+      .map((r) => {
+        const initial = r.payload?.he_manual?.initial;
+        const last = r.payload?.he_manual?.last;
+        if (!initial || !last) return null;
+
+        const totalAntes = Number(initial.total_horas_extras_horas || 0);
+        const totalDepois = Number(last.total_horas_extras_horas || 0);
+        const reducao = Number((totalAntes - totalDepois).toFixed(2));
+        if (reducao <= 0) return null;
+
+        return {
+          colaborador: r.colaborador_nome,
+          equipe: r.equipe_label,
+          funcao: r.funcao_label,
+          he70_antes: Number(initial.he_70_horas || 0),
+          he70_depois: Number(last.he_70_horas || 0),
+          he100_antes: Number(initial.he_100_horas || 0),
+          he100_depois: Number(last.he_100_horas || 0),
+          total_antes: totalAntes,
+          total_depois: totalDepois,
+          reducao_total: reducao,
+          credito_antes: Number(initial.credito_horas || 0),
+          credito_depois: Number(last.credito_horas || 0),
+          debito_antes: Number(initial.debito_horas || 0),
+          debito_depois: Number(last.debito_horas || 0),
+          atualizado_em: last.at || "",
+          motivo: last.motivo || "Ajuste manual de H.E.",
+        };
+      })
+      .filter((v): v is ComparativoAjuste => Boolean(v))
+      .sort((a, b) => a.colaborador.localeCompare(b.colaborador));
+  }, [resumosEnriquecidos]);
+
+  const abrirAjuste = (r: ResumoImportadoEnriquecido) => {
+    setAjusteAbertoId(r.id);
+    setNovoHe70(String(Number(r.he_70_horas || 0).toFixed(2)).replace(".", ","));
+    setNovoHe100(String(Number(r.he_100_horas || 0).toFixed(2)).replace(".", ","));
+    setMotivoAjuste("");
+  };
+
+  const salvarAjusteIndividual = async (r: ResumoImportadoEnriquecido) => {
+    if (!profile?.company_id) return;
+    if (!canManageAjustes) {
+      toast({ title: "Sem permissão para ajustar H.E.", variant: "destructive" });
+      return;
+    }
+    if (competenciaStatus.status === "fechado") {
+      toast({ title: "Competência fechada", description: "Reabra a competência para ajustar horas.", variant: "destructive" });
+      return;
+    }
+
+    const he70Novo = parseHorasInput(novoHe70);
+    const he100Novo = parseHorasInput(novoHe100);
+
+    if (!Number.isFinite(he70Novo) || !Number.isFinite(he100Novo) || he70Novo < 0 || he100Novo < 0) {
+      toast({ title: "Valores inválidos", description: "Informe HE 70 e HE 100 válidos (>= 0).", variant: "destructive" });
+      return;
+    }
+
+    const he70Atual = Number(r.he_70_horas || 0);
+    const he100Atual = Number(r.he_100_horas || 0);
+
+    if (he70Novo > he70Atual || he100Novo > he100Atual) {
+      toast({
+        title: "Ajuste inválido",
+        description: "Este fluxo é para redução: o novo valor não pode ser maior que o atual.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const motivo = motivoAjuste.trim();
+    if (motivo.length < 5) {
+      toast({ title: "Motivo obrigatório", description: "Descreva o motivo da redução (mín. 5 caracteres).", variant: "destructive" });
+      return;
+    }
+
+    const totalNovo = Number((he70Novo + he100Novo).toFixed(2));
+
+    setSalvandoAjusteId(r.id);
+    const { data: authData } = await supabase.auth.getUser();
+    const uid = authData.user?.id || null;
+    const nowIso = new Date().toISOString();
+
+    const beforeSnapshot: AjusteSnapshot = {
+      he_70_horas: he70Atual,
+      he_100_horas: he100Atual,
+      total_horas_extras_horas: Number(r.total_horas_extras_horas || 0),
+      credito_horas: Number(r.credito_horas || 0),
+      debito_horas: Number(r.debito_horas || 0),
+      at: nowIso,
+      by: uid,
+      motivo,
+    };
+
+    const payloadAtual = (r.payload || {}) as Record<string, any>;
+    const manualAtual = (payloadAtual.he_manual || {}) as { initial?: AjusteSnapshot; history?: AjusteSnapshot[] };
+    const initial = manualAtual.initial || beforeSnapshot;
+
+    const afterSnapshot: AjusteSnapshot = {
+      he_70_horas: Number(he70Novo.toFixed(2)),
+      he_100_horas: Number(he100Novo.toFixed(2)),
+      total_horas_extras_horas: totalNovo,
+      credito_horas: Number(r.credito_horas || 0),
+      debito_horas: Number(r.debito_horas || 0),
+      at: nowIso,
+      by: uid,
+      motivo,
+    };
+
+    const historyAtual = Array.isArray(manualAtual.history) ? manualAtual.history : [];
+    const payloadNovo = {
+      ...payloadAtual,
+      he_manual: {
+        initial,
+        last: afterSnapshot,
+        history: [...historyAtual, afterSnapshot],
+      },
+    };
+
+    const { error } = await (supabase as any)
+      .from("ponto_he_resumo_mensal")
+      .update({
+        he_70_horas: Number(he70Novo.toFixed(2)),
+        he_100_horas: Number(he100Novo.toFixed(2)),
+        total_horas_extras_horas: totalNovo,
+        payload: payloadNovo,
+      })
+      .eq("id", r.id)
+      .eq("company_id", profile.company_id);
+
+    if (error) {
+      toast({ title: "Erro ao salvar ajuste", description: error.message, variant: "destructive" });
+      setSalvandoAjusteId(null);
+      return;
+    }
+
+    const reducaoTotal = Number((Number(r.total_horas_extras_horas || 0) - totalNovo).toFixed(2));
+    toast({ title: "✅ Ajuste aplicado", description: `${r.colaborador_nome}: redução de ${fmtDec(reducaoTotal)} h no total de H.E.` });
+
+    setAjusteAbertoId(null);
+    setMotivoAjuste("");
+    setSalvandoAjusteId(null);
+    await carregarDados();
+  };
+
+  const exportarComparativoExcel = async () => {
+    if (comparativoAjustes.length === 0) return;
+
+    const XLSX = await import("xlsx");
+    const wb = XLSX.utils.book_new();
+
+    const linhas = comparativoAjustes.map((r) => ({
+      Colaborador: r.colaborador,
+      Equipe: r.equipe,
+      Função: r.funcao,
+      "HE 70 Antes (h)": r.he70_antes,
+      "HE 70 Depois (h)": r.he70_depois,
+      "HE 100 Antes (h)": r.he100_antes,
+      "HE 100 Depois (h)": r.he100_depois,
+      "HE Total Antes (h)": r.total_antes,
+      "HE Total Depois (h)": r.total_depois,
+      "Redução HE (h)": r.reducao_total,
+      "Crédito Antes (h)": r.credito_antes,
+      "Crédito Depois (h)": r.credito_depois,
+      "Débito Antes (h)": r.debito_antes,
+      "Débito Depois (h)": r.debito_depois,
+      "Motivo do Ajuste": r.motivo,
+      "Data/Hora Ajuste": fmtDateTime(r.atualizado_em),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    ws["!cols"] = Object.keys(linhas[0] || {}).map((k) => ({ wch: Math.max(18, k.length + 2) }));
+    XLSX.utils.book_append_sheet(wb, ws, "Comparativo HE");
+
+    const resumo = [
+      {
+        Competência: mes,
+        "Qtd. colaboradores ajustados": comparativoAjustes.length,
+        "HE Antes (h)": Number(comparativoAjustes.reduce((a, b) => a + b.total_antes, 0).toFixed(2)),
+        "HE Depois (h)": Number(comparativoAjustes.reduce((a, b) => a + b.total_depois, 0).toFixed(2)),
+        "Redução Total (h)": Number(comparativoAjustes.reduce((a, b) => a + b.reducao_total, 0).toFixed(2)),
+      },
+    ];
+
+    const wsResumo = XLSX.utils.json_to_sheet(resumo);
+    wsResumo["!cols"] = Object.keys(resumo[0] || {}).map((k) => ({ wch: Math.max(18, k.length + 2) }));
+    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+
+    XLSX.writeFile(wb, `WF_BancoHoras_AntesDepois_${mes}.xlsx`);
+  };
+
+  const exportarComparativoPdf = () => {
+    if (comparativoAjustes.length === 0) return;
+
+    const totalAntes = Number(comparativoAjustes.reduce((a, b) => a + b.total_antes, 0).toFixed(2));
+    const totalDepois = Number(comparativoAjustes.reduce((a, b) => a + b.total_depois, 0).toFixed(2));
+    const reducaoTotal = Number(comparativoAjustes.reduce((a, b) => a + b.reducao_total, 0).toFixed(2));
+
+    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Banco de Horas - Antes/Depois ${mes}</title><style>
+      body{font-family:Arial,sans-serif;padding:16px;color:#111827;font-size:12px}
+      h1{font-size:18px;color:#1d4ed8;margin:0 0 6px 0}
+      p{margin:2px 0 10px 0;color:#374151}
+      .kpi{display:flex;gap:8px;margin:10px 0 12px 0}
+      .kpi div{border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;min-width:150px}
+      table{width:100%;border-collapse:collapse;font-size:10px}
+      th,td{border:1px solid #d1d5db;padding:4px 6px;text-align:left}
+      th{background:#f3f4f6}
+      td.num{text-align:right}
+      @media print{body{padding:8px}}
+    </style></head><body>`;
+
+    html += `<h1>Banco de Horas — Comparativo Antes/Depois</h1>`;
+    html += `<p><strong>Competência:</strong> ${mes} (${fmtDate(competenciaAtual)})</p>`;
+    html += `<div class="kpi">
+      <div><strong>Colaboradores ajustados</strong><br/>${comparativoAjustes.length}</div>
+      <div><strong>HE Antes</strong><br/>${fmtDec(totalAntes)} h</div>
+      <div><strong>HE Depois</strong><br/>${fmtDec(totalDepois)} h</div>
+      <div><strong>Redução Total</strong><br/>${fmtDec(reducaoTotal)} h</div>
+    </div>`;
+
+    html += `<table><tr>
+      <th>Colaborador</th><th>Equipe/Função</th>
+      <th>HE 70 Antes</th><th>HE 70 Depois</th>
+      <th>HE 100 Antes</th><th>HE 100 Depois</th>
+      <th>Total Antes</th><th>Total Depois</th><th>Redução</th><th>Motivo</th><th>Ajustado em</th>
+    </tr>`;
+
+    comparativoAjustes.forEach((r) => {
+      html += `<tr>
+        <td>${r.colaborador}</td>
+        <td>${r.equipe} · ${r.funcao}</td>
+        <td class="num">${fmtDec(r.he70_antes)}</td>
+        <td class="num">${fmtDec(r.he70_depois)}</td>
+        <td class="num">${fmtDec(r.he100_antes)}</td>
+        <td class="num">${fmtDec(r.he100_depois)}</td>
+        <td class="num">${fmtDec(r.total_antes)}</td>
+        <td class="num">${fmtDec(r.total_depois)}</td>
+        <td class="num">${fmtDec(r.reducao_total)}</td>
+        <td>${r.motivo}</td>
+        <td>${fmtDateTime(r.atualizado_em)}</td>
+      </tr>`;
+    });
+
+    html += `</table></body></html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 350);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
@@ -600,6 +920,23 @@ export default function BancoHoras() {
               </div>
             </div>
 
+            <div className="rounded-xl border border-border bg-card p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold flex items-center gap-2"><SlidersHorizontal className="w-4 h-4" /> Ajuste individual de H.E.</p>
+                <p className="text-xs text-muted-foreground">
+                  Edite colaborador por colaborador, registrando motivo. Depois exporte comparativo de antes/depois.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={exportarComparativoExcel} disabled={comparativoAjustes.length === 0}>
+                  <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Excel antes/depois
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportarComparativoPdf} disabled={comparativoAjustes.length === 0}>
+                  <Printer className="w-3.5 h-3.5 mr-1" /> PDF antes/depois
+                </Button>
+              </div>
+            </div>
+
             {!loading && importadosFiltrados.length === 0 && (
               <p className="text-center text-sm text-muted-foreground py-6">Nenhum resumo importado para o mês selecionado.</p>
             )}
@@ -626,6 +963,99 @@ export default function BancoHoras() {
                       <div className="rounded-lg bg-muted/40 p-2"><b>Ad. Noturno</b><br />{fmtDec(r.adicional_noturno_horas)} h</div>
                       <div className="rounded-lg bg-muted/40 p-2"><b>Horas Normais</b><br />{fmtDec(r.horas_normais)} h</div>
                     </div>
+
+                    {canManageAjustes && (
+                      <div className="mt-3 pt-3 border-t border-border/60">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs text-muted-foreground">
+                            {competenciaStatus.status === "fechado"
+                              ? "Competência fechada: reabra para editar H.E."
+                              : "Ajuste individual para redução de H.E. com trilha de antes/depois."}
+                          </p>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={ajusteAbertoId === r.id ? "secondary" : "outline"}
+                            onClick={() => {
+                              if (ajusteAbertoId === r.id) {
+                                setAjusteAbertoId(null);
+                                return;
+                              }
+                              abrirAjuste(r);
+                            }}
+                            disabled={competenciaStatus.status === "fechado"}
+                          >
+                            <SlidersHorizontal className="w-3.5 h-3.5 mr-1" />
+                            {ajusteAbertoId === r.id ? "Fechar ajuste" : "Ajustar H.E."}
+                          </Button>
+                        </div>
+
+                        {ajusteAbertoId === r.id && (() => {
+                          const he70Atual = Number(r.he_70_horas || 0);
+                          const he100Atual = Number(r.he_100_horas || 0);
+                          const he70Novo = parseHorasInput(novoHe70);
+                          const he100Novo = parseHorasInput(novoHe100);
+                          const totalAtual = Number(r.total_horas_extras_horas || 0);
+                          const totalNovo = Number.isFinite(he70Novo) && Number.isFinite(he100Novo)
+                            ? Number((he70Novo + he100Novo).toFixed(2))
+                            : totalAtual;
+                          const reducao = Number((totalAtual - totalNovo).toFixed(2));
+
+                          return (
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 rounded-lg bg-muted/30 p-3">
+                              <div>
+                                <label className="text-[11px] font-semibold">Novo H.E. 70% (h)</label>
+                                <input
+                                  value={novoHe70}
+                                  onChange={(e) => setNovoHe70(e.target.value)}
+                                  className="mt-1 w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+                                  placeholder={fmtDec(he70Atual)}
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-1">Atual: {fmtDec(he70Atual)} h</p>
+                              </div>
+
+                              <div>
+                                <label className="text-[11px] font-semibold">Novo H.E. 100% (h)</label>
+                                <input
+                                  value={novoHe100}
+                                  onChange={(e) => setNovoHe100(e.target.value)}
+                                  className="mt-1 w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+                                  placeholder={fmtDec(he100Atual)}
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-1">Atual: {fmtDec(he100Atual)} h</p>
+                              </div>
+
+                              <div>
+                                <label className="text-[11px] font-semibold">Motivo da redução</label>
+                                <input
+                                  value={motivoAjuste}
+                                  onChange={(e) => setMotivoAjuste(e.target.value)}
+                                  className="mt-1 w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+                                  placeholder="Ex.: horas indevidas após conferência do PDF"
+                                />
+                                <p className={`text-[10px] mt-1 ${reducao >= 0 ? "text-green-700" : "text-red-700"}`}>
+                                  Total H.E.: {fmtDec(totalAtual)} h → {fmtDec(totalNovo)} h ({reducao >= 0 ? "-" : "+"}{fmtDec(Math.abs(reducao))} h)
+                                </p>
+                              </div>
+
+                              <div className="md:col-span-3 flex gap-2 justify-end">
+                                <Button type="button" variant="outline" size="sm" onClick={() => setAjusteAbertoId(null)}>
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => salvarAjusteIndividual(r)}
+                                  disabled={salvandoAjusteId === r.id || competenciaStatus.status === "fechado"}
+                                >
+                                  {salvandoAjusteId === r.id ? "Salvando..." : "Salvar ajuste"}
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
                 );
               })}
