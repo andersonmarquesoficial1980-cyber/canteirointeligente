@@ -44,6 +44,42 @@ interface InconsistenciaItem {
   detalhe: string;
 }
 
+interface AutoPatioRunResult {
+  ok?: boolean;
+  dry_run?: boolean;
+  target_date?: string;
+  resumo?: {
+    empresas: number;
+    elegiveis: number;
+    bloqueados_transporte: number;
+    bloqueados_diario_existente: number;
+    gerados: number;
+    erros: number;
+  };
+  companies?: Array<{
+    company_id: string;
+    enabled: boolean;
+    target_date: string;
+    elegiveis: number;
+    bloqueados_transporte: number;
+    bloqueados_diario_existente: number;
+    gerados: number;
+    dry_run: boolean;
+    preview: Array<{
+      frota: string;
+      tipo: string | null;
+      setor: string | null;
+      work_status: string;
+      auto_reason: string;
+      location_address: string;
+      action: "would_insert" | "inserted" | "skip_transporte" | "skip_diario_existente";
+    }>;
+    erros: string[];
+  }>;
+  message?: string;
+  error?: string;
+}
+
 interface EquipRastreio {
   id: string;
   frota: string;
@@ -176,6 +212,14 @@ export default function GestaoFrotasRastreamento() {
   const [filtroClasse, setFiltroClasse] = useState<ClasseObservabilidade | "todos">("todos");
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [inconsistencias, setInconsistencias] = useState<InconsistenciaItem[]>([]);
+  const [autoTargetDate, setAutoTargetDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split("T")[0];
+  });
+  const [autoRunLoading, setAutoRunLoading] = useState(false);
+  const [autoRunResult, setAutoRunResult] = useState<AutoPatioRunResult | null>(null);
+  const [autoRunError, setAutoRunError] = useState<string>("");
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
 
   useEffect(() => { buscarDados(); }, []);
@@ -386,6 +430,36 @@ export default function GestaoFrotasRastreamento() {
     setLoading(false);
   }
 
+  async function executarAutoPatio(dryRun: boolean) {
+    setAutoRunLoading(true);
+    setAutoRunError("");
+    if (!dryRun) setAutoRunResult(null);
+
+    try {
+      const companyForAuto = COMPANY_ID === "a1b2c3d4-e5f6-7890-abcd-ef1234567890" ? undefined : COMPANY_ID;
+      const { data, error } = await supabase.functions.invoke("auto-patio-diary", {
+        body: {
+          company_id: companyForAuto,
+          target_date: autoTargetDate,
+          dry_run: dryRun,
+        },
+      });
+
+      if (error) throw error;
+
+      setAutoRunResult((data || null) as AutoPatioRunResult);
+
+      // Pós execução real: recarrega rastreamento
+      if (!dryRun) {
+        await buscarDados();
+      }
+    } catch (err: any) {
+      setAutoRunError(err?.message || "Falha ao executar auto-pátio");
+    } finally {
+      setAutoRunLoading(false);
+    }
+  }
+
   // KPIs
   const kpis = useMemo(() => ({
     total: lista.length,
@@ -509,6 +583,75 @@ export default function GestaoFrotasRastreamento() {
             </p>
           </div>
         )}
+
+        {/* Fase 2 — Auto-preenchimento controlado */}
+        <div className="bg-white rounded-xl border border-border p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+              <Bot className="w-3.5 h-3.5" /> Fase 2 — Auto-preenchimento controlado (manual sob demanda)
+            </p>
+            <span className="text-[11px] text-muted-foreground">Manual prevalece • transporte bloqueia auto • idempotente por data/frota</span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="text-xs text-muted-foreground">Data alvo:</label>
+            <input
+              type="date"
+              value={autoTargetDate}
+              onChange={(e) => setAutoTargetDate(e.target.value)}
+              className="h-8 px-2 rounded-lg border border-border text-xs"
+            />
+            <button
+              onClick={() => executarAutoPatio(true)}
+              disabled={autoRunLoading}
+              className="h-8 px-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 disabled:opacity-60"
+            >
+              {autoRunLoading ? "Processando..." : "Prévia (sem gravar)"}
+            </button>
+            <button
+              onClick={() => executarAutoPatio(false)}
+              disabled={autoRunLoading}
+              className="h-8 px-3 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 disabled:opacity-60"
+            >
+              {autoRunLoading ? "Executando..." : "Gerar diários automáticos"}
+            </button>
+          </div>
+
+          {autoRunError && (
+            <div className="text-xs rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-red-700">{autoRunError}</div>
+          )}
+
+          {autoRunResult?.resumo && (
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+              {[
+                { label: "Elegíveis", value: autoRunResult.resumo.elegiveis, cls: "text-slate-700" },
+                { label: "Bloq. transporte", value: autoRunResult.resumo.bloqueados_transporte, cls: "text-purple-700" },
+                { label: "Bloq. diário", value: autoRunResult.resumo.bloqueados_diario_existente, cls: "text-amber-700" },
+                { label: autoRunResult.dry_run ? "Prévia" : "Gerados", value: autoRunResult.resumo.gerados, cls: "text-emerald-700" },
+                { label: "Erros", value: autoRunResult.resumo.erros, cls: autoRunResult.resumo.erros > 0 ? "text-red-700" : "text-gray-500" },
+                { label: "Empresas", value: autoRunResult.resumo.empresas, cls: "text-slate-700" },
+              ].map((k) => (
+                <div key={k.label} className="rounded-lg border border-border bg-slate-50 px-2 py-1.5 text-center">
+                  <p className={`text-base font-extrabold ${k.cls}`}>{k.value}</p>
+                  <p className="text-[10px] text-muted-foreground">{k.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {autoRunResult?.companies?.[0]?.preview?.length ? (
+            <div className="rounded-lg border border-border bg-slate-50 p-2">
+              <p className="text-[11px] font-semibold text-slate-700 mb-1">Amostra da execução ({Math.min(8, autoRunResult.companies[0].preview.length)} itens)</p>
+              <div className="space-y-1">
+                {autoRunResult.companies[0].preview.slice(0, 8).map((p, idx) => (
+                  <div key={`${p.frota}-${idx}`} className="text-[11px] text-slate-700">
+                    <span className="font-bold">{p.frota}</span> · {p.work_status} · {p.auto_reason} · {p.action.replace("_", " ")}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
 
         {/* Filtros de status */}
         <div className="flex flex-wrap gap-2">
@@ -637,7 +780,7 @@ export default function GestaoFrotasRastreamento() {
                     <div className="px-4 pb-3 pt-0 border-t border-border/50 bg-black/[0.02] space-y-2">
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-2">
                         <div><span className="text-muted-foreground">Status: </span><span className="font-medium">{cfg.label}</span></div>
-                        <div><span className="text-muted-foreground">Classe Fase 1: </span><span className="font-medium">{eq.classeObservabilidade.replaceAll("_", " ")}</span></div>
+                        <div><span className="text-muted-foreground">Classe Fase 1: </span><span className="font-medium">{eq.classeObservabilidade.replace(/_/g, " ")}</span></div>
                         {eq.setor && <div><span className="text-muted-foreground">Equipe/Setor: </span><span className="font-medium">{eq.setor}</span></div>}
                         {eq.operador && <div><span className="text-muted-foreground">Operador: </span><span className="font-medium">{eq.operador}</span></div>}
                         {eq.ogsAtual && eq.ogsAtual !== "000" && (
