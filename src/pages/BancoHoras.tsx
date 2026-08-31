@@ -13,7 +13,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
 interface Funcionario { id: string; nome: string; funcao: string; matricula: string; }
-interface Registro { staff_id: string; data: string; hora: string; tipo: string; turno: string | null; }
+interface Registro {
+  id?: string;
+  staff_id: string;
+  data: string;
+  hora: string;
+  tipo: string;
+  turno: string | null;
+  metodo?: string | null;
+}
 
 interface SaldoFuncionario {
   funcionario: Funcionario;
@@ -45,14 +53,21 @@ interface AjusteDiario {
 
 interface LinhaHistoricoDiario {
   data: string;
+  entrada1Id?: string | null;
+  saida1Id?: string | null;
+  entrada2Id?: string | null;
+  saida2Id?: string | null;
   entrada1: string;
   saida1: string;
   entrada2: string;
   saida2: string;
+  entrada1Original: string;
+  saida1Original: string;
+  entrada2Original: string;
+  saida2Original: string;
+  horasOriginais: number;
   horasTrabalhadas: number;
   saldoEstimado: number;
-  he70Reducao: string;
-  he100Reducao: string;
   motivo: string;
 }
 
@@ -184,29 +199,75 @@ function eachDateIso(startIso: string, endIso: string): string[] {
   return out;
 }
 
-function calcHorasTrabalhadasPorDia(regs: Registro[]): number {
-  const entradas = regs.filter((r) => r.tipo === "entrada").sort((a, b) => a.hora.localeCompare(b.hora));
-  const saidas = regs.filter((r) => r.tipo === "saida").sort((a, b) => a.hora.localeCompare(b.hora));
-  const pairs = Math.min(entradas.length, saidas.length);
-  if (pairs === 0) return 0;
+function fmtHoraCurta(hora: string | null | undefined): string {
+  if (!hora) return "-";
+  const [h, m] = hora.split(":");
+  if (h == null || m == null) return "-";
+  return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+}
+
+function normalizarHoraInput(v: string): string | null {
+  const raw = String(v || "").trim();
+  if (!raw || raw === "-") return null;
+  const m = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+function calcHorasPorBatidasDiretas(entrada1: string, saida1: string, entrada2: string, saida2: string): number {
+  const pares: Array<[string, string]> = [];
+  const p1e = normalizarHoraInput(entrada1);
+  const p1s = normalizarHoraInput(saida1);
+  const p2e = normalizarHoraInput(entrada2);
+  const p2s = normalizarHoraInput(saida2);
+  if (p1e && p1s) pares.push([p1e, p1s]);
+  if (p2e && p2s) pares.push([p2e, p2s]);
+  if (pares.length === 0) return 0;
 
   let totalMin = 0;
-  for (let i = 0; i < pairs; i += 1) {
-    let diff = toMin(saidas[i].hora) - toMin(entradas[i].hora);
+  for (const [ent, sai] of pares) {
+    let diff = toMin(sai) - toMin(ent);
     if (diff < 0) diff += 24 * 60;
     totalMin += diff;
   }
   return Number((totalMin / 60).toFixed(2));
 }
 
-function extrairBatidasPorDia(regs: Registro[]): { entrada1: string; saida1: string; entrada2: string; saida2: string } {
-  const entradas = regs.filter((r) => r.tipo === "entrada").map((r) => r.hora).sort();
-  const saidas = regs.filter((r) => r.tipo === "saida").map((r) => r.hora).sort();
+function calcHorasTrabalhadasPorDia(regs: Registro[]): number {
+  const entradas = regs.filter((r) => r.tipo === "entrada").sort((a, b) => a.hora.localeCompare(b.hora));
+  const saidas = regs.filter((r) => r.tipo === "saida").sort((a, b) => a.hora.localeCompare(b.hora));
+  return calcHorasPorBatidasDiretas(
+    entradas[0]?.hora || "",
+    saidas[0]?.hora || "",
+    entradas[1]?.hora || "",
+    saidas[1]?.hora || "",
+  );
+}
+
+function extrairBatidasPorDia(regs: Registro[]): {
+  entrada1Id?: string | null;
+  saida1Id?: string | null;
+  entrada2Id?: string | null;
+  saida2Id?: string | null;
+  entrada1: string;
+  saida1: string;
+  entrada2: string;
+  saida2: string;
+} {
+  const entradas = regs.filter((r) => r.tipo === "entrada").sort((a, b) => a.hora.localeCompare(b.hora));
+  const saidas = regs.filter((r) => r.tipo === "saida").sort((a, b) => a.hora.localeCompare(b.hora));
   return {
-    entrada1: entradas[0] || "-",
-    saida1: saidas[0] || "-",
-    entrada2: entradas[1] || "-",
-    saida2: saidas[1] || "-",
+    entrada1Id: entradas[0]?.id || null,
+    saida1Id: saidas[0]?.id || null,
+    entrada2Id: entradas[1]?.id || null,
+    saida2Id: saidas[1]?.id || null,
+    entrada1: fmtHoraCurta(entradas[0]?.hora),
+    saida1: fmtHoraCurta(saidas[0]?.hora),
+    entrada2: fmtHoraCurta(entradas[1]?.hora),
+    saida2: fmtHoraCurta(saidas[1]?.hora),
   };
 }
 
@@ -324,7 +385,7 @@ export default function BancoHoras() {
     // 3) Fallback para cálculo no ponto bruto
     const { data: regs } = await (supabase as any)
       .from("ponto_registros")
-      .select("staff_id, data, hora, tipo, turno")
+      .select("id, staff_id, data, hora, tipo, turno, metodo")
       .eq("company_id", profile.company_id)
       .gte("data", ini)
       .lte("data", fim)
@@ -479,7 +540,7 @@ export default function BancoHoras() {
 
     const { data, error } = await (supabase as any)
       .from("ponto_registros")
-      .select("staff_id, data, hora, tipo, turno")
+      .select("id, staff_id, data, hora, tipo, turno, metodo")
       .eq("company_id", profile.company_id)
       .eq("staff_id", employeeId)
       .gte("data", inicio)
@@ -512,14 +573,21 @@ export default function BancoHoras() {
       const batidas = extrairBatidasPorDia(regsDia);
       return {
         data: dataIso,
+        entrada1Id: batidas.entrada1Id,
+        saida1Id: batidas.saida1Id,
+        entrada2Id: batidas.entrada2Id,
+        saida2Id: batidas.saida2Id,
         entrada1: batidas.entrada1,
         saida1: batidas.saida1,
         entrada2: batidas.entrada2,
         saida2: batidas.saida2,
+        entrada1Original: batidas.entrada1,
+        saida1Original: batidas.saida1,
+        entrada2Original: batidas.entrada2,
+        saida2Original: batidas.saida2,
+        horasOriginais: horasDia,
         horasTrabalhadas: horasDia,
         saldoEstimado,
-        he70Reducao: ajuste ? String(Number(ajuste.he70_reducao || 0).toFixed(2)).replace(".", ",") : "0,00",
-        he100Reducao: ajuste ? String(Number(ajuste.he100_reducao || 0).toFixed(2)).replace(".", ",") : "0,00",
         motivo: ajuste?.motivo || "",
       };
     });
@@ -540,114 +608,218 @@ export default function BancoHoras() {
       return;
     }
 
-    const ajustesLimpos: AjusteDiario[] = [];
-    for (const linha of historicoDias) {
-      const he70 = parseHorasInput(linha.he70Reducao);
-      const he100 = parseHorasInput(linha.he100Reducao);
-      const motivo = (linha.motivo || "").trim();
-      if (!Number.isFinite(he70) || !Number.isFinite(he100) || he70 < 0 || he100 < 0) {
-        toast({ title: "Valor inválido no histórico", description: `Data ${fmtDate(linha.data)} com redução inválida.`, variant: "destructive" });
-        return;
-      }
-      if ((he70 > 0 || he100 > 0) && motivo.length < 3) {
-        toast({ title: "Motivo obrigatório", description: `Preencha motivo na data ${fmtDate(linha.data)}.`, variant: "destructive" });
-        return;
-      }
-      if (he70 > 0 || he100 > 0) {
-        ajustesLimpos.push({
-          data: linha.data,
-          he70_reducao: Number(he70.toFixed(2)),
-          he100_reducao: Number(he100.toFixed(2)),
-          motivo,
-          at: new Date().toISOString(),
-        });
-      }
-    }
-
-    const totalReducao70 = Number(ajustesLimpos.reduce((a, b) => a + Number(b.he70_reducao || 0), 0).toFixed(2));
-    const totalReducao100 = Number(ajustesLimpos.reduce((a, b) => a + Number(b.he100_reducao || 0), 0).toFixed(2));
-
-    const payloadAtual = (r.payload || {}) as Record<string, any>;
-    const manualAtual = (payloadAtual.he_manual || {}) as {
-      initial?: AjusteSnapshot;
-      history?: AjusteSnapshot[];
-      daily_adjustments?: AjusteDiario[];
-    };
-
-    const initial: AjusteSnapshot = manualAtual.initial || {
-      he_70_horas: Number(r.he_70_horas || 0),
-      he_100_horas: Number(r.he_100_horas || 0),
-      total_horas_extras_horas: Number(r.total_horas_extras_horas || 0),
-      credito_horas: Number(r.credito_horas || 0),
-      debito_horas: Number(r.debito_horas || 0),
-      at: new Date().toISOString(),
-      motivo: "Snapshot inicial para ajuste diário",
-    };
-
-    const he70Novo = Number((Number(initial.he_70_horas || 0) - totalReducao70).toFixed(2));
-    const he100Novo = Number((Number(initial.he_100_horas || 0) - totalReducao100).toFixed(2));
-
-    if (he70Novo < 0 || he100Novo < 0) {
-      toast({
-        title: "Redução acima do limite",
-        description: "A soma das reduções por dia ultrapassa o total inicial de H.E. 70/100.",
-        variant: "destructive",
-      });
+    const employeeId = employeeIdByNome.get(normalizeText(r.colaborador_nome));
+    if (!employeeId) {
+      toast({ title: "Funcionário sem vínculo", description: "Não foi possível localizar o employee_id para este colaborador.", variant: "destructive" });
       return;
     }
 
-    const totalNovo = Number((he70Novo + he100Novo).toFixed(2));
-    const { data: authData } = await supabase.auth.getUser();
-    const uid = authData.user?.id || null;
-    const nowIso = new Date().toISOString();
-
-    const last: AjusteSnapshot = {
-      he_70_horas: he70Novo,
-      he_100_horas: he100Novo,
-      total_horas_extras_horas: totalNovo,
-      credito_horas: Number(r.credito_horas || 0),
-      debito_horas: Number(r.debito_horas || 0),
-      at: nowIso,
-      by: uid,
-      motivo: `Ajuste diário (${ajustesLimpos.length} dias alterados)`,
-    };
-
-    const payloadNovo = {
-      ...payloadAtual,
-      he_manual: {
-        ...manualAtual,
-        initial,
-        last,
-        history: [...(Array.isArray(manualAtual.history) ? manualAtual.history : []), last],
-        daily_adjustments: ajustesLimpos.map((a) => ({ ...a, by: uid, at: nowIso })),
-      },
-    };
-
     setSalvandoAjusteId(r.id);
-    const { error } = await (supabase as any)
-      .from("ponto_he_resumo_mensal")
-      .update({
+
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const uid = authData.user?.id || null;
+      const nowIso = new Date().toISOString();
+
+      const payloadAtual = (r.payload || {}) as Record<string, any>;
+      const manualAtual = (payloadAtual.he_manual || {}) as {
+        initial?: AjusteSnapshot;
+        history?: AjusteSnapshot[];
+        daily_adjustments?: AjusteDiario[];
+      };
+
+      const initial: AjusteSnapshot = manualAtual.initial || {
+        he_70_horas: Number(r.he_70_horas || 0),
+        he_100_horas: Number(r.he_100_horas || 0),
+        total_horas_extras_horas: Number(r.total_horas_extras_horas || 0),
+        credito_horas: Number(r.credito_horas || 0),
+        debito_horas: Number(r.debito_horas || 0),
+        at: nowIso,
+        motivo: "Snapshot inicial para ajuste por batidas",
+      };
+
+      let heAntesTotal = 0;
+      let heDepoisTotal = 0;
+      let diasAlterados = 0;
+      const ajustesLimpos: AjusteDiario[] = [];
+
+      for (const linha of historicoDias) {
+        const nEntrada1 = normalizarHoraInput(linha.entrada1);
+        const nSaida1 = normalizarHoraInput(linha.saida1);
+        const nEntrada2 = normalizarHoraInput(linha.entrada2);
+        const nSaida2 = normalizarHoraInput(linha.saida2);
+
+        for (const [label, valor] of [["1ª Entrada", linha.entrada1], ["1ª Saída", linha.saida1], ["2ª Entrada", linha.entrada2], ["2ª Saída", linha.saida2]] as Array<[string, string]>) {
+          const raw = String(valor || "").trim();
+          if (raw && raw !== "-" && !normalizarHoraInput(raw)) {
+            toast({ title: "Hora inválida", description: `${fmtDate(linha.data)} · ${label} inválida. Use HH:MM.`, variant: "destructive" });
+            return;
+          }
+        }
+
+        if ((Boolean(nEntrada1) !== Boolean(nSaida1)) || (Boolean(nEntrada2) !== Boolean(nSaida2))) {
+          toast({ title: "Par incompleto", description: `${fmtDate(linha.data)} deve ter entrada e saída no mesmo par.`, variant: "destructive" });
+          return;
+        }
+
+        const novaHoraDia = calcHorasPorBatidasDiretas(nEntrada1 || "", nSaida1 || "", nEntrada2 || "", nSaida2 || "");
+
+        const antesE1 = normalizarHoraInput(linha.entrada1Original);
+        const antesS1 = normalizarHoraInput(linha.saida1Original);
+        const antesE2 = normalizarHoraInput(linha.entrada2Original);
+        const antesS2 = normalizarHoraInput(linha.saida2Original);
+
+        const mudou = (antesE1 || "") !== (nEntrada1 || "")
+          || (antesS1 || "") !== (nSaida1 || "")
+          || (antesE2 || "") !== (nEntrada2 || "")
+          || (antesS2 || "") !== (nSaida2 || "");
+
+        heAntesTotal += Math.max(Number(linha.horasOriginais || 0) - jornadaPadrao, 0);
+        heDepoisTotal += Math.max(novaHoraDia - jornadaPadrao, 0);
+
+        if (!mudou) continue;
+
+        const motivo = (linha.motivo || "").trim();
+        if (motivo.length < 3) {
+          toast({ title: "Motivo obrigatório", description: `Preencha motivo na data ${fmtDate(linha.data)}.`, variant: "destructive" });
+          return;
+        }
+
+        const aplicarBatidas = async (tipo: "entrada" | "saida", ids: Array<string | null | undefined>, novas: Array<string | null>) => {
+          const atuais = ids.filter((v): v is string => Boolean(v));
+          const alvo = novas.filter((v): v is string => Boolean(v));
+          const totalOps = Math.max(atuais.length, alvo.length);
+
+          for (let i = 0; i < totalOps; i += 1) {
+            const idAtual = atuais[i];
+            const horaAlvo = alvo[i];
+
+            if (idAtual && horaAlvo) {
+              const { error: errUpd } = await (supabase as any)
+                .from("ponto_registros")
+                .update({ hora: `${horaAlvo}:00`, metodo: "ajuste_manual_banco_horas" })
+                .eq("id", idAtual)
+                .eq("company_id", profile.company_id);
+              if (errUpd) throw new Error(errUpd.message);
+            } else if (idAtual && !horaAlvo) {
+              const { error: errDel } = await (supabase as any)
+                .from("ponto_registros")
+                .delete()
+                .eq("id", idAtual)
+                .eq("company_id", profile.company_id);
+              if (errDel) throw new Error(errDel.message);
+            } else if (!idAtual && horaAlvo) {
+              const { error: errIns } = await (supabase as any)
+                .from("ponto_registros")
+                .insert({
+                  staff_id: employeeId,
+                  tipo,
+                  data: linha.data,
+                  hora: `${horaAlvo}:00`,
+                  turno: null,
+                  company_id: profile.company_id,
+                  metodo: "ajuste_manual_banco_horas",
+                });
+              if (errIns) throw new Error(errIns.message);
+            }
+          }
+        };
+
+        await aplicarBatidas("entrada", [linha.entrada1Id, linha.entrada2Id], [nEntrada1, nEntrada2]);
+        await aplicarBatidas("saida", [linha.saida1Id, linha.saida2Id], [nSaida1, nSaida2]);
+
+        const heAntesDia = Math.max(Number(linha.horasOriginais || 0) - jornadaPadrao, 0);
+        const heDepoisDia = Math.max(novaHoraDia - jornadaPadrao, 0);
+
+        ajustesLimpos.push({
+          data: linha.data,
+          he70_reducao: 0,
+          he100_reducao: 0,
+          motivo,
+          at: nowIso,
+          by: uid,
+        });
+
+        diasAlterados += 1;
+      }
+
+      if (diasAlterados === 0) {
+        toast({ title: "Sem alterações", description: "Nenhuma batida foi alterada." });
+        setSalvandoAjusteId(null);
+        return;
+      }
+
+      const heBase70 = Number(initial.he_70_horas || 0);
+      const heBase100 = Number(initial.he_100_horas || 0);
+      const heBaseTotal = Number((heBase70 + heBase100).toFixed(2));
+      const share70 = heBaseTotal > 0 ? heBase70 / heBaseTotal : 0.5;
+
+      const deltaHeTotal = Number((heDepoisTotal - heAntesTotal).toFixed(2));
+      const delta70 = Number((deltaHeTotal * share70).toFixed(2));
+      const delta100 = Number((deltaHeTotal - delta70).toFixed(2));
+
+      const he70Novo = Number((heBase70 + delta70).toFixed(2));
+      const he100Novo = Number((heBase100 + delta100).toFixed(2));
+
+      if (he70Novo < 0 || he100Novo < 0) {
+        toast({
+          title: "Ajuste inválido",
+          description: "As alterações de batida reduziram H.E. abaixo de zero. Revise os horários editados.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const totalNovo = Number((he70Novo + he100Novo).toFixed(2));
+      const last: AjusteSnapshot = {
         he_70_horas: he70Novo,
         he_100_horas: he100Novo,
         total_horas_extras_horas: totalNovo,
-        payload: payloadNovo,
-      })
-      .eq("id", r.id)
-      .eq("company_id", profile.company_id);
+        credito_horas: Number(r.credito_horas || 0),
+        debito_horas: Number(r.debito_horas || 0),
+        at: nowIso,
+        by: uid,
+        motivo: `Ajuste por batidas (${diasAlterados} dias alterados)` ,
+      };
 
-    if (error) {
-      toast({ title: "Erro ao salvar ajuste diário", description: error.message, variant: "destructive" });
+      const payloadNovo = {
+        ...payloadAtual,
+        he_manual: {
+          ...manualAtual,
+          initial,
+          last,
+          history: [...(Array.isArray(manualAtual.history) ? manualAtual.history : []), last],
+          daily_adjustments: ajustesLimpos,
+        },
+      };
+
+      const { error } = await (supabase as any)
+        .from("ponto_he_resumo_mensal")
+        .update({
+          he_70_horas: he70Novo,
+          he_100_horas: he100Novo,
+          total_horas_extras_horas: totalNovo,
+          payload: payloadNovo,
+        })
+        .eq("id", r.id)
+        .eq("company_id", profile.company_id);
+
+      if (error) throw new Error(error.message);
+
+      const variacao = Number((totalNovo - Number(initial.total_horas_extras_horas || 0)).toFixed(2));
+      toast({
+        title: "✅ Histórico salvo",
+        description: `${r.colaborador_nome}: H.E. total ${variacao >= 0 ? "aumentou" : "reduziu"} ${fmtDec(Math.abs(variacao))} h após edição das batidas.`,
+      });
+
+      setHistoricoAbertoId(null);
+      setHistoricoDias([]);
+      await carregarDados();
+    } catch (e: any) {
+      toast({ title: "Erro ao salvar histórico", description: e?.message || "Falha ao aplicar ajustes de batida.", variant: "destructive" });
+    } finally {
       setSalvandoAjusteId(null);
-      return;
     }
-
-    const reducao = Number((Number(initial.total_horas_extras_horas || 0) - totalNovo).toFixed(2));
-    toast({ title: "✅ Histórico salvo", description: `${r.colaborador_nome}: redução acumulada de ${fmtDec(reducao)} h.` });
-
-    setHistoricoAbertoId(null);
-    setHistoricoDias([]);
-    setSalvandoAjusteId(null);
-    await carregarDados();
   };
 
   const equipesDisponiveis = useMemo(() => {
@@ -1113,7 +1285,7 @@ export default function BancoHoras() {
                           <p className="text-xs text-muted-foreground">
                             {competenciaStatus.status === "fechado"
                               ? "Competência fechada: reabra para editar H.E."
-                              : "Clique em Histórico diário para revisar 26/07 a 25/08 e reduzir por dia."}
+                              : "Clique em Histórico diário para editar entrada/saída e recalcular H.E."}
                           </p>
 
                           <div className="flex gap-2">
@@ -1154,42 +1326,84 @@ export default function BancoHoras() {
                                     <th className="text-center p-2">2ª Saída</th>
                                     <th className="text-right p-2">Trab. (h)</th>
                                     <th className="text-right p-2">Saldo estimado</th>
-                                    <th className="text-right p-2">Reduzir HE70</th>
-                                    <th className="text-right p-2">Reduzir HE100</th>
-                                    <th className="text-left p-2">Motivo</th>
+                                    <th className="text-left p-2">Motivo da alteração</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {historicoDias.map((linha, idx) => (
                                     <tr key={linha.data} className="border-t">
                                       <td className="p-2 whitespace-nowrap">{fmtDate(linha.data)}</td>
-                                      <td className="p-2 text-center whitespace-nowrap">{linha.entrada1}</td>
-                                      <td className="p-2 text-center whitespace-nowrap">{linha.saida1}</td>
-                                      <td className="p-2 text-center whitespace-nowrap">{linha.entrada2}</td>
-                                      <td className="p-2 text-center whitespace-nowrap">{linha.saida2}</td>
+                                      <td className="p-2">
+                                        <input
+                                          type="time"
+                                          step={60}
+                                          value={linha.entrada1 === "-" ? "" : linha.entrada1}
+                                          onChange={(e) => {
+                                            const val = e.target.value || "-";
+                                            setHistoricoDias((prev) => prev.map((d, i) => {
+                                              if (i !== idx) return d;
+                                              const next = { ...d, entrada1: val };
+                                              const horas = calcHorasPorBatidasDiretas(next.entrada1, next.saida1, next.entrada2, next.saida2);
+                                              return { ...next, horasTrabalhadas: horas, saldoEstimado: Number((horas - jornadaPadrao).toFixed(2)) };
+                                            }));
+                                          }}
+                                          className="w-28 h-8 rounded border px-2"
+                                        />
+                                      </td>
+                                      <td className="p-2">
+                                        <input
+                                          type="time"
+                                          step={60}
+                                          value={linha.saida1 === "-" ? "" : linha.saida1}
+                                          onChange={(e) => {
+                                            const val = e.target.value || "-";
+                                            setHistoricoDias((prev) => prev.map((d, i) => {
+                                              if (i !== idx) return d;
+                                              const next = { ...d, saida1: val };
+                                              const horas = calcHorasPorBatidasDiretas(next.entrada1, next.saida1, next.entrada2, next.saida2);
+                                              return { ...next, horasTrabalhadas: horas, saldoEstimado: Number((horas - jornadaPadrao).toFixed(2)) };
+                                            }));
+                                          }}
+                                          className="w-28 h-8 rounded border px-2"
+                                        />
+                                      </td>
+                                      <td className="p-2">
+                                        <input
+                                          type="time"
+                                          step={60}
+                                          value={linha.entrada2 === "-" ? "" : linha.entrada2}
+                                          onChange={(e) => {
+                                            const val = e.target.value || "-";
+                                            setHistoricoDias((prev) => prev.map((d, i) => {
+                                              if (i !== idx) return d;
+                                              const next = { ...d, entrada2: val };
+                                              const horas = calcHorasPorBatidasDiretas(next.entrada1, next.saida1, next.entrada2, next.saida2);
+                                              return { ...next, horasTrabalhadas: horas, saldoEstimado: Number((horas - jornadaPadrao).toFixed(2)) };
+                                            }));
+                                          }}
+                                          className="w-28 h-8 rounded border px-2"
+                                        />
+                                      </td>
+                                      <td className="p-2">
+                                        <input
+                                          type="time"
+                                          step={60}
+                                          value={linha.saida2 === "-" ? "" : linha.saida2}
+                                          onChange={(e) => {
+                                            const val = e.target.value || "-";
+                                            setHistoricoDias((prev) => prev.map((d, i) => {
+                                              if (i !== idx) return d;
+                                              const next = { ...d, saida2: val };
+                                              const horas = calcHorasPorBatidasDiretas(next.entrada1, next.saida1, next.entrada2, next.saida2);
+                                              return { ...next, horasTrabalhadas: horas, saldoEstimado: Number((horas - jornadaPadrao).toFixed(2)) };
+                                            }));
+                                          }}
+                                          className="w-28 h-8 rounded border px-2"
+                                        />
+                                      </td>
                                       <td className="p-2 text-right">{fmtDec(linha.horasTrabalhadas)}</td>
                                       <td className={`p-2 text-right ${linha.saldoEstimado >= 0 ? "text-green-700" : "text-red-700"}`}>
                                         {linha.saldoEstimado >= 0 ? "+" : ""}{fmtDec(linha.saldoEstimado)}
-                                      </td>
-                                      <td className="p-2">
-                                        <input
-                                          value={linha.he70Reducao}
-                                          onChange={(e) => {
-                                            const val = e.target.value;
-                                            setHistoricoDias((prev) => prev.map((d, i) => (i === idx ? { ...d, he70Reducao: val } : d)));
-                                          }}
-                                          className="w-24 h-8 rounded border px-2 text-right"
-                                        />
-                                      </td>
-                                      <td className="p-2">
-                                        <input
-                                          value={linha.he100Reducao}
-                                          onChange={(e) => {
-                                            const val = e.target.value;
-                                            setHistoricoDias((prev) => prev.map((d, i) => (i === idx ? { ...d, he100Reducao: val } : d)));
-                                          }}
-                                          className="w-24 h-8 rounded border px-2 text-right"
-                                        />
                                       </td>
                                       <td className="p-2">
                                         <input
@@ -1199,7 +1413,7 @@ export default function BancoHoras() {
                                             setHistoricoDias((prev) => prev.map((d, i) => (i === idx ? { ...d, motivo: val } : d)));
                                           }}
                                           className="w-full min-w-[220px] h-8 rounded border px-2"
-                                          placeholder="motivo do ajuste"
+                                          placeholder="obrigatório quando alterar batida"
                                         />
                                       </td>
                                     </tr>
@@ -1218,7 +1432,7 @@ export default function BancoHoras() {
                                 onClick={() => salvarAjustePorDia(r)}
                                 disabled={salvandoAjusteId === r.id || competenciaStatus.status === "fechado"}
                               >
-                                {salvandoAjusteId === r.id ? "Salvando..." : "Salvar ajustes do histórico"}
+                                {salvandoAjusteId === r.id ? "Salvando..." : "Salvar batidas do histórico"}
                               </Button>
                             </div>
                           </div>
