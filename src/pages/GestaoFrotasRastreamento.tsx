@@ -220,6 +220,7 @@ export default function GestaoFrotasRastreamento() {
   const [autoRunLoading, setAutoRunLoading] = useState(false);
   const [autoRunResult, setAutoRunResult] = useState<AutoPatioRunResult | null>(null);
   const [autoRunError, setAutoRunError] = useState<string>("");
+  const [autoPreviewActionFilter, setAutoPreviewActionFilter] = useState<"todos" | "would_insert" | "inserted" | "skip_transporte" | "skip_diario_existente">("todos");
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
 
   useEffect(() => { buscarDados(); }, []);
@@ -448,6 +449,7 @@ export default function GestaoFrotasRastreamento() {
       if (error) throw error;
 
       setAutoRunResult((data || null) as AutoPatioRunResult);
+      setAutoPreviewActionFilter("todos");
 
       // Pós execução real: recarrega rastreamento
       if (!dryRun) {
@@ -458,6 +460,72 @@ export default function GestaoFrotasRastreamento() {
     } finally {
       setAutoRunLoading(false);
     }
+  }
+
+  const autoPreviewRows = useMemo(() => {
+    const rows = autoRunResult?.companies?.[0]?.preview || [];
+    if (autoPreviewActionFilter === "todos") return rows;
+    return rows.filter((r) => r.action === autoPreviewActionFilter);
+  }, [autoRunResult, autoPreviewActionFilter]);
+
+  const autoPreviewCounts = useMemo(() => {
+    const rows = autoRunResult?.companies?.[0]?.preview || [];
+    return {
+      total: rows.length,
+      would_insert: rows.filter((r) => r.action === "would_insert").length,
+      inserted: rows.filter((r) => r.action === "inserted").length,
+      skip_transporte: rows.filter((r) => r.action === "skip_transporte").length,
+      skip_diario_existente: rows.filter((r) => r.action === "skip_diario_existente").length,
+    };
+  }, [autoRunResult]);
+
+  function exportarCsvExecucaoAuto() {
+    const company = autoRunResult?.companies?.[0];
+    if (!company?.preview?.length) return;
+
+    const esc = (v: unknown) => {
+      const s = String(v ?? "");
+      if (/[";\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const header = [
+      "company_id",
+      "target_date",
+      "frota",
+      "tipo",
+      "setor",
+      "work_status",
+      "auto_reason",
+      "location_address",
+      "action",
+      "dry_run",
+    ].join(";");
+
+    const lines = company.preview.map((p) => [
+      company.company_id,
+      company.target_date,
+      p.frota,
+      p.tipo || "",
+      p.setor || "",
+      p.work_status,
+      p.auto_reason,
+      p.location_address,
+      p.action,
+      String(company.dry_run),
+    ].map(esc).join(";"));
+
+    const content = [header, ...lines].join("\n");
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    a.href = url;
+    a.download = `auto-patio-auditoria-${company.target_date}-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   // KPIs
@@ -640,15 +708,80 @@ export default function GestaoFrotasRastreamento() {
           )}
 
           {autoRunResult?.companies?.[0]?.preview?.length ? (
-            <div className="rounded-lg border border-border bg-slate-50 p-2">
-              <p className="text-[11px] font-semibold text-slate-700 mb-1">Amostra da execução ({Math.min(8, autoRunResult.companies[0].preview.length)} itens)</p>
-              <div className="space-y-1">
-                {autoRunResult.companies[0].preview.slice(0, 8).map((p, idx) => (
-                  <div key={`${p.frota}-${idx}`} className="text-[11px] text-slate-700">
-                    <span className="font-bold">{p.frota}</span> · {p.work_status} · {p.auto_reason} · {p.action.replace("_", " ")}
-                  </div>
+            <div className="rounded-lg border border-border bg-slate-50 p-2 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-[11px] font-semibold text-slate-700">Trilha de auditoria da execução</p>
+                <button
+                  onClick={exportarCsvExecucaoAuto}
+                  className="h-7 px-2.5 rounded-md border border-slate-300 bg-white text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Exportar CSV
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { key: "todos", label: "Todos", count: autoPreviewCounts.total, cls: "bg-slate-100 text-slate-700 border-slate-200" },
+                  { key: "would_insert", label: "Prévia para inserir", count: autoPreviewCounts.would_insert, cls: "bg-blue-100 text-blue-700 border-blue-200" },
+                  { key: "inserted", label: "Inseridos", count: autoPreviewCounts.inserted, cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+                  { key: "skip_transporte", label: "Bloq. transporte", count: autoPreviewCounts.skip_transporte, cls: "bg-purple-100 text-purple-700 border-purple-200" },
+                  { key: "skip_diario_existente", label: "Bloq. diário", count: autoPreviewCounts.skip_diario_existente, cls: "bg-amber-100 text-amber-700 border-amber-200" },
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setAutoPreviewActionFilter(f.key as any)}
+                    className={`px-2 py-1 rounded-md border text-[10px] font-semibold ${f.cls} ${autoPreviewActionFilter === f.key ? "ring-2 ring-offset-1 ring-primary/40" : "opacity-85"}`}
+                  >
+                    {f.label} <span className="font-extrabold">{f.count}</span>
+                  </button>
                 ))}
               </div>
+
+              <div className="max-h-64 overflow-auto rounded-md border border-slate-200 bg-white">
+                <table className="w-full text-[11px]">
+                  <thead className="bg-slate-100 text-slate-700 sticky top-0">
+                    <tr>
+                      <th className="text-left px-2 py-1">Frota</th>
+                      <th className="text-left px-2 py-1">Tipo</th>
+                      <th className="text-left px-2 py-1">Setor</th>
+                      <th className="text-left px-2 py-1">Status auto</th>
+                      <th className="text-left px-2 py-1">Motivo</th>
+                      <th className="text-left px-2 py-1">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {autoPreviewRows.map((p, idx) => {
+                      const acaoLabel = p.action === "would_insert"
+                        ? "Prévia"
+                        : p.action === "inserted"
+                        ? "Inserido"
+                        : p.action === "skip_transporte"
+                        ? "Bloq. transporte"
+                        : "Bloq. diário";
+                      const acaoCls = p.action === "would_insert"
+                        ? "text-blue-700"
+                        : p.action === "inserted"
+                        ? "text-emerald-700"
+                        : p.action === "skip_transporte"
+                        ? "text-purple-700"
+                        : "text-amber-700";
+                      return (
+                        <tr key={`${p.frota}-${idx}`} className="border-t border-slate-100">
+                          <td className="px-2 py-1.5 font-semibold text-slate-800">{p.frota}</td>
+                          <td className="px-2 py-1.5 text-slate-700">{p.tipo || "—"}</td>
+                          <td className="px-2 py-1.5 text-slate-700">{p.setor || "—"}</td>
+                          <td className="px-2 py-1.5 text-slate-700">{p.work_status}</td>
+                          <td className="px-2 py-1.5 text-slate-700">{p.auto_reason}</td>
+                          <td className={`px-2 py-1.5 font-semibold ${acaoCls}`}>{acaoLabel}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[10px] text-slate-500">
+                Exibindo {autoPreviewRows.length} de {autoPreviewCounts.total} registro(s) da execução.
+              </p>
             </div>
           ) : null}
         </div>
