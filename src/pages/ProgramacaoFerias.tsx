@@ -33,6 +33,8 @@ interface VacationPeriod {
   status: string;
 }
 
+type VacationWorkflowStatus = "programada" | "aguardando_confirmacao" | "confirmada" | "nao_confirmada";
+
 interface VacationRecord {
   id: string;
   employee_id: string;
@@ -42,6 +44,11 @@ interface VacationRecord {
   data_fim: string;
   dias: number;
   observacao?: string;
+  workflow_status?: VacationWorkflowStatus;
+  reminder_sent_at?: string | null;
+  confirmado_em?: string | null;
+  confirmado_por_user_id?: string | null;
+  confirmacao_observacao?: string | null;
 }
 
 interface EmployeeWithVacation extends Employee {
@@ -85,6 +92,20 @@ function statusLabel(status: string) {
   if (status === "parcial") return "Parcial";
   if (status === "vencido") return "Vencido";
   return "Aberto";
+}
+
+function workflowColor(status?: VacationWorkflowStatus) {
+  if (status === "confirmada") return "#16a34a";
+  if (status === "nao_confirmada") return "#b45309";
+  if (status === "aguardando_confirmacao") return "#d97706";
+  return "#2563eb";
+}
+
+function workflowLabel(status?: VacationWorkflowStatus) {
+  if (status === "confirmada") return "Confirmada";
+  if (status === "nao_confirmada") return "Não confirmada";
+  if (status === "aguardando_confirmacao") return "Aguardando confirmação";
+  return "Programada";
 }
 
 // ─── Calcula períodos aquisitivos dos últimos 24 meses ───────────────────────
@@ -141,6 +162,11 @@ function ModalFerias({
     if (!dataInicio || !dataFim || dias <= 0) { setErro("Datas inválidas."); return; }
     setSaving(true); setErro("");
     try {
+      const hoje = new Date().toISOString().split("T")[0];
+      const reminderBase = new Date(`${dataInicio}T12:00:00`);
+      reminderBase.setDate(reminderBase.getDate() - 3);
+      const reminderDate = reminderBase.toISOString().split("T")[0];
+
       const record = {
         employee_id: emp.id,
         company_id: COMPANY_ID,
@@ -151,6 +177,7 @@ function ModalFerias({
         dias,
         observacao: obs || null,
         registrado_por: "admin",
+        workflow_status: reminderDate <= hoje ? "aguardando_confirmacao" : "programada",
       };
       const { error: errRec } = await supabase.from("vacation_records").insert(record);
       if (errRec) throw errRec;
@@ -173,14 +200,13 @@ function ModalFerias({
       }
 
       // Sincronização mínima fase 2: histórico + status quando férias estão vigentes hoje
-      const hoje = new Date().toISOString().split("T")[0];
       const emFeriasAgora = isDateInRange(hoje, dataInicio, dataFim);
 
       await (supabase as any).from("employee_historico").insert({
         employee_id: emp.id,
         company_id: COMPANY_ID,
         tipo: "ferias",
-        descricao: `Férias ${tipo} registradas: ${fmtDate(dataInicio)} → ${fmtDate(dataFim)} (${dias}d)`,
+        descricao: `Férias ${tipo} programadas: ${fmtDate(dataInicio)} → ${fmtDate(dataFim)} (${dias}d)`,
         data: dataInicio,
       });
 
@@ -203,7 +229,7 @@ function ModalFerias({
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: "white", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 540, padding: "24px 20px 32px", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <p style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: 16, color: "#0A0F2C" }}>Registrar Férias</p>
+          <p style={{ fontFamily: "Montserrat", fontWeight: 800, fontSize: 16, color: "#0A0F2C" }}>Programar Férias</p>
           <button onClick={onClose}><X size={20} color="#9ca3af" /></button>
         </div>
 
@@ -276,7 +302,7 @@ function ModalFerias({
           width: "100%", height: 46, borderRadius: 12, background: saving || dias <= 0 ? "#e5e7eb" : "#0055AA",
           color: "white", fontWeight: 700, fontSize: 14, border: "none", cursor: saving ? "wait" : "pointer"
         }}>
-          {saving ? "Salvando..." : "Registrar Férias"}
+          {saving ? "Salvando..." : "Programar Férias"}
         </button>
       </div>
     </div>
@@ -284,12 +310,24 @@ function ModalFerias({
 }
 
 // ─── Card de funcionário ──────────────────────────────────────────────────────
-function CardFuncionario({ emp, onRegistrar, onToggle, onAbrirFicha, expanded }: {
+function CardFuncionario({
+  emp,
+  onRegistrar,
+  onToggle,
+  onAbrirFicha,
+  onConfirmarProgramacao,
+  onMarcarNaoConfirmada,
+  expanded,
+  canManageWorkflow,
+}: {
   emp: EmployeeWithVacation;
   onRegistrar: () => void;
   onToggle: () => void;
   onAbrirFicha: () => void;
+  onConfirmarProgramacao: (recordId: string) => void;
+  onMarcarNaoConfirmada: (recordId: string) => void;
   expanded: boolean;
+  canManageWorkflow: boolean;
 }) {
   const periodoAtual = emp.periodos.find(p => p.status !== "gozado") || emp.periodos[0];
   const saldo = periodoAtual ? periodoAtual.dias_direito - periodoAtual.dias_gozados - periodoAtual.dias_coletiva : null;
@@ -299,6 +337,10 @@ function CardFuncionario({ emp, onRegistrar, onToggle, onAbrirFicha, expanded }:
   const proxPeriodo = periodoAtual ? addYears(periodoAtual.periodo_fim, 1) : null;
   const hoje = new Date().toISOString().split("T")[0];
   const podeGozan = periodoAtual ? periodoAtual.periodo_fim <= hoje : false;
+  const registroPendenteConfirmacao = emp.records.find((r) => {
+    const status = r.workflow_status || "programada";
+    return (status === "programada" || status === "aguardando_confirmacao") && r.data_inicio >= hoje;
+  });
 
   return (
     <div style={{ background: "white", borderRadius: 14, marginBottom: 8, overflow: "hidden", boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
@@ -371,17 +413,73 @@ function CardFuncionario({ emp, onRegistrar, onToggle, onAbrirFicha, expanded }:
             </div>
           )}
 
+          {registroPendenteConfirmacao && (
+            <div style={{
+              background: "#fff7ed",
+              border: "1px solid #fdba74",
+              borderRadius: 10,
+              padding: "10px 12px",
+              marginBottom: 12,
+            }}>
+              <p style={{ fontSize: 11, fontWeight: 800, color: "#9a3412", marginBottom: 4 }}>
+                ⚠️ Confirmação de programação pendente
+              </p>
+              <p style={{ fontSize: 12, color: "#7c2d12", marginBottom: 8 }}>
+                Período {fmtDate(registroPendenteConfirmacao.data_inicio)} → {fmtDate(registroPendenteConfirmacao.data_fim)}
+              </p>
+              {canManageWorkflow && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <button
+                    onClick={() => onConfirmarProgramacao(registroPendenteConfirmacao.id)}
+                    style={{
+                      height: 34,
+                      borderRadius: 8,
+                      border: "none",
+                      background: "#16a34a",
+                      color: "white",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Confirmar período
+                  </button>
+                  <button
+                    onClick={() => onMarcarNaoConfirmada(registroPendenteConfirmacao.id)}
+                    style={{
+                      height: 34,
+                      borderRadius: 8,
+                      border: "1px solid #fdba74",
+                      background: "white",
+                      color: "#9a3412",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Não ocorrerá
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Histórico de registros */}
           {emp.records.length > 0 && (
             <div style={{ marginBottom: 12 }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>HISTÓRICO</p>
               {emp.records.slice(0, 5).map(r => (
-                <div key={r.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f1f5f9" }}>
-                  <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, background: r.tipo === "coletiva" ? "#fef3c7" : "#e8f0ff", color: r.tipo === "coletiva" ? "#92400e" : "#0055AA", fontWeight: 700, flexShrink: 0 }}>
-                    {r.tipo === "coletiva" ? "Coletiva" : "Individual"}
-                  </span>
-                  <p style={{ flex: 1, fontSize: 12, color: "#374151" }}>{fmtDate(r.data_inicio)} → {fmtDate(r.data_fim)}</p>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{r.dias}d</p>
+                <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, background: r.tipo === "coletiva" ? "#fef3c7" : "#e8f0ff", color: r.tipo === "coletiva" ? "#92400e" : "#0055AA", fontWeight: 700, flexShrink: 0 }}>
+                      {r.tipo === "coletiva" ? "Coletiva" : "Individual"}
+                    </span>
+                    <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, background: workflowColor(r.workflow_status) + "20", color: workflowColor(r.workflow_status), fontWeight: 700, flexShrink: 0 }}>
+                      {workflowLabel(r.workflow_status)}
+                    </span>
+                    <p style={{ flex: 1, fontSize: 12, color: "#374151" }}>{fmtDate(r.data_inicio)} → {fmtDate(r.data_fim)}</p>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{r.dias}d</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -407,7 +505,7 @@ function CardFuncionario({ emp, onRegistrar, onToggle, onAbrirFicha, expanded }:
               color: "white", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6
             }}>
-              <Plus size={15} /> Registrar Férias
+              <Plus size={15} /> Programar Férias
             </button>
           </div>
         </div>
@@ -425,9 +523,9 @@ export default function ProgramacaoFerias() {
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
   const buscaInicial = searchParams.get("q") || "";
   const focoFuncionarioId = searchParams.get("funcionario_id") || "";
-    const filtroParam = searchParams.get("filtro");
-  const filtroInicial: "todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" =
-    filtroParam === "pendente" || filtroParam === "vencido" || filtroParam === "coletiva" || filtroParam === "em_ferias"
+  const filtroParam = searchParams.get("filtro");
+  const filtroInicial: "todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar" =
+    filtroParam === "pendente" || filtroParam === "vencido" || filtroParam === "coletiva" || filtroParam === "em_ferias" || filtroParam === "a_confirmar"
       ? filtroParam
       : "todos";
 
@@ -437,12 +535,17 @@ export default function ProgramacaoFerias() {
   const [busca, setBusca] = useState(buscaInicial);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalEmp, setModalEmp] = useState<Employee | null>(null);
-  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias">(filtroInicial);
+  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar">(filtroInicial);
   const [focoAplicado, setFocoAplicado] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   const load = useCallback(async () => {
     setLoading(true);
     const hoje = new Date().toISOString().split("T")[0];
+
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id || "";
+    setCurrentUserId(userId);
 
     const { data: emps } = await supabase
       .from("employees")
@@ -451,20 +554,79 @@ export default function ProgramacaoFerias() {
       .in("status", ["ativo", "ferias"])
       .order("name");
 
-    const { data: periods } = await supabase
+    const { data: periods } = await (supabase as any)
       .from("vacation_periods")
       .select("*")
       .eq("company_id", COMPANY_ID)
       .order("periodo_inicio", { ascending: false });
 
-    const { data: records } = await supabase
+    const { data: records } = await (supabase as any)
       .from("vacation_records")
       .select("*")
       .eq("company_id", COMPANY_ID)
       .order("data_inicio", { ascending: false });
 
+    if (isAdmin && userId) {
+      try {
+        const limite = new Date(`${hoje}T12:00:00`);
+        limite.setDate(limite.getDate() + 3);
+        const limiteStr = limite.toISOString().split("T")[0];
+
+        const pendentesLembrete = ((records || []) as VacationRecord[]).filter((r) => {
+          const status = r.workflow_status || "programada";
+          return (status === "programada" || status === "aguardando_confirmacao")
+            && r.data_inicio >= hoje
+            && r.data_inicio <= limiteStr
+            && !r.reminder_sent_at;
+        });
+
+        if (pendentesLembrete.length > 0) {
+          const { data: perfisDestinatarios } = await (supabase as any)
+            .from("profiles")
+            .select("user_id,email,perfil,role")
+            .eq("company_id", COMPANY_ID)
+            .or("perfil.eq.RH,perfil.eq.Gestão de Pessoas,perfil.eq.Administrador,perfil.eq.Gerente,role.eq.admin,email.eq.anderson@fremix.workflux.app,email.eq.andersonmarquesoficial1980@gmail.com");
+
+          const destinatarios = Array.from(new Set(
+            ((perfisDestinatarios || []) as any[])
+              .map((p) => p.user_id)
+              .filter((id) => Boolean(id))
+          ));
+
+          for (const registro of pendentesLembrete) {
+            const funcionario = (emps || []).find((e) => e.id === registro.employee_id);
+            const mensagem = `${funcionario?.name || "Funcionário"} — início em ${fmtDate(registro.data_inicio)}. Confirmar período programado.`;
+
+            for (const destino of destinatarios) {
+              supabase.functions.invoke("send-push", {
+                body: {
+                  user_id: destino,
+                  title: "📅 Confirmação de férias programadas",
+                  body: mensagem,
+                  url: `/programacao-ferias?filtro=a_confirmar&funcionario_id=${registro.employee_id}`,
+                },
+              }).catch(() => {});
+            }
+
+            await (supabase as any)
+              .from("vacation_records")
+              .update({
+                workflow_status: "aguardando_confirmacao",
+                reminder_sent_at: new Date().toISOString(),
+              })
+              .eq("id", registro.id)
+              .eq("company_id", COMPANY_ID);
+          }
+        }
+      } catch {
+        // notificação é best effort
+      }
+    }
+
+    const recordsTyped = (records || []) as VacationRecord[];
+
     const idsEmFeriasPorPeriodo = new Set(
-      (records || [])
+      recordsTyped
         .filter((r) => isDateInRange(hoje, r.data_inicio, r.data_fim))
         .map((r) => r.employee_id)
     );
@@ -498,14 +660,14 @@ export default function ProgramacaoFerias() {
       return {
         ...e,
         status: statusSincronizado,
-        periodos: (periods || []).filter((p) => p.employee_id === e.id),
-        records: (records || []).filter((r) => r.employee_id === e.id),
+        periodos: ((periods || []) as VacationPeriod[]).filter((p) => p.employee_id === e.id),
+        records: recordsTyped.filter((r) => r.employee_id === e.id),
       };
     });
 
     setEmployees(result);
     setLoading(false);
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -535,6 +697,22 @@ export default function ProgramacaoFerias() {
     navigate(`/gestao-pessoas/${emp.id}?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
+  const atualizarWorkflowFerias = async (recordId: string, novoStatus: VacationWorkflowStatus) => {
+    if (!currentUserId) return;
+
+    await (supabase as any)
+      .from("vacation_records")
+      .update({
+        workflow_status: novoStatus,
+        confirmado_em: new Date().toISOString(),
+        confirmado_por_user_id: currentUserId,
+      })
+      .eq("id", recordId)
+      .eq("company_id", COMPANY_ID);
+
+    load();
+  };
+
   // Filtros
   const hoje = new Date().toISOString().split("T")[0];
   const filtrados = employees.filter(e => {
@@ -553,6 +731,10 @@ export default function ProgramacaoFerias() {
     if (filtro === "vencido") return p && p.status === "vencido";
     if (filtro === "coletiva") return e.records.some(r => r.tipo === "coletiva");
     if (filtro === "em_ferias") return employeeOnVacationNow(e.records, hoje);
+    if (filtro === "a_confirmar") return e.records.some((r) => {
+      const status = r.workflow_status || "programada";
+      return (status === "programada" || status === "aguardando_confirmacao") && r.data_inicio >= hoje;
+    });
     return true;
   });
 
@@ -563,6 +745,10 @@ export default function ProgramacaoFerias() {
 
   const totalColetiva = employees.filter(e => e.records.some(r => r.tipo === "coletiva")).length;
   const totalEmFerias = employees.filter(e => employeeOnVacationNow(e.records, hoje)).length;
+  const totalAConfirmar = employees.filter((e) => e.records.some((r) => {
+    const status = r.workflow_status || "programada";
+    return (status === "programada" || status === "aguardando_confirmacao") && r.data_inicio >= hoje;
+  })).length;
   const totalStatusFerias = employees.filter(e => (e.status || "").toLowerCase() === "ferias").length;
   const divergenciaStatusVsPeriodo = Math.abs(totalStatusFerias - totalEmFerias);
 
@@ -605,6 +791,7 @@ export default function ProgramacaoFerias() {
         {([
           { id: "todos", label: "Todos" },
           { id: "pendente", label: `⚠️ Pendentes (${totalPendente})` },
+          { id: "a_confirmar", label: `🔔 A confirmar (${totalAConfirmar})` },
           { id: "coletiva", label: `🏢 C. Coletiva (${totalColetiva})` },
           { id: "em_ferias", label: `🏖️ Em férias (${totalEmFerias})` },
         ] as const).map(f => (
@@ -616,6 +803,21 @@ export default function ProgramacaoFerias() {
       </div>
 
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px" }}>
+        {totalAConfirmar > 0 && (
+          <div style={{
+            marginBottom: 12,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid #fdba74",
+            background: "#fff7ed",
+            color: "#9a3412",
+            fontSize: 12,
+            fontWeight: 700,
+          }}>
+            🔔 {totalAConfirmar} programação(ões) de férias precisam de confirmação prévia do RH/Programador.
+          </div>
+        )}
+
         {divergenciaStatusVsPeriodo > 0 && (
           <div style={{
             marginBottom: 12,
@@ -655,6 +857,9 @@ export default function ProgramacaoFerias() {
               onToggle={() => setExpandedId(expandedId === emp.id ? null : emp.id)}
               onRegistrar={() => { setModalEmp(emp); setExpandedId(null); }}
               onAbrirFicha={() => abrirFichaFuncionario(emp)}
+              onConfirmarProgramacao={(recordId) => atualizarWorkflowFerias(recordId, "confirmada")}
+              onMarcarNaoConfirmada={(recordId) => atualizarWorkflowFerias(recordId, "nao_confirmada")}
+              canManageWorkflow={isAdmin}
             />
           ))
         )}
