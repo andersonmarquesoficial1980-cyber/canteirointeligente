@@ -549,6 +549,12 @@ export default function ProgramacaoFerias() {
   const [naoConfirmarSaving, setNaoConfirmarSaving] = useState(false);
   const LIMITE_MOTIVO_NAO_CONFIRMACAO = 300;
   const MIN_MOTIVO_NAO_CONFIRMACAO = 8;
+  const MOTIVOS_RAPIDOS_NAO_CONFIRMACAO = [
+    "Reagendamento por necessidade operacional",
+    "Afastamento médico do colaborador",
+    "Solicitação do colaborador para alterar período",
+    "Cobertura de equipe insuficiente no período",
+  ] as const;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -751,6 +757,16 @@ export default function ProgramacaoFerias() {
     setNaoConfirmarErro("");
   };
 
+  const aplicarMotivoRapidoNaoConfirmacao = (motivoRapido: string) => {
+    const textoAtual = naoConfirmarMotivo.trim();
+    const novoTexto = textoAtual
+      ? `${textoAtual}. ${motivoRapido}`
+      : motivoRapido;
+
+    setNaoConfirmarMotivo(novoTexto.slice(0, LIMITE_MOTIVO_NAO_CONFIRMACAO));
+    if (naoConfirmarErro) setNaoConfirmarErro("");
+  };
+
   const confirmarNaoOcorrera = async () => {
     if (!naoConfirmarRecordId || naoConfirmarSaving) return;
 
@@ -947,6 +963,29 @@ export default function ProgramacaoFerias() {
             <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
               Informe o motivo. Esse texto ficará no histórico para auditoria do RH.
             </p>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+              {MOTIVOS_RAPIDOS_NAO_CONFIRMACAO.map((motivoRapido) => (
+                <button
+                  key={motivoRapido}
+                  type="button"
+                  onClick={() => aplicarMotivoRapidoNaoConfirmacao(motivoRapido)}
+                  disabled={naoConfirmarSaving}
+                  style={{
+                    borderRadius: 999,
+                    border: "1px solid #dbeafe",
+                    background: "#eff6ff",
+                    color: "#1d4ed8",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: "6px 10px",
+                    cursor: naoConfirmarSaving ? "not-allowed" : "pointer",
+                  }}
+                >
+                  + {motivoRapido}
+                </button>
+              ))}
+            </div>
 
             <textarea
               value={naoConfirmarMotivo}
