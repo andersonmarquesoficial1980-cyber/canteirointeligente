@@ -34,10 +34,30 @@ interface AjusteSnapshot {
   motivo?: string | null;
 }
 
+interface AjusteDiario {
+  data: string;
+  he70_reducao: number;
+  he100_reducao: number;
+  motivo: string;
+  at: string;
+  by?: string | null;
+}
+
+interface LinhaHistoricoDiario {
+  data: string;
+  horasTrabalhadas: number;
+  saldoEstimado: number;
+  he70Reducao: string;
+  he100Reducao: string;
+  motivo: string;
+}
+
 interface ResumoImportado {
   id: string;
   colaborador_nome: string;
   equipe_nome: string | null;
+  periodo_inicio?: string | null;
+  periodo_fim?: string | null;
   credito_horas: number;
   debito_horas: number;
   horas_normais: number;
@@ -50,6 +70,7 @@ interface ResumoImportado {
       initial?: AjusteSnapshot;
       last?: AjusteSnapshot;
       history?: AjusteSnapshot[];
+      daily_adjustments?: AjusteDiario[];
     };
     [key: string]: any;
   } | null;
@@ -144,6 +165,36 @@ function parseHorasInput(v: string): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
+function eachDateIso(startIso: string, endIso: string): string[] {
+  const out: string[] = [];
+  const start = new Date(`${startIso}T00:00:00`);
+  const end = new Date(`${endIso}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return out;
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    out.push(`${y}-${m}-${day}`);
+  }
+  return out;
+}
+
+function calcHorasTrabalhadasPorDia(regs: Registro[]): number {
+  const entradas = regs.filter((r) => r.tipo === "entrada").sort((a, b) => a.hora.localeCompare(b.hora));
+  const saidas = regs.filter((r) => r.tipo === "saida").sort((a, b) => a.hora.localeCompare(b.hora));
+  const pairs = Math.min(entradas.length, saidas.length);
+  if (pairs === 0) return 0;
+
+  let totalMin = 0;
+  for (let i = 0; i < pairs; i += 1) {
+    let diff = toMin(saidas[i].hora) - toMin(entradas[i].hora);
+    if (diff < 0) diff += 24 * 60;
+    totalMin += diff;
+  }
+  return Number((totalMin / 60).toFixed(2));
+}
+
 export default function BancoHoras() {
   const goBack = useSmartBack("/rh");
   const { profile } = useUserProfile();
@@ -168,11 +219,10 @@ export default function BancoHoras() {
   const [loading, setLoading] = useState(false);
   const [loadingFechamento, setLoadingFechamento] = useState(false);
   const [rolePerfil, setRolePerfil] = useState<{ role: string | null; perfil: string | null }>({ role: null, perfil: null });
-  const [ajusteAbertoId, setAjusteAbertoId] = useState<string | null>(null);
-  const [novoHe70, setNovoHe70] = useState<string>("");
-  const [novoHe100, setNovoHe100] = useState<string>("");
-  const [motivoAjuste, setMotivoAjuste] = useState<string>("");
   const [salvandoAjusteId, setSalvandoAjusteId] = useState<string | null>(null);
+  const [historicoAbertoId, setHistoricoAbertoId] = useState<string | null>(null);
+  const [historicoDias, setHistoricoDias] = useState<LinhaHistoricoDiario[]>([]);
+  const [loadingHistoricoId, setLoadingHistoricoId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadAcl = async () => {
@@ -230,7 +280,7 @@ export default function BancoHoras() {
     // 1) Tenta resumo importado (PDF)
     const { data: imported } = await (supabase as any)
       .from("ponto_he_resumo_mensal")
-      .select("id, colaborador_nome, equipe_nome, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas, payload")
+      .select("id, colaborador_nome, equipe_nome, periodo_inicio, periodo_fim, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas, payload")
       .eq("company_id", profile.company_id)
       .eq("competencia", ini)
       .order("colaborador_nome", { ascending: true });
@@ -394,6 +444,192 @@ export default function BancoHoras() {
     });
   }, [resumosImportados, funcaoByNome]);
 
+  const employeeIdByNome = useMemo(() => {
+    return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.id]));
+  }, [funcionarios]);
+
+  const abrirHistoricoDiario = async (r: ResumoImportadoEnriquecido) => {
+    if (!profile?.company_id) return;
+
+    const employeeId = employeeIdByNome.get(normalizeText(r.colaborador_nome));
+    if (!employeeId) {
+      toast({ title: "Funcionário sem vínculo", description: "Não foi possível localizar o employee_id para este colaborador.", variant: "destructive" });
+      return;
+    }
+
+    const inicio = r.periodo_inicio || `${mes}-01`;
+    const fim = r.periodo_fim || `${mes}-${new Date(Number(mes.split("-")[0]), Number(mes.split("-")[1]), 0).getDate()}`;
+
+    setLoadingHistoricoId(r.id);
+
+    const { data, error } = await (supabase as any)
+      .from("ponto_registros")
+      .select("staff_id, data, hora, tipo, turno")
+      .eq("company_id", profile.company_id)
+      .eq("staff_id", employeeId)
+      .gte("data", inicio)
+      .lte("data", fim)
+      .order("data")
+      .order("hora");
+
+    if (error) {
+      toast({ title: "Erro ao abrir histórico", description: error.message, variant: "destructive" });
+      setLoadingHistoricoId(null);
+      return;
+    }
+
+    const regs = (data || []) as Registro[];
+    const byDate = new Map<string, Registro[]>();
+    for (const reg of regs) {
+      const arr = byDate.get(reg.data) || [];
+      arr.push(reg);
+      byDate.set(reg.data, arr);
+    }
+
+    const ajustesExistentes = (r.payload?.he_manual?.daily_adjustments || []) as AjusteDiario[];
+    const ajusteMap = new Map(ajustesExistentes.map((a) => [a.data, a]));
+
+    const linhas = eachDateIso(inicio, fim).map((dataIso) => {
+      const regsDia = byDate.get(dataIso) || [];
+      const horasDia = calcHorasTrabalhadasPorDia(regsDia);
+      const saldoEstimado = Number((horasDia - jornadaPadrao).toFixed(2));
+      const ajuste = ajusteMap.get(dataIso);
+      return {
+        data: dataIso,
+        horasTrabalhadas: horasDia,
+        saldoEstimado,
+        he70Reducao: ajuste ? String(Number(ajuste.he70_reducao || 0).toFixed(2)).replace(".", ",") : "0,00",
+        he100Reducao: ajuste ? String(Number(ajuste.he100_reducao || 0).toFixed(2)).replace(".", ",") : "0,00",
+        motivo: ajuste?.motivo || "",
+      };
+    });
+
+    setHistoricoDias(linhas);
+    setHistoricoAbertoId(r.id);
+    setLoadingHistoricoId(null);
+  };
+
+  const salvarAjustePorDia = async (r: ResumoImportadoEnriquecido) => {
+    if (!profile?.company_id) return;
+    if (!canManageAjustes) {
+      toast({ title: "Sem permissão para ajustar H.E.", variant: "destructive" });
+      return;
+    }
+    if (competenciaStatus.status === "fechado") {
+      toast({ title: "Competência fechada", description: "Reabra a competência para ajustar horas.", variant: "destructive" });
+      return;
+    }
+
+    const ajustesLimpos: AjusteDiario[] = [];
+    for (const linha of historicoDias) {
+      const he70 = parseHorasInput(linha.he70Reducao);
+      const he100 = parseHorasInput(linha.he100Reducao);
+      const motivo = (linha.motivo || "").trim();
+      if (!Number.isFinite(he70) || !Number.isFinite(he100) || he70 < 0 || he100 < 0) {
+        toast({ title: "Valor inválido no histórico", description: `Data ${fmtDate(linha.data)} com redução inválida.`, variant: "destructive" });
+        return;
+      }
+      if ((he70 > 0 || he100 > 0) && motivo.length < 3) {
+        toast({ title: "Motivo obrigatório", description: `Preencha motivo na data ${fmtDate(linha.data)}.`, variant: "destructive" });
+        return;
+      }
+      if (he70 > 0 || he100 > 0) {
+        ajustesLimpos.push({
+          data: linha.data,
+          he70_reducao: Number(he70.toFixed(2)),
+          he100_reducao: Number(he100.toFixed(2)),
+          motivo,
+          at: new Date().toISOString(),
+        });
+      }
+    }
+
+    const totalReducao70 = Number(ajustesLimpos.reduce((a, b) => a + Number(b.he70_reducao || 0), 0).toFixed(2));
+    const totalReducao100 = Number(ajustesLimpos.reduce((a, b) => a + Number(b.he100_reducao || 0), 0).toFixed(2));
+
+    const payloadAtual = (r.payload || {}) as Record<string, any>;
+    const manualAtual = (payloadAtual.he_manual || {}) as {
+      initial?: AjusteSnapshot;
+      history?: AjusteSnapshot[];
+      daily_adjustments?: AjusteDiario[];
+    };
+
+    const initial: AjusteSnapshot = manualAtual.initial || {
+      he_70_horas: Number(r.he_70_horas || 0),
+      he_100_horas: Number(r.he_100_horas || 0),
+      total_horas_extras_horas: Number(r.total_horas_extras_horas || 0),
+      credito_horas: Number(r.credito_horas || 0),
+      debito_horas: Number(r.debito_horas || 0),
+      at: new Date().toISOString(),
+      motivo: "Snapshot inicial para ajuste diário",
+    };
+
+    const he70Novo = Number((Number(initial.he_70_horas || 0) - totalReducao70).toFixed(2));
+    const he100Novo = Number((Number(initial.he_100_horas || 0) - totalReducao100).toFixed(2));
+
+    if (he70Novo < 0 || he100Novo < 0) {
+      toast({
+        title: "Redução acima do limite",
+        description: "A soma das reduções por dia ultrapassa o total inicial de H.E. 70/100.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalNovo = Number((he70Novo + he100Novo).toFixed(2));
+    const { data: authData } = await supabase.auth.getUser();
+    const uid = authData.user?.id || null;
+    const nowIso = new Date().toISOString();
+
+    const last: AjusteSnapshot = {
+      he_70_horas: he70Novo,
+      he_100_horas: he100Novo,
+      total_horas_extras_horas: totalNovo,
+      credito_horas: Number(r.credito_horas || 0),
+      debito_horas: Number(r.debito_horas || 0),
+      at: nowIso,
+      by: uid,
+      motivo: `Ajuste diário (${ajustesLimpos.length} dias alterados)`,
+    };
+
+    const payloadNovo = {
+      ...payloadAtual,
+      he_manual: {
+        ...manualAtual,
+        initial,
+        last,
+        history: [...(Array.isArray(manualAtual.history) ? manualAtual.history : []), last],
+        daily_adjustments: ajustesLimpos.map((a) => ({ ...a, by: uid, at: nowIso })),
+      },
+    };
+
+    setSalvandoAjusteId(r.id);
+    const { error } = await (supabase as any)
+      .from("ponto_he_resumo_mensal")
+      .update({
+        he_70_horas: he70Novo,
+        he_100_horas: he100Novo,
+        total_horas_extras_horas: totalNovo,
+        payload: payloadNovo,
+      })
+      .eq("id", r.id)
+      .eq("company_id", profile.company_id);
+
+    if (error) {
+      toast({ title: "Erro ao salvar ajuste diário", description: error.message, variant: "destructive" });
+      setSalvandoAjusteId(null);
+      return;
+    }
+
+    const reducao = Number((Number(initial.total_horas_extras_horas || 0) - totalNovo).toFixed(2));
+    toast({ title: "✅ Histórico salvo", description: `${r.colaborador_nome}: redução acumulada de ${fmtDec(reducao)} h.` });
+
+    setHistoricoAbertoId(null);
+    setHistoricoDias([]);
+    setSalvandoAjusteId(null);
+    await carregarDados();
+  };
+
   const equipesDisponiveis = useMemo(() => {
     return Array.from(new Set(resumosEnriquecidos.map((r) => r.equipe_label))).sort();
   }, [resumosEnriquecidos]);
@@ -496,119 +732,6 @@ export default function BancoHoras() {
       .filter((v): v is ComparativoAjuste => Boolean(v))
       .sort((a, b) => a.colaborador.localeCompare(b.colaborador));
   }, [resumosEnriquecidos]);
-
-  const abrirAjuste = (r: ResumoImportadoEnriquecido) => {
-    setAjusteAbertoId(r.id);
-    setNovoHe70(String(Number(r.he_70_horas || 0).toFixed(2)).replace(".", ","));
-    setNovoHe100(String(Number(r.he_100_horas || 0).toFixed(2)).replace(".", ","));
-    setMotivoAjuste("");
-  };
-
-  const salvarAjusteIndividual = async (r: ResumoImportadoEnriquecido) => {
-    if (!profile?.company_id) return;
-    if (!canManageAjustes) {
-      toast({ title: "Sem permissão para ajustar H.E.", variant: "destructive" });
-      return;
-    }
-    if (competenciaStatus.status === "fechado") {
-      toast({ title: "Competência fechada", description: "Reabra a competência para ajustar horas.", variant: "destructive" });
-      return;
-    }
-
-    const he70Novo = parseHorasInput(novoHe70);
-    const he100Novo = parseHorasInput(novoHe100);
-
-    if (!Number.isFinite(he70Novo) || !Number.isFinite(he100Novo) || he70Novo < 0 || he100Novo < 0) {
-      toast({ title: "Valores inválidos", description: "Informe HE 70 e HE 100 válidos (>= 0).", variant: "destructive" });
-      return;
-    }
-
-    const he70Atual = Number(r.he_70_horas || 0);
-    const he100Atual = Number(r.he_100_horas || 0);
-
-    if (he70Novo > he70Atual || he100Novo > he100Atual) {
-      toast({
-        title: "Ajuste inválido",
-        description: "Este fluxo é para redução: o novo valor não pode ser maior que o atual.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const motivo = motivoAjuste.trim();
-    if (motivo.length < 5) {
-      toast({ title: "Motivo obrigatório", description: "Descreva o motivo da redução (mín. 5 caracteres).", variant: "destructive" });
-      return;
-    }
-
-    const totalNovo = Number((he70Novo + he100Novo).toFixed(2));
-
-    setSalvandoAjusteId(r.id);
-    const { data: authData } = await supabase.auth.getUser();
-    const uid = authData.user?.id || null;
-    const nowIso = new Date().toISOString();
-
-    const beforeSnapshot: AjusteSnapshot = {
-      he_70_horas: he70Atual,
-      he_100_horas: he100Atual,
-      total_horas_extras_horas: Number(r.total_horas_extras_horas || 0),
-      credito_horas: Number(r.credito_horas || 0),
-      debito_horas: Number(r.debito_horas || 0),
-      at: nowIso,
-      by: uid,
-      motivo,
-    };
-
-    const payloadAtual = (r.payload || {}) as Record<string, any>;
-    const manualAtual = (payloadAtual.he_manual || {}) as { initial?: AjusteSnapshot; history?: AjusteSnapshot[] };
-    const initial = manualAtual.initial || beforeSnapshot;
-
-    const afterSnapshot: AjusteSnapshot = {
-      he_70_horas: Number(he70Novo.toFixed(2)),
-      he_100_horas: Number(he100Novo.toFixed(2)),
-      total_horas_extras_horas: totalNovo,
-      credito_horas: Number(r.credito_horas || 0),
-      debito_horas: Number(r.debito_horas || 0),
-      at: nowIso,
-      by: uid,
-      motivo,
-    };
-
-    const historyAtual = Array.isArray(manualAtual.history) ? manualAtual.history : [];
-    const payloadNovo = {
-      ...payloadAtual,
-      he_manual: {
-        initial,
-        last: afterSnapshot,
-        history: [...historyAtual, afterSnapshot],
-      },
-    };
-
-    const { error } = await (supabase as any)
-      .from("ponto_he_resumo_mensal")
-      .update({
-        he_70_horas: Number(he70Novo.toFixed(2)),
-        he_100_horas: Number(he100Novo.toFixed(2)),
-        total_horas_extras_horas: totalNovo,
-        payload: payloadNovo,
-      })
-      .eq("id", r.id)
-      .eq("company_id", profile.company_id);
-
-    if (error) {
-      toast({ title: "Erro ao salvar ajuste", description: error.message, variant: "destructive" });
-      setSalvandoAjusteId(null);
-      return;
-    }
-
-    const reducaoTotal = Number((Number(r.total_horas_extras_horas || 0) - totalNovo).toFixed(2));
-    toast({ title: "✅ Ajuste aplicado", description: `${r.colaborador_nome}: redução de ${fmtDec(reducaoTotal)} h no total de H.E.` });
-
-    setAjusteAbertoId(null);
-    setMotivoAjuste("");
-    setSalvandoAjusteId(null);
-    await carregarDados();
-  };
 
   const exportarComparativoExcel = async () => {
     if (comparativoAjustes.length === 0) return;
@@ -965,95 +1088,113 @@ export default function BancoHoras() {
                     </div>
 
                     {canManageAjustes && (
-                      <div className="mt-3 pt-3 border-t border-border/60">
+                      <div className="mt-3 pt-3 border-t border-border/60 space-y-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="text-xs text-muted-foreground">
                             {competenciaStatus.status === "fechado"
                               ? "Competência fechada: reabra para editar H.E."
-                              : "Ajuste individual para redução de H.E. com trilha de antes/depois."}
+                              : "Clique em Histórico diário para revisar 26/07 a 25/08 e reduzir por dia."}
                           </p>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={ajusteAbertoId === r.id ? "secondary" : "outline"}
-                            onClick={() => {
-                              if (ajusteAbertoId === r.id) {
-                                setAjusteAbertoId(null);
-                                return;
-                              }
-                              abrirAjuste(r);
-                            }}
-                            disabled={competenciaStatus.status === "fechado"}
-                          >
-                            <SlidersHorizontal className="w-3.5 h-3.5 mr-1" />
-                            {ajusteAbertoId === r.id ? "Fechar ajuste" : "Ajustar H.E."}
-                          </Button>
+
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={historicoAbertoId === r.id ? "secondary" : "outline"}
+                              onClick={() => {
+                                if (historicoAbertoId === r.id) {
+                                  setHistoricoAbertoId(null);
+                                  setHistoricoDias([]);
+                                  return;
+                                }
+                                abrirHistoricoDiario(r);
+                              }}
+                              disabled={competenciaStatus.status === "fechado" || loadingHistoricoId === r.id}
+                            >
+                              <SlidersHorizontal className="w-3.5 h-3.5 mr-1" />
+                              {loadingHistoricoId === r.id ? "Carregando..." : historicoAbertoId === r.id ? "Fechar histórico" : "Histórico diário"}
+                            </Button>
+                          </div>
                         </div>
 
-                        {ajusteAbertoId === r.id && (() => {
-                          const he70Atual = Number(r.he_70_horas || 0);
-                          const he100Atual = Number(r.he_100_horas || 0);
-                          const he70Novo = parseHorasInput(novoHe70);
-                          const he100Novo = parseHorasInput(novoHe100);
-                          const totalAtual = Number(r.total_horas_extras_horas || 0);
-                          const totalNovo = Number.isFinite(he70Novo) && Number.isFinite(he100Novo)
-                            ? Number((he70Novo + he100Novo).toFixed(2))
-                            : totalAtual;
-                          const reducao = Number((totalAtual - totalNovo).toFixed(2));
+                        {historicoAbertoId === r.id && (
+                          <div className="rounded-lg bg-muted/30 p-3 border border-border/60">
+                            <p className="text-xs text-muted-foreground mb-2">
+                              Período: {fmtDate(r.periodo_inicio || `${mes}-01`)} a {fmtDate(r.periodo_fim || competenciaAtual)} · Jornada padrão {jornadaPadrao}h
+                            </p>
 
-                          return (
-                            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 rounded-lg bg-muted/30 p-3">
-                              <div>
-                                <label className="text-[11px] font-semibold">Novo H.E. 70% (h)</label>
-                                <input
-                                  value={novoHe70}
-                                  onChange={(e) => setNovoHe70(e.target.value)}
-                                  className="mt-1 w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
-                                  placeholder={fmtDec(he70Atual)}
-                                />
-                                <p className="text-[10px] text-muted-foreground mt-1">Atual: {fmtDec(he70Atual)} h</p>
-                              </div>
-
-                              <div>
-                                <label className="text-[11px] font-semibold">Novo H.E. 100% (h)</label>
-                                <input
-                                  value={novoHe100}
-                                  onChange={(e) => setNovoHe100(e.target.value)}
-                                  className="mt-1 w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
-                                  placeholder={fmtDec(he100Atual)}
-                                />
-                                <p className="text-[10px] text-muted-foreground mt-1">Atual: {fmtDec(he100Atual)} h</p>
-                              </div>
-
-                              <div>
-                                <label className="text-[11px] font-semibold">Motivo da redução</label>
-                                <input
-                                  value={motivoAjuste}
-                                  onChange={(e) => setMotivoAjuste(e.target.value)}
-                                  className="mt-1 w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
-                                  placeholder="Ex.: horas indevidas após conferência do PDF"
-                                />
-                                <p className={`text-[10px] mt-1 ${reducao >= 0 ? "text-green-700" : "text-red-700"}`}>
-                                  Total H.E.: {fmtDec(totalAtual)} h → {fmtDec(totalNovo)} h ({reducao >= 0 ? "-" : "+"}{fmtDec(Math.abs(reducao))} h)
-                                </p>
-                              </div>
-
-                              <div className="md:col-span-3 flex gap-2 justify-end">
-                                <Button type="button" variant="outline" size="sm" onClick={() => setAjusteAbertoId(null)}>
-                                  Cancelar
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={() => salvarAjusteIndividual(r)}
-                                  disabled={salvandoAjusteId === r.id || competenciaStatus.status === "fechado"}
-                                >
-                                  {salvandoAjusteId === r.id ? "Salvando..." : "Salvar ajuste"}
-                                </Button>
-                              </div>
+                            <div className="overflow-auto max-h-[420px] border rounded-md bg-background">
+                              <table className="w-full text-xs">
+                                <thead className="sticky top-0 bg-muted">
+                                  <tr>
+                                    <th className="text-left p-2">Data</th>
+                                    <th className="text-right p-2">Trab. (h)</th>
+                                    <th className="text-right p-2">Saldo estimado</th>
+                                    <th className="text-right p-2">Reduzir HE70</th>
+                                    <th className="text-right p-2">Reduzir HE100</th>
+                                    <th className="text-left p-2">Motivo</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {historicoDias.map((linha, idx) => (
+                                    <tr key={linha.data} className="border-t">
+                                      <td className="p-2 whitespace-nowrap">{fmtDate(linha.data)}</td>
+                                      <td className="p-2 text-right">{fmtDec(linha.horasTrabalhadas)}</td>
+                                      <td className={`p-2 text-right ${linha.saldoEstimado >= 0 ? "text-green-700" : "text-red-700"}`}>
+                                        {linha.saldoEstimado >= 0 ? "+" : ""}{fmtDec(linha.saldoEstimado)}
+                                      </td>
+                                      <td className="p-2">
+                                        <input
+                                          value={linha.he70Reducao}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setHistoricoDias((prev) => prev.map((d, i) => (i === idx ? { ...d, he70Reducao: val } : d)));
+                                          }}
+                                          className="w-24 h-8 rounded border px-2 text-right"
+                                        />
+                                      </td>
+                                      <td className="p-2">
+                                        <input
+                                          value={linha.he100Reducao}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setHistoricoDias((prev) => prev.map((d, i) => (i === idx ? { ...d, he100Reducao: val } : d)));
+                                          }}
+                                          className="w-24 h-8 rounded border px-2 text-right"
+                                        />
+                                      </td>
+                                      <td className="p-2">
+                                        <input
+                                          value={linha.motivo}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setHistoricoDias((prev) => prev.map((d, i) => (i === idx ? { ...d, motivo: val } : d)));
+                                          }}
+                                          className="w-full min-w-[180px] h-8 rounded border px-2"
+                                          placeholder="motivo do ajuste"
+                                        />
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
-                          );
-                        })()}
+
+                            <div className="mt-2 flex justify-end gap-2">
+                              <Button type="button" variant="outline" size="sm" onClick={() => { setHistoricoAbertoId(null); setHistoricoDias([]); }}>
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => salvarAjustePorDia(r)}
+                                disabled={salvandoAjusteId === r.id || competenciaStatus.status === "fechado"}
+                              >
+                                {salvandoAjusteId === r.id ? "Salvando..." : "Salvar ajustes do histórico"}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
