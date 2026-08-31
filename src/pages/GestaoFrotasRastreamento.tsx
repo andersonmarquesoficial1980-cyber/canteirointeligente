@@ -145,6 +145,7 @@ function diasAtras(dataStr: string | null): number | null {
 
 function labelDias(d: number | null): string {
   if (d === null) return "sem diário";
+  if (d < 0) return `data futura (+${Math.abs(d)}d)`;
   if (d === 0) return "hoje";
   if (d === 1) return "ontem";
   return `há ${d} dias`;
@@ -152,6 +153,7 @@ function labelDias(d: number | null): string {
 
 function corDias(d: number | null): string {
   if (d === null) return "text-gray-400";
+  if (d < 0) return "text-fuchsia-600 font-semibold";
   if (d === 0) return "text-emerald-600 font-semibold";
   if (d <= 2) return "text-blue-600";
   if (d <= 7) return "text-amber-600";
