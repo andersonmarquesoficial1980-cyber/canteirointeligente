@@ -49,6 +49,16 @@ interface AjusteDiario {
   motivo: string;
   at: string;
   by?: string | null;
+  entrada1_antes?: string;
+  saida1_antes?: string;
+  entrada2_antes?: string;
+  saida2_antes?: string;
+  entrada1_depois?: string;
+  saida1_depois?: string;
+  entrada2_depois?: string;
+  saida2_depois?: string;
+  he_dia_antes?: number;
+  he_dia_depois?: number;
 }
 
 interface LinhaHistoricoDiario {
@@ -225,6 +235,11 @@ function normalizarHoraInput(v: string): string | null {
   const mm = Number(m[2]);
   if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+function horaOuTraco(v?: string | null): string {
+  if (!v || v === "-") return "-";
+  return normalizarHoraInput(v) || "-";
 }
 
 function calcHorasPorBatidasDiretas(entrada1: string, saida1: string, entrada2: string, saida2: string): number {
@@ -761,6 +776,16 @@ export default function BancoHoras() {
           motivo,
           at: nowIso,
           by: uid,
+          entrada1_antes: horaOuTraco(linha.entrada1Original),
+          saida1_antes: horaOuTraco(linha.saida1Original),
+          entrada2_antes: horaOuTraco(linha.entrada2Original),
+          saida2_antes: horaOuTraco(linha.saida2Original),
+          entrada1_depois: horaOuTraco(nEntrada1),
+          saida1_depois: horaOuTraco(nSaida1),
+          entrada2_depois: horaOuTraco(nEntrada2),
+          saida2_depois: horaOuTraco(nSaida2),
+          he_dia_antes: Number(heAntesDia.toFixed(2)),
+          he_dia_depois: Number(heDepoisDia.toFixed(2)),
         });
 
         diasAlterados += 1;
@@ -1006,12 +1031,27 @@ export default function BancoHoras() {
       const fimColab = r.periodo_fim || competenciaAtual;
       const datas = eachDateIso(inicio, fimColab);
       const freqTurno = new Map<string, number>();
+      const ajustesDiarios = Array.isArray(r.payload?.he_manual?.daily_adjustments)
+        ? (r.payload?.he_manual?.daily_adjustments as AjusteDiario[])
+        : [];
+      const ajustePorData = new Map(ajustesDiarios.map((a) => [a.data, a]));
 
       for (const dataIso of datas) {
         const diaRegs = byStaffDate.get(`${staff_id}|${dataIso}`) || [];
         const batidas = extrairBatidasPorDia(diaRegs);
         const horas = calcHorasTrabalhadasPorDia(diaRegs);
         const heDia = Number(Math.max(horas - jornada, 0).toFixed(2));
+
+        const ajusteDia = ajustePorData.get(dataIso);
+        const possuiAntes = Boolean(
+          ajusteDia && (
+            ajusteDia.entrada1_antes ||
+            ajusteDia.saida1_antes ||
+            ajusteDia.entrada2_antes ||
+            ajusteDia.saida2_antes ||
+            ajusteDia.he_dia_antes !== undefined
+          )
+        );
 
         const entradaRef = batidas.entrada1 === "-" ? "" : batidas.entrada1;
         const saidaRef = batidas.saida1 === "-" ? "" : batidas.saida1;
@@ -1024,12 +1064,18 @@ export default function BancoHoras() {
           Colaborador: r.colaborador_nome,
           Equipe: r.equipe_label,
           Data: fmtDate(dataIso),
+          "Entrada antes": possuiAntes ? horaOuTraco(ajusteDia?.entrada1_antes) : "sem snapshot",
+          "Saída antes": possuiAntes ? horaOuTraco(ajusteDia?.saida1_antes) : "sem snapshot",
+          "2ª Entrada antes": possuiAntes ? horaOuTraco(ajusteDia?.entrada2_antes) : "sem snapshot",
+          "2ª Saída antes": possuiAntes ? horaOuTraco(ajusteDia?.saida2_antes) : "sem snapshot",
+          "H.E. dia antes": possuiAntes ? Number(Number(ajusteDia?.he_dia_antes || 0).toFixed(2)) : "sem snapshot",
           "Entrada atualizada": batidas.entrada1,
           "Saída atualizada": batidas.saida1,
           "2ª Entrada": batidas.entrada2,
           "2ª Saída": batidas.saida2,
           "Horas trabalhadas (dia)": Number(horas.toFixed(2)),
           "H.E. dia": heDia,
+          "Antes disponível": possuiAntes ? "SIM" : "NÃO",
         });
       }
 
