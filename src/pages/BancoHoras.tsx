@@ -551,6 +551,8 @@ export default function BancoHoras() {
 
   const aliasColaboradorParaEmployee = useMemo(() => new Map<string, string>([
     [normalizeText("RAFAEL DAVID MATOS DOS SANTOS"), normalizeText("RAFAEL DAVID M DOS SANTOS")],
+    [normalizeText("JONATHAN APARECIDO PEREIRA MARQUES"), normalizeText("JONATHAN APARECIDO P MARQUES")],
+    [normalizeText("UANGLAS FRANCISCO DE SOUSA"), normalizeText("UANGLAS FRANCISCO DE S SANTANA")],
   ]), []);
 
   const resolverEmployeeId = (r: ResumoImportadoEnriquecido): string | undefined => {
