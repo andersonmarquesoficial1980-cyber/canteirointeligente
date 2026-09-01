@@ -1036,6 +1036,16 @@ export default function BancoHoras() {
         : [];
       const ajustePorData = new Map(ajustesDiarios.map((a) => [a.data, a]));
 
+      const initial = r.payload?.he_manual?.initial;
+      const heBefore = r.payload?.he_before;
+      const he70Antes = Number(initial?.he_70_horas ?? heBefore?.he_70_horas ?? r.he_70_horas);
+      const he100Antes = Number(initial?.he_100_horas ?? heBefore?.he_100_horas ?? r.he_100_horas);
+      const heTotalAntes = Number(initial?.total_horas_extras_horas ?? heBefore?.total_horas_extras_horas ?? (he70Antes + he100Antes));
+      const he70Atual = Number(Number(r.he_70_horas || 0).toFixed(2));
+      const he100Atual = Number(Number(r.he_100_horas || 0).toFixed(2));
+      const heTotalAtual = Number(Number(r.total_horas_extras_horas || 0).toFixed(2));
+      const fatorAproxAntes = heTotalAtual > 0 ? Number((heTotalAntes / heTotalAtual).toFixed(4)) : 1;
+
       for (const dataIso of datas) {
         const diaRegs = byStaffDate.get(`${staff_id}|${dataIso}`) || [];
         const batidas = extrairBatidasPorDia(diaRegs);
@@ -1043,7 +1053,7 @@ export default function BancoHoras() {
         const heDia = Number(Math.max(horas - jornada, 0).toFixed(2));
 
         const ajusteDia = ajustePorData.get(dataIso);
-        const possuiAntes = Boolean(
+        const possuiAntesReal = Boolean(
           ajusteDia && (
             ajusteDia.entrada1_antes ||
             ajusteDia.saida1_antes ||
@@ -1052,6 +1062,35 @@ export default function BancoHoras() {
             ajusteDia.he_dia_antes !== undefined
           )
         );
+
+        const heDiaAntesAprox = Number((heDia * fatorAproxAntes).toFixed(2));
+        const usarAprox = !possuiAntesReal && heTotalAntes > 0;
+
+        const entradaAntes = possuiAntesReal
+          ? horaOuTraco(ajusteDia?.entrada1_antes)
+          : usarAprox
+            ? batidas.entrada1
+            : "sem snapshot";
+        const saidaAntes = possuiAntesReal
+          ? horaOuTraco(ajusteDia?.saida1_antes)
+          : usarAprox
+            ? batidas.saida1
+            : "sem snapshot";
+        const entrada2Antes = possuiAntesReal
+          ? horaOuTraco(ajusteDia?.entrada2_antes)
+          : usarAprox
+            ? batidas.entrada2
+            : "sem snapshot";
+        const saida2Antes = possuiAntesReal
+          ? horaOuTraco(ajusteDia?.saida2_antes)
+          : usarAprox
+            ? batidas.saida2
+            : "sem snapshot";
+        const heDiaAntes = possuiAntesReal
+          ? Number(Number(ajusteDia?.he_dia_antes || 0).toFixed(2))
+          : usarAprox
+            ? heDiaAntesAprox
+            : "sem snapshot";
 
         const entradaRef = batidas.entrada1 === "-" ? "" : batidas.entrada1;
         const saidaRef = batidas.saida1 === "-" ? "" : batidas.saida1;
@@ -1064,30 +1103,20 @@ export default function BancoHoras() {
           Colaborador: r.colaborador_nome,
           Equipe: r.equipe_label,
           Data: fmtDate(dataIso),
-          "Entrada antes": possuiAntes ? horaOuTraco(ajusteDia?.entrada1_antes) : "sem snapshot",
-          "Saída antes": possuiAntes ? horaOuTraco(ajusteDia?.saida1_antes) : "sem snapshot",
-          "2ª Entrada antes": possuiAntes ? horaOuTraco(ajusteDia?.entrada2_antes) : "sem snapshot",
-          "2ª Saída antes": possuiAntes ? horaOuTraco(ajusteDia?.saida2_antes) : "sem snapshot",
-          "H.E. dia antes": possuiAntes ? Number(Number(ajusteDia?.he_dia_antes || 0).toFixed(2)) : "sem snapshot",
+          "Entrada antes": entradaAntes,
+          "Saída antes": saidaAntes,
+          "2ª Entrada antes": entrada2Antes,
+          "2ª Saída antes": saida2Antes,
+          "H.E. dia antes": heDiaAntes,
           "Entrada atualizada": batidas.entrada1,
           "Saída atualizada": batidas.saida1,
           "2ª Entrada": batidas.entrada2,
           "2ª Saída": batidas.saida2,
           "Horas trabalhadas (dia)": Number(horas.toFixed(2)),
           "H.E. dia": heDia,
-          "Antes disponível": possuiAntes ? "SIM" : "NÃO",
+          "Antes disponível": possuiAntesReal ? "SIM" : usarAprox ? "APROX" : "NÃO",
         });
       }
-
-      const initial = r.payload?.he_manual?.initial;
-      const heBefore = r.payload?.he_before;
-
-      const he70Antes = Number(initial?.he_70_horas ?? heBefore?.he_70_horas ?? r.he_70_horas);
-      const he100Antes = Number(initial?.he_100_horas ?? heBefore?.he_100_horas ?? r.he_100_horas);
-      const heTotalAntes = Number(initial?.total_horas_extras_horas ?? heBefore?.total_horas_extras_horas ?? (he70Antes + he100Antes));
-      const he70Atual = Number(Number(r.he_70_horas || 0).toFixed(2));
-      const he100Atual = Number(Number(r.he_100_horas || 0).toFixed(2));
-      const heTotalAtual = Number(Number(r.total_horas_extras_horas || 0).toFixed(2));
 
       const turnoMaisFrequente = Array.from(freqTurno.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
       const [entradaPadrao, saidaPadrao] = turnoMaisFrequente.includes("-") ? turnoMaisFrequente.split("-") : ["-", "-"];
