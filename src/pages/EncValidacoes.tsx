@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, ClipboardCheck, Clock, ChevronRight, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ClipboardCheck, Clock, ChevronRight, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 
 const VALIDATION_START_DATE = "2026-07-17";
 
@@ -22,6 +22,7 @@ export default function EncValidacoes() {
   const goBack = useSmartBack("/encarregado");
   const [rdos, setRdos] = useState<RdoPendente[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erroVinculo, setErroVinculo] = useState<string | null>(null);
   const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
 
   useEffect(() => {
@@ -38,47 +39,48 @@ export default function EncValidacoes() {
 
       if (!prof?.company_id) { setLoading(false); return; }
 
-      // Tentar encontrar o nome exato do encarregado na tabela employees
-      // cruzando pelo primeiro e último nome do perfil (case-insensitive)
-      const nameParts = (prof.nome_completo || "")
-        .trim()
-        .split(/\s+/)
-        .filter((p: string) => p.length > 2);
+      const normalizeName = (v: string) =>
+        String(v || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toUpperCase();
 
-      let nomeEncarregado: string | null = null;
+      const perfilNome = normalizeName(prof?.nome_completo || "");
 
-      if (nameParts.length >= 2) {
-        const primeiro = nameParts[0];
-        const ultimo = nameParts[nameParts.length - 1];
-        const { data: emp } = await (supabase as any)
-          .from("employees")
-          .select("name")
-          .eq("company_id", prof.company_id)
-          .ilike("name", `%${primeiro}%`)
-          .ilike("name", `%${ultimo}%`)
-          .maybeSingle();
-        nomeEncarregado = emp?.name || null;
-      }
-
-      // Montar query de RDOs pendentes de validação
-      let query = (supabase as any)
-        .from("rdo_diarios")
-        .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo")
+      const { data: encarregadosEmpresa } = await (supabase as any)
+        .from("employees")
+        .select("name")
         .eq("company_id", prof.company_id)
-        .eq("validado_encarregado", false)
-        .eq("nao_aprovado_encarregado", false)
-        .gte("data", VALIDATION_START_DATE)
-        .order("data", { ascending: false })
-        .limit(50);
+        .eq("is_encarregado", true);
 
-      // Se encontrou o nome exato, filtrar somente os RDOs deste encarregado
-      if (nomeEncarregado) {
-        query = query.eq("encarregado", nomeEncarregado);
+      const candidatos = (encarregadosEmpresa || [])
+        .map((e: any) => String(e?.name || ""))
+        .filter(Boolean)
+        .filter((nome: string) => normalizeName(nome) === perfilNome);
+
+      const nomeEncarregado = candidatos.length === 1 ? candidatos[0] : null;
+
+      // Segurança: sem vínculo inequívoco, NÃO listar pendências da empresa inteira
+      if (!nomeEncarregado) {
+        setRdos([]);
+        setErroVinculo("Seu usuário não está vinculado de forma única a um encarregado. Peça ao admin para ajustar o cadastro/permissões.");
+      } else {
+        setErroVinculo(null);
+        const { data } = await (supabase as any)
+          .from("rdo_diarios")
+          .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo")
+          .eq("company_id", prof.company_id)
+          .eq("validado_encarregado", false)
+          .eq("nao_aprovado_encarregado", false)
+          .eq("encarregado", nomeEncarregado)
+          .gte("data", VALIDATION_START_DATE)
+          .order("data", { ascending: false })
+          .limit(50);
+
+        setRdos(data || []);
       }
-      // fallback: sem filtro por nome — mostra todos da empresa pendentes
-
-      const { data } = await query;
-      setRdos(data || []);
       setLoading(false);
     };
     load();
@@ -102,6 +104,12 @@ export default function EncValidacoes() {
       {loading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="w-5 h-5 animate-spin text-primary" />
+        </div>
+      ) : erroVinculo ? (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-center">
+          <AlertTriangle className="w-7 h-7 text-amber-600 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-amber-900">Vínculo de encarregado não configurado</p>
+          <p className="text-xs text-amber-800 mt-1">{erroVinculo}</p>
         </div>
       ) : rdos.length === 0 ? (
         <div className="rounded-2xl bg-muted/40 border border-border p-8 text-center">

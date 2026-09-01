@@ -34,6 +34,7 @@ export default function EncHome() {
   const [loading, setLoading] = useState(true);
   const [showReportarModal, setShowReportarModal] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [erroVinculo, setErroVinculo] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -45,41 +46,48 @@ export default function EncHome() {
 
       if (!prof?.company_id) { setLoading(false); return; }
 
-      // Encontrar nome exato do encarregado na tabela employees pelo primeiro+último nome do perfil
-      const nameParts = (prof.nome_completo || "")
-        .trim()
-        .split(/\s+/)
-        .filter((p: string) => p.length > 2);
+      const normalizeName = (v: string) =>
+        String(v || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toUpperCase();
 
-      let nomeEncarregado: string | null = null;
-      if (nameParts.length >= 2) {
-        const { data: emp } = await (supabase as any)
-          .from("employees")
-          .select("name")
-          .eq("company_id", prof.company_id)
-          .ilike("name", `%${nameParts[0]}%`)
-          .ilike("name", `%${nameParts[nameParts.length - 1]}%`)
-          .maybeSingle();
-        nomeEncarregado = emp?.name || null;
-      }
+      const perfilNome = normalizeName(prof?.nome_completo || "");
 
-      // Buscar RDOs pendentes de validação pelo nome do encarregado
-      let rdoQuery = (supabase as any)
-        .from("rdo_diarios")
-        .select("id, data, obra_nome, preenchido_por, ogs_id")
+      const { data: encarregadosEmpresa } = await (supabase as any)
+        .from("employees")
+        .select("name")
         .eq("company_id", prof.company_id)
-        .eq("validado_encarregado", false)
-        .eq("nao_aprovado_encarregado", false)
-        .gte("data", VALIDATION_START_DATE)
-        .order("data", { ascending: false })
-        .limit(20);
+        .eq("is_encarregado", true);
 
-      if (nomeEncarregado) {
-        rdoQuery = rdoQuery.eq("encarregado", nomeEncarregado);
+      const candidatos = (encarregadosEmpresa || [])
+        .map((e: any) => String(e?.name || ""))
+        .filter(Boolean)
+        .filter((nome: string) => normalizeName(nome) === perfilNome);
+
+      const nomeEncarregado = candidatos.length === 1 ? candidatos[0] : null;
+
+      // Segurança: sem vínculo inequívoco, NÃO listar pendências da empresa inteira
+      if (!nomeEncarregado) {
+        setRdosPendentes([]);
+        setErroVinculo("Seu usuário não está vinculado de forma única a um encarregado. Peça ao admin para ajustar o cadastro/permissões.");
+      } else {
+        setErroVinculo(null);
+        const { data: rdos } = await (supabase as any)
+          .from("rdo_diarios")
+          .select("id, data, obra_nome, preenchido_por, ogs_id")
+          .eq("company_id", prof.company_id)
+          .eq("validado_encarregado", false)
+          .eq("nao_aprovado_encarregado", false)
+          .eq("encarregado", nomeEncarregado)
+          .gte("data", VALIDATION_START_DATE)
+          .order("data", { ascending: false })
+          .limit(20);
+
+        setRdosPendentes(rdos || []);
       }
-
-      const { data: rdos } = await rdoQuery;
-      setRdosPendentes(rdos || []);
 
       // Buscar obras/OGSs vinculadas (via encarregado_ogs, se houver configuração)
       const { data: vinculos } = await (supabase as any)
@@ -153,6 +161,12 @@ export default function EncHome() {
           <TriangleAlert className="w-4 h-4" />
           Reportar Problema no Equipamento
         </button>
+
+        {erroVinculo && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            {erroVinculo}
+          </div>
+        )}
 
         {/* RDOs pendentes de validação */}
         {rdosPendentes.length > 0 && (
