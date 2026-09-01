@@ -73,6 +73,7 @@ interface LinhaHistoricoDiario {
 
 interface ResumoImportado {
   id: string;
+  employee_id?: string | null;
   colaborador_nome: string;
   equipe_nome: string | null;
   periodo_inicio?: string | null;
@@ -90,6 +91,15 @@ interface ResumoImportado {
       last?: AjusteSnapshot;
       history?: AjusteSnapshot[];
       daily_adjustments?: AjusteDiario[];
+    };
+    he_before?: {
+      he_70_horas?: number;
+      he_100_horas?: number;
+      total_horas_extras_horas?: number;
+      credito_horas?: number;
+      debito_horas?: number;
+      at?: string;
+      source?: string;
     };
     [key: string]: any;
   } | null;
@@ -356,7 +366,7 @@ export default function BancoHoras() {
     // 1) Tenta resumo importado (PDF)
     const { data: imported } = await (supabase as any)
       .from("ponto_he_resumo_mensal")
-      .select("id, colaborador_nome, equipe_nome, periodo_inicio, periodo_fim, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas, payload")
+      .select("id, employee_id, colaborador_nome, equipe_nome, periodo_inicio, periodo_fim, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas, payload")
       .eq("company_id", profile.company_id)
       .eq("competencia", ini)
       .order("colaborador_nome", { ascending: true });
@@ -524,10 +534,23 @@ export default function BancoHoras() {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.id]));
   }, [funcionarios]);
 
+  const aliasColaboradorParaEmployee = useMemo(() => new Map<string, string>([
+    [normalizeText("RAFAEL DAVID MATOS DOS SANTOS"), normalizeText("RAFAEL DAVID M DOS SANTOS")],
+  ]), []);
+
+  const resolverEmployeeId = (r: ResumoImportadoEnriquecido): string | undefined => {
+    if (r.employee_id) return r.employee_id;
+    const direto = employeeIdByNome.get(normalizeText(r.colaborador_nome));
+    if (direto) return direto;
+    const alias = aliasColaboradorParaEmployee.get(normalizeText(r.colaborador_nome));
+    if (!alias) return undefined;
+    return employeeIdByNome.get(alias);
+  };
+
   const abrirHistoricoDiario = async (r: ResumoImportadoEnriquecido) => {
     if (!profile?.company_id) return;
 
-    const employeeId = employeeIdByNome.get(normalizeText(r.colaborador_nome));
+    const employeeId = resolverEmployeeId(r);
     if (!employeeId) {
       toast({ title: "Funcionário sem vínculo", description: "Não foi possível localizar o employee_id para este colaborador.", variant: "destructive" });
       return;
@@ -608,7 +631,7 @@ export default function BancoHoras() {
       return;
     }
 
-    const employeeId = employeeIdByNome.get(normalizeText(r.colaborador_nome));
+    const employeeId = resolverEmployeeId(r);
     if (!employeeId) {
       toast({ title: "Funcionário sem vínculo", description: "Não foi possível localizar o employee_id para este colaborador.", variant: "destructive" });
       return;
@@ -926,49 +949,125 @@ export default function BancoHoras() {
   }, [resumosEnriquecidos]);
 
   const exportarComparativoExcel = async () => {
-    if (comparativoAjustes.length === 0) return;
+    if (!profile?.company_id || importadosFiltrados.length === 0) return;
 
     const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
 
-    const linhas = comparativoAjustes.map((r) => ({
-      Colaborador: r.colaborador,
-      Equipe: r.equipe,
-      Função: r.funcao,
-      "HE 70 Antes (h)": r.he70_antes,
-      "HE 70 Depois (h)": r.he70_depois,
-      "HE 100 Antes (h)": r.he100_antes,
-      "HE 100 Depois (h)": r.he100_depois,
-      "HE Total Antes (h)": r.total_antes,
-      "HE Total Depois (h)": r.total_depois,
-      "Redução HE (h)": r.reducao_total,
-      "Crédito Antes (h)": r.credito_antes,
-      "Crédito Depois (h)": r.credito_depois,
-      "Débito Antes (h)": r.debito_antes,
-      "Débito Depois (h)": r.debito_depois,
-      "Motivo do Ajuste": r.motivo,
-      "Data/Hora Ajuste": fmtDateTime(r.atualizado_em),
-    }));
+    const selecionados = importadosFiltrados
+      .map((r) => ({ r, staff_id: resolverEmployeeId(r) }))
+      .filter((x) => Boolean(x.staff_id));
 
-    const ws = XLSX.utils.json_to_sheet(linhas);
-    ws["!cols"] = Object.keys(linhas[0] || {}).map((k) => ({ wch: Math.max(18, k.length + 2) }));
-    XLSX.utils.book_append_sheet(wb, ws, "Comparativo HE");
+    if (selecionados.length === 0) {
+      toast({ title: "Sem vínculo de funcionário", description: "Não foi possível vincular os colaboradores filtrados ao cadastro de funcionários.", variant: "destructive" });
+      return;
+    }
 
-    const resumo = [
-      {
-        Competência: mes,
-        "Qtd. colaboradores ajustados": comparativoAjustes.length,
-        "HE Antes (h)": Number(comparativoAjustes.reduce((a, b) => a + b.total_antes, 0).toFixed(2)),
-        "HE Depois (h)": Number(comparativoAjustes.reduce((a, b) => a + b.total_depois, 0).toFixed(2)),
-        "Redução Total (h)": Number(comparativoAjustes.reduce((a, b) => a + b.reducao_total, 0).toFixed(2)),
-      },
-    ];
+    const staffIds = Array.from(new Set(selecionados.map((x) => x.staff_id as string)));
+    const ini = selecionados
+      .map((x) => x.r.periodo_inicio || `${mes}-01`)
+      .sort()[0];
+    const fim = selecionados
+      .map((x) => x.r.periodo_fim || competenciaAtual)
+      .sort()
+      .reverse()[0];
 
-    const wsResumo = XLSX.utils.json_to_sheet(resumo);
-    wsResumo["!cols"] = Object.keys(resumo[0] || {}).map((k) => ({ wch: Math.max(18, k.length + 2) }));
-    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+    const { data: regsData, error: regsError } = await (supabase as any)
+      .from("ponto_registros")
+      .select("staff_id, data, hora, tipo")
+      .eq("company_id", profile.company_id)
+      .in("staff_id", staffIds)
+      .gte("data", ini)
+      .lte("data", fim)
+      .order("staff_id")
+      .order("data")
+      .order("hora");
 
-    XLSX.writeFile(wb, `WF_BancoHoras_AntesDepois_${mes}.xlsx`);
+    if (regsError) {
+      toast({ title: "Erro ao gerar relatório", description: regsError.message, variant: "destructive" });
+      return;
+    }
+
+    const regs = (regsData || []) as Registro[];
+    const byStaffDate = new Map<string, Registro[]>();
+    for (const rg of regs) {
+      const key = `${rg.staff_id}|${rg.data}`;
+      const arr = byStaffDate.get(key) || [];
+      arr.push(rg);
+      byStaffDate.set(key, arr);
+    }
+
+    const jornada = jornadaPadrao;
+    const detalheRows: Array<Record<string, any>> = [];
+    const resumoRows: Array<Record<string, any>> = [];
+
+    for (const { r, staff_id } of selecionados) {
+      const inicio = r.periodo_inicio || `${mes}-01`;
+      const fimColab = r.periodo_fim || competenciaAtual;
+      const datas = eachDateIso(inicio, fimColab);
+      const freqTurno = new Map<string, number>();
+
+      for (const dataIso of datas) {
+        const diaRegs = byStaffDate.get(`${staff_id}|${dataIso}`) || [];
+        const batidas = extrairBatidasPorDia(diaRegs);
+        const horas = calcHorasTrabalhadasPorDia(diaRegs);
+        const heDia = Number(Math.max(horas - jornada, 0).toFixed(2));
+
+        const entradaRef = batidas.entrada1 === "-" ? "" : batidas.entrada1;
+        const saidaRef = batidas.saida1 === "-" ? "" : batidas.saida1;
+        if (entradaRef || saidaRef) {
+          const chaveTurno = `${entradaRef}-${saidaRef}`;
+          freqTurno.set(chaveTurno, (freqTurno.get(chaveTurno) || 0) + 1);
+        }
+
+        detalheRows.push({
+          Colaborador: r.colaborador_nome,
+          Equipe: r.equipe_label,
+          Data: fmtDate(dataIso),
+          "Entrada atualizada": batidas.entrada1,
+          "Saída atualizada": batidas.saida1,
+          "2ª Entrada": batidas.entrada2,
+          "2ª Saída": batidas.saida2,
+          "Horas trabalhadas (dia)": Number(horas.toFixed(2)),
+          "H.E. dia": heDia,
+        });
+      }
+
+      const initial = r.payload?.he_manual?.initial;
+      const heBefore = r.payload?.he_before;
+
+      const he70Antes = Number(initial?.he_70_horas ?? heBefore?.he_70_horas ?? r.he_70_horas);
+      const he100Antes = Number(initial?.he_100_horas ?? heBefore?.he_100_horas ?? r.he_100_horas);
+      const heTotalAntes = Number(initial?.total_horas_extras_horas ?? heBefore?.total_horas_extras_horas ?? (he70Antes + he100Antes));
+
+      const turnoMaisFrequente = Array.from(freqTurno.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
+      const [entradaPadrao, saidaPadrao] = turnoMaisFrequente.includes("-") ? turnoMaisFrequente.split("-") : ["-", "-"];
+
+      resumoRows.push({
+        Colaborador: r.colaborador_nome,
+        Equipe: r.equipe_label,
+        Função: r.funcao_label,
+        "Horas antes da atualização (HE total)": Number(heTotalAntes.toFixed(2)),
+        "Horas 70% antes": Number(he70Antes.toFixed(2)),
+        "Horas 100% antes": Number(he100Antes.toFixed(2)),
+        "Horas 70% atualizada": Number(Number(r.he_70_horas || 0).toFixed(2)),
+        "Horas 100% atualizada": Number(Number(r.he_100_horas || 0).toFixed(2)),
+        "H.E. total atualizada": Number(Number(r.total_horas_extras_horas || 0).toFixed(2)),
+        "Entrada padrão atualizada": entradaPadrao || "-",
+        "Saída padrão atualizada": saidaPadrao || "-",
+        "Fonte horas antes": initial ? "payload.he_manual.initial" : heBefore ? "payload.he_before" : "sem_snapshot",
+      });
+    }
+
+    const wsResumo = XLSX.utils.json_to_sheet(resumoRows);
+    wsResumo["!cols"] = Object.keys(resumoRows[0] || {}).map((k) => ({ wch: Math.max(18, k.length + 2) }));
+    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo Nome a Nome");
+
+    const wsDetalhe = XLSX.utils.json_to_sheet(detalheRows);
+    wsDetalhe["!cols"] = Object.keys(detalheRows[0] || {}).map((k) => ({ wch: Math.max(16, k.length + 2) }));
+    XLSX.utils.book_append_sheet(wb, wsDetalhe, "Batidas Atualizadas");
+
+    XLSX.writeFile(wb, `WF_BancoHoras_Relatorio_Ajustado_${mes}.xlsx`);
   };
 
   const exportarComparativoPdf = () => {
@@ -1243,8 +1342,8 @@ export default function BancoHoras() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={exportarComparativoExcel} disabled={comparativoAjustes.length === 0}>
-                  <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Excel antes/depois
+                <Button variant="outline" size="sm" onClick={exportarComparativoExcel} disabled={importadosFiltrados.length === 0}>
+                  <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Excel nome a nome
                 </Button>
                 <Button variant="outline" size="sm" onClick={exportarComparativoPdf} disabled={comparativoAjustes.length === 0}>
                   <Printer className="w-3.5 h-3.5 mr-1" /> PDF antes/depois
