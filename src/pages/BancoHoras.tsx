@@ -1039,8 +1039,9 @@ export default function BancoHoras() {
       const he70Antes = Number(initial?.he_70_horas ?? heBefore?.he_70_horas ?? r.he_70_horas);
       const he100Antes = Number(initial?.he_100_horas ?? heBefore?.he_100_horas ?? r.he_100_horas);
       const heTotalAntes = Number(initial?.total_horas_extras_horas ?? heBefore?.total_horas_extras_horas ?? (he70Antes + he100Antes));
-      const creditoAntes = Number(initial?.credito_horas ?? heBefore?.credito_horas ?? r.credito_horas);
-      const debitoAntes = Number(initial?.debito_horas ?? heBefore?.debito_horas ?? r.debito_horas);
+      const he70Atual = Number(Number(r.he_70_horas || 0).toFixed(2));
+      const he100Atual = Number(Number(r.he_100_horas || 0).toFixed(2));
+      const heTotalAtual = Number(Number(r.total_horas_extras_horas || 0).toFixed(2));
 
       const turnoMaisFrequente = Array.from(freqTurno.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
       const [entradaPadrao, saidaPadrao] = turnoMaisFrequente.includes("-") ? turnoMaisFrequente.split("-") : ["-", "-"];
@@ -1049,14 +1050,13 @@ export default function BancoHoras() {
         Colaborador: r.colaborador_nome,
         Equipe: r.equipe_label,
         Função: r.funcao_label,
-        "Horas antes da atualização (HE total)": Number(heTotalAntes.toFixed(2)),
-        "Crédito antes da atualização": Number(creditoAntes.toFixed(2)),
-        "Débito antes da atualização": Number(debitoAntes.toFixed(2)),
-        "Horas 70% antes": Number(he70Antes.toFixed(2)),
-        "Horas 100% antes": Number(he100Antes.toFixed(2)),
-        "Horas 70% atualizada": Number(Number(r.he_70_horas || 0).toFixed(2)),
-        "Horas 100% atualizada": Number(Number(r.he_100_horas || 0).toFixed(2)),
-        "H.E. total atualizada": Number(Number(r.total_horas_extras_horas || 0).toFixed(2)),
+        "HE total antes (70%+100%)": Number(heTotalAntes.toFixed(2)),
+        "HE 70% antes": Number(he70Antes.toFixed(2)),
+        "HE 100% antes": Number(he100Antes.toFixed(2)),
+        "HE 70% atualizada": he70Atual,
+        "HE 100% atualizada": he100Atual,
+        "HE total atualizada (70%+100%)": heTotalAtual,
+        "Diferença HE total (atual - antes)": Number((heTotalAtual - heTotalAntes).toFixed(2)),
         "Entrada padrão atualizada": entradaPadrao || "-",
         "Saída padrão atualizada": saidaPadrao || "-",
         "Fonte horas antes": initial ? "payload.he_manual.initial" : heBefore ? "payload.he_before" : "sem_snapshot",
