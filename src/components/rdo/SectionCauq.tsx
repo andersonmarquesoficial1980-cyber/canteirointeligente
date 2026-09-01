@@ -46,6 +46,15 @@ export default function SectionCauq({ entries, onChange, tipoRdo, semNota, onTog
     .filter(Boolean);
   const materiais = (materiaisData?.map(m => String(m.nome || "").trim()) ?? []).filter(Boolean);
   const materiaisWithOutro = materiais.length > 0 ? [...materiais, "Outro"] : ["Outro"];
+  const isMaterialOption = (value: string) => materiaisWithOutro.includes(value);
+  const getMaterialSelectValue = (entry: NotaFiscalMassaEntry) => {
+    if (!entry.tipo_material) return "";
+    return isMaterialOption(entry.tipo_material) ? entry.tipo_material : "Outro";
+  };
+  const getMaterialOutroValue = (entry: NotaFiscalMassaEntry) => {
+    if (entry.tipo_material_outro) return entry.tipo_material_outro;
+    return isMaterialOption(entry.tipo_material) ? "" : entry.tipo_material;
+  };
 
   const update = (id: string, field: string, value: string) =>
     onChange(entries.map(e => e.id === id ? { ...e, [field]: value } : e));
@@ -70,9 +79,16 @@ export default function SectionCauq({ entries, onChange, tipoRdo, semNota, onTog
 
     // Tentar match de material OCR com a lista disponível
     let materialMatch = "";
+    let materialOutro = "";
     if (data.tipo_material) {
       const ocrMat = data.tipo_material.toLowerCase();
-      materialMatch = materiaisWithOutro.find(m => m.toLowerCase().includes(ocrMat) || ocrMat.includes(m.toLowerCase())) || data.tipo_material;
+      const matched = materiais.find(m => m.toLowerCase().includes(ocrMat) || ocrMat.includes(m.toLowerCase()));
+      if (matched) {
+        materialMatch = matched;
+      } else {
+        materialMatch = "Outro";
+        materialOutro = data.tipo_material;
+      }
     }
 
     const ocrData: Partial<NotaFiscalMassaEntry> = {
@@ -81,7 +97,7 @@ export default function SectionCauq({ entries, onChange, tipoRdo, semNota, onTog
       tonelagem: data.tonelagem || "",
       usina: usinaMatch,
       tipo_material: materialMatch,
-      tipo_material_outro: "",
+      tipo_material_outro: materialOutro,
       photo_url: photoUrl,
     };
     let updatedEntries: NotaFiscalMassaEntry[];
@@ -166,8 +182,15 @@ export default function SectionCauq({ entries, onChange, tipoRdo, semNota, onTog
               </div>
               <div className="space-y-1.5">
                 <span className="rdo-label">Tipo Material *</span>
-                <Select value={entry.tipo_material} onValueChange={v => {
-                  const updated = entries.map(e => e.id === entry.id ? { ...e, tipo_material: v, tipo_material_outro: v !== "Outro" ? "" : e.tipo_material_outro } : e);
+                <Select value={getMaterialSelectValue(entry)} onValueChange={v => {
+                  const updated = entries.map(e => {
+                    if (e.id !== entry.id) return e;
+                    if (v === "Outro") {
+                      const fallbackOutro = e.tipo_material_outro || (!isMaterialOption(e.tipo_material) ? e.tipo_material : "");
+                      return { ...e, tipo_material: "Outro", tipo_material_outro: fallbackOutro };
+                    }
+                    return { ...e, tipo_material: v, tipo_material_outro: "" };
+                  });
                   onChange(updated);
                 }}>
                   <SelectTrigger className="h-11 bg-white border-border rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
@@ -176,10 +199,10 @@ export default function SectionCauq({ entries, onChange, tipoRdo, semNota, onTog
                   </SelectContent>
                 </Select>
               </div>
-              {entry.tipo_material === "Outro" && (
+              {getMaterialSelectValue(entry) === "Outro" && (
                 <div className="space-y-1.5">
                   <span className="rdo-label">Especifique o Material</span>
-                  <Input value={entry.tipo_material_outro} onChange={e => update(entry.id, "tipo_material_outro", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Digite o material..." />
+                  <Input value={getMaterialOutroValue(entry)} onChange={e => update(entry.id, "tipo_material_outro", e.target.value)} className="h-11 bg-white border-border rounded-xl" placeholder="Digite o material..." />
                 </div>
               )}
             </div>

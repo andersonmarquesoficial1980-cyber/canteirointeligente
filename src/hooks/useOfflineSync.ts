@@ -362,7 +362,7 @@ async function syncPendingRdo(item: any) {
         tipo_servico: p.tipo_servico || payload.tipoServico || null,
         sentido: p.sentido || null,
         sentido_faixa: p.sentido || null,
-        faixa: p.sentido || null,
+        faixa: null,
         estaca_inicial: p.estaca_inicial || null,
         estaca_final: p.estaca_final || null,
         km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,

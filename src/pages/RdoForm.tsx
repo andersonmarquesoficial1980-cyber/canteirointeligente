@@ -43,6 +43,47 @@ const parseBRNumber = (value: string | number | null | undefined): number | null
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const SENTIDOS_VALIDOS = new Set(["CRESCENTE", "DECRESCENTE"]);
+
+function splitSentidoFaixa(raw: unknown): { sentido: string; faixa: string } {
+  const text = String(raw ?? "").trim();
+  if (!text) return { sentido: "", faixa: "" };
+  const parts = text.split(" - ").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return { sentido: "", faixa: "" };
+
+  const head = parts[0].toUpperCase();
+  if (!SENTIDOS_VALIDOS.has(head)) {
+    return { sentido: "", faixa: text };
+  }
+
+  return {
+    sentido: head,
+    faixa: parts.slice(1).join(" - "),
+  };
+}
+
+function normalizeSentidoFaixa(
+  sentidoRaw: unknown,
+  faixaRaw: unknown,
+  sentidoFaixaRaw: unknown,
+): { sentido: string; faixa: string; sentidoFaixa: string } {
+  const sentidoText = String(sentidoRaw ?? "").trim();
+  const faixaText = String(faixaRaw ?? "").trim();
+  const combinedText = String(sentidoFaixaRaw ?? "").trim();
+
+  const fromSentido = splitSentidoFaixa(sentidoText);
+  const fromCombined = splitSentidoFaixa(combinedText);
+
+  const sentido = SENTIDOS_VALIDOS.has(sentidoText.toUpperCase())
+    ? sentidoText.toUpperCase()
+    : (fromSentido.sentido || fromCombined.sentido || "");
+
+  const faixa = faixaText || fromSentido.faixa || fromCombined.faixa || "";
+  const sentidoFaixa = [sentido, faixa].filter(Boolean).join(" - ");
+
+  return { sentido, faixa, sentidoFaixa };
+}
+
 function getTodayInSaoPauloIso(): string {
   const br = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const [day, month, year] = br.split("/");
@@ -462,35 +503,41 @@ export default function RdoForm() {
       // Produção CAUQ
       if (producao?.length) {
         setProducaoCauq({
-          trechos: producao.map((p: any) => ({
-            id: p.id,
-            tipo_servico: p.tipo_servico || "",
-            sentido: p.sentido_faixa || p.sentido || "",
-            faixa: p.faixa || "",
-            estaca_inicial: p.estaca_inicial || String(p.km_inicial || ""),
-            estaca_final: p.estaca_final || String(p.km_final || ""),
-            comprimento_m: String(p.comprimento_m || ""),
-            largura_m: String(p.largura_m || ""),
-            espessura_m: String(p.espessura_cm || ""),
-            densidade: String(p.densidade || ""),
-            observacoes: p.observacoes || "",
-          })),
+          trechos: producao.map((p: any) => {
+            const normalized = normalizeSentidoFaixa(p.sentido, p.faixa, p.sentido_faixa);
+            return {
+              id: p.id,
+              tipo_servico: p.tipo_servico || "",
+              sentido: normalized.sentido,
+              faixa: normalized.faixa,
+              estaca_inicial: p.estaca_inicial || String(p.km_inicial || ""),
+              estaca_final: p.estaca_final || String(p.km_final || ""),
+              comprimento_m: String(p.comprimento_m || ""),
+              largura_m: String(p.largura_m || ""),
+              espessura_m: String(p.espessura_cm || ""),
+              densidade: String(p.densidade || ""),
+              observacoes: p.observacoes || "",
+            };
+          }),
           tonelagem_aplicada: "",
         });
       }
       // Produção INFRA (edição)
       if (producao?.length && rdo.tipo_rdo === "INFRAESTRUTURA") {
-        setInfraProducao(producao.map((p: any) => ({
-          id: p.id || crypto.randomUUID(),
-          tipo_servico: p.tipo_servico || "",
-          sentido: p.sentido_faixa || p.sentido || "",
-          estaca_inicial: p.estaca_inicial || String(p.km_inicial || ""),
-          estaca_final: p.estaca_final || String(p.km_final || ""),
-          comprimento_m: String(p.comprimento_m || ""),
-          largura_m: String(p.largura_m || ""),
-          espessura_cm: String(p.espessura_cm || ""),
-          is_retrabalho: p.is_retrabalho || false,
-        })));
+        setInfraProducao(producao.map((p: any) => {
+          const normalized = normalizeSentidoFaixa(p.sentido, null, p.sentido_faixa);
+          return {
+            id: p.id || crypto.randomUUID(),
+            tipo_servico: p.tipo_servico || "",
+            sentido: normalized.sentido,
+            estaca_inicial: p.estaca_inicial || String(p.km_inicial || ""),
+            estaca_final: p.estaca_final || String(p.km_final || ""),
+            comprimento_m: String(p.comprimento_m || ""),
+            largura_m: String(p.largura_m || ""),
+            espessura_cm: String(p.espessura_cm || ""),
+            is_retrabalho: p.is_retrabalho || false,
+          };
+        }));
       }
       // Equipamentos
       if (equipamentos?.length) {
@@ -618,7 +665,7 @@ export default function RdoForm() {
             tipo_servico: p.tipo_servico || null,
             sentido: p.sentido || null,
             sentido_faixa: p.sentido || null,
-            faixa: p.sentido || null,
+            faixa: null,
             estaca_inicial: p.estaca_inicial || null,
             estaca_final: p.estaca_final || null,
             km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,
@@ -761,7 +808,10 @@ export default function RdoForm() {
         placa: n.placa || null,
         usina: n.usina || null,
         tonelagem: n.tonelagem ? parseFloat(n.tonelagem.replace(",", ".")) : null,
-        tipo_material: n.tipo_material || n.tipo_material_outro || null,
+        tipo_material:
+          n.tipo_material === "Outro"
+            ? (n.tipo_material_outro?.trim() || "Outro")
+            : (n.tipo_material?.trim() || null),
       }));
 
     if (nfEntries.length > 0) {
