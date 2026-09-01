@@ -15,6 +15,13 @@ function fmtDate(value: string | null | undefined) {
   return `${d}/${m}/${y}`;
 }
 
+function fmtDateTime(value: string | null | undefined) {
+  if (!value) return "-";
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return value;
+  return dt.toLocaleDateString("pt-BR") + " " + dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
 function expandNomes(nome: string | null): string[] {
   if (!nome) return [];
   return nome.split("|||").map((n) => n.trim()).filter(Boolean);
@@ -248,6 +255,12 @@ export default function VisualizarRdo() {
                 <Info label="Clima" value={rdo.clima || "-"} />
                 <Info label="Encarregado" value={rdo.encarregado || rdo.responsavel || "-"} />
                 <Info label="Preenchido por" value={rdo.preenchido_por || "-"} />
+                {rdo.editado_em && (
+                  <Info
+                    label="Última edição"
+                    value={`por ${rdo.editado_por_nome || "usuário interno"} em ${fmtDateTime(rdo.editado_em)}`}
+                  />
+                )}
                 <Info label="Tipo RDO" value={rdo.tipo_rdo || "-"} />
                 {rdo.tipo_rdo === "INFRAESTRUTURA" && <Info label="Empreiteiro" value={rdo.empreiteiro || "-"} />}
                 <Info label="Efetivo (pessoas)" value={String(efetivo.length)} />

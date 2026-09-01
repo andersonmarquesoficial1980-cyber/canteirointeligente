@@ -112,6 +112,13 @@ function fmtDate(value: string | null) {
   return `${d}/${m}/${y}`;
 }
 
+function fmtDateTime(value: string | null | undefined) {
+  if (!value) return "-";
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return value;
+  return dt.toLocaleDateString("pt-BR") + " " + dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
 function normalizarTipoEquipamento(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const v = raw.trim();
@@ -763,7 +770,7 @@ export default function MeusLancamentos() {
     const buildRdoBaseQuery = () => {
       let q = (supabase as any)
         .from("rdo_diarios")
-        .select("id,data,obra_nome,tipo_rdo,responsavel,encarregado,turno,clima,user_id,company_id,status_validacao,created_at")
+        .select("id,data,obra_nome,tipo_rdo,responsavel,encarregado,turno,clima,user_id,company_id,status_validacao,created_at,editado_em,editado_por_nome")
         .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .order("data", { ascending: false })
         .order("created_at", { ascending: false });
@@ -1237,6 +1244,11 @@ export default function MeusLancamentos() {
                         <p className="text-sm font-display font-bold text-primary">OGS {rdo.obra_nome} • {fmtRdoDate}</p>
                         <p className="text-xs text-muted-foreground">Tipo: {rdo.tipo_rdo || '-'} • Responsável: {rdo.responsavel || '-'}</p>
                         <p className="text-xs text-muted-foreground">Apontador: {rdo.apontador_nome || '-'}</p>
+                        {rdo.editado_em && (
+                          <p className="text-[11px] text-amber-700 font-medium">
+                            ✏️ Editado por {rdo.editado_por_nome || "usuário interno"} em {fmtDateTime(rdo.editado_em)}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">Turno: {rdo.turno || '-'} • Clima: {rdo.clima || '-'}</p>
                       </button>
                       <div className="flex items-center gap-1 shrink-0">

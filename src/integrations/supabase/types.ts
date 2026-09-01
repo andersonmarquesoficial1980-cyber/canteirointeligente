@@ -2442,6 +2442,9 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           data: string | null
+          editado_em: string | null
+          editado_por: string | null
+          editado_por_nome: string | null
           encarregado: string | null
           empreiteiro: string | null
           engenheiro_responsavel: string | null
@@ -2473,6 +2476,9 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           data?: string | null
+          editado_em?: string | null
+          editado_por?: string | null
+          editado_por_nome?: string | null
           encarregado?: string | null
           empreiteiro?: string | null
           engenheiro_responsavel?: string | null
@@ -2504,6 +2510,9 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           data?: string | null
+          editado_em?: string | null
+          editado_por?: string | null
+          editado_por_nome?: string | null
           encarregado?: string | null
           empreiteiro?: string | null
           engenheiro_responsavel?: string | null

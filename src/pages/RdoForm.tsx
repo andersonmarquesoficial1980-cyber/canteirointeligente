@@ -940,7 +940,6 @@ export default function RdoForm() {
         observacoes_gerais: observacoesGerais || null,
         sem_nota: semNota,
         sem_producao: semProducao,
-        user_id: user.id,
         tipo_rdo: tipoRdo || null,
         company_id: profile?.company_id || null,
         status_validacao: "rascunho",
@@ -951,12 +950,25 @@ export default function RdoForm() {
       let rdoId = existingId || "";
 
       if (existingId) {
-        // UPDATE — não cria duplicata
-        const { error } = await (supabase as any).from("rdo_diarios").update(draftPayload).eq("id", existingId);
+        // UPDATE — não cria duplicata e preserva o autor original (user_id)
+        const editorName = (profile?.nome_completo || preenchidoPor || "").trim() || null;
+        const { error } = await (supabase as any)
+          .from("rdo_diarios")
+          .update({
+            ...draftPayload,
+            editado_por: user.id,
+            editado_por_nome: editorName,
+            editado_em: new Date().toISOString(),
+          })
+          .eq("id", existingId);
         if (error) throw error;
       } else {
         // INSERT — primeiro rascunho desta sessão
-        const { data: inserted, error } = await (supabase as any).from("rdo_diarios").insert(draftPayload).select("id").single();
+        const { data: inserted, error } = await (supabase as any)
+          .from("rdo_diarios")
+          .insert({ ...draftPayload, user_id: user.id })
+          .select("id")
+          .single();
         if (error) throw error;
         rdoId = inserted.id;
         setDraftId(inserted.id);
@@ -1414,7 +1426,6 @@ export default function RdoForm() {
       observacoes_gerais: observacoesGerais || null,
       sem_nota: semNota,
       sem_producao: semProducao,
-      user_id: user.id,
       tipo_rdo: tipoRdo || null,
       company_id: profile?.company_id || null,
       // Envio deve retirar o registro da seção de rascunhos em Meus Lançamentos
@@ -1456,15 +1467,23 @@ export default function RdoForm() {
       let rdoId: string;
 
       if (editId) {
-        // Modo edição: atualiza registro existente
+        // Modo edição: atualiza registro existente sem trocar o autor original
+        const editorName = (profile?.nome_completo || preenchidoPor || "").trim() || null;
         const { error: updError } = await (supabase as any)
-          .from("rdo_diarios").update(rdoPayload).eq("id", editId);
+          .from("rdo_diarios")
+          .update({
+            ...rdoPayload,
+            editado_por: user.id,
+            editado_por_nome: editorName,
+            editado_em: new Date().toISOString(),
+          })
+          .eq("id", editId);
         if (updError) throw updError;
         rdoId = editId;
       } else {
         const { data: rdo, error: rdoError } = await supabase
           .from("rdo_diarios")
-          .insert(rdoPayload)
+          .insert({ ...rdoPayload, user_id: user.id })
           .select("id")
           .single();
         if (rdoError) throw rdoError;
