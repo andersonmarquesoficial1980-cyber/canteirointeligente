@@ -10,9 +10,9 @@ interface UseDiaryUnlockResult {
   prazoLabel: string;
 }
 
-// Flag temporária — desativa bloqueio de prazo durante implantação
-// Mudar para false quando a empresa estiver rodando em produção
-const DIARY_DEADLINE_DISABLED = true;
+const DIARY_DEADLINE_DISABLED = false;
+const DIARY_DEADLINE_WINDOW_DAYS = 3; // hoje + 2 dias anteriores = 72h
+const DIARY_DEADLINE_WINDOW_HOURS = DIARY_DEADLINE_WINDOW_DAYS * 24;
 
 const ADMIN_PERFIS = new Set(["admin", "administrador", "superadmin"]);
 const ADMIN_ROLES = new Set(["admin", "superadmin"]);
@@ -42,12 +42,12 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
   const [isLoading, setIsLoading] = useState(false);
 
   const prazoLabel = useMemo(
-    () => (tipo === "equipamento" ? "hoje ou ontem" : "somente hoje"),
-    [tipo],
+    () => `últimas ${DIARY_DEADLINE_WINDOW_HOURS} horas`,
+    [],
   );
 
   useEffect(() => {
-    // Bloqueio desativado temporariamente durante implantação
+    // Guardrail para desativar bloqueio de prazo em cenários emergenciais
     if (DIARY_DEADLINE_DISABLED) {
       setIsBlocked(false);
       setIsLoading(false);
@@ -81,10 +81,8 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
         }
 
         const todaySp = getTodayInSaoPauloIso();
-        const yesterdaySp = shiftIsoDate(todaySp, -1);
-        const withinDeadline = tipo === "equipamento"
-          ? date === todaySp || date === yesterdaySp
-          : date === todaySp;
+        const earliestAllowedSp = shiftIsoDate(todaySp, -(DIARY_DEADLINE_WINDOW_DAYS - 1));
+        const withinDeadline = date >= earliestAllowedSp && date <= todaySp;
 
         if (withinDeadline) {
           if (!cancelled) setIsBlocked(false);
