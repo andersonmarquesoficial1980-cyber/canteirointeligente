@@ -16,6 +16,26 @@ function fmtDate(d?: string | null) {
   return `${day}/${m}/${y}`;
 }
 
+function isoToExcelDate(iso?: string | null) {
+  if (!iso) return null;
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  // Meio-dia evita deslocamentos de fuso ao abrir em Excel/Numbers
+  return new Date(y, m - 1, d, 12, 0, 0);
+}
+
+function forceDateColumnFormat(ws: XLSX.WorkSheet, columnLetter: string) {
+  if (!ws["!ref"]) return;
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  for (let row = 1; row <= range.e.r; row += 1) {
+    const addr = `${columnLetter}${row + 1}`;
+    const cell = ws[addr];
+    if (!cell || cell.v == null || cell.v === "") continue;
+    // Mantém tipo numérico de data (Excel serial) e só força exibição BR
+    cell.z = "dd/mm/yyyy";
+  }
+}
+
 function normalizeName(v?: string | null) {
   return String(v || "")
     .normalize("NFD")
@@ -330,7 +350,7 @@ export default function RelatorioMdoPeriodo() {
     ];
 
     const detalhe = filteredRows.map((r) => ({
-      DATA: fmtDate(r.data),
+      DATA: isoToExcelDate(r.data),
       RDO_ID: r.rdo_id,
       STATUS_RDO: r.status_validacao || "-",
       TIPO_RDO: r.tipo_rdo || "-",
@@ -358,7 +378,7 @@ export default function RelatorioMdoPeriodo() {
     const divergencias = filteredRows
       .filter((r) => r.origem_vinculo === "sem_match")
       .map((r) => ({
-        DATA: fmtDate(r.data),
+        DATA: isoToExcelDate(r.data),
         RDO_ID: r.rdo_id,
         OGS_OBRA: r.obra_nome,
         ENCARREGADO: r.encarregado || "-",
@@ -368,12 +388,21 @@ export default function RelatorioMdoPeriodo() {
       }));
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), "RESUMO");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalhe), "DETALHE_MDO");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(semPresencaAba), "SEM_PRESENCA");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(divergencias), "DIVERGENCIAS_NOME");
+    const wsResumo = XLSX.utils.json_to_sheet(resumo);
+    const wsDetalhe = XLSX.utils.json_to_sheet(detalhe);
+    const wsSemPresenca = XLSX.utils.json_to_sheet(semPresencaAba);
+    const wsDivergencias = XLSX.utils.json_to_sheet(divergencias);
 
-    XLSX.writeFile(wb, `WF_MDO_PERIODO_${dataIni}_a_${dataFim}.xlsx`);
+    // Coluna A = DATA nas duas abas
+    forceDateColumnFormat(wsDetalhe, "A");
+    forceDateColumnFormat(wsDivergencias, "A");
+
+    XLSX.utils.book_append_sheet(wb, wsResumo, "RESUMO");
+    XLSX.utils.book_append_sheet(wb, wsDetalhe, "DETALHE_MDO");
+    XLSX.utils.book_append_sheet(wb, wsSemPresenca, "SEM_PRESENCA");
+    XLSX.utils.book_append_sheet(wb, wsDivergencias, "DIVERGENCIAS_NOME");
+
+    XLSX.writeFile(wb, `WF_MDO_PERIODO_${dataIni}_a_${dataFim}.xlsx`, { cellDates: true });
   }
 
   function exportarPdf() {
