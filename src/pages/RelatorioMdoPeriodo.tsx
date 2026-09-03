@@ -71,6 +71,22 @@ type MdoDetalheRow = {
   confianca_vinculo: "alta" | "media" | "baixa";
 };
 
+type MdoConsolidadoRow = {
+  data: string;
+  employee_key: string;
+  employee_id_resolvido: string | null;
+  funcionario: string;
+  equipe: string;
+  funcao: string;
+  obras: string;
+  encarregados: string;
+  apontadores: string;
+  origem_vinculo: OrigemVinculo;
+  confianca_vinculo: "alta" | "media" | "baixa";
+  qtd_lancamentos: number;
+  rdo_ids: string;
+};
+
 type EmployeeLite = {
   id: string;
   name: string;
@@ -78,6 +94,18 @@ type EmployeeLite = {
   role: string | null;
   status: string | null;
 };
+
+function makeDateRange(startIso: string, endIso: string) {
+  const out: string[] = [];
+  if (!startIso || !endIso || startIso > endIso) return out;
+  const d = new Date(`${startIso}T12:00:00`);
+  const end = new Date(`${endIso}T12:00:00`);
+  while (d <= end) {
+    out.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
 
 export default function RelatorioMdoPeriodo() {
   const goBack = useSmartBack("/relatorios");
@@ -101,6 +129,7 @@ export default function RelatorioMdoPeriodo() {
   const [fApontador, setFApontador] = useState("TODOS");
   const [fVinculo, setFVinculo] = useState<"todos" | OrigemVinculo>("todos");
   const [fSomenteSemPresenca, setFSomenteSemPresenca] = useState(false);
+  const [fConsolidarDia, setFConsolidarDia] = useState(true);
   const [q, setQ] = useState("");
 
   const equipeOptions = useMemo(() => {
@@ -171,6 +200,83 @@ export default function RelatorioMdoPeriodo() {
       .sort((a, b) => b.data.localeCompare(a.data) || a.nome_lancado.localeCompare(b.nome_lancado, "pt-BR"));
   }, [rows, fEquipe, fObra, fEncarregado, fApontador, fVinculo, q]);
 
+  const consolidatedRows = useMemo<MdoConsolidadoRow[]>(() => {
+    const map = new Map<string, {
+      data: string;
+      employee_key: string;
+      employee_id_resolvido: string | null;
+      funcionario: string;
+      equipe: string;
+      funcaoSet: Set<string>;
+      obrasSet: Set<string>;
+      encarregadosSet: Set<string>;
+      apontadoresSet: Set<string>;
+      melhorOrigem: OrigemVinculo;
+      melhorConfianca: "alta" | "media" | "baixa";
+      qtd: number;
+      rdoIds: Set<string>;
+    }>();
+
+    const score = (o: OrigemVinculo) => (o === "id_direto" ? 3 : o === "nome_exato" ? 2 : 1);
+
+    for (const r of filteredRows) {
+      const employeeKey = r.employee_id_resolvido || normalizeName(r.nome_lancado || "") || `SEM_ID_${r.rdo_id}`;
+      const key = `${r.data}|${employeeKey}`;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          data: r.data,
+          employee_key: employeeKey,
+          employee_id_resolvido: r.employee_id_resolvido,
+          funcionario: r.employee_nome_resolvido || r.nome_lancado || "-",
+          equipe: r.equipe_resolvida || "SEM EQUIPE",
+          funcaoSet: new Set([r.funcao_lancada || "-"]),
+          obrasSet: new Set([r.obra_nome || "-"]),
+          encarregadosSet: new Set([r.encarregado || "-"]),
+          apontadoresSet: new Set([r.apontador_nome || "-"]),
+          melhorOrigem: r.origem_vinculo,
+          melhorConfianca: r.confianca_vinculo,
+          qtd: 1,
+          rdoIds: new Set([r.rdo_id]),
+        });
+      } else {
+        const it = map.get(key)!;
+        it.qtd += 1;
+        it.funcaoSet.add(r.funcao_lancada || "-");
+        it.obrasSet.add(r.obra_nome || "-");
+        it.encarregadosSet.add(r.encarregado || "-");
+        it.apontadoresSet.add(r.apontador_nome || "-");
+        it.rdoIds.add(r.rdo_id);
+
+        if (score(r.origem_vinculo) > score(it.melhorOrigem)) {
+          it.melhorOrigem = r.origem_vinculo;
+          it.melhorConfianca = r.confianca_vinculo;
+          if (r.employee_nome_resolvido) it.funcionario = r.employee_nome_resolvido;
+          if (r.equipe_resolvida) it.equipe = r.equipe_resolvida;
+          if (r.employee_id_resolvido) it.employee_id_resolvido = r.employee_id_resolvido;
+        }
+      }
+    }
+
+    return Array.from(map.values())
+      .map((it) => ({
+        data: it.data,
+        employee_key: it.employee_key,
+        employee_id_resolvido: it.employee_id_resolvido,
+        funcionario: it.funcionario,
+        equipe: it.equipe,
+        funcao: Array.from(it.funcaoSet).join(" | "),
+        obras: Array.from(it.obrasSet).join(" | "),
+        encarregados: Array.from(it.encarregadosSet).join(" | "),
+        apontadores: Array.from(it.apontadoresSet).join(" | "),
+        origem_vinculo: it.melhorOrigem,
+        confianca_vinculo: it.melhorConfianca,
+        qtd_lancamentos: it.qtd,
+        rdo_ids: Array.from(it.rdoIds).join(" | "),
+      }))
+      .sort((a, b) => b.data.localeCompare(a.data) || a.funcionario.localeCompare(b.funcionario, "pt-BR"));
+  }, [filteredRows]);
+
   const kpis = useMemo(() => {
     const idsVistos = new Set(filteredRows.map((r) => r.employee_id_resolvido).filter(Boolean) as string[]);
     const ativosFiltradosEquipe = employeesAtivos.filter((e) =>
@@ -184,10 +290,60 @@ export default function RelatorioMdoPeriodo() {
       lancamentosIdDireto: filteredRows.filter((r) => r.origem_vinculo === "id_direto").length,
       lancamentosNomeExato: filteredRows.filter((r) => r.origem_vinculo === "nome_exato").length,
       lancamentosSemMatch: filteredRows.filter((r) => r.origem_vinculo === "sem_match").length,
+      duplicidadesNoDia: filteredRows.length - consolidatedRows.length,
     };
-  }, [filteredRows, employeesAtivos, fEquipe]);
+  }, [filteredRows, consolidatedRows, employeesAtivos, fEquipe]);
 
   const canSearch = Boolean(profile?.company_id && dataIni && dataFim && dataIni <= dataFim);
+
+  const rowsTela = fConsolidarDia ? consolidatedRows : filteredRows;
+
+  const diasPeriodo = useMemo(() => makeDateRange(dataIni, dataFim), [dataIni, dataFim]);
+
+  const ativosFiltradosEquipe = useMemo(
+    () => employeesAtivos.filter((e) => (fEquipe === "TODAS" ? true : ((e.equipe || "SEM EQUIPE") === fEquipe))),
+    [employeesAtivos, fEquipe],
+  );
+
+  const coberturaDias = useMemo(() => {
+    const porDia = new Map<string, number>();
+    consolidatedRows.forEach((r) => porDia.set(r.data, (porDia.get(r.data) || 0) + 1));
+    return diasPeriodo.map((d) => ({
+      DATA: isoToExcelDate(d),
+      STATUS_DIA: (porDia.get(d) || 0) > 0 ? "COM LANÇAMENTO" : "SEM LANÇAMENTO",
+      QTD_FUNCIONARIOS_NO_DIA: porDia.get(d) || 0,
+    }));
+  }, [diasPeriodo, consolidatedRows]);
+
+  const coberturaFuncionarioDia = useMemo(() => {
+    const idx = new Map<string, MdoConsolidadoRow[]>();
+    consolidatedRows.forEach((r) => {
+      if (!r.employee_id_resolvido) return;
+      const key = `${r.employee_id_resolvido}|${r.data}`;
+      if (!idx.has(key)) idx.set(key, []);
+      idx.get(key)!.push(r);
+    });
+
+    const out: Array<Record<string, unknown>> = [];
+    for (const e of ativosFiltradosEquipe) {
+      for (const d of diasPeriodo) {
+        const key = `${e.id}|${d}`;
+        const hits = idx.get(key) || [];
+        out.push({
+          DATA: isoToExcelDate(d),
+          FUNCIONARIO: e.name,
+          EQUIPE: e.equipe || "SEM EQUIPE",
+          FUNCAO_CADASTRO: e.role || "-",
+          PRESENCA_RDO: hits.length > 0 ? "SIM" : "NAO",
+          QTD_LANCAMENTOS_NO_DIA: hits.reduce((acc, it) => acc + it.qtd_lancamentos, 0),
+          OBRAS: hits.map((h) => h.obras).filter(Boolean).join(" | ") || "-",
+          ENCARREGADOS: hits.map((h) => h.encarregados).filter(Boolean).join(" | ") || "-",
+          RDO_IDS: hits.map((h) => h.rdo_ids).filter(Boolean).join(" | ") || "-",
+        });
+      }
+    }
+    return out;
+  }, [consolidatedRows, ativosFiltradosEquipe, diasPeriodo]);
 
   const buscar = async () => {
     if (!profile?.company_id || !canSearch) return;
@@ -347,9 +503,25 @@ export default function RelatorioMdoPeriodo() {
       { indicador: "Lançamentos com vínculo por ID", valor: kpis.lancamentosIdDireto },
       { indicador: "Lançamentos com vínculo por nome exato", valor: kpis.lancamentosNomeExato },
       { indicador: "Lançamentos sem match", valor: kpis.lancamentosSemMatch },
+      { indicador: "Duplicidades no mesmo dia (visão bruta)", valor: kpis.duplicidadesNoDia },
+      { indicador: "Dias sem lançamento no período", valor: coberturaDias.filter((d) => d.STATUS_DIA === "SEM LANÇAMENTO").length },
     ];
 
-    const detalhe = filteredRows.map((r) => ({
+    const detalhe = consolidatedRows.map((r) => ({
+      DATA: isoToExcelDate(r.data),
+      FUNCIONARIO: r.funcionario,
+      EQUIPE: r.equipe,
+      FUNCAO: r.funcao,
+      OGS_OBRA: r.obras,
+      ENCARREGADO: r.encarregados,
+      APONTADOR: r.apontadores,
+      ORIGEM_VINCULO: r.origem_vinculo,
+      CONFIANCA_VINCULO: r.confianca_vinculo,
+      QTD_LANCAMENTOS_NO_DIA: r.qtd_lancamentos,
+      RDO_IDS: r.rdo_ids,
+    }));
+
+    const detalheBruto = filteredRows.map((r) => ({
       DATA: isoToExcelDate(r.data),
       RDO_ID: r.rdo_id,
       STATUS_RDO: r.status_validacao || "-",
@@ -390,17 +562,26 @@ export default function RelatorioMdoPeriodo() {
     const wb = XLSX.utils.book_new();
     const wsResumo = XLSX.utils.json_to_sheet(resumo);
     const wsDetalhe = XLSX.utils.json_to_sheet(detalhe);
+    const wsDetalheBruto = XLSX.utils.json_to_sheet(detalheBruto);
     const wsSemPresenca = XLSX.utils.json_to_sheet(semPresencaAba);
     const wsDivergencias = XLSX.utils.json_to_sheet(divergencias);
+    const wsCoberturaDias = XLSX.utils.json_to_sheet(coberturaDias);
+    const wsCoberturaFuncDia = XLSX.utils.json_to_sheet(coberturaFuncionarioDia);
 
-    // Coluna A = DATA nas duas abas
+    // Coluna A = DATA nas abas de tempo
     forceDateColumnFormat(wsDetalhe, "A");
+    forceDateColumnFormat(wsDetalheBruto, "A");
     forceDateColumnFormat(wsDivergencias, "A");
+    forceDateColumnFormat(wsCoberturaDias, "A");
+    forceDateColumnFormat(wsCoberturaFuncDia, "A");
 
     XLSX.utils.book_append_sheet(wb, wsResumo, "RESUMO");
     XLSX.utils.book_append_sheet(wb, wsDetalhe, "DETALHE_MDO");
+    XLSX.utils.book_append_sheet(wb, wsDetalheBruto, "DETALHE_BRUTO");
     XLSX.utils.book_append_sheet(wb, wsSemPresenca, "SEM_PRESENCA");
     XLSX.utils.book_append_sheet(wb, wsDivergencias, "DIVERGENCIAS_NOME");
+    XLSX.utils.book_append_sheet(wb, wsCoberturaDias, "COBERTURA_DIAS");
+    XLSX.utils.book_append_sheet(wb, wsCoberturaFuncDia, "COBERTURA_FUNC_DIA");
 
     XLSX.writeFile(wb, `WF_MDO_PERIODO_${dataIni}_a_${dataFim}.xlsx`, { cellDates: true });
   }
@@ -413,20 +594,21 @@ export default function RelatorioMdoPeriodo() {
     doc.text(`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`, 12, 18);
     doc.text(`Ativos: ${kpis.ativosCadastro} | Com presença: ${kpis.comPresenca} | Sem presença: ${kpis.semPresenca}`, 12, 23);
 
-    const body = filteredRows.slice(0, 1200).map((r) => [
+    const body = consolidatedRows.slice(0, 1200).map((r) => [
       fmtDate(r.data),
-      r.nome_lancado || "-",
-      r.equipe_resolvida || "SEM EQUIPE",
-      r.funcao_lancada || "-",
-      r.obra_nome || "-",
-      r.encarregado || "-",
-      r.apontador_nome || "-",
+      r.funcionario || "-",
+      r.equipe || "SEM EQUIPE",
+      r.funcao || "-",
+      r.obras || "-",
+      r.encarregados || "-",
+      r.apontadores || "-",
       r.origem_vinculo,
+      String(r.qtd_lancamentos),
     ]);
 
     autoTable(doc, {
       startY: 28,
-      head: [["Data", "Funcionário", "Equipe", "Função", "OGS/Obra", "Encarregado", "Apontador", "Vínculo"]],
+      head: [["Data", "Funcionário", "Equipe", "Função", "OGS/Obra", "Encarregado", "Apontador", "Vínculo", "Qtd"]],
       body,
       styles: { fontSize: 7, cellPadding: 1.6 },
       headStyles: { fillColor: [15, 23, 42] },
@@ -517,14 +699,24 @@ export default function RelatorioMdoPeriodo() {
           </div>
 
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={fSomenteSemPresenca}
-                onChange={(e) => setFSomenteSemPresenca(e.target.checked)}
-              />
-              Exibir somente funcionários sem presença no período
-            </label>
+            <div className="flex items-center gap-6 flex-wrap">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={fSomenteSemPresenca}
+                  onChange={(e) => setFSomenteSemPresenca(e.target.checked)}
+                />
+                Exibir somente funcionários sem presença no período
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={fConsolidarDia}
+                  onChange={(e) => setFConsolidarDia(e.target.checked)}
+                />
+                Consolidar funcionário/dia (remove duplicidade visual)
+              </label>
+            </div>
 
             <Button onClick={buscar} disabled={!canSearch || loading} className="h-10 gap-2">
               <Search className="w-4 h-4" />
@@ -534,13 +726,15 @@ export default function RelatorioMdoPeriodo() {
         </div>
 
         {searched && !loading && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Ativos cadastro</p><p className="text-lg font-bold">{kpis.ativosCadastro}</p></div>
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Com presença</p><p className="text-lg font-bold text-green-700">{kpis.comPresenca}</p></div>
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Sem presença</p><p className="text-lg font-bold text-red-700">{kpis.semPresenca}</p></div>
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Vínculo por ID</p><p className="text-lg font-bold">{kpis.lancamentosIdDireto}</p></div>
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Vínculo por nome</p><p className="text-lg font-bold">{kpis.lancamentosNomeExato}</p></div>
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Sem match</p><p className="text-lg font-bold">{kpis.lancamentosSemMatch}</p></div>
+            <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Duplicidades/dia</p><p className="text-lg font-bold text-amber-700">{kpis.duplicidadesNoDia}</p></div>
+            <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Dias sem lançamento</p><p className="text-lg font-bold text-red-700">{coberturaDias.filter((d) => d.STATUS_DIA === "SEM LANÇAMENTO").length}</p></div>
           </div>
         )}
 
@@ -585,46 +779,88 @@ export default function RelatorioMdoPeriodo() {
 
         {searched && !loading && !fSomenteSemPresenca && (
           <div className="bg-card rounded-xl border border-border overflow-hidden">
-            <div className="px-4 py-3 border-b bg-muted/40 text-sm font-semibold">Detalhe MDO ({filteredRows.length} linhas)</div>
+            <div className="px-4 py-3 border-b bg-muted/40 text-sm font-semibold">
+              {fConsolidarDia
+                ? `Detalhe MDO consolidado (${rowsTela.length} linhas)`
+                : `Detalhe MDO bruto (${rowsTela.length} linhas)`}
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-muted/50 sticky top-0">
-                  <tr>
-                    <th className="text-left px-3 py-2">Data</th>
-                    <th className="text-left px-3 py-2">Funcionário lançado</th>
-                    <th className="text-left px-3 py-2">Equipe</th>
-                    <th className="text-left px-3 py-2">Função</th>
-                    <th className="text-left px-3 py-2">OGS/Obra</th>
-                    <th className="text-left px-3 py-2">Encarregado</th>
-                    <th className="text-left px-3 py-2">Apontador</th>
-                    <th className="text-left px-3 py-2">Vínculo</th>
-                    <th className="text-left px-3 py-2">RDO</th>
-                  </tr>
+                  {fConsolidarDia ? (
+                    <tr>
+                      <th className="text-left px-3 py-2">Data</th>
+                      <th className="text-left px-3 py-2">Funcionário</th>
+                      <th className="text-left px-3 py-2">Equipe</th>
+                      <th className="text-left px-3 py-2">Função</th>
+                      <th className="text-left px-3 py-2">OGS/Obra</th>
+                      <th className="text-left px-3 py-2">Encarregado</th>
+                      <th className="text-left px-3 py-2">Qtd lanç.</th>
+                      <th className="text-left px-3 py-2">Vínculo</th>
+                      <th className="text-left px-3 py-2">RDO IDs</th>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <th className="text-left px-3 py-2">Data</th>
+                      <th className="text-left px-3 py-2">Funcionário lançado</th>
+                      <th className="text-left px-3 py-2">Equipe</th>
+                      <th className="text-left px-3 py-2">Função</th>
+                      <th className="text-left px-3 py-2">OGS/Obra</th>
+                      <th className="text-left px-3 py-2">Encarregado</th>
+                      <th className="text-left px-3 py-2">Apontador</th>
+                      <th className="text-left px-3 py-2">Vínculo</th>
+                      <th className="text-left px-3 py-2">RDO</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
-                  {filteredRows.map((r, i) => (
-                    <tr key={`${r.rdo_id}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.data)}</td>
-                      <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.nome_lancado || "-"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.equipe_resolvida || "SEM EQUIPE"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.funcao_lancada || "-"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.obra_nome || "-"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.encarregado || "-"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.apontador_nome || "-"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                          r.origem_vinculo === "id_direto"
-                            ? "bg-green-100 text-green-700"
-                            : r.origem_vinculo === "nome_exato"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
-                        }`}>
-                          {r.origem_vinculo}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.rdo_id}</td>
-                    </tr>
-                  ))}
+                  {fConsolidarDia
+                    ? (rowsTela as MdoConsolidadoRow[]).map((r, i) => (
+                        <tr key={`${r.employee_key}-${r.data}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                          <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.data)}</td>
+                          <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.funcionario || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.equipe || "SEM EQUIPE"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.funcao || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.obras || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.encarregados || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.qtd_lancamentos}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                              r.origem_vinculo === "id_direto"
+                                ? "bg-green-100 text-green-700"
+                                : r.origem_vinculo === "nome_exato"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
+                            }`}>
+                              {r.origem_vinculo}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.rdo_ids}</td>
+                        </tr>
+                      ))
+                    : (rowsTela as MdoDetalheRow[]).map((r, i) => (
+                        <tr key={`${r.rdo_id}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                          <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.data)}</td>
+                          <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.nome_lancado || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.equipe_resolvida || "SEM EQUIPE"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.funcao_lancada || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.obra_nome || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.encarregado || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.apontador_nome || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                              r.origem_vinculo === "id_direto"
+                                ? "bg-green-100 text-green-700"
+                                : r.origem_vinculo === "nome_exato"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
+                            }`}>
+                              {r.origem_vinculo}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.rdo_id}</td>
+                        </tr>
+                      ))}
                 </tbody>
               </table>
             </div>
