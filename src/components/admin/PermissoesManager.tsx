@@ -47,6 +47,7 @@ const TIPOS_RELATORIO_PERM = [
   { id: "carreteiros", label: "📋 Carreteiros (Fechamento)" },
   { id: "checklist", label: "✔️ Checklist Pré-Operação" },
   { id: "funcionario", label: "👷 Localização de Funcionário" },
+  { id: "mdo_periodo", label: "🧾 MDO por Período" },
   { id: "funcionarios_personalizado", label: "👥 Funcionários Personalizado" },
   { id: "equipamentos_rdo", label: "🚜 Localização de Equipamentos (RDO)" },
   { id: "notas_fiscais", label: "📄 Notas Fiscais de Massa" },
