@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Loader2, XCircle, Clock3, ListChecks } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, XCircle, Clock3, ListChecks, FileSpreadsheet, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -51,6 +51,125 @@ function fmtDate(d?: string | null) {
   return `${day}/${m}/${y}`;
 }
 
+function csvCell(v: unknown) {
+  return `"${String(v ?? "").replace(/"/g, '""')}"`;
+}
+
+function exportarCsvPendencias(rows: Pendencia[]) {
+  const headers = [
+    "Funcionário",
+    "Matrícula",
+    "Função",
+    "Tipo",
+    "Status",
+    "Prioridade",
+    "Data efetiva",
+    "Aberta em",
+    "Solicitado por",
+    "Justificativa",
+    "Nova classificação",
+    "Novo salário",
+    "Tipo demissão",
+    "Substituto sugerido",
+    "Parecer GP",
+    "Motivo reprovação",
+  ];
+
+  const lines = [
+    headers,
+    ...rows.map((p) => [
+      p.employee?.name || "",
+      p.employee?.matricula || "",
+      p.employee?.role || "",
+      TIPO_LABEL[p.tipo],
+      STATUS_LABEL[p.status],
+      p.prioridade.toUpperCase(),
+      fmtDate(p.data_efetiva),
+      new Date(p.created_at).toLocaleString("pt-BR"),
+      p.solicitado_por_nome || "",
+      p.justificativa || "",
+      p.payload?.classificacao_nova || "",
+      p.payload?.novo_salario != null
+        ? Number(p.payload.novo_salario).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : "",
+      p.payload?.tipo_demissao || "",
+      p.payload?.substituto_sugerido || "",
+      p.parecer_gp || "",
+      p.motivo_reprovacao || "",
+    ]),
+  ];
+
+  const csv = "\uFEFF" + lines.map((line) => line.map(csvCell).join(";")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `WF_Pendencias_Funcionarios_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function imprimirPendencias(rows: Pendencia[]) {
+  const htmlRows = rows
+    .map((p) => {
+      const detalhe =
+        p.tipo === "classificacao"
+          ? `Nova classificação: ${String(p.payload?.classificacao_nova || "—")}`
+          : p.tipo === "aumento_salarial"
+          ? `Novo salário: R$ ${
+              p.payload?.novo_salario != null
+                ? Number(p.payload.novo_salario).toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
+                : "—"
+            }`
+          : p.tipo === "demissao"
+          ? `Tipo demissão: ${String(p.payload?.tipo_demissao || "—")}`
+          : `Substituto sugerido: ${String(p.payload?.substituto_sugerido || "—")}`;
+
+      return `<tr>
+        <td>${String(p.employee?.name || "—")}</td>
+        <td>${String(p.employee?.matricula || "—")}</td>
+        <td>${TIPO_LABEL[p.tipo]}</td>
+        <td>${STATUS_LABEL[p.status]}</td>
+        <td>${p.prioridade.toUpperCase()}</td>
+        <td>${fmtDate(p.data_efetiva)}</td>
+        <td>${new Date(p.created_at).toLocaleDateString("pt-BR")}</td>
+        <td>${String(p.solicitado_por_nome || "—")}</td>
+        <td>${String(p.justificativa || "—")}</td>
+        <td>${detalhe}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Pendências de Funcionários</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:16px;color:#111827}
+    h1{font-size:16px;margin:0 0 8px 0}
+    p{font-size:12px;color:#374151;margin:0 0 12px 0}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th,td{border:1px solid #d1d5db;padding:6px;text-align:left;vertical-align:top}
+    th{background:#f3f4f6}
+  </style></head><body>
+  <h1>Pendências de Funcionários</h1>
+  <p>Gerado em ${new Date().toLocaleString("pt-BR")} · Total: ${rows.length}</p>
+  <table>
+    <thead>
+      <tr><th>Funcionário</th><th>Matrícula</th><th>Tipo</th><th>Status</th><th>Prioridade</th><th>Data efetiva</th><th>Abertura</th><th>Solicitado por</th><th>Justificativa</th><th>Detalhe</th></tr>
+    </thead>
+    <tbody>${htmlRows}</tbody>
+  </table>
+  </body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
+}
+
 export default function GestaoPessoasPendencias() {
   const goBack = useSmartBack("/gestao-pessoas");
   const { toast } = useToast();
@@ -59,7 +178,7 @@ export default function GestaoPessoasPendencias() {
 
   const [loading, setLoading] = useState(false);
   const [itens, setItens] = useState<Pendencia[]>([]);
-  const [statusFiltro, setStatusFiltro] = useState<"aberta" | "em_analise" | "aprovada" | "reprovada" | "cancelada" | "todas">("aberta");
+  const [statusFiltro, setStatusFiltro] = useState<"aberta" | "em_analise" | "aprovada" | "reprovada" | "cancelada" | "todas">("todas");
   const [busca, setBusca] = useState("");
 
   const podeTramitar = isAdmin || ["Administrador", "Gerente", "RH", "Gestão de Pessoas"].includes(String(profile?.perfil || ""));
@@ -165,6 +284,29 @@ export default function GestaoPessoasPendencias() {
             <option value="reprovada">Reprovadas</option>
             <option value="cancelada">Canceladas</option>
           </select>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => exportarCsvPendencias(filtrados)}
+            disabled={filtrados.length === 0}
+            className="text-xs border border-emerald-300 text-emerald-700 rounded-lg px-2.5 py-1.5 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" /> Exportar CSV
+          </button>
+          <button
+            onClick={() => imprimirPendencias(filtrados)}
+            disabled={filtrados.length === 0}
+            className="text-xs border border-indigo-300 text-indigo-700 rounded-lg px-2.5 py-1.5 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+          >
+            <Printer className="w-3.5 h-3.5" /> Imprimir
+          </button>
+          <button
+            onClick={carregar}
+            className="text-xs border border-border rounded-lg px-2.5 py-1.5 hover:bg-muted"
+          >
+            Atualizar
+          </button>
         </div>
 
         {loading && <p className="text-sm text-muted-foreground"><Loader2 className="inline w-4 h-4 animate-spin mr-2" />Carregando...</p>}

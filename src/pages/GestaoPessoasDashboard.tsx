@@ -8,6 +8,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -346,13 +347,32 @@ export default function GestaoPessoasDashboard() {
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const { isAdmin } = useIsAdmin();
+  const { profile } = useUserProfile();
   const [todos, setTodos] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendenciasAbertas, setPendenciasAbertas] = useState(0);
 
   useEffect(() => {
     supabase.from("employees").select("*").order("name")
       .then(({ data }) => { if (data) setTodos(data as any); setLoading(false); });
   }, []);
+
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    (async () => {
+      try {
+        const { count, error } = await (supabase as any)
+          .from("rh_pendencias_funcionario")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", profile.company_id)
+          .in("status", ["aberta", "em_analise"]);
+        if (error) throw error;
+        setPendenciasAbertas(count || 0);
+      } catch {
+        setPendenciasAbertas(0);
+      }
+    })();
+  }, [profile?.company_id]);
 
   // Hub organizado por domínio para reduzir dispersão (sem alterar rotas)
   const HUB_GROUPS = [
@@ -379,6 +399,13 @@ export default function GestaoPessoasDashboard() {
           icon: Calendar,
           cor: "bg-green-500/20 text-green-600",
           rota: "/gestao-pessoas/ferias",
+        },
+        {
+          label: "Pendências RH",
+          desc: "Fila consolidada para analisar, aprovar, reprovar e cancelar solicitações",
+          icon: ListChecks,
+          cor: "bg-amber-500/20 text-amber-700",
+          rota: "/gestao-pessoas/pendencias",
         },
         {
           label: "WhatsApp RH",
@@ -453,7 +480,14 @@ export default function GestaoPessoasDashboard() {
                     <Icon className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                      {item.rota === "/gestao-pessoas/pendencias" && pendenciasAbertas > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full border border-red-300 bg-red-50 text-red-700 font-semibold">
+                          {pendenciasAbertas} em aberto
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
