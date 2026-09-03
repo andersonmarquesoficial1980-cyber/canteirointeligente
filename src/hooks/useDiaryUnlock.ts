@@ -67,15 +67,29 @@ export function useDiaryUnlock(date: string, tipo: DiaryTipo): UseDiaryUnlockRes
 
       setIsLoading(true);
       try {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("perfil, role, company_id")
-          .eq("user_id", session.user.id)
-          .maybeSingle();
+        const [
+          { data: profile, error: profileError },
+          { data: hasAdminRole, error: adminRoleError },
+        ] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("perfil, role, company_id")
+            .eq("user_id", session.user.id)
+            .maybeSingle(),
+          supabase.rpc("has_role", {
+            _user_id: session.user.id,
+            _role: "admin",
+          }),
+        ]);
 
         if (profileError) throw profileError;
+        if (adminRoleError) throw adminRoleError;
 
-        if (isAdminProfile((profile as any)?.perfil, (profile as any)?.role)) {
+        const isAdmin =
+          Boolean(hasAdminRole) ||
+          isAdminProfile((profile as any)?.perfil, (profile as any)?.role);
+
+        if (isAdmin) {
           if (!cancelled) setIsBlocked(false);
           return;
         }
