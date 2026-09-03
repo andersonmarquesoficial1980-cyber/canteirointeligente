@@ -345,6 +345,69 @@ export default function RelatorioMdoPeriodo() {
     return out;
   }, [consolidatedRows, ativosFiltradosEquipe, diasPeriodo]);
 
+  const qualidadeApontadores = useMemo(() => {
+    const diasTotais = diasPeriodo.length || 1;
+    const byAp = new Map<string, {
+      apontador: string;
+      email: string;
+      dias: Set<string>;
+      linhas: number;
+      semMatch: number;
+      dupExcedente: number;
+      rdos: Set<string>;
+    }>();
+
+    for (const r of filteredRows) {
+      const ap = (r.apontador_nome || "SEM APONTADOR").trim() || "SEM APONTADOR";
+      const email = (r.apontador_email || "-").trim() || "-";
+      if (!byAp.has(ap)) {
+        byAp.set(ap, { apontador: ap, email, dias: new Set(), linhas: 0, semMatch: 0, dupExcedente: 0, rdos: new Set() });
+      }
+      const it = byAp.get(ap)!;
+      it.dias.add(r.data);
+      it.linhas += 1;
+      it.rdos.add(r.rdo_id);
+      if (r.origem_vinculo === "sem_match") it.semMatch += 1;
+    }
+
+    for (const c of consolidatedRows) {
+      const aps = c.apontadores
+        .split("|")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const extra = Math.max(0, c.qtd_lancamentos - 1);
+      if (extra <= 0) continue;
+      const alvo = aps.length ? aps : ["SEM APONTADOR"];
+      const rateio = extra / alvo.length;
+      for (const ap of alvo) {
+        if (!byAp.has(ap)) byAp.set(ap, { apontador: ap, email: "-", dias: new Set(), linhas: 0, semMatch: 0, dupExcedente: 0, rdos: new Set() });
+        byAp.get(ap)!.dupExcedente += rateio;
+      }
+    }
+
+    return Array.from(byAp.values())
+      .map((it) => {
+        const diasCom = it.dias.size;
+        const taxaCob = (diasCom / diasTotais) * 100;
+        const taxaSemMatch = it.linhas ? (it.semMatch / it.linhas) * 100 : 0;
+        const score = (100 - taxaCob) + taxaSemMatch + (it.dupExcedente * 2);
+        return {
+          APONTADOR: it.apontador,
+          EMAIL: it.email,
+          DIAS_COM_LANCAMENTO: diasCom,
+          DIAS_SEM_LANCAMENTO: Math.max(0, diasTotais - diasCom),
+          COBERTURA_PERCENTUAL: Number(taxaCob.toFixed(2)),
+          LINHAS_MDO: it.linhas,
+          RDOs: it.rdos.size,
+          SEM_MATCH: it.semMatch,
+          TAXA_SEM_MATCH_PERCENTUAL: Number(taxaSemMatch.toFixed(2)),
+          DUPLICIDADE_EXCEDENTE: Number(it.dupExcedente.toFixed(2)),
+          SCORE_INCONSISTENCIA: Number(score.toFixed(2)),
+        };
+      })
+      .sort((a, b) => b.SCORE_INCONSISTENCIA - a.SCORE_INCONSISTENCIA || a.APONTADOR.localeCompare(b.APONTADOR, "pt-BR"));
+  }, [filteredRows, consolidatedRows, diasPeriodo]);
+
   const buscar = async () => {
     if (!profile?.company_id || !canSearch) return;
     setLoading(true);
@@ -567,6 +630,7 @@ export default function RelatorioMdoPeriodo() {
     const wsDivergencias = XLSX.utils.json_to_sheet(divergencias);
     const wsCoberturaDias = XLSX.utils.json_to_sheet(coberturaDias);
     const wsCoberturaFuncDia = XLSX.utils.json_to_sheet(coberturaFuncionarioDia);
+    const wsQualidadeAp = XLSX.utils.json_to_sheet(qualidadeApontadores);
 
     // Coluna A = DATA nas abas de tempo
     forceDateColumnFormat(wsDetalhe, "A");
@@ -582,6 +646,7 @@ export default function RelatorioMdoPeriodo() {
     XLSX.utils.book_append_sheet(wb, wsDivergencias, "DIVERGENCIAS_NOME");
     XLSX.utils.book_append_sheet(wb, wsCoberturaDias, "COBERTURA_DIAS");
     XLSX.utils.book_append_sheet(wb, wsCoberturaFuncDia, "COBERTURA_FUNC_DIA");
+    XLSX.utils.book_append_sheet(wb, wsQualidadeAp, "QUALIDADE_APONTADOR");
 
     XLSX.writeFile(wb, `WF_MDO_PERIODO_${dataIni}_a_${dataFim}.xlsx`, { cellDates: true });
   }
@@ -735,6 +800,42 @@ export default function RelatorioMdoPeriodo() {
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Sem match</p><p className="text-lg font-bold">{kpis.lancamentosSemMatch}</p></div>
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Duplicidades/dia</p><p className="text-lg font-bold text-amber-700">{kpis.duplicidadesNoDia}</p></div>
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Dias sem lançamento</p><p className="text-lg font-bold text-red-700">{coberturaDias.filter((d) => d.STATUS_DIA === "SEM LANÇAMENTO").length}</p></div>
+          </div>
+        )}
+
+        {searched && !loading && qualidadeApontadores.length > 0 && (
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="px-4 py-3 border-b bg-muted/40 text-sm font-semibold">
+              Qualidade por apontador (ranking de inconsistência)
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left px-3 py-2">Apontador</th>
+                    <th className="text-left px-3 py-2">Dias com lançamento</th>
+                    <th className="text-left px-3 py-2">Dias sem lançamento</th>
+                    <th className="text-left px-3 py-2">Cobertura %</th>
+                    <th className="text-left px-3 py-2">Sem match %</th>
+                    <th className="text-left px-3 py-2">Duplicidade excedente</th>
+                    <th className="text-left px-3 py-2">Score inconsistência</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {qualidadeApontadores.slice(0, 20).map((r, i) => (
+                    <tr key={`${r.APONTADOR}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                      <td className="px-3 py-2 whitespace-nowrap font-semibold">{r.APONTADOR}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.DIAS_COM_LANCAMENTO}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.DIAS_SEM_LANCAMENTO}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.COBERTURA_PERCENTUAL}%</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.TAXA_SEM_MATCH_PERCENTUAL}%</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.DUPLICIDADE_EXCEDENTE}</td>
+                      <td className="px-3 py-2 whitespace-nowrap font-bold text-amber-700">{r.SCORE_INCONSISTENCIA}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
