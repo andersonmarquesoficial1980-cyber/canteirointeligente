@@ -73,7 +73,7 @@ interface PontoResumo {
 
 interface RhPendencia {
   id: string;
-  tipo: "classificacao" | "aumento_salarial" | "demissao" | "substituicao";
+  tipo: "classificacao" | "aumento_salarial" | "demissao" | "substituicao" | "outros";
   status: "aberta" | "em_analise" | "aprovada" | "reprovada" | "cancelada";
   prioridade: "baixa" | "normal" | "alta" | "urgente";
   justificativa: string;
@@ -126,6 +126,7 @@ const PENDENCIA_TIPO_LABEL: Record<RhPendencia["tipo"], string> = {
   aumento_salarial: "Aumento Salarial",
   demissao: "Demissão",
   substituicao: "Substituição",
+  outros: "Outros",
 };
 
 const PENDENCIA_STATUS_LABEL: Record<RhPendencia["status"], string> = {
@@ -425,6 +426,7 @@ export default function FichaFuncionario() {
   const [novoSalario, setNovoSalario] = useState("");
   const [tipoDemissao, setTipoDemissao] = useState("sem_justa_causa");
   const [substitutoSugerido, setSubstitutoSugerido] = useState("");
+  const [outroTipoSolicitacao, setOutroTipoSolicitacao] = useState("");
   const [observacaoExtra, setObservacaoExtra] = useState("");
 
   // Modal novo documento
@@ -520,6 +522,7 @@ export default function FichaFuncionario() {
     setNovoSalario("");
     setTipoDemissao("sem_justa_causa");
     setSubstitutoSugerido("");
+    setOutroTipoSolicitacao("");
     setObservacaoExtra("");
     setAbrirNovaPendencia(false);
   }
@@ -538,6 +541,10 @@ export default function FichaFuncionario() {
       toast({ title: "Informe o novo salário", variant: "destructive" });
       return;
     }
+    if (tipoPendencia === "outros" && !outroTipoSolicitacao.trim()) {
+      toast({ title: "Informe qual é o outro tipo de solicitação", variant: "destructive" });
+      return;
+    }
 
     const payload: Record<string, any> = {
       observacao_extra: observacaoExtra || null,
@@ -546,6 +553,7 @@ export default function FichaFuncionario() {
     if (tipoPendencia === "aumento_salarial") payload.novo_salario = Number(novoSalario.replace(",", ".")) || null;
     if (tipoPendencia === "demissao") payload.tipo_demissao = tipoDemissao;
     if (tipoPendencia === "substituicao") payload.substituto_sugerido = substitutoSugerido.trim().toUpperCase() || null;
+    if (tipoPendencia === "outros") payload.outro_tipo_solicitacao = outroTipoSolicitacao.trim();
 
     setSalvandoPendencia(true);
     try {
@@ -1321,6 +1329,7 @@ export default function FichaFuncionario() {
                       <option value="aumento_salarial">Aumento Salarial</option>
                       <option value="demissao">Demissão</option>
                       <option value="substituicao">Substituição</option>
+                      <option value="outros">Outros</option>
                     </select>
                   </div>
                   <div>
@@ -1363,6 +1372,18 @@ export default function FichaFuncionario() {
                   <div>
                     <label className="text-[10px] text-muted-foreground uppercase">Substituto sugerido</label>
                     <input value={substitutoSugerido} onChange={(e) => setSubstitutoSugerido(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm" placeholder="Nome do substituto" />
+                  </div>
+                )}
+
+                {tipoPendencia === "outros" && (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase">Especifique o tipo *</label>
+                    <input
+                      value={outroTipoSolicitacao}
+                      onChange={(e) => setOutroTipoSolicitacao(e.target.value)}
+                      className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm"
+                      placeholder="Ex: Transferência de obra"
+                    />
                   </div>
                 )}
 
@@ -1427,6 +1448,9 @@ export default function FichaFuncionario() {
                     )}
                     {p.tipo === "substituicao" && p.payload?.substituto_sugerido && (
                       <p className="text-xs">Substituto sugerido: <strong>{String(p.payload.substituto_sugerido)}</strong></p>
+                    )}
+                    {p.tipo === "outros" && p.payload?.outro_tipo_solicitacao && (
+                      <p className="text-xs">Tipo informado: <strong>{String(p.payload.outro_tipo_solicitacao)}</strong></p>
                     )}
 
                     {p.parecer_gp && <p className="text-xs text-muted-foreground">Parecer GP: {p.parecer_gp}</p>}

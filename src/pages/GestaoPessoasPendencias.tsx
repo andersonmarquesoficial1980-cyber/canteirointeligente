@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Pendencia {
   id: string;
   employee_id: string;
-  tipo: "classificacao" | "aumento_salarial" | "demissao" | "substituicao";
+  tipo: "classificacao" | "aumento_salarial" | "demissao" | "substituicao" | "outros";
   status: "aberta" | "em_analise" | "aprovada" | "reprovada" | "cancelada";
   prioridade: "baixa" | "normal" | "alta" | "urgente";
   justificativa: string;
@@ -27,6 +27,7 @@ const TIPO_LABEL: Record<Pendencia["tipo"], string> = {
   aumento_salarial: "Aumento Salarial",
   demissao: "Demissão",
   substituicao: "Substituição",
+  outros: "Outros",
 };
 
 const STATUS_LABEL: Record<Pendencia["status"], string> = {
@@ -71,6 +72,7 @@ function exportarCsvPendencias(rows: Pendencia[]) {
     "Novo salário",
     "Tipo demissão",
     "Substituto sugerido",
+    "Outro tipo solicitado",
     "Parecer GP",
     "Motivo reprovação",
   ];
@@ -94,6 +96,7 @@ function exportarCsvPendencias(rows: Pendencia[]) {
         : "",
       p.payload?.tipo_demissao || "",
       p.payload?.substituto_sugerido || "",
+      p.payload?.outro_tipo_solicitacao || "",
       p.parecer_gp || "",
       p.motivo_reprovacao || "",
     ]),
@@ -126,7 +129,9 @@ function imprimirPendencias(rows: Pendencia[]) {
             }`
           : p.tipo === "demissao"
           ? `Tipo demissão: ${String(p.payload?.tipo_demissao || "—")}`
-          : `Substituto sugerido: ${String(p.payload?.substituto_sugerido || "—")}`;
+          : p.tipo === "substituicao"
+          ? `Substituto sugerido: ${String(p.payload?.substituto_sugerido || "—")}`
+          : `Tipo informado: ${String(p.payload?.outro_tipo_solicitacao || "—")}`;
 
       return `<tr>
         <td>${String(p.employee?.name || "—")}</td>
@@ -348,6 +353,9 @@ export default function GestaoPessoasPendencias() {
             )}
             {p.tipo === "substituicao" && p.payload?.substituto_sugerido && (
               <p className="text-xs">Substituto sugerido: <strong>{String(p.payload.substituto_sugerido)}</strong></p>
+            )}
+            {p.tipo === "outros" && p.payload?.outro_tipo_solicitacao && (
+              <p className="text-xs">Tipo informado: <strong>{String(p.payload.outro_tipo_solicitacao)}</strong></p>
             )}
 
             {p.parecer_gp && <p className="text-xs text-muted-foreground">Parecer GP: {p.parecer_gp}</p>}
