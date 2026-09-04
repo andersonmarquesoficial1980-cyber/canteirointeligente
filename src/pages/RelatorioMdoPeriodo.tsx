@@ -296,7 +296,6 @@ export default function RelatorioMdoPeriodo() {
 
   const canSearch = Boolean(profile?.company_id && dataIni && dataFim && dataIni <= dataFim);
 
-  const rowsTela = fConsolidarDia ? consolidatedRows : filteredRows;
 
   const diasPeriodo = useMemo(() => makeDateRange(dataIni, dataFim), [dataIni, dataFim]);
 
@@ -315,35 +314,58 @@ export default function RelatorioMdoPeriodo() {
     }));
   }, [diasPeriodo, consolidatedRows]);
 
-  const coberturaFuncionarioDia = useMemo(() => {
-    const idx = new Map<string, MdoConsolidadoRow[]>();
+  const gradeFuncionarioDia = useMemo(() => {
+    const idx = new Map<string, MdoConsolidadoRow>();
     consolidatedRows.forEach((r) => {
       if (!r.employee_id_resolvido) return;
-      const key = `${r.employee_id_resolvido}|${r.data}`;
-      if (!idx.has(key)) idx.set(key, []);
-      idx.get(key)!.push(r);
+      idx.set(`${r.employee_id_resolvido}|${r.data}`, r);
     });
 
-    const out: Array<Record<string, unknown>> = [];
-    for (const e of ativosFiltradosEquipe) {
-      for (const d of diasPeriodo) {
-        const key = `${e.id}|${d}`;
-        const hits = idx.get(key) || [];
-        out.push({
-          DATA: isoToExcelDate(d),
-          FUNCIONARIO: e.name,
-          EQUIPE: e.equipe || "SEM EQUIPE",
-          FUNCAO_CADASTRO: e.role || "-",
-          PRESENCA_RDO: hits.length > 0 ? "SIM" : "NAO",
-          QTD_LANCAMENTOS_NO_DIA: hits.reduce((acc, it) => acc + it.qtd_lancamentos, 0),
-          OBRAS: hits.map((h) => h.obras).filter(Boolean).join(" | ") || "-",
-          ENCARREGADOS: hits.map((h) => h.encarregados).filter(Boolean).join(" | ") || "-",
-          RDO_IDS: hits.map((h) => h.rdo_ids).filter(Boolean).join(" | ") || "-",
-        });
-      }
-    }
-    return out;
+    return ativosFiltradosEquipe.flatMap((e) => {
+      return diasPeriodo.map((d) => {
+        const hit = idx.get(`${e.id}|${d}`);
+        const semRdo = !hit;
+        return {
+          data: d,
+          employee_id: e.id,
+          funcionario: e.name,
+          equipe: e.equipe || "SEM EQUIPE",
+          funcao_cadastro: e.role || "-",
+          presenca_rdo: semRdo ? "NAO" : "SIM",
+          qtd_lancamentos_no_dia: hit?.qtd_lancamentos || 0,
+          obras: hit?.obras || "-",
+          encarregados: hit?.encarregados || "-",
+          apontadores: hit?.apontadores || "-",
+          rdo_ids: hit?.rdo_ids || "-",
+          origem_vinculo: hit?.origem_vinculo || "sem_match",
+          confianca_vinculo: hit?.confianca_vinculo || "baixa",
+          observacoes: semRdo
+            ? "NÃO APONTADO EM NENHUM RDO NESTE DIA"
+            : `APONTADO EM ${hit.qtd_lancamentos} LANÇAMENTO(S) DE RDO`,
+        };
+      });
+    });
   }, [consolidatedRows, ativosFiltradosEquipe, diasPeriodo]);
+
+  const coberturaFuncionarioDia = useMemo(() => {
+    return gradeFuncionarioDia.map((r) => ({
+      DATA: isoToExcelDate(r.data),
+      FUNCIONARIO: r.funcionario,
+      EQUIPE: r.equipe,
+      FUNCAO_CADASTRO: r.funcao_cadastro,
+      PRESENCA_RDO: r.presenca_rdo,
+      QTD_LANCAMENTOS_NO_DIA: r.qtd_lancamentos_no_dia,
+      OBRAS: r.obras,
+      ENCARREGADOS: r.encarregados,
+      APONTADORES: r.apontadores,
+      ORIGEM_VINCULO: r.origem_vinculo,
+      CONFIANCA_VINCULO: r.confianca_vinculo,
+      RDO_IDS: r.rdo_ids,
+      OBSERVACOES: r.observacoes,
+    }));
+  }, [gradeFuncionarioDia]);
+
+  const rowsTela = fConsolidarDia ? gradeFuncionarioDia : filteredRows;
 
   const qualidadeApontadores = useMemo(() => {
     const diasTotais = diasPeriodo.length || 1;
@@ -570,18 +592,20 @@ export default function RelatorioMdoPeriodo() {
       { indicador: "Dias sem lançamento no período", valor: coberturaDias.filter((d) => d.STATUS_DIA === "SEM LANÇAMENTO").length },
     ];
 
-    const detalhe = consolidatedRows.map((r) => ({
+    const detalhe = gradeFuncionarioDia.map((r) => ({
       DATA: isoToExcelDate(r.data),
       FUNCIONARIO: r.funcionario,
       EQUIPE: r.equipe,
-      FUNCAO: r.funcao,
+      FUNCAO_CADASTRO: r.funcao_cadastro,
+      PRESENCA_RDO: r.presenca_rdo,
+      QTD_LANCAMENTOS_NO_DIA: r.qtd_lancamentos_no_dia,
       OGS_OBRA: r.obras,
       ENCARREGADO: r.encarregados,
       APONTADOR: r.apontadores,
       ORIGEM_VINCULO: r.origem_vinculo,
       CONFIANCA_VINCULO: r.confianca_vinculo,
-      QTD_LANCAMENTOS_NO_DIA: r.qtd_lancamentos,
       RDO_IDS: r.rdo_ids,
+      OBSERVACOES: r.observacoes,
     }));
 
     const detalheBruto = filteredRows.map((r) => ({
@@ -659,21 +683,22 @@ export default function RelatorioMdoPeriodo() {
     doc.text(`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`, 12, 18);
     doc.text(`Ativos: ${kpis.ativosCadastro} | Com presença: ${kpis.comPresenca} | Sem presença: ${kpis.semPresenca}`, 12, 23);
 
-    const body = consolidatedRows.slice(0, 1200).map((r) => [
+    const body = gradeFuncionarioDia.slice(0, 1200).map((r) => [
       fmtDate(r.data),
       r.funcionario || "-",
       r.equipe || "SEM EQUIPE",
-      r.funcao || "-",
+      r.funcao_cadastro || "-",
+      r.presenca_rdo,
+      String(r.qtd_lancamentos_no_dia),
       r.obras || "-",
       r.encarregados || "-",
-      r.apontadores || "-",
-      r.origem_vinculo,
-      String(r.qtd_lancamentos),
+      r.rdo_ids || "-",
+      r.observacoes,
     ]);
 
     autoTable(doc, {
       startY: 28,
-      head: [["Data", "Funcionário", "Equipe", "Função", "OGS/Obra", "Encarregado", "Apontador", "Vínculo", "Qtd"]],
+      head: [["Data", "Funcionário", "Equipe", "Função", "Presença", "Qtd", "OGS/Obra", "Encarregado", "RDO IDs", "Observações"]],
       body,
       styles: { fontSize: 7, cellPadding: 1.6 },
       headStyles: { fillColor: [15, 23, 42] },
@@ -684,7 +709,7 @@ export default function RelatorioMdoPeriodo() {
     doc.save(`WF_MDO_PERIODO_${dataIni}_a_${dataFim}.pdf`);
   }
 
-  const canExport = searched && !loading && (filteredRows.length > 0 || semPresenca.length > 0);
+  const canExport = searched && !loading && (gradeFuncionarioDia.length > 0 || filteredRows.length > 0 || semPresenca.length > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -894,11 +919,12 @@ export default function RelatorioMdoPeriodo() {
                       <th className="text-left px-3 py-2">Funcionário</th>
                       <th className="text-left px-3 py-2">Equipe</th>
                       <th className="text-left px-3 py-2">Função</th>
+                      <th className="text-left px-3 py-2">Presença RDO</th>
+                      <th className="text-left px-3 py-2">Qtd lanç.</th>
                       <th className="text-left px-3 py-2">OGS/Obra</th>
                       <th className="text-left px-3 py-2">Encarregado</th>
-                      <th className="text-left px-3 py-2">Qtd lanç.</th>
-                      <th className="text-left px-3 py-2">Vínculo</th>
                       <th className="text-left px-3 py-2">RDO IDs</th>
+                      <th className="text-left px-3 py-2">Observações</th>
                     </tr>
                   ) : (
                     <tr>
@@ -916,30 +942,27 @@ export default function RelatorioMdoPeriodo() {
                 </thead>
                 <tbody>
                   {fConsolidarDia
-                    ? (rowsTela as MdoConsolidadoRow[]).map((r, i) => (
-                        <tr key={`${r.employee_key}-${r.data}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                    ? gradeFuncionarioDia.map((r, i) => (
+                        <tr key={`${r.employee_id}-${r.data}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                           <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.data)}</td>
                           <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.funcionario || "-"}</td>
                           <td className="px-3 py-2 whitespace-nowrap">{r.equipe || "SEM EQUIPE"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{r.funcao || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{r.obras || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{r.encarregados || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{r.qtd_lancamentos}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.funcao_cadastro || "-"}</td>
                           <td className="px-3 py-2 whitespace-nowrap">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                              r.origem_vinculo === "id_direto"
-                                ? "bg-green-100 text-green-700"
-                                : r.origem_vinculo === "nome_exato"
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : "bg-red-100 text-red-700"
+                              r.presenca_rdo === "SIM" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                             }`}>
-                              {r.origem_vinculo}
+                              {r.presenca_rdo}
                             </span>
                           </td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.qtd_lancamentos_no_dia}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.obras || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.encarregados || "-"}</td>
                           <td className="px-3 py-2 whitespace-nowrap">{r.rdo_ids}</td>
+                          <td className="px-3 py-2 whitespace-nowrap font-semibold">{r.observacoes}</td>
                         </tr>
                       ))
-                    : (rowsTela as MdoDetalheRow[]).map((r, i) => (
+                    : filteredRows.map((r, i) => (
                         <tr key={`${r.rdo_id}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                           <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.data)}</td>
                           <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.nome_lancado || "-"}</td>
