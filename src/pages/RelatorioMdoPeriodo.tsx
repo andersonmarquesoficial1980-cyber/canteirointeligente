@@ -350,8 +350,8 @@ export default function RelatorioMdoPeriodo() {
           origem_vinculo: hit?.origem_vinculo || "sem_match",
           confianca_vinculo: hit?.confianca_vinculo || "baixa",
           observacoes: semRdo
-            ? "NÃO APONTADO EM NENHUM RDO NESTE DIA"
-            : `APONTADO EM ${hit.qtd_lancamentos} LANÇAMENTO(S) DE RDO`,
+            ? "NÃO CONSTA EM RDO NESTE DIA"
+            : `CONSTA EM RDO (${hit.qtd_lancamentos} LANÇAMENTO(S))`,
         };
       });
     });
@@ -472,6 +472,20 @@ export default function RelatorioMdoPeriodo() {
         perfilMap[p.user_id] = { nome: p.nome_completo || "", email: p.email || "" };
       });
 
+      // 2.1) mapa OGS id -> número amigável (evita UUID na exportação)
+      const ogsIds = Array.from(new Set(rdoList.map((r) => r.ogs_id).filter(Boolean)));
+      const { data: ogsRefRows } = ogsIds.length
+        ? await (supabase as any)
+            .from("ogs_reference")
+            .select("id,ogs_number")
+            .in("id", ogsIds)
+        : { data: [] as any[] };
+
+      const ogsNumberMap: Record<string, string> = {};
+      (ogsRefRows || []).forEach((o: any) => {
+        ogsNumberMap[o.id] = String(o.ogs_number || "").trim();
+      });
+
       // 3) efetivo dos RDOs
       let efetivo: any[] = [];
       if (rdoIds.length > 0) {
@@ -557,7 +571,7 @@ export default function RelatorioMdoPeriodo() {
             status_validacao: rdo.status_validacao || null,
             tipo_rdo: rdo.tipo_rdo || null,
             obra_nome: rdo.obra_nome || "",
-            ogs: rdo.ogs_id || null,
+            ogs: (rdo.ogs_id && ogsNumberMap[rdo.ogs_id]) || null,
             encarregado: rdo.encarregado || null,
             turno: rdo.turno || null,
             apontador_user_id: rdo.user_id || null,
@@ -609,6 +623,7 @@ export default function RelatorioMdoPeriodo() {
       STATUS: r.status,
       "EQUIPE ATUAL": r.equipe,
       MATRICULA: r.matricula,
+      OBSERVACOES: r.observacoes,
     }));
 
     const detalheBruto = filteredRows.map((r) => ({
