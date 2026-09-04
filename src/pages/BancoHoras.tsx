@@ -1189,7 +1189,12 @@ export default function BancoHoras() {
         const addr = XLSX.utils.encode_cell({ r: row, c });
         const raw = ws[addr]?.v;
         if (raw === "" || raw == null || Number.isNaN(Number(raw))) return;
-        ws[addr] = { t: "n", v: Number(raw), z: numFmt };
+        ws[addr] = {
+          t: "n",
+          v: Number(raw),
+          z: numFmt,
+          s: { numFmt },
+        };
       };
 
       const setDateIso = (row: number, colName: string) => {
@@ -1199,7 +1204,12 @@ export default function BancoHoras() {
         const raw = String(ws[addr]?.v || "");
         const serial = excelDateSerial(raw);
         if (serial == null) return;
-        ws[addr] = { t: "n", v: serial, z: "dd/mm/yyyy" };
+        ws[addr] = {
+          t: "n",
+          v: serial,
+          z: "dd/mm/yyyy",
+          s: { numFmt: "dd/mm/yyyy" },
+        };
       };
 
       const setHora = (row: number, colName: string) => {
@@ -1209,7 +1219,12 @@ export default function BancoHoras() {
         const raw = String(ws[addr]?.v || "");
         const frac = excelTimeFraction(raw);
         if (frac == null) return;
-        ws[addr] = { t: "n", v: frac, z: "hh:mm" };
+        ws[addr] = {
+          t: "n",
+          v: frac,
+          z: "hh:mm",
+          s: { numFmt: "hh:mm" },
+        };
       };
 
       for (let rIx = 1; rIx <= range.e.r; rIx += 1) {
@@ -1254,7 +1269,9 @@ export default function BancoHoras() {
     XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo Nome a Nome");
     XLSX.utils.book_append_sheet(wb, wsDetalhe, "Batidas Atualizadas");
 
-    XLSX.writeFile(wb, `WF_BancoHoras_Relatorio_Ajustado_${mes}.xlsx`);
+    XLSX.writeFile(wb, `WF_BancoHoras_Relatorio_Ajustado_${mes}.xlsx`, {
+      cellStyles: true,
+    });
   };
 
   const exportarComparativoPdf = () => {
