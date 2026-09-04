@@ -52,6 +52,7 @@ type MdoDetalheRow = {
   status_validacao: string | null;
   tipo_rdo: string | null;
   obra_nome: string;
+  ogs: string | null;
   encarregado: string | null;
   turno: string | null;
   apontador_user_id: string | null;
@@ -78,6 +79,7 @@ type MdoConsolidadoRow = {
   funcionario: string;
   equipe: string;
   funcao: string;
+  ogs: string;
   obras: string;
   encarregados: string;
   apontadores: string;
@@ -92,6 +94,7 @@ type EmployeeLite = {
   name: string;
   equipe: string | null;
   role: string | null;
+  matricula: string | null;
   status: string | null;
 };
 
@@ -208,6 +211,7 @@ export default function RelatorioMdoPeriodo() {
       funcionario: string;
       equipe: string;
       funcaoSet: Set<string>;
+      ogsSet: Set<string>;
       obrasSet: Set<string>;
       encarregadosSet: Set<string>;
       apontadoresSet: Set<string>;
@@ -231,6 +235,7 @@ export default function RelatorioMdoPeriodo() {
           funcionario: r.employee_nome_resolvido || r.nome_lancado || "-",
           equipe: r.equipe_resolvida || "SEM EQUIPE",
           funcaoSet: new Set([r.funcao_lancada || "-"]),
+          ogsSet: new Set([r.ogs || "-"]),
           obrasSet: new Set([r.obra_nome || "-"]),
           encarregadosSet: new Set([r.encarregado || "-"]),
           apontadoresSet: new Set([r.apontador_nome || "-"]),
@@ -243,6 +248,7 @@ export default function RelatorioMdoPeriodo() {
         const it = map.get(key)!;
         it.qtd += 1;
         it.funcaoSet.add(r.funcao_lancada || "-");
+        it.ogsSet.add(r.ogs || "-");
         it.obrasSet.add(r.obra_nome || "-");
         it.encarregadosSet.add(r.encarregado || "-");
         it.apontadoresSet.add(r.apontador_nome || "-");
@@ -266,6 +272,7 @@ export default function RelatorioMdoPeriodo() {
         funcionario: it.funcionario,
         equipe: it.equipe,
         funcao: Array.from(it.funcaoSet).join(" | "),
+        ogs: Array.from(it.ogsSet).join(" | "),
         obras: Array.from(it.obrasSet).join(" | "),
         encarregados: Array.from(it.encarregadosSet).join(" | "),
         apontadores: Array.from(it.apontadoresSet).join(" | "),
@@ -331,8 +338,11 @@ export default function RelatorioMdoPeriodo() {
           funcionario: e.name,
           equipe: e.equipe || "SEM EQUIPE",
           funcao_cadastro: e.role || "-",
+          matricula: e.matricula || "-",
+          status: e.status || "-",
           presenca_rdo: semRdo ? "NAO" : "SIM",
           qtd_lancamentos_no_dia: hit?.qtd_lancamentos || 0,
+          ogs: hit?.ogs || "-",
           obras: hit?.obras || "-",
           encarregados: hit?.encarregados || "-",
           apontadores: hit?.apontadores || "-",
@@ -350,18 +360,16 @@ export default function RelatorioMdoPeriodo() {
   const coberturaFuncionarioDia = useMemo(() => {
     return gradeFuncionarioDia.map((r) => ({
       DATA: isoToExcelDate(r.data),
-      FUNCIONARIO: r.funcionario,
-      EQUIPE: r.equipe,
-      FUNCAO_CADASTRO: r.funcao_cadastro,
+      NOME: r.funcionario,
+      FUNÇÃO: r.funcao_cadastro,
+      OGS: r.ogs,
+      STATUS: r.status,
+      "EQUIPE ATUAL": r.equipe,
+      MATRICULA: r.matricula,
+      OBSERVACOES: r.observacoes,
       PRESENCA_RDO: r.presenca_rdo,
       QTD_LANCAMENTOS_NO_DIA: r.qtd_lancamentos_no_dia,
-      OBRAS: r.obras,
-      ENCARREGADOS: r.encarregados,
-      APONTADORES: r.apontadores,
-      ORIGEM_VINCULO: r.origem_vinculo,
-      CONFIANCA_VINCULO: r.confianca_vinculo,
       RDO_IDS: r.rdo_ids,
-      OBSERVACOES: r.observacoes,
     }));
   }, [gradeFuncionarioDia]);
 
@@ -439,7 +447,7 @@ export default function RelatorioMdoPeriodo() {
       // 1) RDO headers do período
       const { data: rdos, error: rdoErr } = await supabase
         .from("rdo_diarios")
-        .select("id,data,obra_nome,encarregado,turno,tipo_rdo,status_validacao,user_id,company_id")
+        .select("id,data,obra_nome,ogs_id,encarregado,turno,tipo_rdo,status_validacao,user_id,company_id")
         .eq("company_id", profile.company_id)
         .or("status_validacao.is.null,status_validacao.neq.rascunho")
         .gte("data", dataIni)
@@ -482,7 +490,7 @@ export default function RelatorioMdoPeriodo() {
       // 4) employees ativos do cadastro (base de comparação)
       const { data: emps, error: empErr } = await supabase
         .from("employees")
-        .select("id,name,equipe,role,status")
+        .select("id,name,equipe,role,matricula,status")
         .eq("company_id", profile.company_id)
         .eq("status", "ativo")
         .order("name", { ascending: true });
@@ -549,6 +557,7 @@ export default function RelatorioMdoPeriodo() {
             status_validacao: rdo.status_validacao || null,
             tipo_rdo: rdo.tipo_rdo || null,
             obra_nome: rdo.obra_nome || "",
+            ogs: rdo.ogs_id || null,
             encarregado: rdo.encarregado || null,
             turno: rdo.turno || null,
             apontador_user_id: rdo.user_id || null,
@@ -594,18 +603,12 @@ export default function RelatorioMdoPeriodo() {
 
     const detalhe = gradeFuncionarioDia.map((r) => ({
       DATA: isoToExcelDate(r.data),
-      FUNCIONARIO: r.funcionario,
-      EQUIPE: r.equipe,
-      FUNCAO_CADASTRO: r.funcao_cadastro,
-      PRESENCA_RDO: r.presenca_rdo,
-      QTD_LANCAMENTOS_NO_DIA: r.qtd_lancamentos_no_dia,
-      OGS_OBRA: r.obras,
-      ENCARREGADO: r.encarregados,
-      APONTADOR: r.apontadores,
-      ORIGEM_VINCULO: r.origem_vinculo,
-      CONFIANCA_VINCULO: r.confianca_vinculo,
-      RDO_IDS: r.rdo_ids,
-      OBSERVACOES: r.observacoes,
+      NOME: r.funcionario,
+      FUNÇÃO: r.funcao_cadastro,
+      OGS: r.ogs,
+      STATUS: r.status,
+      "EQUIPE ATUAL": r.equipe,
+      MATRICULA: r.matricula,
     }));
 
     const detalheBruto = filteredRows.map((r) => ({
@@ -916,14 +919,12 @@ export default function RelatorioMdoPeriodo() {
                   {fConsolidarDia ? (
                     <tr>
                       <th className="text-left px-3 py-2">Data</th>
-                      <th className="text-left px-3 py-2">Funcionário</th>
-                      <th className="text-left px-3 py-2">Equipe</th>
+                      <th className="text-left px-3 py-2">Nome</th>
                       <th className="text-left px-3 py-2">Função</th>
-                      <th className="text-left px-3 py-2">Presença RDO</th>
-                      <th className="text-left px-3 py-2">Qtd lanç.</th>
-                      <th className="text-left px-3 py-2">OGS/Obra</th>
-                      <th className="text-left px-3 py-2">Encarregado</th>
-                      <th className="text-left px-3 py-2">RDO IDs</th>
+                      <th className="text-left px-3 py-2">OGS</th>
+                      <th className="text-left px-3 py-2">Status</th>
+                      <th className="text-left px-3 py-2">Equipe Atual</th>
+                      <th className="text-left px-3 py-2">Matrícula</th>
                       <th className="text-left px-3 py-2">Observações</th>
                     </tr>
                   ) : (
@@ -946,19 +947,11 @@ export default function RelatorioMdoPeriodo() {
                         <tr key={`${r.employee_id}-${r.data}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                           <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.data)}</td>
                           <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.funcionario || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{r.equipe || "SEM EQUIPE"}</td>
                           <td className="px-3 py-2 whitespace-nowrap">{r.funcao_cadastro || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                              r.presenca_rdo === "SIM" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                            }`}>
-                              {r.presenca_rdo}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap">{r.qtd_lancamentos_no_dia}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{r.obras || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{r.encarregados || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{r.rdo_ids}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.ogs || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.status || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.equipe || "SEM EQUIPE"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{r.matricula || "-"}</td>
                           <td className="px-3 py-2 whitespace-nowrap font-semibold">{r.observacoes}</td>
                         </tr>
                       ))
