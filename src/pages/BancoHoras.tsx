@@ -192,6 +192,25 @@ function fmtDate(d: string): string {
   return `${day}/${m}/${y}`;
 }
 
+function excelDateSerial(isoDate: string): number | null {
+  const m = String(isoDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const utc = Date.UTC(year, month - 1, day);
+  if (Number.isNaN(utc)) return null;
+  // Excel epoch (Windows): 1899-12-30
+  return (utc - Date.UTC(1899, 11, 30)) / 86400000;
+}
+
+function excelTimeFraction(hora: string): number | null {
+  const h = normalizarHoraInput(hora);
+  if (!h) return null;
+  const [hh, mm] = h.split(":").map(Number);
+  return ((hh * 60) + mm) / 1440;
+}
+
 function parseHorasInput(v: string): number {
   const raw = String(v || "").trim();
   if (!raw) return NaN;
@@ -1072,27 +1091,27 @@ export default function BancoHoras() {
           ? horaOuTraco(ajusteDia?.entrada1_antes)
           : usarAprox
             ? batidas.entrada1
-            : "sem snapshot";
+            : "";
         const saidaAntes = possuiAntesReal
           ? horaOuTraco(ajusteDia?.saida1_antes)
           : usarAprox
             ? batidas.saida1
-            : "sem snapshot";
+            : "";
         const entrada2Antes = possuiAntesReal
           ? horaOuTraco(ajusteDia?.entrada2_antes)
           : usarAprox
             ? batidas.entrada2
-            : "sem snapshot";
+            : "";
         const saida2Antes = possuiAntesReal
           ? horaOuTraco(ajusteDia?.saida2_antes)
           : usarAprox
             ? batidas.saida2
-            : "sem snapshot";
+            : "";
         const heDiaAntes = possuiAntesReal
           ? Number(Number(ajusteDia?.he_dia_antes || 0).toFixed(2))
           : usarAprox
             ? heDiaAntesAprox
-            : "sem snapshot";
+            : null;
 
         const entradaRef = batidas.entrada1 === "-" ? "" : batidas.entrada1;
         const saidaRef = batidas.saida1 === "-" ? "" : batidas.saida1;
@@ -1104,7 +1123,7 @@ export default function BancoHoras() {
         detalheRows.push({
           Colaborador: r.colaborador_nome,
           Equipe: r.equipe_label,
-          Data: fmtDate(dataIso),
+          Data: dataIso,
           "Entrada antes": entradaAntes,
           "Saída antes": saidaAntes,
           "2ª Entrada antes": entrada2Antes,
@@ -1142,10 +1161,97 @@ export default function BancoHoras() {
 
     const wsResumo = XLSX.utils.json_to_sheet(resumoRows);
     wsResumo["!cols"] = Object.keys(resumoRows[0] || {}).map((k) => ({ wch: Math.max(18, k.length + 2) }));
-    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo Nome a Nome");
 
     const wsDetalhe = XLSX.utils.json_to_sheet(detalheRows);
     wsDetalhe["!cols"] = Object.keys(detalheRows[0] || {}).map((k) => ({ wch: Math.max(16, k.length + 2) }));
+
+    const aplicarTiposExcel = (
+      ws: any,
+      opts: {
+        numeros?: string[];
+        datasIso?: string[];
+        horas?: string[];
+      }
+    ) => {
+      if (!ws?.["!ref"]) return;
+      const range = XLSX.utils.decode_range(ws["!ref"]);
+      const headers: string[] = [];
+      for (let c = range.s.c; c <= range.e.c; c += 1) {
+        const addr = XLSX.utils.encode_cell({ r: 0, c });
+        headers[c] = String(ws[addr]?.v || "").trim();
+      }
+
+      const idx = (name: string) => headers.findIndex((h) => h === name);
+
+      const setNumber = (row: number, colName: string, numFmt = "0.00") => {
+        const c = idx(colName);
+        if (c < 0) return;
+        const addr = XLSX.utils.encode_cell({ r: row, c });
+        const raw = ws[addr]?.v;
+        if (raw === "" || raw == null || Number.isNaN(Number(raw))) return;
+        ws[addr] = { t: "n", v: Number(raw), z: numFmt };
+      };
+
+      const setDateIso = (row: number, colName: string) => {
+        const c = idx(colName);
+        if (c < 0) return;
+        const addr = XLSX.utils.encode_cell({ r: row, c });
+        const raw = String(ws[addr]?.v || "");
+        const serial = excelDateSerial(raw);
+        if (serial == null) return;
+        ws[addr] = { t: "n", v: serial, z: "dd/mm/yyyy" };
+      };
+
+      const setHora = (row: number, colName: string) => {
+        const c = idx(colName);
+        if (c < 0) return;
+        const addr = XLSX.utils.encode_cell({ r: row, c });
+        const raw = String(ws[addr]?.v || "");
+        const frac = excelTimeFraction(raw);
+        if (frac == null) return;
+        ws[addr] = { t: "n", v: frac, z: "hh:mm" };
+      };
+
+      for (let rIx = 1; rIx <= range.e.r; rIx += 1) {
+        (opts.numeros || []).forEach((col) => setNumber(rIx, col));
+        (opts.datasIso || []).forEach((col) => setDateIso(rIx, col));
+        (opts.horas || []).forEach((col) => setHora(rIx, col));
+      }
+
+      ws["!autofilter"] = {
+        ref: XLSX.utils.encode_range({ s: { r: 0, c: range.s.c }, e: { r: range.e.r, c: range.e.c } }),
+      };
+    };
+
+    aplicarTiposExcel(wsResumo, {
+      numeros: [
+        "HE total antes (70%+100%)",
+        "HE 70% antes",
+        "HE 100% antes",
+        "HE 70% atualizada",
+        "HE 100% atualizada",
+        "HE total atualizada (70%+100%)",
+        "Diferença HE total (atual - antes)",
+      ],
+      horas: ["Entrada padrão atualizada", "Saída padrão atualizada"],
+    });
+
+    aplicarTiposExcel(wsDetalhe, {
+      numeros: ["H.E. dia antes", "Horas trabalhadas (dia)", "H.E. dia"],
+      datasIso: ["Data"],
+      horas: [
+        "Entrada antes",
+        "Saída antes",
+        "2ª Entrada antes",
+        "2ª Saída antes",
+        "Entrada atualizada",
+        "Saída atualizada",
+        "2ª Entrada",
+        "2ª Saída",
+      ],
+    });
+
+    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo Nome a Nome");
     XLSX.utils.book_append_sheet(wb, wsDetalhe, "Batidas Atualizadas");
 
     XLSX.writeFile(wb, `WF_BancoHoras_Relatorio_Ajustado_${mes}.xlsx`);
