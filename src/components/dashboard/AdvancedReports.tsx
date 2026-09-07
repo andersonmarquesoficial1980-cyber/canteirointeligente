@@ -140,6 +140,23 @@ export default function AdvancedReports() {
     try { return format(new Date(d + "T12:00:00"), "dd/MM/yyyy"); } catch { return d; }
   };
 
+  const parseDateCell = (value: string | null | undefined): Date | null => {
+    if (!value) return null;
+    const [y, m, d] = String(value).split("-").map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d, 12, 0, 0);
+  };
+
+  const parseTimeCell = (value: string | null | undefined): number | null => {
+    if (!value) return null;
+    const parts = String(value).split(":").map(Number);
+    if (parts.length < 2 || parts.some((n) => Number.isNaN(n))) return null;
+    const h = parts[0] || 0;
+    const m = parts[1] || 0;
+    const s = parts[2] || 0;
+    return (h * 3600 + m * 60 + s) / 86400;
+  };
+
   /* ── Exportar Transportes (Carreta) ── */
   const exportTransportes = async () => {
     const range = getRange();
@@ -183,7 +200,7 @@ export default function AdvancedReports() {
       const transportRows = allEntries.filter((r: any) => byDiaryId[r.diary_id]);
       const ogsLookup = await fetchOgsLookup(transportRows.flatMap((r: any) => [r.origin, r.destination]));
 
-      const rows = transportRows
+      const dataRows = transportRows
         .sort((a: any, b: any) => {
           const da = byDiaryId[a.diary_id]?.date || "";
           const db = byDiaryId[b.diary_id]?.date || "";
@@ -199,41 +216,74 @@ export default function AdvancedReports() {
           const orig = resolveOgs(r.origin, ogsLookup);
           const dest = resolveOgs(r.destination, ogsLookup);
 
-          return {
-            "Data": fmtDate(d?.date),
-            "Prefixo": d?.equipment_fleet || "—",
-            "KM Inicial": kmIni != null ? kmIni : "—",
-            "KM Final": kmFin != null ? kmFin : "—",
-            "KM Percorrido": kmRodado != null ? kmRodado : "—",
-            "Equipamento 01": descParts[0] || "—",
-            "Equipamento 02": descParts[1] || "—",
-            "Equipamento 03": descParts[2] || "—",
-            "Nº OGS (Origem)": orig.num,
-            "Endereço (Origem)": orig.addr,
-            "Nº OGS (Destino)": dest.num,
-            "Endereço (Destino)": dest.addr,
-            "Horário Início": r.start_time || "—",
-            "Horário Fim": r.end_time || "—",
-            "Observações / Finalidade": r.ogs_destination || r.activity || "—",
-          };
+          return [
+            parseDateCell(d?.date),
+            d?.equipment_fleet || "",
+            kmIni,
+            kmFin,
+            kmRodado,
+            descParts[0] || "",
+            descParts[1] || "",
+            descParts[2] || "",
+            orig.num === "—" ? "" : orig.num,
+            orig.addr === "—" ? "" : orig.addr,
+            dest.num === "—" ? "" : dest.num,
+            dest.addr === "—" ? "" : dest.addr,
+            parseTimeCell(r.start_time),
+            parseTimeCell(r.end_time),
+            r.ogs_destination || r.activity || "",
+          ];
         });
 
-      if (rows.length === 0) {
+      if (dataRows.length === 0) {
         toast.info("Nenhum transporte de Carreta encontrado no período.");
         return;
       }
 
-      const ws = XLSX.utils.json_to_sheet(rows);
+      const header = [[
+        "Data", "Prefixo", "KM Inicial", "KM Final", "KM Percorrido",
+        "Equipamento 01", "Equipamento 02", "Equipamento 03",
+        "Nº OGS (Origem)", "Endereço (Origem)", "Nº OGS (Destino)", "Endereço (Destino)",
+        "Horário Início", "Horário Fim", "Observações / Finalidade",
+      ]];
+
+      const ws = XLSX.utils.aoa_to_sheet([...header, ...dataRows], { cellDates: true });
       ws["!cols"] = [
         { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
         { wch: 18 }, { wch: 18 }, { wch: 18 },
         { wch: 12 }, { wch: 32 }, { wch: 12 }, { wch: 32 },
         { wch: 10 }, { wch: 10 }, { wch: 36 },
       ];
+
+      const totalRows = dataRows.length + 1;
+      for (let r = 2; r <= totalRows; r++) {
+        const dateCell = ws[`A${r}`];
+        if (dateCell && dateCell.v) {
+          dateCell.t = "d";
+          dateCell.z = "dd/mm/yyyy";
+        }
+
+        ["C", "D", "E"].forEach((col) => {
+          const cell = ws[`${col}${r}`];
+          if (cell && typeof cell.v === "number") {
+            cell.t = "n";
+            cell.z = "0";
+          }
+        });
+
+        ["M", "N"].forEach((col) => {
+          const cell = ws[`${col}${r}`];
+          if (cell && typeof cell.v === "number") {
+            cell.t = "n";
+            cell.z = "hh:mm:ss";
+          }
+        });
+      }
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Transportes Carreta");
-      XLSX.writeFile(wb, `Relatorio_Transporte_Periodo_Fremix.xlsx`);
-      toast.success(`${rows.length} registros exportados!`);
+      XLSX.writeFile(wb, `Relatorio_Transporte_Periodo_Fremix.xlsx`, { cellDates: true });
+      toast.success(`${dataRows.length} registros exportados em .xlsx tipado (data/número/hora)!`);
     } catch (err: any) {
       toast.error("Erro ao exportar: " + (err?.message || "desconhecido"));
     } finally {
