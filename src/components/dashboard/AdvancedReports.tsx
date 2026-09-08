@@ -300,6 +300,10 @@ export default function AdvancedReports() {
           const dest = resolveOgs(r.destination, ogsLookup);
           const origemEndereco = composeAddressWithKm(orig.addr === "—" ? "" : orig.addr, parsed.kmOrigem);
           const destinoEndereco = composeAddressWithKm(dest.addr === "—" ? "" : dest.addr, parsed.kmDestino);
+          const equipamentosAgrupados = [parsed.eq1, parsed.eq2, parsed.eq3]
+            .map((value) => up(value))
+            .filter(Boolean)
+            .join(" / ");
 
           return [
             parseDateCell(d?.date),
@@ -319,8 +323,7 @@ export default function AdvancedReports() {
             parseTimeCell(r.end_time),
             up(r.activity || ""),
             up(parsed.trecho),
-            up(r.ogs_destination || ""),
-            up(parsed.observacoes),
+            equipamentosAgrupados,
           ];
         });
 
@@ -334,7 +337,7 @@ export default function AdvancedReports() {
         "Equipamento 01", "Equipamento 02", "Equipamento 03", "Vazio (sem equipamento)",
         "Nº OGS (Origem)", "Endereço (Origem)",
         "Nº OGS (Destino)", "Endereço (Destino)",
-        "Horário Início", "Horário Fim", "Atividade", "Trecho", "OGS Destino", "Descrição Bruta",
+        "Horário Início", "Horário Fim", "Atividade", "Trecho", "Equipamentos (agrupado)",
       ]];
 
       const ws = XLSX.utils.aoa_to_sheet([...header, ...dataRows], { cellDates: true });
@@ -343,7 +346,7 @@ export default function AdvancedReports() {
         { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
         { wch: 12 }, { wch: 42 },
         { wch: 12 }, { wch: 42 },
-        { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 42 },
+        { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 24 }, { wch: 30 },
       ];
 
       const totalRows = dataRows.length + 1;
