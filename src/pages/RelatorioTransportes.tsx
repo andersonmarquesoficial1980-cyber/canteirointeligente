@@ -175,18 +175,29 @@ export default function RelatorioTransportes() {
        "Horário Início", "Horário Fim", "Atividade", "Trecho", "OGS de Destino", "Descrição Bruta"]
     ];
 
-    // Extrai número e endereço do campo raw (formato: "2534 | AV GENERAL..." ou "BASE / PÁTIO CENTRAL")
-    const resolveAddr = (raw: string) => {
-      if (!raw) return "";
-      if (raw.toUpperCase().includes("BASE")) return "PÁTIO CENTRAL / OFICINA";
-      if (raw.includes("|")) return raw.split("|").slice(1).join("|").trim(); // usa endereço já embutido
-      return raw;
+    const extractDigitsToken = (text: string) => {
+      const trimmed = (text || "").trim();
+      if (!trimmed) return "";
+      if (/^\d+$/.test(trimmed)) return trimmed;
+      const match = trimmed.match(/\b\d{3,6}\b/);
+      return match?.[0] || "";
     };
+
+    const resolveAddr = (raw: string) => {
+      const normalized = (raw || "").trim();
+      if (!normalized) return "";
+      if (normalized.toUpperCase().includes("BASE")) return "PÁTIO CENTRAL / OFICINA";
+      if (normalized.includes("|")) return normalized.split("|").slice(1).join("|").trim();
+      if (normalized.includes(" — ")) return normalized.split(" — ").slice(1).join(" — ").trim();
+      return extractDigitsToken(normalized) ? "" : normalized;
+    };
+
     const resolveNum = (raw: string) => {
-      if (!raw) return "";
-      if (raw.toUpperCase().includes("BASE")) return "BASE";
-      if (raw.includes("|")) return raw.split("|")[0].trim();
-      return raw.split(" ")[0];
+      const normalized = (raw || "").trim();
+      if (!normalized) return "";
+      if (normalized.includes("|")) return extractDigitsToken(normalized.split("|")[0] || "");
+      if (normalized.includes(" — ")) return extractDigitsToken(normalized.split(" — ")[0] || "");
+      return extractDigitsToken(normalized);
     };
 
     diarios.forEach((d: any) => {
