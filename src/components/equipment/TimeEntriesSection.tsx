@@ -81,27 +81,17 @@ function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string
 
   ogsData.forEach((o: any) => {
     if (!o.ogs_number) return;
-    const num = (o.ogs_number || "").toUpperCase();
-    if (num.includes("BASE") || num.includes("OSASCO")) return;
-    const addresses = o.location_address
-      ? o.location_address.split(";").map((s: string) => s.trim()).filter(Boolean)
-      : [];
+    const num = String(o.ogs_number || "").trim();
+    const numUpper = num.toUpperCase();
+    if (!num || numUpper.includes("BASE") || numUpper.includes("OSASCO")) return;
+    if (seen.has(num)) return;
+    seen.add(num);
 
-    if (addresses.length === 0) {
-      const key = o.ogs_number;
-      if (!seen.has(key)) {
-        seen.add(key);
-        options.push({ value: key, label: `${o.ogs_number} — ${o.client_name || ""}` });
-      }
-    } else {
-      addresses.forEach((addr: string) => {
-        const key = `${o.ogs_number} | ${addr}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          options.push({ value: key, label: `${o.ogs_number} — ${addr}` });
-        }
-      });
-    }
+    const cliente = String(o.client_name || "").trim();
+    options.push({
+      value: num,
+      label: cliente ? `${num} — ${cliente}` : num,
+    });
   });
 
   return options;
