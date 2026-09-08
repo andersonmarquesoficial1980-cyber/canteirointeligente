@@ -220,12 +220,24 @@ export default function AdvancedReports() {
       eq1: equips[0] || "",
       eq2: equips[1] || "",
       eq3: equips[2] || "",
-      vazio: isVazio ? "Sim" : "Não",
+      vazio: isVazio ? "SIM" : "NÃO",
       trecho,
       kmOrigem,
       kmDestino,
       observacoes: desc,
     };
+  };
+
+  const up = (value: string | null | undefined): string => (value || "").trim().toLocaleUpperCase("pt-BR");
+
+  const kmToToken = (km: number | null): string => {
+    if (km == null || Number.isNaN(km)) return "";
+    return Number.isInteger(km) ? `KM${km}` : `KM${String(km).replace(".", ",")}`;
+  };
+
+  const composeAddressWithKm = (address: string, kmInfo: { km: number | null; sentido: string }): string => {
+    const parts = [up(address), kmToToken(kmInfo.km), up(kmInfo.sentido)].filter(Boolean);
+    return parts.join(" | ");
   };
 
   /* ── Exportar Transportes (Carreta) ── */
@@ -286,33 +298,29 @@ export default function AdvancedReports() {
           const parsed = parseTransportDescription(r.description);
           const orig = resolveOgs(r.origin, ogsLookup);
           const dest = resolveOgs(r.destination, ogsLookup);
+          const origemEndereco = composeAddressWithKm(orig.addr === "—" ? "" : orig.addr, parsed.kmOrigem);
+          const destinoEndereco = composeAddressWithKm(dest.addr === "—" ? "" : dest.addr, parsed.kmDestino);
 
           return [
             parseDateCell(d?.date),
-            d?.equipment_fleet || "",
+            up(d?.equipment_fleet || ""),
             kmIni,
             kmFin,
             kmRodado,
-            parsed.eq1,
-            parsed.eq2,
-            parsed.eq3,
+            up(parsed.eq1),
+            up(parsed.eq2),
+            up(parsed.eq3),
             parsed.vazio,
             orig.num === "—" ? "" : orig.num,
-            orig.addr === "—" ? "" : orig.addr,
-            parsed.kmOrigem.km,
-            parsed.kmOrigem.sentido,
-            parsed.kmOrigem.texto,
+            origemEndereco,
             dest.num === "—" ? "" : dest.num,
-            dest.addr === "—" ? "" : dest.addr,
-            parsed.kmDestino.km,
-            parsed.kmDestino.sentido,
-            parsed.kmDestino.texto,
+            destinoEndereco,
             parseTimeCell(r.start_time),
             parseTimeCell(r.end_time),
-            r.activity || "",
-            parsed.trecho,
-            r.ogs_destination || "",
-            parsed.observacoes,
+            up(r.activity || ""),
+            up(parsed.trecho),
+            up(r.ogs_destination || ""),
+            up(parsed.observacoes),
           ];
         });
 
@@ -324,8 +332,8 @@ export default function AdvancedReports() {
       const header = [[
         "Data", "Prefixo", "KM Inicial", "KM Final", "KM Percorrido",
         "Equipamento 01", "Equipamento 02", "Equipamento 03", "Vazio (sem equipamento)",
-        "Nº OGS (Origem)", "Endereço (Origem)", "KM Origem", "Sentido Origem", "KM Origem (texto)",
-        "Nº OGS (Destino)", "Endereço (Destino)", "KM Destino", "Sentido Destino", "KM Destino (texto)",
+        "Nº OGS (Origem)", "Endereço (Origem)",
+        "Nº OGS (Destino)", "Endereço (Destino)",
         "Horário Início", "Horário Fim", "Atividade", "Trecho", "OGS Destino", "Descrição Bruta",
       ]];
 
@@ -333,8 +341,8 @@ export default function AdvancedReports() {
       ws["!cols"] = [
         { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
         { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
-        { wch: 12 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 20 },
-        { wch: 12 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 20 },
+        { wch: 12 }, { wch: 42 },
+        { wch: 12 }, { wch: 42 },
         { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 42 },
       ];
 
@@ -346,7 +354,7 @@ export default function AdvancedReports() {
           dateCell.z = "dd/mm/yyyy";
         }
 
-        ["C", "D", "E", "L", "Q"].forEach((col) => {
+        ["C", "D", "E"].forEach((col) => {
           const cell = ws[`${col}${r}`];
           if (cell && typeof cell.v === "number") {
             cell.t = "n";
@@ -354,7 +362,7 @@ export default function AdvancedReports() {
           }
         });
 
-        ["T", "U"].forEach((col) => {
+        ["N", "O"].forEach((col) => {
           const cell = ws[`${col}${r}`];
           if (cell && typeof cell.v === "number") {
             cell.t = "n";
