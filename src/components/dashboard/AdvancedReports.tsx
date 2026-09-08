@@ -140,6 +140,66 @@ export default function AdvancedReports() {
     try { return format(new Date(d + "T12:00:00"), "dd/MM/yyyy"); } catch { return d; }
   };
 
+  const extractTaggedValue = (text: string | null | undefined, tag: string): string => {
+    if (!text) return "";
+    const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = text.match(new RegExp(`${escaped}\\s*([^|]+)`, "i"));
+    return match?.[1]?.trim() || "";
+  };
+
+  const parseDirection = (value: string): string => {
+    const normalized = (value || "").toLowerCase();
+    if (normalized.includes("leste")) return "Leste";
+    if (normalized.includes("oeste")) return "Oeste";
+    if (normalized.includes("norte")) return "Norte";
+    if (normalized.includes("sul")) return "Sul";
+    return "";
+  };
+
+  const parseTrechoKm = (value: string): { km: number | null; sentido: string; texto: string } => {
+    const raw = (value || "").trim();
+    if (!raw) return { km: null, sentido: "", texto: "" };
+
+    const onlyNum = raw.replace(",", ".");
+    if (/^\d+(\.\d+)?$/.test(onlyNum)) {
+      return { km: Number(onlyNum), sentido: "", texto: raw };
+    }
+
+    const kmMatch = raw.match(/(\d+[\.,]?\d*)/);
+    const km = kmMatch ? Number(kmMatch[1].replace(",", ".")) : null;
+    return { km: Number.isFinite(km as number) ? km : null, sentido: parseDirection(raw), texto: raw };
+  };
+
+  const parseTransportDescription = (description: string | null | undefined) => {
+    const desc = (description || "").trim();
+    const parts = desc.split("|").map((s) => s.trim()).filter(Boolean);
+    const firstPart = parts[0] || "";
+
+    const isVazio = parts.some((p) => p.toUpperCase() === "VAZIO") || firstPart.toUpperCase() === "VAZIO";
+
+    const blockedHead = /^(TRECHO:|KM ORIGEM:|KM DESTINO:|RETORNO:|DETALHE:)/i.test(firstPart);
+    const equipHead = !isVazio && firstPart && !blockedHead ? firstPart : "";
+    const equips = equipHead.split(",").map((s) => s.trim()).filter(Boolean);
+
+    const trechoRaw = parts.find((p) => /^TRECHO:/i.test(p)) || "";
+    const trecho = trechoRaw.replace(/^TRECHO:\s*/i, "").trim();
+
+    const kmOrigemRaw = extractTaggedValue(desc, "KM Origem:");
+    const kmDestinoRaw = extractTaggedValue(desc, "KM Destino:");
+    const kmOrigem = parseTrechoKm(kmOrigemRaw);
+    const kmDestino = parseTrechoKm(kmDestinoRaw);
+
+    return {
+      eq1: equips[0] || "",
+      eq2: equips[1] || "",
+      eq3: equips[2] || "",
+      vazio: isVazio ? "Sim" : "Não",
+      trecho,
+      kmOrigem,
+      kmDestino,
+      observacoes: desc,
+    };
+  };
   /* ── Exportar Transportes (Carreta) ── */
   const exportTransportes = async () => {
     const range = getRange();
@@ -195,7 +255,7 @@ export default function AdvancedReports() {
           const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
           const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
           const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
-          const descParts = (r.description || "").split(",").map((s: string) => s.trim());
+          const parsed = parseTransportDescription(r.description);
           const orig = resolveOgs(r.origin, ogsLookup);
           const dest = resolveOgs(r.destination, ogsLookup);
 
@@ -205,16 +265,26 @@ export default function AdvancedReports() {
             "KM Inicial": kmIni != null ? kmIni : "—",
             "KM Final": kmFin != null ? kmFin : "—",
             "KM Percorrido": kmRodado != null ? kmRodado : "—",
-            "Equipamento 01": descParts[0] || "—",
-            "Equipamento 02": descParts[1] || "—",
-            "Equipamento 03": descParts[2] || "—",
+            "Equipamento 01": parsed.eq1 || "—",
+            "Equipamento 02": parsed.eq2 || "—",
+            "Equipamento 03": parsed.eq3 || "—",
+            "Vazio (sem equipamento)": parsed.vazio,
             "Nº OGS (Origem)": orig.num,
             "Endereço (Origem)": orig.addr,
+            "KM Origem": parsed.kmOrigem.km ?? "—",
+            "Sentido Origem": parsed.kmOrigem.sentido || "—",
+            "KM Origem (texto)": parsed.kmOrigem.texto || "—",
             "Nº OGS (Destino)": dest.num,
             "Endereço (Destino)": dest.addr,
+            "KM Destino": parsed.kmDestino.km ?? "—",
+            "Sentido Destino": parsed.kmDestino.sentido || "—",
+            "KM Destino (texto)": parsed.kmDestino.texto || "—",
             "Horário Início": r.start_time || "—",
             "Horário Fim": r.end_time || "—",
-            "Observações / Finalidade": r.ogs_destination || r.activity || "—",
+            "Atividade": r.activity || "—",
+            "Trecho": parsed.trecho || "—",
+            "OGS Destino": r.ogs_destination || "—",
+            "Descrição Bruta": parsed.observacoes || "—",
           };
         });
 
@@ -226,9 +296,10 @@ export default function AdvancedReports() {
       const ws = XLSX.utils.json_to_sheet(rows);
       ws["!cols"] = [
         { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
-        { wch: 18 }, { wch: 18 }, { wch: 18 },
-        { wch: 12 }, { wch: 32 }, { wch: 12 }, { wch: 32 },
-        { wch: 10 }, { wch: 10 }, { wch: 36 },
+        { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
+        { wch: 12 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 20 },
+        { wch: 12 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 20 },
+        { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 42 },
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Transportes Carreta");
