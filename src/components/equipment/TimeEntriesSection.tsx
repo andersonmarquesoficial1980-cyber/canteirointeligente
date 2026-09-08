@@ -42,9 +42,11 @@ export interface TimeEntry {
    maintenanceDetails?: string;
    origin?: string;
    originCustom?: string;
+   originAddress?: string;
    originKm?: string;
    destination?: string;
    destinationCustom?: string;
+   destinationAddress?: string;
    destinationKm?: string;
    transportObs?: string;
    transportOgs?: string;
@@ -75,7 +77,14 @@ interface Props {
   equipmentType?: string;
 }
 
-function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string }[] {
+function parseAddresses(raw: string | null | undefined): string[] {
+  return String(raw || "")
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function buildOgsNumberOptions(ogsData: any[]): { value: string; label: string }[] {
   const options: { value: string; label: string }[] = [];
   const seen = new Set<string>();
 
@@ -97,6 +106,20 @@ function buildOgsLocationOptions(ogsData: any[]): { value: string; label: string
   return options;
 }
 
+function buildOgsAddressesByNumber(ogsData: any[]): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  ogsData.forEach((o: any) => {
+    const num = String(o?.ogs_number || "").trim();
+    if (!num) return;
+    const addresses = parseAddresses(o?.location_address);
+    if (!map[num]) map[num] = [];
+    addresses.forEach((addr) => {
+      if (!map[num].includes(addr)) map[num].push(addr);
+    });
+  });
+  return map;
+}
+
 export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
   return {
     id: crypto.randomUUID(),
@@ -106,8 +129,10 @@ export function createDefaultTimeEntry(turno: "diurno" | "noturno"): TimeEntry {
     isParada: false,
     maintenanceDetails: "",
     origin: "",
+    originAddress: "",
     originKm: "",
     destination: "",
+    destinationAddress: "",
     destinationKm: "",
     transportObs: "",
     transportOgs: "",
@@ -150,7 +175,8 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
     if (!selectedType) return [];
     return listEquipmentFleetsByCategory(fleetOptions as any[], selectedType);
   };
-  const ogsLocationOptions = useMemo(() => buildOgsLocationOptions(ogsData), [ogsData]);
+  const ogsNumberOptions = useMemo(() => buildOgsNumberOptions(ogsData), [ogsData]);
+  const ogsAddressesByNumber = useMemo(() => buildOgsAddressesByNumber(ogsData), [ogsData]);
   const addEntry = () => {
     const lastEnd = entries.length > 0 ? entries[entries.length - 1].endTime : "";
     onChange([
@@ -173,8 +199,10 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
         if (value !== "Manutenção") newEntry.maintenanceDetails = "";
         if (value !== "Transporte") {
           newEntry.origin = "";
+          newEntry.originAddress = "";
           newEntry.originKm = "";
           newEntry.destination = "";
+          newEntry.destinationAddress = "";
           newEntry.destinationKm = "";
           newEntry.transportObs = "";
           newEntry.transportOgs = "";
@@ -315,16 +343,20 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                       />
                       <button
                         type="button"
-                        onClick={() => updateEntry(idx, "origin", "", { originCustom: "", originKm: "" })}
+                        onClick={() => updateEntry(idx, "origin", "", { originCustom: "", originAddress: "", originKm: "" })}
                         className="text-muted-foreground hover:text-foreground px-1.5"
                         title="Limpar"
                       >✕</button>
                     </div>
                   ) : (
-                    <Select value={entry.origin || ""} onValueChange={(v) => updateEntry(idx, "origin", v, {
-                      originCustom: "",
-                      originKm: shouldShowRodoviaKm(v) ? (entry.originKm || "") : "",
-                    })}>
+                    <Select value={entry.origin || ""} onValueChange={(v) => {
+                      const addresses = ogsAddressesByNumber[v] || [];
+                      updateEntry(idx, "origin", v, {
+                        originCustom: "",
+                        originAddress: addresses.length === 1 ? addresses[0] : "",
+                        originKm: shouldShowRodoviaKm(v) ? (entry.originKm || "") : "",
+                      });
+                    }}>
                       <SelectTrigger className="bg-secondary border-border h-9 text-xs">
                         <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
@@ -335,7 +367,7 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                             {BASE_PATIO_VALUE}
                           </span>
                         </SelectItem>
-                        {ogsLocationOptions.map((opt) => (
+                        {ogsNumberOptions.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
                         ))}
                         <SelectItem value="__OUTROS__" className="text-xs font-semibold text-primary">✏️ Outros (digitar)</SelectItem>
@@ -343,6 +375,25 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                     </Select>
                   )}
                 </div>
+
+                {entry.origin && entry.origin !== BASE_PATIO_VALUE && entry.origin !== "__OUTROS__" && (ogsAddressesByNumber[entry.origin] || []).length > 1 && (
+                  <div className="space-y-1 col-span-2">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Rodovia/Endereço da Origem *</span>
+                    <Select
+                      value={entry.originAddress || ""}
+                      onValueChange={(v) => updateEntry(idx, "originAddress", v)}
+                    >
+                      <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                        <SelectValue placeholder="Selecione a rodovia/endereço..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {(ogsAddressesByNumber[entry.origin] || []).map((addr) => (
+                          <SelectItem key={`${entry.origin}-${addr}`} value={addr} className="text-xs">{addr}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {shouldShowRodoviaKm(entry.origin) && (
                   <div className="space-y-1">
@@ -370,21 +421,23 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                       />
                       <button
                         type="button"
-                        onClick={() => updateEntry(idx, "destination", "", { destinationCustom: "", destinationKm: "" })}
+                        onClick={() => updateEntry(idx, "destination", "", { destinationCustom: "", destinationAddress: "", destinationKm: "" })}
                         className="text-muted-foreground hover:text-foreground px-1.5"
                         title="Limpar"
                       >✕</button>
                     </div>
                   ) : (
                     <Select value={entry.destination || ""} onValueChange={(v) => {
+                      const addresses = ogsAddressesByNumber[v] || [];
                       const extra: Partial<TimeEntry> = v !== BASE_PATIO_VALUE
                         ? {
                             returnReason: "",
                             returnDetails: "",
                             destinationCustom: "",
+                            destinationAddress: addresses.length === 1 ? addresses[0] : "",
                             destinationKm: shouldShowRodoviaKm(v) ? (entry.destinationKm || "") : "",
                           }
-                        : { destinationCustom: "", destinationKm: "" };
+                        : { destinationCustom: "", destinationAddress: "", destinationKm: "" };
                       updateEntry(idx, "destination", v, extra);
                     }}>
                       <SelectTrigger className="bg-secondary border-border h-9 text-xs">
@@ -397,7 +450,7 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                             {BASE_PATIO_VALUE}
                           </span>
                         </SelectItem>
-                        {ogsLocationOptions.map((opt) => (
+                        {ogsNumberOptions.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
                         ))}
                         <SelectItem value="__OUTROS__" className="text-xs font-semibold text-primary">✏️ Outros (digitar)</SelectItem>
@@ -405,6 +458,25 @@ export default function TimeEntriesSection({ entries, onChange, turno, showTrans
                     </Select>
                   )}
                 </div>
+
+                {entry.destination && entry.destination !== BASE_PATIO_VALUE && entry.destination !== "__OUTROS__" && (ogsAddressesByNumber[entry.destination] || []).length > 1 && (
+                  <div className="space-y-1 col-span-2">
+                    <span className="text-[10px] font-semibold text-accent uppercase">Rodovia/Endereço do Destino *</span>
+                    <Select
+                      value={entry.destinationAddress || ""}
+                      onValueChange={(v) => updateEntry(idx, "destinationAddress", v)}
+                    >
+                      <SelectTrigger className="bg-secondary border-border h-9 text-xs">
+                        <SelectValue placeholder="Selecione a rodovia/endereço..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {(ogsAddressesByNumber[entry.destination] || []).map((addr) => (
+                          <SelectItem key={`${entry.destination}-${addr}`} value={addr} className="text-xs">{addr}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {shouldShowRodoviaKm(entry.destination) && (
                   <div className="space-y-1">

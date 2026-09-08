@@ -58,6 +58,23 @@ function extractOgsNumberFromLocation(raw: string | null | undefined): string {
   return normalized;
 }
 
+function extractLocationAddressFromRaw(raw: string | null | undefined): string {
+  const normalized = (raw || "").trim();
+  if (!normalized) return "";
+  if (normalized.includes("|")) return normalized.split("|").slice(1).join("|").trim();
+  if (normalized.includes(" — ")) return normalized.split(" — ").slice(1).join(" — ").trim();
+  return "";
+}
+
+function composeLocationValue(numberValue: string | null | undefined, addressValue: string | null | undefined): string | null {
+  const num = String(numberValue || "").trim();
+  const addr = String(addressValue || "").trim();
+  if (!num) return null;
+  if (num === "__OUTROS__") return null;
+  if (!addr || num.toUpperCase().includes("BASE")) return num;
+  return `${num} | ${addr}`;
+}
+
 function requiresRodoviaKm(raw: string | null | undefined): boolean {
   return extractOgsNumberFromLocation(raw) === OGS_RODOVIA_KM_REQUIRED;
 }
@@ -67,6 +84,13 @@ function extractTaggedValue(text: string | null | undefined, tag: string): strin
   const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = text.match(new RegExp(`${escaped}\\s*([^|]+)`, "i"));
   return match?.[1]?.trim() || "";
+}
+
+function parseAddressList(raw: string | null | undefined): string[] {
+  return String(raw || "")
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 // Frotas removidas do hardcode — agora vêm de maquinas_frota (Painel de Controle)
@@ -255,6 +279,19 @@ export default function EquipmentDiaryForm() {
   }, [isCaminhoes, caminhaoTipo, equipmentTypeNorm]);
 
   const { data: ogsData = [] } = useOgsReference();
+  const ogsAddressesByNumber = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    (ogsData || []).forEach((o: any) => {
+      const num = String(o?.ogs_number || "").trim();
+      if (!num) return;
+      const list = parseAddressList(o?.location_address);
+      if (!map[num]) map[num] = [];
+      list.forEach((addr) => {
+        if (!map[num].includes(addr)) map[num].push(addr);
+      });
+    });
+    return map;
+  }, [ogsData]);
 
   // Form state
   const [selectedFleet, setSelectedFleet] = useState("");
@@ -1040,9 +1077,17 @@ export default function EquipmentDiaryForm() {
             activity: row.activity || "",
             isParada: ["Refeições", "À Disposição", "Manutenção"].includes(row.activity || ""),
             maintenanceDetails: row.activity === "Manutenção" ? row.description || "" : "",
-            origin: row.origin || "",
+            origin: row.origin && !String(row.origin).includes("|") && !String(row.origin).includes(" — ") && !/^[0-9]+$/.test(String(row.origin).trim()) && !String(row.origin).toUpperCase().includes("BASE")
+              ? "__OUTROS__"
+              : (extractOgsNumberFromLocation(row.origin) || row.origin || ""),
+            originCustom: row.origin && !String(row.origin).includes("|") && !String(row.origin).includes(" — ") && !/^[0-9]+$/.test(String(row.origin).trim()) && !String(row.origin).toUpperCase().includes("BASE") ? row.origin : "",
+            originAddress: extractLocationAddressFromRaw(row.origin),
             originKm: extractTaggedValue(row.description, KM_ORIGEM_TAG),
-            destination: row.destination || "",
+            destination: row.destination && !String(row.destination).includes("|") && !String(row.destination).includes(" — ") && !/^[0-9]+$/.test(String(row.destination).trim()) && !String(row.destination).toUpperCase().includes("BASE")
+              ? "__OUTROS__"
+              : (extractOgsNumberFromLocation(row.destination) || row.destination || ""),
+            destinationCustom: row.destination && !String(row.destination).includes("|") && !String(row.destination).includes(" — ") && !/^[0-9]+$/.test(String(row.destination).trim()) && !String(row.destination).toUpperCase().includes("BASE") ? row.destination : "",
+            destinationAddress: extractLocationAddressFromRaw(row.destination),
             destinationKm: extractTaggedValue(row.description, KM_DESTINO_TAG),
             transportObs: row.activity === "Transporte" && !isCarreta ? row.description || "" : "",
             transportOgs: row.ogs_destination || "",
@@ -1790,6 +1835,40 @@ export default function EquipmentDiaryForm() {
       return cancelSave();
     }
 
+    const idxOrigemEnderecoPendente = isCarreta
+      ? transportesCarreta.findIndex((t) => {
+          const num = extractOgsNumberFromLocation(t.origin);
+          if (!num || num === "BASE" || t.origin === "__OUTROS__") return false;
+          const options = ogsAddressesByNumber[num] || [];
+          return options.length > 1 && !String(t.originAddress || "").trim();
+        })
+      : -1;
+    if (idxOrigemEnderecoPendente >= 0) {
+      toast({
+        title: "⚠️ Endereço da origem obrigatório",
+        description: `No apontamento de transporte #${idxOrigemEnderecoPendente + 1}, selecione a rodovia/endereço da origem.`,
+        variant: "destructive",
+      });
+      return cancelSave();
+    }
+
+    const idxDestinoEnderecoPendente = isCarreta
+      ? transportesCarreta.findIndex((t) => {
+          const num = extractOgsNumberFromLocation(t.destination);
+          if (!num || num === "BASE" || t.destination === "__OUTROS__") return false;
+          const options = ogsAddressesByNumber[num] || [];
+          return options.length > 1 && !String(t.destinationAddress || "").trim();
+        })
+      : -1;
+    if (idxDestinoEnderecoPendente >= 0) {
+      toast({
+        title: "⚠️ Endereço do destino obrigatório",
+        description: `No apontamento de transporte #${idxDestinoEnderecoPendente + 1}, selecione a rodovia/endereço do destino.`,
+        variant: "destructive",
+      });
+      return cancelSave();
+    }
+
     if (!isOnline) {
       if (isEditMode) {
         toast({
@@ -2008,8 +2087,12 @@ export default function EquipmentDiaryForm() {
             end_time: t.endTime || null,
             activity: t.activity,
             description,
-            origin: t.origin === "__OUTROS__" ? (t.originCustom || null) : (t.origin || null),
-            destination: t.destination === "__OUTROS__" ? (t.destinationCustom || null) : (t.destination || null),
+            origin: t.origin === "__OUTROS__"
+              ? (t.originCustom || null)
+              : composeLocationValue(t.origin, t.originAddress),
+            destination: t.destination === "__OUTROS__"
+              ? (t.destinationCustom || null)
+              : composeLocationValue(t.destination, t.destinationAddress),
             ogs_destination: t.transportOgs || null,
           };
         });
@@ -2040,8 +2123,12 @@ export default function EquipmentDiaryForm() {
             const lastOdom = usesOdometer ? lastMeter : null;
             const lastHorimetro = !usesOdometer ? lastMeter : null;
 
-            const origemDesc = t.origin === "__OUTROS__" ? (t.originCustom || t.origin) : t.origin;
-            const destinoDesc = t.destination === "__OUTROS__" ? (t.destinationCustom || t.destination) : t.destination;
+            const origemDesc = t.origin === "__OUTROS__"
+              ? (t.originCustom || t.origin)
+              : composeLocationValue(t.origin, t.originAddress);
+            const destinoDesc = t.destination === "__OUTROS__"
+              ? (t.destinationCustom || t.destination)
+              : composeLocationValue(t.destination, t.destinationAddress);
 
             if (equipsList.length === 0) {
               // Carreta andou vazia ou sem equipamento informado — registra o trecho mesmo assim
