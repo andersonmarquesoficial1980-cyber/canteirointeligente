@@ -150,6 +150,23 @@ export default function AdvancedReports() {
     try { return format(new Date(d + "T12:00:00"), "dd/MM/yyyy"); } catch { return d; }
   };
 
+  const parseDateCell = (value: string | null | undefined): Date | null => {
+    if (!value) return null;
+    const [y, m, d] = String(value).split("-").map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d, 12, 0, 0);
+  };
+
+  const parseTimeCell = (value: string | null | undefined): number | null => {
+    if (!value) return null;
+    const parts = String(value).split(":").map(Number);
+    if (parts.length < 2 || parts.some((n) => Number.isNaN(n))) return null;
+    const h = parts[0] || 0;
+    const m = parts[1] || 0;
+    const s = parts[2] || 0;
+    return (h * 3600 + m * 60 + s) / 86400;
+  };
+
   const extractTaggedValue = (text: string | null | undefined, tag: string): string => {
     if (!text) return "";
     const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -203,13 +220,26 @@ export default function AdvancedReports() {
       eq1: equips[0] || "",
       eq2: equips[1] || "",
       eq3: equips[2] || "",
-      vazio: isVazio ? "Sim" : "Não",
+      vazio: isVazio ? "SIM" : "NÃO",
       trecho,
       kmOrigem,
       kmDestino,
       observacoes: desc,
     };
   };
+
+  const up = (value: string | null | undefined): string => (value || "").trim().toLocaleUpperCase("pt-BR");
+
+  const kmToToken = (km: number | null): string => {
+    if (km == null || Number.isNaN(km)) return "";
+    return Number.isInteger(km) ? `KM${km}` : `KM${String(km).replace(".", ",")}`;
+  };
+
+  const composeAddressWithKm = (address: string, kmInfo: { km: number | null; sentido: string }): string => {
+    const parts = [up(address), kmToToken(kmInfo.km), up(kmInfo.sentido)].filter(Boolean);
+    return parts.join(" | ");
+  };
+
   /* ── Exportar Transportes (Carreta) ── */
   const exportTransportes = async () => {
     const range = getRange();
@@ -253,7 +283,7 @@ export default function AdvancedReports() {
       const transportRows = allEntries.filter((r: any) => byDiaryId[r.diary_id]);
       const ogsLookup = await fetchOgsLookup(transportRows.flatMap((r: any) => [r.origin, r.destination]));
 
-      const rows = transportRows
+      const dataRows = transportRows
         .sort((a: any, b: any) => {
           const da = byDiaryId[a.diary_id]?.date || "";
           const db = byDiaryId[b.diary_id]?.date || "";
@@ -268,53 +298,83 @@ export default function AdvancedReports() {
           const parsed = parseTransportDescription(r.description);
           const orig = resolveOgs(r.origin, ogsLookup);
           const dest = resolveOgs(r.destination, ogsLookup);
+          const origemEndereco = composeAddressWithKm(orig.addr === "—" ? "" : orig.addr, parsed.kmOrigem);
+          const destinoEndereco = composeAddressWithKm(dest.addr === "—" ? "" : dest.addr, parsed.kmDestino);
 
-          return {
-            "Data": fmtDate(d?.date),
-            "Prefixo": d?.equipment_fleet || "—",
-            "KM Inicial": kmIni != null ? kmIni : "—",
-            "KM Final": kmFin != null ? kmFin : "—",
-            "KM Percorrido": kmRodado != null ? kmRodado : "—",
-            "Equipamento 01": parsed.eq1 || "—",
-            "Equipamento 02": parsed.eq2 || "—",
-            "Equipamento 03": parsed.eq3 || "—",
-            "Vazio (sem equipamento)": parsed.vazio,
-            "Nº OGS (Origem)": orig.num,
-            "Endereço (Origem)": orig.addr,
-            "KM Origem": parsed.kmOrigem.km ?? "—",
-            "Sentido Origem": parsed.kmOrigem.sentido || "—",
-            "KM Origem (texto)": parsed.kmOrigem.texto || "—",
-            "Nº OGS (Destino)": dest.num,
-            "Endereço (Destino)": dest.addr,
-            "KM Destino": parsed.kmDestino.km ?? "—",
-            "Sentido Destino": parsed.kmDestino.sentido || "—",
-            "KM Destino (texto)": parsed.kmDestino.texto || "—",
-            "Horário Início": r.start_time || "—",
-            "Horário Fim": r.end_time || "—",
-            "Atividade": r.activity || "—",
-            "Trecho": parsed.trecho || "—",
-            "OGS Destino": r.ogs_destination || "—",
-            "Descrição Bruta": parsed.observacoes || "—",
-          };
+          return [
+            parseDateCell(d?.date),
+            up(d?.equipment_fleet || ""),
+            kmIni,
+            kmFin,
+            kmRodado,
+            up(parsed.eq1),
+            up(parsed.eq2),
+            up(parsed.eq3),
+            parsed.vazio,
+            orig.num === "—" ? "" : orig.num,
+            origemEndereco,
+            dest.num === "—" ? "" : dest.num,
+            destinoEndereco,
+            parseTimeCell(r.start_time),
+            parseTimeCell(r.end_time),
+            up(r.activity || ""),
+            up(parsed.trecho),
+            up(r.ogs_destination || ""),
+            up(parsed.observacoes),
+          ];
         });
 
-      if (rows.length === 0) {
+      if (dataRows.length === 0) {
         toast.info("Nenhum transporte de Carreta encontrado no período.");
         return;
       }
 
-      const ws = XLSX.utils.json_to_sheet(rows);
+      const header = [[
+        "Data", "Prefixo", "KM Inicial", "KM Final", "KM Percorrido",
+        "Equipamento 01", "Equipamento 02", "Equipamento 03", "Vazio (sem equipamento)",
+        "Nº OGS (Origem)", "Endereço (Origem)",
+        "Nº OGS (Destino)", "Endereço (Destino)",
+        "Horário Início", "Horário Fim", "Atividade", "Trecho", "OGS Destino", "Descrição Bruta",
+      ]];
+
+      const ws = XLSX.utils.aoa_to_sheet([...header, ...dataRows], { cellDates: true });
       ws["!cols"] = [
         { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
         { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
-        { wch: 12 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 20 },
-        { wch: 12 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 20 },
+        { wch: 12 }, { wch: 42 },
+        { wch: 12 }, { wch: 42 },
         { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 42 },
       ];
+
+      const totalRows = dataRows.length + 1;
+      for (let r = 2; r <= totalRows; r++) {
+        const dateCell = ws[`A${r}`];
+        if (dateCell && dateCell.v) {
+          dateCell.t = "d";
+          dateCell.z = "dd/mm/yyyy";
+        }
+
+        ["C", "D", "E"].forEach((col) => {
+          const cell = ws[`${col}${r}`];
+          if (cell && typeof cell.v === "number") {
+            cell.t = "n";
+            cell.z = "0";
+          }
+        });
+
+        ["N", "O"].forEach((col) => {
+          const cell = ws[`${col}${r}`];
+          if (cell && typeof cell.v === "number") {
+            cell.t = "n";
+            cell.z = "hh:mm:ss";
+          }
+        });
+      }
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Transportes Carreta");
-      XLSX.writeFile(wb, `Relatorio_Transporte_Periodo_Fremix.xlsx`);
-      toast.success(`${rows.length} registros exportados!`);
+      XLSX.writeFile(wb, `Relatorio_Transporte_Periodo_Fremix.xlsx`, { cellDates: true });
+      toast.success(`${dataRows.length} registros exportados em .xlsx tipado (data/número/hora)!`);
     } catch (err: any) {
       toast.error("Erro ao exportar: " + (err?.message || "desconhecido"));
     } finally {
