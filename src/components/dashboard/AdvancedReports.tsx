@@ -35,21 +35,27 @@ const getLocationAddresses = (locationAddress: string | null | undefined): strin
     .map((item) => item.trim())
     .filter(Boolean);
 
+const extractDigitsToken = (text: string): string => {
+  const trimmed = (text || "").trim();
+  if (!trimmed) return "";
+  if (/^\d+$/.test(trimmed)) return trimmed;
+  const match = trimmed.match(/\b\d{3,6}\b/);
+  return match?.[0] || "";
+};
+
 const extractOgsNumber = (raw: string | null | undefined): string => {
   if (!raw) return "";
   const normalized = raw.trim();
   if (!normalized || normalized === "—") return "";
 
-  if (normalized.toUpperCase().includes("BASE")) return "BASE";
-
   if (normalized.includes("|")) {
-    return normalized.split("|")[0]?.trim() || "";
+    return extractDigitsToken(normalized.split("|")[0] || "");
   }
 
   const sep = normalized.indexOf(" — ");
-  if (sep > -1) return normalized.substring(0, sep).trim();
+  if (sep > -1) return extractDigitsToken(normalized.substring(0, sep));
 
-  return normalized;
+  return extractDigitsToken(normalized);
 };
 
 const extractAddressFromRaw = (raw: string | null | undefined): string => {
@@ -61,13 +67,14 @@ const extractAddressFromRaw = (raw: string | null | undefined): string => {
 
   if (normalized.includes("|")) {
     const parts = normalized.split("|");
-    return parts.slice(1).join("|").trim();
+    const right = parts.slice(1).join("|").trim();
+    return right || "";
   }
 
   const sep = normalized.indexOf(" — ");
   if (sep > -1) return normalized.substring(sep + 3).trim();
 
-  return "";
+  return extractDigitsToken(normalized) ? "" : normalized;
 };
 
 const buildOgsLookupMap = (rows: Array<{ ogs_number: string | null; location_address: string | null }>): OgsLookupMap => {
@@ -90,10 +97,13 @@ const buildOgsLookupMap = (rows: Array<{ ogs_number: string | null; location_add
 
 const resolveOgs = (raw: string | null | undefined, ogsLookup: OgsLookupMap): { num: string; addr: string } => {
   const num = extractOgsNumber(raw);
-  if (!num) return EMPTY_OGS;
-  if (num === "BASE") return BASE_OGS;
-
   const addressFromRaw = extractAddressFromRaw(raw);
+
+  if (!num) {
+    if (addressFromRaw) return { num: "—", addr: addressFromRaw };
+    return EMPTY_OGS;
+  }
+
   if (addressFromRaw) return { num, addr: addressFromRaw };
 
   const addresses = ogsLookup[num] || [];
@@ -105,7 +115,7 @@ const resolveOgs = (raw: string | null | undefined, ogsLookup: OgsLookupMap): { 
 
 const fetchOgsLookup = async (rawValues: Array<string | null | undefined>): Promise<OgsLookupMap> => {
   const ogsNumbers = Array.from(
-    new Set(rawValues.map(extractOgsNumber).filter((num) => Boolean(num) && num !== "BASE"))
+    new Set(rawValues.map(extractOgsNumber).filter((num) => Boolean(num)))
   );
 
   if (ogsNumbers.length === 0) return {};
