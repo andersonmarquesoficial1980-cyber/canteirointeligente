@@ -157,6 +157,67 @@ export default function AdvancedReports() {
     return (h * 3600 + m * 60 + s) / 86400;
   };
 
+  const extractTaggedValue = (text: string | null | undefined, tag: string): string => {
+    if (!text) return "";
+    const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = text.match(new RegExp(`${escaped}\\s*([^|]+)`, "i"));
+    return match?.[1]?.trim() || "";
+  };
+
+  const parseDirection = (value: string): string => {
+    const normalized = (value || "").toLowerCase();
+    if (normalized.includes("leste")) return "Leste";
+    if (normalized.includes("oeste")) return "Oeste";
+    if (normalized.includes("norte")) return "Norte";
+    if (normalized.includes("sul")) return "Sul";
+    return "";
+  };
+
+  const parseTrechoKm = (value: string): { km: number | null; sentido: string; texto: string } => {
+    const raw = (value || "").trim();
+    if (!raw) return { km: null, sentido: "", texto: "" };
+
+    const onlyNum = raw.replace(",", ".");
+    if (/^\d+(\.\d+)?$/.test(onlyNum)) {
+      return { km: Number(onlyNum), sentido: "", texto: raw };
+    }
+
+    const kmMatch = raw.match(/(\d+[\.,]?\d*)/);
+    const km = kmMatch ? Number(kmMatch[1].replace(",", ".")) : null;
+    return { km: Number.isFinite(km as number) ? km : null, sentido: parseDirection(raw), texto: raw };
+  };
+
+  const parseTransportDescription = (description: string | null | undefined) => {
+    const desc = (description || "").trim();
+    const parts = desc.split("|").map((s) => s.trim()).filter(Boolean);
+    const firstPart = parts[0] || "";
+
+    const isVazio = parts.some((p) => p.toUpperCase() === "VAZIO") || firstPart.toUpperCase() === "VAZIO";
+
+    const blockedHead = /^(TRECHO:|KM ORIGEM:|KM DESTINO:|RETORNO:|DETALHE:)/i.test(firstPart);
+    const equipHead = !isVazio && firstPart && !blockedHead ? firstPart : "";
+    const equips = equipHead.split(",").map((s) => s.trim()).filter(Boolean);
+
+    const trechoRaw = parts.find((p) => /^TRECHO:/i.test(p)) || "";
+    const trecho = trechoRaw.replace(/^TRECHO:\s*/i, "").trim();
+
+    const kmOrigemRaw = extractTaggedValue(desc, "KM Origem:");
+    const kmDestinoRaw = extractTaggedValue(desc, "KM Destino:");
+    const kmOrigem = parseTrechoKm(kmOrigemRaw);
+    const kmDestino = parseTrechoKm(kmDestinoRaw);
+
+    return {
+      eq1: equips[0] || "",
+      eq2: equips[1] || "",
+      eq3: equips[2] || "",
+      vazio: isVazio ? "Sim" : "Não",
+      trecho,
+      kmOrigem,
+      kmDestino,
+      observacoes: desc,
+    };
+  };
+
   /* ── Exportar Transportes (Carreta) ── */
   const exportTransportes = async () => {
     const range = getRange();
@@ -212,7 +273,7 @@ export default function AdvancedReports() {
           const kmIni = d?.odometer_initial != null ? Number(d.odometer_initial) : null;
           const kmFin = d?.odometer_final != null ? Number(d.odometer_final) : null;
           const kmRodado = kmIni != null && kmFin != null ? kmFin - kmIni : null;
-          const descParts = (r.description || "").split(",").map((s: string) => s.trim());
+          const parsed = parseTransportDescription(r.description);
           const orig = resolveOgs(r.origin, ogsLookup);
           const dest = resolveOgs(r.destination, ogsLookup);
 
@@ -222,16 +283,26 @@ export default function AdvancedReports() {
             kmIni,
             kmFin,
             kmRodado,
-            descParts[0] || "",
-            descParts[1] || "",
-            descParts[2] || "",
+            parsed.eq1,
+            parsed.eq2,
+            parsed.eq3,
+            parsed.vazio,
             orig.num === "—" ? "" : orig.num,
             orig.addr === "—" ? "" : orig.addr,
+            parsed.kmOrigem.km,
+            parsed.kmOrigem.sentido,
+            parsed.kmOrigem.texto,
             dest.num === "—" ? "" : dest.num,
             dest.addr === "—" ? "" : dest.addr,
+            parsed.kmDestino.km,
+            parsed.kmDestino.sentido,
+            parsed.kmDestino.texto,
             parseTimeCell(r.start_time),
             parseTimeCell(r.end_time),
-            r.ogs_destination || r.activity || "",
+            r.activity || "",
+            parsed.trecho,
+            r.ogs_destination || "",
+            parsed.observacoes,
           ];
         });
 
@@ -242,17 +313,19 @@ export default function AdvancedReports() {
 
       const header = [[
         "Data", "Prefixo", "KM Inicial", "KM Final", "KM Percorrido",
-        "Equipamento 01", "Equipamento 02", "Equipamento 03",
-        "Nº OGS (Origem)", "Endereço (Origem)", "Nº OGS (Destino)", "Endereço (Destino)",
-        "Horário Início", "Horário Fim", "Observações / Finalidade",
+        "Equipamento 01", "Equipamento 02", "Equipamento 03", "Vazio (sem equipamento)",
+        "Nº OGS (Origem)", "Endereço (Origem)", "KM Origem", "Sentido Origem", "KM Origem (texto)",
+        "Nº OGS (Destino)", "Endereço (Destino)", "KM Destino", "Sentido Destino", "KM Destino (texto)",
+        "Horário Início", "Horário Fim", "Atividade", "Trecho", "OGS Destino", "Descrição Bruta",
       ]];
 
       const ws = XLSX.utils.aoa_to_sheet([...header, ...dataRows], { cellDates: true });
       ws["!cols"] = [
         { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 13 },
-        { wch: 18 }, { wch: 18 }, { wch: 18 },
-        { wch: 12 }, { wch: 32 }, { wch: 12 }, { wch: 32 },
-        { wch: 10 }, { wch: 10 }, { wch: 36 },
+        { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
+        { wch: 12 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 20 },
+        { wch: 12 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 20 },
+        { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 42 },
       ];
 
       const totalRows = dataRows.length + 1;
@@ -263,7 +336,7 @@ export default function AdvancedReports() {
           dateCell.z = "dd/mm/yyyy";
         }
 
-        ["C", "D", "E"].forEach((col) => {
+        ["C", "D", "E", "L", "Q"].forEach((col) => {
           const cell = ws[`${col}${r}`];
           if (cell && typeof cell.v === "number") {
             cell.t = "n";
@@ -271,7 +344,7 @@ export default function AdvancedReports() {
           }
         });
 
-        ["M", "N"].forEach((col) => {
+        ["T", "U"].forEach((col) => {
           const cell = ws[`${col}${r}`];
           if (cell && typeof cell.v === "number") {
             cell.t = "n";

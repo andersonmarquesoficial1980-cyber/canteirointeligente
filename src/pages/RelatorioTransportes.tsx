@@ -35,8 +35,20 @@ function parseEquipamentos(desc: string | null): [string, string, string] {
   if (!desc) return ["", "", ""];
   const head = desc.split("|")[0]?.trim() || "";
   if (!head || head.toUpperCase() === "VAZIO") return ["", "", ""];
+  if (/^(TRECHO:|KM ORIGEM:|KM DESTINO:|RETORNO:|DETALHE:)/i.test(head)) return ["", "", ""];
   const parts = head.split(",").map(s => s.trim()).filter(Boolean);
   return [parts[0] || "", parts[1] || "", parts[2] || ""];
+}
+
+function parseTrecho(desc: string | null | undefined): string {
+  if (!desc) return "";
+  const match = desc.match(/Trecho:\s*([^|]+)/i);
+  return match?.[1]?.trim() || "";
+}
+
+function isVazio(desc: string | null | undefined): string {
+  if (!desc) return "Não";
+  return desc.split("|").some((p) => p.trim().toUpperCase() === "VAZIO") ? "Sim" : "Não";
 }
 
 // Ordena apontamentos respeitando turno noturno (virada de meia-noite)
@@ -157,9 +169,10 @@ export default function RelatorioTransportes() {
     const linhas: string[][] = [
       ["Data", "Cavalo Mecânico", "Prancha", "Operador", "Turno",
        "KM Inicial", "KM Final", "KM Percorrido",
-       "Equip. 01", "Equip. 02", "Equip. 03",
-       "OGS Origem", "Endereço Origem", "OGS Destino", "Endereço Destino",
-       "Horário Início", "Horário Fim", "Atividade", "Observações"]
+       "Equip. 01", "Equip. 02", "Equip. 03", "Vazio",
+       "OGS Origem", "Endereço Origem", "KM Origem",
+       "OGS Destino", "Endereço Destino", "KM Destino",
+       "Horário Início", "Horário Fim", "Atividade", "Trecho", "OGS de Destino", "Descrição Bruta"]
     ];
 
     // Extrai número e endereço do campo raw (formato: "2534 | AV GENERAL..." ou "BASE / PÁTIO CENTRAL")
@@ -186,17 +199,20 @@ export default function RelatorioTransportes() {
       if (entries.length === 0) {
         linhas.push([fmtDate(d.date), d.equipment_fleet, prancha, d.operator_name, d.period,
           kmIni > 0 ? String(kmIni) : "", kmFin > 0 ? String(kmFin) : "", kmPerc > 0 ? String(kmPerc) : "",
-          "", "", "", "", "", "", "", "", "", "", d.observations || ""]);
+          "", "", "", "Não", "", "", "", "", "", "", "", "", "", "", "", d.observations || ""]);
       } else {
         entries.forEach((e: any) => {
           const [eq1, eq2, eq3] = parseEquipamentos(e.description);
-          const obs = "";
+          const vazio = isVazio(e.description);
+          const kmOrigem = extractTaggedValue(e.description, "KM Origem:");
+          const kmDestino = extractTaggedValue(e.description, "KM Destino:");
+          const trecho = parseTrecho(e.description);
           linhas.push([fmtDate(d.date), d.equipment_fleet, prancha, d.operator_name, d.period,
             kmIni > 0 ? String(kmIni) : "", kmFin > 0 ? String(kmFin) : "", kmPerc > 0 ? String(kmPerc) : "",
-            eq1, eq2, eq3,
-            resolveNum(e.origin), resolveAddr(e.origin),
-            resolveNum(e.destination), resolveAddr(e.destination),
-            e.start_time || "", e.end_time || "", e.activity || "", obs]);
+            eq1, eq2, eq3, vazio,
+            resolveNum(e.origin), resolveAddr(e.origin), kmOrigem,
+            resolveNum(e.destination), resolveAddr(e.destination), kmDestino,
+            e.start_time || "", e.end_time || "", e.activity || "", trecho, e.ogs_destination || "", e.description || ""]);
         });
       }
     });
