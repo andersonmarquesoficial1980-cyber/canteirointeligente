@@ -568,6 +568,7 @@ export default function ProgramacaoFerias() {
       .from("employees")
       .select("id,name,matricula,role,data_admissao,centro_custo,status")
       .eq("company_id", COMPANY_ID)
+      .or("origem.is.null,origem.neq.TERCEIRO")
       .in("status", ["ativo", "ferias"])
       .order("name");
 

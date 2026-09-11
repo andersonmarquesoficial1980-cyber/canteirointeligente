@@ -353,7 +353,11 @@ export default function GestaoPessoasDashboard() {
   const [pendenciasAbertas, setPendenciasAbertas] = useState(0);
 
   useEffect(() => {
-    supabase.from("employees").select("*").order("name")
+    supabase
+      .from("employees")
+      .select("*")
+      .or("origem.is.null,origem.neq.TERCEIRO")
+      .order("name")
       .then(({ data }) => { if (data) setTodos(data as any); setLoading(false); });
   }, []);
 

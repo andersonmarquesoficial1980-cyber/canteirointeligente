@@ -571,7 +571,11 @@ export default function GestaoPessoasEquipe() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from("employees").select("*").order("name"),
+      supabase
+        .from("employees")
+        .select("*")
+        .or("origem.is.null,origem.neq.TERCEIRO")
+        .order("name"),
       (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"),
       (supabase as any).from("vacation_records").select("id,employee_id,data_inicio,data_fim").order("data_inicio", { ascending: false }),
     ]).then(([employeesResp, equipesResp, feriasResp]) => {
