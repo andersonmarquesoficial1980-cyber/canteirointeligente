@@ -253,6 +253,22 @@ export default function OrcamentosHome() {
     return (margem / receitaProposta) * 100;
   }, [margem, receitaProposta]);
 
+  const resumoPorFuncao = useMemo(() => {
+    const mapa = new Map<string, { funcao: string; quantidade: number; total: number }>();
+
+    itens
+      .filter((item) => item.categoria === "Mão de obra")
+      .forEach((item) => {
+        const funcao = (item.referencia || "Sem função").trim() || "Sem função";
+        const atual = mapa.get(funcao) || { funcao, quantidade: 0, total: 0 };
+        atual.quantidade += Number(item.quantidade || 0);
+        atual.total += calcularTotalItem(item);
+        mapa.set(funcao, atual);
+      });
+
+    return Array.from(mapa.values()).sort((a, b) => b.total - a.total);
+  }, [itens]);
+
   useEffect(() => {
     inicializar();
   }, []);
@@ -699,6 +715,25 @@ export default function OrcamentosHome() {
                 </div>
               );
             })}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Resumo por função (Mão de obra)</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {resumoPorFuncao.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem itens de mão de obra para resumir.</p>
+            ) : (
+              resumoPorFuncao.map((r) => (
+                <div key={r.funcao} className="border rounded-md px-3 py-2 flex items-center justify-between gap-3 text-sm">
+                  <div>
+                    <div className="font-semibold">{r.funcao}</div>
+                    <div className="text-xs text-muted-foreground">Quantidade total: {r.quantidade}</div>
+                  </div>
+                  <div className="font-bold">{toMoney(r.total)}</div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
