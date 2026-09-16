@@ -85,7 +85,7 @@ function novoItemDefault(): OrcamentoItem {
   return {
     id: crypto.randomUUID(),
     categoria: "Mão de obra",
-    referencia: "Ajudante",
+    referencia: "",
     descricao: "",
     natureza: "previsto",
     motivoNaoPrevisto: "",
@@ -441,6 +441,16 @@ export default function OrcamentosHome() {
       return;
     }
 
+    const semFuncao = itens.find((item) => item.categoria === "Mão de obra" && !String(item.referencia || "").trim());
+    if (semFuncao) {
+      toast({
+        title: "Função obrigatória",
+        description: "Selecione a função em todos os itens de Mão de obra antes de salvar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const semMotivo = itens.find((item) => item.natureza === "nao_previsto" && !item.motivoNaoPrevisto.trim());
     if (semMotivo) {
       toast({
@@ -663,6 +673,7 @@ export default function OrcamentosHome() {
                           value={item.referencia}
                           onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
                         >
+                          <option value="">Selecione a função</option>
                           {[
                             ...(item.referencia && !(funcoesCadastro.length > 0 ? funcoesCadastro : FUNCOES_MAO_OBRA).includes(item.referencia)
                               ? [item.referencia]
