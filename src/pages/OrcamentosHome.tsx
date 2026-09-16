@@ -666,19 +666,22 @@ export default function OrcamentosHome() {
                           ))}
                         </select>
                       ) : item.categoria === "Equipamentos" ? (
-                        <select
-                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                          value={item.referencia}
-                          onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
-                        >
-                          <option value="">Selecione o Tipo de Equipamento</option>
-                          {[
-                            ...(item.referencia && !referenciasEquipamentos.includes(item.referencia) ? [item.referencia] : []),
-                            ...referenciasEquipamentos,
-                          ].map((op) => (
-                            <option key={op} value={op}>{op}</option>
-                          ))}
-                        </select>
+                        <>
+                          <Input
+                            list={`tipos-equip-${item.id}`}
+                            placeholder="Digite ou selecione o Tipo de Equipamento"
+                            value={item.referencia}
+                            onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
+                          />
+                          <datalist id={`tipos-equip-${item.id}`}>
+                            {[
+                              ...(item.referencia && !referenciasEquipamentos.includes(item.referencia) ? [item.referencia] : []),
+                              ...referenciasEquipamentos,
+                            ].map((op) => (
+                              <option key={op} value={op} />
+                            ))}
+                          </datalist>
+                        </>
                       ) : (
                         <>
                           <Input
