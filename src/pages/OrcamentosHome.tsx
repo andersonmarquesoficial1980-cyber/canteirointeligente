@@ -73,7 +73,7 @@ type CampoDetalhamento = {
 };
 
 const CATEGORIAS: CategoriaItem[] = ["Mão de obra", "Equipamentos", "Transporte", "Materiais", "Terceiros", "Outros"];
-const FUNCOES_MAO_OBRA = ["Ajudante", "Operador", "Motorista", "Encarregado", "Rasteleiro", "Sinaleiro"];
+const FUNCOES_MAO_OBRA = ["Ajudante Geral", "Operador", "Motorista", "Encarregado", "Rasteleiro", "Sinaleiro"];
 const REFERENCIAS_EQUIPAMENTOS = ["Rolo compactador", "Vibroacabadora", "Fresadora", "Pá carregadeira", "Caminhão pipa"];
 const REFERENCIAS_TRANSPORTE = ["Caminhão toco", "Carreta", "Bitrem", "Van", "Ônibus"];
 
@@ -158,6 +158,13 @@ function unidadePadraoPorCategoria(categoria: CategoriaItem): string {
   return "un";
 }
 
+function normalizarFuncaoMaoDeObra(referencia: string): string {
+  const valor = String(referencia || "").trim();
+  if (!valor) return "";
+  if (valor.toLowerCase() === "ajudante") return "Ajudante Geral";
+  return valor;
+}
+
 function placeholderReferencia(categoria: CategoriaItem) {
   if (categoria === "Mão de obra") return "Função (ex: Ajudante, Operador)";
   if (categoria === "Equipamentos") return "Equipamento (ex: Rolo BW)";
@@ -197,47 +204,7 @@ export default function OrcamentosHome() {
   const [impostosPercentual, setImpostosPercentual] = useState<number>(6);
   const [contingenciaPercentual, setContingenciaPercentual] = useState<number>(3);
 
-  const [itens, setItens] = useState<OrcamentoItem[]>([
-    {
-      id: "1",
-      categoria: "Mão de obra",
-      referencia: "Ajudante",
-      descricao: "Equipe de execução principal",
-      natureza: "previsto",
-      motivoNaoPrevisto: "",
-      quantidade: 5,
-      unidade: "dia",
-      fatorAplicacao: 22,
-      unitario: 182,
-      detalhamento: { salario: 95, beneficios: 35, encargos: 42, adicionais: 10 },
-    },
-    {
-      id: "2",
-      categoria: "Equipamentos",
-      referencia: "Rolo compactador BW",
-      descricao: "Compactação",
-      natureza: "previsto",
-      motivoNaoPrevisto: "",
-      quantidade: 1,
-      unidade: "hora",
-      fatorAplicacao: 180,
-      unitario: 165,
-      detalhamento: { locacao: 90, combustivel: 40, manutencao: 20, operador: 15 },
-    },
-    {
-      id: "3",
-      categoria: "Transporte",
-      referencia: "Caminhão toco",
-      descricao: "Frete de material",
-      natureza: "previsto",
-      motivoNaoPrevisto: "",
-      quantidade: 12,
-      unidade: "viagem",
-      fatorAplicacao: 1,
-      unitario: 620,
-      detalhamento: { frete: 430, motorista: 120, pedagio: 35, diaria: 35 },
-    },
-  ]);
+  const [itens, setItens] = useState<OrcamentoItem[]>([novoItemDefault()]);
 
   const custoPrevisto = useMemo(
     () => itens.filter((item) => item.natureza === "previsto").reduce((acc, item) => acc + calcularTotalItem(item), 0),
@@ -402,7 +369,7 @@ export default function OrcamentosHome() {
       const base: OrcamentoItem = {
         id: i.id,
         categoria,
-        referencia: i.referencia || "",
+        referencia: categoria === "Mão de obra" ? normalizarFuncaoMaoDeObra(i.referencia || "") : (i.referencia || ""),
         descricao: i.descricao || "",
         natureza: (i.natureza === "nao_previsto" ? "nao_previsto" : "previsto") as NaturezaItem,
         motivoNaoPrevisto: i.motivo_nao_previsto || "",
