@@ -423,8 +423,8 @@ function AppRoutes() {
         <Route path="/gestao-frotas/multas" element={<RequireModule moduleId="gestao-frotas"><GestaoFrotasMultas /></RequireModule>} />
         <Route path="/gestao-frotas/documentos" element={<RequireModule moduleId="gestao-frotas"><ManutencaoDocumentos /></RequireModule>} />
         <Route path="/equipamentos/prontuario/:id" element={<RequireModule moduleId="equipamentos"><EquipamentoProntuario /></RequireModule>} />
-        <Route path="/manutencao/ocorrencias" element={<RequireModule moduleId="equipamentos"><EquipamentoOcorrencias /></RequireModule>} />
-        <Route path="/manutencao/ocorrencia/:id" element={<RequireModule moduleId="equipamentos"><OcorrenciaDetalhe /></RequireModule>} />
+        <Route path="/manutencao/ocorrencias" element={<RequireModule moduleId="manutencao"><EquipamentoOcorrencias /></RequireModule>} />
+        <Route path="/manutencao/ocorrencia/:id" element={<RequireModule moduleId="manutencao"><OcorrenciaDetalhe /></RequireModule>} />
         <Route path="/medicoes/terceiros" element={<RequireModule moduleId="medicoes"><MedicoesTerceiros /></RequireModule>} />
         <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
         <Route path="/gestao-pessoas/gerenciamento-ponto" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasGerenciamentoPonto /></RequireModule>} />
