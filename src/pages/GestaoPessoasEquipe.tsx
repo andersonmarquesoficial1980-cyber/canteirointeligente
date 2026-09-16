@@ -567,7 +567,13 @@ export default function GestaoPessoasEquipe() {
   if (origem) currentParams.set("origem", origem);
   currentParams.set("aba", aba);
   if (busca.trim()) currentParams.set("q", busca);
-  const returnTo = encodeURIComponent(`${location.pathname}?${currentParams.toString()}`);
+  const withContext = (path: string) => {
+    const [pathname, queryString = ""] = path.split("?");
+    const params = new URLSearchParams(queryString);
+    if (origem) params.set("origem", origem);
+    params.set("returnTo", `${location.pathname}?${currentParams.toString()}`);
+    return `${pathname}?${params.toString()}`;
+  };
 
   useEffect(() => {
     Promise.all([
@@ -1119,7 +1125,7 @@ export default function GestaoPessoasEquipe() {
       )
     : todos;
 
-  const irFuncionario = (id: string) => navigate(`/gestao-pessoas/${id}?returnTo=${returnTo}`);
+  const irFuncionario = (id: string) => navigate(withContext(`/gestao-pessoas/${id}`));
 
   const irProgramacaoFerias = (f: Funcionario) => {
     const params = new URLSearchParams();

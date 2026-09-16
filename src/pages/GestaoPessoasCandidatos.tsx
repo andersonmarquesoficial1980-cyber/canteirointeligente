@@ -47,7 +47,10 @@ export default function GestaoPessoasCandidatos() {
     const [pathname, queryString = ""] = path.split("?");
     const params = new URLSearchParams(queryString);
     if (origem) params.set("origem", origem);
-    params.set("returnTo", `${location.pathname}${location.search}`);
+    const returnToParams = new URLSearchParams(location.search);
+    returnToParams.delete("returnTo");
+    const returnToBase = `${location.pathname}${returnToParams.toString() ? `?${returnToParams.toString()}` : ""}`;
+    params.set("returnTo", returnToBase);
     return `${pathname}?${params.toString()}`;
   };
   const { profile } = useUserProfile();
