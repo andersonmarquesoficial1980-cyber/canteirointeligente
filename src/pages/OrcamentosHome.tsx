@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { supabase } from "@/integrations/supabase/client";
 
 type CategoriaItem = "Mão de obra" | "Equipamentos" | "Transporte" | "Materiais" | "Terceiros" | "Outros";
@@ -74,7 +75,6 @@ type CampoDetalhamento = {
 
 const CATEGORIAS: CategoriaItem[] = ["Mão de obra", "Equipamentos", "Transporte", "Materiais", "Terceiros", "Outros"];
 const FUNCOES_MAO_OBRA = ["Ajudante Geral", "Operador", "Motorista", "Encarregado", "Rasteleiro", "Sinaleiro"];
-const REFERENCIAS_EQUIPAMENTOS = ["Rolo compactador", "Vibroacabadora", "Fresadora", "Pá carregadeira", "Caminhão pipa"];
 const REFERENCIAS_TRANSPORTE = ["Caminhão toco", "Carreta", "Bitrem", "Van", "Ônibus"];
 
 function toMoney(v: number) {
@@ -176,7 +176,6 @@ function placeholderReferencia(categoria: CategoriaItem) {
 
 function sugestoesReferencia(categoria: CategoriaItem): string[] {
   if (categoria === "Mão de obra") return FUNCOES_MAO_OBRA;
-  if (categoria === "Equipamentos") return REFERENCIAS_EQUIPAMENTOS;
   if (categoria === "Transporte") return REFERENCIAS_TRANSPORTE;
   return [];
 }
@@ -184,6 +183,7 @@ function sugestoesReferencia(categoria: CategoriaItem): string[] {
 export default function OrcamentosHome() {
   const goBack = useSmartBack("/");
   const { toast } = useToast();
+  const { tiposFlat: tiposEquipamentosFlat } = useEquipamentoTipos();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -205,6 +205,11 @@ export default function OrcamentosHome() {
   const [contingenciaPercentual, setContingenciaPercentual] = useState<number>(3);
 
   const [itens, setItens] = useState<OrcamentoItem[]>([novoItemDefault()]);
+
+  const referenciasEquipamentos = useMemo(() => {
+    const labels = (tiposEquipamentosFlat || []).map((t) => String(t.label || "").trim()).filter(Boolean);
+    return Array.from(new Set(labels));
+  }, [tiposEquipamentosFlat]);
 
   const custoPrevisto = useMemo(
     () => itens.filter((item) => item.natureza === "previsto").reduce((acc, item) => acc + calcularTotalItem(item), 0),
@@ -646,6 +651,20 @@ export default function OrcamentosHome() {
                               ? [item.referencia]
                               : []),
                             ...(funcoesCadastro.length > 0 ? funcoesCadastro : FUNCOES_MAO_OBRA),
+                          ].map((op) => (
+                            <option key={op} value={op}>{op}</option>
+                          ))}
+                        </select>
+                      ) : item.categoria === "Equipamentos" ? (
+                        <select
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={item.referencia}
+                          onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
+                        >
+                          <option value="">Selecione o Tipo de Equipamento</option>
+                          {[
+                            ...(item.referencia && !referenciasEquipamentos.includes(item.referencia) ? [item.referencia] : []),
+                            ...referenciasEquipamentos,
                           ].map((op) => (
                             <option key={op} value={op}>{op}</option>
                           ))}
