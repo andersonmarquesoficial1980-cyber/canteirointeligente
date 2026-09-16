@@ -664,6 +664,26 @@ export default function RdoForm() {
     return data?.id as string | undefined;
   }, []);
 
+  const logDupBlockEvent = useCallback(async (args: {
+    stage: "rascunho" | "envio" | "filhos" | "desconhecido";
+    scope: string;
+    rdoId?: string | null;
+    errorCode?: string | null;
+    payload?: Record<string, unknown>;
+  }) => {
+    try {
+      await (supabase as any).rpc("log_rdo_dup_block_event", {
+        p_stage: args.stage,
+        p_scope: args.scope,
+        p_rdo_id: args.rdoId ?? null,
+        p_error_code: args.errorCode ?? null,
+        p_payload: args.payload ?? {},
+      });
+    } catch {
+      // telemetria não pode quebrar o fluxo principal
+    }
+  }, []);
+
   const persistRdoChildren = useCallback(async (rdoId: string) => {
     const deleteTables = [
       "rdo_efetivo",
@@ -739,7 +759,18 @@ export default function RdoForm() {
       );
       if (entries.length > 0) {
         const { error } = await supabase.from("rdo_producao").insert(entries);
-        if (error) throw error;
+        if (error) {
+          if (isUniqueViolation(error)) {
+            await logDupBlockEvent({
+              stage: "filhos",
+              scope: "rdo_producao.infra",
+              rdoId,
+              errorCode: String(error.code || ""),
+              payload: { qtd_tentada: entries.length },
+            });
+          }
+          throw error;
+        }
       }
     }
 
@@ -799,7 +830,18 @@ export default function RdoForm() {
       );
       if (trechoEntries.length > 0) {
         const { error } = await supabase.from("rdo_producao").insert(trechoEntries);
-        if (error) throw error;
+        if (error) {
+          if (isUniqueViolation(error)) {
+            await logDupBlockEvent({
+              stage: "filhos",
+              scope: "rdo_producao.cauq",
+              rdoId,
+              errorCode: String(error.code || ""),
+              payload: { qtd_tentada: trechoEntries.length },
+            });
+          }
+          throw error;
+        }
       }
 
       const sinalizacoesRows = sinalizacoesHorizontais
@@ -823,7 +865,19 @@ export default function RdoForm() {
 
       if (sinalizacoesRows.length > 0) {
         const { error: sinalizacaoError } = await (supabase as any).from("rdo_sinalizacao_horizontal").insert(sinalizacoesRows);
-        if (sinalizacaoError) throw sinalizacaoError;
+        if (sinalizacaoError) {
+          if (isUniqueViolation(sinalizacaoError)) {
+            await logDupBlockEvent({
+              stage: "filhos",
+              scope: "rdo_sinalizacao_horizontal",
+              rdoId,
+              errorCode: String(sinalizacaoError.code || ""),
+              payload: { qtd_tentada: sinalizacoesRows.length },
+            });
+          } else {
+            throw sinalizacaoError;
+          }
+        }
       }
 
       const hasDmt = Object.values(informacoesDmt).some((value) => String(value || "").trim() !== "");
@@ -834,7 +888,18 @@ export default function RdoForm() {
           dmt_usina_km: informacoesDmt.dmt_usina_km ? parseFloat(informacoesDmt.dmt_usina_km.replace(",", ".")) : null,
           dmt_canteiro_km: informacoesDmt.dmt_canteiro_km ? parseFloat(informacoesDmt.dmt_canteiro_km.replace(",", ".")) : null,
         });
-        if (dmtError) throw dmtError;
+        if (dmtError) {
+          if (isUniqueViolation(dmtError)) {
+            await logDupBlockEvent({
+              stage: "filhos",
+              scope: "rdo_informacoes_dmt",
+              rdoId,
+              errorCode: String(dmtError.code || ""),
+            });
+          } else {
+            throw dmtError;
+          }
+        }
       }
     }
 
@@ -880,7 +945,19 @@ export default function RdoForm() {
 
     if (equipEntries.length > 0) {
       const { error } = await (supabase as any).from("rdo_equipamentos").insert(equipEntries);
-      if (error) throw error;
+      if (error) {
+        if (isUniqueViolation(error)) {
+          await logDupBlockEvent({
+            stage: "filhos",
+            scope: "rdo_equipamentos",
+            rdoId,
+            errorCode: String(error.code || ""),
+            payload: { qtd_tentada: equipEntries.length },
+          });
+        } else {
+          throw error;
+        }
+      }
     }
 
     // NF de Massa
@@ -912,7 +989,19 @@ export default function RdoForm() {
 
     if (nfEntries.length > 0) {
       const { error } = await (supabase as any).from("rdo_nf_massa").insert(nfEntries);
-      if (error) throw error;
+      if (error) {
+        if (isUniqueViolation(error)) {
+          await logDupBlockEvent({
+            stage: "filhos",
+            scope: "rdo_nf_massa",
+            rdoId,
+            errorCode: String(error.code || ""),
+            payload: { qtd_tentada: nfEntries.length },
+          });
+        } else {
+          throw error;
+        }
+      }
     }
 
     // NF de Concreto (Infra)
@@ -940,7 +1029,19 @@ export default function RdoForm() {
 
       if (nfConcretoEntries.length > 0) {
         const { error } = await (supabase as any).from("rdo_nf_concreto").insert(nfConcretoEntries);
-        if (error) throw new Error(`Falha ao salvar NFs de concreto: ${error.message}`);
+        if (error) {
+          if (isUniqueViolation(error)) {
+            await logDupBlockEvent({
+              stage: "filhos",
+              scope: "rdo_nf_concreto",
+              rdoId,
+              errorCode: String(error.code || ""),
+              payload: { qtd_tentada: nfConcretoEntries.length },
+            });
+          } else {
+            throw new Error(`Falha ao salvar NFs de concreto: ${error.message}`);
+          }
+        }
       }
     }
 
@@ -973,7 +1074,19 @@ export default function RdoForm() {
 
     if (efEntries.length > 0) {
       const { error } = await supabase.from("rdo_efetivo").insert(efEntries);
-      if (error) throw error;
+      if (error) {
+        if (isUniqueViolation(error)) {
+          await logDupBlockEvent({
+            stage: "filhos",
+            scope: "rdo_efetivo",
+            rdoId,
+            errorCode: String(error.code || ""),
+            payload: { qtd_tentada: efEntries.length },
+          });
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Efetivo Terceirizado
@@ -995,7 +1108,19 @@ export default function RdoForm() {
 
     if (tercEntries.length > 0) {
       const { error } = await (supabase as any).from("rdo_efetivo_terceiros").insert(tercEntries);
-      if (error) throw error;
+      if (error) {
+        if (isUniqueViolation(error)) {
+          await logDupBlockEvent({
+            stage: "filhos",
+            scope: "rdo_efetivo_terceiros",
+            rdoId,
+            errorCode: String(error.code || ""),
+            payload: { qtd_tentada: tercEntries.length },
+          });
+        } else {
+          throw error;
+        }
+      }
     }
   }, [
     tipoRdo,
@@ -1019,6 +1144,7 @@ export default function RdoForm() {
     empresasTerceiras,
     funcionariosTerceiros,
     profile?.company_id,
+    logDupBlockEvent,
   ]);
 
   // Save Draft handler
@@ -1101,6 +1227,20 @@ export default function RdoForm() {
               user_id: user.id,
             });
 
+            await logDupBlockEvent({
+              stage: "rascunho",
+              scope: "rdo_diarios",
+              rdoId: existingId || null,
+              errorCode: String(error.code || ""),
+              payload: {
+                strategy: existingId ? "fallback_update" : "conflict_without_match",
+                data: draftPayload.data,
+                obra_nome: draftPayload.obra_nome,
+                tipo_rdo: draftPayload.tipo_rdo,
+                turno: draftPayload.turno,
+              },
+            });
+
             if (!existingId) throw error;
             rdoId = existingId;
 
@@ -1154,6 +1294,7 @@ export default function RdoForm() {
     setSearchParams,
     persistRdoChildren,
     findExistingRdoIdByNaturalKey,
+    logDupBlockEvent,
     toast,
   ]);
 
@@ -1651,6 +1792,20 @@ export default function RdoForm() {
               turno: rdoPayload.turno,
               company_id: rdoPayload.company_id,
               user_id: user.id,
+            });
+
+            await logDupBlockEvent({
+              stage: "envio",
+              scope: "rdo_diarios",
+              rdoId: existingId || null,
+              errorCode: String(rdoError.code || ""),
+              payload: {
+                strategy: existingId ? "fallback_update" : "conflict_without_match",
+                data: rdoPayload.data,
+                obra_nome: rdoPayload.obra_nome,
+                tipo_rdo: rdoPayload.tipo_rdo,
+                turno: rdoPayload.turno,
+              },
             });
             if (!existingId) throw rdoError;
             rdoId = existingId;
