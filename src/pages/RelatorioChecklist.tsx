@@ -758,21 +758,6 @@ export default function RelatorioChecklist() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase">Top pendências por operador</p>
-              {coverageByOperador.slice(0, 12).map((row) => (
-                <div key={`o-${row.chave}`} className="flex items-center justify-between rounded-xl border border-border px-2 py-1.5">
-                  <div>
-                    <p className="text-xs font-bold">{row.operador}</p>
-                    <p className="text-[10px] text-muted-foreground">{row.frota} · {row.tipoEquip}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-xs font-extrabold ${row.diariosSemChecklist > 0 ? "text-rose-600" : "text-emerald-600"}`}>{row.diariosSemChecklist} sem checklist</p>
-                    <p className="text-[10px] text-muted-foreground">{row.diariosComChecklist}/{row.totalDiarios} · {row.aderenciaPct}%</p>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Resultados */}
