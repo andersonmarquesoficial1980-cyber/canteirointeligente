@@ -43,6 +43,22 @@ const parseBRNumber = (value: string | number | null | undefined): number | null
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const normTxt = (value: unknown) => String(value ?? "").trim().toUpperCase();
+const normNum = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : -1;
+};
+const dedupeByKey = <T,>(items: T[], keyFn: (item: T) => string): T[] => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = keyFn(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+const isUniqueViolation = (error: any) => String(error?.code || "") === "23505";
+
 const SENTIDOS_VALIDOS = new Set(["CRESCENTE", "DECRESCENTE"]);
 
 function splitSentidoFaixa(raw: unknown): { sentido: string; faixa: string } {
@@ -226,6 +242,8 @@ export default function RdoForm() {
   const [globalEntrada, setGlobalEntrada] = useState("");
   const [globalSaida, setGlobalSaida] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
+  const submitInFlightRef = useRef(false);
+  const draftInFlightRef = useRef(false);
   const [draftId, setDraftId] = useState<string | null>(null); // ID do rascunho salvo — evita duplicatas
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
   const [copiandoDiaAnterior, setCopiandoDiaAnterior] = useState(false);
@@ -619,6 +637,33 @@ export default function RdoForm() {
     }
   }, [header.turno]);
 
+  const findExistingRdoIdByNaturalKey = useCallback(async (payload: {
+    data: string;
+    obra_nome: string;
+    tipo_rdo: string | null;
+    preenchido_por: string;
+    turno: string;
+    company_id: string | null;
+    user_id: string;
+  }) => {
+    const { data, error } = await (supabase as any)
+      .from("rdo_diarios")
+      .select("id, created_at")
+      .eq("data", payload.data)
+      .eq("obra_nome", payload.obra_nome)
+      .eq("tipo_rdo", payload.tipo_rdo)
+      .eq("preenchido_por", payload.preenchido_por)
+      .eq("turno", payload.turno)
+      .eq("company_id", payload.company_id)
+      .eq("user_id", payload.user_id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data?.id as string | undefined;
+  }, []);
+
   const persistRdoChildren = useCallback(async (rdoId: string) => {
     const deleteTables = [
       "rdo_efetivo",
@@ -648,36 +693,50 @@ export default function RdoForm() {
 
     // Produção (infra)
     if (tipoRdo === "INFRAESTRUTURA" && !semProducao) {
-      const entries = infraProducao
-        .filter(p =>
-          p.tipo_servico || p.sentido || p.estaca_inicial || p.estaca_final ||
-          p.comprimento_m || p.largura_m || p.espessura_cm
-        )
-        .map(p => {
-          const comp = p.comprimento_m ? parseFloat(String(p.comprimento_m).replace(",", ".")) : null;
-          const larg = p.largura_m ? parseFloat(String(p.largura_m).replace(",", ".")) : null;
-          const esp = p.espessura_cm ? parseFloat(String(p.espessura_cm).replace(",", ".")) : null;
-          const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
-          const volume = area && esp ? Math.round(area * (esp / 100) * 1000) / 1000 : null;
-          return {
-            rdo_id: rdoId,
-            company_id: profile?.company_id || null,
-            tipo_servico: p.tipo_servico || null,
-            sentido: p.sentido || null,
-            sentido_faixa: p.sentido || null,
-            faixa: null,
-            estaca_inicial: p.estaca_inicial || null,
-            estaca_final: p.estaca_final || null,
-            km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,
-            km_final: p.estaca_final ? parseFloat(String(p.estaca_final).replace(",", ".")) : null,
-            comprimento_m: comp,
-            largura_m: larg,
-            espessura_cm: esp,
-            area_m2: area,
-            volume_m3: volume,
-            is_retrabalho: !!p.is_retrabalho,
-          };
-        });
+      const entries = dedupeByKey(
+        infraProducao
+          .filter(p =>
+            p.tipo_servico || p.sentido || p.estaca_inicial || p.estaca_final ||
+            p.comprimento_m || p.largura_m || p.espessura_cm
+          )
+          .map(p => {
+            const comp = p.comprimento_m ? parseFloat(String(p.comprimento_m).replace(",", ".")) : null;
+            const larg = p.largura_m ? parseFloat(String(p.largura_m).replace(",", ".")) : null;
+            const esp = p.espessura_cm ? parseFloat(String(p.espessura_cm).replace(",", ".")) : null;
+            const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
+            const volume = area && esp ? Math.round(area * (esp / 100) * 1000) / 1000 : null;
+            return {
+              rdo_id: rdoId,
+              company_id: profile?.company_id || null,
+              tipo_servico: p.tipo_servico || null,
+              sentido: p.sentido || null,
+              sentido_faixa: p.sentido || null,
+              faixa: null,
+              estaca_inicial: p.estaca_inicial || null,
+              estaca_final: p.estaca_final || null,
+              km_inicial: p.estaca_inicial ? parseFloat(String(p.estaca_inicial).replace(",", ".")) : null,
+              km_final: p.estaca_final ? parseFloat(String(p.estaca_final).replace(",", ".")) : null,
+              comprimento_m: comp,
+              largura_m: larg,
+              espessura_cm: esp,
+              area_m2: area,
+              volume_m3: volume,
+              is_retrabalho: !!p.is_retrabalho,
+            };
+          }),
+        (row) => [
+          normTxt(row.tipo_servico),
+          normTxt(row.sentido),
+          normTxt(row.estaca_inicial),
+          normTxt(row.estaca_final),
+          normNum(row.comprimento_m),
+          normNum(row.largura_m),
+          normNum(row.espessura_cm),
+          normNum(row.area_m2),
+          normNum(row.volume_m3),
+          row.is_retrabalho ? "1" : "0",
+        ].join("|"),
+      );
       if (entries.length > 0) {
         const { error } = await supabase.from("rdo_producao").insert(entries);
         if (error) throw error;
@@ -686,41 +745,58 @@ export default function RdoForm() {
 
     // Produção CAUQ
     if (tipoRdo === "CAUQ" && !semProducao) {
-      const trechoEntries = producaoCauq.trechos
-        .filter(t =>
-          t.tipo_servico || t.sentido || t.faixa || t.estaca_inicial || t.estaca_final ||
-          t.comprimento_m || t.largura_m || t.espessura_m || t.densidade || t.observacoes
-        )
-        .map(t => {
-          const comp = t.comprimento_m ? parseFloat(String(t.comprimento_m).replace(",", ".")) : null;
-          const larg = t.largura_m ? parseFloat(String(t.largura_m).replace(",", ".")) : null;
-          const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
-          const sentidoFaixa = [t.sentido, t.faixa].filter(Boolean).join(" - ") || null;
-          return {
-            rdo_id: rdoId,
-            company_id: profile?.company_id || null,
-            tipo_servico: t.tipo_servico || null,
-            sentido: t.sentido || null,
-            faixa: t.faixa || null,
-            sentido_faixa: sentidoFaixa,
-            estaca_inicial: t.estaca_inicial || null,
-            estaca_final: t.estaca_final || null,
-            km_inicial: t.estaca_inicial ? parseFloat(String(t.estaca_inicial).replace(",", ".")) : null,
-            km_final: t.estaca_final ? parseFloat(String(t.estaca_final).replace(",", ".")) : null,
-            comprimento_m: comp,
-            largura_m: larg,
-            espessura_cm: t.espessura_m ? parseFloat(t.espessura_m.replace(",", ".")) : null,
-            area_m2: area,
-            densidade: t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null,
-            volume_m3: area && t.espessura_m ? Math.round(area * parseFloat(t.espessura_m.replace(",", ".")) / 100 * 100) / 100 : null,
-            tonelagem: (() => {
-              const vol = area && t.espessura_m ? area * parseFloat(t.espessura_m.replace(",", ".")) / 100 : null;
-              const dens = t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null;
-              return vol && dens ? Math.round(vol * dens * 100) / 100 : null;
-            })(),
-            observacoes: t.observacoes || null,
-          };
-        });
+      const trechoEntries = dedupeByKey(
+        producaoCauq.trechos
+          .filter(t =>
+            t.tipo_servico || t.sentido || t.faixa || t.estaca_inicial || t.estaca_final ||
+            t.comprimento_m || t.largura_m || t.espessura_m || t.densidade || t.observacoes
+          )
+          .map(t => {
+            const comp = t.comprimento_m ? parseFloat(String(t.comprimento_m).replace(",", ".")) : null;
+            const larg = t.largura_m ? parseFloat(String(t.largura_m).replace(",", ".")) : null;
+            const area = comp && larg ? Math.round(comp * larg * 100) / 100 : null;
+            const sentidoFaixa = [t.sentido, t.faixa].filter(Boolean).join(" - ") || null;
+            return {
+              rdo_id: rdoId,
+              company_id: profile?.company_id || null,
+              tipo_servico: t.tipo_servico || null,
+              sentido: t.sentido || null,
+              faixa: t.faixa || null,
+              sentido_faixa: sentidoFaixa,
+              estaca_inicial: t.estaca_inicial || null,
+              estaca_final: t.estaca_final || null,
+              km_inicial: t.estaca_inicial ? parseFloat(String(t.estaca_inicial).replace(",", ".")) : null,
+              km_final: t.estaca_final ? parseFloat(String(t.estaca_final).replace(",", ".")) : null,
+              comprimento_m: comp,
+              largura_m: larg,
+              espessura_cm: t.espessura_m ? parseFloat(t.espessura_m.replace(",", ".")) : null,
+              area_m2: area,
+              densidade: t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null,
+              volume_m3: area && t.espessura_m ? Math.round(area * parseFloat(t.espessura_m.replace(",", ".")) / 100 * 100) / 100 : null,
+              tonelagem: (() => {
+                const vol = area && t.espessura_m ? area * parseFloat(t.espessura_m.replace(",", ".")) / 100 : null;
+                const dens = t.densidade ? parseFloat(t.densidade.replace(",", ".")) : null;
+                return vol && dens ? Math.round(vol * dens * 100) / 100 : null;
+              })(),
+              observacoes: t.observacoes || null,
+            };
+          }),
+        (row) => [
+          normTxt(row.tipo_servico),
+          normTxt(row.sentido),
+          normTxt(row.faixa),
+          normTxt(row.estaca_inicial),
+          normTxt(row.estaca_final),
+          normNum(row.comprimento_m),
+          normNum(row.largura_m),
+          normNum(row.espessura_cm),
+          normNum(row.area_m2),
+          normNum(row.densidade),
+          normNum(row.volume_m3),
+          normNum(row.tonelagem),
+          normTxt(row.observacoes),
+        ].join("|"),
+      );
       if (trechoEntries.length > 0) {
         const { error } = await supabase.from("rdo_producao").insert(trechoEntries);
         if (error) throw error;
@@ -763,33 +839,44 @@ export default function RdoForm() {
     }
 
     // Equipamentos
-    const equipEntries = isPatioRdo
-      ? equipamentosPatio
-          .filter(e => e.frota)
-          .map(e => ({
-            rdo_id: rdoId,
-            frota: e.frota || null,
-            categoria: "PATIO",
-            sub_tipo: e.status_patio || null,
-            tipo: e.tipo || null,
-            nome: e.nome || null,
-            patrimonio: null,
-            empresa_dona: e.observacao || null,
-          }))
-      : semEquipamentos
-        ? []
-        : equipamentos
-            .filter(e => e.frota || e.nome || e.tipo)
+    const equipEntries = dedupeByKey(
+      (isPatioRdo
+        ? equipamentosPatio
+            .filter(e => e.frota)
             .map(e => ({
               rdo_id: rdoId,
               frota: e.frota || null,
-              categoria: e.categoria || null,
-              sub_tipo: e.subTipo || null,
+              categoria: "PATIO",
+              sub_tipo: e.status_patio || null,
               tipo: e.tipo || null,
               nome: e.nome || null,
-              patrimonio: e.patrimonio || null,
-              empresa_dona: e.empresa_dona || null,
-            }));
+              patrimonio: null,
+              empresa_dona: e.observacao || null,
+            }))
+        : semEquipamentos
+          ? []
+          : equipamentos
+              .filter(e => e.frota || e.nome || e.tipo)
+              .map(e => ({
+                rdo_id: rdoId,
+                frota: e.frota || null,
+                categoria: e.categoria || null,
+                sub_tipo: e.subTipo || null,
+                tipo: e.tipo || null,
+                nome: e.nome || null,
+                patrimonio: e.patrimonio || null,
+                empresa_dona: e.empresa_dona || null,
+              }))),
+      (row) => [
+        normTxt(row.frota),
+        normTxt(row.categoria),
+        normTxt(row.sub_tipo),
+        normTxt(row.tipo),
+        normTxt(row.nome),
+        normTxt(row.patrimonio),
+        normTxt(row.empresa_dona),
+      ].join("|"),
+    );
 
     if (equipEntries.length > 0) {
       const { error } = await (supabase as any).from("rdo_equipamentos").insert(equipEntries);
@@ -797,22 +884,31 @@ export default function RdoForm() {
     }
 
     // NF de Massa
-    const nfEntries = semNota
-      ? []
-      : nfMassa
-      .filter(n => n.nf || n.placa || n.tonelagem)
-      .map(n => ({
-        rdo_id: rdoId,
-        company_id: profile?.company_id || null,
-        nf: sanitizeNotaFiscalNumero(n.nf) || null,
-        placa: n.placa || null,
-        usina: n.usina || null,
-        tonelagem: n.tonelagem ? parseFloat(n.tonelagem.replace(",", ".")) : null,
-        tipo_material:
-          n.tipo_material === "Outro"
-            ? (n.tipo_material_outro?.trim() || "Outro")
-            : (n.tipo_material?.trim() || null),
-      }));
+    const nfEntries = dedupeByKey(
+      semNota
+        ? []
+        : nfMassa
+        .filter(n => n.nf || n.placa || n.tonelagem)
+        .map(n => ({
+          rdo_id: rdoId,
+          company_id: profile?.company_id || null,
+          nf: sanitizeNotaFiscalNumero(n.nf) || null,
+          placa: n.placa || null,
+          usina: n.usina || null,
+          tonelagem: n.tonelagem ? parseFloat(n.tonelagem.replace(",", ".")) : null,
+          tipo_material:
+            n.tipo_material === "Outro"
+              ? (n.tipo_material_outro?.trim() || "Outro")
+              : (n.tipo_material?.trim() || null),
+        })),
+      (row) => [
+        normTxt(row.nf),
+        normTxt(row.placa),
+        normTxt(row.usina),
+        normNum(row.tonelagem),
+        normTxt(row.tipo_material),
+      ].join("|"),
+    );
 
     if (nfEntries.length > 0) {
       const { error } = await (supabase as any).from("rdo_nf_massa").insert(nfEntries);
@@ -821,17 +917,26 @@ export default function RdoForm() {
 
     // NF de Concreto (Infra)
     if (tipoRdo === "INFRAESTRUTURA") {
-      const nfConcretoEntries = nfConcreto
-        .filter(n => n.nf || n.quantidade_m3 || n.tipo_concreto || n.fornecedor || n.foto_url)
-        .map(n => ({
-          rdo_id: rdoId,
-          company_id: profile?.company_id || null,
-          nf: sanitizeNotaFiscalNumero(n.nf) || null,
-          quantidade_m3: n.quantidade_m3 ? parseFloat(String(n.quantidade_m3).replace(",", ".")) : null,
-          tipo_concreto: n.tipo_concreto || null,
-          fornecedor: n.fornecedor || null,
-          foto_url: n.foto_url || null,
-        }));
+      const nfConcretoEntries = dedupeByKey(
+        nfConcreto
+          .filter(n => n.nf || n.quantidade_m3 || n.tipo_concreto || n.fornecedor || n.foto_url)
+          .map(n => ({
+            rdo_id: rdoId,
+            company_id: profile?.company_id || null,
+            nf: sanitizeNotaFiscalNumero(n.nf) || null,
+            quantidade_m3: n.quantidade_m3 ? parseFloat(String(n.quantidade_m3).replace(",", ".")) : null,
+            tipo_concreto: n.tipo_concreto || null,
+            fornecedor: n.fornecedor || null,
+            foto_url: n.foto_url || null,
+          })),
+        (row) => [
+          normTxt(row.nf),
+          normNum(row.quantidade_m3),
+          normTxt(row.tipo_concreto),
+          normTxt(row.fornecedor),
+          normTxt(row.foto_url),
+        ].join("|"),
+      );
 
       if (nfConcretoEntries.length > 0) {
         const { error } = await (supabase as any).from("rdo_nf_concreto").insert(nfConcretoEntries);
@@ -840,21 +945,31 @@ export default function RdoForm() {
     }
 
     // Efetivo
-    const efEntries = semEquipeCampo
-      ? []
-      : efetivo
-          .filter(e => e.funcao)
-          .map(e => ({
-            rdo_id: rdoId,
-            company_id: profile?.company_id || null,
-            funcao: e.funcao,
-            nome: e.nome || null,
-            matricula: e.matricula || null,
-            quantidade: 1,
-            entrada: e.entrada || globalEntrada || null,
-            saida: e.saida || globalSaida || null,
-            employee_id: e.employee_id && !(e.nome || "").includes("|||") ? e.employee_id : null,
-          }));
+    const efEntries = dedupeByKey(
+      semEquipeCampo
+        ? []
+        : efetivo
+            .filter(e => e.funcao)
+            .map(e => ({
+              rdo_id: rdoId,
+              company_id: profile?.company_id || null,
+              funcao: e.funcao,
+              nome: e.nome || null,
+              matricula: e.matricula || null,
+              quantidade: 1,
+              entrada: e.entrada || globalEntrada || null,
+              saida: e.saida || globalSaida || null,
+              employee_id: e.employee_id && !(e.nome || "").includes("|||") ? e.employee_id : null,
+            })),
+      (row) => [
+        normTxt(row.funcao),
+        normTxt(row.nome),
+        normTxt(row.matricula),
+        normTxt(row.entrada),
+        normTxt(row.saida),
+        normTxt(row.employee_id),
+      ].join("|"),
+    );
 
     if (efEntries.length > 0) {
       const { error } = await supabase.from("rdo_efetivo").insert(efEntries);
@@ -908,9 +1023,13 @@ export default function RdoForm() {
 
   // Save Draft handler
   const handleSaveDraft = useCallback(async () => {
+    if (draftInFlightRef.current) return;
+    draftInFlightRef.current = true;
+
     const normalizedTurno = header.turno?.trim().toLowerCase() || "";
     if (!header.obra_nome || !header.data) {
       toast({ title: "Atenção", description: "Preencha pelo menos OGS e Data para salvar.", variant: "destructive" });
+      draftInFlightRef.current = false;
       return;
     }
     setSavingDraft(true);
@@ -969,11 +1088,42 @@ export default function RdoForm() {
           .insert({ ...draftPayload, user_id: user.id })
           .select("id")
           .single();
-        if (error) throw error;
-        rdoId = inserted.id;
-        setDraftId(inserted.id);
-        // Atualiza URL para que o botão Enviar use o mesmo registro
-        setSearchParams(prev => { const n = new URLSearchParams(prev); n.set("edit", inserted.id); return n; }, { replace: true });
+
+        if (error) {
+          if (isUniqueViolation(error)) {
+            const existingId = await findExistingRdoIdByNaturalKey({
+              data: draftPayload.data,
+              obra_nome: draftPayload.obra_nome,
+              tipo_rdo: draftPayload.tipo_rdo,
+              preenchido_por: draftPayload.preenchido_por,
+              turno: draftPayload.turno,
+              company_id: draftPayload.company_id,
+              user_id: user.id,
+            });
+
+            if (!existingId) throw error;
+            rdoId = existingId;
+
+            const editorName = (profile?.nome_completo || preenchidoPor || "").trim() || null;
+            const { error: updError } = await (supabase as any)
+              .from("rdo_diarios")
+              .update({
+                ...draftPayload,
+                editado_por: user.id,
+                editado_por_nome: editorName,
+                editado_em: new Date().toISOString(),
+              })
+              .eq("id", existingId);
+            if (updError) throw updError;
+          } else {
+            throw error;
+          }
+        } else {
+          rdoId = inserted.id;
+          setDraftId(inserted.id);
+          // Atualiza URL para que o botão Enviar use o mesmo registro
+          setSearchParams(prev => { const n = new URLSearchParams(prev); n.set("edit", inserted.id); return n; }, { replace: true });
+        }
       }
 
       if (!rdoId) {
@@ -988,6 +1138,7 @@ export default function RdoForm() {
       toast({ title: "Erro ao salvar rascunho", description: err.message, variant: "destructive" });
     } finally {
       setSavingDraft(false);
+      draftInFlightRef.current = false;
     }
   }, [
     header,
@@ -1002,6 +1153,7 @@ export default function RdoForm() {
     searchParams,
     setSearchParams,
     persistRdoChildren,
+    findExistingRdoIdByNaturalKey,
     toast,
   ]);
 
@@ -1459,6 +1611,8 @@ export default function RdoForm() {
       return;
     }
 
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setSaving(true);
     try {
       // RDO payload ready
@@ -1486,8 +1640,38 @@ export default function RdoForm() {
           .insert({ ...rdoPayload, user_id: user.id })
           .select("id")
           .single();
-        if (rdoError) throw rdoError;
-        rdoId = rdo.id;
+
+        if (rdoError) {
+          if (isUniqueViolation(rdoError)) {
+            const existingId = await findExistingRdoIdByNaturalKey({
+              data: rdoPayload.data,
+              obra_nome: rdoPayload.obra_nome,
+              tipo_rdo: rdoPayload.tipo_rdo,
+              preenchido_por: rdoPayload.preenchido_por,
+              turno: rdoPayload.turno,
+              company_id: rdoPayload.company_id,
+              user_id: user.id,
+            });
+            if (!existingId) throw rdoError;
+            rdoId = existingId;
+
+            const editorName = (profile?.nome_completo || preenchidoPor || "").trim() || null;
+            const { error: updError } = await (supabase as any)
+              .from("rdo_diarios")
+              .update({
+                ...rdoPayload,
+                editado_por: user.id,
+                editado_por_nome: editorName,
+                editado_em: new Date().toISOString(),
+              })
+              .eq("id", existingId);
+            if (updError) throw updError;
+          } else {
+            throw rdoError;
+          }
+        } else {
+          rdoId = rdo.id;
+        }
       }
 
       await persistRdoChildren(rdoId);
@@ -1623,6 +1807,7 @@ export default function RdoForm() {
       toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
+      submitInFlightRef.current = false;
     }
   };
 
