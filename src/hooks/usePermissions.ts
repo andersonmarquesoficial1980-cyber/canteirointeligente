@@ -21,6 +21,8 @@ export interface Permissions {
   modulo_gestao_pessoas: boolean;
   modulo_suprimentos: boolean;
   modulo_medicoes: boolean;
+  modulo_orcamentos: boolean;
+  modulo_planejamento: boolean;
 }
 
 const DEFAULT_PERMISSIONS: Permissions = {
@@ -43,6 +45,8 @@ const DEFAULT_PERMISSIONS: Permissions = {
   modulo_gestao_pessoas: false,
   modulo_suprimentos: false,
   modulo_medicoes: false,
+  modulo_orcamentos: false,
+  modulo_planejamento: false,
 };
 
 // Admin tem acesso a tudo

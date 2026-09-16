@@ -203,6 +203,8 @@ export default function Home() {
               "gestao-pessoas": "modulo_gestao_pessoas",
               suprimentos: "modulo_suprimentos",
               medicoes: "modulo_medicoes",
+              orcamentos: "modulo_orcamentos",
+              planejamento: "modulo_planejamento",
             };
             if (!permissions) return false;
             const permKey = permMap[mod.id];

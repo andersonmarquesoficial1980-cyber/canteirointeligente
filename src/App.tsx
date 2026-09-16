@@ -173,6 +173,8 @@ const MODULE_PERM_MAP: Record<string, string> = {
   "sst": "modulo_sst",
   "engenharia": "modulo_engenharia",
   "encarregado": "modulo_encarregado",
+  "orcamentos": "modulo_orcamentos",
+  "planejamento": "modulo_planejamento",
 };
 
 function RequireModule({ moduleId, children }: { moduleId: string; children: JSX.Element }) {

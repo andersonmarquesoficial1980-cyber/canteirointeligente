@@ -34,6 +34,8 @@ interface Perms {
   modulo_sst: boolean;
   modulo_engenharia: boolean;
   modulo_encarregado: boolean;
+  modulo_orcamentos: boolean;
+  modulo_planejamento: boolean;
   equipamentos_permitidos: string[];
   relatorios_permitidos: string[] | null;
 }
@@ -98,6 +100,8 @@ const MODULOS = [
   { key: "modulo_sst", label: "WF Segurança do Trabalho" },
   { key: "modulo_engenharia", label: "WF Engenharia" },
   { key: "modulo_encarregado", label: "WF Encarregado" },
+  { key: "modulo_orcamentos", label: "WF Orçamentos" },
+  { key: "modulo_planejamento", label: "WF Planejamento" },
   // WF Dashboard não existe mais como módulo independente (mantemos a coluna no banco por legado, sem exibir no painel)
   { key: "is_admin", label: "Painel de Controle" },
 ];
@@ -112,6 +116,7 @@ function emptyPerms(userId: string): Perms {
     modulo_gestao_frotas: false, modulo_gestao_pessoas: false,
     modulo_suprimentos: false, modulo_medicoes: false,
     modulo_sst: false, modulo_engenharia: false, modulo_encarregado: false,
+    modulo_orcamentos: false, modulo_planejamento: false,
     equipamentos_permitidos: [],
     relatorios_permitidos: null,
   };
