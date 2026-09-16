@@ -129,6 +129,8 @@ import WFDashboards from "./pages/WFDashboards";
 import DashboardObras from "./pages/DashboardObras";
 import DashboardManutencao from "./pages/DashboardManutencao";
 import DashboardFrota from "./pages/DashboardFrota";
+import OrcamentosHome from "./pages/OrcamentosHome";
+import PlanejamentoHome from "./pages/PlanejamentoHome";
 
 const queryClient = new QueryClient();
 
@@ -387,6 +389,8 @@ function AppRoutes() {
         <Route path="/manutencao/os/:id" element={<RequireModule moduleId="manutencao"><ManutencaoOS /></RequireModule>} />
         <Route path="/manutencao/documentos" element={<RequireModule moduleId="manutencao"><ManutencaoDocumentos /></RequireModule>} />
         <Route path="/abastecimento" element={<RequireModule moduleId="abastecimento"><AbastecimentoHome /></RequireModule>} />
+        <Route path="/orcamentos" element={<RequireModule moduleId="orcamentos"><OrcamentosHome /></RequireModule>} />
+        <Route path="/planejamento" element={<RequireModule moduleId="planejamento"><PlanejamentoHome /></RequireModule>} />
         <Route path="/relatorios" element={<RequireModule moduleId="relatorios"><RelatoriosHome /></RequireModule>} />
         <Route path="/relatorios/rdo/:ogs" element={<RequireModule moduleId="relatorios"><RelatorioRdo /></RequireModule>} />
         <Route path="/relatorios/abastecimento/:fleet" element={<RequireModule moduleId="relatorios"><RelatorioAbastecimento /></RequireModule>} />

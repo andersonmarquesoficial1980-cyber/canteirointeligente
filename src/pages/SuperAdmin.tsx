@@ -56,6 +56,8 @@ const ALL_MODULES = [
   { key: "sst",           label: "WF Segurança do Trabalho", emoji: "🪩" },
   { key: "engenharia",    label: "WF Engenharia",        emoji: "🏗️" },
   { key: "encarregado",   label: "WF Encarregado",       emoji: "👷" },
+  { key: "orcamentos",    label: "WF Orçamentos",        emoji: "🧮" },
+  { key: "planejamento",  label: "WF Planejamento",      emoji: "📈" },
   { key: "admin",         label: "Painel de Controle",   emoji: "⚙️" },
 ];
 

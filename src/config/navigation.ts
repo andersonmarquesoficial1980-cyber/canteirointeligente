@@ -3,7 +3,7 @@
 // This file is the single source of truth for HUB navigation.
 // It is intentionally decoupled from any database or Edge Function logic.
 
-import { ClipboardList, Cog, Truck, Users, ShieldCheck, ListChecks, CalendarClock, FileCheck, Wrench, Fuel, BarChart3, LayoutDashboard, Car, UserCheck, Receipt, HardHat, FolderOpen } from "lucide-react";
+import { ClipboardList, Cog, Truck, Users, ShieldCheck, ListChecks, CalendarClock, FileCheck, Wrench, Fuel, BarChart3, LayoutDashboard, Car, UserCheck, Receipt, HardHat, FolderOpen, Calculator, LineChart } from "lucide-react";
 
 export const HUB_MODULES = [
   { id: "obras", label: "WF Obras", subtitle: "Diário de Obras", icon: ClipboardList, route: "/obras", adminOnly: false },
@@ -24,5 +24,7 @@ export const HUB_MODULES = [
   { id: "sst", label: "WF Segurança do Trabalho", subtitle: "Inspeções, checklists e Integração", icon: HardHat, route: "/sst", adminOnly: false },
   { id: "engenharia", label: "WF Engenharia", subtitle: "RDO Técnico e Validações", icon: HardHat, route: "/engenharia", adminOnly: false },
   { id: "encarregado", label: "WF Encarregado", subtitle: "Validação de RDO e Equipamentos", icon: HardHat, route: "/encarregado", adminOnly: false },
+  { id: "orcamentos", label: "WF Orçamentos", subtitle: "Composição detalhada por obra", icon: Calculator, route: "/orcamentos", adminOnly: false },
+  { id: "planejamento", label: "WF Planejamento", subtitle: "Planejado x Realizado e saldo", icon: LineChart, route: "/planejamento", adminOnly: false },
   { id: "admin", label: "Painel de Controle", subtitle: "Dashboards e Gestão", icon: ShieldCheck, route: "/admin/configuracoes", adminOnly: true },
 ] as const;

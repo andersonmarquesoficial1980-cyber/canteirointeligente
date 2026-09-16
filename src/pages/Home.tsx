@@ -206,8 +206,9 @@ export default function Home() {
             };
             if (!permissions) return false;
             const permKey = permMap[mod.id];
-            // Módulo sem coluna de permissão mapeada = acesso negado para não-admin
-            if (!permKey) return false;
+            // Módulos novos podem iniciar com gate apenas por company_modules
+            // (liberação por cliente no Super Admin), antes da permissão individual.
+            if (!permKey) return true;
             return permissions[permKey] === true;
           })
           .map(mod => {
