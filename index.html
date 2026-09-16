@@ -30,7 +30,7 @@
     <!-- Higienização agressiva de cache/SW (one-shot) para evitar app antigo em celular -->
     <script>
       (function () {
-        var BUST_KEY = 'wf_cache_bust_20260811_v1';
+        var BUST_KEY = 'wf_cache_bust_20260916_v2';
         var alreadyBusted = localStorage.getItem(BUST_KEY) === '1';
 
         function unregisterAllServiceWorkers() {
@@ -52,7 +52,7 @@
           if (!alreadyBusted) {
             localStorage.setItem(BUST_KEY, '1');
             var u = new URL(window.location.href);
-            u.searchParams.set('cache_bust', '20260811');
+            u.searchParams.set('cache_bust', '20260916');
             window.location.replace(u.toString());
           }
         });
