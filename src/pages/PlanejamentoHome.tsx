@@ -56,6 +56,20 @@ type NotaUpload = {
   created_at: string;
 };
 
+type OrcamentoResumoOgs = {
+  orcamentoId: string | null;
+  versao: number | null;
+  custoPrevisto: number;
+  custoNaoPrevisto: number;
+};
+
+const ORCAMENTO_RESUMO_ZERO: OrcamentoResumoOgs = {
+  orcamentoId: null,
+  versao: null,
+  custoPrevisto: 0,
+  custoNaoPrevisto: 0,
+};
+
 const NF_RESUMO_ZERO: NfResumo = {
   qtd_nf_massa: 0,
   ton_massa: 0,
@@ -104,6 +118,7 @@ export default function PlanejamentoHome() {
   const [fornecedorNota, setFornecedorNota] = useState("");
   const [dataEmissaoNota, setDataEmissaoNota] = useState("");
   const [valorNota, setValorNota] = useState("");
+  const [orcamentoResumoOgs, setOrcamentoResumoOgs] = useState<OrcamentoResumoOgs>(ORCAMENTO_RESUMO_ZERO);
 
   const baselineSelecionado = useMemo(
     () => orcamentos.find((o) => o.id === orcamentoBaselineId) || null,
@@ -120,10 +135,25 @@ export default function PlanejamentoHome() {
   const eac = useMemo(() => custoRealizado + previsaoAExecutar, [custoRealizado, previsaoAExecutar]);
 
   const desvio = useMemo(() => eac - baselineOrcamento, [eac, baselineOrcamento]);
+  const impactoNaoPrevistoSaldo = useMemo(() => -Number(orcamentoResumoOgs.custoNaoPrevisto || 0), [orcamentoResumoOgs]);
+  const impactoNaoPrevistoMargemPercent = useMemo(() => {
+    const receita = Number(receitaAtualizada || 0);
+    if (receita <= 0) return 0;
+    return (Number(orcamentoResumoOgs.custoNaoPrevisto || 0) / receita) * 100;
+  }, [orcamentoResumoOgs, receitaAtualizada]);
 
   useEffect(() => {
     inicializar();
   }, []);
+
+  useEffect(() => {
+    if (!companyId || !ogs.trim()) {
+      setOrcamentoResumoOgs(ORCAMENTO_RESUMO_ZERO);
+      return;
+    }
+
+    carregarResumoOrcamentoOgs(companyId, ogs, orcamentoBaselineId || null);
+  }, [companyId, ogs, orcamentoBaselineId]);
 
   async function inicializar() {
     setLoading(true);
@@ -258,11 +288,95 @@ export default function PlanejamentoHome() {
     setNotasUploads((data || []) as NotaUpload[]);
   }
 
-  async function carregarContextoOgs(company: string, ogsAlvo: string) {
+  async function carregarResumoOrcamentoOgs(company: string, ogsAlvo: string, orcamentoIdPreferencial?: string | null) {
+    const ogsNormalizada = ogsAlvo.trim();
+    if (!ogsNormalizada) {
+      setOrcamentoResumoOgs(ORCAMENTO_RESUMO_ZERO);
+      return;
+    }
+
+    let orcamentoId = (orcamentoIdPreferencial || "").trim() || null;
+    let versao: number | null = null;
+
+    if (orcamentoId) {
+      const { data: headerById, error: headerByIdError } = await (supabase as any)
+        .from("wf_orcamentos")
+        .select("id, versao")
+        .eq("id", orcamentoId)
+        .eq("company_id", company)
+        .maybeSingle();
+
+      if (headerByIdError) {
+        toast({ title: "Erro ao carregar baseline", description: headerByIdError.message, variant: "destructive" });
+        return;
+      }
+
+      if (!headerById?.id) {
+        orcamentoId = null;
+      } else {
+        versao = Number(headerById.versao || 0);
+      }
+    }
+
+    if (!orcamentoId) {
+      const { data: header, error: headerError } = await (supabase as any)
+        .from("wf_orcamentos")
+        .select("id, versao")
+        .eq("company_id", company)
+        .eq("ogs", ogsNormalizada)
+        .order("versao", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (headerError) {
+        toast({ title: "Erro ao localizar orçamento da OGS", description: headerError.message, variant: "destructive" });
+        return;
+      }
+
+      if (!header?.id) {
+        setOrcamentoResumoOgs(ORCAMENTO_RESUMO_ZERO);
+        return;
+      }
+
+      orcamentoId = header.id;
+      versao = Number(header.versao || 0);
+    }
+
+    const { data: itens, error: itensError } = await (supabase as any)
+      .from("wf_orcamento_itens")
+      .select("natureza, total")
+      .eq("company_id", company)
+      .eq("orcamento_id", orcamentoId);
+
+    if (itensError) {
+      toast({ title: "Erro ao calcular previsto x não previsto", description: itensError.message, variant: "destructive" });
+      return;
+    }
+
+    const rows = (itens || []) as Array<{ natureza: string | null; total: number | null }>;
+    const custoPrevisto = rows
+      .filter((r) => (r.natureza || "previsto") !== "nao_previsto")
+      .reduce((acc, r) => acc + Number(r.total || 0), 0);
+
+    const custoNaoPrevisto = rows
+      .filter((r) => r.natureza === "nao_previsto")
+      .reduce((acc, r) => acc + Number(r.total || 0), 0);
+
+    setOrcamentoResumoOgs({
+      orcamentoId,
+      versao,
+      custoPrevisto,
+      custoNaoPrevisto,
+    });
+  }
+
+  async function carregarContextoOgs(company: string, ogsAlvo: string, orcamentoIdRef?: string | null) {
     await Promise.all([
       carregarParametrosNf(company, ogsAlvo),
       carregarNfResumo(company, ogsAlvo),
       carregarNotasUpload(company, ogsAlvo),
+      carregarResumoOrcamentoOgs(company, ogsAlvo, orcamentoIdRef),
     ]);
   }
 
@@ -381,6 +495,7 @@ export default function PlanejamentoHome() {
     setNfResumo(NF_RESUMO_ZERO);
     setCustosAuto([]);
     setNotasUploads([]);
+    setOrcamentoResumoOgs(ORCAMENTO_RESUMO_ZERO);
   }
 
   async function abrirPlanejamento(p: Planejamento) {
@@ -396,7 +511,7 @@ export default function PlanejamentoHome() {
     setCustosAuto([]);
 
     if (companyId) {
-      await carregarContextoOgs(companyId, p.ogs || "");
+      await carregarContextoOgs(companyId, p.ogs || "", p.orcamento_baseline_id || null);
     }
   }
 
@@ -553,7 +668,7 @@ export default function PlanejamentoHome() {
               placeholder="OGS"
               value={ogs}
               onChange={(e) => setOgs(e.target.value)}
-              onBlur={() => companyId && carregarContextoOgs(companyId, ogs)}
+              onBlur={() => companyId && carregarContextoOgs(companyId, ogs, orcamentoBaselineId || null)}
             />
             <Input placeholder="Obra" value={obra} onChange={(e) => setObra(e.target.value)} />
             <Input placeholder="Cliente" value={cliente} onChange={(e) => setCliente(e.target.value)} />
@@ -698,6 +813,24 @@ export default function PlanejamentoHome() {
                 <span className="font-bold">{toMoney(Number(custosAuto.find((c) => c.componente === "total")?.valor || 0))}</span>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Impacto do Não Previsto (por OGS)</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <Kpi title="Orçado Previsto" value={orcamentoResumoOgs.custoPrevisto} status="ok" />
+            <Kpi title="Orçado Não Previsto" value={orcamentoResumoOgs.custoNaoPrevisto} status={orcamentoResumoOgs.custoNaoPrevisto > 0 ? "alert" : "ok"} />
+            <Kpi title="Impacto no Saldo" value={impactoNaoPrevistoSaldo} status={impactoNaoPrevistoSaldo < 0 ? "alert" : "ok"} />
+            <div className="rounded-md border px-3 py-2 bg-background">
+              <div className="text-xs text-muted-foreground">Impacto na Margem</div>
+              <div className={`text-2xl font-bold ${impactoNaoPrevistoMargemPercent > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                {impactoNaoPrevistoMargemPercent.toFixed(2)}%
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-1">
+                Versão orçamento: {orcamentoResumoOgs.versao ?? "-"}
+              </div>
+            </div>
           </CardContent>
         </Card>
 
