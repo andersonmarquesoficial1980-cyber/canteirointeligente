@@ -21,6 +21,7 @@ interface ChecklistReport {
   okCount: number;
   naoOkCount: number;
   naCount: number;
+  missingEntries: boolean;
   entries: {
     itemName: string;
     status: "ok" | "nao_ok" | "na";
@@ -74,15 +75,44 @@ export default function RelatorioChecklist() {
   const buscarRelatorios = async () => {
     setLoading(true);
     try {
-      const { data: allDiaries, error: allDiariesErr } = await (supabase as any)
-        .from("equipment_diaries")
-        .select("id, equipment_fleet, equipment_type, operator_name, ogs_number, client_name, date, checklist_submitted_at, preop_checklist_id, status, user_id, created_at")
-        .gte("date", dataIni)
-        .lte("date", dataFim)
-        .neq("status", "rascunho")
-        .order("date", { ascending: false });
+      const PAGE_SIZE = 1000;
+      const chunk = <T,>(arr: T[], size: number): T[][] => {
+        const out: T[][] = [];
+        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+        return out;
+      };
 
-      if (allDiariesErr || !allDiaries) {
+      const fetchAllRows = async (
+        table: string,
+        select: string,
+        apply: (q: any) => any,
+      ) => {
+        const rows: any[] = [];
+        let from = 0;
+        while (true) {
+          const query = apply((supabase as any).from(table).select(select).range(from, from + PAGE_SIZE - 1));
+          const { data, error } = await query;
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          rows.push(...data);
+          if (data.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+        return rows;
+      };
+
+      const allDiaries = await fetchAllRows(
+        "equipment_diaries",
+        "id, equipment_fleet, equipment_type, operator_name, ogs_number, client_name, date, checklist_submitted_at, preop_checklist_id, status, user_id, created_at",
+        (q) => q
+          .gte("date", dataIni)
+          .lte("date", dataFim)
+          .neq("status", "rascunho")
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false }),
+      );
+
+      if (!allDiaries) {
         setReports([]);
         setCoverageByFrota([]);
         setCoverageByOperador([]);
@@ -155,8 +185,8 @@ export default function RelatorioChecklist() {
       }
 
       const diaryIds = diaries.map((d: any) => d.id);
-
       const preopIds = [...new Set(diaries.map((d: any) => d.preop_checklist_id).filter(Boolean))] as string[];
+
       const preopSubmittedMap: Record<string, string> = {};
       if (preopIds.length > 0) {
         const { data: preopHeaders } = await (supabase as any)
@@ -174,25 +204,66 @@ export default function RelatorioChecklist() {
       const profileMap: Record<string, string> = {};
       (profilesData || []).forEach((p: any) => { profileMap[p.user_id] = p.nome_completo || ""; });
 
-      const { data: entries } = await supabase
-        .from("checklist_entries")
-        .select("diary_id, status, observation, photo_url, item_id")
-        .in("diary_id", diaryIds);
+      const legacyEntries: any[] = [];
+      for (const idsChunk of chunk(diaryIds, 100)) {
+        const rows = await fetchAllRows(
+          "checklist_entries",
+          "diary_id, status, observation, photo_url, item_id",
+          (q) => q.in("diary_id", idsChunk),
+        );
+        legacyEntries.push(...rows);
+      }
 
-      const itemIds = [...new Set((entries || []).map((e: any) => e.item_id))] as string[];
-      const { data: itemsData } = await supabase
-        .from("checklist_items_standard")
-        .select("id, item_name")
-        .in("id", itemIds);
+      const preopEntries: any[] = [];
+      for (const idsChunk of chunk(preopIds, 100)) {
+        const rows = await fetchAllRows(
+          "equipment_preop_checklist_entries",
+          "preop_checklist_id, status, observation, photo_url, item_id",
+          (q) => q.in("preop_checklist_id", idsChunk),
+        );
+        preopEntries.push(...rows);
+      }
+
+      const allItemIds = [...new Set([
+        ...legacyEntries.map((e: any) => e.item_id),
+        ...preopEntries.map((e: any) => e.item_id),
+      ])] as string[];
+
+      const { data: itemsData } = allItemIds.length > 0
+        ? await (supabase as any)
+          .from("checklist_items_standard")
+          .select("id, item_name")
+          .in("id", allItemIds)
+        : { data: [] };
 
       const itemMap: Record<string, string> = {};
       (itemsData || []).forEach((i: any) => { itemMap[i.id] = i.item_name; });
 
+      const legacyByDiary = new Map<string, any[]>();
+      for (const e of legacyEntries) {
+        const arr = legacyByDiary.get(e.diary_id) || [];
+        arr.push(e);
+        legacyByDiary.set(e.diary_id, arr);
+      }
+
+      const preopById = new Map<string, any[]>();
+      for (const e of preopEntries) {
+        const arr = preopById.get(e.preop_checklist_id) || [];
+        arr.push(e);
+        preopById.set(e.preop_checklist_id, arr);
+      }
+
       const reportList: ChecklistReport[] = diaries.map((d: any) => {
-        const diaryEntries = (entries || []).filter((e: any) => e.diary_id === d.id);
-        const ok = diaryEntries.filter((e: any) => e.status === "ok").length;
-        const naoOk = diaryEntries.filter((e: any) => e.status === "nao_ok").length;
-        const na = diaryEntries.filter((e: any) => e.status === "na").length;
+        const legacyRows = legacyByDiary.get(d.id) || [];
+        const preopRows = d.preop_checklist_id ? (preopById.get(d.preop_checklist_id) || []) : [];
+        const sourceRows = legacyRows.length > 0 ? legacyRows : preopRows;
+
+        const ok = sourceRows.filter((e: any) => e.status === "ok").length;
+        const naoOk = sourceRows.filter((e: any) => e.status === "nao_ok").length;
+        const na = sourceRows.filter((e: any) => e.status === "na").length;
+
+        const hasChecklistHeader = Boolean(d.preop_checklist_id || d.checklist_submitted_at);
+        const missingEntries = hasChecklistHeader && sourceRows.length === 0;
 
         return {
           diaryId: d.id,
@@ -204,11 +275,12 @@ export default function RelatorioChecklist() {
           usuarioNome: d.user_id ? (profileMap[d.user_id] || "—") : "—",
           data: d.date,
           submittedAt: d.checklist_submitted_at || (d.preop_checklist_id ? preopSubmittedMap[d.preop_checklist_id] : null) || d.created_at || new Date().toISOString(),
-          totalItems: diaryEntries.length,
+          totalItems: sourceRows.length,
           okCount: ok,
           naoOkCount: naoOk,
           naCount: na,
-          entries: diaryEntries.map((e: any) => ({
+          missingEntries,
+          entries: sourceRows.map((e: any) => ({
             itemName: itemMap[e.item_id] || e.item_id,
             status: e.status,
             observation: e.observation,
@@ -582,6 +654,11 @@ export default function RelatorioChecklist() {
                 <p className="text-[10px] text-muted-foreground">N/A</p>
               </div>
             </div>
+            {selectedReport.missingEntries && (
+              <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
+                Checklist enviado, mas sem itens carregados. Refaça a busca; se persistir, tratar como inconsistência de dados.
+              </div>
+            )}
           </div>
 
           {/* Lista de itens */}
@@ -754,6 +831,11 @@ export default function RelatorioChecklist() {
                   <div className="mt-2 pt-2 border-t border-border/50 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                     <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                     Enviado às {new Date(report.submittedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    {report.missingEntries && (
+                      <span className="ml-auto rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 font-bold">
+                        itens não carregados
+                      </span>
+                    )}
                   </div>
                 </button>
               ))}
