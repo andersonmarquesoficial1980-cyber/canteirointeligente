@@ -73,6 +73,9 @@ type CampoDetalhamento = {
 };
 
 const CATEGORIAS: CategoriaItem[] = ["Mão de obra", "Equipamentos", "Transporte", "Materiais", "Terceiros", "Outros"];
+const FUNCOES_MAO_OBRA = ["Ajudante", "Operador", "Motorista", "Encarregado", "Rasteleiro", "Sinaleiro"];
+const REFERENCIAS_EQUIPAMENTOS = ["Rolo compactador", "Vibroacabadora", "Fresadora", "Pá carregadeira", "Caminhão pipa"];
+const REFERENCIAS_TRANSPORTE = ["Caminhão toco", "Carreta", "Bitrem", "Van", "Ônibus"];
 
 function toMoney(v: number) {
   return (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -155,6 +158,13 @@ function placeholderReferencia(categoria: CategoriaItem) {
   if (categoria === "Materiais") return "Material (ex: CAP 50/70)";
   if (categoria === "Terceiros") return "Fornecedor/serviço";
   return "Referência";
+}
+
+function sugestoesReferencia(categoria: CategoriaItem): string[] {
+  if (categoria === "Mão de obra") return FUNCOES_MAO_OBRA;
+  if (categoria === "Equipamentos") return REFERENCIAS_EQUIPAMENTOS;
+  if (categoria === "Transporte") return REFERENCIAS_TRANSPORTE;
+  return [];
 }
 
 export default function OrcamentosHome() {
@@ -579,12 +589,20 @@ export default function OrcamentosHome() {
                       ))}
                     </select>
 
-                    <Input
-                      className="md:col-span-3"
-                      placeholder={placeholderReferencia(item.categoria)}
-                      value={item.referencia}
-                      onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
-                    />
+                    <div className="md:col-span-3 space-y-1">
+                      <div className="text-[11px] text-muted-foreground">Função/Referência</div>
+                      <Input
+                        list={`referencias-${item.id}`}
+                        placeholder={placeholderReferencia(item.categoria)}
+                        value={item.referencia}
+                        onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
+                      />
+                      <datalist id={`referencias-${item.id}`}>
+                        {sugestoesReferencia(item.categoria).map((op) => (
+                          <option key={op} value={op} />
+                        ))}
+                      </datalist>
+                    </div>
 
                     <Input
                       className="md:col-span-3"
@@ -620,35 +638,51 @@ export default function OrcamentosHome() {
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                     {campos.map((campo) => (
-                      <Input
-                        key={campo.key}
-                        type="number"
-                        step="0.01"
-                        placeholder={campo.label}
-                        value={Number(item.detalhamento?.[campo.key] || 0)}
-                        onChange={(e) => atualizarDetalhamento(item.id, campo.key, Number(e.target.value || 0))}
-                      />
+                      <div key={campo.key} className="space-y-1">
+                        <div className="text-[11px] text-muted-foreground">{campo.label}</div>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0,00"
+                          value={Number(item.detalhamento?.[campo.key] || 0)}
+                          onChange={(e) => atualizarDetalhamento(item.id, campo.key, Number(e.target.value || 0))}
+                        />
+                      </div>
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-center">
-                    <Input
-                      type="number"
-                      value={item.quantidade}
-                      onChange={(e) => atualizarItem(item.id, { quantidade: Number(e.target.value || 0) })}
-                      placeholder="Quantidade"
-                    />
-                    <Input
-                      value={item.unidade}
-                      onChange={(e) => atualizarItem(item.id, { unidade: e.target.value })}
-                      placeholder="Unidade (dia/hora/viagem)"
-                    />
-                    <Input
-                      type="number"
-                      value={item.fatorAplicacao}
-                      onChange={(e) => atualizarItem(item.id, { fatorAplicacao: Number(e.target.value || 0) })}
-                      placeholder="Dias/Horas/Viagens"
-                    />
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+                    <div className="space-y-1">
+                      <div className="text-[11px] text-muted-foreground">
+                        {item.categoria === "Mão de obra" ? "Qtd da função" : "Quantidade"}
+                      </div>
+                      <Input
+                        type="number"
+                        value={item.quantidade}
+                        onChange={(e) => atualizarItem(item.id, { quantidade: Number(e.target.value || 0) })}
+                        placeholder={item.categoria === "Mão de obra" ? "Ex: 5 ajudantes" : "Quantidade"}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-[11px] text-muted-foreground">Unidade</div>
+                      <Input
+                        value={item.unidade}
+                        onChange={(e) => atualizarItem(item.id, { unidade: e.target.value })}
+                        placeholder="dia/hora/viagem"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-[11px] text-muted-foreground">Período (dias/horas/viagens)</div>
+                      <Input
+                        type="number"
+                        value={item.fatorAplicacao}
+                        onChange={(e) => atualizarItem(item.id, { fatorAplicacao: Number(e.target.value || 0) })}
+                        placeholder="Ex: 22"
+                      />
+                    </div>
+
                     <div className="rounded-md border px-3 py-2 text-sm bg-muted/30">
                       <div className="text-xs text-muted-foreground">Custo unitário</div>
                       <div className="font-semibold">{toMoney(item.unitario)}</div>
@@ -657,6 +691,10 @@ export default function OrcamentosHome() {
                       <div className="text-xs text-muted-foreground">Total do item</div>
                       <div className="font-bold">{toMoney(total)}</div>
                     </div>
+                  </div>
+
+                  <div className="text-[11px] text-muted-foreground">
+                    Fórmula: custo unitário × quantidade × período = total do item.
                   </div>
                 </div>
               );
