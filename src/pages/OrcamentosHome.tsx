@@ -423,6 +423,16 @@ export default function OrcamentosHome() {
       return;
     }
 
+    const semTipoEquipamento = itens.find((item) => item.categoria === "Equipamentos" && !String(item.referencia || "").trim());
+    if (semTipoEquipamento) {
+      toast({
+        title: "Tipo de equipamento obrigatório",
+        description: "Selecione o Tipo de Equipamento em todos os itens da categoria Equipamentos antes de salvar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const semMotivo = itens.find((item) => item.natureza === "nao_previsto" && !item.motivoNaoPrevisto.trim());
     if (semMotivo) {
       toast({
