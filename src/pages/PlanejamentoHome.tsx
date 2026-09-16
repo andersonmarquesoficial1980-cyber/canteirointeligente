@@ -63,6 +63,17 @@ type OrcamentoResumoOgs = {
   custoNaoPrevisto: number;
 };
 
+type NaoPrevistoDetalhe = {
+  categoria: string;
+  referencia: string;
+  descricao: string;
+  motivo: string;
+  total: number;
+  quantidade: number;
+  fatorAplicacao: number;
+  unidade: string;
+};
+
 const ORCAMENTO_RESUMO_ZERO: OrcamentoResumoOgs = {
   orcamentoId: null,
   versao: null,
@@ -119,6 +130,7 @@ export default function PlanejamentoHome() {
   const [dataEmissaoNota, setDataEmissaoNota] = useState("");
   const [valorNota, setValorNota] = useState("");
   const [orcamentoResumoOgs, setOrcamentoResumoOgs] = useState<OrcamentoResumoOgs>(ORCAMENTO_RESUMO_ZERO);
+  const [itensNaoPrevistos, setItensNaoPrevistos] = useState<NaoPrevistoDetalhe[]>([]);
 
   const baselineSelecionado = useMemo(
     () => orcamentos.find((o) => o.id === orcamentoBaselineId) || null,
@@ -149,6 +161,7 @@ export default function PlanejamentoHome() {
   useEffect(() => {
     if (!companyId || !ogs.trim()) {
       setOrcamentoResumoOgs(ORCAMENTO_RESUMO_ZERO);
+      setItensNaoPrevistos([]);
       return;
     }
 
@@ -292,6 +305,7 @@ export default function PlanejamentoHome() {
     const ogsNormalizada = ogsAlvo.trim();
     if (!ogsNormalizada) {
       setOrcamentoResumoOgs(ORCAMENTO_RESUMO_ZERO);
+      setItensNaoPrevistos([]);
       return;
     }
 
@@ -336,6 +350,7 @@ export default function PlanejamentoHome() {
 
       if (!header?.id) {
         setOrcamentoResumoOgs(ORCAMENTO_RESUMO_ZERO);
+        setItensNaoPrevistos([]);
         return;
       }
 
@@ -345,7 +360,7 @@ export default function PlanejamentoHome() {
 
     const { data: itens, error: itensError } = await (supabase as any)
       .from("wf_orcamento_itens")
-      .select("natureza, total")
+      .select("natureza, total, categoria, referencia, descricao, motivo_nao_previsto, quantidade, fator_aplicacao, unidade")
       .eq("company_id", company)
       .eq("orcamento_id", orcamentoId);
 
@@ -354,7 +369,17 @@ export default function PlanejamentoHome() {
       return;
     }
 
-    const rows = (itens || []) as Array<{ natureza: string | null; total: number | null }>;
+    const rows = (itens || []) as Array<{
+      natureza: string | null;
+      total: number | null;
+      categoria: string | null;
+      referencia: string | null;
+      descricao: string | null;
+      motivo_nao_previsto: string | null;
+      quantidade: number | null;
+      fator_aplicacao: number | null;
+      unidade: string | null;
+    }>;
     const custoPrevisto = rows
       .filter((r) => (r.natureza || "previsto") !== "nao_previsto")
       .reduce((acc, r) => acc + Number(r.total || 0), 0);
@@ -362,6 +387,22 @@ export default function PlanejamentoHome() {
     const custoNaoPrevisto = rows
       .filter((r) => r.natureza === "nao_previsto")
       .reduce((acc, r) => acc + Number(r.total || 0), 0);
+
+    const detalhesNaoPrevistos: NaoPrevistoDetalhe[] = rows
+      .filter((r) => r.natureza === "nao_previsto")
+      .map((r) => ({
+        categoria: r.categoria || "Outros",
+        referencia: r.referencia || "Sem referência",
+        descricao: r.descricao || "",
+        motivo: r.motivo_nao_previsto || "Sem motivo informado",
+        total: Number(r.total || 0),
+        quantidade: Number(r.quantidade || 0),
+        fatorAplicacao: Number(r.fator_aplicacao || 0),
+        unidade: r.unidade || "un",
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    setItensNaoPrevistos(detalhesNaoPrevistos);
 
     setOrcamentoResumoOgs({
       orcamentoId,
@@ -496,6 +537,7 @@ export default function PlanejamentoHome() {
     setCustosAuto([]);
     setNotasUploads([]);
     setOrcamentoResumoOgs(ORCAMENTO_RESUMO_ZERO);
+    setItensNaoPrevistos([]);
   }
 
   async function abrirPlanejamento(p: Planejamento) {
@@ -831,6 +873,25 @@ export default function PlanejamentoHome() {
                 Versão orçamento: {orcamentoResumoOgs.versao ?? "-"}
               </div>
             </div>
+          </CardContent>
+          <CardContent className="pt-0 space-y-2">
+            <div className="text-xs text-muted-foreground">Detalhamento dos não previstos (top maiores custos)</div>
+            {itensNaoPrevistos.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem itens não previstos para esta OGS.</p>
+            ) : (
+              itensNaoPrevistos.slice(0, 12).map((item, idx) => (
+                <div key={`${item.referencia}-${idx}`} className="border rounded-md px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-semibold">{item.categoria} • {item.referencia}</div>
+                    <div className="font-bold text-red-600">{toMoney(item.total)}</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {item.descricao || "Sem descrição"} • {item.quantidade} × {item.fatorAplicacao} {item.unidade}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">Motivo: {item.motivo}</div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
