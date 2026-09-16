@@ -7,12 +7,39 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+type CategoriaItem = "Mão de obra" | "Equipamentos" | "Transporte" | "Materiais" | "Terceiros" | "Outros";
+type NaturezaItem = "previsto" | "nao_previsto";
+
+type DetalhamentoCustos = {
+  salario?: number;
+  beneficios?: number;
+  encargos?: number;
+  adicionais?: number;
+  locacao?: number;
+  combustivel?: number;
+  manutencao?: number;
+  operador?: number;
+  frete?: number;
+  pedagio?: number;
+  diaria?: number;
+  motorista?: number;
+  materiais?: number;
+  terceiros?: number;
+  outros?: number;
+};
+
 type OrcamentoItem = {
   id: string;
-  categoria: string;
+  categoria: CategoriaItem;
+  referencia: string;
   descricao: string;
+  natureza: NaturezaItem;
+  motivoNaoPrevisto: string;
   quantidade: number;
+  unidade: string;
+  fatorAplicacao: number;
   unitario: number;
+  detalhamento: DetalhamentoCustos;
 };
 
 type OrcamentoLista = {
@@ -26,6 +53,27 @@ type OrcamentoLista = {
   created_at: string;
 };
 
+type OrcamentoItemRow = {
+  id: string;
+  categoria: string | null;
+  referencia: string | null;
+  descricao: string | null;
+  natureza: string | null;
+  motivo_nao_previsto: string | null;
+  quantidade: number | null;
+  unidade: string | null;
+  fator_aplicacao: number | null;
+  unitario: number | null;
+  detalhamento: DetalhamentoCustos | null;
+};
+
+type CampoDetalhamento = {
+  key: keyof DetalhamentoCustos;
+  label: string;
+};
+
+const CATEGORIAS: CategoriaItem[] = ["Mão de obra", "Equipamentos", "Transporte", "Materiais", "Terceiros", "Outros"];
+
 function toMoney(v: number) {
   return (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -33,11 +81,80 @@ function toMoney(v: number) {
 function novoItemDefault(): OrcamentoItem {
   return {
     id: crypto.randomUUID(),
-    categoria: "Outros",
-    descricao: "Novo item",
-    quantidade: 1,
+    categoria: "Mão de obra",
+    referencia: "Ajudante",
+    descricao: "Equipe de execução",
+    natureza: "previsto",
+    motivoNaoPrevisto: "",
+    quantidade: 5,
+    unidade: "dia",
+    fatorAplicacao: 22,
     unitario: 0,
+    detalhamento: {
+      salario: 95,
+      beneficios: 35,
+      encargos: 42,
+      adicionais: 10,
+    },
   };
+}
+
+function camposPorCategoria(categoria: CategoriaItem): CampoDetalhamento[] {
+  if (categoria === "Mão de obra") {
+    return [
+      { key: "salario", label: "Salário (R$/dia)" },
+      { key: "beneficios", label: "Benefícios (R$/dia)" },
+      { key: "encargos", label: "Encargos (R$/dia)" },
+      { key: "adicionais", label: "Adicionais (R$/dia)" },
+    ];
+  }
+
+  if (categoria === "Equipamentos") {
+    return [
+      { key: "locacao", label: "Locação/Deprec. (R$/hora ou dia)" },
+      { key: "combustivel", label: "Combustível (R$)" },
+      { key: "manutencao", label: "Manutenção (R$)" },
+      { key: "operador", label: "Operador (R$)" },
+    ];
+  }
+
+  if (categoria === "Transporte") {
+    return [
+      { key: "frete", label: "Frete/caminhão (R$)" },
+      { key: "motorista", label: "Motorista (R$)" },
+      { key: "pedagio", label: "Pedágio (R$)" },
+      { key: "diaria", label: "Diária/estadia (R$)" },
+    ];
+  }
+
+  if (categoria === "Materiais") {
+    return [{ key: "materiais", label: "Materiais (R$ unitário)" }];
+  }
+
+  if (categoria === "Terceiros") {
+    return [{ key: "terceiros", label: "Serviço terceiro (R$ unitário)" }];
+  }
+
+  return [{ key: "outros", label: "Outros (R$ unitário)" }];
+}
+
+function calcularUnitarioPorDetalhe(item: OrcamentoItem): number {
+  const campos = camposPorCategoria(item.categoria);
+  return campos.reduce((acc, campo) => acc + (Number(item.detalhamento?.[campo.key]) || 0), 0);
+}
+
+function calcularTotalItem(item: OrcamentoItem): number {
+  const unitario = Number(item.unitario) || 0;
+  return (Number(item.quantidade) || 0) * (Number(item.fatorAplicacao) || 0) * unitario;
+}
+
+function placeholderReferencia(categoria: CategoriaItem) {
+  if (categoria === "Mão de obra") return "Função (ex: Ajudante, Operador)";
+  if (categoria === "Equipamentos") return "Equipamento (ex: Rolo BW)";
+  if (categoria === "Transporte") return "Veículo/serviço (ex: Caminhão 3/4)";
+  if (categoria === "Materiais") return "Material (ex: CAP 50/70)";
+  if (categoria === "Terceiros") return "Fornecedor/serviço";
+  return "Referência";
 }
 
 export default function OrcamentosHome() {
@@ -61,23 +178,70 @@ export default function OrcamentosHome() {
   const [bdiPercentual, setBdiPercentual] = useState<number>(18);
   const [impostosPercentual, setImpostosPercentual] = useState<number>(6);
   const [contingenciaPercentual, setContingenciaPercentual] = useState<number>(3);
+
   const [itens, setItens] = useState<OrcamentoItem[]>([
-    { id: "1", categoria: "Mão de obra", descricao: "Equipe de execução", quantidade: 1, unitario: 180000 },
-    { id: "2", categoria: "Materiais", descricao: "CAP + agregados + itens de consumo", quantidade: 1, unitario: 260000 },
-    { id: "3", categoria: "Equipamentos", descricao: "Máquinas próprias/locadas", quantidade: 1, unitario: 210000 },
-    { id: "4", categoria: "Transporte", descricao: "Pessoal + materiais + equipamentos", quantidade: 1, unitario: 90000 },
+    {
+      id: "1",
+      categoria: "Mão de obra",
+      referencia: "Ajudante",
+      descricao: "Equipe de execução principal",
+      natureza: "previsto",
+      motivoNaoPrevisto: "",
+      quantidade: 5,
+      unidade: "dia",
+      fatorAplicacao: 22,
+      unitario: 182,
+      detalhamento: { salario: 95, beneficios: 35, encargos: 42, adicionais: 10 },
+    },
+    {
+      id: "2",
+      categoria: "Equipamentos",
+      referencia: "Rolo compactador BW",
+      descricao: "Compactação",
+      natureza: "previsto",
+      motivoNaoPrevisto: "",
+      quantidade: 1,
+      unidade: "hora",
+      fatorAplicacao: 180,
+      unitario: 165,
+      detalhamento: { locacao: 90, combustivel: 40, manutencao: 20, operador: 15 },
+    },
+    {
+      id: "3",
+      categoria: "Transporte",
+      referencia: "Caminhão toco",
+      descricao: "Frete de material",
+      natureza: "previsto",
+      motivoNaoPrevisto: "",
+      quantidade: 12,
+      unidade: "viagem",
+      fatorAplicacao: 1,
+      unitario: 620,
+      detalhamento: { frete: 430, motorista: 120, pedagio: 35, diaria: 35 },
+    },
   ]);
 
-  const custoDireto = useMemo(
-    () => itens.reduce((acc, item) => acc + (Number(item.quantidade) || 0) * (Number(item.unitario) || 0), 0),
+  const custoPrevisto = useMemo(
+    () => itens.filter((item) => item.natureza === "previsto").reduce((acc, item) => acc + calcularTotalItem(item), 0),
     [itens]
   );
+
+  const custoNaoPrevisto = useMemo(
+    () => itens.filter((item) => item.natureza === "nao_previsto").reduce((acc, item) => acc + calcularTotalItem(item), 0),
+    [itens]
+  );
+
+  const custoDireto = useMemo(() => custoPrevisto + custoNaoPrevisto, [custoPrevisto, custoNaoPrevisto]);
 
   const impostos = useMemo(() => (custoDireto * (Number(impostosPercentual) || 0)) / 100, [custoDireto, impostosPercentual]);
   const contingencia = useMemo(() => (custoDireto * (Number(contingenciaPercentual) || 0)) / 100, [custoDireto, contingenciaPercentual]);
   const bdi = useMemo(() => (custoDireto * (Number(bdiPercentual) || 0)) / 100, [custoDireto, bdiPercentual]);
   const totalOrcado = useMemo(() => custoDireto + impostos + contingencia + bdi, [custoDireto, impostos, contingencia, bdi]);
   const margem = useMemo(() => (Number(receitaProposta) || 0) - totalOrcado, [receitaProposta, totalOrcado]);
+  const margemPercentual = useMemo(() => {
+    if (!receitaProposta) return 0;
+    return (margem / receitaProposta) * 100;
+  }, [margem, receitaProposta]);
 
   useEffect(() => {
     inicializar();
@@ -111,7 +275,7 @@ export default function OrcamentosHome() {
   }
 
   async function carregarLista(company: string) {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("wf_orcamentos")
       .select("id, ogs, obra, cliente, versao, total_orcado, receita_proposta, created_at")
       .eq("company_id", company)
@@ -129,7 +293,7 @@ export default function OrcamentosHome() {
   async function carregarOrcamento(id: string) {
     if (!companyId) return;
 
-    const { data: header, error: headerError } = await (supabase as any)
+    const { data: header, error: headerError } = await supabase
       .from("wf_orcamentos")
       .select("*")
       .eq("id", id)
@@ -141,9 +305,9 @@ export default function OrcamentosHome() {
       return;
     }
 
-    const { data: itensDb, error: itensError } = await (supabase as any)
+    const { data: itensDb, error: itensError } = await supabase
       .from("wf_orcamento_itens")
-      .select("id, categoria, descricao, quantidade, unitario")
+      .select("id, categoria, referencia, descricao, natureza, motivo_nao_previsto, quantidade, unidade, fator_aplicacao, unitario, detalhamento")
       .eq("orcamento_id", id)
       .eq("company_id", companyId)
       .order("ordem", { ascending: true });
@@ -162,15 +326,30 @@ export default function OrcamentosHome() {
     setImpostosPercentual(Number(header.impostos_percentual || 0));
     setContingenciaPercentual(Number(header.contingencia_percentual || 0));
     setBdiPercentual(Number(header.bdi_percentual || 0));
-    setItens(
-      (itensDb || []).map((i: any) => ({
+
+    const itensRows = (itensDb || []) as unknown as OrcamentoItemRow[];
+    const itensCarregados: OrcamentoItem[] = itensRows.map((i) => {
+      const categoria = ((i.categoria || "Outros") as CategoriaItem) || "Outros";
+      const detalhamento = (i.detalhamento || {}) as DetalhamentoCustos;
+      const base: OrcamentoItem = {
         id: i.id,
-        categoria: i.categoria || "Outros",
+        categoria,
+        referencia: i.referencia || "",
         descricao: i.descricao || "",
+        natureza: (i.natureza === "nao_previsto" ? "nao_previsto" : "previsto") as NaturezaItem,
+        motivoNaoPrevisto: i.motivo_nao_previsto || "",
         quantidade: Number(i.quantidade || 0),
+        unidade: i.unidade || "un",
+        fatorAplicacao: Number(i.fator_aplicacao || 1),
         unitario: Number(i.unitario || 0),
-      }))
-    );
+        detalhamento,
+      };
+
+      const unitarioCalculado = calcularUnitarioPorDetalhe(base);
+      return { ...base, unitario: unitarioCalculado > 0 ? unitarioCalculado : base.unitario };
+    });
+
+    setItens(itensCarregados.length > 0 ? itensCarregados : [novoItemDefault()]);
   }
 
   function novoOrcamento() {
@@ -191,6 +370,16 @@ export default function OrcamentosHome() {
 
     if (!ogs.trim() || !cliente.trim() || !obra.trim()) {
       toast({ title: "Campos obrigatórios", description: "Preencha OGS, Cliente e Obra.", variant: "destructive" });
+      return;
+    }
+
+    const semMotivo = itens.find((item) => item.natureza === "nao_previsto" && !item.motivoNaoPrevisto.trim());
+    if (semMotivo) {
+      toast({
+        title: "Motivo obrigatório",
+        description: `Informe o motivo do não previsto no item "${semMotivo.referencia || semMotivo.descricao || semMotivo.categoria}".`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -216,9 +405,10 @@ export default function OrcamentosHome() {
       margem_prevista: margem,
       updated_by: userId,
       created_by: orcamentoId ? undefined : userId,
+      observacoes: `previsto=${custoPrevisto.toFixed(2)};nao_previsto=${custoNaoPrevisto.toFixed(2)}`,
     };
 
-    const { data: saved, error: saveError } = await (supabase as any)
+    const { data: saved, error: saveError } = await supabase
       .from("wf_orcamentos")
       .upsert(payload, { onConflict: "id" })
       .select("id")
@@ -232,7 +422,7 @@ export default function OrcamentosHome() {
 
     const saveId = saved.id as string;
 
-    const { error: deleteError } = await (supabase as any)
+    const { error: deleteError } = await supabase
       .from("wf_orcamento_itens")
       .delete()
       .eq("orcamento_id", saveId)
@@ -244,20 +434,27 @@ export default function OrcamentosHome() {
       return;
     }
 
-    const itensPayload = itens.map((item, idx) => ({
-      company_id: companyId,
-      orcamento_id: saveId,
-      ordem: idx + 1,
-      categoria: item.categoria || "Outros",
-      descricao: item.descricao || "",
-      quantidade: Number(item.quantidade) || 0,
-      unitario: Number(item.unitario) || 0,
-    }));
+    const itensPayload = itens.map((item, idx) => {
+      const unitario = calcularUnitarioPorDetalhe(item);
+      return {
+        company_id: companyId,
+        orcamento_id: saveId,
+        ordem: idx + 1,
+        categoria: item.categoria || "Outros",
+        referencia: item.referencia || "",
+        descricao: item.descricao || "",
+        natureza: item.natureza,
+        motivo_nao_previsto: item.natureza === "nao_previsto" ? item.motivoNaoPrevisto.trim() : null,
+        quantidade: Number(item.quantidade) || 0,
+        unidade: item.unidade || "un",
+        fator_aplicacao: Number(item.fatorAplicacao) || 1,
+        unitario,
+        detalhamento: item.detalhamento || {},
+      };
+    });
 
     if (itensPayload.length > 0) {
-      const { error: itensSaveError } = await (supabase as any)
-        .from("wf_orcamento_itens")
-        .insert(itensPayload);
+      const { error: itensSaveError } = await supabase.from("wf_orcamento_itens").insert(itensPayload);
 
       if (itensSaveError) {
         toast({ title: "Erro ao salvar itens", description: itensSaveError.message, variant: "destructive" });
@@ -268,12 +465,34 @@ export default function OrcamentosHome() {
 
     setOrcamentoId(saveId);
     await carregarLista(companyId);
-    toast({ title: "Orçamento salvo", description: "Registro atualizado com sucesso." });
+    toast({ title: "Orçamento salvo", description: "Registro detalhado atualizado com sucesso." });
     setSaving(false);
   }
 
   function atualizarItem(id: string, patch: Partial<OrcamentoItem>) {
-    setItens((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+    setItens((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const next = { ...item, ...patch };
+        return { ...next, unitario: calcularUnitarioPorDetalhe(next) };
+      })
+    );
+  }
+
+  function atualizarDetalhamento(id: string, key: keyof DetalhamentoCustos, value: number) {
+    setItens((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const next = {
+          ...item,
+          detalhamento: {
+            ...(item.detalhamento || {}),
+            [key]: Number(value) || 0,
+          },
+        };
+        return { ...next, unitario: calcularUnitarioPorDetalhe(next) };
+      })
+    );
   }
 
   function adicionarItem() {
@@ -340,23 +559,104 @@ export default function OrcamentosHome() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Composição detalhada</CardTitle>
+            <CardTitle>Composição detalhada por função/equipamento/transporte</CardTitle>
             <Button onClick={adicionarItem} size="sm"><Plus className="w-4 h-4 mr-2" />Adicionar item</Button>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {itens.map((item) => {
-              const total = (Number(item.quantidade) || 0) * (Number(item.unitario) || 0);
+              const campos = camposPorCategoria(item.categoria);
+              const total = calcularTotalItem(item);
               return (
-                <div key={item.id} className="grid grid-cols-12 gap-2 items-center border rounded-lg p-2 bg-background">
-                  <Input className="col-span-12 md:col-span-2" value={item.categoria} onChange={(e) => atualizarItem(item.id, { categoria: e.target.value })} />
-                  <Input className="col-span-12 md:col-span-5" value={item.descricao} onChange={(e) => atualizarItem(item.id, { descricao: e.target.value })} />
-                  <Input className="col-span-6 md:col-span-1" type="number" value={item.quantidade} onChange={(e) => atualizarItem(item.id, { quantidade: Number(e.target.value || 0) })} />
-                  <Input className="col-span-6 md:col-span-2" type="number" value={item.unitario} onChange={(e) => atualizarItem(item.id, { unitario: Number(e.target.value || 0) })} />
-                  <div className="col-span-10 md:col-span-1 text-sm font-semibold text-right">{toMoney(total)}</div>
-                  <div className="col-span-2 md:col-span-1 text-right">
-                    <Button variant="ghost" size="icon" onClick={() => removerItem(item.id)}>
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
+                <div key={item.id} className="border rounded-lg p-3 bg-background space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                    <select
+                      className="md:col-span-2 h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={item.categoria}
+                      onChange={(e) => atualizarItem(item.id, { categoria: e.target.value as CategoriaItem, unitario: 0, detalhamento: {} })}
+                    >
+                      {CATEGORIAS.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+
+                    <Input
+                      className="md:col-span-3"
+                      placeholder={placeholderReferencia(item.categoria)}
+                      value={item.referencia}
+                      onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
+                    />
+
+                    <Input
+                      className="md:col-span-3"
+                      placeholder="Descrição"
+                      value={item.descricao}
+                      onChange={(e) => atualizarItem(item.id, { descricao: e.target.value })}
+                    />
+
+                    <select
+                      className="md:col-span-2 h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={item.natureza}
+                      onChange={(e) => atualizarItem(item.id, { natureza: e.target.value as NaturezaItem })}
+                    >
+                      <option value="previsto">Previsto</option>
+                      <option value="nao_previsto">Não previsto</option>
+                    </select>
+
+                    <div className="md:col-span-1 text-right text-xs text-muted-foreground">{toMoney(total)}</div>
+                    <div className="md:col-span-1 text-right">
+                      <Button variant="ghost" size="icon" onClick={() => removerItem(item.id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {item.natureza === "nao_previsto" && (
+                    <Input
+                      placeholder="Motivo obrigatório do não previsto (ex: caminhão extra solicitado por suprimentos)"
+                      value={item.motivoNaoPrevisto}
+                      onChange={(e) => atualizarItem(item.id, { motivoNaoPrevisto: e.target.value })}
+                    />
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    {campos.map((campo) => (
+                      <Input
+                        key={campo.key}
+                        type="number"
+                        step="0.01"
+                        placeholder={campo.label}
+                        value={Number(item.detalhamento?.[campo.key] || 0)}
+                        onChange={(e) => atualizarDetalhamento(item.id, campo.key, Number(e.target.value || 0))}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-center">
+                    <Input
+                      type="number"
+                      value={item.quantidade}
+                      onChange={(e) => atualizarItem(item.id, { quantidade: Number(e.target.value || 0) })}
+                      placeholder="Quantidade"
+                    />
+                    <Input
+                      value={item.unidade}
+                      onChange={(e) => atualizarItem(item.id, { unidade: e.target.value })}
+                      placeholder="Unidade (dia/hora/viagem)"
+                    />
+                    <Input
+                      type="number"
+                      value={item.fatorAplicacao}
+                      onChange={(e) => atualizarItem(item.id, { fatorAplicacao: Number(e.target.value || 0) })}
+                      placeholder="Dias/Horas/Viagens"
+                    />
+                    <div className="rounded-md border px-3 py-2 text-sm bg-muted/30">
+                      <div className="text-xs text-muted-foreground">Custo unitário</div>
+                      <div className="font-semibold">{toMoney(item.unitario)}</div>
+                    </div>
+                    <div className="rounded-md border px-3 py-2 text-sm bg-muted/30">
+                      <div className="text-xs text-muted-foreground">Total do item</div>
+                      <div className="font-bold">{toMoney(total)}</div>
+                    </div>
                   </div>
                 </div>
               );
@@ -375,12 +675,13 @@ export default function OrcamentosHome() {
               <div className="font-bold">{toMoney(totalOrcado)}</div>
             </div>
           </CardContent>
-          <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-0">
+          <CardContent className="grid grid-cols-2 md:grid-cols-6 gap-3 pt-0">
+            <Resumo label="Previsto" valor={custoPrevisto} />
+            <Resumo label="Não previsto" valor={custoNaoPrevisto} destaque={custoNaoPrevisto > 0 ? "negativo" : undefined} />
             <Resumo label="Custo Direto" valor={custoDireto} />
             <Resumo label="Impostos" valor={impostos} />
-            <Resumo label="Contingência" valor={contingencia} />
             <Resumo label="BDI" valor={bdi} />
-            <Resumo label="Margem" valor={margem} destaque={margem < 0 ? "negativo" : "positivo"} />
+            <Resumo label="Margem" valor={margem} destaque={margem < 0 ? "negativo" : "positivo"} sublabel={`${margemPercentual.toFixed(2)}% da receita`} />
           </CardContent>
           <CardContent className="pt-0">
             <Button onClick={salvarOrcamento} disabled={saving} className="w-full md:w-auto">
@@ -394,13 +695,14 @@ export default function OrcamentosHome() {
   );
 }
 
-function Resumo({ label, valor, destaque }: { label: string; valor: number; destaque?: "positivo" | "negativo" }) {
+function Resumo({ label, valor, destaque, sublabel }: { label: string; valor: number; destaque?: "positivo" | "negativo"; sublabel?: string }) {
   return (
     <div className="rounded-md border px-3 py-2 bg-background">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`font-bold ${destaque === "negativo" ? "text-red-600" : destaque === "positivo" ? "text-green-600" : ""}`}>
         {toMoney(valor)}
       </div>
+      {sublabel ? <div className="text-[11px] text-muted-foreground mt-1">{sublabel}</div> : null}
     </div>
   );
 }
