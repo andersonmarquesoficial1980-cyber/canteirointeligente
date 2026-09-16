@@ -86,7 +86,7 @@ function novoItemDefault(): OrcamentoItem {
     id: crypto.randomUUID(),
     categoria: "Mão de obra",
     referencia: "Ajudante",
-    descricao: "Equipe de execução",
+    descricao: "",
     natureza: "previsto",
     motivoNaoPrevisto: "",
     quantidade: 5,
@@ -151,6 +151,13 @@ function calcularTotalItem(item: OrcamentoItem): number {
   return (Number(item.quantidade) || 0) * (Number(item.fatorAplicacao) || 0) * unitario;
 }
 
+function unidadePadraoPorCategoria(categoria: CategoriaItem): string {
+  if (categoria === "Mão de obra") return "dia";
+  if (categoria === "Equipamentos") return "hora";
+  if (categoria === "Transporte") return "viagem";
+  return "un";
+}
+
 function placeholderReferencia(categoria: CategoriaItem) {
   if (categoria === "Mão de obra") return "Função (ex: Ajudante, Operador)";
   if (categoria === "Equipamentos") return "Equipamento (ex: Rolo BW)";
@@ -176,6 +183,7 @@ export default function OrcamentosHome() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [funcoesCadastro, setFuncoesCadastro] = useState<string[]>([]);
 
   const [orcamentos, setOrcamentos] = useState<OrcamentoLista[]>([]);
   const [orcamentoId, setOrcamentoId] = useState<string | null>(null);
@@ -310,8 +318,28 @@ export default function OrcamentosHome() {
 
     setUserId(user.id);
     setCompanyId(profile.company_id);
-    await carregarLista(profile.company_id);
+    await Promise.all([carregarLista(profile.company_id), carregarFuncoes(profile.company_id)]);
     setLoading(false);
+  }
+
+  async function carregarFuncoes(company: string) {
+    const { data, error } = await (supabase as any)
+      .from("funcoes")
+      .select("nome")
+      .eq("company_id", company)
+      .eq("ativo", true)
+      .order("nome", { ascending: true });
+
+    if (error) {
+      toast({ title: "Aviso", description: "Não foi possível carregar cadastro de funções. Usando sugestões padrão.", variant: "destructive" });
+      return;
+    }
+
+    const nomes = (data || [])
+      .map((f: any) => String(f?.nome || "").trim())
+      .filter((n: string) => n.length > 0);
+
+    setFuncoesCadastro(nomes);
   }
 
   async function carregarLista(company: string) {
@@ -379,7 +407,7 @@ export default function OrcamentosHome() {
         natureza: (i.natureza === "nao_previsto" ? "nao_previsto" : "previsto") as NaturezaItem,
         motivoNaoPrevisto: i.motivo_nao_previsto || "",
         quantidade: Number(i.quantidade || 0),
-        unidade: i.unidade || "un",
+        unidade: i.unidade || unidadePadraoPorCategoria(categoria),
         fatorAplicacao: Number(i.fator_aplicacao || 1),
         unitario: Number(i.unitario || 0),
         detalhamento,
@@ -486,7 +514,7 @@ export default function OrcamentosHome() {
         natureza: item.natureza,
         motivo_nao_previsto: item.natureza === "nao_previsto" ? item.motivoNaoPrevisto.trim() : null,
         quantidade: Number(item.quantidade) || 0,
-        unidade: item.unidade || "un",
+        unidade: unidadePadraoPorCategoria(item.categoria),
         fator_aplicacao: Number(item.fatorAplicacao) || 1,
         unitario,
         detalhamento: item.detalhamento || {},
@@ -612,34 +640,54 @@ export default function OrcamentosHome() {
                     <select
                       className="md:col-span-2 h-10 rounded-md border border-input bg-background px-3 text-sm"
                       value={item.categoria}
-                      onChange={(e) => atualizarItem(item.id, { categoria: e.target.value as CategoriaItem, unitario: 0, detalhamento: {} })}
+                      onChange={(e) => {
+                        const novaCategoria = e.target.value as CategoriaItem;
+                        atualizarItem(item.id, {
+                          categoria: novaCategoria,
+                          unidade: unidadePadraoPorCategoria(novaCategoria),
+                          unitario: 0,
+                          detalhamento: {},
+                        });
+                      }}
                     >
                       {CATEGORIAS.map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
 
-                    <div className="md:col-span-3 space-y-1">
+                    <div className="md:col-span-6 space-y-1">
                       <div className="text-[11px] text-muted-foreground">Função/Referência</div>
-                      <Input
-                        list={`referencias-${item.id}`}
-                        placeholder={placeholderReferencia(item.categoria)}
-                        value={item.referencia}
-                        onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
-                      />
-                      <datalist id={`referencias-${item.id}`}>
-                        {sugestoesReferencia(item.categoria).map((op) => (
-                          <option key={op} value={op} />
-                        ))}
-                      </datalist>
+                      {item.categoria === "Mão de obra" ? (
+                        <select
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={item.referencia}
+                          onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
+                        >
+                          {[
+                            ...(item.referencia && !(funcoesCadastro.length > 0 ? funcoesCadastro : FUNCOES_MAO_OBRA).includes(item.referencia)
+                              ? [item.referencia]
+                              : []),
+                            ...(funcoesCadastro.length > 0 ? funcoesCadastro : FUNCOES_MAO_OBRA),
+                          ].map((op) => (
+                            <option key={op} value={op}>{op}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <>
+                          <Input
+                            list={`referencias-${item.id}`}
+                            placeholder={placeholderReferencia(item.categoria)}
+                            value={item.referencia}
+                            onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
+                          />
+                          <datalist id={`referencias-${item.id}`}>
+                            {sugestoesReferencia(item.categoria).map((op) => (
+                              <option key={op} value={op} />
+                            ))}
+                          </datalist>
+                        </>
+                      )}
                     </div>
-
-                    <Input
-                      className="md:col-span-3"
-                      placeholder="Descrição"
-                      value={item.descricao}
-                      onChange={(e) => atualizarItem(item.id, { descricao: e.target.value })}
-                    />
 
                     <select
                       className="md:col-span-2 h-10 rounded-md border border-input bg-background px-3 text-sm"
@@ -695,15 +743,6 @@ export default function OrcamentosHome() {
                     </div>
 
                     <div className="space-y-1">
-                      <div className="text-[11px] text-muted-foreground">Unidade</div>
-                      <Input
-                        value={item.unidade}
-                        onChange={(e) => atualizarItem(item.id, { unidade: e.target.value })}
-                        placeholder="dia/hora/viagem"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
                       <div className="text-[11px] text-muted-foreground">Período (dias/horas/viagens)</div>
                       <Input
                         type="number"
@@ -711,6 +750,11 @@ export default function OrcamentosHome() {
                         onChange={(e) => atualizarItem(item.id, { fatorAplicacao: Number(e.target.value || 0) })}
                         placeholder="Ex: 22"
                       />
+                    </div>
+
+                    <div className="rounded-md border px-3 py-2 text-sm bg-muted/30">
+                      <div className="text-xs text-muted-foreground">Unidade aplicada</div>
+                      <div className="font-semibold">{unidadePadraoPorCategoria(item.categoria)}</div>
                     </div>
 
                     <div className="rounded-md border px-3 py-2 text-sm bg-muted/30">
