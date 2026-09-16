@@ -269,6 +269,20 @@ export default function OrcamentosHome() {
     return Array.from(mapa.values()).sort((a, b) => b.total - a.total);
   }, [itens]);
 
+  const resumoGeralEquipe = useMemo(() => {
+    const totalPessoas = resumoPorFuncao.reduce((acc, r) => acc + Number(r.quantidade || 0), 0);
+    const custoTotalMaoDeObra = resumoPorFuncao.reduce((acc, r) => acc + Number(r.total || 0), 0);
+    const qtdFuncoes = resumoPorFuncao.length;
+    const custoMedioPorFuncao = qtdFuncoes > 0 ? custoTotalMaoDeObra / qtdFuncoes : 0;
+
+    return {
+      totalPessoas,
+      custoTotalMaoDeObra,
+      qtdFuncoes,
+      custoMedioPorFuncao,
+    };
+  }, [resumoPorFuncao]);
+
   useEffect(() => {
     inicializar();
   }, []);
@@ -720,6 +734,24 @@ export default function OrcamentosHome() {
 
         <Card>
           <CardHeader><CardTitle>Resumo por função (Mão de obra)</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3 pb-0">
+            <div className="rounded-md border px-3 py-2 bg-background">
+              <div className="text-xs text-muted-foreground">Total de pessoas (soma quantidades)</div>
+              <div className="font-bold text-lg">{resumoGeralEquipe.totalPessoas}</div>
+            </div>
+            <div className="rounded-md border px-3 py-2 bg-background">
+              <div className="text-xs text-muted-foreground">Qtd de funções</div>
+              <div className="font-bold text-lg">{resumoGeralEquipe.qtdFuncoes}</div>
+            </div>
+            <div className="rounded-md border px-3 py-2 bg-background">
+              <div className="text-xs text-muted-foreground">Custo total mão de obra</div>
+              <div className="font-bold text-lg">{toMoney(resumoGeralEquipe.custoTotalMaoDeObra)}</div>
+            </div>
+            <div className="rounded-md border px-3 py-2 bg-background">
+              <div className="text-xs text-muted-foreground">Custo médio por função</div>
+              <div className="font-bold text-lg">{toMoney(resumoGeralEquipe.custoMedioPorFuncao)}</div>
+            </div>
+          </CardContent>
           <CardContent className="space-y-2">
             {resumoPorFuncao.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sem itens de mão de obra para resumir.</p>
