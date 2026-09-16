@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -97,6 +97,8 @@ function carregarFiltrosIniciais(): FiltrosGF {
 
 export default function GestaoFrotasHome() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const goBack = useSmartBack("/");
   const { trail, goTo } = useNavigationTrail({ label: "WF Gestão de Frotas", resetToHome: true });
   const { toast } = useToast();
@@ -125,7 +127,31 @@ export default function GestaoFrotasHome() {
   const [consumoSortBy, setConsumoSortBy] = useState<ConsumoSortBy>("litros");
   const [consumoSortDir, setConsumoSortDir] = useState<ConsumoSortDir>("desc");
 
-  const filtrosIniciais = useMemo(() => carregarFiltrosIniciais(), []);
+  const shouldRestoreFromQuery = searchParams.get("restore") === "1";
+  const returnToParams = new URLSearchParams(location.search);
+  returnToParams.delete("returnTo");
+  returnToParams.set("restore", "1");
+  const returnTo = encodeURIComponent(`${location.pathname}?${returnToParams.toString()}`);
+  const withReturnTo = (path: string) => `${path}${path.includes("?") ? "&" : "?"}returnTo=${returnTo}`;
+
+  const filtrosIniciais = useMemo(() => {
+    const defaults: FiltrosGF = {
+      categoria: "todos",
+      tipo: "todos",
+      subtipo: "todos",
+      equipe: "todas",
+      frota: "",
+    };
+
+    if (!shouldRestoreFromQuery) {
+      try {
+        sessionStorage.removeItem(GF_FILTROS_KEY);
+      } catch {}
+      return defaults;
+    }
+
+    return carregarFiltrosIniciais();
+  }, [shouldRestoreFromQuery]);
 
   // Filtros da nova visualização (fase 10.3)
   const [filtroCategoria, setFiltroCategoria] = useState<string>(filtrosIniciais.categoria);
@@ -966,7 +992,7 @@ export default function GestaoFrotasHome() {
           <ProgramacoesDoDia />
 
               {/* Dashboards auxiliares */}
-          <button onClick={() => navigate("/gestao-frotas/dashboard")} className="w-full rdo-card border-l-4 border-l-blue-400 hover:shadow-md transition-all flex items-center gap-3">
+          <button onClick={() => navigate(withReturnTo("/gestao-frotas/dashboard"))} className="w-full rdo-card border-l-4 border-l-blue-400 hover:shadow-md transition-all flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
               <BarChart3 className="w-5 h-5 text-blue-500" />
             </div>
@@ -977,7 +1003,7 @@ export default function GestaoFrotasHome() {
             <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
 
-          <button onClick={() => navigate("/gestao-frotas/dashboard-rdo")} className="w-full rdo-card border-l-4 border-l-green-400 hover:shadow-md transition-all flex items-center gap-3">
+          <button onClick={() => navigate(withReturnTo("/gestao-frotas/dashboard-rdo"))} className="w-full rdo-card border-l-4 border-l-green-400 hover:shadow-md transition-all flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
               <MapPin className="w-5 h-5 text-green-500" />
             </div>
@@ -988,7 +1014,7 @@ export default function GestaoFrotasHome() {
             <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
 
-          <button onClick={() => navigate("/gestao-frotas/rastreamento")} className="w-full rdo-card border-l-4 border-l-orange-400 hover:shadow-md transition-all flex items-center gap-3">
+          <button onClick={() => navigate(withReturnTo("/gestao-frotas/rastreamento"))} className="w-full rdo-card border-l-4 border-l-orange-400 hover:shadow-md transition-all flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
               <Radio className="w-5 h-5 text-orange-500" />
             </div>
@@ -999,7 +1025,7 @@ export default function GestaoFrotasHome() {
             <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
 
-          <button onClick={() => navigate("/gestao-frotas/multas")} className="w-full rdo-card border-l-4 border-l-red-400 hover:shadow-md transition-all flex items-center gap-3">
+          <button onClick={() => navigate(withReturnTo("/gestao-frotas/multas"))} className="w-full rdo-card border-l-4 border-l-red-400 hover:shadow-md transition-all flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
               <AlertTriangle className="w-5 h-5 text-red-500" />
             </div>
@@ -1217,7 +1243,7 @@ export default function GestaoFrotasHome() {
                 key={v.id}
                 className="w-full rdo-card hover:shadow-md transition-all space-y-2"
               >
-                <button onClick={() => navigate(`/gestao-frotas/veiculo/${v.id}`)} className="w-full text-left flex items-center gap-3">
+                <button onClick={() => navigate(withReturnTo(`/gestao-frotas/veiculo/${v.id}`))} className="w-full text-left flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'bg-blue-50' : 'bg-green-50'}`}>
                     <Car className={`w-5 h-5 ${(v.condicao || (v.categoria === 'locado' ? 'TERCEIRO' : 'PROPRIO')) === 'TERCEIRO' ? 'text-blue-600' : 'text-green-600'}`} />
                   </div>
@@ -1301,10 +1327,10 @@ export default function GestaoFrotasHome() {
               ))}
             </div>
           )}
-          <Button onClick={() => navigate("/gestao-frotas/documentos?origem=gestao-frotas")} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
+          <Button onClick={() => navigate(withReturnTo("/gestao-frotas/documentos?origem=gestao-frotas"))} className="w-full h-11 gap-2 rounded-xl font-display font-bold">
             <Plus className="w-4 h-4" /> Adicionar Documento
           </Button>
-          <Button onClick={() => navigate("/gestao-frotas/documentos?origem=gestao-frotas")} variant="outline" className="w-full h-11 gap-2 rounded-xl font-semibold">
+          <Button onClick={() => navigate(withReturnTo("/gestao-frotas/documentos?origem=gestao-frotas"))} variant="outline" className="w-full h-11 gap-2 rounded-xl font-semibold">
             <FileText className="w-4 h-4" /> Ver Todos os Documentos
           </Button>
         </div>
