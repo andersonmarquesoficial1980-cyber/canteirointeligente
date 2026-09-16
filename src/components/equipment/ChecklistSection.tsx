@@ -133,6 +133,9 @@ export default function ChecklistSection({
   });
 
   const naoOkCount = results.filter(r => r.status === "nao_ok").length;
+  const naoOkSemFotoCount = results.filter(
+    (r) => r.status === "nao_ok" && !r.photoFile && !r.photoPreview,
+  ).length;
   const jaEnviado = !!checklistSubmittedAt;
 
   return (
@@ -187,7 +190,7 @@ export default function ChecklistSection({
               <Button
                 type="button"
                 onClick={handleEnviarChecklist}
-                disabled={!allAnswered || enviando}
+                disabled={!allAnswered || naoOkSemFotoCount > 0 || enviando}
                 className="w-full h-11 rounded-xl font-display font-bold gap-2 bg-primary text-primary-foreground disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
@@ -196,6 +199,11 @@ export default function ChecklistSection({
               {!allAnswered && (
                 <p className="text-[10px] text-muted-foreground text-center">
                   Responda todos os itens para enviar
+                </p>
+              )}
+              {allAnswered && naoOkSemFotoCount > 0 && (
+                <p className="text-[10px] text-rose-600 text-center font-semibold">
+                  Item não conforme exige foto. Falta foto em {naoOkSemFotoCount} item(ns).
                 </p>
               )}
             </div>

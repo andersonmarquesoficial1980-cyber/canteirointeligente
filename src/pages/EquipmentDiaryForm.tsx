@@ -2711,6 +2711,14 @@ export default function EquipmentDiaryForm() {
         return;
       }
 
+      const naoOkSemFoto = validResults.filter(
+        (cr) => cr.status === "nao_ok" && !cr.photoFile && !isRemoteUrl(cr.photoPreview),
+      );
+      if (naoOkSemFoto.length > 0) {
+        alert(`Todo item NÃO CONFORME exige foto. ${naoOkSemFoto.length} item(ns) está(ão) sem foto.`);
+        return;
+      }
+
       if (targetDiaryId) {
         // Diário já existe — mantém compatibilidade total
         if (preopChecklistId) {
