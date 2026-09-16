@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Search, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
@@ -39,10 +39,17 @@ const STATUS_CLASS: Record<Candidato["status_candidatura"], string> = {
 
 export default function GestaoPessoasCandidatos() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const origem = searchParams.get("origem") || "";
-  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
+  const withContext = (path: string) => {
+    const [pathname, queryString = ""] = path.split("?");
+    const params = new URLSearchParams(queryString);
+    if (origem) params.set("origem", origem);
+    params.set("returnTo", `${location.pathname}${location.search}`);
+    return `${pathname}?${params.toString()}`;
+  };
   const { profile } = useUserProfile();
 
   const [loading, setLoading] = useState(true);
@@ -94,7 +101,7 @@ export default function GestaoPessoasCandidatos() {
   }, [candidatos]);
 
   const goFicha = (id: string) => {
-    navigate(`/gestao-pessoas/candidatos/${id}${origemQuery}`);
+    navigate(withContext(`/gestao-pessoas/candidatos/${id}`));
   };
 
   return (
@@ -111,7 +118,7 @@ export default function GestaoPessoasCandidatos() {
           </span>
         </div>
         <button
-          onClick={() => navigate(`/gestao-pessoas/candidatos/novo${origemQuery}`)}
+          onClick={() => navigate(withContext(`/gestao-pessoas/candidatos/novo`))}
           className="px-2.5 h-8 rounded-lg bg-white/15 hover:bg-white/25 text-xs font-semibold flex items-center gap-1"
         >
           <UserPlus className="w-3.5 h-3.5" /> Novo

@@ -249,7 +249,10 @@ export default function DemandasHome() {
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const detalheParams = new URLSearchParams();
   if (origem) detalheParams.set("origem", origem);
-  detalheParams.set("returnTo", `${location.pathname}${location.search}`);
+  const returnToParams = new URLSearchParams(location.search);
+  returnToParams.delete("returnTo");
+  const returnToBase = `${location.pathname}${returnToParams.toString() ? `?${returnToParams.toString()}` : ""}`;
+  detalheParams.set("returnTo", returnToBase);
   const detalheQuery = `?${detalheParams.toString()}`;
   const [novoOpen, setNovoOpen] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todas");

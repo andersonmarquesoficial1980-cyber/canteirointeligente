@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Search, ChevronRight, Wrench,
   User, Bus, MapPin, Camera, ClipboardList, ChevronDown, ChevronUp,
@@ -342,10 +342,17 @@ type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "centro_custo" | "ani
 
 export default function GestaoPessoasDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const origem = searchParams.get("origem") || "";
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
-  const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
+  const withContext = (path: string) => {
+    const [pathname, queryString = ""] = path.split("?");
+    const params = new URLSearchParams(queryString);
+    if (origem) params.set("origem", origem);
+    params.set("returnTo", `${location.pathname}${location.search}`);
+    return `${pathname}?${params.toString()}`;
+  };
   const { isAdmin } = useIsAdmin();
   const { profile } = useUserProfile();
   const [todos, setTodos] = useState<Funcionario[]>([]);
@@ -477,7 +484,7 @@ export default function GestaoPessoasDashboard() {
               return (
                 <button
                   key={item.rota}
-                  onClick={() => navigate(`${item.rota}${origemQuery}`)}
+                  onClick={() => navigate(withContext(item.rota))}
                   className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 hover:bg-muted/50 transition-colors text-left w-full"
                 >
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${item.cor}`}>
