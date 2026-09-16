@@ -2706,6 +2706,11 @@ export default function EquipmentDiaryForm() {
         (cr) => cr.status != null && ["ok", "nao_ok", "na"].includes(cr.status),
       );
 
+      if (validResults.length === 0) {
+        alert("Não é possível enviar checklist vazio. Marque os itens (C/NC/NA) antes de enviar.");
+        return;
+      }
+
       if (targetDiaryId) {
         // Diário já existe — mantém compatibilidade total
         if (preopChecklistId) {
