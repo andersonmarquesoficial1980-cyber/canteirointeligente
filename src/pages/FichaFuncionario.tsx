@@ -4,7 +4,7 @@
  * Abas: Cadastro | Documentos | Ponto | VT & Custos | Histórico
  */
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import {
   ArrowLeft, User, Clock, Bus, FileText, Plus, Trash2,
@@ -397,7 +397,20 @@ function CentroCustoField({
 export default function FichaFuncionario() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const goBack = useSmartBack("/gestao-pessoas/equipe");
+  const origem = searchParams.get("origem") || "";
+  const withContext = (path: string) => {
+    const [pathname, queryString = ""] = path.split("?");
+    const params = new URLSearchParams(queryString);
+    if (origem) params.set("origem", origem);
+    const returnToParams = new URLSearchParams(location.search);
+    returnToParams.delete("returnTo");
+    const returnToBase = `${location.pathname}${returnToParams.toString() ? `?${returnToParams.toString()}` : ""}`;
+    params.set("returnTo", returnToBase);
+    return `${pathname}?${params.toString()}`;
+  };
   const { isAdmin } = useIsAdmin();
   const { funcoes } = useFuncoes();
   const { profile } = useUserProfile();
@@ -1215,7 +1228,7 @@ export default function FichaFuncionario() {
                 <p className="text-sm text-foreground">{func.obs_ponto}</p>
               </div>
             )}
-            <button onClick={() => navigate("/rh/espelho-ponto")}
+            <button onClick={() => navigate(withContext("/rh/espelho-ponto"))}
               className="w-full text-xs text-primary border border-primary/30 rounded-xl py-2.5 hover:bg-primary/5 transition">
               Ver Espelho de Ponto →
             </button>
@@ -1242,7 +1255,7 @@ export default function FichaFuncionario() {
                 <p className="text-[10px] text-muted-foreground">Custo Total Est.</p>
               </div>
             </div>
-            <button onClick={() => navigate("/vale-transporte")}
+            <button onClick={() => navigate(withContext("/vale-transporte"))}
               className="w-full text-xs text-primary border border-primary/30 rounded-xl py-2.5 hover:bg-primary/5 transition">
               Configurar conduções de VT →
             </button>
