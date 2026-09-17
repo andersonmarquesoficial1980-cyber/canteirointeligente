@@ -432,7 +432,7 @@ export default function FichaFuncionario() {
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aba, setAba] = useState<"cadastro" | "documentos" | "ponto" | "vt" | "historico" | "pendencias">("cadastro");
+  const [aba, setAba] = useState<"cadastro" | "documentos" | "ponto" | "vt" | "custos" | "historico" | "pendencias">("cadastro");
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState<Partial<Funcionario>>({});
   const [salvando, setSalvando] = useState(false);
@@ -844,6 +844,7 @@ export default function FichaFuncionario() {
     { id: "documentos", label: "Documentos", icon: FolderOpen, badge: docsVencidos > 0 ? docsVencidos : undefined },
     { id: "ponto",      label: "Ponto",      icon: Clock },
     { id: "vt",         label: "VT",         icon: Bus },
+    { id: "custos",     label: "Custos",     icon: Briefcase },
     { id: "historico",  label: "Histórico",  icon: FileText },
     { id: "pendencias", label: "Pendências", icon: ListChecks, badge: pendenciasAbertas > 0 ? pendenciasAbertas : undefined },
   ] as const;
@@ -1258,11 +1259,10 @@ export default function FichaFuncionario() {
           </>
         )}
 
-        {/* ── ABA VT & CUSTOS ──────────────────────────────────────────────── */}
+        {/* ── ABA VT (somente vale-transporte) ─────────────────────────────── */}
         {aba === "vt" && (
           <>
-            <h2 className="text-sm font-semibold">VT & Custos</h2>
-            <p className="text-[10px] text-emerald-700 font-semibold">VERSÃO CUSTOS FUNÇÃO/FICHA: bb89caa</p>
+            <h2 className="text-sm font-semibold">Vale Transporte (VT)</h2>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-border bg-card p-4 text-center col-span-2">
                 <p className="text-3xl font-bold text-primary">{vtTotal != null ? fmtBRL(vtTotal) : "—"}</p>
@@ -1279,7 +1279,18 @@ export default function FichaFuncionario() {
                 <p className="text-[10px] text-muted-foreground">Custo Total Est. (Salário + VT)</p>
               </div>
             </div>
+            <button onClick={() => navigate(withContext("/vale-transporte"))}
+              className="w-full text-xs text-primary border border-primary/30 rounded-xl py-2.5 hover:bg-primary/5 transition">
+              Configurar conduções de VT →
+            </button>
+          </>
+        )}
 
+        {/* ── ABA CUSTOS (somente custo empresa) ─────────────────────────────── */}
+        {aba === "custos" && (
+          <>
+            <h2 className="text-sm font-semibold">Custos do Funcionário</h2>
+            <p className="text-[10px] text-emerald-700 font-semibold">VERSÃO CUSTOS FUNÇÃO/FICHA: bb89caa</p>
             <div className="rounded-xl border border-border bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold">Custo real mensal do funcionário</p>
@@ -1322,10 +1333,6 @@ export default function FichaFuncionario() {
                 </>
               )}
             </div>
-            <button onClick={() => navigate(withContext("/vale-transporte"))}
-              className="w-full text-xs text-primary border border-primary/30 rounded-xl py-2.5 hover:bg-primary/5 transition">
-              Configurar conduções de VT →
-            </button>
           </>
         )}
 
