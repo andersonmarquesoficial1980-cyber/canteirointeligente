@@ -27,6 +27,12 @@ type DetalhamentoCustos = {
   materiais?: number;
   terceiros?: number;
   outros?: number;
+  _sugestao_unitario?: number;
+  _sugestao_competencia?: string;
+  _sugestao_equipe?: string;
+  _sugestao_funcao_base?: string;
+  _override_manual?: boolean;
+  [key: string]: number | string | boolean | undefined;
 };
 
 type OrcamentoItem = {
@@ -41,6 +47,35 @@ type OrcamentoItem = {
   fatorAplicacao: number;
   unitario: number;
   detalhamento: DetalhamentoCustos;
+};
+
+type CustoFuncionarioMensal = {
+  employee_id: string;
+  competencia: string;
+  equipe: string | null;
+  salario: number | null;
+  total_encargos: number | null;
+  assistencia_medica: number | null;
+  seguro_vida: number | null;
+  vale_refeicao: number | null;
+  totalpass: number | null;
+  role?: string;
+};
+
+type FuncionarioRole = {
+  id: string;
+  role: string | null;
+};
+
+type CustoFuncaoAgregado = {
+  funcaoBase: string;
+  funcaoLabel: string;
+  equipe: string;
+  qtd: number;
+  salarioDia: number;
+  beneficiosDia: number;
+  encargosDia: number;
+  unitarioDia: number;
 };
 
 type OrcamentoLista = {
@@ -180,6 +215,26 @@ function sugestoesReferencia(categoria: CategoriaItem): string[] {
   return [];
 }
 
+function normalizarTexto(valor: string): string {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizarFuncaoBase(valor: string): string {
+  const n = normalizarTexto(valor);
+  if (!n) return "";
+  return n
+    .replace(/\bSR\b|\bPL\b|\bESP\b|\bJR\b/g, "")
+    .replace(/\bI\b|\bII\b|\bIII\b|\bIV\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function OrcamentosHome() {
   const goBack = useSmartBack("/");
   const { toast } = useToast();
@@ -191,6 +246,10 @@ export default function OrcamentosHome() {
   const [userId, setUserId] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [funcoesCadastro, setFuncoesCadastro] = useState<string[]>([]);
+  const [custosMdo, setCustosMdo] = useState<CustoFuncionarioMensal[]>([]);
+  const [competenciaCusto, setCompetenciaCusto] = useState<string>("");
+  const [equipeCustoFiltro, setEquipeCustoFiltro] = useState<string>("TODAS");
+  const [diasBaseMensal, setDiasBaseMensal] = useState<number>(22);
 
   const [orcamentos, setOrcamentos] = useState<OrcamentoLista[]>([]);
   const [orcamentoId, setOrcamentoId] = useState<string | null>(null);
@@ -210,6 +269,77 @@ export default function OrcamentosHome() {
     const labels = (tiposEquipamentosFlat || []).map((t) => String(t.label || "").trim()).filter(Boolean);
     return Array.from(new Set(labels));
   }, [tiposEquipamentosFlat]);
+
+  const competenciasDisponiveis = useMemo(() => {
+    const list = Array.from(new Set((custosMdo || []).map((c) => String(c.competencia || "")).filter(Boolean)));
+    return list.sort((a, b) => b.localeCompare(a));
+  }, [custosMdo]);
+
+  const equipesDisponiveis = useMemo(() => {
+    const base = (custosMdo || []).filter((c) => (competenciaCusto ? c.competencia === competenciaCusto : true));
+    const list = Array.from(new Set(base.map((c) => String(c.equipe || "SEM_EQUIPE")).filter(Boolean)));
+    return ["TODAS", ...list.sort((a, b) => a.localeCompare(b))];
+  }, [custosMdo, competenciaCusto]);
+
+  const custosMaoDeObraAgregados = useMemo(() => {
+    const mapa = new Map<string, CustoFuncaoAgregado>();
+
+    (custosMdo || [])
+      .filter((c) => (competenciaCusto ? c.competencia === competenciaCusto : true))
+      .filter((c) => (equipeCustoFiltro === "TODAS" ? true : (c.equipe || "SEM_EQUIPE") === equipeCustoFiltro))
+      .forEach((c) => {
+        const role = String(c.role || "").trim();
+        const funcaoBase = normalizarFuncaoBase(role);
+        if (!funcaoBase) return;
+
+        const equipe = String(c.equipe || "SEM_EQUIPE").trim() || "SEM_EQUIPE";
+        const key = `${funcaoBase}__${equipeCustoFiltro === "TODAS" ? "TODAS" : equipe}`;
+
+        const atual = mapa.get(key) || {
+          funcaoBase,
+          funcaoLabel: role,
+          equipe,
+          qtd: 0,
+          salarioDia: 0,
+          beneficiosDia: 0,
+          encargosDia: 0,
+          unitarioDia: 0,
+        };
+
+        const salarioDia = (Number(c.salario || 0) || 0) / Math.max(Number(diasBaseMensal) || 22, 1);
+        const beneficiosDia =
+          ((Number(c.assistencia_medica || 0) || 0) +
+            (Number(c.seguro_vida || 0) || 0) +
+            (Number(c.vale_refeicao || 0) || 0) +
+            (Number(c.totalpass || 0) || 0)) /
+          Math.max(Number(diasBaseMensal) || 22, 1);
+        const encargosDia = (Number(c.total_encargos || 0) || 0) / Math.max(Number(diasBaseMensal) || 22, 1);
+
+        atual.qtd += 1;
+        atual.salarioDia += salarioDia;
+        atual.beneficiosDia += beneficiosDia;
+        atual.encargosDia += encargosDia;
+        atual.unitarioDia += salarioDia + beneficiosDia + encargosDia;
+
+        mapa.set(key, atual);
+      });
+
+    return Array.from(mapa.values())
+      .map((x) => ({
+        ...x,
+        salarioDia: x.qtd > 0 ? x.salarioDia / x.qtd : 0,
+        beneficiosDia: x.qtd > 0 ? x.beneficiosDia / x.qtd : 0,
+        encargosDia: x.qtd > 0 ? x.encargosDia / x.qtd : 0,
+        unitarioDia: x.qtd > 0 ? x.unitarioDia / x.qtd : 0,
+      }))
+      .sort((a, b) => b.qtd - a.qtd);
+  }, [custosMdo, competenciaCusto, equipeCustoFiltro, diasBaseMensal]);
+
+  const funcoesMdoOpcoes = useMemo(() => {
+    const doCadastro = funcoesCadastro.length > 0 ? funcoesCadastro : FUNCOES_MAO_OBRA;
+    const daBaseCusto = custosMaoDeObraAgregados.map((c) => c.funcaoLabel).filter(Boolean);
+    return Array.from(new Set([...doCadastro, ...daBaseCusto]));
+  }, [funcoesCadastro, custosMaoDeObraAgregados]);
 
   const custoPrevisto = useMemo(
     () => itens.filter((item) => item.natureza === "previsto").reduce((acc, item) => acc + calcularTotalItem(item), 0),
@@ -290,7 +420,7 @@ export default function OrcamentosHome() {
 
     setUserId(user.id);
     setCompanyId(profile.company_id);
-    await Promise.all([carregarLista(profile.company_id), carregarFuncoes(profile.company_id)]);
+    await Promise.all([carregarLista(profile.company_id), carregarFuncoes(profile.company_id), carregarCustosMdo(profile.company_id)]);
     setLoading(false);
   }
 
@@ -312,6 +442,98 @@ export default function OrcamentosHome() {
       .filter((n: string) => n.length > 0);
 
     setFuncoesCadastro(nomes);
+  }
+
+  async function carregarCustosMdo(company: string) {
+    const { data: custos, error: custosError } = await (supabase as any)
+      .from("wf_custo_funcionario_mensal")
+      .select("employee_id, competencia, equipe, salario, total_encargos, assistencia_medica, seguro_vida, vale_refeicao, totalpass")
+      .eq("company_id", company)
+      .order("competencia", { ascending: false })
+      .limit(5000);
+
+    if (custosError) {
+      toast({ title: "Aviso", description: "Não foi possível carregar base de custos MDO.", variant: "destructive" });
+      return;
+    }
+
+    const rows = (custos || []) as CustoFuncionarioMensal[];
+    if (rows.length === 0) {
+      setCustosMdo([]);
+      setCompetenciaCusto("");
+      return;
+    }
+
+    const employeeIds = Array.from(new Set(rows.map((r) => String(r.employee_id || "")).filter(Boolean)));
+    let rolesMap = new Map<string, string>();
+
+    if (employeeIds.length > 0) {
+      const { data: emps, error: empsError } = await (supabase as any)
+        .from("employees")
+        .select("id, role")
+        .in("id", employeeIds)
+        .eq("company_id", company);
+
+      if (!empsError) {
+        const empRows = (emps || []) as FuncionarioRole[];
+        rolesMap = new Map(empRows.map((e) => [String(e.id), String(e.role || "")]));
+      }
+    }
+
+    const merged = rows.map((r) => ({
+      ...r,
+      role: rolesMap.get(String(r.employee_id || "")) || "",
+    }));
+
+    setCustosMdo(merged);
+    const compAtual = merged[0]?.competencia ? String(merged[0].competencia) : "";
+    setCompetenciaCusto((old) => old || compAtual);
+  }
+
+  function buscarSugestaoMaoDeObra(referencia: string): CustoFuncaoAgregado | null {
+    const base = normalizarFuncaoBase(referencia);
+    if (!base) return null;
+
+    const candidatos = custosMaoDeObraAgregados.filter((c) => c.funcaoBase === base);
+    if (candidatos.length === 0) return null;
+
+    return candidatos.sort((a, b) => b.qtd - a.qtd)[0] || null;
+  }
+
+  function aplicarSugestaoMaoDeObra(itemId: string, referencia: string) {
+    const sugestao = buscarSugestaoMaoDeObra(referencia);
+
+    setItens((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        if (item.categoria !== "Mão de obra") return { ...item, referencia };
+
+        if (!sugestao) {
+          return { ...item, referencia };
+        }
+
+        const detalhamento: DetalhamentoCustos = {
+          ...(item.detalhamento || {}),
+          salario: Number(sugestao.salarioDia.toFixed(2)),
+          beneficios: Number(sugestao.beneficiosDia.toFixed(2)),
+          encargos: Number(sugestao.encargosDia.toFixed(2)),
+          adicionais: Number(item.detalhamento?.adicionais || 0),
+          _sugestao_unitario: Number(sugestao.unitarioDia.toFixed(2)),
+          _sugestao_competencia: competenciaCusto,
+          _sugestao_equipe: equipeCustoFiltro,
+          _sugestao_funcao_base: sugestao.funcaoBase,
+          _override_manual: false,
+        };
+
+        const next = {
+          ...item,
+          referencia,
+          detalhamento,
+        };
+
+        return { ...next, unitario: calcularUnitarioPorDetalhe(next) };
+      })
+    );
   }
 
   async function carregarLista(company: string) {
@@ -496,6 +718,17 @@ export default function OrcamentosHome() {
 
     const itensPayload = itens.map((item, idx) => {
       const unitario = calcularUnitarioPorDetalhe(item);
+      const sugestaoUnitario = Number(item.detalhamento?._sugestao_unitario || 0);
+      const overrideManual = item.categoria === "Mão de obra" && sugestaoUnitario > 0 ? Math.abs(unitario - sugestaoUnitario) > 0.01 : false;
+      const detalhamentoPayload = {
+        ...(item.detalhamento || {}),
+        _sugestao_unitario: sugestaoUnitario > 0 ? sugestaoUnitario : undefined,
+        _sugestao_competencia: item.detalhamento?._sugestao_competencia || undefined,
+        _sugestao_equipe: item.detalhamento?._sugestao_equipe || undefined,
+        _sugestao_funcao_base: item.detalhamento?._sugestao_funcao_base || undefined,
+        _override_manual: overrideManual,
+      };
+
       return {
         company_id: companyId,
         orcamento_id: saveId,
@@ -509,7 +742,7 @@ export default function OrcamentosHome() {
         unidade: unidadePadraoPorCategoria(item.categoria),
         fator_aplicacao: Number(item.fatorAplicacao) || 1,
         unitario,
-        detalhamento: item.detalhamento || {},
+        detalhamento: detalhamentoPayload,
       };
     });
 
@@ -550,7 +783,20 @@ export default function OrcamentosHome() {
             [key]: Number(value) || 0,
           },
         };
-        return { ...next, unitario: calcularUnitarioPorDetalhe(next) };
+
+        const unitario = calcularUnitarioPorDetalhe(next);
+        const sugestaoUnitario = Number(next.detalhamento?._sugestao_unitario || 0);
+        const overrideManual =
+          item.categoria === "Mão de obra" && sugestaoUnitario > 0 ? Math.abs(unitario - sugestaoUnitario) > 0.01 : false;
+
+        return {
+          ...next,
+          unitario,
+          detalhamento: {
+            ...(next.detalhamento || {}),
+            _override_manual: overrideManual,
+          },
+        };
       })
     );
   }
@@ -618,6 +864,56 @@ export default function OrcamentosHome() {
         </Card>
 
         <Card>
+          <CardHeader><CardTitle>Base de custo MDO (autofill)</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="space-y-1">
+              <div className="text-[11px] text-muted-foreground">Competência</div>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={competenciaCusto}
+                onChange={(e) => setCompetenciaCusto(e.target.value)}
+              >
+                {competenciasDisponiveis.length === 0 ? <option value="">Sem base carregada</option> : null}
+                {competenciasDisponiveis.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-[11px] text-muted-foreground">Filtro de equipe para sugestão</div>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={equipeCustoFiltro}
+                onChange={(e) => setEquipeCustoFiltro(e.target.value)}
+              >
+                {equipesDisponiveis.map((eq) => (
+                  <option key={eq} value={eq}>{eq}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-[11px] text-muted-foreground">Divisor mensal → dia (MDO)</div>
+              <Input
+                type="number"
+                value={diasBaseMensal}
+                onChange={(e) => setDiasBaseMensal(Math.max(Number(e.target.value || 1), 1))}
+                placeholder="Ex: 22"
+              />
+            </div>
+
+            <div className="rounded-md border px-3 py-2 text-sm bg-muted/30">
+              <div className="text-xs text-muted-foreground">Funções com base calculada</div>
+              <div className="font-bold text-lg">{custosMaoDeObraAgregados.length}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">
+                Ao selecionar uma função em Mão de obra, o custo diário é sugerido automaticamente.
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Composição detalhada por função/equipamento/transporte</CardTitle>
             <Button onClick={adicionarItem} size="sm"><Plus className="w-4 h-4 mr-2" />Adicionar item</Button>
@@ -653,14 +949,12 @@ export default function OrcamentosHome() {
                         <select
                           className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                           value={item.referencia}
-                          onChange={(e) => atualizarItem(item.id, { referencia: e.target.value })}
+                          onChange={(e) => aplicarSugestaoMaoDeObra(item.id, e.target.value)}
                         >
                           <option value="">Selecione a função</option>
                           {[
-                            ...(item.referencia && !(funcoesCadastro.length > 0 ? funcoesCadastro : FUNCOES_MAO_OBRA).includes(item.referencia)
-                              ? [item.referencia]
-                              : []),
-                            ...(funcoesCadastro.length > 0 ? funcoesCadastro : FUNCOES_MAO_OBRA),
+                            ...(item.referencia && !funcoesMdoOpcoes.includes(item.referencia) ? [item.referencia] : []),
+                            ...funcoesMdoOpcoes,
                           ].map((op) => (
                             <option key={op} value={op}>{op}</option>
                           ))}
@@ -738,6 +1032,20 @@ export default function OrcamentosHome() {
                       </div>
                     ))}
                   </div>
+
+                  {item.categoria === "Mão de obra" && Number(item.detalhamento?._sugestao_unitario || 0) > 0 ? (
+                    <div className="text-[11px] rounded-md border px-2 py-1 bg-muted/30 flex flex-wrap gap-2 items-center">
+                      <span className="text-muted-foreground">Sugestão base:</span>
+                      <span className="font-semibold">{toMoney(Number(item.detalhamento?._sugestao_unitario || 0))}/dia</span>
+                      <span className="text-muted-foreground">• competência {String(item.detalhamento?._sugestao_competencia || "-")}</span>
+                      <span className="text-muted-foreground">• equipe {String(item.detalhamento?._sugestao_equipe || "TODAS")}</span>
+                      {Boolean(item.detalhamento?._override_manual) ? (
+                        <span className="text-amber-700 font-semibold">• override manual aplicado</span>
+                      ) : (
+                        <span className="text-green-700 font-semibold">• usando valor sugerido</span>
+                      )}
+                    </div>
+                  ) : null}
 
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
                     <div className="space-y-1">
