@@ -51,6 +51,7 @@ type OrcamentoItem = {
 
 type CustoFuncionarioMensal = {
   employee_id: string;
+  nome_funcionario?: string | null;
   competencia: string;
   equipe: string | null;
   salario: number | null;
@@ -59,6 +60,7 @@ type CustoFuncionarioMensal = {
   seguro_vida: number | null;
   vale_refeicao: number | null;
   totalpass: number | null;
+  custo_total_mensal?: number | null;
   role?: string;
 };
 
@@ -368,6 +370,49 @@ export default function OrcamentosHome() {
     return Array.from(new Set([...doCadastro, ...daBaseCusto]));
   }, [funcoesCadastro, custosMaoDeObraAgregados]);
 
+  const resumoBaseCusto = useMemo(() => {
+    const baseFiltrada = (custosMdo || [])
+      .filter((c) => (competenciaCusto ? c.competencia === competenciaCusto : true))
+      .filter((c) => (equipeCustoFiltro === "TODAS" ? true : (c.equipe || "SEM_EQUIPE") === equipeCustoFiltro));
+
+    const total = baseFiltrada.reduce((acc, c) => acc + Number(c.custo_total_mensal || 0), 0);
+
+    const topFuncionarios = [...baseFiltrada]
+      .sort((a, b) => Number(b.custo_total_mensal || 0) - Number(a.custo_total_mensal || 0))
+      .slice(0, 5)
+      .map((c) => ({
+        nome: String(c.nome_funcionario || "SEM NOME"),
+        valor: Number(c.custo_total_mensal || 0),
+      }));
+
+    const topEquipesMap = new Map<string, { qtd: number; valor: number }>();
+    baseFiltrada.forEach((c) => {
+      const eq = String(c.equipe || "SEM_EQUIPE");
+      const atual = topEquipesMap.get(eq) || { qtd: 0, valor: 0 };
+      atual.qtd += 1;
+      atual.valor += Number(c.custo_total_mensal || 0);
+      topEquipesMap.set(eq, atual);
+    });
+
+    const topEquipes = Array.from(topEquipesMap.entries())
+      .map(([nome, v]) => ({ nome, qtd: v.qtd, valor: v.valor }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 5);
+
+    const topFuncoes = custosMaoDeObraAgregados
+      .map((f) => ({ nome: f.funcaoLabel, qtd: f.qtd, valor: f.unitarioDia * f.qtd }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 5);
+
+    return {
+      totalFuncionarios: baseFiltrada.length,
+      total,
+      topFuncionarios,
+      topEquipes,
+      topFuncoes,
+    };
+  }, [custosMdo, competenciaCusto, equipeCustoFiltro, custosMaoDeObraAgregados]);
+
   const custoPrevisto = useMemo(
     () => itens.filter((item) => item.natureza === "previsto").reduce((acc, item) => acc + calcularTotalItem(item), 0),
     [itens]
@@ -474,7 +519,7 @@ export default function OrcamentosHome() {
   async function carregarCustosMdo(company: string) {
     const { data: custos, error: custosError } = await (supabase as any)
       .from("wf_custo_funcionario_mensal")
-      .select("employee_id, competencia, equipe, salario, total_encargos, assistencia_medica, seguro_vida, vale_refeicao, totalpass")
+      .select("employee_id, nome_funcionario, competencia, equipe, salario, total_encargos, assistencia_medica, seguro_vida, vale_refeicao, totalpass, custo_total_mensal")
       .eq("company_id", company)
       .order("competencia", { ascending: false })
       .limit(5000);
@@ -949,6 +994,53 @@ export default function OrcamentosHome() {
               <div className="text-[11px] text-muted-foreground mt-1">
                 Ao selecionar uma função em Mão de obra, o custo diário é sugerido automaticamente.
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Visão rápida de custos carregados (base real)</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-md border px-3 py-2 bg-muted/20">
+              <div className="text-xs text-muted-foreground">Funcionários na base filtrada</div>
+              <div className="font-bold text-lg">{resumoBaseCusto.totalFuncionarios}</div>
+            </div>
+            <div className="rounded-md border px-3 py-2 bg-muted/20">
+              <div className="text-xs text-muted-foreground">Custo total da base filtrada</div>
+              <div className="font-bold text-lg">{toMoney(resumoBaseCusto.total)}</div>
+            </div>
+            <div className="rounded-md border px-3 py-2 bg-muted/20">
+              <div className="text-xs text-muted-foreground">Competência ativa</div>
+              <div className="font-bold text-lg">{competenciaCusto || "—"}</div>
+            </div>
+          </CardContent>
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-0 text-xs">
+            <div>
+              <div className="font-semibold mb-1">Top funções</div>
+              {resumoBaseCusto.topFuncoes.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : resumoBaseCusto.topFuncoes.map((x) => (
+                <div key={`f-${x.nome}`} className="flex items-center justify-between border-b py-1">
+                  <span className="truncate pr-2">{x.nome} ({x.qtd})</span>
+                  <span className="font-semibold">{toMoney(x.valor)}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div className="font-semibold mb-1">Top equipes</div>
+              {resumoBaseCusto.topEquipes.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : resumoBaseCusto.topEquipes.map((x) => (
+                <div key={`e-${x.nome}`} className="flex items-center justify-between border-b py-1">
+                  <span className="truncate pr-2">{x.nome} ({x.qtd})</span>
+                  <span className="font-semibold">{toMoney(x.valor)}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div className="font-semibold mb-1">Top funcionários</div>
+              {resumoBaseCusto.topFuncionarios.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : resumoBaseCusto.topFuncionarios.map((x) => (
+                <div key={`u-${x.nome}`} className="flex items-center justify-between border-b py-1">
+                  <span className="truncate pr-2">{x.nome}</span>
+                  <span className="font-semibold">{toMoney(x.valor)}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

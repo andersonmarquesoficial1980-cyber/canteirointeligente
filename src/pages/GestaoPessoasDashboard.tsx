@@ -28,6 +28,20 @@ interface Funcionario {
   status?: string;
 }
 
+interface CustoFuncionarioRow {
+  employee_id: string;
+  nome_funcionario: string | null;
+  equipe: string | null;
+  custo_total_mensal: number | null;
+  competencia: string;
+}
+
+interface CustoLista {
+  nome: string;
+  qtd?: number;
+  valor: number;
+}
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function fmtBRL(v: number | null | undefined) {
   if (!v) return "—";
@@ -361,6 +375,12 @@ export default function GestaoPessoasDashboard() {
   const [todos, setTodos] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendenciasAbertas, setPendenciasAbertas] = useState(0);
+  const [custoCompetencia, setCustoCompetencia] = useState<string>("");
+  const [totalCustoMdo, setTotalCustoMdo] = useState<number>(0);
+  const [totalFuncionariosCusto, setTotalFuncionariosCusto] = useState<number>(0);
+  const [topFuncoesCusto, setTopFuncoesCusto] = useState<CustoLista[]>([]);
+  const [topEquipesCusto, setTopEquipesCusto] = useState<CustoLista[]>([]);
+  const [topFuncionariosCusto, setTopFuncionariosCusto] = useState<CustoLista[]>([]);
 
   useEffect(() => {
     supabase
@@ -384,6 +404,105 @@ export default function GestaoPessoasDashboard() {
         setPendenciasAbertas(count || 0);
       } catch {
         setPendenciasAbertas(0);
+      }
+    })();
+  }, [profile?.company_id]);
+
+  useEffect(() => {
+    if (!profile?.company_id) return;
+
+    (async () => {
+      try {
+        const { data: ult, error: ultErr } = await (supabase as any)
+          .from("wf_custo_funcionario_mensal")
+          .select("competencia")
+          .eq("company_id", profile.company_id)
+          .order("competencia", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (ultErr || !ult?.competencia) {
+          setCustoCompetencia("");
+          setTotalCustoMdo(0);
+          setTotalFuncionariosCusto(0);
+          setTopFuncoesCusto([]);
+          setTopEquipesCusto([]);
+          setTopFuncionariosCusto([]);
+          return;
+        }
+
+        const competencia = String(ult.competencia);
+        setCustoCompetencia(competencia);
+
+        const { data: custos, error: custosErr } = await (supabase as any)
+          .from("wf_custo_funcionario_mensal")
+          .select("employee_id, nome_funcionario, equipe, custo_total_mensal, competencia")
+          .eq("company_id", profile.company_id)
+          .eq("competencia", competencia);
+
+        if (custosErr) throw custosErr;
+
+        const rows = (custos || []) as CustoFuncionarioRow[];
+        setTotalFuncionariosCusto(rows.length);
+        setTotalCustoMdo(rows.reduce((acc, r) => acc + Number(r.custo_total_mensal || 0), 0));
+
+        const ids = Array.from(new Set(rows.map((r) => String(r.employee_id || "")).filter(Boolean)));
+        let roleMap = new Map<string, string>();
+        if (ids.length > 0) {
+          const { data: emps } = await (supabase as any)
+            .from("employees")
+            .select("id, role")
+            .in("id", ids)
+            .eq("company_id", profile.company_id);
+          roleMap = new Map((emps || []).map((e: any) => [String(e.id), funcaoBase(String(e.role || "SEM_FUNCAO"))]));
+        }
+
+        const byFunc = new Map<string, { qtd: number; valor: number }>();
+        const byEquipe = new Map<string, { qtd: number; valor: number }>();
+
+        rows.forEach((r) => {
+          const valor = Number(r.custo_total_mensal || 0);
+          const func = roleMap.get(String(r.employee_id || "")) || "SEM_FUNCAO";
+          const eq = String(r.equipe || "SEM_EQUIPE");
+
+          const f = byFunc.get(func) || { qtd: 0, valor: 0 };
+          f.qtd += 1;
+          f.valor += valor;
+          byFunc.set(func, f);
+
+          const e = byEquipe.get(eq) || { qtd: 0, valor: 0 };
+          e.qtd += 1;
+          e.valor += valor;
+          byEquipe.set(eq, e);
+        });
+
+        setTopFuncoesCusto(
+          Array.from(byFunc.entries())
+            .map(([nome, v]) => ({ nome, qtd: v.qtd, valor: v.valor }))
+            .sort((a, b) => b.valor - a.valor)
+            .slice(0, 5)
+        );
+
+        setTopEquipesCusto(
+          Array.from(byEquipe.entries())
+            .map(([nome, v]) => ({ nome, qtd: v.qtd, valor: v.valor }))
+            .sort((a, b) => b.valor - a.valor)
+            .slice(0, 5)
+        );
+
+        setTopFuncionariosCusto(
+          rows
+            .map((r) => ({ nome: String(r.nome_funcionario || "SEM NOME"), valor: Number(r.custo_total_mensal || 0) }))
+            .sort((a, b) => b.valor - a.valor)
+            .slice(0, 5)
+        );
+      } catch {
+        setCustoCompetencia("");
+        setTotalCustoMdo(0);
+        setTotalFuncionariosCusto(0);
+        setTopFuncoesCusto([]);
+        setTopEquipesCusto([]);
+        setTopFuncionariosCusto([]);
       }
     })();
   }, [profile?.company_id]);
@@ -476,6 +595,68 @@ export default function GestaoPessoasDashboard() {
 
       {/* Hub de cards */}
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <section className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Custos MDO (por função, funcionário e equipe)</p>
+              <p className="text-xs text-muted-foreground">
+                {custoCompetencia ? `Competência ${custoCompetencia}` : "Sem base de custos carregada"}
+              </p>
+            </div>
+            <button
+              onClick={() => navigate(withContext("/orcamentos"))}
+              className="px-3 py-2 rounded-lg border border-border text-xs font-semibold hover:bg-muted"
+            >
+              Abrir WF Orçamentos
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+            <div className="rounded-lg border border-border px-3 py-2">
+              <div className="text-[11px] text-muted-foreground">Custo total MDO</div>
+              <div className="text-base font-bold">{fmtBRL(totalCustoMdo)}</div>
+            </div>
+            <div className="rounded-lg border border-border px-3 py-2">
+              <div className="text-[11px] text-muted-foreground">Funcionários na base</div>
+              <div className="text-base font-bold">{totalFuncionariosCusto}</div>
+            </div>
+            <div className="rounded-lg border border-border px-3 py-2">
+              <div className="text-[11px] text-muted-foreground">Status</div>
+              <div className="text-sm font-semibold">{custoCompetencia ? "Base carregada" : "Sem dados"}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <div>
+              <p className="font-semibold mb-1">Top funções</p>
+              {topFuncoesCusto.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : topFuncoesCusto.map((x) => (
+                <div key={`f-${x.nome}`} className="flex items-center justify-between border-b border-border/50 py-1">
+                  <span className="truncate pr-2">{x.nome} ({x.qtd})</span>
+                  <span className="font-semibold">{fmtBRL(x.valor)}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="font-semibold mb-1">Top equipes</p>
+              {topEquipesCusto.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : topEquipesCusto.map((x) => (
+                <div key={`e-${x.nome}`} className="flex items-center justify-between border-b border-border/50 py-1">
+                  <span className="truncate pr-2">{x.nome} ({x.qtd})</span>
+                  <span className="font-semibold">{fmtBRL(x.valor)}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="font-semibold mb-1">Top funcionários</p>
+              {topFuncionariosCusto.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : topFuncionariosCusto.map((x) => (
+                <div key={`u-${x.nome}`} className="flex items-center justify-between border-b border-border/50 py-1">
+                  <span className="truncate pr-2">{x.nome}</span>
+                  <span className="font-semibold">{fmtBRL(x.valor)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {HUB_GROUPS.map(group => (
           <section key={group.titulo} className="space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground px-1">
