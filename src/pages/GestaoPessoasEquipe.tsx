@@ -114,6 +114,11 @@ function statusParaExport(status: string | null | undefined) {
   return "ATIVO";
 }
 
+function fmtBRL(valor: number | null | undefined) {
+  if (valor === null || valor === undefined) return "—";
+  return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 function LinhaFuncionario({
   f,
   index,
@@ -475,6 +480,7 @@ function GrupoColapsavel({
   onEncerrarFeriasAgora,
   onExcluirLancamentoIndevido,
   onProgramarFerias,
+  custoEquipeMensal,
 }: {
   titulo: string;
   itens: Funcionario[];
@@ -492,6 +498,7 @@ function GrupoColapsavel({
   onEncerrarFeriasAgora: (f: Funcionario) => Promise<void>;
   onExcluirLancamentoIndevido: (f: Funcionario) => Promise<void>;
   onProgramarFerias: (f: Funcionario) => void;
+  custoEquipeMensal?: number;
 }) {
   const [aberto, setAberto] = useState(false);
   return (
@@ -505,6 +512,11 @@ function GrupoColapsavel({
       >
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: corTema, flexShrink: 0 }} />
         <p style={{ flex: 1, fontWeight: 700, fontSize: 13, color: "#1e293b", textAlign: "left" }}>{titulo}</p>
+        {typeof custoEquipeMensal === "number" && (
+          <span style={{ fontSize: 11, color: "#0f766e", fontWeight: 700, marginRight: 8 }}>
+            {fmtBRL(custoEquipeMensal)}
+          </span>
+        )}
         <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginRight: 6 }}>{itens.length}</span>
         {aberto ? <ChevronUp size={15} color="#94a3b8" /> : <ChevronDown size={15} color="#94a3b8" />}
       </button>
@@ -560,6 +572,9 @@ export default function GestaoPessoasEquipe() {
   const [mostrarSalario, setMostrarSalario] = useState(false);
   const [dataExportacao, setDataExportacao] = useState(hojeISO());
   const [equipeExportSelecionada, setEquipeExportSelecionada] = useState<string>("__todas__");
+  const [custoCompetencia, setCustoCompetencia] = useState<string>("");
+  const [custoEquipeMap, setCustoEquipeMap] = useState<Record<string, number>>({});
+  const [custoTotalCompetencia, setCustoTotalCompetencia] = useState<number>(0);
   const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [updatingFeriasId, setUpdatingFeriasId] = useState<string | null>(null);
@@ -597,6 +612,46 @@ export default function GestaoPessoasEquipe() {
       }
       setLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("wf_custo_funcionario_mensal")
+          .select("competencia, equipe, custo_total_mensal")
+          .order("competencia", { ascending: false })
+          .limit(8000);
+
+        if (error || !data || data.length === 0) {
+          setCustoCompetencia("");
+          setCustoEquipeMap({});
+          setCustoTotalCompetencia(0);
+          return;
+        }
+
+        const comp = String(data[0].competencia || "");
+        const rows = (data as any[]).filter((r) => String(r.competencia || "") === comp);
+
+        const mapa: Record<string, number> = {};
+        let total = 0;
+
+        rows.forEach((r) => {
+          const eq = String(r.equipe || "SEM EQUIPE");
+          const valor = Number(r.custo_total_mensal || 0);
+          mapa[eq] = Number(mapa[eq] || 0) + valor;
+          total += valor;
+        });
+
+        setCustoCompetencia(comp);
+        setCustoEquipeMap(mapa);
+        setCustoTotalCompetencia(total);
+      } catch {
+        setCustoCompetencia("");
+        setCustoEquipeMap({});
+        setCustoTotalCompetencia(0);
+      }
+    })();
   }, []);
 
   const equipesDisponiveis = useMemo(() => {
@@ -1156,6 +1211,11 @@ export default function GestaoPessoasEquipe() {
       return chave === equipeExportSelecionada;
     });
 
+  const custoEquipeSelecionada =
+    aba === "equipe" && equipeExportSelecionada !== "__todas__"
+      ? Number(custoEquipeMap[equipeExportSelecionada] || 0)
+      : null;
+
   const montarLinhasExport = (fonte: Funcionario[]) => {
     const dataRef = isoParaBR(dataExportacao);
     return [...fonte]
@@ -1372,9 +1432,18 @@ export default function GestaoPessoasEquipe() {
             {(aba === "funcao" || aba === "equipe" || aba === "responsavel" || aba === "centro_custo") && (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-                  <p style={{ fontSize: 12, color: "#9ca3af" }}>
-                    {aba === "funcao" ? Object.keys(porFuncao).length : aba === "equipe" ? Object.keys(porEquipe).length : aba === "centro_custo" ? Object.keys(porCentro).length : Object.keys(porResp).length} grupos · {todos.length} funcionários
-                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <p style={{ fontSize: 12, color: "#9ca3af" }}>
+                      {aba === "funcao" ? Object.keys(porFuncao).length : aba === "equipe" ? Object.keys(porEquipe).length : aba === "centro_custo" ? Object.keys(porCentro).length : Object.keys(porResp).length} grupos · {todos.length} funcionários
+                    </p>
+                    {aba === "equipe" && (
+                      <p style={{ fontSize: 11, color: "#0f766e", fontWeight: 700 }}>
+                        {custoEquipeSelecionada !== null
+                          ? `Custo da equipe selecionada: ${fmtBRL(custoEquipeSelecionada)}`
+                          : `Custo total de equipes (${custoCompetencia || "sem competência"}): ${fmtBRL(custoTotalCompetencia)}`}
+                      </p>
+                    )}
+                  </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <label style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
                       Data
@@ -1476,6 +1545,9 @@ export default function GestaoPessoasEquipe() {
                       onEncerrarFeriasAgora={encerrarFeriasAgora}
                       onExcluirLancamentoIndevido={excluirLancamentoIndevido}
                       onProgramarFerias={irProgramacaoFerias}
+                      custoEquipeMensal={aba === "equipe" && Object.prototype.hasOwnProperty.call(custoEquipeMap, chave)
+                        ? Number(custoEquipeMap[chave] || 0)
+                        : undefined}
                     />
                   ))}
               </>
