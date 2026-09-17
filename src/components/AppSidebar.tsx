@@ -33,6 +33,8 @@ const moduleItems: Record<string, { title: string; url: string; icon: any }> = {
   "WF Demandas": { title: "WF Demandas", url: "/demandas", icon: FileText },
   "WF Programador": { title: "WF Programador", url: "/programador", icon: FileText },
   "WF Abastecimento": { title: "WF Abastecimento", url: "/abastecimento", icon: FileText },
+  "WF Orçamentos": { title: "WF Orçamentos", url: "/orcamentos", icon: FileText },
+  "WF Planejamento": { title: "WF Planejamento", url: "/planejamento", icon: FileText },
 };
 
 // Itens sempre visíveis (não controlados por company_modules)

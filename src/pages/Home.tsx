@@ -183,7 +183,9 @@ export default function Home() {
             // Super-admin (dono do Workflux) vê tudo
             // Admin da empresa vê módulos contratados pela empresa
             if (!hasModule(mod.id)) return false;
-            // Filtrar por permissão individual do usuário (sempre, independente de isAdmin)
+            // Admin legado da empresa: não depende de flags individuais modulo_* no Home
+            if (permissions?.is_admin === true) return true;
+            // Usuário comum: filtrar por permissão individual
             const permMap: Record<string, keyof typeof permissions> = {
               obras: "modulo_obras",
               equipamentos: "modulo_equipamentos",
