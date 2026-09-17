@@ -377,14 +377,6 @@ export default function OrcamentosHome() {
 
     const total = baseFiltrada.reduce((acc, c) => acc + Number(c.custo_total_mensal || 0), 0);
 
-    const topFuncionarios = [...baseFiltrada]
-      .sort((a, b) => Number(b.custo_total_mensal || 0) - Number(a.custo_total_mensal || 0))
-      .slice(0, 5)
-      .map((c) => ({
-        nome: String(c.nome_funcionario || "SEM NOME"),
-        valor: Number(c.custo_total_mensal || 0),
-      }));
-
     const topEquipesMap = new Map<string, { qtd: number; valor: number }>();
     baseFiltrada.forEach((c) => {
       const eq = String(c.equipe || "SEM_EQUIPE");
@@ -399,19 +391,25 @@ export default function OrcamentosHome() {
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 5);
 
-    const topFuncoes = custosMaoDeObraAgregados
-      .map((f) => ({ nome: f.funcaoLabel, qtd: f.qtd, valor: f.unitarioDia * f.qtd }))
-      .sort((a, b) => b.valor - a.valor)
-      .slice(0, 5);
+    const funcoesUnitarias = custosMaoDeObraAgregados
+      .map((f) => ({
+        funcao: f.funcaoLabel,
+        qtd: f.qtd,
+        salarioDia: f.salarioDia,
+        beneficiosDia: f.beneficiosDia,
+        encargosDia: f.encargosDia,
+        totalDia: f.unitarioDia,
+        totalMensalGrupo: f.unitarioDia * f.qtd * Math.max(Number(diasBaseMensal) || 22, 1),
+      }))
+      .sort((a, b) => a.funcao.localeCompare(b.funcao, "pt-BR"));
 
     return {
       totalFuncionarios: baseFiltrada.length,
       total,
-      topFuncionarios,
       topEquipes,
-      topFuncoes,
+      funcoesUnitarias,
     };
-  }, [custosMdo, competenciaCusto, equipeCustoFiltro, custosMaoDeObraAgregados]);
+  }, [custosMdo, competenciaCusto, equipeCustoFiltro, custosMaoDeObraAgregados, diasBaseMensal]);
 
   const custoPrevisto = useMemo(
     () => itens.filter((item) => item.natureza === "previsto").reduce((acc, item) => acc + calcularTotalItem(item), 0),
@@ -1014,18 +1012,9 @@ export default function OrcamentosHome() {
               <div className="font-bold text-lg">{competenciaCusto || "—"}</div>
             </div>
           </CardContent>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-0 text-xs">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-0 text-xs">
             <div>
-              <div className="font-semibold mb-1">Top funções</div>
-              {resumoBaseCusto.topFuncoes.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : resumoBaseCusto.topFuncoes.map((x) => (
-                <div key={`f-${x.nome}`} className="flex items-center justify-between border-b py-1">
-                  <span className="truncate pr-2">{x.nome} ({x.qtd})</span>
-                  <span className="font-semibold">{toMoney(x.valor)}</span>
-                </div>
-              ))}
-            </div>
-            <div>
-              <div className="font-semibold mb-1">Top equipes</div>
+              <div className="font-semibold mb-1">Top equipes (custo mensal total)</div>
               {resumoBaseCusto.topEquipes.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : resumoBaseCusto.topEquipes.map((x) => (
                 <div key={`e-${x.nome}`} className="flex items-center justify-between border-b py-1">
                   <span className="truncate pr-2">{x.nome} ({x.qtd})</span>
@@ -1034,11 +1023,16 @@ export default function OrcamentosHome() {
               ))}
             </div>
             <div>
-              <div className="font-semibold mb-1">Top funcionários</div>
-              {resumoBaseCusto.topFuncionarios.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : resumoBaseCusto.topFuncionarios.map((x) => (
-                <div key={`u-${x.nome}`} className="flex items-center justify-between border-b py-1">
-                  <span className="truncate pr-2">{x.nome}</span>
-                  <span className="font-semibold">{toMoney(x.valor)}</span>
+              <div className="font-semibold mb-1">Custo unitário por função (1 colaborador/dia)</div>
+              {resumoBaseCusto.funcoesUnitarias.length === 0 ? <p className="text-muted-foreground">Sem dados</p> : resumoBaseCusto.funcoesUnitarias.map((x) => (
+                <div key={`f-${x.funcao}`} className="border-b py-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate pr-2 font-medium">{x.funcao} ({x.qtd})</span>
+                    <span className="font-semibold">{toMoney(x.totalDia)}</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Salário/dia {toMoney(x.salarioDia)} • Benefícios/dia {toMoney(x.beneficiosDia)} • Encargos/dia {toMoney(x.encargosDia)}
+                  </div>
                 </div>
               ))}
             </div>

@@ -71,6 +71,17 @@ interface PontoResumo {
   faltas: number;
 }
 
+interface CustoFuncionarioMensal {
+  competencia: string;
+  salario: number | null;
+  total_encargos: number | null;
+  assistencia_medica: number | null;
+  seguro_vida: number | null;
+  vale_refeicao: number | null;
+  totalpass: number | null;
+  custo_total_mensal: number | null;
+}
+
 interface RhPendencia {
   id: string;
   tipo: "classificacao" | "aumento_salarial" | "demissao" | "substituicao" | "outros";
@@ -458,6 +469,7 @@ export default function FichaFuncionario() {
   // Ponto resumo
   const [pontoResumo, setPontoResumo] = useState<PontoResumo | null>(null);
   const [vtTotal, setVtTotal] = useState<number | null>(null);
+  const [custoMdo, setCustoMdo] = useState<CustoFuncionarioMensal | null>(null);
 
   useEffect(() => { if (id) carregarTudo(); }, [id]);
 
@@ -475,6 +487,8 @@ export default function FichaFuncionario() {
 
   async function carregarTudo() {
     setLoading(true);
+    setVtTotal(null);
+    setCustoMdo(null);
     try {
       const [funcResp, histResp, pontoResp, docResp] = await Promise.all([
         supabase.from("employees").select("*").eq("id", id!).maybeSingle(),
@@ -500,6 +514,15 @@ export default function FichaFuncionario() {
         const total = vtData.reduce((s: number, c: any) => s + (c.vt_tarifas?.valor || 0) * c.quantidade * 2, 0);
         setVtTotal(total);
       }
+
+      const { data: custoRow } = await (supabase as any)
+        .from("wf_custo_funcionario_mensal")
+        .select("competencia, salario, total_encargos, assistencia_medica, seguro_vida, vale_refeicao, totalpass, custo_total_mensal")
+        .eq("employee_id", id!)
+        .order("competencia", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setCustoMdo((custoRow || null) as CustoFuncionarioMensal | null);
 
       await carregarPendencias();
     } catch {}
@@ -1252,8 +1275,51 @@ export default function FichaFuncionario() {
                 <p className="text-xl font-bold text-foreground">
                   {func.salario && vtTotal != null ? fmtBRL(func.salario + vtTotal) : "—"}
                 </p>
-                <p className="text-[10px] text-muted-foreground">Custo Total Est.</p>
+                <p className="text-[10px] text-muted-foreground">Custo Total Est. (Salário + VT)</p>
               </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Custo real mensal do funcionário</p>
+                <span className="text-[10px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
+                  Competência {custoMdo?.competencia || "—"}
+                </span>
+              </div>
+
+              {!custoMdo ? (
+                <p className="text-xs text-muted-foreground">Sem custo consolidado disponível para este funcionário.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="rounded-lg border border-border p-2 text-center">
+                      <p className="text-xs text-muted-foreground">Salário</p>
+                      <p className="text-sm font-bold">{fmtBRL(custoMdo.salario)}</p>
+                    </div>
+                    <div className="rounded-lg border border-border p-2 text-center">
+                      <p className="text-xs text-muted-foreground">Encargos</p>
+                      <p className="text-sm font-bold">{fmtBRL(custoMdo.total_encargos)}</p>
+                    </div>
+                    <div className="rounded-lg border border-border p-2 text-center">
+                      <p className="text-xs text-muted-foreground">Benefícios</p>
+                      <p className="text-sm font-bold">
+                        {fmtBRL((Number(custoMdo.assistencia_medica || 0) + Number(custoMdo.seguro_vida || 0) + Number(custoMdo.vale_refeicao || 0) + Number(custoMdo.totalpass || 0)) || null)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border p-2 text-center bg-muted/30">
+                      <p className="text-xs text-muted-foreground">Custo total mensal</p>
+                      <p className="text-sm font-bold text-primary">{fmtBRL(custoMdo.custo_total_mensal)}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-muted-foreground">
+                    <div>Assist. médica: <strong className="text-foreground">{fmtBRL(custoMdo.assistencia_medica)}</strong></div>
+                    <div>Seguro vida: <strong className="text-foreground">{fmtBRL(custoMdo.seguro_vida)}</strong></div>
+                    <div>Vale refeição: <strong className="text-foreground">{fmtBRL(custoMdo.vale_refeicao)}</strong></div>
+                    <div>TotalPass: <strong className="text-foreground">{fmtBRL(custoMdo.totalpass)}</strong></div>
+                  </div>
+                </>
+              )}
             </div>
             <button onClick={() => navigate(withContext("/vale-transporte"))}
               className="w-full text-xs text-primary border border-primary/30 rounded-xl py-2.5 hover:bg-primary/5 transition">
