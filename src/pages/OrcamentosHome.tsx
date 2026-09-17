@@ -909,6 +909,7 @@ export default function OrcamentosHome() {
         <div>
           <h1 className="text-lg font-bold">WF Orçamentos</h1>
           <p className="text-xs text-muted-foreground">Composição completa do valor final da obra</p>
+          <p className="text-[10px] text-emerald-700 font-semibold">VERSÃO CUSTOS FUNÇÃO/FICHA: bb89caa</p>
         </div>
       </header>
 
