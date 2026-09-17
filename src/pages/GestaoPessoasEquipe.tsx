@@ -514,7 +514,7 @@ function GrupoColapsavel({
         <p style={{ flex: 1, fontWeight: 700, fontSize: 13, color: "#1e293b", textAlign: "left" }}>{titulo}</p>
         {typeof custoEquipeMensal === "number" && (
           <span style={{ fontSize: 11, color: "#0f766e", fontWeight: 700, marginRight: 8 }}>
-            {fmtBRL(custoEquipeMensal)}
+            Custo: {fmtBRL(custoEquipeMensal)}
           </span>
         )}
         <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginRight: 6 }}>{itens.length}</span>
@@ -1437,11 +1437,14 @@ export default function GestaoPessoasEquipe() {
                       {aba === "funcao" ? Object.keys(porFuncao).length : aba === "equipe" ? Object.keys(porEquipe).length : aba === "centro_custo" ? Object.keys(porCentro).length : Object.keys(porResp).length} grupos · {todos.length} funcionários
                     </p>
                     {aba === "equipe" && (
-                      <p style={{ fontSize: 11, color: "#0f766e", fontWeight: 700 }}>
-                        {custoEquipeSelecionada !== null
-                          ? `Custo da equipe selecionada: ${fmtBRL(custoEquipeSelecionada)}`
-                          : `Custo total de equipes (${custoCompetencia || "sem competência"}): ${fmtBRL(custoTotalCompetencia)}`}
-                      </p>
+                      <>
+                        <p style={{ fontSize: 11, color: "#0f766e", fontWeight: 700 }}>
+                          {custoEquipeSelecionada !== null
+                            ? `Custo da equipe selecionada: ${fmtBRL(custoEquipeSelecionada)}`
+                            : `Custo total de equipes (${custoCompetencia || "sem competência"}): ${fmtBRL(custoTotalCompetencia)}`}
+                        </p>
+                        <p style={{ fontSize: 10, color: "#64748b" }}>VERSAO_CUSTO_EQUIPE: 368b73d</p>
+                      </>
                     )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
