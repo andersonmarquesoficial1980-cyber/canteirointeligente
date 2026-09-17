@@ -226,13 +226,40 @@ function normalizarTexto(valor: string): string {
 }
 
 function normalizarFuncaoBase(valor: string): string {
-  const n = normalizarTexto(valor);
+  let n = normalizarTexto(valor);
   if (!n) return "";
-  return n
-    .replace(/\bSR\b|\bPL\b|\bESP\b|\bJR\b/g, "")
-    .replace(/\bI\b|\bII\b|\bIII\b|\bIV\b/g, "")
+
+  n = ` ${n} `
+    .replace(/\bMOT\b/g, " MOTORISTA ")
+    .replace(/\bCAM\b/g, " CAMINHAO ")
+    .replace(/\bCAMINHOES\b/g, " CAMINHAO ")
+    .replace(/\bCAMINHAO\b/g, " CAMINHAO ")
+    .replace(/\bOPER\b/g, " OPERADOR ")
+    .replace(/\bDE\b|\bDO\b|\bDA\b|\bDOS\b|\bDAS\b/g, " ")
+    .replace(/\bSR\b|\bPL\b|\bESP\b|\bJR\b/g, " ")
+    .replace(/\bI\b|\bII\b|\bIII\b|\bIV\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+  return n;
+}
+
+function scoreCompatibilidadeFuncao(baseRef: string, baseCand: string): number {
+  if (!baseRef || !baseCand) return 0;
+  if (baseRef === baseCand) return 100;
+  if (baseRef.includes(baseCand) || baseCand.includes(baseRef)) return 80;
+
+  const tRef = new Set(baseRef.split(" ").filter(Boolean));
+  const tCand = new Set(baseCand.split(" ").filter(Boolean));
+  if (tRef.size === 0 || tCand.size === 0) return 0;
+
+  let inter = 0;
+  tRef.forEach((t) => {
+    if (tCand.has(t)) inter += 1;
+  });
+
+  const maxTokens = Math.max(tRef.size, tCand.size);
+  return Math.round((inter / maxTokens) * 100);
 }
 
 export default function OrcamentosHome() {
@@ -494,10 +521,23 @@ export default function OrcamentosHome() {
     const base = normalizarFuncaoBase(referencia);
     if (!base) return null;
 
-    const candidatos = custosMaoDeObraAgregados.filter((c) => c.funcaoBase === base);
-    if (candidatos.length === 0) return null;
+    const exatos = custosMaoDeObraAgregados.filter((c) => c.funcaoBase === base);
+    if (exatos.length > 0) {
+      return exatos.sort((a, b) => b.qtd - a.qtd)[0] || null;
+    }
 
-    return candidatos.sort((a, b) => b.qtd - a.qtd)[0] || null;
+    const aproximados = custosMaoDeObraAgregados
+      .map((c) => ({
+        custo: c,
+        score: scoreCompatibilidadeFuncao(base, c.funcaoBase),
+      }))
+      .filter((x) => x.score >= 60)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.custo.qtd - a.custo.qtd;
+      });
+
+    return aproximados[0]?.custo || null;
   }
 
   function aplicarSugestaoMaoDeObra(itemId: string, referencia: string) {
