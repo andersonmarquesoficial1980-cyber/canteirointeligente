@@ -526,7 +526,7 @@ export default function BancoHoras() {
       body: {
         company_id: profile.company_id,
         competencia: competenciaAtual,
-        dry_run: true,
+        dry_run: false,
       },
     });
 
@@ -542,7 +542,7 @@ export default function BancoHoras() {
 
     toast({
       title: "✅ Sincronização PontoMais concluída",
-      description: `${Number(data.items_count || 0)} itens retornados para a competência ${mes}.`,
+      description: `${Number(data.imported_count || 0)} colaboradores importados para a competência ${mes}.`,
     });
 
     await carregarDados();

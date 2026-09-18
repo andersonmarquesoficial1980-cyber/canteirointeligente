@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 type Json = Record<string, unknown>;
+type GenericRow = Record<string, unknown>;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,23 +20,103 @@ function jsonResponse(status: number, payload: Json) {
   });
 }
 
-function countItems(payload: unknown): number {
-  if (Array.isArray(payload)) return payload.length;
-  if (payload && typeof payload === "object") {
-    const obj = payload as Record<string, unknown>;
-    for (const key of ["data", "results", "items", "employees", "records"]) {
-      const v = obj[key];
-      if (Array.isArray(v)) return v.length;
-    }
+function normalizeText(value: string): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeDoc(value: string): string {
+  return String(value || "").replace(/[^0-9a-zA-Z]/g, "").toLowerCase();
+}
+
+function toNumberHours(value: unknown): number {
+  if (value == null) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? Number(value.toFixed(2)) : 0;
+
+  const raw = String(value).trim();
+  if (!raw || raw === "-") return 0;
+
+  const signal = raw.startsWith("-") ? -1 : 1;
+  const stripped = raw.replace(/^[-+]/, "");
+
+  // formato HH:MM
+  const hhmm = stripped.match(/^(\d{1,3}):(\d{2})$/);
+  if (hhmm) {
+    const hh = Number(hhmm[1] || 0);
+    const mm = Number(hhmm[2] || 0);
+    return Number(((signal * (hh + (mm / 60)))).toFixed(2));
   }
+
+  // formato decimal pt-BR/en-US
+  const dec = stripped.includes(",")
+    ? stripped.replace(/\./g, "").replace(",", ".")
+    : stripped;
+  const num = Number(dec);
+  if (Number.isFinite(num)) return Number((signal * num).toFixed(2));
+
   return 0;
 }
 
-function isManager(profile: { role?: string | null; perfil?: string | null }, targetCompanyId: string) {
+function isManager(profile: { role?: string | null; perfil?: string | null }) {
   if ((profile.role || "").toLowerCase() === "superadmin") return true;
   if ((profile.role || "").toLowerCase() === "admin") return true;
-  return ["Administrador", "Gerente", "RH", "Gestão de Pessoas"].includes(profile.perfil || "")
-    && Boolean(targetCompanyId);
+  return ["Administrador", "Gerente", "RH", "Gestão de Pessoas"].includes(profile.perfil || "");
+}
+
+function extractReportRows(upstreamPayload: unknown): GenericRow[] {
+  const payload = (upstreamPayload && typeof upstreamPayload === "object")
+    ? (upstreamPayload as Record<string, unknown>)
+    : {};
+
+  const data = payload.data;
+  if (!Array.isArray(data)) return [];
+
+  if (data.length === 0) return [];
+
+  // Cenário 1: já veio como objeto
+  if (typeof data[0] === "object" && !Array.isArray(data[0]) && data[0] !== null) {
+    return data as GenericRow[];
+  }
+
+  // Cenário 2: matriz (array de arrays)
+  const matrix = data as unknown[];
+  const fixedHeaders = [
+    "name",
+    "registration_number",
+    "date",
+    "extra_time",
+    "missing_time",
+    "interval_time",
+    "regular_time",
+    "time_balance",
+  ];
+
+  let rows: unknown[][] = [];
+  let headers = fixedHeaders;
+
+  const first = matrix[0];
+  if (Array.isArray(first) && first.length > 0) {
+    const firstNorm = first.map((v) => normalizeText(String(v ?? "")));
+    const looksHeader = firstNorm.includes("name") || firstNorm.includes("nome") || firstNorm.includes("employee_name");
+    if (looksHeader) {
+      headers = first.map((v) => normalizeText(String(v ?? "")).replace(/\s+/g, "_"));
+      rows = matrix.slice(1).filter((r) => Array.isArray(r)) as unknown[][];
+    } else {
+      rows = matrix.filter((r) => Array.isArray(r)) as unknown[][];
+    }
+  }
+
+  return rows
+    .filter((row) => row.some((v) => String(v ?? "").trim() !== ""))
+    .map((row) => {
+      const obj: GenericRow = {};
+      headers.forEach((h, idx) => { obj[h] = row[idx]; });
+      return obj;
+    });
 }
 
 serve(async (req: Request) => {
@@ -73,7 +154,7 @@ serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const companyId = String(body?.company_id || "").trim();
     const competencia = String(body?.competencia || "").trim();
-    const dryRun = body?.dry_run !== false;
+    const dryRun = body?.dry_run === true;
 
     if (!companyId || !competencia) {
       return jsonResponse(400, { ok: false, error: "company_id e competencia são obrigatórios" });
@@ -94,7 +175,7 @@ serve(async (req: Request) => {
     if (!isSuperAdmin && !sameCompany) {
       return jsonResponse(403, { ok: false, error: "Sem permissão para esta empresa" });
     }
-    if (!isManager(profile, companyId)) {
+    if (!isManager(profile)) {
       return jsonResponse(403, { ok: false, error: "Sem permissão de gestão para sincronizar" });
     }
 
@@ -111,12 +192,11 @@ serve(async (req: Request) => {
       });
     }
 
-    const endpoint = new URL(endpointPath, baseUrl);
-
     const startDate = `${competencia.slice(0, 7)}-01`;
     const [yy, mm] = competencia.slice(0, 7).split("-").map(Number);
     const endDate = `${yy}-${String(mm).padStart(2, "0")}-${String(new Date(yy, mm, 0).getDate()).padStart(2, "0")}`;
 
+    const endpoint = new URL(endpointPath, baseUrl);
     const reportBody = {
       report: {
         start_date: startDate,
@@ -133,7 +213,7 @@ serve(async (req: Request) => {
       headers: {
         [authHeaderName]: `${authPrefix}${token}`,
         "Content-Type": "application/json",
-        "Accept": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify(reportBody),
     });
@@ -146,23 +226,21 @@ serve(async (req: Request) => {
       upstreamPayload = { raw };
     }
 
-    const itemsCount = countItems(upstreamPayload);
-
-    await adminClient
-      .from("pontomais_sync_runs")
-      .insert({
-        company_id: companyId,
-        competencia,
-        status: upstreamResp.ok ? "ok" : "erro",
-        endpoint: endpoint.toString(),
-        http_status: upstreamResp.status,
-        items_count: itemsCount,
-        payload: { dry_run: dryRun, upstream: upstreamPayload },
-        error_message: upstreamResp.ok ? null : `Falha HTTP ${upstreamResp.status}`,
-        created_by: authData.user.id,
-      });
-
     if (!upstreamResp.ok) {
+      await adminClient
+        .from("pontomais_sync_runs")
+        .insert({
+          company_id: companyId,
+          competencia: startDate,
+          status: "erro",
+          endpoint: endpoint.toString(),
+          http_status: upstreamResp.status,
+          items_count: 0,
+          payload: { dry_run: dryRun, report_body: reportBody, upstream: upstreamPayload },
+          error_message: `Falha HTTP ${upstreamResp.status}`,
+          created_by: authData.user.id,
+        });
+
       return jsonResponse(502, {
         ok: false,
         error: `Falha ao consultar API PontoMais (${upstreamResp.status})`,
@@ -170,15 +248,162 @@ serve(async (req: Request) => {
       });
     }
 
+    const reportRows = extractReportRows(upstreamPayload);
+
+    const { data: employeesData } = await adminClient
+      .from("employees")
+      .select("id, name, matricula")
+      .eq("company_id", companyId)
+      .eq("status", "ativo");
+
+    const employees = (employeesData || []) as Array<{ id: string; name: string | null; matricula: string | null }>;
+    const employeeIdByName = new Map<string, string>();
+    const employeeIdByMatricula = new Map<string, string>();
+
+    for (const e of employees) {
+      if (e.name) employeeIdByName.set(normalizeText(e.name), e.id);
+      if (e.matricula) employeeIdByMatricula.set(normalizeDoc(e.matricula), e.id);
+    }
+
+    const aggregated = new Map<string, {
+      colaborador_nome: string;
+      registration_number: string;
+      equipe_nome: string | null;
+      credito_horas: number;
+      debito_horas: number;
+      horas_normais: number;
+      total_horas_extras_horas: number;
+      rows: GenericRow[];
+      employee_id: string | null;
+    }>();
+
+    for (const row of reportRows) {
+      const nome = String(row.name ?? row.employee_name ?? row.employee ?? "").trim();
+      if (!nome) continue;
+
+      const registration = String(row.registration_number ?? row.matricula ?? "").trim();
+      const team = String(row.team_name ?? row.team ?? row.group ?? "").trim() || null;
+
+      const extra = Math.max(0, toNumberHours(row.extra_time));
+      const missing = Math.max(0, toNumberHours(row.missing_time));
+      const regular = Math.max(0, toNumberHours(row.regular_time));
+
+      const key = `${normalizeText(nome)}|${normalizeDoc(registration)}`;
+      if (!aggregated.has(key)) {
+        const employeeId = (registration && employeeIdByMatricula.get(normalizeDoc(registration)))
+          || employeeIdByName.get(normalizeText(nome))
+          || null;
+
+        aggregated.set(key, {
+          colaborador_nome: nome,
+          registration_number: registration,
+          equipe_nome: team,
+          credito_horas: 0,
+          debito_horas: 0,
+          horas_normais: 0,
+          total_horas_extras_horas: 0,
+          rows: [],
+          employee_id: employeeId,
+        });
+      }
+
+      const acc = aggregated.get(key)!;
+      acc.credito_horas = Number((acc.credito_horas + extra).toFixed(2));
+      acc.debito_horas = Number((acc.debito_horas + missing).toFixed(2));
+      acc.horas_normais = Number((acc.horas_normais + regular).toFixed(2));
+      acc.total_horas_extras_horas = Number((acc.total_horas_extras_horas + extra).toFixed(2));
+      if (!acc.equipe_nome && team) acc.equipe_nome = team;
+      acc.rows.push(row);
+    }
+
+    const upsertRows = Array.from(aggregated.values()).map((item) => ({
+      company_id: companyId,
+      employee_id: item.employee_id,
+      competencia: startDate,
+      periodo_inicio: startDate,
+      periodo_fim: endDate,
+      colaborador_nome: item.colaborador_nome,
+      equipe_nome: item.equipe_nome,
+      fonte_pdf: null,
+      credito_horas: item.credito_horas,
+      debito_horas: item.debito_horas,
+      horas_normais: item.horas_normais,
+      he_70_horas: item.total_horas_extras_horas,
+      he_100_horas: 0,
+      adicional_noturno_horas: 0,
+      total_horas_extras_horas: item.total_horas_extras_horas,
+      payload: {
+        source: "pontomais_api_reports_time_balances",
+        registration_number: item.registration_number,
+        rows_count: item.rows.length,
+        sample_rows: item.rows.slice(0, 3),
+        imported_at: new Date().toISOString(),
+      },
+    }));
+
+    if (!dryRun && upsertRows.length > 0) {
+      const { error: upsertError } = await adminClient
+        .from("ponto_he_resumo_mensal")
+        .upsert(upsertRows, { onConflict: "company_id,competencia,colaborador_nome" });
+
+      if (upsertError) {
+        await adminClient
+          .from("pontomais_sync_runs")
+          .insert({
+            company_id: companyId,
+            competencia: startDate,
+            status: "erro",
+            endpoint: endpoint.toString(),
+            http_status: upstreamResp.status,
+            items_count: 0,
+            payload: {
+              dry_run: dryRun,
+              report_body: reportBody,
+              rows_lidas: reportRows.length,
+              rows_agrupadas: upsertRows.length,
+              upsert_error: upsertError.message,
+            },
+            error_message: `Falha no upsert: ${upsertError.message}`,
+            created_by: authData.user.id,
+          });
+
+        return jsonResponse(500, {
+          ok: false,
+          error: `Falha ao gravar no banco: ${upsertError.message}`,
+        });
+      }
+    }
+
+    await adminClient
+      .from("pontomais_sync_runs")
+      .insert({
+        company_id: companyId,
+        competencia: startDate,
+        status: "ok",
+        endpoint: endpoint.toString(),
+        http_status: upstreamResp.status,
+        items_count: upsertRows.length,
+        payload: {
+          dry_run: dryRun,
+          report_body: reportBody,
+          rows_lidas: reportRows.length,
+          rows_agrupadas: upsertRows.length,
+          sample: upsertRows.slice(0, 2),
+          upstream_meta: (upstreamPayload as Record<string, unknown>)?.meta || null,
+          upstream_heading: (upstreamPayload as Record<string, unknown>)?.heading || null,
+        },
+        error_message: null,
+        created_by: authData.user.id,
+      });
+
     return jsonResponse(200, {
       ok: true,
       dry_run: dryRun,
-      competencia,
+      competencia: startDate,
       endpoint: endpoint.toString(),
-      items_count: itemsCount,
-      sample: Array.isArray(upstreamPayload)
-        ? upstreamPayload.slice(0, 2)
-        : upstreamPayload,
+      rows_lidas: reportRows.length,
+      rows_agrupadas: upsertRows.length,
+      imported_count: dryRun ? 0 : upsertRows.length,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro inesperado";
