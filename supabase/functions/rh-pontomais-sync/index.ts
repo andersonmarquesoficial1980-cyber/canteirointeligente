@@ -67,7 +67,19 @@ function isManager(profile: { role?: string | null; perfil?: string | null }) {
   return ["Administrador", "Gerente", "RH", "Gestão de Pessoas"].includes(profile.perfil || "");
 }
 
-function extractReportRows(upstreamPayload: unknown): GenericRow[] {
+function extractReportRows(
+  upstreamPayload: unknown,
+  fixedHeaders: string[] = [
+    "name",
+    "registration_number",
+    "date",
+    "extra_time",
+    "missing_time",
+    "interval_time",
+    "regular_time",
+    "time_balance",
+  ],
+): GenericRow[] {
   const payload = (upstreamPayload && typeof upstreamPayload === "object")
     ? (upstreamPayload as Record<string, unknown>)
     : {};
@@ -84,16 +96,6 @@ function extractReportRows(upstreamPayload: unknown): GenericRow[] {
 
   // Cenário 2: matriz (array de arrays)
   const matrix = data as unknown[];
-  const fixedHeaders = [
-    "name",
-    "registration_number",
-    "date",
-    "extra_time",
-    "missing_time",
-    "interval_time",
-    "regular_time",
-    "time_balance",
-  ];
 
   let rows: unknown[][] = [];
   let headers = fixedHeaders;
@@ -250,10 +252,62 @@ serve(async (req: Request) => {
       });
     }
 
-    let reportRows = extractReportRows(upstreamPayload);
+    let reportRows = extractReportRows(upstreamPayload, [
+      "name",
+      "registration_number",
+      "date",
+      "extra_time",
+      "missing_time",
+      "interval_time",
+      "regular_time",
+      "time_balance",
+    ]);
     let rowSource = "report_time_balances";
 
-    // Fallback: quando relatório vier vazio, cria base com colaboradores ativos da API
+    // Fallback 1: tentar relatório de horas extras quando time_balances vier vazio.
+    if (reportRows.length === 0) {
+      const extraEndpoint = new URL("/external_api/v1/reports/extra_times", baseUrl);
+      const extraBody = {
+        report: {
+          start_date: startDate,
+          end_date: endDate,
+          group_by: "team",
+          row_filters: "",
+          columns: "employee_name,registration_number,team_name,date,time_cards,regular_time,extra_time,motive",
+          format: "json",
+        },
+      };
+
+      const extraResp = await fetch(extraEndpoint.toString(), {
+        method: "POST",
+        headers: {
+          [authHeaderName]: `${authPrefix}${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(extraBody),
+      });
+
+      if (extraResp.ok) {
+        const extraPayload = await extraResp.json().catch(() => ({}));
+        const extraRows = extractReportRows(extraPayload, [
+          "employee_name",
+          "registration_number",
+          "team_name",
+          "date",
+          "time_cards",
+          "regular_time",
+          "extra_time",
+          "motive",
+        ]);
+        if (extraRows.length > 0) {
+          reportRows = extraRows;
+          rowSource = "report_extra_times";
+        }
+      }
+    }
+
+    // Fallback 2: se ainda vazio, cria base com colaboradores ativos da API
     // para exibir o mês no WF mesmo sem lançamentos de banco no período.
     if (reportRows.length === 0) {
       const empEndpoint = new URL("/external_api/v1/employees", baseUrl);
