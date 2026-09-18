@@ -573,7 +573,7 @@ export default function GestaoPessoasEquipe() {
   const [dataExportacao, setDataExportacao] = useState(hojeISO());
   const [equipeExportSelecionada, setEquipeExportSelecionada] = useState<string>("__todas__");
   const [custoCompetencia, setCustoCompetencia] = useState<string>("");
-  const [custoEquipeMap, setCustoEquipeMap] = useState<Record<string, number>>({});
+  const [custoFuncionarioMap, setCustoFuncionarioMap] = useState<Record<string, number>>({});
   const [custoTotalCompetencia, setCustoTotalCompetencia] = useState<number>(0);
   const [updatingEquipeId, setUpdatingEquipeId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
@@ -619,13 +619,13 @@ export default function GestaoPessoasEquipe() {
       try {
         const { data, error } = await (supabase as any)
           .from("wf_custo_funcionario_mensal")
-          .select("competencia, equipe, custo_total_mensal")
+          .select("employee_id, competencia, custo_total_mensal")
           .order("competencia", { ascending: false })
           .limit(8000);
 
         if (error || !data || data.length === 0) {
           setCustoCompetencia("");
-          setCustoEquipeMap({});
+          setCustoFuncionarioMap({});
           setCustoTotalCompetencia(0);
           return;
         }
@@ -633,22 +633,23 @@ export default function GestaoPessoasEquipe() {
         const comp = String(data[0].competencia || "");
         const rows = (data as any[]).filter((r) => String(r.competencia || "") === comp);
 
-        const mapa: Record<string, number> = {};
+        const mapaFuncionario: Record<string, number> = {};
         let total = 0;
 
         rows.forEach((r) => {
-          const eq = String(r.equipe || "SEM EQUIPE");
+          const funcionarioId = String(r.employee_id || "");
+          if (!funcionarioId) return;
           const valor = Number(r.custo_total_mensal || 0);
-          mapa[eq] = Number(mapa[eq] || 0) + valor;
+          mapaFuncionario[funcionarioId] = Number(mapaFuncionario[funcionarioId] || 0) + valor;
           total += valor;
         });
 
         setCustoCompetencia(comp);
-        setCustoEquipeMap(mapa);
+        setCustoFuncionarioMap(mapaFuncionario);
         setCustoTotalCompetencia(total);
       } catch {
         setCustoCompetencia("");
-        setCustoEquipeMap({});
+        setCustoFuncionarioMap({});
         setCustoTotalCompetencia(0);
       }
     })();
@@ -1210,6 +1211,16 @@ export default function GestaoPessoasEquipe() {
       if (equipeExportSelecionada === "__todas__") return true;
       return chave === equipeExportSelecionada;
     });
+
+  const custoEquipeMap = useMemo(() => {
+    const mapa: Record<string, number> = {};
+    todos.forEach((f) => {
+      const eq = String(f.equipe || "SEM EQUIPE");
+      const valor = Number(custoFuncionarioMap[String(f.id)] || 0);
+      mapa[eq] = Number(mapa[eq] || 0) + valor;
+    });
+    return mapa;
+  }, [todos, custoFuncionarioMap]);
 
   const custoEquipeSelecionada =
     aba === "equipe" && equipeExportSelecionada !== "__todas__"
