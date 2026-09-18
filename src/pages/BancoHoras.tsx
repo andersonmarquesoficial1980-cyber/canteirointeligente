@@ -338,6 +338,8 @@ export default function BancoHoras() {
   const [saldoFiltro, setSaldoFiltro] = useState<FiltroSaldo>("TODOS");
   const [loading, setLoading] = useState(false);
   const [loadingFechamento, setLoadingFechamento] = useState(false);
+  const [loadingSyncPontomais, setLoadingSyncPontomais] = useState(false);
+  const [ultimaSyncPontomais, setUltimaSyncPontomais] = useState<string | null>(null);
   const [rolePerfil, setRolePerfil] = useState<{ role: string | null; perfil: string | null }>({ role: null, perfil: null });
   const [salvandoAjusteId, setSalvandoAjusteId] = useState<string | null>(null);
   const [historicoAbertoId, setHistoricoAbertoId] = useState<string | null>(null);
@@ -426,6 +428,16 @@ export default function BancoHoras() {
       setCompetenciaStatus({ status: "aberto", observacao: null, fechado_em: null, reaberto_em: null });
     }
 
+    const { data: lastSync } = await (supabase as any)
+      .from("pontomais_sync_runs")
+      .select("created_at")
+      .eq("company_id", profile.company_id)
+      .eq("competencia", ini)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setUltimaSyncPontomais(lastSync?.created_at || null);
+
     // 3) Fallback para cálculo no ponto bruto
     const { data: regs } = await (supabase as any)
       .from("ponto_registros")
@@ -504,6 +516,37 @@ export default function BancoHoras() {
     toast({ title: "✅ Competência reaberta com sucesso" });
     await carregarDados();
     setLoadingFechamento(false);
+  };
+
+  const sincronizarPontomais = async () => {
+    if (!profile?.company_id) return;
+
+    setLoadingSyncPontomais(true);
+    const { data, error } = await (supabase as any).functions.invoke("rh-pontomais-sync", {
+      body: {
+        company_id: profile.company_id,
+        competencia: competenciaAtual,
+        dry_run: true,
+      },
+    });
+
+    if (error || !data?.ok) {
+      toast({
+        title: "Falha na sincronização PontoMais",
+        description: error?.message || data?.error || "Não foi possível consultar a API neste momento.",
+        variant: "destructive",
+      });
+      setLoadingSyncPontomais(false);
+      return;
+    }
+
+    toast({
+      title: "✅ Sincronização PontoMais concluída",
+      description: `${Number(data.items_count || 0)} itens retornados para a competência ${mes}.`,
+    });
+
+    await carregarDados();
+    setLoadingSyncPontomais(false);
   };
 
   const saldosCalculados = useMemo((): SaldoFuncionario[] => {
@@ -1503,7 +1546,17 @@ export default function BancoHoras() {
             </div>
 
             {canManageFechamento && (
-              <div>
+              <div className="flex flex-col items-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={sincronizarPontomais}
+                  disabled={loadingSyncPontomais}
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 mr-1 ${loadingSyncPontomais ? "animate-spin" : ""}`} />
+                  {loadingSyncPontomais ? "Sincronizando..." : "Sincronizar PontoMais"}
+                </Button>
+
                 {competenciaStatus.status === "aberto" ? (
                   <Button size="sm" onClick={fecharCompetencia} disabled={loadingFechamento} className="bg-red-600 hover:bg-red-700">
                     <Lock className="w-3.5 h-3.5 mr-1" /> Fechar Competência
@@ -1513,6 +1566,10 @@ export default function BancoHoras() {
                     <Unlock className="w-3.5 h-3.5 mr-1" /> Reabrir Competência
                   </Button>
                 )}
+
+                <p className="text-[10px] text-muted-foreground text-right">
+                  Última sync API: {ultimaSyncPontomais ? fmtDateTime(ultimaSyncPontomais) : "—"}
+                </p>
               </div>
             )}
           </div>
