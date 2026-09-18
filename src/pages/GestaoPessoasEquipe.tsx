@@ -1216,11 +1216,20 @@ export default function GestaoPessoasEquipe() {
     const mapa: Record<string, number> = {};
     todos.forEach((f) => {
       const eq = String(f.equipe || "SEM EQUIPE");
-      const valor = Number(custoFuncionarioMap[String(f.id)] || 0);
+      const id = String(f.id || "");
+      const temCustoConsolidado = Object.prototype.hasOwnProperty.call(custoFuncionarioMap, id);
+      const valor = temCustoConsolidado
+        ? Number(custoFuncionarioMap[id] || 0)
+        : Number(f.salario || 0);
       mapa[eq] = Number(mapa[eq] || 0) + valor;
     });
     return mapa;
   }, [todos, custoFuncionarioMap]);
+
+  const custoTotalEquipesAtual = useMemo(
+    () => Object.values(custoEquipeMap).reduce((acc, v) => acc + Number(v || 0), 0),
+    [custoEquipeMap]
+  );
 
   const custoEquipeSelecionada =
     aba === "equipe" && equipeExportSelecionada !== "__todas__"
@@ -1452,7 +1461,7 @@ export default function GestaoPessoasEquipe() {
                         <p style={{ fontSize: 11, color: "#0f766e", fontWeight: 700 }}>
                           {custoEquipeSelecionada !== null
                             ? `Custo da equipe selecionada: ${fmtBRL(custoEquipeSelecionada)}`
-                            : `Custo total de equipes (${custoCompetencia || "sem competência"}): ${fmtBRL(custoTotalCompetencia)}`}
+                            : `Custo total de equipes (${custoCompetencia || "sem competência"}): ${fmtBRL(custoTotalEquipesAtual)}`}
                         </p>
                         <p style={{ fontSize: 10, color: "#64748b" }}>VERSAO_CUSTO_EQUIPE: 368b73d</p>
                       </>
