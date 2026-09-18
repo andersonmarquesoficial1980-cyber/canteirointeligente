@@ -154,7 +154,9 @@ serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const companyId = String(body?.company_id || "").trim();
     const competencia = String(body?.competencia || "").trim();
-    const dryRun = body?.dry_run === true;
+    // Segurança operacional: por padrão, sempre importa.
+    // Só aceita dry-run quando explicitamente solicitado com force_dry_run=true.
+    const dryRun = body?.dry_run === true && body?.force_dry_run === true;
 
     if (!companyId || !competencia) {
       return jsonResponse(400, { ok: false, error: "company_id e competencia são obrigatórios" });
@@ -248,7 +250,49 @@ serve(async (req: Request) => {
       });
     }
 
-    const reportRows = extractReportRows(upstreamPayload);
+    let reportRows = extractReportRows(upstreamPayload);
+    let rowSource = "report_time_balances";
+
+    // Fallback: quando relatório vier vazio, cria base com colaboradores ativos da API
+    // para exibir o mês no WF mesmo sem lançamentos de banco no período.
+    if (reportRows.length === 0) {
+      const empEndpoint = new URL("/external_api/v1/employees", baseUrl);
+      empEndpoint.searchParams.set("active", "true");
+      empEndpoint.searchParams.set("count", "true");
+      empEndpoint.searchParams.set("page", "1");
+      empEndpoint.searchParams.set("per_page", "500");
+
+      const empResp = await fetch(empEndpoint.toString(), {
+        method: "GET",
+        headers: {
+          [authHeaderName]: `${authPrefix}${token}`,
+          Accept: "application/json",
+        },
+      });
+
+      if (empResp.ok) {
+        const empJson = await empResp.json().catch(() => ({}));
+        const pmEmployees = Array.isArray(empJson?.employees)
+          ? empJson.employees as Array<Record<string, unknown>>
+          : [];
+
+        reportRows = pmEmployees
+          .map((e) => ({
+            name: String(e.name || "").trim(),
+            registration_number: String(e.registration_number || "").trim(),
+            team_name: String((e.team as Record<string, unknown> | undefined)?.name || "").trim(),
+            extra_time: 0,
+            missing_time: 0,
+            regular_time: 0,
+            time_balance: 0,
+          }))
+          .filter((r) => r.name);
+
+        if (reportRows.length > 0) {
+          rowSource = "employees_fallback_zero_balances";
+        }
+      }
+    }
 
     const { data: employeesData } = await adminClient
       .from("employees")
@@ -333,7 +377,8 @@ serve(async (req: Request) => {
       adicional_noturno_horas: 0,
       total_horas_extras_horas: item.total_horas_extras_horas,
       payload: {
-        source: "pontomais_api_reports_time_balances",
+        source: `pontomais_api_${rowSource}`,
+        row_source: rowSource,
         registration_number: item.registration_number,
         rows_count: item.rows.length,
         sample_rows: item.rows.slice(0, 3),
@@ -387,6 +432,7 @@ serve(async (req: Request) => {
           dry_run: dryRun,
           report_body: reportBody,
           rows_lidas: reportRows.length,
+          row_source: rowSource,
           rows_agrupadas: upsertRows.length,
           sample: upsertRows.slice(0, 2),
           upstream_meta: (upstreamPayload as Record<string, unknown>)?.meta || null,
