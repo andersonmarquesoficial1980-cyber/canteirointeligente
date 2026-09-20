@@ -167,14 +167,28 @@ function expandNestedRows(rows: GenericRow[]): GenericRow[] {
   for (const row of rows) {
     const asObj = (row && typeof row === "object") ? (row as Record<string, unknown>) : {};
 
+    const parentCtx: Record<string, unknown> = {
+      employee_name: asObj.employee_name ?? asObj.name ?? null,
+      registration_number: asObj.registration_number ?? asObj.matricula ?? null,
+      team_name: asObj.team_name ?? asObj.team ?? null,
+    };
+
+    const mergeCtx = (child: GenericRow): GenericRow => ({
+      ...parentCtx,
+      ...child,
+      employee_name: child.employee_name ?? child.name ?? parentCtx.employee_name,
+      registration_number: child.registration_number ?? child.matricula ?? parentCtx.registration_number,
+      team_name: child.team_name ?? child.team ?? parentCtx.team_name,
+    });
+
     if (Array.isArray(asObj.data)) {
-      out.push(...(asObj.data as GenericRow[]));
+      out.push(...(asObj.data as GenericRow[]).map(mergeCtx));
       continue;
     }
 
     const dateObj = asObj.date;
     if (dateObj && typeof dateObj === "object" && Array.isArray((dateObj as Record<string, unknown>).data)) {
-      out.push(...(((dateObj as Record<string, unknown>).data as GenericRow[])));
+      out.push(...(((dateObj as Record<string, unknown>).data as GenericRow[]).map(mergeCtx)));
       continue;
     }
 
@@ -440,6 +454,9 @@ serve(async (req: Request) => {
 
     let punchesInserted = 0;
     let punchesRowsRead = 0;
+    let punchesSkipNoEmployee = 0;
+    let punchesSkipNoDate = 0;
+    let punchesSkipFewMarks = 0;
 
     // Tentativa de importar batidas detalhadas do PontoMais para preencher ponto_registros.
     const timeCardsEndpoint = new URL("/external_api/v1/reports/time_cards", baseUrl);
@@ -502,11 +519,20 @@ serve(async (req: Request) => {
 
       for (const row of timeCardsRows) {
         const employeeId = resolveEmployeeId(row);
-        if (!employeeId) continue;
+        if (!employeeId) {
+          punchesSkipNoEmployee += 1;
+          continue;
+        }
         const dateIso = toIsoDate(row.date);
-        if (!dateIso) continue;
+        if (!dateIso) {
+          punchesSkipNoDate += 1;
+          continue;
+        }
         const marks = extractTimeMarks(row.time_cards);
-        if (marks.length < 2) continue;
+        if (marks.length < 2) {
+          punchesSkipFewMarks += 1;
+          continue;
+        }
 
         for (let i = 0; i < marks.length; i += 1) {
           const hhmm = marks[i];
@@ -787,6 +813,9 @@ serve(async (req: Request) => {
           rows_agrupadas: upsertRows.length,
           punches_rows_lidas: punchesRowsRead,
           punches_inseridas: punchesInserted,
+          punches_skip_no_employee: punchesSkipNoEmployee,
+          punches_skip_no_date: punchesSkipNoDate,
+          punches_skip_few_marks: punchesSkipFewMarks,
           sample: upsertRows.slice(0, 2),
           upstream_meta: (upstreamPayload as Record<string, unknown>)?.meta || null,
           upstream_heading: (upstreamPayload as Record<string, unknown>)?.heading || null,
@@ -806,6 +835,9 @@ serve(async (req: Request) => {
       row_source: rowSource,
       punches_rows_lidas: punchesRowsRead,
       punches_inseridas: punchesInserted,
+      punches_skip_no_employee: punchesSkipNoEmployee,
+      punches_skip_no_date: punchesSkipNoDate,
+      punches_skip_few_marks: punchesSkipFewMarks,
       imported_count: dryRun ? 0 : upsertRows.length,
     });
   } catch (error) {
