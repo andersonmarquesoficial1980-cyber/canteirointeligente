@@ -496,6 +496,12 @@ serve(async (req: Request) => {
       ]));
     }
 
+    // Preferimos as linhas já normalizadas do extra_times quando essa for a fonte do resumo.
+    // O endpoint time_cards pode retornar estrutura inconsistente para batidas detalhadas.
+    if (rowSource === "report_extra_times" && reportRows.length > 0) {
+      timeCardsRows = reportRows;
+    }
+
     // fallback pragmático: usar linhas do extra_times quando vierem com time_cards
     if (timeCardsRows.length === 0 && rowSource === "report_extra_times") {
       timeCardsRows = reportRows.filter((r) => String(r.time_cards || "").trim() !== "");
