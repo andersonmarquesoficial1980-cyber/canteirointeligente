@@ -736,7 +736,37 @@ serve(async (req: Request) => {
       }
     }
 
-    const upsertRows = Array.from(aggregated.values()).map((item) => ({
+    // Consolida duplicidades (ex.: nome abreviado vs nome completo do mesmo employee_id)
+    const consolidated = new Map<string, {
+      colaborador_nome: string;
+      registration_number: string;
+      equipe_nome: string | null;
+      credito_horas: number;
+      debito_horas: number;
+      horas_normais: number;
+      total_horas_extras_horas: number;
+      rows: GenericRow[];
+      employee_id: string | null;
+    }>();
+
+    for (const item of aggregated.values()) {
+      const key = item.employee_id || `${normalizeText(item.colaborador_nome)}|${normalizeDoc(item.registration_number)}`;
+      if (!consolidated.has(key)) {
+        consolidated.set(key, { ...item, rows: [...item.rows] });
+        continue;
+      }
+      const acc = consolidated.get(key)!;
+      acc.credito_horas = Number((acc.credito_horas + item.credito_horas).toFixed(2));
+      acc.debito_horas = Number((acc.debito_horas + item.debito_horas).toFixed(2));
+      acc.horas_normais = Number((acc.horas_normais + item.horas_normais).toFixed(2));
+      acc.total_horas_extras_horas = Number((acc.total_horas_extras_horas + item.total_horas_extras_horas).toFixed(2));
+      if (!acc.equipe_nome && item.equipe_nome) acc.equipe_nome = item.equipe_nome;
+      if (item.colaborador_nome.length > acc.colaborador_nome.length) acc.colaborador_nome = item.colaborador_nome;
+      if (!acc.registration_number && item.registration_number) acc.registration_number = item.registration_number;
+      acc.rows.push(...item.rows);
+    }
+
+    const upsertRows = Array.from(consolidated.values()).map((item) => ({
       company_id: companyId,
       employee_id: item.employee_id,
       competencia: startDate,
