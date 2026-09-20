@@ -504,6 +504,7 @@ serve(async (req: Request) => {
       rows_lidas: reportRows.length,
       rows_agrupadas: upsertRows.length,
       items_count: upsertRows.length,
+      row_source: rowSource,
       imported_count: dryRun ? 0 : upsertRows.length,
     });
   } catch (error) {

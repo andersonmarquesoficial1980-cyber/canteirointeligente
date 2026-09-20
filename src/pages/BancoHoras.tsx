@@ -540,9 +540,14 @@ export default function BancoHoras() {
       return;
     }
 
+    const rowSource = String(data.row_source || "");
+    const fallbackZero = rowSource === "employees_fallback_zero_balances";
+
     toast({
-      title: "✅ Sincronização PontoMais concluída",
-      description: `${Number(data.imported_count || 0)} colaboradores importados para a competência ${mes}.`,
+      title: fallbackZero ? "⚠️ Sync concluída com base sem saldo" : "✅ Sincronização PontoMais concluída",
+      description: fallbackZero
+        ? `Foram importados ${Number(data.imported_count || 0)} colaboradores, mas a API não retornou horas do mês ${mes}. Exibindo cálculo pelas batidas locais.`
+        : `${Number(data.imported_count || 0)} colaboradores importados para a competência ${mes}.`,
     });
 
     await carregarDados();
@@ -587,14 +592,30 @@ export default function BancoHoras() {
       .filter((s) => s.diasTrabalhados > 0 || busca);
   }, [funcionarios, registros, jornadaPadrao, busca]);
 
-  const temImportado = resumosImportados.length > 0;
+  const resumosImportadosAtivos = useMemo(() => {
+    const isFallbackZero = (r: ResumoImportado) => {
+      const rowSource = String(r.payload?.row_source || "");
+      const onlyZeros = Number(r.credito_horas || 0) === 0
+        && Number(r.debito_horas || 0) === 0
+        && Number(r.he_70_horas || 0) === 0
+        && Number(r.he_100_horas || 0) === 0
+        && Number(r.total_horas_extras_horas || 0) === 0
+        && Number(r.horas_normais || 0) === 0;
+      return rowSource === "employees_fallback_zero_balances" && onlyZeros;
+    };
+
+    const hasRealRows = resumosImportados.some((r) => !isFallbackZero(r));
+    return hasRealRows ? resumosImportados : [];
+  }, [resumosImportados]);
+
+  const temImportado = resumosImportadosAtivos.length > 0;
 
   const funcaoByNome = useMemo(() => {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.funcao || "Sem função"]));
   }, [funcionarios]);
 
   const resumosEnriquecidos = useMemo<ResumoImportadoEnriquecido[]>(() => {
-    return resumosImportados.map((r) => {
+    return resumosImportadosAtivos.map((r) => {
       const equipe = (r.equipe_nome || "Sem equipe").trim();
       const funcao = funcaoByNome.get(normalizeText(r.colaborador_nome)) || "Sem função";
       const saldo = Number(r.credito_horas || 0) - Number(r.debito_horas || 0);
@@ -605,7 +626,7 @@ export default function BancoHoras() {
         saldo,
       };
     });
-  }, [resumosImportados, funcaoByNome]);
+  }, [resumosImportadosAtivos, funcaoByNome]);
 
   const employeeIdByNome = useMemo(() => {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.id]));
@@ -998,7 +1019,7 @@ export default function BancoHoras() {
   const totalPositivo = saldosCalculados.filter((s) => s.saldo > 0).reduce((acc, s) => acc + s.saldo, 0);
   const totalNegativo = saldosCalculados.filter((s) => s.saldo < 0).reduce((acc, s) => acc + s.saldo, 0);
 
-  const totalBaseAtual = temImportado ? resumosImportados.length : saldosCalculados.length;
+  const totalBaseAtual = temImportado ? resumosImportadosAtivos.length : saldosCalculados.length;
   const totalFiltradoAtual = temImportado ? importadosFiltrados.length : filtradosCalc.length;
   const equipeSelecionada = equipeFiltro !== "TODAS";
 
