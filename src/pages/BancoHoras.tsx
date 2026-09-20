@@ -720,7 +720,11 @@ export default function BancoHoras() {
     const ajustesExistentes = (r.payload?.he_manual?.daily_adjustments || []) as AjusteDiario[];
     const ajusteMap = new Map(ajustesExistentes.map((a) => [a.data, a]));
 
-    const linhas = eachDateIso(inicio, fim).map((dataIso) => {
+    const datasHistorico = regs.length > 0
+      ? Array.from(byDate.keys()).sort((a, b) => a.localeCompare(b))
+      : [];
+
+    const linhas = datasHistorico.map((dataIso) => {
       const regsDia = byDate.get(dataIso) || [];
       const horasDia = calcHorasTrabalhadasPorDia(regsDia);
       const saldoEstimado = Number((horasDia - jornadaPadrao).toFixed(2));
@@ -1749,7 +1753,13 @@ export default function BancoHoras() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {historicoDias.map((linha, idx) => (
+                                  {historicoDias.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={8} className="p-4 text-center text-muted-foreground">
+                                        Sem batidas dia-a-dia gravadas para este colaborador nesta competência.
+                                      </td>
+                                    </tr>
+                                  ) : historicoDias.map((linha, idx) => (
                                     <tr key={linha.data} className="border-t">
                                       <td className="p-2 whitespace-nowrap">{fmtDate(linha.data)}</td>
                                       <td className="p-2">
