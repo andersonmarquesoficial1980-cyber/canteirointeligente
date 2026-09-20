@@ -286,7 +286,7 @@ serve(async (req: Request) => {
       report: {
         start_date: startDate,
         end_date: endDate,
-        group_by: "team",
+        group_by: "employee",
         row_filters: "",
         columns: "name,registration_number,date,extra_time,missing_time,interval_time,regular_time,time_balance",
         format: "json",
@@ -358,7 +358,7 @@ serve(async (req: Request) => {
           report: {
             start_date: startDate,
             end_date: endDate,
-            group_by: "team",
+            group_by: "employee",
             row_filters: "",
             columns: "employee_name,registration_number,team_name,date,time_cards,regular_time,extra_time,motive",
             format: "json",
