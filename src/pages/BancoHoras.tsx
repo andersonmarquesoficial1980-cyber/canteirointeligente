@@ -703,6 +703,13 @@ export default function BancoHoras() {
     }
 
     const regs = (data || []) as Registro[];
+    if (regs.length === 0) {
+      toast({
+        title: "Sem batidas no período",
+        description: "Ainda não há batidas dia-a-dia gravadas para este colaborador nesta competência.",
+      });
+    }
+
     const byDate = new Map<string, Registro[]>();
     for (const reg of regs) {
       const arr = byDate.get(reg.data) || [];
@@ -1749,7 +1756,9 @@ export default function BancoHoras() {
                                         <input
                                           type="time"
                                           step={60}
-                                          value={linha.entrada1 === "-" ? "" : linha.entrada1}
+                                          autoComplete="off"
+                                          name={`entrada1-${linha.data}`}
+                                          value={normalizarHoraInput(linha.entrada1) || ""}
                                           onChange={(e) => {
                                             const val = e.target.value || "-";
                                             setHistoricoDias((prev) => prev.map((d, i) => {
@@ -1766,7 +1775,9 @@ export default function BancoHoras() {
                                         <input
                                           type="time"
                                           step={60}
-                                          value={linha.saida1 === "-" ? "" : linha.saida1}
+                                          autoComplete="off"
+                                          name={`saida1-${linha.data}`}
+                                          value={normalizarHoraInput(linha.saida1) || ""}
                                           onChange={(e) => {
                                             const val = e.target.value || "-";
                                             setHistoricoDias((prev) => prev.map((d, i) => {
@@ -1783,7 +1794,9 @@ export default function BancoHoras() {
                                         <input
                                           type="time"
                                           step={60}
-                                          value={linha.entrada2 === "-" ? "" : linha.entrada2}
+                                          autoComplete="off"
+                                          name={`entrada2-${linha.data}`}
+                                          value={normalizarHoraInput(linha.entrada2) || ""}
                                           onChange={(e) => {
                                             const val = e.target.value || "-";
                                             setHistoricoDias((prev) => prev.map((d, i) => {
@@ -1800,7 +1813,9 @@ export default function BancoHoras() {
                                         <input
                                           type="time"
                                           step={60}
-                                          value={linha.saida2 === "-" ? "" : linha.saida2}
+                                          autoComplete="off"
+                                          name={`saida2-${linha.data}`}
+                                          value={normalizarHoraInput(linha.saida2) || ""}
                                           onChange={(e) => {
                                             const val = e.target.value || "-";
                                             setHistoricoDias((prev) => prev.map((d, i) => {
