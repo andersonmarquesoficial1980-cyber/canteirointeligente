@@ -457,6 +457,7 @@ serve(async (req: Request) => {
     let punchesSkipNoEmployee = 0;
     let punchesSkipNoDate = 0;
     let punchesSkipFewMarks = 0;
+    let recalcAddedFromRegistros = 0;
 
     // Tentativa de importar batidas detalhadas do PontoMais para preencher ponto_registros.
     const timeCardsEndpoint = new URL("/external_api/v1/reports/time_cards", baseUrl);
@@ -496,13 +497,15 @@ serve(async (req: Request) => {
       ]));
     }
 
-    // Preferimos as linhas já normalizadas do extra_times quando essa for a fonte do resumo.
-    // O endpoint time_cards pode retornar estrutura inconsistente para batidas detalhadas.
+    // Em report_extra_times, combinamos as duas fontes para ampliar cobertura:
+    // - time_cards endpoint
+    // - linhas do extra_times que já trazem time_cards
     if (rowSource === "report_extra_times" && reportRows.length > 0) {
-      timeCardsRows = reportRows;
+      const extraRows = reportRows.filter((r) => String(r.time_cards || "").trim() !== "");
+      timeCardsRows = [...timeCardsRows, ...extraRows];
     }
 
-    // fallback pragmático: usar linhas do extra_times quando vierem com time_cards
+    // fallback pragmático final
     if (timeCardsRows.length === 0 && rowSource === "report_extra_times") {
       timeCardsRows = reportRows.filter((r) => String(r.time_cards || "").trim() !== "");
     }
@@ -535,7 +538,7 @@ serve(async (req: Request) => {
           continue;
         }
         const marks = extractTimeMarks(row.time_cards);
-        if (marks.length < 2) {
+        if (marks.length === 0) {
           punchesSkipFewMarks += 1;
           continue;
         }
@@ -624,101 +627,111 @@ serve(async (req: Request) => {
       acc.rows.push(row);
     }
 
-    // Se veio apenas fallback zerado, recalcula resumo a partir de ponto_registros do mês.
-    if (rowSource === "employees_fallback_zero_balances") {
-      const { data: regsData } = await adminClient
-        .from("ponto_registros")
-        .select("staff_id, data, hora, tipo")
-        .eq("company_id", companyId)
-        .gte("data", startDate)
-        .lte("data", endDate)
-        .order("staff_id")
-        .order("data")
-        .order("hora");
+    // Recalcula base mensal a partir de ponto_registros para complementar/recuperar cobertura.
+    const { data: regsData } = await adminClient
+      .from("ponto_registros")
+      .select("staff_id, data, hora, tipo")
+      .eq("company_id", companyId)
+      .gte("data", startDate)
+      .lte("data", endDate)
+      .order("staff_id")
+      .order("data")
+      .order("hora");
 
-      const regs = (regsData || []) as Array<{ staff_id: string; data: string; hora: string; tipo: string }>;
-      if (regs.length > 0) {
-        const employeeById = new Map(employees.map((e) => [e.id, e]));
-        const teamByName = new Map<string, string>();
-        for (const row of reportRows) {
-          const nome = String(row.name ?? row.employee_name ?? row.employee ?? "").trim();
-          const team = String(row.team_name ?? row.team ?? row.group ?? "").trim();
-          if (nome && team && !teamByName.has(normalizeText(nome))) {
-            teamByName.set(normalizeText(nome), team);
-          }
+    const regs = (regsData || []) as Array<{ staff_id: string; data: string; hora: string; tipo: string }>;
+    if (regs.length > 0) {
+      const employeeById = new Map(employees.map((e) => [e.id, e]));
+      const teamByName = new Map<string, string>();
+      for (const row of reportRows) {
+        const nome = String(row.name ?? row.employee_name ?? row.employee ?? "").trim();
+        const team = String(row.team_name ?? row.team ?? row.group ?? "").trim();
+        if (nome && team && !teamByName.has(normalizeText(nome))) {
+          teamByName.set(normalizeText(nome), team);
+        }
+      }
+
+      const byStaffDate = new Map<string, { entradas: string[]; saidas: string[] }>();
+      for (const r of regs) {
+        const key = `${r.staff_id}|${r.data}`;
+        if (!byStaffDate.has(key)) byStaffDate.set(key, { entradas: [], saidas: [] });
+        const hour = String(r.hora).slice(0, 5);
+        if (r.tipo === "entrada") byStaffDate.get(key)!.entradas.push(hour);
+        if (r.tipo === "saida") byStaffDate.get(key)!.saidas.push(hour);
+      }
+
+      const recalc = new Map<string, {
+        colaborador_nome: string;
+        registration_number: string;
+        equipe_nome: string | null;
+        credito_horas: number;
+        debito_horas: number;
+        horas_normais: number;
+        total_horas_extras_horas: number;
+        rows: GenericRow[];
+        employee_id: string | null;
+      }>();
+
+      for (const [key, value] of byStaffDate.entries()) {
+        const [staffId] = key.split("|");
+        const entradas = value.entradas.sort((a, b) => minuteOfDay(a) - minuteOfDay(b));
+        const saidas = value.saidas.sort((a, b) => minuteOfDay(a) - minuteOfDay(b));
+        const pairs = Math.min(entradas.length, saidas.length);
+        if (pairs <= 0) continue;
+
+        let totalMin = 0;
+        for (let i = 0; i < pairs; i += 1) {
+          let diff = minuteOfDay(saidas[i]) - minuteOfDay(entradas[i]);
+          if (diff < 0) diff += 24 * 60;
+          totalMin += diff;
         }
 
-        const byStaffDate = new Map<string, { entradas: string[]; saidas: string[] }>();
-        for (const r of regs) {
-          const key = `${r.staff_id}|${r.data}`;
-          if (!byStaffDate.has(key)) byStaffDate.set(key, { entradas: [], saidas: [] });
-          const hour = String(r.hora).slice(0, 5);
-          if (r.tipo === "entrada") byStaffDate.get(key)!.entradas.push(hour);
-          if (r.tipo === "saida") byStaffDate.get(key)!.saidas.push(hour);
+        const worked = Number((totalMin / 60).toFixed(2));
+        const credito = Math.max(Number((worked - 8).toFixed(2)), 0);
+        const debito = Math.max(Number((8 - worked).toFixed(2)), 0);
+        const normais = Math.max(Number((Math.min(worked, 8)).toFixed(2)), 0);
+
+        const employee = employeeById.get(staffId);
+        const nome = (employee?.name || `STAFF ${staffId}`).trim();
+        const registration = String(employee?.matricula || "").trim();
+        const team = teamByName.get(normalizeText(nome)) || null;
+        const sumKey = `${normalizeText(nome)}|${normalizeDoc(registration)}`;
+
+        if (!recalc.has(sumKey)) {
+          recalc.set(sumKey, {
+            colaborador_nome: nome,
+            registration_number: registration,
+            equipe_nome: team,
+            credito_horas: 0,
+            debito_horas: 0,
+            horas_normais: 0,
+            total_horas_extras_horas: 0,
+            rows: [],
+            employee_id: staffId,
+          });
         }
 
-        const recalc = new Map<string, {
-          colaborador_nome: string;
-          registration_number: string;
-          equipe_nome: string | null;
-          credito_horas: number;
-          debito_horas: number;
-          horas_normais: number;
-          total_horas_extras_horas: number;
-          rows: GenericRow[];
-          employee_id: string | null;
-        }>();
+        const acc = recalc.get(sumKey)!;
+        acc.credito_horas = Number((acc.credito_horas + credito).toFixed(2));
+        acc.debito_horas = Number((acc.debito_horas + debito).toFixed(2));
+        acc.horas_normais = Number((acc.horas_normais + normais).toFixed(2));
+        acc.total_horas_extras_horas = Number((acc.total_horas_extras_horas + credito).toFixed(2));
+      }
 
-        for (const [key, value] of byStaffDate.entries()) {
-          const [staffId] = key.split("|");
-          const entradas = value.entradas.sort((a, b) => minuteOfDay(a) - minuteOfDay(b));
-          const saidas = value.saidas.sort((a, b) => minuteOfDay(a) - minuteOfDay(b));
-          const pairs = Math.min(entradas.length, saidas.length);
-          if (pairs <= 0) continue;
-
-          let totalMin = 0;
-          for (let i = 0; i < pairs; i += 1) {
-            let diff = minuteOfDay(saidas[i]) - minuteOfDay(entradas[i]);
-            if (diff < 0) diff += 24 * 60;
-            totalMin += diff;
-          }
-
-          const worked = Number((totalMin / 60).toFixed(2));
-          const credito = Math.max(Number((worked - 8).toFixed(2)), 0);
-          const debito = Math.max(Number((8 - worked).toFixed(2)), 0);
-          const normais = Math.max(Number((Math.min(worked, 8)).toFixed(2)), 0);
-
-          const employee = employeeById.get(staffId);
-          const nome = (employee?.name || `STAFF ${staffId}`).trim();
-          const registration = String(employee?.matricula || "").trim();
-          const team = teamByName.get(normalizeText(nome)) || null;
-          const sumKey = `${normalizeText(nome)}|${normalizeDoc(registration)}`;
-
-          if (!recalc.has(sumKey)) {
-            recalc.set(sumKey, {
-              colaborador_nome: nome,
-              registration_number: registration,
-              equipe_nome: team,
-              credito_horas: 0,
-              debito_horas: 0,
-              horas_normais: 0,
-              total_horas_extras_horas: 0,
-              rows: [],
-              employee_id: staffId,
-            });
-          }
-
-          const acc = recalc.get(sumKey)!;
-          acc.credito_horas = Number((acc.credito_horas + credito).toFixed(2));
-          acc.debito_horas = Number((acc.debito_horas + debito).toFixed(2));
-          acc.horas_normais = Number((acc.horas_normais + normais).toFixed(2));
-          acc.total_horas_extras_horas = Number((acc.total_horas_extras_horas + credito).toFixed(2));
-        }
-
-        if (recalc.size > 0) {
+      if (recalc.size > 0) {
+        if (rowSource === "employees_fallback_zero_balances") {
           aggregated.clear();
           for (const [k, v] of recalc.entries()) aggregated.set(k, v);
           rowSource = "ponto_registros_recalc";
+        } else {
+          for (const [k, v] of recalc.entries()) {
+            if (!aggregated.has(k)) {
+              aggregated.set(k, v);
+              recalcAddedFromRegistros += 1;
+            }
+          }
+          if (recalcAddedFromRegistros > 0) {
+            rowSource = `${rowSource}_plus_registros`;
+          }
         }
       }
     }
@@ -822,6 +835,7 @@ serve(async (req: Request) => {
           punches_skip_no_employee: punchesSkipNoEmployee,
           punches_skip_no_date: punchesSkipNoDate,
           punches_skip_few_marks: punchesSkipFewMarks,
+          recalc_added_from_registros: recalcAddedFromRegistros,
           sample: upsertRows.slice(0, 2),
           upstream_meta: (upstreamPayload as Record<string, unknown>)?.meta || null,
           upstream_heading: (upstreamPayload as Record<string, unknown>)?.heading || null,
@@ -844,6 +858,7 @@ serve(async (req: Request) => {
       punches_skip_no_employee: punchesSkipNoEmployee,
       punches_skip_no_date: punchesSkipNoDate,
       punches_skip_few_marks: punchesSkipFewMarks,
+      recalc_added_from_registros: recalcAddedFromRegistros,
       imported_count: dryRun ? 0 : upsertRows.length,
     });
   } catch (error) {
