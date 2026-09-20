@@ -121,6 +121,31 @@ function extractReportRows(
     });
 }
 
+function toIsoDate(value: unknown): string | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const br = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return null;
+}
+
+function extractTimeMarks(value: unknown): string[] {
+  const raw = String(value || "");
+  if (!raw) return [];
+  const matches = raw.match(/\b\d{1,2}:\d{2}\b/g) || [];
+  return matches
+    .map((t) => t.split(":").map(Number))
+    .filter(([h, m]) => Number.isFinite(h) && Number.isFinite(m) && h >= 0 && h < 24 && m >= 0 && m < 60)
+    .map(([h, m]) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+}
+
+function minuteOfDay(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h * 60) + m;
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse(405, { ok: false, error: "Método não permitido" });
@@ -351,8 +376,7 @@ serve(async (req: Request) => {
     const { data: employeesData } = await adminClient
       .from("employees")
       .select("id, name, matricula")
-      .eq("company_id", companyId)
-      .eq("status", "ativo");
+      .eq("company_id", companyId);
 
     const employees = (employeesData || []) as Array<{ id: string; name: string | null; matricula: string | null }>;
     const employeeIdByName = new Map<string, string>();
@@ -361,6 +385,118 @@ serve(async (req: Request) => {
     for (const e of employees) {
       if (e.name) employeeIdByName.set(normalizeText(e.name), e.id);
       if (e.matricula) employeeIdByMatricula.set(normalizeDoc(e.matricula), e.id);
+    }
+
+    const resolveEmployeeId = (row: GenericRow): string | null => {
+      const nome = String(row.employee_name ?? row.name ?? row.employee ?? "").trim();
+      const registration = String(row.registration_number ?? row.matricula ?? "").trim();
+      const byMat = registration ? employeeIdByMatricula.get(normalizeDoc(registration)) : undefined;
+      if (byMat) return byMat;
+      const byName = nome ? employeeIdByName.get(normalizeText(nome)) : undefined;
+      return byName || null;
+    };
+
+    let punchesInserted = 0;
+    let punchesRowsRead = 0;
+
+    // Tentativa de importar batidas detalhadas do PontoMais para preencher ponto_registros.
+    const timeCardsEndpoint = new URL("/external_api/v1/reports/time_cards", baseUrl);
+    const timeCardsBody = {
+      report: {
+        start_date: startDate,
+        end_date: endDate,
+        group_by: "team",
+        row_filters: "",
+        columns: "employee_name,registration_number,team_name,date,time_cards,regular_time,extra_time,missing_time",
+        format: "json",
+      },
+    };
+
+    let timeCardsRows: GenericRow[] = [];
+    const tcResp = await fetch(timeCardsEndpoint.toString(), {
+      method: "POST",
+      headers: {
+        [authHeaderName]: `${authPrefix}${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(timeCardsBody),
+    });
+
+    if (tcResp.ok) {
+      const tcPayload = await tcResp.json().catch(() => ({}));
+      timeCardsRows = extractReportRows(tcPayload, [
+        "employee_name",
+        "registration_number",
+        "team_name",
+        "date",
+        "time_cards",
+        "regular_time",
+        "extra_time",
+        "missing_time",
+      ]);
+    }
+
+    // fallback pragmático: usar linhas do extra_times quando vierem com time_cards
+    if (timeCardsRows.length === 0 && rowSource === "report_extra_times") {
+      timeCardsRows = reportRows.filter((r) => String(r.time_cards || "").trim() !== "");
+    }
+
+    punchesRowsRead = timeCardsRows.length;
+
+    if (!dryRun && timeCardsRows.length > 0) {
+      const { data: existingRegsData } = await adminClient
+        .from("ponto_registros")
+        .select("staff_id, data, hora, tipo")
+        .eq("company_id", companyId)
+        .gte("data", startDate)
+        .lte("data", endDate);
+
+      const existingRegs = (existingRegsData || []) as Array<{ staff_id: string; data: string; hora: string; tipo: string }>;
+      const existingKeys = new Set(existingRegs.map((r) => `${r.staff_id}|${r.data}|${String(r.hora).slice(0, 5)}|${r.tipo}`));
+
+      const punchInserts: Array<Record<string, unknown>> = [];
+      const stagedKeys = new Set<string>();
+
+      for (const row of timeCardsRows) {
+        const employeeId = resolveEmployeeId(row);
+        if (!employeeId) continue;
+        const dateIso = toIsoDate(row.date);
+        if (!dateIso) continue;
+        const marks = extractTimeMarks(row.time_cards);
+        if (marks.length < 2) continue;
+
+        for (let i = 0; i < marks.length; i += 1) {
+          const hhmm = marks[i];
+          const tipo = i % 2 === 0 ? "entrada" : "saida";
+          const key = `${employeeId}|${dateIso}|${hhmm}|${tipo}`;
+          if (existingKeys.has(key) || stagedKeys.has(key)) continue;
+          stagedKeys.add(key);
+
+          punchInserts.push({
+            company_id: companyId,
+            staff_id: employeeId,
+            data: dateIso,
+            hora: `${hhmm}:00`,
+            tipo,
+            turno: null,
+            metodo: "pontomais_sync",
+          });
+        }
+      }
+
+      if (punchInserts.length > 0) {
+        const chunkSize = 500;
+        for (let i = 0; i < punchInserts.length; i += chunkSize) {
+          const chunk = punchInserts.slice(i, i + chunkSize);
+          const { error: insErr } = await adminClient.from("ponto_registros").insert(chunk);
+          if (insErr) {
+            return jsonResponse(500, { ok: false, error: `Falha ao importar batidas PontoMais: ${insErr.message}` });
+          }
+        }
+      }
+
+      punchesInserted = punchInserts.length;
     }
 
     const aggregated = new Map<string, {
@@ -412,6 +548,105 @@ serve(async (req: Request) => {
       acc.total_horas_extras_horas = Number((acc.total_horas_extras_horas + extra).toFixed(2));
       if (!acc.equipe_nome && team) acc.equipe_nome = team;
       acc.rows.push(row);
+    }
+
+    // Se veio apenas fallback zerado, recalcula resumo a partir de ponto_registros do mês.
+    if (rowSource === "employees_fallback_zero_balances") {
+      const { data: regsData } = await adminClient
+        .from("ponto_registros")
+        .select("staff_id, data, hora, tipo")
+        .eq("company_id", companyId)
+        .gte("data", startDate)
+        .lte("data", endDate)
+        .order("staff_id")
+        .order("data")
+        .order("hora");
+
+      const regs = (regsData || []) as Array<{ staff_id: string; data: string; hora: string; tipo: string }>;
+      if (regs.length > 0) {
+        const employeeById = new Map(employees.map((e) => [e.id, e]));
+        const teamByName = new Map<string, string>();
+        for (const row of reportRows) {
+          const nome = String(row.name ?? row.employee_name ?? row.employee ?? "").trim();
+          const team = String(row.team_name ?? row.team ?? row.group ?? "").trim();
+          if (nome && team && !teamByName.has(normalizeText(nome))) {
+            teamByName.set(normalizeText(nome), team);
+          }
+        }
+
+        const byStaffDate = new Map<string, { entradas: string[]; saidas: string[] }>();
+        for (const r of regs) {
+          const key = `${r.staff_id}|${r.data}`;
+          if (!byStaffDate.has(key)) byStaffDate.set(key, { entradas: [], saidas: [] });
+          const hour = String(r.hora).slice(0, 5);
+          if (r.tipo === "entrada") byStaffDate.get(key)!.entradas.push(hour);
+          if (r.tipo === "saida") byStaffDate.get(key)!.saidas.push(hour);
+        }
+
+        const recalc = new Map<string, {
+          colaborador_nome: string;
+          registration_number: string;
+          equipe_nome: string | null;
+          credito_horas: number;
+          debito_horas: number;
+          horas_normais: number;
+          total_horas_extras_horas: number;
+          rows: GenericRow[];
+          employee_id: string | null;
+        }>();
+
+        for (const [key, value] of byStaffDate.entries()) {
+          const [staffId] = key.split("|");
+          const entradas = value.entradas.sort((a, b) => minuteOfDay(a) - minuteOfDay(b));
+          const saidas = value.saidas.sort((a, b) => minuteOfDay(a) - minuteOfDay(b));
+          const pairs = Math.min(entradas.length, saidas.length);
+          if (pairs <= 0) continue;
+
+          let totalMin = 0;
+          for (let i = 0; i < pairs; i += 1) {
+            let diff = minuteOfDay(saidas[i]) - minuteOfDay(entradas[i]);
+            if (diff < 0) diff += 24 * 60;
+            totalMin += diff;
+          }
+
+          const worked = Number((totalMin / 60).toFixed(2));
+          const credito = Math.max(Number((worked - 8).toFixed(2)), 0);
+          const debito = Math.max(Number((8 - worked).toFixed(2)), 0);
+          const normais = Math.max(Number((Math.min(worked, 8)).toFixed(2)), 0);
+
+          const employee = employeeById.get(staffId);
+          const nome = (employee?.name || `STAFF ${staffId}`).trim();
+          const registration = String(employee?.matricula || "").trim();
+          const team = teamByName.get(normalizeText(nome)) || null;
+          const sumKey = `${normalizeText(nome)}|${normalizeDoc(registration)}`;
+
+          if (!recalc.has(sumKey)) {
+            recalc.set(sumKey, {
+              colaborador_nome: nome,
+              registration_number: registration,
+              equipe_nome: team,
+              credito_horas: 0,
+              debito_horas: 0,
+              horas_normais: 0,
+              total_horas_extras_horas: 0,
+              rows: [],
+              employee_id: staffId,
+            });
+          }
+
+          const acc = recalc.get(sumKey)!;
+          acc.credito_horas = Number((acc.credito_horas + credito).toFixed(2));
+          acc.debito_horas = Number((acc.debito_horas + debito).toFixed(2));
+          acc.horas_normais = Number((acc.horas_normais + normais).toFixed(2));
+          acc.total_horas_extras_horas = Number((acc.total_horas_extras_horas + credito).toFixed(2));
+        }
+
+        if (recalc.size > 0) {
+          aggregated.clear();
+          for (const [k, v] of recalc.entries()) aggregated.set(k, v);
+          rowSource = "ponto_registros_recalc";
+        }
+      }
     }
 
     const upsertRows = Array.from(aggregated.values()).map((item) => ({
@@ -488,6 +723,8 @@ serve(async (req: Request) => {
           rows_lidas: reportRows.length,
           row_source: rowSource,
           rows_agrupadas: upsertRows.length,
+          punches_rows_lidas: punchesRowsRead,
+          punches_inseridas: punchesInserted,
           sample: upsertRows.slice(0, 2),
           upstream_meta: (upstreamPayload as Record<string, unknown>)?.meta || null,
           upstream_heading: (upstreamPayload as Record<string, unknown>)?.heading || null,
@@ -505,6 +742,8 @@ serve(async (req: Request) => {
       rows_agrupadas: upsertRows.length,
       items_count: upsertRows.length,
       row_source: rowSource,
+      punches_rows_lidas: punchesRowsRead,
+      punches_inseridas: punchesInserted,
       imported_count: dryRun ? 0 : upsertRows.length,
     });
   } catch (error) {

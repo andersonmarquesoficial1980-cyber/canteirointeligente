@@ -542,12 +542,15 @@ export default function BancoHoras() {
 
     const rowSource = String(data.row_source || "");
     const fallbackZero = rowSource === "employees_fallback_zero_balances";
+    const punchesInseridas = Number(data.punches_inseridas || 0);
 
     toast({
       title: fallbackZero ? "⚠️ Sync concluída com base sem saldo" : "✅ Sincronização PontoMais concluída",
       description: fallbackZero
-        ? `Foram importados ${Number(data.imported_count || 0)} colaboradores, mas a API não retornou horas do mês ${mes}. Exibindo cálculo pelas batidas locais.`
-        : `${Number(data.imported_count || 0)} colaboradores importados para a competência ${mes}.`,
+        ? `Foram importados ${Number(data.imported_count || 0)} colaboradores, mas a API não retornou horas do mês ${mes}.`
+        : punchesInseridas > 0
+          ? `${Number(data.imported_count || 0)} colaboradores importados e ${punchesInseridas} batidas sincronizadas para ${mes}.`
+          : `${Number(data.imported_count || 0)} colaboradores importados para a competência ${mes}.`,
     });
 
     await carregarDados();
