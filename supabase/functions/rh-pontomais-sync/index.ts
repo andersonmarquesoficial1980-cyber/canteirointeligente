@@ -346,32 +346,45 @@ serve(async (req: Request) => {
     let rowSource = "report_time_balances";
 
     // Fallback 1: tentar relatório de horas extras quando time_balances vier vazio.
+    // Paginação ativa para evitar truncar em poucos colaboradores.
     if (reportRows.length === 0) {
       const extraEndpoint = new URL("/external_api/v1/reports/extra_times", baseUrl);
-      const extraBody = {
-        report: {
-          start_date: startDate,
-          end_date: endDate,
-          group_by: "team",
-          row_filters: "",
-          columns: "employee_name,registration_number,team_name,date,time_cards,regular_time,extra_time,motive",
-          format: "json",
-        },
-      };
+      const maxPages = 40;
+      const perPage = 500;
+      const allExtraRows: GenericRow[] = [];
 
-      const extraResp = await fetch(extraEndpoint.toString(), {
-        method: "POST",
-        headers: {
-          [authHeaderName]: `${authPrefix}${token}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(extraBody),
-      });
+      for (let page = 1; page <= maxPages; page += 1) {
+        const extraBody = {
+          report: {
+            start_date: startDate,
+            end_date: endDate,
+            group_by: "team",
+            row_filters: "",
+            columns: "employee_name,registration_number,team_name,date,time_cards,regular_time,extra_time,motive",
+            format: "json",
+            page,
+            per_page: perPage,
+            count: true,
+          },
+        };
 
-      if (extraResp.ok) {
+        const extraResp = await fetch(extraEndpoint.toString(), {
+          method: "POST",
+          headers: {
+            [authHeaderName]: `${authPrefix}${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(extraBody),
+        });
+
+        if (!extraResp.ok) {
+          if (page === 1) break;
+          break;
+        }
+
         const extraPayload = await extraResp.json().catch(() => ({}));
-        const extraRows = expandNestedRows(extractReportRows(extraPayload, [
+        const pageRows = expandNestedRows(extractReportRows(extraPayload, [
           "employee_name",
           "registration_number",
           "team_name",
@@ -381,10 +394,20 @@ serve(async (req: Request) => {
           "extra_time",
           "motive",
         ]));
-        if (extraRows.length > 0) {
-          reportRows = extraRows;
-          rowSource = "report_extra_times";
-        }
+
+        allExtraRows.push(...pageRows);
+
+        const meta = (extraPayload as Record<string, unknown>)?.meta as Record<string, unknown> | undefined;
+        const totalPages = Number(meta?.total_pages ?? meta?.pages ?? meta?.page_count ?? 0);
+
+        if (pageRows.length === 0) break;
+        if (Number.isFinite(totalPages) && totalPages > 0 && page >= totalPages) break;
+        if ((!Number.isFinite(totalPages) || totalPages <= 0) && pageRows.length < perPage) break;
+      }
+
+      if (allExtraRows.length > 0) {
+        reportRows = allExtraRows;
+        rowSource = "report_extra_times";
       }
     }
 
@@ -473,19 +496,37 @@ serve(async (req: Request) => {
     };
 
     let timeCardsRows: GenericRow[] = [];
-    const tcResp = await fetch(timeCardsEndpoint.toString(), {
-      method: "POST",
-      headers: {
-        [authHeaderName]: `${authPrefix}${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(timeCardsBody),
-    });
+    const maxPagesTimeCards = 40;
+    const perPageTimeCards = 500;
+    const allTimeCardRows: GenericRow[] = [];
 
-    if (tcResp.ok) {
+    for (let page = 1; page <= maxPagesTimeCards; page += 1) {
+      const pageBody = {
+        report: {
+          ...timeCardsBody.report,
+          page,
+          per_page: perPageTimeCards,
+          count: true,
+        },
+      };
+
+      const tcResp = await fetch(timeCardsEndpoint.toString(), {
+        method: "POST",
+        headers: {
+          [authHeaderName]: `${authPrefix}${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(pageBody),
+      });
+
+      if (!tcResp.ok) {
+        if (page === 1) break;
+        break;
+      }
+
       const tcPayload = await tcResp.json().catch(() => ({}));
-      timeCardsRows = expandNestedRows(extractReportRows(tcPayload, [
+      const pageRows = expandNestedRows(extractReportRows(tcPayload, [
         "employee_name",
         "registration_number",
         "team_name",
@@ -495,7 +536,17 @@ serve(async (req: Request) => {
         "extra_time",
         "missing_time",
       ]));
+      allTimeCardRows.push(...pageRows);
+
+      const meta = (tcPayload as Record<string, unknown>)?.meta as Record<string, unknown> | undefined;
+      const totalPages = Number(meta?.total_pages ?? meta?.pages ?? meta?.page_count ?? 0);
+
+      if (pageRows.length === 0) break;
+      if (Number.isFinite(totalPages) && totalPages > 0 && page >= totalPages) break;
+      if ((!Number.isFinite(totalPages) || totalPages <= 0) && pageRows.length < perPageTimeCards) break;
     }
+
+    timeCardsRows = allTimeCardRows;
 
     // Em report_extra_times, combinamos as duas fontes para ampliar cobertura:
     // - time_cards endpoint
