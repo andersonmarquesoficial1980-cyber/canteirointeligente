@@ -556,6 +556,7 @@ export default function BancoHoras() {
     const punchesRowsLidas = Number(data.punches_rows_lidas || 0);
     const skipNoEmployee = Number(data.punches_skip_no_employee || 0);
     const recalcAdded = Number(data.recalc_added_from_registros || 0);
+    const activeAdded = Number(data.active_employees_added || 0);
 
     toast({
       title: fallbackZero ? "⚠️ Sync concluída com base sem saldo" : "✅ Sincronização PontoMais concluída",
@@ -565,7 +566,7 @@ export default function BancoHoras() {
           ? `${Number(data.imported_count || 0)} colaboradores importados e ${punchesInseridas} batidas sincronizadas para ${mes}.`
           : punchesRowsLidas > 0
             ? `Resumo importado (${Number(data.imported_count || 0)} colabs), porém 0 batidas persistidas. Sem vínculo: ${skipNoEmployee}.`
-            : `${Number(data.imported_count || 0)} colaboradores importados para a competência ${mes}${recalcAdded > 0 ? ` (+${recalcAdded} via ponto_registros)` : ""}.`,
+            : `${Number(data.imported_count || 0)} colaboradores importados para a competência ${mes}${recalcAdded > 0 ? ` (+${recalcAdded} via ponto_registros)` : ""}${activeAdded > 0 ? ` (+${activeAdded} ativos com saldo 0)` : ""}.`,
     });
 
     await carregarDados();

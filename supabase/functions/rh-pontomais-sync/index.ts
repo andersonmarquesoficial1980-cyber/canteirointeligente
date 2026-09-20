@@ -431,10 +431,10 @@ serve(async (req: Request) => {
 
     const { data: employeesData } = await adminClient
       .from("employees")
-      .select("id, name, matricula")
+      .select("id, name, matricula, status")
       .eq("company_id", companyId);
 
-    const employees = (employeesData || []) as Array<{ id: string; name: string | null; matricula: string | null }>;
+    const employees = (employeesData || []) as Array<{ id: string; name: string | null; matricula: string | null; status: string | null }>;
     const employeeIdByName = new Map<string, string>();
     const employeeIdByMatricula = new Map<string, string>();
 
@@ -465,7 +465,7 @@ serve(async (req: Request) => {
       report: {
         start_date: startDate,
         end_date: endDate,
-        group_by: "team",
+        group_by: "employee",
         row_filters: "",
         columns: "employee_name,registration_number,team_name,date,time_cards,regular_time,extra_time,missing_time",
         format: "json",
@@ -766,6 +766,31 @@ serve(async (req: Request) => {
       acc.rows.push(...item.rows);
     }
 
+    // Garante visibilidade de todos os colaboradores ativos da empresa na competência.
+    // Quem não tiver batidas/horas no período entra com saldo zero.
+    let activeEmployeesAdded = 0;
+    for (const e of employees) {
+      if (String(e.status || "").toLowerCase() !== "ativo") continue;
+      if (consolidated.has(e.id)) continue;
+
+      consolidated.set(e.id, {
+        colaborador_nome: String(e.name || `STAFF ${e.id}`).trim(),
+        registration_number: String(e.matricula || "").trim(),
+        equipe_nome: null,
+        credito_horas: 0,
+        debito_horas: 0,
+        horas_normais: 0,
+        total_horas_extras_horas: 0,
+        rows: [],
+        employee_id: e.id,
+      });
+      activeEmployeesAdded += 1;
+    }
+
+    if (activeEmployeesAdded > 0) {
+      rowSource = `${rowSource}_plus_all_active`;
+    }
+
     const upsertRows = Array.from(consolidated.values()).map((item) => ({
       company_id: companyId,
       employee_id: item.employee_id,
@@ -793,29 +818,24 @@ serve(async (req: Request) => {
     }));
 
     if (!dryRun) {
-      await adminClient
+      const { error: deleteCompetenciaError } = await adminClient
         .from("ponto_he_resumo_mensal")
         .delete()
         .eq("company_id", companyId)
-        .eq("competencia", startDate)
-        .ilike("colaborador_nome", "[object%");
+        .eq("competencia", startDate);
 
-      // Quando vier dado real da API, remove lixo de fallback zerado antigo
-      // para não misturar 445 linhas zeradas com poucos colaboradores importados.
-      if (rowSource !== "employees_fallback_zero_balances" && upsertRows.length > 0) {
-        await adminClient
-          .from("ponto_he_resumo_mensal")
-          .delete()
-          .eq("company_id", companyId)
-          .eq("competencia", startDate)
-          .filter("payload->>row_source", "eq", "employees_fallback_zero_balances");
+      if (deleteCompetenciaError) {
+        return jsonResponse(500, {
+          ok: false,
+          error: `Falha ao limpar resumo da competência antes do recálculo: ${deleteCompetenciaError.message}`,
+        });
       }
     }
 
     if (!dryRun && upsertRows.length > 0) {
       const { error: upsertError } = await adminClient
         .from("ponto_he_resumo_mensal")
-        .upsert(upsertRows, { onConflict: "company_id,competencia,colaborador_nome" });
+        .insert(upsertRows);
 
       if (upsertError) {
         await adminClient
@@ -866,6 +886,7 @@ serve(async (req: Request) => {
           punches_skip_no_date: punchesSkipNoDate,
           punches_skip_few_marks: punchesSkipFewMarks,
           recalc_added_from_registros: recalcAddedFromRegistros,
+          active_employees_added: activeEmployeesAdded,
           sample: upsertRows.slice(0, 2),
           upstream_meta: (upstreamPayload as Record<string, unknown>)?.meta || null,
           upstream_heading: (upstreamPayload as Record<string, unknown>)?.heading || null,
@@ -889,6 +910,7 @@ serve(async (req: Request) => {
       punches_skip_no_date: punchesSkipNoDate,
       punches_skip_few_marks: punchesSkipFewMarks,
       recalc_added_from_registros: recalcAddedFromRegistros,
+      active_employees_added: activeEmployeesAdded,
       imported_count: dryRun ? 0 : upsertRows.length,
     });
   } catch (error) {
