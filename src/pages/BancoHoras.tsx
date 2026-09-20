@@ -592,30 +592,26 @@ export default function BancoHoras() {
       .filter((s) => s.diasTrabalhados > 0 || busca);
   }, [funcionarios, registros, jornadaPadrao, busca]);
 
-  const resumosImportadosAtivos = useMemo(() => {
-    const isFallbackZero = (r: ResumoImportado) => {
-      const rowSource = String(r.payload?.row_source || "");
-      const onlyZeros = Number(r.credito_horas || 0) === 0
-        && Number(r.debito_horas || 0) === 0
-        && Number(r.he_70_horas || 0) === 0
-        && Number(r.he_100_horas || 0) === 0
-        && Number(r.total_horas_extras_horas || 0) === 0
-        && Number(r.horas_normais || 0) === 0;
-      return rowSource === "employees_fallback_zero_balances" && onlyZeros;
-    };
+  const isFallbackZeroResumo = (r: ResumoImportado) => {
+    const rowSource = String(r.payload?.row_source || "");
+    const onlyZeros = Number(r.credito_horas || 0) === 0
+      && Number(r.debito_horas || 0) === 0
+      && Number(r.he_70_horas || 0) === 0
+      && Number(r.he_100_horas || 0) === 0
+      && Number(r.total_horas_extras_horas || 0) === 0
+      && Number(r.horas_normais || 0) === 0;
+    return rowSource === "employees_fallback_zero_balances" && onlyZeros;
+  };
 
-    const hasRealRows = resumosImportados.some((r) => !isFallbackZero(r));
-    return hasRealRows ? resumosImportados : [];
-  }, [resumosImportados]);
-
-  const temImportado = resumosImportadosAtivos.length > 0;
+  const onlyFallbackZeros = resumosImportados.length > 0 && resumosImportados.every(isFallbackZeroResumo);
+  const temImportado = resumosImportados.length > 0;
 
   const funcaoByNome = useMemo(() => {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.funcao || "Sem função"]));
   }, [funcionarios]);
 
   const resumosEnriquecidos = useMemo<ResumoImportadoEnriquecido[]>(() => {
-    return resumosImportadosAtivos.map((r) => {
+    return resumosImportados.map((r) => {
       const equipe = (r.equipe_nome || "Sem equipe").trim();
       const funcao = funcaoByNome.get(normalizeText(r.colaborador_nome)) || "Sem função";
       const saldo = Number(r.credito_horas || 0) - Number(r.debito_horas || 0);
@@ -626,7 +622,7 @@ export default function BancoHoras() {
         saldo,
       };
     });
-  }, [resumosImportadosAtivos, funcaoByNome]);
+  }, [resumosImportados, funcaoByNome]);
 
   const employeeIdByNome = useMemo(() => {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.id]));
@@ -1019,7 +1015,7 @@ export default function BancoHoras() {
   const totalPositivo = saldosCalculados.filter((s) => s.saldo > 0).reduce((acc, s) => acc + s.saldo, 0);
   const totalNegativo = saldosCalculados.filter((s) => s.saldo < 0).reduce((acc, s) => acc + s.saldo, 0);
 
-  const totalBaseAtual = temImportado ? resumosImportadosAtivos.length : saldosCalculados.length;
+  const totalBaseAtual = temImportado ? resumosImportados.length : saldosCalculados.length;
   const totalFiltradoAtual = temImportado ? importadosFiltrados.length : filtradosCalc.length;
   const equipeSelecionada = equipeFiltro !== "TODAS";
 
@@ -1598,6 +1594,12 @@ export default function BancoHoras() {
 
         {temImportado ? (
           <>
+            {onlyFallbackZeros && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                A competência {mes} foi sincronizada com base de colaboradores, mas a API não retornou horas/saldos.
+                O histórico está visível abaixo para conferência, porém os valores ficam zerados até entrarem batidas/horas no PontoMais.
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
                 <TrendingUp className="w-4 h-4 text-green-600 mx-auto mb-1" />
