@@ -12,7 +12,7 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
-interface Funcionario { id: string; nome: string; funcao: string; matricula: string; }
+interface Funcionario { id: string; nome: string; funcao: string; matricula: string; equipe: string; }
 interface Registro {
   id?: string;
   staff_id: string;
@@ -466,14 +466,14 @@ export default function BancoHoras() {
     if (!profile?.company_id) return;
     (supabase as any)
       .from("employees")
-      .select("id, name, role, matricula, status")
+      .select("id, name, role, matricula, status, equipe")
       .eq("company_id", profile.company_id)
       .eq("status", "ativo")
       .order("name")
       .then(({ data }: any) => {
         if (data) {
           setFuncionarios(
-            data.map((f: any) => ({ id: f.id, nome: f.name, funcao: f.role ?? "", matricula: f.matricula ?? "" }))
+            data.map((f: any) => ({ id: f.id, nome: f.name, funcao: f.role ?? "", matricula: f.matricula ?? "", equipe: f.equipe ?? "" }))
           );
         }
       });
@@ -629,9 +629,18 @@ export default function BancoHoras() {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.funcao || "Sem função"]));
   }, [funcionarios]);
 
+  const equipeByEmployeeId = useMemo(() => {
+    return new Map(funcionarios.map((f) => [f.id, (f.equipe || "").trim()]));
+  }, [funcionarios]);
+
+  const equipeByNome = useMemo(() => {
+    return new Map(funcionarios.map((f) => [normalizeText(f.nome), (f.equipe || "").trim()]));
+  }, [funcionarios]);
+
   const resumosEnriquecidos = useMemo<ResumoImportadoEnriquecido[]>(() => {
     return resumosImportados.map((r) => {
-      const equipe = (r.equipe_nome || "Sem equipe").trim();
+      const equipeWf = (r.employee_id && equipeByEmployeeId.get(r.employee_id)) || equipeByNome.get(normalizeText(r.colaborador_nome)) || "";
+      const equipe = (equipeWf || "Sem equipe").trim();
       const funcao = funcaoByNome.get(normalizeText(r.colaborador_nome)) || "Sem função";
       const saldo = Number(r.credito_horas || 0) - Number(r.debito_horas || 0);
       return {
@@ -641,7 +650,7 @@ export default function BancoHoras() {
         saldo,
       };
     });
-  }, [resumosImportados, funcaoByNome]);
+  }, [resumosImportados, funcaoByNome, equipeByEmployeeId, equipeByNome]);
 
   const employeeIdByNome = useMemo(() => {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.id]));

@@ -454,10 +454,10 @@ serve(async (req: Request) => {
 
     const { data: employeesData } = await adminClient
       .from("employees")
-      .select("id, name, matricula, status")
+      .select("id, name, matricula, status, equipe")
       .eq("company_id", companyId);
 
-    const employees = (employeesData || []) as Array<{ id: string; name: string | null; matricula: string | null; status: string | null }>;
+    const employees = (employeesData || []) as Array<{ id: string; name: string | null; matricula: string | null; status: string | null; equipe: string | null }>;
     const employeeIdByName = new Map<string, string>();
     const employeeIdByMatricula = new Map<string, string>();
 
@@ -639,12 +639,13 @@ serve(async (req: Request) => {
       employee_id: string | null;
     }>();
 
+    const employeeById = new Map(employees.map((e) => [e.id, e]));
+
     for (const row of reportRows) {
       const nome = String(row.name ?? row.employee_name ?? row.employee ?? "").trim();
       if (!nome || nome.includes("[object")) continue;
 
       const registration = String(row.registration_number ?? row.matricula ?? "").trim();
-      const team = String(row.team_name ?? row.team ?? row.group ?? "").trim() || null;
 
       const extra = Math.max(0, toNumberHours(row.extra_time));
       const missing = Math.max(0, toNumberHours(row.missing_time));
@@ -656,10 +657,12 @@ serve(async (req: Request) => {
           || employeeIdByName.get(normalizeText(nome))
           || null;
 
+        const wfEquipe = employeeId ? String(employeeById.get(employeeId)?.equipe || "").trim() || null : null;
+
         aggregated.set(key, {
           colaborador_nome: nome,
           registration_number: registration,
-          equipe_nome: team,
+          equipe_nome: wfEquipe,
           credito_horas: 0,
           debito_horas: 0,
           horas_normais: 0,
@@ -674,7 +677,6 @@ serve(async (req: Request) => {
       acc.debito_horas = Number((acc.debito_horas + missing).toFixed(2));
       acc.horas_normais = Number((acc.horas_normais + regular).toFixed(2));
       acc.total_horas_extras_horas = Number((acc.total_horas_extras_horas + extra).toFixed(2));
-      if (!acc.equipe_nome && team) acc.equipe_nome = team;
       acc.rows.push(row);
     }
 
@@ -691,16 +693,6 @@ serve(async (req: Request) => {
 
     const regs = (regsData || []) as Array<{ staff_id: string; data: string; hora: string; tipo: string }>;
     if (regs.length > 0) {
-      const employeeById = new Map(employees.map((e) => [e.id, e]));
-      const teamByName = new Map<string, string>();
-      for (const row of reportRows) {
-        const nome = String(row.name ?? row.employee_name ?? row.employee ?? "").trim();
-        const team = String(row.team_name ?? row.team ?? row.group ?? "").trim();
-        if (nome && team && !teamByName.has(normalizeText(nome))) {
-          teamByName.set(normalizeText(nome), team);
-        }
-      }
-
       const byStaffDate = new Map<string, { entradas: string[]; saidas: string[] }>();
       for (const r of regs) {
         const key = `${r.staff_id}|${r.data}`;
@@ -744,7 +736,7 @@ serve(async (req: Request) => {
         const employee = employeeById.get(staffId);
         const nome = (employee?.name || `STAFF ${staffId}`).trim();
         const registration = String(employee?.matricula || "").trim();
-        const team = teamByName.get(normalizeText(nome)) || null;
+        const team = String(employee?.equipe || "").trim() || null;
         const sumKey = `${normalizeText(nome)}|${normalizeDoc(registration)}`;
 
         if (!recalc.has(sumKey)) {
