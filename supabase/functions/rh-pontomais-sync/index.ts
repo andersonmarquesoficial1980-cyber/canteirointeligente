@@ -718,6 +718,17 @@ serve(async (req: Request) => {
         .eq("company_id", companyId)
         .eq("competencia", startDate)
         .ilike("colaborador_nome", "[object%");
+
+      // Quando vier dado real da API, remove lixo de fallback zerado antigo
+      // para não misturar 445 linhas zeradas com poucos colaboradores importados.
+      if (rowSource !== "employees_fallback_zero_balances" && upsertRows.length > 0) {
+        await adminClient
+          .from("ponto_he_resumo_mensal")
+          .delete()
+          .eq("company_id", companyId)
+          .eq("competencia", startDate)
+          .filter("payload->>row_source", "eq", "employees_fallback_zero_balances");
+      }
     }
 
     if (!dryRun && upsertRows.length > 0) {
