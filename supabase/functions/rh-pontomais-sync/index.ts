@@ -126,19 +126,55 @@ function toIsoDate(value: unknown): string | null {
   if (!raw) return null;
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  const br = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const br = raw.match(/^(?:[A-Za-zÀ-ÿ]{3},\s*)?(\d{2})\/(\d{2})\/(\d{4})$/);
   if (br) return `${br[3]}-${br[2]}-${br[1]}`;
   return null;
 }
 
 function extractTimeMarks(value: unknown): string[] {
-  const raw = String(value || "");
-  if (!raw) return [];
-  const matches = raw.match(/\b\d{1,2}:\d{2}\b/g) || [];
-  return matches
+  let candidates: string[] = [];
+
+  if (Array.isArray(value)) {
+    candidates = value
+      .map((item) => {
+        if (!item || typeof item !== "object") return "";
+        const obj = item as Record<string, unknown>;
+        return String(obj.csv_value || obj.value || "");
+      })
+      .filter(Boolean);
+  } else {
+    const raw = String(value || "");
+    if (raw) {
+      candidates = (raw.match(/\b\d{1,2}:\d{2}\b/g) || []);
+    }
+  }
+
+  return candidates
+    .map((t) => String(t).trim())
     .map((t) => t.split(":").map(Number))
     .filter(([h, m]) => Number.isFinite(h) && Number.isFinite(m) && h >= 0 && h < 24 && m >= 0 && m < 60)
     .map(([h, m]) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+}
+
+function expandNestedRows(rows: GenericRow[]): GenericRow[] {
+  const out: GenericRow[] = [];
+  for (const row of rows) {
+    const asObj = (row && typeof row === "object") ? (row as Record<string, unknown>) : {};
+
+    if (Array.isArray(asObj.data)) {
+      out.push(...(asObj.data as GenericRow[]));
+      continue;
+    }
+
+    const dateObj = asObj.date;
+    if (dateObj && typeof dateObj === "object" && Array.isArray((dateObj as Record<string, unknown>).data)) {
+      out.push(...(((dateObj as Record<string, unknown>).data as GenericRow[])));
+      continue;
+    }
+
+    out.push(row);
+  }
+  return out;
 }
 
 function minuteOfDay(hhmm: string): number {
@@ -277,7 +313,7 @@ serve(async (req: Request) => {
       });
     }
 
-    let reportRows = extractReportRows(upstreamPayload, [
+    let reportRows = expandNestedRows(extractReportRows(upstreamPayload, [
       "name",
       "registration_number",
       "date",
@@ -286,7 +322,7 @@ serve(async (req: Request) => {
       "interval_time",
       "regular_time",
       "time_balance",
-    ]);
+    ]));
     let rowSource = "report_time_balances";
 
     // Fallback 1: tentar relatório de horas extras quando time_balances vier vazio.
@@ -315,7 +351,7 @@ serve(async (req: Request) => {
 
       if (extraResp.ok) {
         const extraPayload = await extraResp.json().catch(() => ({}));
-        const extraRows = extractReportRows(extraPayload, [
+        const extraRows = expandNestedRows(extractReportRows(extraPayload, [
           "employee_name",
           "registration_number",
           "team_name",
@@ -324,7 +360,7 @@ serve(async (req: Request) => {
           "regular_time",
           "extra_time",
           "motive",
-        ]);
+        ]));
         if (extraRows.length > 0) {
           reportRows = extraRows;
           rowSource = "report_extra_times";
@@ -425,7 +461,7 @@ serve(async (req: Request) => {
 
     if (tcResp.ok) {
       const tcPayload = await tcResp.json().catch(() => ({}));
-      timeCardsRows = extractReportRows(tcPayload, [
+      timeCardsRows = expandNestedRows(extractReportRows(tcPayload, [
         "employee_name",
         "registration_number",
         "team_name",
@@ -434,7 +470,7 @@ serve(async (req: Request) => {
         "regular_time",
         "extra_time",
         "missing_time",
-      ]);
+      ]));
     }
 
     // fallback pragmático: usar linhas do extra_times quando vierem com time_cards
@@ -513,7 +549,7 @@ serve(async (req: Request) => {
 
     for (const row of reportRows) {
       const nome = String(row.name ?? row.employee_name ?? row.employee ?? "").trim();
-      if (!nome) continue;
+      if (!nome || nome.includes("[object")) continue;
 
       const registration = String(row.registration_number ?? row.matricula ?? "").trim();
       const team = String(row.team_name ?? row.team ?? row.group ?? "").trim() || null;
@@ -674,6 +710,15 @@ serve(async (req: Request) => {
         imported_at: new Date().toISOString(),
       },
     }));
+
+    if (!dryRun) {
+      await adminClient
+        .from("ponto_he_resumo_mensal")
+        .delete()
+        .eq("company_id", companyId)
+        .eq("competencia", startDate)
+        .ilike("colaborador_nome", "[object%");
+    }
 
     if (!dryRun && upsertRows.length > 0) {
       const { error: upsertError } = await adminClient
