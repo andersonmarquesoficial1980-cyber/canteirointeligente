@@ -30,7 +30,13 @@ function normalizeText(value: string): string {
 }
 
 function normalizeDoc(value: string): string {
-  return String(value || "").replace(/[^0-9a-zA-Z]/g, "").toLowerCase();
+  const raw = String(value || "").replace(/[^0-9a-zA-Z]/g, "").toLowerCase();
+  if (!raw) return "";
+  if (/^\d+$/.test(raw)) {
+    const semZero = raw.replace(/^0+/, "");
+    return semZero || "0";
+  }
+  return raw;
 }
 
 function toNumberHours(value: unknown): number {

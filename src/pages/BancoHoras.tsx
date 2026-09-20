@@ -185,6 +185,16 @@ function normalizeText(v: string): string {
     .toLowerCase();
 }
 
+function normalizeMatricula(v: string): string {
+  const raw = String(v || "").replace(/[^0-9a-zA-Z]/g, "").toLowerCase();
+  if (!raw) return "";
+  if (/^\d+$/.test(raw)) {
+    const semZero = raw.replace(/^0+/, "");
+    return semZero || "0";
+  }
+  return raw;
+}
+
 function fmtDate(d: string): string {
   if (!d) return "";
   const [y, m, day] = d.split("-");
@@ -631,6 +641,14 @@ export default function BancoHoras() {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.id]));
   }, [funcionarios]);
 
+  const employeeIdByMatricula = useMemo(() => {
+    return new Map(
+      funcionarios
+        .map((f) => [normalizeMatricula(f.matricula || ""), f.id] as const)
+        .filter(([mat]) => Boolean(mat))
+    );
+  }, [funcionarios]);
+
   const aliasColaboradorParaEmployee = useMemo(() => new Map<string, string>([
     [normalizeText("RAFAEL DAVID MATOS DOS SANTOS"), normalizeText("RAFAEL DAVID M DOS SANTOS")],
     [normalizeText("JONATHAN APARECIDO PEREIRA MARQUES"), normalizeText("JONATHAN APARECIDO P MARQUES")],
@@ -639,8 +657,16 @@ export default function BancoHoras() {
 
   const resolverEmployeeId = (r: ResumoImportadoEnriquecido): string | undefined => {
     if (r.employee_id) return r.employee_id;
+
+    const regPayload = normalizeMatricula(String(r.payload?.registration_number || ""));
+    if (regPayload) {
+      const byReg = employeeIdByMatricula.get(regPayload);
+      if (byReg) return byReg;
+    }
+
     const direto = employeeIdByNome.get(normalizeText(r.colaborador_nome));
     if (direto) return direto;
+
     const alias = aliasColaboradorParaEmployee.get(normalizeText(r.colaborador_nome));
     if (!alias) return undefined;
     return employeeIdByNome.get(alias);
