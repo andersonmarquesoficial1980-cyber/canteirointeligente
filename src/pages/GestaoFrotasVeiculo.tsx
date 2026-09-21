@@ -59,6 +59,25 @@ const STATUS_OPTIONS = [
   { value: "inativo",        label: "🚫 Inativo (legado)" },
 ];
 
+const normalizeEquipmentStatus = (status?: string | null) => {
+  const s = String(status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_\s]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (!s || s === "ativo" || s === "operacional" || s === "operando") return "ativo";
+  if (s.includes("manut")) return "em_manutencao";
+  if (s === "inoperante") return "inoperante";
+  if (s === "inativo" || s === "inativolegado") return "inativo";
+  if (s === "devolver") return "devolver";
+  if (s === "devolvido") return "devolvido";
+  if (s === "diaria") return "diaria";
+  if (s === "disposicao" || s === "reserva") return "disposicao";
+  return "ativo";
+};
+
 const STATUS_LABELS: Record<string, { label: string; bg: string; cor: string }> = {
   ativo:          { label: "Operacional",  bg: "#dcfce7", cor: "#166534" },
   em_manutencao:  { label: "Manutenção",   bg: "#fef3c7", cor: "#92400e" },
@@ -113,7 +132,7 @@ export default function GestaoFrotasVeiculo() {
 
     const { data: v } = await (supabase as any).from("equipamentos").select("*").eq("id", id).single();
 
-    if (v) setVeiculo(v);
+    if (v) setVeiculo({ ...v, status: normalizeEquipmentStatus(v.status) });
 
     if (v) {
       const filtros = [
@@ -354,7 +373,7 @@ export default function GestaoFrotasVeiculo() {
     setSalvando(true);
     // Salva APENAS os campos operacionais — não toca nos dados cadastrais
     await (supabase as any).from("equipamentos").update({
-      status: veiculo.status,
+      status: normalizeEquipmentStatus(veiculo.status),
       setor: veiculo.setor,
       valor_mensal: veiculo.valor_mensal,
       observacoes: veiculo.observacoes || null,
@@ -376,7 +395,7 @@ export default function GestaoFrotasVeiculo() {
     return dias <= 30;
   });
 
-  const statusAtual = STATUS_LABELS[veiculo.status] || STATUS_LABELS["ativo"];
+  const statusAtual = STATUS_LABELS[normalizeEquipmentStatus(veiculo.status)] || STATUS_LABELS["ativo"];
   const condicaoLabel = (veiculo.condicao === "TERCEIRO" || veiculo.categoria === "locado") ? "Terceiro (Locado)" : "Próprio (Fremix)";
   const isTerceiro = veiculo.condicao === "TERCEIRO" || veiculo.categoria === "locado";
   const cnhPrincipal = cnhCondutor[0] || null;
@@ -510,7 +529,7 @@ export default function GestaoFrotasVeiculo() {
             <span className="rdo-label">Status do Equipamento</span>
             {editando ? (
               <Select
-                value={veiculo.status || "ativo"}
+                value={normalizeEquipmentStatus(veiculo.status) || "ativo"}
                 onValueChange={v => setVeiculo((prev: any) => ({
                   ...prev,
                   status: v,
@@ -556,7 +575,7 @@ export default function GestaoFrotasVeiculo() {
           </div>
 
           {/* Motivo e previsão — aparecem quando em manutenção */}
-          {(editando && (veiculo.status === "em_manutencao" || !veiculo.status)) || (!editando && (veiculo.motivo_manutencao || veiculo.previsao_liberacao)) ? (
+          {(editando && (normalizeEquipmentStatus(veiculo.status) === "em_manutencao" || !veiculo.status)) || (!editando && (veiculo.motivo_manutencao || veiculo.previsao_liberacao)) ? (
             <div className="space-y-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
               <div className="space-y-1.5">
                 <span className="rdo-label">🔧 Motivo de Manutenção</span>

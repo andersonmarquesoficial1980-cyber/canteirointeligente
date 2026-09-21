@@ -106,8 +106,23 @@ function isoParaBR(dataISO: string) {
   return `${dia}/${mes}/${ano}`;
 }
 
+function normalizeEmployeeStatus(status: string | null | undefined) {
+  const s = String(status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_\s]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (!s || s === "trabalhou" || s === "ativo") return "ativo";
+  if (s === "afastado" || s === "falta" || s === "disposicao") return "afastado";
+  if (s === "ferias") return "ferias";
+  if (s === "demitido" || s === "demissao") return "demitido";
+  return "ativo";
+}
+
 function statusParaExport(status: string | null | undefined) {
-  const st = String(status || "ativo").toLowerCase();
+  const st = normalizeEmployeeStatus(status);
   if (st === "ferias") return "FÉRIAS";
   if (st === "afastado") return "AFASTADO";
   if (st === "demitido") return "DEMITIDO";
@@ -153,7 +168,7 @@ function LinhaFuncionario({
   onProgramarFerias: (f: Funcionario) => void;
 }) {
   const equipeAtual = (f.equipe || "").trim();
-  const statusAtual = (f.status || "ativo").toLowerCase();
+  const statusAtual = normalizeEmployeeStatus(f.status);
   const statusVisual = statusResumo.emFeriasAgora
     ? STATUS_UI.ferias
     : statusResumo.proximoPeriodo
@@ -168,7 +183,7 @@ function LinhaFuncionario({
   const [feriasFim, setFeriasFim] = useState(statusResumo.proximoPeriodo?.fim || "");
 
   useEffect(() => {
-    setStatusEdit(statusResumo.emFeriasAgora ? "ferias" : (f.status || "ativo").toLowerCase());
+    setStatusEdit(statusResumo.emFeriasAgora ? "ferias" : normalizeEmployeeStatus(f.status));
   }, [f.status, statusResumo.emFeriasAgora]);
 
   useEffect(() => {
@@ -600,7 +615,13 @@ export default function GestaoPessoasEquipe() {
       (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"),
       (supabase as any).from("vacation_records").select("id,employee_id,data_inicio,data_fim").order("data_inicio", { ascending: false }),
     ]).then(([employeesResp, equipesResp, feriasResp]) => {
-      if (employeesResp.data) setTodos(employeesResp.data as any);
+      if (employeesResp.data) {
+        const normalizados = (employeesResp.data as Funcionario[]).map((f) => ({
+          ...f,
+          status: normalizeEmployeeStatus(f.status),
+        }));
+        setTodos(normalizados);
+      }
       if (equipesResp?.data) {
         const equipes = (equipesResp.data as any[])
           .map((e) => (e?.nome || "").trim())
@@ -745,8 +766,8 @@ export default function GestaoPessoasEquipe() {
   }
 
   async function alterarStatusRapido(funcionario: Funcionario, novoStatus: string) {
-    const statusAnterior = (funcionario.status || "ativo").toLowerCase();
-    const statusNormalizado = novoStatus.toLowerCase();
+    const statusAnterior = normalizeEmployeeStatus(funcionario.status);
+    const statusNormalizado = normalizeEmployeeStatus(novoStatus);
 
     if (statusAnterior === statusNormalizado) return;
 

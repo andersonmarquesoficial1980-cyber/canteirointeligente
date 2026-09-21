@@ -14,17 +14,66 @@ import { sortOgsData } from "@/hooks/useOgsReference";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
-const STATUS_FUNC = ["TRABALHOU", "AFASTADO", "DEMITIDO", "DISPOSIÇÃO", "FÉRIAS", "FALTA"];
-const STATUS_EQUIP = [
-  "OPERACIONAL",
-  "MANUTENÇÃO",
-  "INOPERANTE",
-  "DEVOLVER",
-  "DEVOLVIDO",
-  "DIÁRIA",
-  "DISPOSIÇÃO",
-  "INATIVO (LEGADO)",
-];
+const STATUS_FUNC_OPTIONS = [
+  { value: "ativo", label: "ATIVO" },
+  { value: "afastado", label: "AFASTADO" },
+  { value: "demitido", label: "DEMITIDO" },
+  { value: "ferias", label: "FÉRIAS" },
+] as const;
+
+const STATUS_EQUIP_OPTIONS = [
+  { value: "ativo", label: "OPERACIONAL" },
+  { value: "em_manutencao", label: "MANUTENÇÃO" },
+  { value: "inoperante", label: "INOPERANTE" },
+  { value: "devolver", label: "DEVOLVER" },
+  { value: "devolvido", label: "DEVOLVIDO" },
+  { value: "diaria", label: "DIÁRIA" },
+  { value: "disposicao", label: "DISPOSIÇÃO" },
+  { value: "inativo", label: "INATIVO (LEGADO)" },
+] as const;
+
+const STATUS_FUNC_VALUES = STATUS_FUNC_OPTIONS.map((s) => s.value);
+const STATUS_EQUIP_VALUES = STATUS_EQUIP_OPTIONS.map((s) => s.value);
+
+const normStatusToken = (value?: string | null) => (value || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[_\s]/g, "")
+  .toLowerCase()
+  .trim();
+
+const normalizeFuncionarioStatus = (value?: string | null) => {
+  const s = normStatusToken(value);
+  if (!s || s === "trabalhou" || s === "ativo") return "ativo";
+  if (s === "afastado" || s === "falta" || s === "disposicao") return "afastado";
+  if (s === "demitido" || s === "demissao") return "demitido";
+  if (s === "ferias") return "ferias";
+  return "ativo";
+};
+
+const normalizeEquipamentoStatus = (value?: string | null) => {
+  const s = normStatusToken(value);
+  if (!s || s === "ativo" || s === "operacional" || s === "operando") return "ativo";
+  if (s.includes("manut")) return "em_manutencao";
+  if (s === "inoperante") return "inoperante";
+  if (s === "inativo" || s === "inativolegado") return "inativo";
+  if (s === "devolver") return "devolver";
+  if (s === "devolvido") return "devolvido";
+  if (s === "diaria") return "diaria";
+  if (s === "disposicao" || s === "reserva") return "disposicao";
+  return "ativo";
+};
+
+const getFuncStatusLabel = (value?: string | null) => {
+  const canon = normalizeFuncionarioStatus(value);
+  return STATUS_FUNC_OPTIONS.find((s) => s.value === canon)?.label || canon.toUpperCase();
+};
+
+const getEquipStatusLabel = (value?: string | null) => {
+  const canon = normalizeEquipamentoStatus(value);
+  return STATUS_EQUIP_OPTIONS.find((s) => s.value === canon)?.label || canon.toUpperCase();
+};
+
 const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 
 interface Equipe { id: string; nome: string; responsavel: string | null; }
@@ -136,7 +185,7 @@ export default function ProgramadorHome() {
   const [equipEquipeDest, setEquipEquipeDest] = useState("");
   const [equipObs, setEquipObs] = useState("");
 
-  useEffect(() => {
+  const recarregarCadastros = async () => {
     let equipesQuery: any = (supabase as any).from("ci_equipes").select("*").eq("ativa", true).order("nome");
     if (companyId) equipesQuery = equipesQuery.eq("company_id", companyId);
 
@@ -149,12 +198,27 @@ export default function ProgramadorHome() {
     let ogsQuery: any = (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address");
     if (companyId) ogsQuery = ogsQuery.eq("company_id", companyId);
 
-    Promise.all([equipesQuery, funcionariosQuery, frotaQuery, ogsQuery]).then(([eqRes, funcRes, frotaRes, ogsRes]: any[]) => {
-      if (eqRes?.data) setEquipes(eqRes.data);
-      if (funcRes?.data) setFuncionarios(funcRes.data as Funcionario[]);
-      if (frotaRes?.data) setFrota(frotaRes.data);
-      if (ogsRes?.data) setOgsList(sortOgsData(ogsRes.data));
-    });
+    const [eqRes, funcRes, frotaRes, ogsRes] = await Promise.all([equipesQuery, funcionariosQuery, frotaQuery, ogsQuery]);
+    if (eqRes?.data) setEquipes(eqRes.data);
+    if (funcRes?.data) {
+      const normalizados = (funcRes.data as Funcionario[]).map((f) => ({
+        ...f,
+        status: normalizeFuncionarioStatus(f.status),
+      }));
+      setFuncionarios(normalizados);
+    }
+    if (frotaRes?.data) {
+      const normalizados = (frotaRes.data as Frota[]).map((f) => ({
+        ...f,
+        status: normalizeEquipamentoStatus(f.status),
+      }));
+      setFrota(normalizados);
+    }
+    if (ogsRes?.data) setOgsList(sortOgsData(ogsRes.data));
+  };
+
+  useEffect(() => {
+    recarregarCadastros();
   }, [companyId]);
 
   const handleOgsChange = (ogs: string) => {
@@ -199,16 +263,16 @@ export default function ProgramadorHome() {
   };
 
   const statusFuncOptionsComFallback = (valorAtual?: string) => {
-    const lista = [...STATUS_FUNC];
-    const legado = (valorAtual || "").trim();
-    if (legado && !lista.some((n) => n.toLowerCase() === legado.toLowerCase())) lista.push(legado);
+    const lista = [...STATUS_FUNC_VALUES];
+    const legado = normalizeFuncionarioStatus(valorAtual);
+    if (legado && !lista.includes(legado)) lista.push(legado);
     return [...new Set(lista)];
   };
 
   const statusEquipOptionsComFallback = (valorAtual?: string) => {
-    const lista = [...STATUS_EQUIP];
-    const legado = (valorAtual || "").trim();
-    if (legado && !lista.some((n) => n.toLowerCase() === legado.toLowerCase())) lista.push(legado);
+    const lista = [...STATUS_EQUIP_VALUES];
+    const legado = normalizeEquipamentoStatus(valorAtual);
+    if (legado && !lista.includes(legado)) lista.push(legado);
     return [...new Set(lista)];
   };
 
@@ -229,32 +293,32 @@ export default function ProgramadorHome() {
   const norm = (value?: string | null) => (value || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 
   const riscoFuncionarioStatus = (status?: string | null) => {
-    const s = (status || "").toUpperCase();
-    if (s === "FALTA" || s === "AFASTADO") return 2;
-    if (s === "FÉRIAS" || s === "DISPOSIÇÃO") return 1;
+    const s = normalizeFuncionarioStatus(status);
+    if (s === "demitido" || s === "afastado") return 2;
+    if (s === "ferias") return 1;
     return 0;
   };
 
   const riscoEquipStatus = (status?: string | null) => {
-    const s = (status || "").toUpperCase();
-    if (s === "INOPERANTE") return 2;
-    if (s === "MANUTENÇÃO") return 1;
+    const s = normalizeEquipamentoStatus(status);
+    if (s === "inoperante") return 2;
+    if (s === "em_manutencao" || s === "devolver") return 1;
     return 0;
   };
 
   const funcionarioMudou = (f: Funcionario, draft?: FuncDraftChange) => {
-    const d = draft || { equipe: f.equipe || "", status: f.status || "TRABALHOU" };
-    return (d.equipe || "") !== (f.equipe || "") || (d.status || "") !== (f.status || "");
+    const d = draft || { equipe: f.equipe || "", status: normalizeFuncionarioStatus(f.status) };
+    return (d.equipe || "") !== (f.equipe || "") || normalizeFuncionarioStatus(d.status) !== normalizeFuncionarioStatus(f.status);
   };
 
   const equipamentoMudou = (eq: Frota, draft?: EquipDraftChange) => {
-    const d = draft || { setor: eq.setor || "", status: eq.status || "OPERACIONAL" };
-    return (d.setor || "") !== (eq.setor || "") || (d.status || "") !== (eq.status || "");
+    const d = draft || { setor: eq.setor || "", status: normalizeEquipamentoStatus(eq.status) };
+    return (d.setor || "") !== (eq.setor || "") || normalizeEquipamentoStatus(d.status) !== normalizeEquipamentoStatus(eq.status);
   };
 
   const funcionariosDaEquipeFiltrados = useMemo(() => {
     const base = funcionariosDaEquipe.filter((f) => {
-      const draft = funcDraft[f.id] || { equipe: f.equipe || "", status: f.status || "TRABALHOU" };
+      const draft = funcDraft[f.id] || { equipe: f.equipe || "", status: normalizeFuncionarioStatus(f.status) };
       const mudou = funcionarioMudou(f, draft);
       const risco = riscoFuncionarioStatus(draft.status);
       const okChanged = !onlyChangedFunc || mudou;
@@ -266,8 +330,8 @@ export default function ProgramadorHome() {
     });
 
     return [...base].sort((a, b) => {
-      const da = funcDraft[a.id] || { equipe: a.equipe || "", status: a.status || "TRABALHOU" };
-      const db = funcDraft[b.id] || { equipe: b.equipe || "", status: b.status || "TRABALHOU" };
+      const da = funcDraft[a.id] || { equipe: a.equipe || "", status: normalizeFuncionarioStatus(a.status) };
+      const db = funcDraft[b.id] || { equipe: b.equipe || "", status: normalizeFuncionarioStatus(b.status) };
       const mudouA = funcionarioMudou(a, da) ? 1 : 0;
       const mudouB = funcionarioMudou(b, db) ? 1 : 0;
       if (mudouA !== mudouB) return mudouB - mudouA;
@@ -280,7 +344,7 @@ export default function ProgramadorHome() {
 
   const equipamentosDaEquipeFiltrados = useMemo(() => {
     const base = equipamentosDaEquipe.filter((eq) => {
-      const draft = equipDraft[eq.id] || { setor: eq.setor || "", status: eq.status || "OPERACIONAL" };
+      const draft = equipDraft[eq.id] || { setor: eq.setor || "", status: normalizeEquipamentoStatus(eq.status) };
       const mudou = equipamentoMudou(eq, draft);
       const risco = riscoEquipStatus(draft.status);
       const okChanged = !onlyChangedEquip || mudou;
@@ -292,8 +356,8 @@ export default function ProgramadorHome() {
     });
 
     return [...base].sort((a, b) => {
-      const da = equipDraft[a.id] || { setor: a.setor || "", status: a.status || "OPERACIONAL" };
-      const db = equipDraft[b.id] || { setor: b.setor || "", status: b.status || "OPERACIONAL" };
+      const da = equipDraft[a.id] || { setor: a.setor || "", status: normalizeEquipamentoStatus(a.status) };
+      const db = equipDraft[b.id] || { setor: b.setor || "", status: normalizeEquipamentoStatus(b.status) };
       const mudouA = equipamentoMudou(a, da) ? 1 : 0;
       const mudouB = equipamentoMudou(b, db) ? 1 : 0;
       if (mudouA !== mudouB) return mudouB - mudouA;
@@ -318,7 +382,7 @@ export default function ProgramadorHome() {
     () => Object.entries(funcDraft).filter(([id, draft]) => {
       const atual = funcionarios.find((f) => f.id === id);
       if (!atual) return false;
-      return (draft.equipe || "") !== (atual.equipe || "") || (draft.status || "") !== (atual.status || "");
+      return (draft.equipe || "") !== (atual.equipe || "") || normalizeFuncionarioStatus(draft.status) !== normalizeFuncionarioStatus(atual.status);
     }).length,
     [funcDraft, funcionarios]
   );
@@ -327,7 +391,7 @@ export default function ProgramadorHome() {
     () => Object.entries(equipDraft).filter(([id, draft]) => {
       const atual = frota.find((f) => f.id === id);
       if (!atual) return false;
-      return (draft.setor || "") !== (atual.setor || "") || (draft.status || "") !== (atual.status || "");
+      return (draft.setor || "") !== (atual.setor || "") || normalizeEquipamentoStatus(draft.status) !== normalizeEquipamentoStatus(atual.status);
     }).length,
     [equipDraft, frota]
   );
@@ -374,12 +438,12 @@ export default function ProgramadorHome() {
   const carregarDraftsDaEquipe = () => {
     const nextFunc: Record<string, FuncDraftChange> = {};
     for (const f of funcionariosDaEquipe) {
-      nextFunc[f.id] = { equipe: f.equipe || "", status: f.status || "TRABALHOU" };
+      nextFunc[f.id] = { equipe: f.equipe || "", status: normalizeFuncionarioStatus(f.status) };
     }
 
     const nextEquip: Record<string, EquipDraftChange> = {};
     for (const eq of equipamentosDaEquipe) {
-      nextEquip[eq.id] = { setor: eq.setor || "", status: eq.status || "OPERACIONAL" };
+      nextEquip[eq.id] = { setor: eq.setor || "", status: normalizeEquipamentoStatus(eq.status) };
     }
 
     setFuncDraft(nextFunc);
@@ -428,8 +492,8 @@ export default function ProgramadorHome() {
       ...prev,
       [id]: {
         equipe: prev[id]?.equipe ?? funcionarios.find((f) => f.id === id)?.equipe ?? "",
-        status: prev[id]?.status ?? funcionarios.find((f) => f.id === id)?.status ?? "TRABALHOU",
-        [campo]: valor,
+        status: normalizeFuncionarioStatus(prev[id]?.status ?? funcionarios.find((f) => f.id === id)?.status),
+        [campo]: campo === "status" ? normalizeFuncionarioStatus(valor) : valor,
       },
     }));
   };
@@ -442,8 +506,8 @@ export default function ProgramadorHome() {
       ...prev,
       [id]: {
         setor: prev[id]?.setor ?? frota.find((f) => f.id === id)?.setor ?? "",
-        status: prev[id]?.status ?? frota.find((f) => f.id === id)?.status ?? "OPERACIONAL",
-        [campo]: valor,
+        status: normalizeEquipamentoStatus(prev[id]?.status ?? frota.find((f) => f.id === id)?.status),
+        [campo]: campo === "status" ? normalizeEquipamentoStatus(valor) : valor,
       },
     }));
   };
@@ -458,7 +522,7 @@ export default function ProgramadorHome() {
       const next = { ...prev };
       for (const id of ids) {
         const baseEquipe = next[id]?.equipe ?? funcionarios.find((f) => f.id === id)?.equipe ?? "";
-        const baseStatus = next[id]?.status ?? funcionarios.find((f) => f.id === id)?.status ?? "TRABALHOU";
+        const baseStatus = normalizeFuncionarioStatus(next[id]?.status ?? funcionarios.find((f) => f.id === id)?.status);
         next[id] = {
           equipe: bulkFuncEquipe || baseEquipe,
           status: bulkFuncStatus || baseStatus,
@@ -478,7 +542,7 @@ export default function ProgramadorHome() {
       const next = { ...prev };
       for (const id of ids) {
         const baseSetor = next[id]?.setor ?? frota.find((f) => f.id === id)?.setor ?? "";
-        const baseStatus = next[id]?.status ?? frota.find((f) => f.id === id)?.status ?? "OPERACIONAL";
+        const baseStatus = normalizeEquipamentoStatus(next[id]?.status ?? frota.find((f) => f.id === id)?.status);
         next[id] = {
           setor: bulkEquipEquipe || baseSetor,
           status: bulkEquipStatus || baseStatus,
@@ -502,13 +566,13 @@ export default function ProgramadorHome() {
     const funcFinal = funcionariosDaEquipe.map((f) => ({
       ...f,
       finalEquipe: funcDraft[f.id]?.equipe ?? f.equipe ?? "",
-      finalStatus: funcDraft[f.id]?.status ?? f.status ?? "TRABALHOU",
+      finalStatus: normalizeFuncionarioStatus(funcDraft[f.id]?.status ?? f.status),
     }));
 
     const equipFinal = equipamentosDaEquipe.map((e) => ({
       ...e,
       finalSetor: equipDraft[e.id]?.setor ?? e.setor ?? "",
-      finalStatus: equipDraft[e.id]?.status ?? e.status ?? "OPERACIONAL",
+      finalStatus: normalizeEquipamentoStatus(equipDraft[e.id]?.status ?? e.status),
     }));
 
     for (const f of funcFinal) {
@@ -593,7 +657,7 @@ export default function ProgramadorHome() {
         const atual = funcionarios.find((f) => f.id === id);
         if (!atual) return null;
         const mudouEquipe = (draft.equipe || "") !== (atual.equipe || "");
-        const mudouStatus = (draft.status || "") !== (atual.status || "");
+        const mudouStatus = normalizeFuncionarioStatus(draft.status) !== normalizeFuncionarioStatus(atual.status);
         if (!mudouEquipe && !mudouStatus) return null;
         return { atual, draft, mudouEquipe, mudouStatus };
       })
@@ -604,7 +668,7 @@ export default function ProgramadorHome() {
         const atual = frota.find((f) => f.id === id);
         if (!atual) return null;
         const mudouSetor = (draft.setor || "") !== (atual.setor || "");
-        const mudouStatus = (draft.status || "") !== (atual.status || "");
+        const mudouStatus = normalizeEquipamentoStatus(draft.status) !== normalizeEquipamentoStatus(atual.status);
         if (!mudouSetor && !mudouStatus) return null;
         return { atual, draft, mudouSetor, mudouStatus };
       })
@@ -620,14 +684,18 @@ export default function ProgramadorHome() {
     const erros: string[] = [];
 
     for (const u of funcUpdates) {
-      let q: any = supabase.from("employees").update({ equipe: u.draft.equipe || null, status: u.draft.status || null }).eq("id", u.atual.id);
+      let q: any = supabase.from("employees").update({
+        equipe: u.draft.equipe || null,
+        status: normalizeFuncionarioStatus(u.draft.status),
+        data_demissao: normalizeFuncionarioStatus(u.draft.status) === "demitido" ? (progData || new Date().toISOString().slice(0, 10)) : null,
+      }).eq("id", u.atual.id);
       if (companyId) q = q.eq("company_id", companyId);
       const { error } = await q;
       if (error) erros.push(`Funcionário ${u.atual.name}: ${error.message}`);
     }
 
     for (const u of equipUpdates) {
-      let q: any = (supabase as any).from("equipamentos").update({ setor: u.draft.setor || null, status: u.draft.status || null }).eq("id", u.atual.id);
+      let q: any = (supabase as any).from("equipamentos").update({ setor: u.draft.setor || null, status: normalizeEquipamentoStatus(u.draft.status) }).eq("id", u.atual.id);
       if (companyId) q = q.eq("company_id", companyId);
       const { error } = await q;
       if (error) erros.push(`Frota ${u.atual.frota}: ${error.message}`);
@@ -652,7 +720,7 @@ export default function ProgramadorHome() {
         matricula: u.atual.matricula || null,
         equipe_origem: u.atual.equipe || null,
         equipe_destino: u.draft.equipe || null,
-        status: u.draft.status || null,
+        status: normalizeFuncionarioStatus(u.draft.status),
         obs: `Movimentação via WF Programador (Equipe: ${progEquipe || "-"})${overrideTag}`,
       });
     });
@@ -666,7 +734,7 @@ export default function ProgramadorHome() {
         tipo_equipamento: u.atual.tipo || null,
         equipe_origem: u.atual.setor || null,
         equipe_destino: u.draft.setor || null,
-        status: u.draft.status || null,
+        status: normalizeEquipamentoStatus(u.draft.status),
         responsavel_destino: equipeResponsavel(u.draft.setor || ""),
         obs: `Movimentação via WF Programador (Equipe: ${progEquipe || "-"})${overrideTag}`,
       });
@@ -684,16 +752,8 @@ export default function ProgramadorHome() {
       variant: auditFalhas ? "destructive" : "default",
     });
 
-    // recarrega dados mestres
-    let funcionariosQuery: any = supabase.from("employees").select("id, name, matricula, role, equipe, status, company_id").order("name");
-    if (companyId) funcionariosQuery = funcionariosQuery.eq("company_id", companyId);
-
-    let frotaQuery: any = (supabase as any).from("equipamentos").select("id, frota, tipo, setor, status, company_id").order("tipo").order("frota");
-    if (companyId) frotaQuery = frotaQuery.eq("company_id", companyId);
-
-    const [funcRes, frotaRes] = await Promise.all([funcionariosQuery, frotaQuery]);
-    if (funcRes?.data) setFuncionarios(funcRes.data as Funcionario[]);
-    if (frotaRes?.data) setFrota(frotaRes.data);
+    // recarrega dados mestres já normalizados
+    await recarregarCadastros();
 
     setLastApplySummary({
       when: new Date().toISOString(),
@@ -734,14 +794,82 @@ export default function ProgramadorHome() {
     if (modoFunc === "admissao") {
       if (!novoNome || !novaMatricula || !novaFuncao || !novaEquipe) return;
       setSaving(true);
-      const { error } = await (supabase as any).from("ci_mov_funcionarios").insert({
-        data: novaAdmissao, tipo: "admissao",
-        funcionario_nome: novoNome.toUpperCase(), matricula: novaMatricula,
-        equipe_destino: novaEquipe, funcao: novaFuncao.toUpperCase(),
-        data_admissao: novaAdmissao, obs: novaObs || null,
-      });
-      if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-      else { toast({ title: "✅ Admissão registrada!" }); setNovoNome(""); setNovaMatricula(""); setNovaFuncao(""); setNovaEquipe(""); setNovaObs(""); }
+      try {
+        const matricula = novaMatricula.trim();
+        const nome = novoNome.trim().toUpperCase();
+        const funcao = novaFuncao.trim().toUpperCase();
+        const dataBase = novaAdmissao || new Date().toISOString().slice(0, 10);
+
+        let busca: any = supabase
+          .from("employees")
+          .select("id, company_id")
+          .eq("matricula", matricula)
+          .limit(1);
+        if (companyId) busca = busca.eq("company_id", companyId);
+
+        const { data: existente, error: erroBusca } = await busca.maybeSingle();
+        if (erroBusca) {
+          toast({ title: "Erro ao consultar cadastro", description: erroBusca.message, variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+
+        if (existente?.id) {
+          let q: any = supabase.from("employees").update({
+            name: nome,
+            role: funcao,
+            equipe: novaEquipe,
+            status: "ativo",
+            data_admissao: dataBase,
+            data_demissao: null,
+          }).eq("id", existente.id);
+          if (companyId) q = q.eq("company_id", companyId);
+          const { error: erroUpdate } = await q;
+          if (erroUpdate) {
+            toast({ title: "Erro ao sincronizar cadastro", description: erroUpdate.message, variant: "destructive" });
+            setSaving(false);
+            return;
+          }
+        } else {
+          const { error: erroInsert } = await (supabase as any).from("employees").insert({
+            name: nome,
+            matricula: matricula,
+            role: funcao,
+            equipe: novaEquipe,
+            status: "ativo",
+            data_admissao: dataBase,
+            data_demissao: null,
+            company_id: companyId || null,
+          });
+          if (erroInsert) {
+            toast({ title: "Erro ao criar cadastro", description: erroInsert.message, variant: "destructive" });
+            setSaving(false);
+            return;
+          }
+        }
+
+        const { error } = await (supabase as any).from("ci_mov_funcionarios").insert({
+          data: dataBase,
+          tipo: "admissao",
+          funcionario_nome: nome,
+          matricula: matricula,
+          equipe_destino: novaEquipe,
+          funcao: funcao,
+          status: "ativo",
+          data_admissao: dataBase,
+          obs: novaObs || null,
+        });
+
+        if (error) {
+          toast({ title: "Erro", description: error.message, variant: "destructive" });
+        } else {
+          await recarregarCadastros();
+          toast({ title: "✅ Admissão registrada e sincronizada!" });
+          setNovoNome(""); setNovaMatricula(""); setNovaFuncao(""); setNovaEquipe(""); setNovaObs("");
+        }
+      } catch (err: any) {
+        toast({ title: "Erro inesperado", description: err?.message || "Falha ao registrar admissão.", variant: "destructive" });
+      }
       setSaving(false);
       return;
     }
@@ -752,18 +880,26 @@ export default function ProgramadorHome() {
       funcionario_id: funcId || null, funcionario_nome: funcNome,
       matricula: funcMatricula || null,
     };
-    if (modoFunc === "status") payload.status = funcStatus;
+    if (modoFunc === "status") payload.status = normalizeFuncionarioStatus(funcStatus);
     if (modoFunc === "transferencia") { payload.equipe_origem = funcEquipeOrig; payload.equipe_destino = funcEquipeDest; }
-    if (modoFunc === "demissao") payload.obs = funcObs || null;
+    if (modoFunc === "demissao") payload.status = "demitido";
     payload.obs = funcObs || null;
     const { error } = await (supabase as any).from("ci_mov_funcionarios").insert(payload);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      if (funcId && (modoFunc === "status" || modoFunc === "transferencia")) {
+      if (funcId && (modoFunc === "status" || modoFunc === "transferencia" || modoFunc === "demissao")) {
         const updatePayload: any = {};
-        if (modoFunc === "status") updatePayload.status = funcStatus || null;
+        if (modoFunc === "status") {
+          const nextStatus = normalizeFuncionarioStatus(funcStatus);
+          updatePayload.status = nextStatus;
+          updatePayload.data_demissao = nextStatus === "demitido" ? (funcData || new Date().toISOString().slice(0, 10)) : null;
+        }
         if (modoFunc === "transferencia") updatePayload.equipe = funcEquipeDest || null;
+        if (modoFunc === "demissao") {
+          updatePayload.status = "demitido";
+          updatePayload.data_demissao = funcData || new Date().toISOString().slice(0, 10);
+        }
         let q: any = supabase.from("employees").update(updatePayload).eq("id", funcId);
         if (companyId) q = q.eq("company_id", companyId);
         const { error: upErr } = await q;
@@ -772,7 +908,8 @@ export default function ProgramadorHome() {
         }
       }
 
-      toast({ title: "✅ Movimentação registrada!" });
+      await recarregarCadastros();
+      toast({ title: "✅ Movimentação registrada e sincronizada!" });
       setFuncId(""); setFuncNome(""); setFuncMatricula(""); setFuncStatus(""); setFuncEquipeOrig(""); setFuncEquipeDest(""); setFuncObs("");
     }
     setSaving(false);
@@ -788,7 +925,7 @@ export default function ProgramadorHome() {
       frota: equipFrota, tipo_equipamento: frotaInfo?.tipo || null,
       obs: equipObs || null,
     };
-    if (modoEquip === "status") payload.status = equipStatus;
+    if (modoEquip === "status") payload.status = normalizeEquipamentoStatus(equipStatus);
     if (modoEquip === "transferencia") {
       payload.equipe_origem = equipEquipeOrig;
       payload.equipe_destino = equipEquipeDest;
@@ -799,7 +936,7 @@ export default function ProgramadorHome() {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       const updatePayload: any = {};
-      if (modoEquip === "status") updatePayload.status = equipStatus || null;
+      if (modoEquip === "status") updatePayload.status = normalizeEquipamentoStatus(equipStatus);
       if (modoEquip === "transferencia") updatePayload.setor = equipEquipeDest || null;
       let q: any = (supabase as any).from("equipamentos").update(updatePayload).eq("frota", equipFrota);
       if (companyId) q = q.eq("company_id", companyId);
@@ -808,7 +945,8 @@ export default function ProgramadorHome() {
         toast({ title: "Movimentação registrada, mas sem sincronizar cadastro", description: upErr.message, variant: "destructive" });
       }
 
-      toast({ title: "✅ Movimentação registrada!" });
+      await recarregarCadastros();
+      toast({ title: "✅ Movimentação registrada e sincronizada!" });
       setEquipFrota(""); setEquipStatus(""); setEquipEquipeOrig(""); setEquipEquipeDest(""); setEquipObs("");
     }
     setSaving(false);
@@ -966,7 +1104,7 @@ export default function ProgramadorHome() {
                           <SelectTrigger><SelectValue placeholder="Filtrar status" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="TODOS">Todos os status</SelectItem>
-                            {STATUS_FUNC.map(s => <SelectItem key={`ffs-${s}`} value={s}>{s}</SelectItem>)}
+                            {STATUS_FUNC_VALUES.map((s) => <SelectItem key={`ffs-${s}`} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}
                           </SelectContent>
                         </Select>
                         <Button type="button" size="sm" className="h-8 text-xs" variant={onlyChangedFunc ? "default" : "outline"} onClick={() => setOnlyChangedFunc((v) => !v)}>
@@ -981,7 +1119,7 @@ export default function ProgramadorHome() {
                         </Select>
                         <Select value={bulkFuncStatus} onValueChange={setBulkFuncStatus}>
                           <SelectTrigger><SelectValue placeholder="Lote: novo status" /></SelectTrigger>
-                          <SelectContent>{STATUS_FUNC.map(s => <SelectItem key={`bfs-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
+                          <SelectContent>{STATUS_FUNC_VALUES.map((s) => <SelectItem key={`bfs-${s}`} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}</SelectContent>
                         </Select>
                         <Button type="button" variant="outline" onClick={aplicarLoteFuncionarios}>Aplicar lote (Pessoas)</Button>
                       </div>
@@ -990,7 +1128,7 @@ export default function ProgramadorHome() {
                         {funcionariosDaEquipeFiltrados.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum funcionário encontrado com os filtros atuais.</p>
                         ) : funcionariosDaEquipeFiltrados.map((f) => {
-                          const draft = funcDraft[f.id] || { equipe: f.equipe || "", status: f.status || "TRABALHOU" };
+                          const draft = funcDraft[f.id] || { equipe: f.equipe || "", status: normalizeFuncionarioStatus(f.status) };
                           const mudou = funcionarioMudou(f, draft);
                           return (
                             <div key={f.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
@@ -1014,7 +1152,7 @@ export default function ProgramadorHome() {
                                   </Select>
                                   <Select value={draft.status || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "status", v)}>
                                     <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Status" /></SelectTrigger>
-                                    <SelectContent>{statusFuncOptionsComFallback(draft.status).map(s => <SelectItem key={`${f.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
+                                    <SelectContent>{statusFuncOptionsComFallback(draft.status).map(s => <SelectItem key={`${f.id}-st-${s}`} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}</SelectContent>
                                   </Select>
                                 </div>
                               </div>
@@ -1044,7 +1182,7 @@ export default function ProgramadorHome() {
                           <SelectTrigger><SelectValue placeholder="Filtrar status" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="TODOS">Todos os status</SelectItem>
-                            {STATUS_EQUIP.map(s => <SelectItem key={`fes-${s}`} value={s}>{s}</SelectItem>)}
+                            {STATUS_EQUIP_VALUES.map((s) => <SelectItem key={`fes-${s}`} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}
                           </SelectContent>
                         </Select>
                         <Button type="button" size="sm" className="h-8 text-xs" variant={onlyChangedEquip ? "default" : "outline"} onClick={() => setOnlyChangedEquip((v) => !v)}>
@@ -1059,7 +1197,7 @@ export default function ProgramadorHome() {
                         </Select>
                         <Select value={bulkEquipStatus} onValueChange={setBulkEquipStatus}>
                           <SelectTrigger><SelectValue placeholder="Lote: novo status" /></SelectTrigger>
-                          <SelectContent>{STATUS_EQUIP.map(s => <SelectItem key={`bes-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
+                          <SelectContent>{STATUS_EQUIP_VALUES.map((s) => <SelectItem key={`bes-${s}`} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}</SelectContent>
                         </Select>
                         <Button type="button" variant="outline" onClick={aplicarLoteEquipamentos}>Aplicar lote (Equip.)</Button>
                       </div>
@@ -1068,7 +1206,7 @@ export default function ProgramadorHome() {
                         {equipamentosDaEquipeFiltrados.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum equipamento encontrado com os filtros atuais.</p>
                         ) : equipamentosDaEquipeFiltrados.map((eq) => {
-                          const draft = equipDraft[eq.id] || { setor: eq.setor || "", status: eq.status || "OPERACIONAL" };
+                          const draft = equipDraft[eq.id] || { setor: eq.setor || "", status: normalizeEquipamentoStatus(eq.status) };
                           const mudou = equipamentoMudou(eq, draft);
                           return (
                             <div key={eq.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
@@ -1092,7 +1230,7 @@ export default function ProgramadorHome() {
                                   </Select>
                                   <Select value={draft.status || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "status", v)}>
                                     <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Status" /></SelectTrigger>
-                                    <SelectContent>{statusEquipOptionsComFallback(draft.status).map(s => <SelectItem key={`${eq.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
+                                    <SelectContent>{statusEquipOptionsComFallback(draft.status).map(s => <SelectItem key={`${eq.id}-st-${s}`} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}</SelectContent>
                                   </Select>
                                 </div>
                               </div>
@@ -1269,7 +1407,7 @@ export default function ProgramadorHome() {
                       <Label>Novo status *</Label>
                       <Select value={funcStatus} onValueChange={setFuncStatus}>
                         <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
-                        <SelectContent>{STATUS_FUNC.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                        <SelectContent>{STATUS_FUNC_VALUES.map((s) => <SelectItem key={s} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   )}
@@ -1351,7 +1489,7 @@ export default function ProgramadorHome() {
                   <Label>Novo status *</Label>
                   <Select value={equipStatus} onValueChange={setEquipStatus}>
                     <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
-                    <SelectContent>{STATUS_EQUIP.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                    <SelectContent>{STATUS_EQUIP_VALUES.map((s) => <SelectItem key={s} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               )}
