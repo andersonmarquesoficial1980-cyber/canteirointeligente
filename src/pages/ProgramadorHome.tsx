@@ -1,7 +1,7 @@
 // WF Programador — Gestão de equipes, funcionários e equipamentos
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Users, Wrench, Calendar, CalendarDays, ChevronRight, Save, Users2, Truck } from "lucide-react";
+import { ArrowLeft, Users, Wrench, Calendar, CalendarDays, Save, Users2, Truck, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
-import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
@@ -858,9 +857,14 @@ export default function ProgramadorHome() {
                   <h3 className="text-sm font-bold text-foreground">Alocação atual por equipe</h3>
                   <p className="text-xs text-muted-foreground">Selecione a equipe para gerenciar pessoas e equipamentos alocados.</p>
                 </div>
-                <Button type="button" variant="outline" onClick={() => navigate(`/programador/programacao-noturna${origemQuery}`)}>
-                  <CalendarDays className="w-4 h-4 mr-1" /> Programação de Obras
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/integracao-obras${origemQuery}`)}>
+                    <Building2 className="w-4 h-4 mr-1" /> Integrações
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/programador/programacao-noturna${origemQuery}`)}>
+                    <CalendarDays className="w-4 h-4 mr-1" /> Programação de Obras
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -981,27 +985,29 @@ export default function ProgramadorHome() {
                           const mudou = funcionarioMudou(f, draft);
                           return (
                             <div key={f.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
-                              <div className="flex items-center justify-between gap-2 mb-2">
-                                <p className="text-xs font-semibold truncate">{f.matricula ? `[${f.matricula}] ` : ""}{f.name}</p>
-                                <div className="flex items-center gap-1">
-                                  {(() => {
-                                    const risco = riscoFuncionarioStatus(draft.status);
-                                    if (risco >= 2) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">CRÍTICO</span>;
-                                    if (risco === 1) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">ATENÇÃO</span>;
-                                    return null;
-                                  })()}
-                                  {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
+                              <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+                                <div className="flex items-center justify-between gap-2 lg:flex-1 min-w-0">
+                                  <p className="text-xs font-semibold truncate">{f.matricula ? `[${f.matricula}] ` : ""}{f.name}</p>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {(() => {
+                                      const risco = riscoFuncionarioStatus(draft.status);
+                                      if (risco >= 2) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">CRÍTICO</span>;
+                                      if (risco === 1) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">ATENÇÃO</span>;
+                                      return null;
+                                    })()}
+                                    {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                <Select value={draft.equipe || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "equipe", v)}>
-                                  <SelectTrigger><SelectValue placeholder="Equipe" /></SelectTrigger>
-                                  <SelectContent>{equipeOptionsComFallback(draft.equipe).map(nome => <SelectItem key={`${f.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
-                                </Select>
-                                <Select value={draft.status || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "status", v)}>
-                                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-                                  <SelectContent>{statusFuncOptionsComFallback(draft.status).map(s => <SelectItem key={`${f.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
-                                </Select>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:w-[430px] lg:grid-cols-[1fr_140px]">
+                                  <Select value={draft.equipe || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "equipe", v)}>
+                                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Equipe" /></SelectTrigger>
+                                    <SelectContent>{equipeOptionsComFallback(draft.equipe).map(nome => <SelectItem key={`${f.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                  <Select value={draft.status || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "status", v)}>
+                                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
+                                    <SelectContent>{statusFuncOptionsComFallback(draft.status).map(s => <SelectItem key={`${f.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                </div>
                               </div>
                             </div>
                           );
@@ -1057,27 +1063,29 @@ export default function ProgramadorHome() {
                           const mudou = equipamentoMudou(eq, draft);
                           return (
                             <div key={eq.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
-                              <div className="flex items-center justify-between gap-2 mb-2">
-                                <p className="text-xs font-semibold truncate">{eq.frota} — {eq.tipo}</p>
-                                <div className="flex items-center gap-1">
-                                  {(() => {
-                                    const risco = riscoEquipStatus(draft.status);
-                                    if (risco >= 2) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">CRÍTICO</span>;
-                                    if (risco === 1) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">ATENÇÃO</span>;
-                                    return null;
-                                  })()}
-                                  {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
+                              <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+                                <div className="flex items-center justify-between gap-2 lg:flex-1 min-w-0">
+                                  <p className="text-xs font-semibold truncate">{eq.frota} — {eq.tipo}</p>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {(() => {
+                                      const risco = riscoEquipStatus(draft.status);
+                                      if (risco >= 2) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">CRÍTICO</span>;
+                                      if (risco === 1) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">ATENÇÃO</span>;
+                                      return null;
+                                    })()}
+                                    {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                <Select value={draft.setor || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "setor", v)}>
-                                  <SelectTrigger><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
-                                  <SelectContent>{equipeOptionsComFallback(draft.setor).map(nome => <SelectItem key={`${eq.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
-                                </Select>
-                                <Select value={draft.status || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "status", v)}>
-                                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-                                  <SelectContent>{statusEquipOptionsComFallback(draft.status).map(s => <SelectItem key={`${eq.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
-                                </Select>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:w-[430px] lg:grid-cols-[1fr_140px]">
+                                  <Select value={draft.setor || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "setor", v)}>
+                                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
+                                    <SelectContent>{equipeOptionsComFallback(draft.setor).map(nome => <SelectItem key={`${eq.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                  <Select value={draft.status || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "status", v)}>
+                                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
+                                    <SelectContent>{statusEquipOptionsComFallback(draft.status).map(s => <SelectItem key={`${eq.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                </div>
                               </div>
                             </div>
                           );
@@ -1375,7 +1383,6 @@ export default function ProgramadorHome() {
           </div>
         )}
 
-        <IntegracaoObrasCard />
       </div>
     </div>
   );
