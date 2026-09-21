@@ -491,8 +491,6 @@ export default function ProgramadorHome() {
 
     setValidating(true);
 
-    const dataRef = progData || new Date().toISOString().slice(0, 10);
-
     const funcFinal = funcionariosDaEquipe.map((f) => ({
       ...f,
       finalEquipe: funcDraft[f.id]?.equipe ?? f.equipe ?? "",
@@ -505,100 +503,41 @@ export default function ProgramadorHome() {
       finalStatus: equipDraft[e.id]?.status ?? e.status ?? "OPERACIONAL",
     }));
 
-    const { data: progsMesmoPeriodo } = await (supabase as any)
-      .from("ci_programacoes")
-      .select("id, equipe, ogs, periodo, data, status_programacao, equipamentos_designados")
-      .eq("data", dataRef)
-      .eq("periodo", progPeriodo);
-
-    const progsAtivas = (progsMesmoPeriodo || []).filter((p: any) => (p.status_programacao || "CONFIRMADO") !== "CANCELADO");
-
-    const jaExisteEquipeMesmoPeriodo = progsAtivas.some((p: any) => (p.equipe || "").trim().toLowerCase() === (progEquipe || "").trim().toLowerCase());
-    if (jaExisteEquipeMesmoPeriodo) {
-      issues.push({
-        level: "aviso",
-        scope: "programacao",
-        label: "Equipe já programada no período",
-        detail: `Já existe programação para ${progEquipe} em ${dataRef} (${progPeriodo}).`,
-      });
-    }
-
-    const equipOperacionais = equipFinal.filter((e) => (e.finalStatus || "").toUpperCase() === "OPERACIONAL");
-    for (const eq of equipOperacionais) {
-      const conflito = progsAtivas.find((p: any) => {
-        const arr: string[] = Array.isArray(p.equipamentos_designados) ? p.equipamentos_designados : [];
-        return arr.includes(eq.frota) && (p.equipe || "").trim().toLowerCase() !== (progEquipe || "").trim().toLowerCase();
-      });
-      if (conflito) {
+    for (const f of funcFinal) {
+      if (!(f.finalEquipe || "").trim()) {
         issues.push({
           level: "erro",
-          scope: "equipamento",
-          label: `Conflito de equipamento: ${eq.frota}`,
-          detail: `Já designado para equipe ${conflito.equipe} no mesmo período (${dataRef} ${progPeriodo}).`,
+          scope: "funcionario",
+          label: `Funcionário sem equipe: ${f.name}`,
+          detail: "Defina a equipe antes de aplicar.",
+        });
+      }
+      if (!(f.finalStatus || "").trim()) {
+        issues.push({
+          level: "erro",
+          scope: "funcionario",
+          label: `Funcionário sem status: ${f.name}`,
+          detail: "Defina o status antes de aplicar.",
         });
       }
     }
 
-    if (progOgs && progOgs !== "SEM_OGS" && funcFinal.length > 0) {
-      let obraQuery: any = (supabase as any)
-        .from("sst_obras_integracao")
-        .select("id, nome_obra")
-        .ilike("nome_obra", `%OGS ${progOgs}%`)
-        .limit(1);
-      if (companyId) obraQuery = obraQuery.eq("company_id", companyId);
-      const { data: obrasInt } = await obraQuery;
-
-      const obra = obrasInt?.[0];
-      if (!obra) {
+    for (const eq of equipFinal) {
+      if (!(eq.finalSetor || "").trim()) {
         issues.push({
-          level: "aviso",
-          scope: "programacao",
-          label: "Obra sem vínculo SST",
-          detail: `Não foi encontrada obra de integração SST para OGS ${progOgs}.`,
+          level: "erro",
+          scope: "equipamento",
+          label: `Equipamento sem equipe: ${eq.frota}`,
+          detail: "Defina a equipe/setor antes de aplicar.",
         });
-      } else {
-        const funcIds = funcFinal.map((f) => f.id);
-        let integQuery: any = (supabase as any)
-          .from("sst_funcionarios_integracao")
-          .select("funcionario_id, status_integracao, data_vencimento")
-          .eq("obra_id", obra.id)
-          .in("funcionario_id", funcIds);
-        if (companyId) integQuery = integQuery.eq("company_id", companyId);
-        const { data: integracoes } = await integQuery;
-
-        const map = new Map<string, { status_integracao: string; data_vencimento: string | null }>();
-        for (const i of integracoes || []) map.set(i.funcionario_id, i);
-
-        for (const f of funcFinal) {
-          const statusFinal = (f.finalStatus || "").toUpperCase();
-          if (statusFinal !== "TRABALHOU") continue;
-          const integ = map.get(f.id);
-          if (!integ) {
-            issues.push({
-              level: "erro",
-              scope: "funcionario",
-              label: `Sem integração: ${f.name}`,
-              detail: `Funcionário sem registro de integração para OGS ${progOgs}.`,
-            });
-            continue;
-          }
-          if ((integ.status_integracao || "").toLowerCase() !== "integrado") {
-            issues.push({
-              level: "erro",
-              scope: "funcionario",
-              label: `Integração pendente: ${f.name}`,
-              detail: `Status atual na obra: ${integ.status_integracao || "pendente"}.`,
-            });
-          }
-          if (integ.data_vencimento && new Date(integ.data_vencimento) < new Date()) {
-            issues.push({
-              level: "erro",
-              scope: "funcionario",
-              label: `Integração vencida: ${f.name}`,
-              detail: `Validade expirada em ${integ.data_vencimento}.`,
-            });
-          }
-        }
+      }
+      if (!(eq.finalStatus || "").trim()) {
+        issues.push({
+          level: "erro",
+          scope: "equipamento",
+          label: `Equipamento sem status: ${eq.frota}`,
+          detail: "Defina o status antes de aplicar.",
+        });
       }
     }
 
@@ -606,13 +545,13 @@ export default function ProgramadorHome() {
     setValidating(false);
 
     if (issues.some((i) => i.level === "erro")) {
-      toast({ title: "Validação encontrou bloqueios", description: "Corrija os erros destacados ou force com justificativa quando permitido.", variant: "destructive" });
+      toast({ title: "Validação encontrou bloqueios", description: "Corrija os erros destacados antes de aplicar.", variant: "destructive" });
       return { ok: false, issues };
     }
 
     toast({
       title: "✅ Validação concluída",
-      description: issues.length ? `${issues.length} aviso(s) encontrados.` : "Nenhuma pendência encontrada.",
+      description: "Pronto para aplicar mudanças de alocação da equipe.",
     });
 
     return { ok: true, issues };
@@ -912,34 +851,16 @@ export default function ProgramadorHome() {
         {aba === "equipes" && (
           <div className="space-y-4">
 
-            {/* Card destaque: Programação de Obras */}
-            <button
-              onClick={() => navigate(`/programador/programacao-noturna${origemQuery}`)}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-primary text-primary-foreground shadow-md active:scale-95 transition-transform"
-            >
-              <CalendarDays className="w-6 h-6 shrink-0" />
-              <div className="text-left flex-1">
-                <span className="text-sm font-bold block">Programação de Obras</span>
-                <span className="text-xs opacity-80">Planejar equipes, equipamentos e carretas</span>
-              </div>
-              <ChevronRight className="w-4 h-4 opacity-70" />
-            </button>
-
-            <p className="text-xs text-muted-foreground">Programe uma equipe inteira de uma vez. Todos os funcionários da equipe receberão essa localização.</p>
-
+            {/* Contexto de alocação (sem programação diária) */}
             <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Data *</Label>
-                  <Input type="date" value={progData} onChange={e => setProgData(e.target.value)} />
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Alocação atual por equipe</h3>
+                  <p className="text-xs text-muted-foreground">Selecione a equipe para gerenciar pessoas e equipamentos alocados.</p>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Período</Label>
-                  <Select value={progPeriodo} onValueChange={setProgPeriodo}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{PERIODOS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
+                <Button type="button" variant="outline" onClick={() => navigate(`/programador/programacao-noturna${origemQuery}`)}>
+                  <CalendarDays className="w-4 h-4 mr-1" /> Programação de Obras
+                </Button>
               </div>
 
               <div className="space-y-1.5">
@@ -952,51 +873,6 @@ export default function ProgramadorHome() {
                   <p className="text-xs text-muted-foreground pl-1">Responsável: {equipeResponsavel(progEquipe)}</p>
                 )}
               </div>
-
-              <div className="space-y-1.5">
-                <Label>Status da equipe</Label>
-                <Select value={progStatus} onValueChange={setProgStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{STATUS_FUNC.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>OGS</Label>
-                <Select value={progOgs} onValueChange={handleOgsChange}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a OGS" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SEM_OGS">Sem OGS</SelectItem>
-                    {ogsList.map(o => <SelectItem key={o.ogs_number} value={o.ogs_number}>OGS {o.ogs_number} — {o.client_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Rua específica se OGS tiver múltiplos endereços */}
-              {progOgs && (() => {
-                const o = ogsList.find(o => o.ogs_number === progOgs);
-                const ruas = o ? splitRuas(o.location_address) : [];
-                if (ruas.length <= 1) return progCliente ? <p className="text-xs text-muted-foreground">📍 {progLocal}</p> : null;
-                return (
-                  <div className="space-y-1.5">
-                    <Label>Rua específica</Label>
-                    <Select value={progRua} onValueChange={v => { setProgRua(v); setProgLocal(v); }}>
-                      <SelectTrigger><SelectValue placeholder="Selecione a rua" /></SelectTrigger>
-                      <SelectContent>{ruas.map((r, i) => <SelectItem key={i} value={r}>{r}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                );
-              })()}
-
-              <div className="space-y-1.5">
-                <Label>Observações</Label>
-                <Textarea rows={2} value={progObs} onChange={e => setProgObs(e.target.value)} placeholder="Opcional..." />
-              </div>
-
-              <Button onClick={salvarProgramacao} disabled={saving || !progEquipe || !progData}
-                className="w-full bg-header-gradient text-white font-bold rounded-xl hover:opacity-90">
-                {saving ? "Salvando..." : "✅ Salvar Programação"}
-              </Button>
             </div>
 
             {/* Painel operacional por equipe (Pessoas + Equipamentos) */}
