@@ -985,9 +985,9 @@ export default function ProgramadorHome() {
                           const mudou = funcionarioMudou(f, draft);
                           return (
                             <div key={f.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
-                              <div className="flex flex-col lg:flex-row lg:items-center gap-2">
-                                <div className="flex items-center justify-between gap-2 lg:flex-1 min-w-0">
-                                  <p className="text-xs font-semibold truncate">{f.matricula ? `[${f.matricula}] ` : ""}{f.name}</p>
+                              <div className="flex flex-col lg:flex-row lg:items-start gap-2">
+                                <div className="flex items-start justify-between gap-2 lg:flex-1 min-w-0">
+                                  <p className="text-xs font-semibold leading-tight break-words">{f.matricula ? `[${f.matricula}] ` : ""}{f.name}</p>
                                   <div className="flex items-center gap-1 shrink-0">
                                     {(() => {
                                       const risco = riscoFuncionarioStatus(draft.status);
@@ -998,13 +998,13 @@ export default function ProgramadorHome() {
                                     {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:w-[430px] lg:grid-cols-[1fr_140px]">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full lg:w-[280px] xl:w-[340px] 2xl:w-[380px] lg:grid-cols-[minmax(0,1fr)_96px] shrink-0">
                                   <Select value={draft.equipe || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "equipe", v)}>
-                                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Equipe" /></SelectTrigger>
+                                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Equipe" /></SelectTrigger>
                                     <SelectContent>{equipeOptionsComFallback(draft.equipe).map(nome => <SelectItem key={`${f.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Select value={draft.status || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "status", v)}>
-                                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
+                                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>{statusFuncOptionsComFallback(draft.status).map(s => <SelectItem key={`${f.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
                                   </Select>
                                 </div>
@@ -1063,9 +1063,9 @@ export default function ProgramadorHome() {
                           const mudou = equipamentoMudou(eq, draft);
                           return (
                             <div key={eq.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
-                              <div className="flex flex-col lg:flex-row lg:items-center gap-2">
-                                <div className="flex items-center justify-between gap-2 lg:flex-1 min-w-0">
-                                  <p className="text-xs font-semibold truncate">{eq.frota} — {eq.tipo}</p>
+                              <div className="flex flex-col lg:flex-row lg:items-start gap-2">
+                                <div className="flex items-start justify-between gap-2 lg:flex-1 min-w-0">
+                                  <p className="text-xs font-semibold leading-tight break-words">{eq.frota} — {eq.tipo}</p>
                                   <div className="flex items-center gap-1 shrink-0">
                                     {(() => {
                                       const risco = riscoEquipStatus(draft.status);
@@ -1076,13 +1076,13 @@ export default function ProgramadorHome() {
                                     {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:w-[430px] lg:grid-cols-[1fr_140px]">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full lg:w-[280px] xl:w-[340px] 2xl:w-[380px] lg:grid-cols-[minmax(0,1fr)_96px] shrink-0">
                                   <Select value={draft.setor || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "setor", v)}>
-                                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
+                                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
                                     <SelectContent>{equipeOptionsComFallback(draft.setor).map(nome => <SelectItem key={`${eq.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Select value={draft.status || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "status", v)}>
-                                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
+                                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>{statusEquipOptionsComFallback(draft.status).map(s => <SelectItem key={`${eq.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
                                   </Select>
                                 </div>
