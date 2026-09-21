@@ -844,7 +844,7 @@ export default function ProgramadorHome() {
         ))}
       </div>
 
-      <div className="flex-1 px-4 py-5 pb-10 space-y-4">
+      <div className="flex-1 px-4 py-5 pb-4 space-y-4">
 
         {/* ── ABA EQUIPES ── */}
         {aba === "equipes" && (
@@ -880,7 +880,7 @@ export default function ProgramadorHome() {
             </div>
 
             {/* Painel operacional por equipe (Pessoas + Equipamentos) */}
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-4 lg:min-h-[calc(100vh-270px)] lg:flex lg:flex-col">
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -936,9 +936,9 @@ export default function ProgramadorHome() {
                 <p className="text-xs text-muted-foreground">Selecione uma equipe acima para visualizar os membros e equipamentos vinculados.</p>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start lg:flex-1 min-h-0">
                     {/* Funcionários */}
-                    <div className="rounded-xl border border-border p-3 space-y-3">
+                    <div className="rounded-xl border border-border p-3 space-y-3 lg:flex lg:flex-col min-h-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Users2 className="w-4 h-4 text-primary" />
@@ -977,7 +977,7 @@ export default function ProgramadorHome() {
                         <Button type="button" variant="outline" onClick={aplicarLoteFuncionarios}>Aplicar lote (Pessoas)</Button>
                       </div>
 
-                      <div className="space-y-2 max-h-72 overflow-auto pr-1">
+                      <div className="space-y-2 max-h-72 lg:max-h-none lg:flex-1 overflow-auto pr-1">
                         {funcionariosDaEquipeFiltrados.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum funcionário encontrado com os filtros atuais.</p>
                         ) : funcionariosDaEquipeFiltrados.map((f) => {
@@ -1016,7 +1016,7 @@ export default function ProgramadorHome() {
                     </div>
 
                     {/* Equipamentos */}
-                    <div className="rounded-xl border border-border p-3 space-y-3">
+                    <div className="rounded-xl border border-border p-3 space-y-3 lg:flex lg:flex-col min-h-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Truck className="w-4 h-4 text-primary" />
@@ -1055,7 +1055,7 @@ export default function ProgramadorHome() {
                         <Button type="button" variant="outline" onClick={aplicarLoteEquipamentos}>Aplicar lote (Equip.)</Button>
                       </div>
 
-                      <div className="space-y-2 max-h-72 overflow-auto pr-1">
+                      <div className="space-y-2 max-h-72 lg:max-h-none lg:flex-1 overflow-auto pr-1">
                         {equipamentosDaEquipeFiltrados.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum equipamento encontrado com os filtros atuais.</p>
                         ) : equipamentosDaEquipeFiltrados.map((eq) => {
@@ -1156,7 +1156,7 @@ export default function ProgramadorHome() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 lg:mt-auto">
                     <Button type="button" variant="outline" onClick={validarMudancasEquipe} disabled={validating || saving || (!funcMudancasPendentes && !equipMudancasPendentes)}>
                       {validating ? "Validando..." : "Validar alterações"}
                     </Button>
