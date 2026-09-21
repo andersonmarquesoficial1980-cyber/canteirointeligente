@@ -914,10 +914,11 @@ export default function ProgramadorHome() {
     await recarregarCadastros();
 
     if (movErr) {
+      const trilhaIndisponivel = /42P01|does not exist|relation/i.test(String(movErr?.message || ""));
       toast({
-        title: "✅ Cadastro sincronizado (auditoria pendente)",
+        title: trilhaIndisponivel ? "✅ Cadastro sincronizado (trilha de auditoria indisponível)" : "✅ Cadastro sincronizado (auditoria pendente)",
         description: `Funcionário atualizado em employees, mas não foi possível gravar em ci_mov_funcionarios: ${movErr.message}`,
-        variant: "destructive",
+        variant: trilhaIndisponivel ? "default" : "destructive",
       });
     } else {
       toast({ title: "✅ Movimentação registrada e sincronizada!" });
@@ -962,10 +963,11 @@ export default function ProgramadorHome() {
     await recarregarCadastros();
 
     if (movErr) {
+      const trilhaIndisponivel = /42P01|does not exist|relation/i.test(String(movErr?.message || ""));
       toast({
-        title: "✅ Cadastro sincronizado (auditoria pendente)",
+        title: trilhaIndisponivel ? "✅ Cadastro sincronizado (trilha de auditoria indisponível)" : "✅ Cadastro sincronizado (auditoria pendente)",
         description: `Equipamento atualizado em equipamentos, mas não foi possível gravar em ci_mov_equipamentos: ${movErr.message}`,
-        variant: "destructive",
+        variant: trilhaIndisponivel ? "default" : "destructive",
       });
     } else {
       toast({ title: "✅ Movimentação registrada e sincronizada!" });
