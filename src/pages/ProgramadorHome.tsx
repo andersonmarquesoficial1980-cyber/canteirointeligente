@@ -932,7 +932,7 @@ export default function ProgramadorHome() {
                 <p className="text-xs text-muted-foreground">Selecione uma equipe acima para visualizar os membros e equipamentos vinculados.</p>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                     {/* Funcionários */}
                     <div className="rounded-xl border border-border p-3 space-y-3">
                       <div className="flex items-center justify-between">
@@ -956,7 +956,7 @@ export default function ProgramadorHome() {
                             {STATUS_FUNC.map(s => <SelectItem key={`ffs-${s}`} value={s}>{s}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        <Button type="button" variant={onlyChangedFunc ? "default" : "outline"} onClick={() => setOnlyChangedFunc((v) => !v)}>
+                        <Button type="button" size="sm" className="h-8 text-xs" variant={onlyChangedFunc ? "default" : "outline"} onClick={() => setOnlyChangedFunc((v) => !v)}>
                           {onlyChangedFunc ? "Somente alterados: ON" : "Somente alterados"}
                         </Button>
                       </div>
@@ -999,7 +999,7 @@ export default function ProgramadorHome() {
                                   <SelectContent>{equipeOptionsComFallback(draft.equipe).map(nome => <SelectItem key={`${f.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
                                 </Select>
                                 <Select value={draft.status || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "status", v)}>
-                                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
                                   <SelectContent>{statusFuncOptionsComFallback(draft.status).map(s => <SelectItem key={`${f.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
                                 </Select>
                               </div>
@@ -1032,7 +1032,7 @@ export default function ProgramadorHome() {
                             {STATUS_EQUIP.map(s => <SelectItem key={`fes-${s}`} value={s}>{s}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        <Button type="button" variant={onlyChangedEquip ? "default" : "outline"} onClick={() => setOnlyChangedEquip((v) => !v)}>
+                        <Button type="button" size="sm" className="h-8 text-xs" variant={onlyChangedEquip ? "default" : "outline"} onClick={() => setOnlyChangedEquip((v) => !v)}>
                           {onlyChangedEquip ? "Somente alterados: ON" : "Somente alterados"}
                         </Button>
                       </div>
@@ -1075,7 +1075,7 @@ export default function ProgramadorHome() {
                                   <SelectContent>{equipeOptionsComFallback(draft.setor).map(nome => <SelectItem key={`${eq.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
                                 </Select>
                                 <Select value={draft.status || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "status", v)}>
-                                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
                                   <SelectContent>{statusEquipOptionsComFallback(draft.status).map(s => <SelectItem key={`${eq.id}-st-${s}`} value={s}>{s}</SelectItem>)}</SelectContent>
                                 </Select>
                               </div>
