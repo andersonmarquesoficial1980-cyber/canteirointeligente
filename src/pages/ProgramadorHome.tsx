@@ -94,6 +94,7 @@ export default function ProgramadorHome() {
   const [onlyChangedEquip, setOnlyChangedEquip] = useState(false);
   const [filterFuncStatus, setFilterFuncStatus] = useState("TODOS");
   const [filterEquipStatus, setFilterEquipStatus] = useState("TODOS");
+  const [modoOperacaoNoturna, setModoOperacaoNoturna] = useState(false);
 
   // Utilitário: divide endereços com ;
   const splitRuas = (address: string) => address.split(";").map(r => r.trim()).filter(Boolean);
@@ -219,6 +220,20 @@ export default function ProgramadorHome() {
 
   const norm = (value?: string | null) => (value || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 
+  const riscoFuncionarioStatus = (status?: string | null) => {
+    const s = (status || "").toUpperCase();
+    if (s === "FALTA" || s === "AFASTADO") return 2;
+    if (s === "FÉRIAS" || s === "DISPOSIÇÃO") return 1;
+    return 0;
+  };
+
+  const riscoEquipStatus = (status?: string | null) => {
+    const s = (status || "").toUpperCase();
+    if (s === "INOPERANTE") return 2;
+    if (s === "MANUTENÇÃO") return 1;
+    return 0;
+  };
+
   const funcionarioMudou = (f: Funcionario, draft?: FuncDraftChange) => {
     const d = draft || { equipe: f.equipe || "", status: f.status || "TRABALHOU" };
     return (d.equipe || "") !== (f.equipe || "") || (d.status || "") !== (f.status || "");
@@ -230,28 +245,66 @@ export default function ProgramadorHome() {
   };
 
   const funcionariosDaEquipeFiltrados = useMemo(() => {
-    return funcionariosDaEquipe.filter((f) => {
+    const base = funcionariosDaEquipe.filter((f) => {
       const draft = funcDraft[f.id] || { equipe: f.equipe || "", status: f.status || "TRABALHOU" };
       const mudou = funcionarioMudou(f, draft);
+      const risco = riscoFuncionarioStatus(draft.status);
       const okChanged = !onlyChangedFunc || mudou;
       const okStatus = filterFuncStatus === "TODOS" || (draft.status || "") === filterFuncStatus;
       const termo = norm(funcSearch);
       const okBusca = !termo || norm(f.name).includes(termo) || norm(f.matricula).includes(termo) || norm(draft.equipe).includes(termo);
-      return okChanged && okStatus && okBusca;
+      const okModo = !modoOperacaoNoturna || mudou || risco > 0;
+      return okChanged && okStatus && okBusca && okModo;
     });
-  }, [funcionariosDaEquipe, funcDraft, onlyChangedFunc, filterFuncStatus, funcSearch]);
+
+    return [...base].sort((a, b) => {
+      const da = funcDraft[a.id] || { equipe: a.equipe || "", status: a.status || "TRABALHOU" };
+      const db = funcDraft[b.id] || { equipe: b.equipe || "", status: b.status || "TRABALHOU" };
+      const mudouA = funcionarioMudou(a, da) ? 1 : 0;
+      const mudouB = funcionarioMudou(b, db) ? 1 : 0;
+      if (mudouA !== mudouB) return mudouB - mudouA;
+      const riscoA = riscoFuncionarioStatus(da.status);
+      const riscoB = riscoFuncionarioStatus(db.status);
+      if (riscoA !== riscoB) return riscoB - riscoA;
+      return (a.name || "").localeCompare(b.name || "", "pt-BR");
+    });
+  }, [funcionariosDaEquipe, funcDraft, onlyChangedFunc, filterFuncStatus, funcSearch, modoOperacaoNoturna]);
 
   const equipamentosDaEquipeFiltrados = useMemo(() => {
-    return equipamentosDaEquipe.filter((eq) => {
+    const base = equipamentosDaEquipe.filter((eq) => {
       const draft = equipDraft[eq.id] || { setor: eq.setor || "", status: eq.status || "OPERACIONAL" };
       const mudou = equipamentoMudou(eq, draft);
+      const risco = riscoEquipStatus(draft.status);
       const okChanged = !onlyChangedEquip || mudou;
       const okStatus = filterEquipStatus === "TODOS" || (draft.status || "") === filterEquipStatus;
       const termo = norm(equipSearch);
       const okBusca = !termo || norm(eq.frota).includes(termo) || norm(eq.tipo).includes(termo) || norm(draft.setor).includes(termo);
-      return okChanged && okStatus && okBusca;
+      const okModo = !modoOperacaoNoturna || mudou || risco > 0;
+      return okChanged && okStatus && okBusca && okModo;
     });
-  }, [equipamentosDaEquipe, equipDraft, onlyChangedEquip, filterEquipStatus, equipSearch]);
+
+    return [...base].sort((a, b) => {
+      const da = equipDraft[a.id] || { setor: a.setor || "", status: a.status || "OPERACIONAL" };
+      const db = equipDraft[b.id] || { setor: b.setor || "", status: b.status || "OPERACIONAL" };
+      const mudouA = equipamentoMudou(a, da) ? 1 : 0;
+      const mudouB = equipamentoMudou(b, db) ? 1 : 0;
+      if (mudouA !== mudouB) return mudouB - mudouA;
+      const riscoA = riscoEquipStatus(da.status);
+      const riscoB = riscoEquipStatus(db.status);
+      if (riscoA !== riscoB) return riscoB - riscoA;
+      return (a.frota || "").localeCompare(b.frota || "", "pt-BR");
+    });
+  }, [equipamentosDaEquipe, equipDraft, onlyChangedEquip, filterEquipStatus, equipSearch, modoOperacaoNoturna]);
+
+  const criticosFuncCount = useMemo(
+    () => funcionariosDaEquipeFiltrados.filter((f) => riscoFuncionarioStatus((funcDraft[f.id]?.status ?? f.status)) >= 2).length,
+    [funcionariosDaEquipeFiltrados, funcDraft]
+  );
+
+  const criticosEquipCount = useMemo(
+    () => equipamentosDaEquipeFiltrados.filter((eq) => riscoEquipStatus((equipDraft[eq.id]?.status ?? eq.status)) >= 2).length,
+    [equipamentosDaEquipeFiltrados, equipDraft]
+  );
 
   const funcMudancasPendentes = useMemo(
     () => Object.entries(funcDraft).filter(([id, draft]) => {
@@ -345,7 +398,19 @@ export default function ProgramadorHome() {
     setOnlyChangedEquip(false);
     setFilterFuncStatus("TODOS");
     setFilterEquipStatus("TODOS");
+    setModoOperacaoNoturna(false);
   }, [progEquipe]);
+
+  const alternarModoOperacaoNoturna = () => {
+    setModoOperacaoNoturna((prev) => {
+      const next = !prev;
+      if (next) {
+        setOnlyChangedFunc(true);
+        setOnlyChangedEquip(true);
+      }
+      return next;
+    });
+  };
 
   const atualizarFuncDraft = (id: string, campo: keyof FuncDraftChange, valor: string) => {
     setValidationIssues([]);
@@ -942,13 +1007,18 @@ export default function ProgramadorHome() {
                     <h3 className="text-sm font-bold text-foreground">Gestão da equipe selecionada</h3>
                     <p className="text-xs text-muted-foreground">Altere equipe e status de pessoas e equipamentos com aplicação imediata.</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Pendências</p>
-                    <p className="text-sm font-bold text-primary">{funcMudancasPendentes + equipMudancasPendentes}</p>
+                  <div className="text-right space-y-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Pendências</p>
+                      <p className="text-sm font-bold text-primary">{funcMudancasPendentes + equipMudancasPendentes}</p>
+                    </div>
+                    <Button type="button" size="sm" variant={modoOperacaoNoturna ? "default" : "outline"} onClick={alternarModoOperacaoNoturna}>
+                      {modoOperacaoNoturna ? "Modo Operação: ON" : "Modo Operação Noturna"}
+                    </Button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                   <div className="rounded-lg border border-border bg-muted/20 px-2 py-2">
                     <p className="text-[11px] text-muted-foreground">Pessoas</p>
                     <p className="text-sm font-bold">{funcionariosDaEquipe.length}</p>
@@ -965,7 +1035,21 @@ export default function ProgramadorHome() {
                     <p className="text-[11px] text-blue-700">Pendências Equip.</p>
                     <p className="text-sm font-bold text-blue-800">{equipMudancasPendentes}</p>
                   </div>
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-2 py-2">
+                    <p className="text-[11px] text-red-700">Críticos Pessoas</p>
+                    <p className="text-sm font-bold text-red-800">{criticosFuncCount}</p>
+                  </div>
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-2 py-2">
+                    <p className="text-[11px] text-red-700">Críticos Equip.</p>
+                    <p className="text-sm font-bold text-red-800">{criticosEquipCount}</p>
+                  </div>
                 </div>
+
+                {modoOperacaoNoturna && (
+                  <p className="text-[11px] text-primary font-semibold">
+                    Modo operação noturna ativo: lista prioriza alterados e críticos para ação imediata.
+                  </p>
+                )}
               </div>
 
               {!progEquipe ? (
@@ -1023,7 +1107,15 @@ export default function ProgramadorHome() {
                             <div key={f.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
                               <div className="flex items-center justify-between gap-2 mb-2">
                                 <p className="text-xs font-semibold truncate">{f.matricula ? `[${f.matricula}] ` : ""}{f.name}</p>
-                                {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
+                                <div className="flex items-center gap-1">
+                                  {(() => {
+                                    const risco = riscoFuncionarioStatus(draft.status);
+                                    if (risco >= 2) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">CRÍTICO</span>;
+                                    if (risco === 1) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">ATENÇÃO</span>;
+                                    return null;
+                                  })()}
+                                  {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
+                                </div>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 <Select value={draft.equipe || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "equipe", v)}>
@@ -1091,7 +1183,15 @@ export default function ProgramadorHome() {
                             <div key={eq.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
                               <div className="flex items-center justify-between gap-2 mb-2">
                                 <p className="text-xs font-semibold truncate">{eq.frota} — {eq.tipo}</p>
-                                {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
+                                <div className="flex items-center gap-1">
+                                  {(() => {
+                                    const risco = riscoEquipStatus(draft.status);
+                                    if (risco >= 2) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">CRÍTICO</span>;
+                                    if (risco === 1) return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">ATENÇÃO</span>;
+                                    return null;
+                                  })()}
+                                  {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
+                                </div>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 <Select value={draft.setor || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "setor", v)}>
