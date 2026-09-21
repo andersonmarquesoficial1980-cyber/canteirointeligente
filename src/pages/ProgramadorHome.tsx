@@ -884,34 +884,46 @@ export default function ProgramadorHome() {
     if (modoFunc === "transferencia") { payload.equipe_origem = funcEquipeOrig; payload.equipe_destino = funcEquipeDest; }
     if (modoFunc === "demissao") payload.status = "demitido";
     payload.obs = funcObs || null;
-    const { error } = await (supabase as any).from("ci_mov_funcionarios").insert(payload);
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
-      if (funcId && (modoFunc === "status" || modoFunc === "transferencia" || modoFunc === "demissao")) {
-        const updatePayload: any = {};
-        if (modoFunc === "status") {
-          const nextStatus = normalizeFuncionarioStatus(funcStatus);
-          updatePayload.status = nextStatus;
-          updatePayload.data_demissao = nextStatus === "demitido" ? (funcData || new Date().toISOString().slice(0, 10)) : null;
-        }
-        if (modoFunc === "transferencia") updatePayload.equipe = funcEquipeDest || null;
-        if (modoFunc === "demissao") {
-          updatePayload.status = "demitido";
-          updatePayload.data_demissao = funcData || new Date().toISOString().slice(0, 10);
-        }
-        let q: any = supabase.from("employees").update(updatePayload).eq("id", funcId);
-        if (companyId) q = q.eq("company_id", companyId);
-        const { error: upErr } = await q;
-        if (upErr) {
-          toast({ title: "Movimentação registrada, mas sem sincronizar cadastro", description: upErr.message, variant: "destructive" });
-        }
+    let upErr: any = null;
+    if (funcId && (modoFunc === "status" || modoFunc === "transferencia" || modoFunc === "demissao")) {
+      const updatePayload: any = {};
+      if (modoFunc === "status") {
+        const nextStatus = normalizeFuncionarioStatus(funcStatus);
+        updatePayload.status = nextStatus;
+        updatePayload.data_demissao = nextStatus === "demitido" ? (funcData || new Date().toISOString().slice(0, 10)) : null;
       }
-
-      await recarregarCadastros();
-      toast({ title: "✅ Movimentação registrada e sincronizada!" });
-      setFuncId(""); setFuncNome(""); setFuncMatricula(""); setFuncStatus(""); setFuncEquipeOrig(""); setFuncEquipeDest(""); setFuncObs("");
+      if (modoFunc === "transferencia") updatePayload.equipe = funcEquipeDest || null;
+      if (modoFunc === "demissao") {
+        updatePayload.status = "demitido";
+        updatePayload.data_demissao = funcData || new Date().toISOString().slice(0, 10);
+      }
+      let q: any = supabase.from("employees").update(updatePayload).eq("id", funcId);
+      if (companyId) q = q.eq("company_id", companyId);
+      const { error } = await q;
+      upErr = error;
     }
+
+    if (upErr) {
+      toast({ title: "Erro ao sincronizar cadastro", description: upErr.message, variant: "destructive" });
+      setSaving(false);
+      return;
+    }
+
+    const { error: movErr } = await (supabase as any).from("ci_mov_funcionarios").insert(payload);
+
+    await recarregarCadastros();
+
+    if (movErr) {
+      toast({
+        title: "✅ Cadastro sincronizado (auditoria pendente)",
+        description: `Funcionário atualizado em employees, mas não foi possível gravar em ci_mov_funcionarios: ${movErr.message}`,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "✅ Movimentação registrada e sincronizada!" });
+    }
+
+    setFuncId(""); setFuncNome(""); setFuncMatricula(""); setFuncStatus(""); setFuncEquipeOrig(""); setFuncEquipeDest(""); setFuncObs("");
     setSaving(false);
   };
 
@@ -931,24 +943,35 @@ export default function ProgramadorHome() {
       payload.equipe_destino = equipEquipeDest;
       payload.responsavel_destino = equipeResponsavel(equipEquipeDest);
     }
-    const { error } = await (supabase as any).from("ci_mov_equipamentos").insert(payload);
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
-      const updatePayload: any = {};
-      if (modoEquip === "status") updatePayload.status = normalizeEquipamentoStatus(equipStatus);
-      if (modoEquip === "transferencia") updatePayload.setor = equipEquipeDest || null;
-      let q: any = (supabase as any).from("equipamentos").update(updatePayload).eq("frota", equipFrota);
-      if (companyId) q = q.eq("company_id", companyId);
-      const { error: upErr } = await q;
-      if (upErr) {
-        toast({ title: "Movimentação registrada, mas sem sincronizar cadastro", description: upErr.message, variant: "destructive" });
-      }
+    const updatePayload: any = {};
+    if (modoEquip === "status") updatePayload.status = normalizeEquipamentoStatus(equipStatus);
+    if (modoEquip === "transferencia") updatePayload.setor = equipEquipeDest || null;
 
-      await recarregarCadastros();
-      toast({ title: "✅ Movimentação registrada e sincronizada!" });
-      setEquipFrota(""); setEquipStatus(""); setEquipEquipeOrig(""); setEquipEquipeDest(""); setEquipObs("");
+    let q: any = (supabase as any).from("equipamentos").update(updatePayload).eq("frota", equipFrota);
+    if (companyId) q = q.eq("company_id", companyId);
+    const { error: upErr } = await q;
+
+    if (upErr) {
+      toast({ title: "Erro ao sincronizar cadastro", description: upErr.message, variant: "destructive" });
+      setSaving(false);
+      return;
     }
+
+    const { error: movErr } = await (supabase as any).from("ci_mov_equipamentos").insert(payload);
+
+    await recarregarCadastros();
+
+    if (movErr) {
+      toast({
+        title: "✅ Cadastro sincronizado (auditoria pendente)",
+        description: `Equipamento atualizado em equipamentos, mas não foi possível gravar em ci_mov_equipamentos: ${movErr.message}`,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "✅ Movimentação registrada e sincronizada!" });
+    }
+
+    setEquipFrota(""); setEquipStatus(""); setEquipEquipeOrig(""); setEquipEquipeDest(""); setEquipObs("");
     setSaving(false);
   };
 
