@@ -14,7 +14,7 @@ import { sortOgsData } from "@/hooks/useOgsReference";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
-const STATUS_FUNC = ["TRABALHOU", "AFASTADO", "DISPOSIÇÃO", "FÉRIAS", "FALTA"];
+const STATUS_FUNC = ["TRABALHOU", "AFASTADO", "DEMITIDO", "DISPOSIÇÃO", "FÉRIAS", "FALTA"];
 const STATUS_EQUIP = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE"];
 const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 
