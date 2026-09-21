@@ -88,6 +88,12 @@ export default function ProgramadorHome() {
   const [forceIntegracaoOverride, setForceIntegracaoOverride] = useState(false);
   const [forceReason, setForceReason] = useState("");
   const [lastApplySummary, setLastApplySummary] = useState<ApplySummary | null>(null);
+  const [funcSearch, setFuncSearch] = useState("");
+  const [equipSearch, setEquipSearch] = useState("");
+  const [onlyChangedFunc, setOnlyChangedFunc] = useState(false);
+  const [onlyChangedEquip, setOnlyChangedEquip] = useState(false);
+  const [filterFuncStatus, setFilterFuncStatus] = useState("TODOS");
+  const [filterEquipStatus, setFilterEquipStatus] = useState("TODOS");
 
   // Utilitário: divide endereços com ;
   const splitRuas = (address: string) => address.split(";").map(r => r.trim()).filter(Boolean);
@@ -211,6 +217,42 @@ export default function ProgramadorHome() {
     return frota.filter((f) => (f.setor || "").trim().toLowerCase() === alvo);
   }, [frota, progEquipe]);
 
+  const norm = (value?: string | null) => (value || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+
+  const funcionarioMudou = (f: Funcionario, draft?: FuncDraftChange) => {
+    const d = draft || { equipe: f.equipe || "", status: f.status || "TRABALHOU" };
+    return (d.equipe || "") !== (f.equipe || "") || (d.status || "") !== (f.status || "");
+  };
+
+  const equipamentoMudou = (eq: Frota, draft?: EquipDraftChange) => {
+    const d = draft || { setor: eq.setor || "", status: eq.status || "OPERACIONAL" };
+    return (d.setor || "") !== (eq.setor || "") || (d.status || "") !== (eq.status || "");
+  };
+
+  const funcionariosDaEquipeFiltrados = useMemo(() => {
+    return funcionariosDaEquipe.filter((f) => {
+      const draft = funcDraft[f.id] || { equipe: f.equipe || "", status: f.status || "TRABALHOU" };
+      const mudou = funcionarioMudou(f, draft);
+      const okChanged = !onlyChangedFunc || mudou;
+      const okStatus = filterFuncStatus === "TODOS" || (draft.status || "") === filterFuncStatus;
+      const termo = norm(funcSearch);
+      const okBusca = !termo || norm(f.name).includes(termo) || norm(f.matricula).includes(termo) || norm(draft.equipe).includes(termo);
+      return okChanged && okStatus && okBusca;
+    });
+  }, [funcionariosDaEquipe, funcDraft, onlyChangedFunc, filterFuncStatus, funcSearch]);
+
+  const equipamentosDaEquipeFiltrados = useMemo(() => {
+    return equipamentosDaEquipe.filter((eq) => {
+      const draft = equipDraft[eq.id] || { setor: eq.setor || "", status: eq.status || "OPERACIONAL" };
+      const mudou = equipamentoMudou(eq, draft);
+      const okChanged = !onlyChangedEquip || mudou;
+      const okStatus = filterEquipStatus === "TODOS" || (draft.status || "") === filterEquipStatus;
+      const termo = norm(equipSearch);
+      const okBusca = !termo || norm(eq.frota).includes(termo) || norm(eq.tipo).includes(termo) || norm(draft.setor).includes(termo);
+      return okChanged && okStatus && okBusca;
+    });
+  }, [equipamentosDaEquipe, equipDraft, onlyChangedEquip, filterEquipStatus, equipSearch]);
+
   const funcMudancasPendentes = useMemo(
     () => Object.entries(funcDraft).filter(([id, draft]) => {
       const atual = funcionarios.find((f) => f.id === id);
@@ -295,6 +337,15 @@ export default function ProgramadorHome() {
     setForceIntegracaoOverride(false);
     setForceReason("");
   }, [progData, progPeriodo, progOgs, progEquipe]);
+
+  useEffect(() => {
+    setFuncSearch("");
+    setEquipSearch("");
+    setOnlyChangedFunc(false);
+    setOnlyChangedEquip(false);
+    setFilterFuncStatus("TODOS");
+    setFilterEquipStatus("TODOS");
+  }, [progEquipe]);
 
   const atualizarFuncDraft = (id: string, campo: keyof FuncDraftChange, valor: string) => {
     setValidationIssues([]);
@@ -885,14 +936,35 @@ export default function ProgramadorHome() {
 
             {/* Painel operacional por equipe (Pessoas + Equipamentos) */}
             <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">Gestão da equipe selecionada</h3>
-                  <p className="text-xs text-muted-foreground">Altere equipe e status de pessoas e equipamentos com aplicação imediata.</p>
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Gestão da equipe selecionada</h3>
+                    <p className="text-xs text-muted-foreground">Altere equipe e status de pessoas e equipamentos com aplicação imediata.</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Pendências</p>
+                    <p className="text-sm font-bold text-primary">{funcMudancasPendentes + equipMudancasPendentes}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Pendências</p>
-                  <p className="text-sm font-bold text-primary">{funcMudancasPendentes + equipMudancasPendentes}</p>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="rounded-lg border border-border bg-muted/20 px-2 py-2">
+                    <p className="text-[11px] text-muted-foreground">Pessoas</p>
+                    <p className="text-sm font-bold">{funcionariosDaEquipe.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/20 px-2 py-2">
+                    <p className="text-[11px] text-muted-foreground">Equipamentos</p>
+                    <p className="text-sm font-bold">{equipamentosDaEquipe.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-2">
+                    <p className="text-[11px] text-amber-700">Pendências Pessoas</p>
+                    <p className="text-sm font-bold text-amber-800">{funcMudancasPendentes}</p>
+                  </div>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-2">
+                    <p className="text-[11px] text-blue-700">Pendências Equip.</p>
+                    <p className="text-sm font-bold text-blue-800">{equipMudancasPendentes}</p>
+                  </div>
                 </div>
               </div>
 
@@ -906,9 +978,27 @@ export default function ProgramadorHome() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Users2 className="w-4 h-4 text-primary" />
-                          <h4 className="text-sm font-semibold">Pessoas da equipe ({funcionariosDaEquipe.length})</h4>
+                          <h4 className="text-sm font-semibold">Pessoas da equipe ({funcionariosDaEquipeFiltrados.length}/{funcionariosDaEquipe.length})</h4>
                         </div>
                         <span className="text-xs text-muted-foreground">{funcMudancasPendentes} mudança(s)</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <Input
+                          value={funcSearch}
+                          onChange={(e) => setFuncSearch(e.target.value)}
+                          placeholder="Buscar por nome, matrícula ou equipe..."
+                        />
+                        <Select value={filterFuncStatus} onValueChange={setFilterFuncStatus}>
+                          <SelectTrigger><SelectValue placeholder="Filtrar status" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="TODOS">Todos os status</SelectItem>
+                            {STATUS_FUNC.map(s => <SelectItem key={`ffs-${s}`} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant={onlyChangedFunc ? "default" : "outline"} onClick={() => setOnlyChangedFunc((v) => !v)}>
+                          {onlyChangedFunc ? "Somente alterados: ON" : "Somente alterados"}
+                        </Button>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -924,11 +1014,11 @@ export default function ProgramadorHome() {
                       </div>
 
                       <div className="space-y-2 max-h-72 overflow-auto pr-1">
-                        {funcionariosDaEquipe.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">Nenhum funcionário vinculado a esta equipe.</p>
-                        ) : funcionariosDaEquipe.map((f) => {
+                        {funcionariosDaEquipeFiltrados.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Nenhum funcionário encontrado com os filtros atuais.</p>
+                        ) : funcionariosDaEquipeFiltrados.map((f) => {
                           const draft = funcDraft[f.id] || { equipe: f.equipe || "", status: f.status || "TRABALHOU" };
-                          const mudou = (draft.equipe || "") !== (f.equipe || "") || (draft.status || "") !== (f.status || "");
+                          const mudou = funcionarioMudou(f, draft);
                           return (
                             <div key={f.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
                               <div className="flex items-center justify-between gap-2 mb-2">
@@ -956,9 +1046,27 @@ export default function ProgramadorHome() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Truck className="w-4 h-4 text-primary" />
-                          <h4 className="text-sm font-semibold">Equipamentos da equipe ({equipamentosDaEquipe.length})</h4>
+                          <h4 className="text-sm font-semibold">Equipamentos da equipe ({equipamentosDaEquipeFiltrados.length}/{equipamentosDaEquipe.length})</h4>
                         </div>
                         <span className="text-xs text-muted-foreground">{equipMudancasPendentes} mudança(s)</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <Input
+                          value={equipSearch}
+                          onChange={(e) => setEquipSearch(e.target.value)}
+                          placeholder="Buscar por frota, tipo ou equipe..."
+                        />
+                        <Select value={filterEquipStatus} onValueChange={setFilterEquipStatus}>
+                          <SelectTrigger><SelectValue placeholder="Filtrar status" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="TODOS">Todos os status</SelectItem>
+                            {STATUS_EQUIP.map(s => <SelectItem key={`fes-${s}`} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant={onlyChangedEquip ? "default" : "outline"} onClick={() => setOnlyChangedEquip((v) => !v)}>
+                          {onlyChangedEquip ? "Somente alterados: ON" : "Somente alterados"}
+                        </Button>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -974,11 +1082,11 @@ export default function ProgramadorHome() {
                       </div>
 
                       <div className="space-y-2 max-h-72 overflow-auto pr-1">
-                        {equipamentosDaEquipe.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">Nenhum equipamento vinculado a esta equipe.</p>
-                        ) : equipamentosDaEquipe.map((eq) => {
+                        {equipamentosDaEquipeFiltrados.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Nenhum equipamento encontrado com os filtros atuais.</p>
+                        ) : equipamentosDaEquipeFiltrados.map((eq) => {
                           const draft = equipDraft[eq.id] || { setor: eq.setor || "", status: eq.status || "OPERACIONAL" };
-                          const mudou = (draft.setor || "") !== (eq.setor || "") || (draft.status || "") !== (eq.status || "");
+                          const mudou = equipamentoMudou(eq, draft);
                           return (
                             <div key={eq.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
                               <div className="flex items-center justify-between gap-2 mb-2">
