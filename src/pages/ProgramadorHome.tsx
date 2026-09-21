@@ -15,7 +15,16 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 const STATUS_FUNC = ["TRABALHOU", "AFASTADO", "DEMITIDO", "DISPOSIÇÃO", "FÉRIAS", "FALTA"];
-const STATUS_EQUIP = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE"];
+const STATUS_EQUIP = [
+  "OPERACIONAL",
+  "MANUTENÇÃO",
+  "INOPERANTE",
+  "DEVOLVER",
+  "DEVOLVIDO",
+  "DIÁRIA",
+  "DISPOSIÇÃO",
+  "INATIVO (LEGADO)",
+];
 const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 
 interface Equipe { id: string; nome: string; responsavel: string | null; }
