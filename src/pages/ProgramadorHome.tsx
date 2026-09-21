@@ -721,6 +721,7 @@ export default function ProgramadorHome() {
         equipe_origem: u.atual.equipe || null,
         equipe_destino: u.draft.equipe || null,
         status: normalizeFuncionarioStatus(u.draft.status),
+        company_id: companyId || u.atual.company_id || null,
         obs: `Movimentação via WF Programador (Equipe: ${progEquipe || "-"})${overrideTag}`,
       });
     });
@@ -736,6 +737,7 @@ export default function ProgramadorHome() {
         equipe_destino: u.draft.setor || null,
         status: normalizeEquipamentoStatus(u.draft.status),
         responsavel_destino: equipeResponsavel(u.draft.setor || ""),
+        company_id: companyId || u.atual.company_id || null,
         obs: `Movimentação via WF Programador (Equipe: ${progEquipe || "-"})${overrideTag}`,
       });
     });
@@ -857,6 +859,7 @@ export default function ProgramadorHome() {
           funcao: funcao,
           status: "ativo",
           data_admissao: dataBase,
+          company_id: companyId || null,
           obs: novaObs || null,
         });
 
@@ -883,6 +886,7 @@ export default function ProgramadorHome() {
     if (modoFunc === "status") payload.status = normalizeFuncionarioStatus(funcStatus);
     if (modoFunc === "transferencia") { payload.equipe_origem = funcEquipeOrig; payload.equipe_destino = funcEquipeDest; }
     if (modoFunc === "demissao") payload.status = "demitido";
+    payload.company_id = companyId || null;
     payload.obs = funcObs || null;
     let upErr: any = null;
     if (funcId && (modoFunc === "status" || modoFunc === "transferencia" || modoFunc === "demissao")) {
@@ -944,6 +948,7 @@ export default function ProgramadorHome() {
       payload.equipe_destino = equipEquipeDest;
       payload.responsavel_destino = equipeResponsavel(equipEquipeDest);
     }
+    payload.company_id = companyId || null;
     const updatePayload: any = {};
     if (modoEquip === "status") updatePayload.status = normalizeEquipamentoStatus(equipStatus);
     if (modoEquip === "transferencia") updatePayload.setor = equipEquipeDest || null;
