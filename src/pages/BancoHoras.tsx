@@ -600,15 +600,19 @@ export default function BancoHoras() {
   const ensureImportJobAberto = async (): Promise<ImportPdfJob | null> => {
     if (!profile?.company_id) return null;
 
-    const { data: existing } = await (supabase as any)
+    const query = (supabase as any)
       .from("ponto_he_import_jobs")
       .select("id, competencia, equipe_nome, status, metadata, created_at, applied_at")
       .eq("company_id", profile.company_id)
       .eq("competencia", competenciaAtual)
       .in("status", ["criado", "arquivos_enviados", "parseado", "precheck_pendente", "precheck_ok", "erro"])
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    const { data: existing } = await (equipeFiltro !== "TODAS"
+      ? query.eq("equipe_nome", equipeFiltro)
+      : query.is("equipe_nome", null)
+    ).maybeSingle();
 
     if (existing) {
       setImportJobAtual(existing as ImportPdfJob);
@@ -640,6 +644,11 @@ export default function BancoHoras() {
     if (!profile?.company_id) return;
     if (competenciaStatus.status === "fechado") {
       toast({ title: "Competência fechada", description: "Reabra a competência antes de importar PDF.", variant: "destructive" });
+      return;
+    }
+
+    if (equipeFiltro === "TODAS") {
+      toast({ title: "Selecione uma equipe", description: "Para operação prática, envie PDF por equipe para o mês ir aparecendo por carga.", variant: "destructive" });
       return;
     }
 
@@ -691,19 +700,29 @@ export default function BancoHoras() {
           .eq("id", job.id)
           .eq("company_id", profile.company_id);
 
-        let seedInfo = "";
-        if (equipeFiltro !== "TODAS") {
-          const { data: seedData, error: seedError } = await (supabase as any).rpc("fn_ponto_he_pdf_seed_job_team", {
-            p_job_id: job.id,
-          });
-          if (!seedError && seedData?.ok) {
-            seedInfo = ` · Equipe pré-carregada: ${Number(seedData.seeded || 0)} colaborador(es)`;
-          }
+        const { data: seedData, error: seedError } = await (supabase as any).rpc("fn_ponto_he_pdf_seed_job_team", {
+          p_job_id: job.id,
+        });
+        if (seedError || !seedData?.ok) {
+          throw new Error(seedError?.message || "Falha ao pré-carregar colaboradores da equipe.");
+        }
+
+        const { data: preData, error: preError } = await (supabase as any).rpc("fn_ponto_he_pdf_precheck", { p_job_id: job.id });
+        if (preError || !preData?.ok) {
+          throw new Error(preError?.message || preData?.error || "Falha no pré-check da importação.");
+        }
+
+        const { data: applyData, error: applyError } = await (supabase as any).rpc("fn_ponto_he_pdf_apply", {
+          p_job_id: job.id,
+          p_observacao: `Apply automático no upload (${equipeFiltro}) em ${new Date().toISOString()}`,
+        });
+        if (applyError || !applyData?.ok) {
+          throw new Error(applyError?.message || applyData?.error || "Falha ao aplicar importação da equipe.");
         }
 
         toast({
-          title: "PDF(s) anexado(s)",
-          description: `${files.length} arquivo(s) enviado(s).${seedInfo} Próximo passo: rodar pré-check e aplicar importação.`,
+          title: "Equipe importada com sucesso",
+          description: `${files.length} PDF(s) enviado(s) · equipe ${equipeFiltro} atualizada no mês ${mes}.`,
         });
 
         await carregarDados();
