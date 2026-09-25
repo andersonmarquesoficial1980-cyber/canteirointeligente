@@ -2676,7 +2676,7 @@ export default function BancoHoras() {
                         {historicoAbertoId === r.id && (
                           <div className="rounded-lg bg-muted/30 p-3 border border-border/60">
                             <p className="text-xs text-muted-foreground mb-2">
-                              Período: {fmtDate(r.periodo_inicio || `${mes}-01`)} a {fmtDate(r.periodo_fim || competenciaAtual)} · Jornada padrão {jornadaPadrao}h
+                              Período: {fmtDate(historicoDias[0]?.data || r.periodo_inicio || `${mes}-01`)} a {fmtDate(historicoDias[historicoDias.length - 1]?.data || r.periodo_fim || competenciaAtual)} · Jornada padrão {jornadaPadrao}h
                             </p>
 
                             <div className="overflow-auto max-h-[420px] border rounded-md bg-background">
@@ -2705,10 +2705,11 @@ export default function BancoHoras() {
                                       <td className="p-2 whitespace-nowrap">{fmtDate(linha.data)}</td>
                                       <td className="p-2">
                                         <input
-                                          type="time"
-                                          step={60}
+                                          type="text"
+                                          inputMode="numeric"
                                           autoComplete="off"
                                           name={`entrada1-${linha.data}`}
+                                          placeholder="--:--"
                                           value={normalizarHoraInput(linha.entrada1) || ""}
                                           onChange={(e) => {
                                             const val = e.target.value || "-";
@@ -2724,10 +2725,11 @@ export default function BancoHoras() {
                                       </td>
                                       <td className="p-2">
                                         <input
-                                          type="time"
-                                          step={60}
+                                          type="text"
+                                          inputMode="numeric"
                                           autoComplete="off"
                                           name={`saida1-${linha.data}`}
+                                          placeholder="--:--"
                                           value={normalizarHoraInput(linha.saida1) || ""}
                                           onChange={(e) => {
                                             const val = e.target.value || "-";
@@ -2743,10 +2745,11 @@ export default function BancoHoras() {
                                       </td>
                                       <td className="p-2">
                                         <input
-                                          type="time"
-                                          step={60}
+                                          type="text"
+                                          inputMode="numeric"
                                           autoComplete="off"
                                           name={`entrada2-${linha.data}`}
+                                          placeholder="--:--"
                                           value={normalizarHoraInput(linha.entrada2) || ""}
                                           onChange={(e) => {
                                             const val = e.target.value || "-";
@@ -2762,10 +2765,11 @@ export default function BancoHoras() {
                                       </td>
                                       <td className="p-2">
                                         <input
-                                          type="time"
-                                          step={60}
+                                          type="text"
+                                          inputMode="numeric"
                                           autoComplete="off"
                                           name={`saida2-${linha.data}`}
+                                          placeholder="--:--"
                                           value={normalizarHoraInput(linha.saida2) || ""}
                                           onChange={(e) => {
                                             const val = e.target.value || "-";
