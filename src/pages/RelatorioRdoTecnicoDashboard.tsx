@@ -22,9 +22,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  PieChart,
-  Pie,
-  Cell,
   CartesianGrid,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +56,9 @@ interface RdoTecnicoRow {
   cbuq_fx3_ton: number | null;
   gap_ton: number | null;
   bgs_ton: number | null;
+  geogrelha_m2: number | null;
+  bgtc_m3: number | null;
+  macadame_m3: number | null;
   sma_ton: number | null;
   cauq_rima_ton: number | null;
   bm25_ton: number | null;
@@ -90,11 +90,6 @@ const TAB_META: { id: AssuntoTab; label: string; icon: any }[] = [
   { id: "ocorrencias", label: "Ocorrências", icon: AlertTriangle },
   { id: "sem_producao", label: "Sem Produção", icon: FileText },
 ];
-
-const STATUS_COLORS: Record<string, string> = {
-  enviado: "#22c55e",
-  rascunho: "#f59e0b",
-};
 
 function fmtDate(d?: string | null) {
   if (!d) return "-";
@@ -154,6 +149,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           houve_ocorrencia, descricao_ocorrencia, observacoes,
           fresagem_m2, rap_espumado_m2, binder_ton, cbuq_fx3_ton,
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
+          geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
         .eq("company_id", companyId)
@@ -180,12 +176,12 @@ export default function RelatorioRdoTecnicoDashboard() {
       if (engIds.length > 0) {
         const { data: perfis } = await supabase
           .from("profiles")
-          .select("user_id,nome,nome_completo")
+          .select("user_id,nome_completo,email")
           .in("user_id", engIds);
 
         const map: Record<string, string> = {};
         (perfis || []).forEach((p: any) => {
-          map[p.user_id] = p.nome_completo || p.nome || "—";
+          map[p.user_id] = p.nome_completo || p.email || "Sem nome";
         });
         setEngMap(map);
       } else {
@@ -254,6 +250,8 @@ export default function RelatorioRdoTecnicoDashboard() {
     const semProducao = total - comProducao;
     const comOcorrencia = linhasFiltradas.filter(r => r.houve_ocorrencia).length;
     const comChuva = linhasFiltradas.filter(r => r.choveu).length;
+    const usinaNaoAtendeu = linhasFiltradas.filter(r => r.usina_atendeu === false).length;
+    const naoConformeEquip = linhasFiltradas.filter(r => r.equipamentos_conforme === false).length;
 
     const conformeCount = linhasFiltradas.filter(r => r.equipamentos_conforme === true).length;
     const avaliadosEquip = linhasFiltradas.filter(r => r.equipamentos_conforme !== null).length;
@@ -270,6 +268,17 @@ export default function RelatorioRdoTecnicoDashboard() {
       + (r.egl_ton || 0)
       + (r.rachao_ton || 0), 0);
 
+    const areaM2 = linhasFiltradas.reduce((acc, r) => acc
+      + (r.fresagem_m2 || 0)
+      + (r.rap_espumado_m2 || 0)
+      + (r.geogrelha_m2 || 0), 0);
+
+    const volumeM3 = linhasFiltradas.reduce((acc, r) => acc
+      + (r.bgtc_m3 || 0)
+      + (r.macadame_m3 || 0), 0);
+
+    const semNomeEng = linhasFiltradas.filter((r) => !r.engenheiro_id || !engMap[r.engenheiro_id]).length;
+
     return {
       total,
       enviados,
@@ -278,24 +287,22 @@ export default function RelatorioRdoTecnicoDashboard() {
       semProducao,
       comOcorrencia,
       comChuva,
+      usinaNaoAtendeu,
+      naoConformeEquip,
       percConformeEquip,
       toneladas,
+      areaM2,
+      volumeM3,
+      semNomeEng,
     };
-  }, [linhasFiltradas]);
-
-  const serieStatus = useMemo(() => {
-    const enviado = linhasFiltradas.filter(r => r.status === "enviado").length;
-    const rascunho = linhasFiltradas.filter(r => r.status !== "enviado").length;
-    return [
-      { name: "Enviado", value: enviado, color: STATUS_COLORS.enviado },
-      { name: "Rascunho", value: rascunho, color: STATUS_COLORS.rascunho },
-    ];
-  }, [linhasFiltradas]);
+  }, [linhasFiltradas, engMap]);
 
   const serieEngenheiro = useMemo(() => {
     const map: Record<string, number> = {};
     linhasFiltradas.forEach((r) => {
-      const nome = r.engenheiro_id ? (engMap[r.engenheiro_id] || "Sem nome") : "Sem engenheiro";
+      const nome = r.engenheiro_id
+        ? (engMap[r.engenheiro_id] || `Sem cadastro (${r.engenheiro_id.slice(0, 6)})`)
+        : "Sem engenheiro";
       map[nome] = (map[nome] || 0) + 1;
     });
 
@@ -529,37 +536,52 @@ export default function RelatorioRdoTecnicoDashboard() {
           </div>
         ) : (
           <>
-            <section className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-              <KpiCard icon={ClipboardList} titulo="Total" valor={fmtNum(kpis.total)} cor="text-slate-700" />
-              <KpiCard icon={Activity} titulo="Enviados" valor={fmtNum(kpis.enviados)} cor="text-green-700" />
-              <KpiCard icon={FileText} titulo="Rascunhos" valor={fmtNum(kpis.rascunhos)} cor="text-amber-700" />
+            <section className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              <KpiCard icon={ClipboardList} titulo="Lançamentos" valor={fmtNum(kpis.total)} cor="text-slate-700" />
               <KpiCard icon={BarChart3} titulo="Com Produção" valor={fmtNum(kpis.comProducao)} cor="text-blue-700" />
               <KpiCard icon={AlertTriangle} titulo="Sem Produção" valor={fmtNum(kpis.semProducao)} cor="text-red-700" />
-              <KpiCard icon={CloudRain} titulo="Com Chuva" valor={fmtNum(kpis.comChuva)} cor="text-cyan-700" />
-              <KpiCard icon={Gauge} titulo="Conforme Eq." valor={`${fmtNum(kpis.percConformeEquip, 1)}%`} cor="text-violet-700" />
+              <KpiCard icon={Gauge} titulo="Não Conforme" valor={fmtNum(kpis.naoConformeEquip)} cor="text-orange-700" />
               <KpiCard icon={Users} titulo="Toneladas" valor={fmtNum(kpis.toneladas, 1)} cor="text-emerald-700" />
+              <KpiCard icon={Activity} titulo="Área (m²)" valor={fmtNum(kpis.areaM2, 1)} cor="text-indigo-700" />
             </section>
+
+            {(kpis.semNomeEng > 0 || kpis.usinaNaoAtendeu > 0 || kpis.naoConformeEquip > 0 || kpis.semProducao > 0) && (
+              <section className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm">
+                <p className="font-semibold text-amber-900">Atenções do período</p>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-amber-800">
+                  <span>• Sem produção: {kpis.semProducao}</span>
+                  <span>• Usina não atendeu: {kpis.usinaNaoAtendeu}</span>
+                  <span>• Não conformidade de equipamentos: {kpis.naoConformeEquip}</span>
+                  <span>• Engenheiro sem nome resolvido: {kpis.semNomeEng}</span>
+                </div>
+              </section>
+            )}
 
             <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="rounded-2xl border bg-white p-4">
-                <h3 className="text-sm font-bold mb-2">Status dos lançamentos</h3>
-                <div className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={serieStatus} dataKey="value" nameKey="name" innerRadius={60} outerRadius={95}>
-                        {serieStatus.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip formatter={(v: any, name: any) => [`${v}`, name]} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <h3 className="text-sm font-bold mb-2">Status e qualidade operacional</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-xl border p-3 bg-green-50 border-green-200">
+                    <p className="text-xs text-green-700 font-semibold uppercase">Enviados</p>
+                    <p className="text-2xl font-black text-green-800">{fmtNum(kpis.enviados)}</p>
+                  </div>
+                  <div className="rounded-xl border p-3 bg-amber-50 border-amber-200">
+                    <p className="text-xs text-amber-700 font-semibold uppercase">Rascunhos</p>
+                    <p className="text-2xl font-black text-amber-800">{fmtNum(kpis.rascunhos)}</p>
+                  </div>
+                  <div className="rounded-xl border p-3 bg-cyan-50 border-cyan-200">
+                    <p className="text-xs text-cyan-700 font-semibold uppercase">Com chuva</p>
+                    <p className="text-2xl font-black text-cyan-800">{fmtNum(kpis.comChuva)}</p>
+                  </div>
+                  <div className="rounded-xl border p-3 bg-violet-50 border-violet-200">
+                    <p className="text-xs text-violet-700 font-semibold uppercase">Conformidade eq.</p>
+                    <p className="text-2xl font-black text-violet-800">{fmtNum(kpis.percConformeEquip, 1)}%</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2">
-                  {serieStatus.map((s) => (
-                    <div key={s.name} className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
-                      {s.name}: {s.value}
-                    </div>
-                  ))}
+                <div className="mt-3 text-xs text-muted-foreground">
+                  Volume técnico: <span className="font-semibold text-foreground">{fmtNum(kpis.toneladas, 1)} t</span> ·
+                  Área: <span className="font-semibold text-foreground"> {fmtNum(kpis.areaM2, 1)} m²</span> ·
+                  Base/Volume: <span className="font-semibold text-foreground"> {fmtNum(kpis.volumeM3, 1)} m³</span>
                 </div>
               </div>
 
@@ -567,10 +589,10 @@ export default function RelatorioRdoTecnicoDashboard() {
                 <h3 className="text-sm font-bold mb-2">Top engenheiros por lançamentos</h3>
                 <div className="h-[250px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={serieEngenheiro} layout="vertical" margin={{ left: 30, right: 10, top: 4, bottom: 4 }}>
+                    <BarChart data={serieEngenheiro} layout="vertical" margin={{ left: 10, right: 10, top: 4, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis type="number" allowDecimals={false} />
-                      <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" width={220} tick={{ fontSize: 12 }} />
                       <Tooltip />
                       <Bar dataKey="value" fill="#2563eb" radius={[0, 6, 6, 0]} />
                     </BarChart>
