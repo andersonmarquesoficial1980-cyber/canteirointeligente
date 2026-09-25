@@ -559,6 +559,17 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], competenciaAtua
 
         if (!atual) continue;
 
+        const periodoMatch = line.match(/(?:per[ií]odo|periodo)\s*[:\-]?\s*(\d{2}\/\d{2}\/\d{4})\s*(?:a|até|-)\s*(\d{2}\/\d{2}\/\d{4})/i);
+        if (periodoMatch?.[1] && periodoMatch?.[2] && atual) {
+          const iniIso = brDateToIso(periodoMatch[1]);
+          const fimIso = brDateToIso(periodoMatch[2]);
+          if (iniIso && fimIso) {
+            atual.periodo_inicio = iniIso;
+            atual.periodo_fim = fimIso;
+          }
+          continue;
+        }
+
         const dataMatch = line.match(DATA_RE);
         const horas = Array.from(line.matchAll(HORA_RE)).map((m) => m[0]);
         const linhaAssinatura = /^por\s+.+\s+em\s+\d{2}\/\d{2}\/\d{4}\s+às\s+\d{2}:\d{2}/i.test(line);
@@ -574,13 +585,25 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], competenciaAtua
           }
 
           const iso = brDateToIso(dataMatch[1]);
-          if (iso && iso.startsWith(`${ano}-${String(mes).padStart(2, "0")}`)) {
+          const inicioRef = atual.periodo_inicio || periodoInicio;
+          const fimRef = atual.periodo_fim || periodoFim;
+
+          const entrada1 = horas[0] && horas[0] !== "00:00" ? horas[0] : undefined;
+          const saida1 = horas[1] && horas[1] !== "00:00" ? horas[1] : undefined;
+          const entrada2 = horas[2] && horas[3] && horas[2] !== "00:00" && horas[3] !== "00:00" ? horas[2] : undefined;
+          const saida2 = horas[2] && horas[3] && horas[2] !== "00:00" && horas[3] !== "00:00" ? horas[3] : undefined;
+
+          if (iso && iso >= inicioRef && iso <= fimRef) {
+            if (!entrada1 && !saida1 && !entrada2 && !saida2) {
+              continue;
+            }
+
             atual.batidas.push({
               data: iso,
-              entrada1: horas[0],
-              saida1: horas[1],
-              entrada2: horas[2],
-              saida2: horas[3],
+              entrada1,
+              saida1,
+              entrada2,
+              saida2,
               linha_origem: line,
             });
             totalBatidas += 1;
