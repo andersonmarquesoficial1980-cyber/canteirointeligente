@@ -1725,8 +1725,13 @@ export default function BancoHoras() {
     }
 
     const staffIds = Array.from(new Set(selecionados.map((x) => x.staff_id as string)));
-    const ini = selecionados.map((x) => x.r.periodo_inicio || `${mes}-01`).sort()[0];
-    const fim = selecionados.map((x) => x.r.periodo_fim || competenciaAtual).sort().reverse()[0];
+    const ini = selecionados
+      .map((x) => x.r.periodo_inicio || `${mes}-01`)
+      .sort()[0];
+    const fim = selecionados
+      .map((x) => x.r.periodo_fim || competenciaAtual)
+      .sort()
+      .reverse()[0];
 
     const { data: regsData, error: regsError } = await (supabase as any)
       .from("ponto_registros")
@@ -1762,19 +1767,70 @@ export default function BancoHoras() {
       const fimColab = r.periodo_fim || competenciaAtual;
       const datas = eachDateIso(inicio, fimColab);
       const freqTurno = new Map<string, number>();
-      let diasComBatida = 0;
+      const ajustesDiarios = Array.isArray(r.payload?.he_manual?.daily_adjustments)
+        ? (r.payload?.he_manual?.daily_adjustments as AjusteDiario[])
+        : [];
+      const ajustePorData = new Map(ajustesDiarios.map((a) => [a.data, a]));
+
+      const initial = r.payload?.he_manual?.initial;
+      const heBefore = r.payload?.he_before;
+      const he70Antes = Number(initial?.he_70_horas ?? heBefore?.he_70_horas ?? r.he_70_horas);
+      const he100Antes = Number(initial?.he_100_horas ?? heBefore?.he_100_horas ?? r.he_100_horas);
+      const heTotalAntes = Number(initial?.total_horas_extras_horas ?? heBefore?.total_horas_extras_horas ?? (he70Antes + he100Antes));
+      const he70Atual = Number(Number(r.he_70_horas || 0).toFixed(2));
+      const he100Atual = Number(Number(r.he_100_horas || 0).toFixed(2));
+      const heTotalAtual = Number(Number(r.total_horas_extras_horas || 0).toFixed(2));
+      const fatorAproxAntes = heTotalAtual > 0 ? Number((heTotalAntes / heTotalAtual).toFixed(4)) : 1;
 
       for (const dataIso of datas) {
         const diaRegs = byStaffDate.get(`${staff_id}|${dataIso}`) || [];
         const batidas = extrairBatidasPorDia(diaRegs);
         const horas = calcHorasTrabalhadasPorDia(diaRegs);
         const heDia = Number(Math.max(horas - jornada, 0).toFixed(2));
-        const saldoDia = Number((horas - jornada).toFixed(2));
+
+        const ajusteDia = ajustePorData.get(dataIso);
+        const possuiAntesReal = Boolean(
+          ajusteDia && (
+            ajusteDia.entrada1_antes ||
+            ajusteDia.saida1_antes ||
+            ajusteDia.entrada2_antes ||
+            ajusteDia.saida2_antes ||
+            ajusteDia.he_dia_antes !== undefined
+          )
+        );
+
+        const heDiaAntesAprox = Number((heDia * fatorAproxAntes).toFixed(2));
+        const usarAprox = !possuiAntesReal && heTotalAntes > 0;
+
+        const entradaAntes = possuiAntesReal
+          ? horaOuTraco(ajusteDia?.entrada1_antes)
+          : usarAprox
+            ? batidas.entrada1
+            : "";
+        const saidaAntes = possuiAntesReal
+          ? horaOuTraco(ajusteDia?.saida1_antes)
+          : usarAprox
+            ? batidas.saida1
+            : "";
+        const entrada2Antes = possuiAntesReal
+          ? horaOuTraco(ajusteDia?.entrada2_antes)
+          : usarAprox
+            ? batidas.entrada2
+            : "";
+        const saida2Antes = possuiAntesReal
+          ? horaOuTraco(ajusteDia?.saida2_antes)
+          : usarAprox
+            ? batidas.saida2
+            : "";
+        const heDiaAntes = possuiAntesReal
+          ? Number(Number(ajusteDia?.he_dia_antes || 0).toFixed(2))
+          : usarAprox
+            ? heDiaAntesAprox
+            : null;
 
         const entradaRef = batidas.entrada1 === "-" ? "" : batidas.entrada1;
         const saidaRef = batidas.saida1 === "-" ? "" : batidas.saida1;
         if (entradaRef || saidaRef) {
-          diasComBatida += 1;
           const chaveTurno = `${entradaRef}-${saidaRef}`;
           freqTurno.set(chaveTurno, (freqTurno.get(chaveTurno) || 0) + 1);
         }
@@ -1783,13 +1839,18 @@ export default function BancoHoras() {
           Colaborador: r.colaborador_nome,
           Equipe: r.equipe_label,
           Data: dataIso,
-          "1ª Entrada": batidas.entrada1,
-          "1ª Saída": batidas.saida1,
+          "Entrada antes": entradaAntes,
+          "Saída antes": saidaAntes,
+          "2ª Entrada antes": entrada2Antes,
+          "2ª Saída antes": saida2Antes,
+          "H.E. dia antes": heDiaAntes,
+          "Entrada atualizada": batidas.entrada1,
+          "Saída atualizada": batidas.saida1,
           "2ª Entrada": batidas.entrada2,
           "2ª Saída": batidas.saida2,
           "Horas trabalhadas (dia)": Number(horas.toFixed(2)),
           "H.E. dia": heDia,
-          "Saldo dia (h)": saldoDia,
+          "Antes disponível": possuiAntesReal ? "SIM" : usarAprox ? "APROX" : "NÃO",
         });
       }
 
@@ -1800,20 +1861,16 @@ export default function BancoHoras() {
         Colaborador: r.colaborador_nome,
         Equipe: r.equipe_label,
         Função: r.funcao_label,
-        "Período início": inicio,
-        "Período fim": fimColab,
-        "Dias com batida": diasComBatida,
-        "Crédito (h)": Number(Number(r.credito_horas || 0).toFixed(2)),
-        "Débito (h)": Number(Number(r.debito_horas || 0).toFixed(2)),
-        "H.E. 70% (h)": Number(Number(r.he_70_horas || 0).toFixed(2)),
-        "H.E. 100% (h)": Number(Number(r.he_100_horas || 0).toFixed(2)),
-        "H.E. total (h)": Number(Number(r.total_horas_extras_horas || 0).toFixed(2)),
-        "Ad. Noturno (h)": Number(Number(r.adicional_noturno_horas || 0).toFixed(2)),
-        "Horas Normais (h)": Number(Number(r.horas_normais || 0).toFixed(2)),
-        "Saldo (h)": Number((Number(r.credito_horas || 0) - Number(r.debito_horas || 0)).toFixed(2)),
-        "Entrada padrão": entradaPadrao || "-",
-        "Saída padrão": saidaPadrao || "-",
-        "Atualizado em": r.updated_at || "",
+        "HE total antes (70%+100%)": Number(heTotalAntes.toFixed(2)),
+        "HE 70% antes": Number(he70Antes.toFixed(2)),
+        "HE 100% antes": Number(he100Antes.toFixed(2)),
+        "HE 70% atualizada": he70Atual,
+        "HE 100% atualizada": he100Atual,
+        "HE total atualizada (70%+100%)": heTotalAtual,
+        "Diferença HE total (atual - antes)": Number((heTotalAtual - heTotalAntes).toFixed(2)),
+        "Entrada padrão atualizada": entradaPadrao || "-",
+        "Saída padrão atualizada": saidaPadrao || "-",
+        "Fonte horas antes": initial ? "payload.he_manual.initial" : heBefore ? "payload.he_before" : "sem_snapshot",
       });
     }
 
@@ -1898,30 +1955,36 @@ export default function BancoHoras() {
 
     aplicarTiposExcel(wsResumo, {
       numeros: [
-        "Dias com batida",
-        "Crédito (h)",
-        "Débito (h)",
-        "H.E. 70% (h)",
-        "H.E. 100% (h)",
-        "H.E. total (h)",
-        "Ad. Noturno (h)",
-        "Horas Normais (h)",
-        "Saldo (h)",
+        "HE total antes (70%+100%)",
+        "HE 70% antes",
+        "HE 100% antes",
+        "HE 70% atualizada",
+        "HE 100% atualizada",
+        "HE total atualizada (70%+100%)",
+        "Diferença HE total (atual - antes)",
       ],
-      datasIso: ["Período início", "Período fim"],
-      horas: ["Entrada padrão", "Saída padrão"],
+      horas: ["Entrada padrão atualizada", "Saída padrão atualizada"],
     });
 
     aplicarTiposExcel(wsDetalhe, {
-      numeros: ["Horas trabalhadas (dia)", "H.E. dia", "Saldo dia (h)"],
+      numeros: ["H.E. dia antes", "Horas trabalhadas (dia)", "H.E. dia"],
       datasIso: ["Data"],
-      horas: ["1ª Entrada", "1ª Saída", "2ª Entrada", "2ª Saída"],
+      horas: [
+        "Entrada antes",
+        "Saída antes",
+        "2ª Entrada antes",
+        "2ª Saída antes",
+        "Entrada atualizada",
+        "Saída atualizada",
+        "2ª Entrada",
+        "2ª Saída",
+      ],
     });
 
-    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo Atual");
-    XLSX.utils.book_append_sheet(wb, wsDetalhe, "Batidas Dia a Dia");
+    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo Nome a Nome");
+    XLSX.utils.book_append_sheet(wb, wsDetalhe, "Batidas Atualizadas");
 
-    XLSX.writeFile(wb, `WF_BancoHoras_Atual_${mes}.xlsx`, {
+    XLSX.writeFile(wb, `WF_BancoHoras_Relatorio_Ajustado_${mes}.xlsx`, {
       cellStyles: true,
     });
   };
@@ -2319,12 +2382,12 @@ export default function BancoHoras() {
               <div>
                 <p className="text-sm font-semibold flex items-center gap-2"><SlidersHorizontal className="w-4 h-4" /> Ajuste individual de H.E.</p>
                 <p className="text-xs text-muted-foreground">
-                  Edite colaborador por colaborador e exporte o retrato atual da competência (sem comparativo antes/depois).
+                  Edite colaborador por colaborador, registrando motivo. Depois exporte comparativo de antes/depois.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" onClick={exportarComparativoExcel} disabled={importadosFiltrados.length === 0}>
-                  <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Excel atual (nome a nome)
+                  <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Excel nome a nome
                 </Button>
                 <Button variant="outline" size="sm" onClick={exportarComparativoPdf} disabled={comparativoAjustes.length === 0}>
                   <Printer className="w-3.5 h-3.5 mr-1" /> PDF antes/depois
