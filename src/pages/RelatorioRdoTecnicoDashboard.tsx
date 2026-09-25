@@ -615,16 +615,16 @@ export default function RelatorioRdoTecnicoDashboard() {
   const exportarCsvExecutivo = () => {
     const linhasResumo = [
       ["Métrica", "Período Atual", "Período Anterior", "Variação Absoluta", "Variação %"],
-      ["Lançamentos", kpis.total, kpisPrev.total, comparativo.total.delta, comparativo.total.perc],
-      ["Com produção", kpis.comProducao, kpisPrev.comProducao, comparativo.comProducao.delta, comparativo.comProducao.perc],
-      ["Sem produção", kpis.semProducao, kpisPrev.semProducao, comparativo.semProducao.delta, comparativo.semProducao.perc],
-      ["Não conformidade equipamentos", kpis.naoConformeEquip, kpisPrev.naoConformeEquip, comparativo.naoConforme.delta, comparativo.naoConforme.perc],
-      ["Toneladas (t)", kpis.toneladas, kpisPrev.toneladas, comparativo.toneladas.delta, comparativo.toneladas.perc],
-      ["Área (m²)", kpis.areaM2, kpisPrev.areaM2, comparativo.areaM2.delta, comparativo.areaM2.perc],
-      ["Volume (m³)", kpis.volumeM3, kpisPrev.volumeM3, comparativo.volumeM3.delta, comparativo.volumeM3.perc],
-      ["Com chuva", kpis.comChuva, kpisPrev.comChuva, comparativo.chuva.delta, comparativo.chuva.perc],
-      ["Ocorrências", kpis.comOcorrencia, kpisPrev.comOcorrencia, comparativo.ocorrencias.delta, comparativo.ocorrencias.perc],
-      ["Conformidade equipamentos (%)", kpis.percConformeEquip, kpisPrev.percConformeEquip, comparativo.conformidade.delta, comparativo.conformidade.perc],
+      ["RDOs lançados", kpis.total, kpisPrev.total, comparativo.total.delta, comparativo.total.perc],
+      ["RDOs com produção", kpis.comProducao, kpisPrev.comProducao, comparativo.comProducao.delta, comparativo.comProducao.perc],
+      ["RDOs sem produção", kpis.semProducao, kpisPrev.semProducao, comparativo.semProducao.delta, comparativo.semProducao.perc],
+      ["RDOs não conformes (equipamentos)", kpis.naoConformeEquip, kpisPrev.naoConformeEquip, comparativo.naoConforme.delta, comparativo.naoConforme.perc],
+      ["Produção (t)", kpis.toneladas, kpisPrev.toneladas, comparativo.toneladas.delta, comparativo.toneladas.perc],
+      ["Produção (m²)", kpis.areaM2, kpisPrev.areaM2, comparativo.areaM2.delta, comparativo.areaM2.perc],
+      ["Produção (m³)", kpis.volumeM3, kpisPrev.volumeM3, comparativo.volumeM3.delta, comparativo.volumeM3.perc],
+      ["RDOs com chuva", kpis.comChuva, kpisPrev.comChuva, comparativo.chuva.delta, comparativo.chuva.perc],
+      ["RDOs com ocorrência", kpis.comOcorrencia, kpisPrev.comOcorrencia, comparativo.ocorrencias.delta, comparativo.ocorrencias.perc],
+      ["Conformidade dos equipamentos (%)", kpis.percConformeEquip, kpisPrev.percConformeEquip, comparativo.conformidade.delta, comparativo.conformidade.perc],
     ];
 
     const linhasPendencias = [
@@ -828,12 +828,12 @@ export default function RelatorioRdoTecnicoDashboard() {
         ) : (
           <>
             <section className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              <KpiCard icon={ClipboardList} titulo="Lançamentos" valor={fmtNum(kpis.total)} cor="text-slate-700" delta={comparativo.total.delta} deltaPct={comparativo.total.perc} />
-              <KpiCard icon={BarChart3} titulo="Com Produção" valor={fmtNum(kpis.comProducao)} cor="text-blue-700" delta={comparativo.comProducao.delta} deltaPct={comparativo.comProducao.perc} />
-              <KpiCard icon={AlertTriangle} titulo="Sem Produção" valor={fmtNum(kpis.semProducao)} cor="text-red-700" delta={comparativo.semProducao.delta} deltaPct={comparativo.semProducao.perc} invert />
-              <KpiCard icon={Gauge} titulo="Não Conforme" valor={fmtNum(kpis.naoConformeEquip)} cor="text-orange-700" delta={comparativo.naoConforme.delta} deltaPct={comparativo.naoConforme.perc} invert />
-              <KpiCard icon={Users} titulo="Toneladas" valor={fmtNum(kpis.toneladas, 1)} cor="text-emerald-700" delta={comparativo.toneladas.delta} deltaPct={comparativo.toneladas.perc} />
-              <KpiCard icon={Activity} titulo="Área (m²)" valor={fmtNum(kpis.areaM2, 1)} cor="text-indigo-700" delta={comparativo.areaM2.delta} deltaPct={comparativo.areaM2.perc} />
+              <KpiCard icon={ClipboardList} titulo="RDOs lançados" valor={fmtNum(kpis.total)} cor="text-slate-700" delta={comparativo.total.delta} deltaPct={comparativo.total.perc} />
+              <KpiCard icon={BarChart3} titulo="RDOs com produção" valor={fmtNum(kpis.comProducao)} cor="text-blue-700" delta={comparativo.comProducao.delta} deltaPct={comparativo.comProducao.perc} />
+              <KpiCard icon={AlertTriangle} titulo="RDOs sem produção" valor={fmtNum(kpis.semProducao)} cor="text-red-700" delta={comparativo.semProducao.delta} deltaPct={comparativo.semProducao.perc} invert />
+              <KpiCard icon={Gauge} titulo="RDOs não conformes" valor={fmtNum(kpis.naoConformeEquip)} cor="text-orange-700" delta={comparativo.naoConforme.delta} deltaPct={comparativo.naoConforme.perc} invert />
+              <KpiCard icon={Users} titulo="Produção (t)" valor={fmtNum(kpis.toneladas, 1)} cor="text-emerald-700" delta={comparativo.toneladas.delta} deltaPct={comparativo.toneladas.perc} />
+              <KpiCard icon={Activity} titulo="Produção (m²)" valor={fmtNum(kpis.areaM2, 1)} cor="text-indigo-700" delta={comparativo.areaM2.delta} deltaPct={comparativo.areaM2.perc} />
             </section>
 
             <section className="rounded-2xl border bg-white p-4">
@@ -845,12 +845,12 @@ export default function RelatorioRdoTecnicoDashboard() {
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
-                <ComparativoCard titulo="Lançamentos" atual={comparativo.total.atual} anterior={comparativo.total.anterior} delta={comparativo.total.delta} perc={comparativo.total.perc} />
-                <ComparativoCard titulo="Com produção" atual={comparativo.comProducao.atual} anterior={comparativo.comProducao.anterior} delta={comparativo.comProducao.delta} perc={comparativo.comProducao.perc} />
-                <ComparativoCard titulo="Sem produção" atual={comparativo.semProducao.atual} anterior={comparativo.semProducao.anterior} delta={comparativo.semProducao.delta} perc={comparativo.semProducao.perc} invert />
-                <ComparativoCard titulo="Toneladas (t)" atual={comparativo.toneladas.atual} anterior={comparativo.toneladas.anterior} delta={comparativo.toneladas.delta} perc={comparativo.toneladas.perc} frac={1} />
-                <ComparativoCard titulo="Área (m²)" atual={comparativo.areaM2.atual} anterior={comparativo.areaM2.anterior} delta={comparativo.areaM2.delta} perc={comparativo.areaM2.perc} frac={1} />
-                <ComparativoCard titulo="Conformidade (%)" atual={comparativo.conformidade.atual} anterior={comparativo.conformidade.anterior} delta={comparativo.conformidade.delta} perc={comparativo.conformidade.perc} frac={1} />
+                <ComparativoCard titulo="RDOs lançados" atual={comparativo.total.atual} anterior={comparativo.total.anterior} delta={comparativo.total.delta} perc={comparativo.total.perc} />
+                <ComparativoCard titulo="RDOs com produção" atual={comparativo.comProducao.atual} anterior={comparativo.comProducao.anterior} delta={comparativo.comProducao.delta} perc={comparativo.comProducao.perc} />
+                <ComparativoCard titulo="RDOs sem produção" atual={comparativo.semProducao.atual} anterior={comparativo.semProducao.anterior} delta={comparativo.semProducao.delta} perc={comparativo.semProducao.perc} invert />
+                <ComparativoCard titulo="Produção (t)" atual={comparativo.toneladas.atual} anterior={comparativo.toneladas.anterior} delta={comparativo.toneladas.delta} perc={comparativo.toneladas.perc} frac={1} />
+                <ComparativoCard titulo="Produção (m²)" atual={comparativo.areaM2.atual} anterior={comparativo.areaM2.anterior} delta={comparativo.areaM2.delta} perc={comparativo.areaM2.perc} frac={1} />
+                <ComparativoCard titulo="Conformidade de equipamentos (%)" atual={comparativo.conformidade.atual} anterior={comparativo.conformidade.anterior} delta={comparativo.conformidade.delta} perc={comparativo.conformidade.perc} frac={1} />
               </div>
             </section>
 
@@ -868,7 +868,7 @@ export default function RelatorioRdoTecnicoDashboard() {
                     Não conformidade de equipamentos: {kpis.naoConformeEquip}
                   </button>
                   <span className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-slate-700 font-semibold">
-                    Engenheiro sem nome resolvido: {kpis.semNomeEng}
+                    Engenheiro sem identificação: {kpis.semNomeEng}
                   </span>
                 </div>
               </section>
@@ -876,7 +876,7 @@ export default function RelatorioRdoTecnicoDashboard() {
 
             <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="rounded-2xl border bg-white p-4">
-                <h3 className="text-sm font-bold mb-2">Status e qualidade operacional</h3>
+                <h3 className="text-sm font-bold mb-2">Status de lançamento e qualidade operacional</h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="rounded-xl border p-3 bg-green-50 border-green-200">
                     <p className="text-xs text-green-700 font-semibold uppercase">Enviados</p>
@@ -891,7 +891,7 @@ export default function RelatorioRdoTecnicoDashboard() {
                     <p className="text-2xl font-black text-cyan-800">{fmtNum(kpis.comChuva)}</p>
                   </div>
                   <div className="rounded-xl border p-3 bg-violet-50 border-violet-200">
-                    <p className="text-xs text-violet-700 font-semibold uppercase">Conformidade eq.</p>
+                    <p className="text-xs text-violet-700 font-semibold uppercase">Conformidade dos equipamentos</p>
                     <p className="text-2xl font-black text-violet-800">{fmtNum(kpis.percConformeEquip, 1)}%</p>
                   </div>
                 </div>
