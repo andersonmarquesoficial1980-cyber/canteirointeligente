@@ -838,7 +838,7 @@ export default function BancoHoras() {
       .select("id, competencia, equipe_nome, status, metadata, created_at, applied_at")
       .eq("company_id", profile.company_id)
       .eq("competencia", competenciaAtual)
-      .in("status", ["criado", "arquivos_enviados", "parseado", "precheck_pendente", "precheck_ok", "erro"])
+      .in("status", ["criado", "arquivos_enviados", "parseado", "precheck_pendente", "erro"])
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -918,7 +918,7 @@ export default function BancoHoras() {
 
           const { error: fileRowError } = await (supabase as any)
             .from("ponto_he_import_arquivos")
-            .insert({
+            .upsert({
               company_id: profile.company_id,
               job_id: job.id,
               file_name: file.name,
@@ -927,7 +927,11 @@ export default function BancoHoras() {
               parser_payload: {
                 size_bytes: file.size,
                 mime: file.type || "application/pdf",
+                uploaded_at: new Date().toISOString(),
               },
+            }, {
+              onConflict: "company_id,job_id,file_name",
+              ignoreDuplicates: false,
             });
 
           if (fileRowError) throw new Error(`Falha registro ${file.name}: ${fileRowError.message}`);
@@ -951,8 +955,12 @@ export default function BancoHoras() {
         }
 
         const parsed = await extrairColaboradoresDoPdfPontoMais(files as File[], competenciaAtual, equipeFiltro !== "TODAS" ? equipeFiltro : undefined);
+        if (parsed.colaboradores.length === 0) {
+          throw new Error("Não consegui extrair colaboradores do PDF. O arquivo pode estar em imagem/scan sem texto selecionável. Me envie esse PDF para calibrar OCR/parser.");
+        }
+
         let stagedColaboradores = 0;
-        if (parsed.colaboradores.length > 0) {
+        {
           const { data: stageData, error: stageError } = await (supabase as any).rpc("fn_ponto_he_pdf_stage_payload", {
             p_job_id: job.id,
             p_payload: { colaboradores: parsed.colaboradores },
