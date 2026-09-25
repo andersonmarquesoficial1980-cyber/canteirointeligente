@@ -72,6 +72,16 @@ interface FiltroOption {
   label: string;
 }
 
+interface PendenciaItem {
+  id: string;
+  prioridade: "Alta" | "Média";
+  prioridadePeso: number;
+  assunto: string;
+  detalhe: string;
+  tabDestino: AssuntoTab;
+  rdo: RdoTecnicoRow;
+}
+
 type AssuntoTab =
   | "geral"
   | "producao"
@@ -323,6 +333,70 @@ export default function RelatorioRdoTecnicoDashboard() {
     };
   }, [linhasFiltradas]);
 
+  const pendenciasPrioritarias = useMemo(() => {
+    const itens: PendenciaItem[] = [];
+
+    linhasFiltradas.forEach((r) => {
+      if (!r.houve_producao) {
+        const motivo = r.motivo_sem_producao === "Outro"
+          ? (r.outro_motivo_sem_producao || "Outro")
+          : (r.motivo_sem_producao || "Sem motivo informado");
+        itens.push({
+          id: `${r.id}-sem-producao`,
+          prioridade: "Alta",
+          prioridadePeso: 1,
+          assunto: "Sem produção",
+          detalhe: motivo,
+          tabDestino: "sem_producao",
+          rdo: r,
+        });
+      }
+
+      if (r.usina_atendeu === false) {
+        itens.push({
+          id: `${r.id}-usina`,
+          prioridade: "Alta",
+          prioridadePeso: 1,
+          assunto: "Usina não atendeu",
+          detalhe: r.usina_nao_atendeu_motivo || "Sem motivo informado",
+          tabDestino: "usina",
+          rdo: r,
+        });
+      }
+
+      if (r.equipamentos_conforme === false) {
+        itens.push({
+          id: `${r.id}-equip`,
+          prioridade: "Alta",
+          prioridadePeso: 1,
+          assunto: "Não conformidade de equipamentos",
+          detalhe: r.equipamentos_nao_conformes || "Sem descrição",
+          tabDestino: "equipamentos",
+          rdo: r,
+        });
+      }
+
+      if (r.houve_ocorrencia) {
+        itens.push({
+          id: `${r.id}-ocorrencia`,
+          prioridade: "Média",
+          prioridadePeso: 2,
+          assunto: "Ocorrência",
+          detalhe: r.descricao_ocorrencia || "Sem descrição",
+          tabDestino: "ocorrencias",
+          rdo: r,
+        });
+      }
+    });
+
+    return itens
+      .sort((a, b) => {
+        if (a.prioridadePeso !== b.prioridadePeso) return a.prioridadePeso - b.prioridadePeso;
+        return b.rdo.data.localeCompare(a.rdo.data);
+      })
+      .slice(0, 20);
+  }, [linhasFiltradas]);
+
   const engenheiroOptions = useMemo(() => {
     return Object.entries(engMap)
       .map(([id, nome]) => ({ value: id, label: nome }))
@@ -548,11 +622,19 @@ export default function RelatorioRdoTecnicoDashboard() {
             {(kpis.semNomeEng > 0 || kpis.usinaNaoAtendeu > 0 || kpis.naoConformeEquip > 0 || kpis.semProducao > 0) && (
               <section className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm">
                 <p className="font-semibold text-amber-900">Atenções do período</p>
-                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-amber-800">
-                  <span>• Sem produção: {kpis.semProducao}</span>
-                  <span>• Usina não atendeu: {kpis.usinaNaoAtendeu}</span>
-                  <span>• Não conformidade de equipamentos: {kpis.naoConformeEquip}</span>
-                  <span>• Engenheiro sem nome resolvido: {kpis.semNomeEng}</span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button onClick={() => setTab("sem_producao")} className="rounded-lg border border-red-300 bg-red-50 px-2.5 py-1 text-red-700 font-semibold hover:bg-red-100">
+                    Sem produção: {kpis.semProducao}
+                  </button>
+                  <button onClick={() => setTab("usina")} className="rounded-lg border border-orange-300 bg-orange-50 px-2.5 py-1 text-orange-700 font-semibold hover:bg-orange-100">
+                    Usina não atendeu: {kpis.usinaNaoAtendeu}
+                  </button>
+                  <button onClick={() => setTab("equipamentos")} className="rounded-lg border border-yellow-300 bg-yellow-50 px-2.5 py-1 text-yellow-700 font-semibold hover:bg-yellow-100">
+                    Não conformidade de equipamentos: {kpis.naoConformeEquip}
+                  </button>
+                  <span className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-slate-700 font-semibold">
+                    Engenheiro sem nome resolvido: {kpis.semNomeEng}
+                  </span>
                 </div>
               </section>
             )}
@@ -599,6 +681,64 @@ export default function RelatorioRdoTecnicoDashboard() {
                   </ResponsiveContainer>
                 </div>
               </div>
+            </section>
+
+            <section className="rounded-2xl border bg-white overflow-hidden">
+              <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
+                <h3 className="text-sm font-bold">Pendências prioritárias para validação</h3>
+                <span className="text-xs text-muted-foreground">{pendenciasPrioritarias.length} item(ns)</span>
+              </div>
+
+              {pendenciasPrioritarias.length === 0 ? (
+                <div className="px-4 py-8 text-sm text-muted-foreground text-center">
+                  Nenhuma pendência crítica encontrada nos filtros atuais.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[980px] text-sm">
+                    <thead className="bg-muted/40">
+                      <tr className="text-left text-xs text-muted-foreground">
+                        <th className="px-3 py-2">Prioridade</th>
+                        <th className="px-3 py-2">Data</th>
+                        <th className="px-3 py-2">OGS</th>
+                        <th className="px-3 py-2">Engenheiro</th>
+                        <th className="px-3 py-2">Equipe</th>
+                        <th className="px-3 py-2">Assunto</th>
+                        <th className="px-3 py-2">Detalhe</th>
+                        <th className="px-3 py-2">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendenciasPrioritarias.map((p) => (
+                        <tr key={p.id} className="border-t align-top">
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.prioridade === "Alta" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                              {p.prioridade}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">{fmtDate(p.rdo.data)}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{p.rdo.ogs_number || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{p.rdo.engenheiro_id ? (engMap[p.rdo.engenheiro_id] || "-") : "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{p.rdo.equipe || "-"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{p.assunto}</td>
+                          <td className="px-3 py-2 max-w-[360px]">{p.detalhe}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            <button
+                              onClick={() => {
+                                setTab(p.tabDestino);
+                                setBusca((p.rdo.ogs_number || p.rdo.equipe || "").trim());
+                              }}
+                              className="rounded-lg border px-2.5 py-1 text-xs font-semibold hover:bg-muted"
+                            >
+                              Ver assunto
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
 
             <section className="rounded-2xl border bg-white p-3">
