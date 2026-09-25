@@ -561,7 +561,18 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], competenciaAtua
 
         const dataMatch = line.match(DATA_RE);
         const horas = Array.from(line.matchAll(HORA_RE)).map((m) => m[0]);
+        const linhaAssinatura = /^por\s+.+\s+em\s+\d{2}\/\d{2}\/\d{4}\s+às\s+\d{2}:\d{2}/i.test(line);
+        const linhaDiaValida = /^(seg|ter|qua|qui|sex|s[áa]b|dom),?\s+\d{2}\/\d{2}\/\d{4}/i.test(line);
+
         if (dataMatch?.[1] && horas.length > 0) {
+          if (linhaAssinatura) {
+            continue;
+          }
+
+          if (!linhaDiaValida) {
+            continue;
+          }
+
           const iso = brDateToIso(dataMatch[1]);
           if (iso && iso.startsWith(`${ano}-${String(mes).padStart(2, "0")}`)) {
             atual.batidas.push({
