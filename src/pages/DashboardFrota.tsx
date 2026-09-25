@@ -223,7 +223,7 @@ export default function DashboardFrota() {
                 <Award className="w-4 h-4 text-amber-400" /> Mais Utilizados (30d)
               </h2>
               {maiUsados.length === 0 ? (
-                <p className="text-slate-500 text-xs text-center py-8">Sem dados</p>
+                <p className="text-slate-500 text-xs text-center py-8">Nenhum registro no período</p>
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={maiUsados} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
@@ -252,7 +252,7 @@ export default function DashboardFrota() {
                   <Fuel className="w-4 h-4 text-orange-400" /> Abastecimento Hoje
                 </h2>
                 {abast.length === 0 ? (
-                  <p className="text-slate-500 text-xs text-center py-3">Nenhum abastecimento registrado</p>
+                  <p className="text-slate-500 text-xs text-center py-3">Nenhum abastecimento registrado hoje</p>
                 ) : (
                   <div className="space-y-1.5 max-h-36 overflow-y-auto">
                     {abast.map((a, i) => (

@@ -283,7 +283,7 @@ export default function DashboardObras() {
               </h2>
               <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2.5 content-start">
                 {obras.map((o, i) => <ObraCard key={i} obra={o} />)}
-                {obras.length === 0 && <p className="text-slate-500 text-sm col-span-2 text-center py-8">Nenhuma obra encontrada</p>}
+                {obras.length === 0 && <p className="text-slate-500 text-sm col-span-2 text-center py-8">Nenhum registro de obra no período</p>}
               </div>
             </div>
 
@@ -324,7 +324,7 @@ export default function DashboardObras() {
                   <Calendar className="w-4 h-4 text-amber-400" /> RDOs de hoje
                 </h2>
                 {rdosHoje.length === 0 ? (
-                  <p className="text-slate-500 text-xs text-center py-4">Nenhum RDO ainda hoje</p>
+                  <p className="text-slate-500 text-xs text-center py-4">Nenhum RDO lançado hoje</p>
                 ) : (
                   <div className="overflow-y-auto space-y-2">
                     {rdosHoje.map((r, i) => (

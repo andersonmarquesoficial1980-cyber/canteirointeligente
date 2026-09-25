@@ -267,7 +267,7 @@ export default function DashboardManutencao() {
                   <FileText className="w-4 h-4 text-amber-400" /> Docs Vencendo (60d)
                 </h2>
                 {docs.length === 0 ? (
-                  <p className="text-emerald-400 text-xs text-center py-4">Todos os docs em dia ✓</p>
+                  <p className="text-emerald-400 text-xs text-center py-4">Nenhum documento vencido no período ✓</p>
                 ) : (
                   <div className="overflow-y-auto space-y-2">
                     {docs.map((d, i) => (
@@ -292,7 +292,7 @@ export default function DashboardManutencao() {
                   <XCircle className="w-3.5 h-3.5 text-red-400" /> Inoperantes hoje ({equipManut.length})
                 </h2>
                 {equipManut.length === 0 ? (
-                  <p className="text-slate-500 text-xs">Nenhum equipamento inoperante</p>
+                  <p className="text-slate-500 text-xs">Nenhum equipamento inoperante hoje</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {equipManut.map((e, i) => (
