@@ -188,9 +188,10 @@ function fmtDateTime(dt: string | null): string {
 }
 
 function normalizeText(v: string): string {
+  // Evita \p{Diacritic} por compatibilidade com WebView/Safari antigos
   return (v || "")
     .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
