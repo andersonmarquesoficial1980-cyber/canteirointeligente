@@ -886,10 +886,19 @@ export default function BancoHoras() {
     input.type = "file";
     input.accept = "application/pdf";
     input.multiple = true;
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    input.style.width = "1px";
+    input.style.height = "1px";
+    input.value = "";
+    document.body.appendChild(input);
 
     input.onchange = async () => {
       const files = Array.from(input.files || []);
-      if (files.length === 0) return;
+      if (files.length === 0) {
+        input.remove();
+        return;
+      }
 
       setLoadingImportPdf(true);
       try {
@@ -977,6 +986,7 @@ export default function BancoHoras() {
         toast({ title: "Erro no upload de PDF", description: e?.message || "Falha ao anexar arquivos.", variant: "destructive" });
       } finally {
         setLoadingImportPdf(false);
+        input.remove();
       }
     };
 
