@@ -254,6 +254,7 @@ export default function VisualizarRdo() {
                 <Info label="Turno" value={rdo.turno || "-"} />
                 <Info label="Clima" value={rdo.clima || "-"} />
                 <Info label="Encarregado" value={rdo.encarregado || rdo.responsavel || "-"} />
+                <Info label="Engenheiro responsável" value={rdo.engenheiro_responsavel || "-"} />
                 <Info label="Preenchido por" value={rdo.preenchido_por || "-"} />
                 {rdo.editado_em && (
                   <Info
