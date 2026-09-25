@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useMemo } from "react";
 import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock, ChevronLeft, ChevronRight, RotateCcw, X, Printer, SlidersHorizontal, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -333,6 +334,238 @@ function extrairBatidasPorDia(regs: Registro[]): {
     entrada2: fmtHoraCurta(entradas[1]?.hora),
     saida2: fmtHoraCurta(saidas[1]?.hora),
   };
+}
+
+if (typeof window !== "undefined") {
+  try {
+    GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.mjs", import.meta.url).toString();
+  } catch {
+    // fallback: em alguns ambientes sem import.meta.url, o pdf.js tenta worker default
+  }
+}
+
+type ParsedBatidaPdf = {
+  data: string;
+  entrada1?: string;
+  saida1?: string;
+  entrada2?: string;
+  saida2?: string;
+  linha_origem?: string;
+};
+
+type ParsedColaboradorPdf = {
+  nome: string;
+  matricula?: string;
+  equipe?: string;
+  funcao?: string;
+  periodo_inicio: string;
+  periodo_fim: string;
+  credito_horas: number;
+  debito_horas: number;
+  horas_normais: number;
+  he_70_horas: number;
+  he_100_horas: number;
+  adicional_noturno_horas: number;
+  total_horas_extras_horas: number;
+  batidas: ParsedBatidaPdf[];
+};
+
+function parseHoraTokenParaDecimal(token: string | null | undefined): number {
+  const raw = String(token || "").trim();
+  if (!raw) return 0;
+
+  const hhmm = raw.match(/^(\d{1,3}):(\d{2})$/);
+  if (hhmm) {
+    const hh = Number(hhmm[1]);
+    const mm = Number(hhmm[2]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return 0;
+    return Number((hh + (mm / 60)).toFixed(2));
+  }
+
+  const dec = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw;
+  const num = Number(dec);
+  return Number.isFinite(num) ? Number(num.toFixed(2)) : 0;
+}
+
+function brDateToIso(raw: string): string | null {
+  const m = String(raw || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+function linhaPareceNomeColaborador(line: string): boolean {
+  const raw = String(line || "").trim();
+  if (raw.length < 8) return false;
+  if (/\d{2}\/\d{2}\/\d{4}/.test(raw)) return false;
+  if (/^(cr[eé]dito|d[eé]bito|he\s*70|he\s*100|ad\.?\s*noturno|horas\s+normais|saldo)/i.test(raw)) return false;
+
+  const semPontuacao = raw.replace(/[0-9:.,;()\[\]{}\-_/\\]/g, "").trim();
+  return semPontuacao.split(" ").length >= 2 && semPontuacao === semPontuacao.toUpperCase();
+}
+
+async function extrairColaboradoresDoPdfPontoMais(files: File[], competenciaAtual: string, equipePadrao?: string): Promise<{ colaboradores: ParsedColaboradorPdf[]; totalBatidas: number }> {
+  const [ano, mes] = competenciaAtual.split("-").map(Number);
+  const periodoInicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const periodoFim = `${ano}-${String(mes).padStart(2, "0")}-${String(new Date(ano, mes, 0).getDate()).padStart(2, "0")}`;
+
+  const byKey = new Map<string, ParsedColaboradorPdf>();
+  let totalBatidas = 0;
+
+  const garantirColaborador = (nome: string, matricula?: string | null): ParsedColaboradorPdf => {
+    const nomeLimpo = String(nome || "").trim();
+    const mat = String(matricula || "").trim();
+    const key = `${normalizeText(nomeLimpo)}|${normalizeMatricula(mat)}`;
+
+    const existente = byKey.get(key);
+    if (existente) return existente;
+
+    const novo: ParsedColaboradorPdf = {
+      nome: nomeLimpo,
+      matricula: mat || undefined,
+      equipe: equipePadrao || undefined,
+      funcao: undefined,
+      periodo_inicio: periodoInicio,
+      periodo_fim: periodoFim,
+      credito_horas: 0,
+      debito_horas: 0,
+      horas_normais: 0,
+      he_70_horas: 0,
+      he_100_horas: 0,
+      adicional_noturno_horas: 0,
+      total_horas_extras_horas: 0,
+      batidas: [],
+    };
+
+    byKey.set(key, novo);
+    return novo;
+  };
+
+  const HORA_RE = /\b(?:[01]?\d|2[0-3]):[0-5]\d\b/g;
+  const DATA_RE = /\b(\d{2}\/\d{2}\/\d{4})\b/;
+
+  for (const file of files) {
+    const ab = await file.arrayBuffer();
+    const pdf = await getDocument({ data: ab }).promise;
+
+    let atual: ParsedColaboradorPdf | null = null;
+
+    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
+      const page = await pdf.getPage(pageNo);
+      const tc = await page.getTextContent();
+      const items = (tc.items || []) as any[];
+
+      const linhasMap = new Map<number, Array<{ x: number; s: string }>>();
+      for (const item of items) {
+        const s = String(item?.str || "").trim();
+        if (!s) continue;
+        const y = Math.round(Number(item?.transform?.[5] || 0));
+        const x = Number(item?.transform?.[4] || 0);
+        if (!linhasMap.has(y)) linhasMap.set(y, []);
+        linhasMap.get(y)!.push({ x, s });
+      }
+
+      const ys = Array.from(linhasMap.keys()).sort((a, b) => b - a);
+      const linhas = ys.map((y) => {
+        const parts = (linhasMap.get(y) || []).sort((a, b) => a.x - b.x).map((p) => p.s);
+        return parts.join(" ").replace(/\s+/g, " ").trim();
+      }).filter(Boolean);
+
+      for (const line of linhas) {
+        const nomeMatch = line.match(/(?:colaborador|funcion[aá]rio|nome)\s*[:\-]\s*(.+)$/i);
+        if (nomeMatch?.[1]) {
+          atual = garantirColaborador(nomeMatch[1]);
+          continue;
+        }
+
+        const matMatch = line.match(/(?:matr[ií]cula|registro|c[oó]d(?:igo)?)\s*[:\-]\s*([A-Za-z0-9.\-/_]+)/i);
+        if (matMatch?.[1] && atual) {
+          const novo = garantirColaborador(atual.nome, matMatch[1]);
+          novo.equipe = atual.equipe || novo.equipe;
+          novo.funcao = atual.funcao || novo.funcao;
+          atual = novo;
+          continue;
+        }
+
+        const equipeMatch = line.match(/equipe\s*[:\-]\s*(.+)$/i);
+        if (equipeMatch?.[1] && atual) {
+          atual.equipe = equipeMatch[1].trim();
+          continue;
+        }
+
+        const funcaoMatch = line.match(/fun[cç][aã]o\s*[:\-]\s*(.+)$/i);
+        if (funcaoMatch?.[1] && atual) {
+          atual.funcao = funcaoMatch[1].trim();
+          continue;
+        }
+
+        if (!atual && linhaPareceNomeColaborador(line)) {
+          atual = garantirColaborador(line);
+          continue;
+        }
+
+        if (!atual) continue;
+
+        const dataMatch = line.match(DATA_RE);
+        const horas = Array.from(line.matchAll(HORA_RE)).map((m) => m[0]);
+        if (dataMatch?.[1] && horas.length > 0) {
+          const iso = brDateToIso(dataMatch[1]);
+          if (iso && iso.startsWith(`${ano}-${String(mes).padStart(2, "0")}`)) {
+            atual.batidas.push({
+              data: iso,
+              entrada1: horas[0],
+              saida1: horas[1],
+              entrada2: horas[2],
+              saida2: horas[3],
+              linha_origem: line,
+            });
+            totalBatidas += 1;
+          }
+          continue;
+        }
+
+        const horaToken = (line.match(/(\d{1,3}:\d{2}|\d+[.,]\d{1,2})/) || [null])[1];
+        if (!horaToken) continue;
+
+        if (/cr[eé]dito|saldo\s*positivo|extra\s*time|hora\s*extra/i.test(line)) {
+          atual.credito_horas = Number((atual.credito_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
+        } else if (/d[eé]bito|saldo\s*negativo|falta/i.test(line)) {
+          atual.debito_horas = Number((atual.debito_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
+        } else if (/horas?\s*normais/i.test(line)) {
+          atual.horas_normais = Number((atual.horas_normais + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
+        } else if (/he\s*70|70%/i.test(line)) {
+          atual.he_70_horas = Number((atual.he_70_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
+        } else if (/he\s*100|100%/i.test(line)) {
+          atual.he_100_horas = Number((atual.he_100_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
+        } else if (/ad\.?\s*noturno/i.test(line)) {
+          atual.adicional_noturno_horas = Number((atual.adicional_noturno_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
+        }
+      }
+    }
+  }
+
+  const colaboradores = Array.from(byKey.values())
+    .map((c) => {
+      const heTotal = c.total_horas_extras_horas > 0
+        ? c.total_horas_extras_horas
+        : (c.he_70_horas + c.he_100_horas) > 0
+          ? Number((c.he_70_horas + c.he_100_horas).toFixed(2))
+          : c.credito_horas;
+
+      const batidasUnicas = new Map<string, ParsedBatidaPdf>();
+      for (const b of c.batidas) {
+        const key = `${b.data}|${b.entrada1 || ""}|${b.saida1 || ""}|${b.entrada2 || ""}|${b.saida2 || ""}`;
+        if (!batidasUnicas.has(key)) batidasUnicas.set(key, b);
+      }
+
+      return {
+        ...c,
+        total_horas_extras_horas: heTotal,
+        batidas: Array.from(batidasUnicas.values()).sort((a, b) => a.data.localeCompare(b.data)),
+      };
+    })
+    .filter((c) => c.nome && c.nome.length > 2);
+
+  return { colaboradores, totalBatidas };
 }
 
 export default function BancoHoras() {
@@ -707,6 +940,19 @@ export default function BancoHoras() {
           throw new Error(seedError?.message || "Falha ao pré-carregar colaboradores da equipe.");
         }
 
+        const parsed = await extrairColaboradoresDoPdfPontoMais(files as File[], competenciaAtual, equipeFiltro);
+        let stagedColaboradores = 0;
+        if (parsed.colaboradores.length > 0) {
+          const { data: stageData, error: stageError } = await (supabase as any).rpc("fn_ponto_he_pdf_stage_payload", {
+            p_job_id: job.id,
+            p_payload: { colaboradores: parsed.colaboradores },
+          });
+          if (stageError || !stageData?.ok) {
+            throw new Error(stageError?.message || stageData?.error || "Falha ao gravar parser de PDF no staging.");
+          }
+          stagedColaboradores = Number(stageData.staged_colaboradores || parsed.colaboradores.length || 0);
+        }
+
         const { data: preData, error: preError } = await (supabase as any).rpc("fn_ponto_he_pdf_precheck", { p_job_id: job.id });
         if (preError || !preData?.ok) {
           throw new Error(preError?.message || preData?.error || "Falha no pré-check da importação.");
@@ -722,7 +968,7 @@ export default function BancoHoras() {
 
         toast({
           title: "Equipe importada com sucesso",
-          description: `${files.length} PDF(s) enviado(s) · equipe ${equipeFiltro} atualizada no mês ${mes}.`,
+          description: `${files.length} PDF(s) enviado(s) · ${stagedColaboradores > 0 ? `${stagedColaboradores} colaborador(es) parseado(s) com ${parsed.totalBatidas} dia(s) com batidas` : "sem parsing detalhado (apenas seed da equipe)"} · equipe ${equipeFiltro} atualizada no mês ${mes}.`,
         });
 
         await carregarDados();
