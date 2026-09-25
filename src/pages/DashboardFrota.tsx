@@ -47,7 +47,7 @@ function KpiCard({ icon: Icon, label, value, sub, color }: {
 
 export default function DashboardFrota() {
   const navigate = useNavigate();
-  const goBack = useSmartBack("/wf-dashboards");
+  const goBack = useSmartBack("/relatorios/dashboards-obras");
   const [diarios, setDiarios] = useState<any[]>([]);
   const [abast, setAbast] = useState<any[]>([]);
   const [maiUsados, setMaisUsados] = useState<{ frota: string; dias: number }[]>([]);
@@ -148,8 +148,8 @@ export default function DashboardFrota() {
           <img src={logoCi} alt="Workflux" className="h-7 opacity-90" />
           <div className="w-px h-8 bg-white/20" />
           <div>
-            <h1 className="text-white font-black text-lg leading-none">Dashboard de Frota</h1>
-            <p className="text-slate-400 text-xs mt-0.5">Equipamentos · Status em tempo real</p>
+            <h1 className="text-white font-black text-lg leading-none">Dashboards Obras · Frota e Equipamentos</h1>
+            <p className="text-slate-400 text-xs mt-0.5">Engenharia de campo · Status operacional em tempo real</p>
           </div>
         </div>
         <div className="flex items-center gap-4">

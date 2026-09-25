@@ -26,36 +26,36 @@ const DASHBOARDS: DashOption[] = [
     id: "obras",
     route: "/relatorios/dashboards-obras/obras",
     title: "Obras & RDOs",
-    subtitle: "Dashboard da Presidência",
-    description: "Obras ativas, andamento, RDOs do dia, cancelamentos e tendências dos últimos 30 dias.",
+    subtitle: "Painel Executivo de Obras",
+    description: "Obras ativas, andamento, RDOs e visão consolidada dos lançamentos no período.",
     icon: HardHat,
     color: "#6366f1",
     gradient: "from-indigo-600/20 to-purple-600/10",
-    audience: "🏛️ Sala da Presidência",
+    audience: "🏗️ Gestão de Obras",
     badge: "Sala Exec.",
   },
   {
     id: "manutencao",
     route: "/relatorios/dashboards-obras/manutencao",
     title: "Manutenção",
-    subtitle: "Dashboard da Diretoria",
-    description: "OS abertas, prioridades urgentes, documentos vencendo e equipamentos inoperantes.",
+    subtitle: "Painel de Manutenção",
+    description: "OS em aberto, prioridades críticas, documentos vencidos/vencendo e equipamentos inoperantes.",
     icon: Wrench,
     color: "#f97316",
     gradient: "from-orange-600/20 to-red-600/10",
-    audience: "🔧 Diretoria de Manutenção",
+    audience: "🛠️ Planejamento de Manutenção",
     badge: "Operacional",
   },
   {
     id: "frota",
     route: "/relatorios/dashboards-obras/frota",
     title: "Frota & Equipamentos",
-    subtitle: "Dashboard de Equipamentos",
-    description: "Status em tempo real, equipamentos mais utilizados, abastecimento do dia e alertas da frota.",
+    subtitle: "Painel de Frota e Equipamentos",
+    description: "Status em tempo real, equipamentos mais utilizados, diários lançados e abastecimento do dia.",
     icon: Truck,
     color: "#10b981",
     gradient: "from-emerald-600/20 to-teal-600/10",
-    audience: "🚜 Engenharia / Campo",
+    audience: "🚜 Engenharia e Campo",
     badge: "Frota",
   },
 ];
@@ -90,7 +90,7 @@ export default function WFDashboards() {
               <LayoutDashboard className="w-5 h-5 text-indigo-400" />
               Dashboards Obras
             </h1>
-            <p className="text-slate-400 text-sm mt-0.5">Painéis para TVs — tempo real, sem login</p>
+            <p className="text-slate-400 text-sm mt-0.5">Painéis para TVs da operação — atualização em tempo real</p>
           </div>
         </div>
         <div className="flex items-center gap-2 text-slate-500 text-sm">
@@ -104,7 +104,7 @@ export default function WFDashboards() {
         <div className="max-w-5xl mx-auto">
           {/* Instrução */}
           <div className="mb-10 text-center">
-            <h2 className="text-white text-2xl font-black mb-3">Escolha o dashboard para esta TV</h2>
+            <h2 className="text-white text-2xl font-black mb-3">Escolha o painel para esta TV</h2>
             <p className="text-slate-400 text-base max-w-xl mx-auto">
               Cada dashboard é otimizado para telas grandes, com atualização automática a cada minuto.
               Clique em <strong className="text-white">Abrir em Tela Cheia</strong> para usar na TV.

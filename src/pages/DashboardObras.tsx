@@ -112,7 +112,7 @@ function ObraCard({ obra }: { obra: ObraStats }) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function DashboardObras() {
   const navigate = useNavigate();
-  const goBack = useSmartBack("/wf-dashboards");
+  const goBack = useSmartBack("/relatorios/dashboards-obras");
   const [obras, setObras] = useState<ObraStats[]>([]);
   const [rdosHoje, setRdosHoje] = useState<RdoDia[]>([]);
   const [rdosSemana, setRdosSemana] = useState<{ data: string; count: number }[]>([]);
@@ -234,8 +234,8 @@ export default function DashboardObras() {
           <img src={logoCi} alt="Workflux" className="h-7 opacity-90" />
           <div className="w-px h-8 bg-white/20" />
           <div>
-            <h1 className="text-white font-black text-lg leading-none">Dashboard de Obras</h1>
-            <p className="text-slate-400 text-xs mt-0.5">Presidência · Acompanhamento em tempo real</p>
+            <h1 className="text-white font-black text-lg leading-none">Dashboards Obras · Executivo</h1>
+            <p className="text-slate-400 text-xs mt-0.5">Engenharia e Diretoria · RDOs e avanço de obras em tempo real</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
