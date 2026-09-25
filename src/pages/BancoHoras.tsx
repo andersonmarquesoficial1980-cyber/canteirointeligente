@@ -160,20 +160,6 @@ interface ComparativoAjuste {
   motivo: string;
 }
 
-interface AlertaHorarioEquipe {
-  resumoId: string;
-  colaborador: string;
-  equipe: string;
-  diasComBatida: number;
-  entradaPadrao: string;
-  saidaPadrao: string;
-  desvioEntradaMin: number;
-  desvioSaidaMin: number;
-  variacaoEntradaMin: number;
-  score: number;
-  motivos: string[];
-}
-
 function fmtHoras(h: number): string {
   const abs = Math.abs(h);
   const hh = Math.floor(abs);
@@ -189,21 +175,6 @@ function fmtDec(v: number): string {
 function toMin(hora: string): number {
   const [h, m] = hora.split(":").map(Number);
   return h * 60 + (m || 0);
-}
-
-function minToHora(min: number): string {
-  if (!Number.isFinite(min)) return "-";
-  const wrap = ((Math.round(min) % 1440) + 1440) % 1440;
-  const h = Math.floor(wrap / 60);
-  const m = wrap % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
-function median(nums: number[]): number {
-  if (!nums.length) return NaN;
-  const sorted = [...nums].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function fmtDateTime(dt: string | null): string {
@@ -661,9 +632,6 @@ export default function BancoHoras() {
   const [ultimaValidacaoResumo, setUltimaValidacaoResumo] = useState<string | null>(null);
   const [statusConfiancaResumo, setStatusConfiancaResumo] = useState<"nao_validado" | "ok" | "divergente">("nao_validado");
   const [detalheConfiancaResumo, setDetalheConfiancaResumo] = useState<string>("");
-  const [loadingAnaliseHorario, setLoadingAnaliseHorario] = useState(false);
-  const [alertasHorarioEquipe, setAlertasHorarioEquipe] = useState<AlertaHorarioEquipe[]>([]);
-  const [filtroSomenteAlertasHorario, setFiltroSomenteAlertasHorario] = useState(false);
 
   useEffect(() => {
     const loadAcl = async () => {
@@ -866,8 +834,6 @@ export default function BancoHoras() {
     setStatusConfiancaResumo("nao_validado");
     setDetalheConfiancaResumo("");
     setUltimaValidacaoResumo(null);
-    setAlertasHorarioEquipe([]);
-    setFiltroSomenteAlertasHorario(false);
     carregarDados();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mes, profile?.company_id]);
@@ -1314,161 +1280,6 @@ export default function BancoHoras() {
     return employeeIdByNome.get(alias);
   };
 
-  useEffect(() => {
-    let active = true;
-
-    const rodarAnaliseHorarioEquipe = async () => {
-      if (!profile?.company_id || !temImportado || resumosEnriquecidos.length === 0) {
-        if (active) setAlertasHorarioEquipe([]);
-        return;
-      }
-
-      const selecionados = resumosEnriquecidos
-        .map((r) => ({ resumo: r, staffId: resolverEmployeeId(r) }))
-        .filter((x) => Boolean(x.staffId)) as Array<{ resumo: ResumoImportadoEnriquecido; staffId: string }>;
-
-      if (selecionados.length === 0) {
-        if (active) setAlertasHorarioEquipe([]);
-        return;
-      }
-
-      const ini = selecionados.map((x) => x.resumo.periodo_inicio || `${mes}-01`).sort()[0];
-      const fim = selecionados.map((x) => x.resumo.periodo_fim || competenciaAtual).sort().reverse()[0];
-
-      setLoadingAnaliseHorario(true);
-      const { data, error } = await (supabase as any)
-        .from("ponto_registros")
-        .select("staff_id, data, hora, tipo")
-        .eq("company_id", profile.company_id)
-        .in("staff_id", Array.from(new Set(selecionados.map((x) => x.staffId))))
-        .gte("data", ini)
-        .lte("data", fim)
-        .order("staff_id")
-        .order("data")
-        .order("hora");
-
-      if (!active) return;
-      if (error) {
-        setLoadingAnaliseHorario(false);
-        setAlertasHorarioEquipe([]);
-        return;
-      }
-
-      const regs = (data || []) as Registro[];
-      const byStaffDate = new Map<string, Registro[]>();
-      for (const rg of regs) {
-        const key = `${rg.staff_id}|${rg.data}`;
-        const arr = byStaffDate.get(key) || [];
-        arr.push(rg);
-        byStaffDate.set(key, arr);
-      }
-
-      const staffStats = selecionados.map(({ resumo, staffId }) => {
-        const datas = eachDateIso(resumo.periodo_inicio || `${mes}-01`, resumo.periodo_fim || competenciaAtual);
-        const entradas1: number[] = [];
-        const saidas1: number[] = [];
-
-        for (const d of datas) {
-          const regsDia = byStaffDate.get(`${staffId}|${d}`) || [];
-          if (!regsDia.length) continue;
-          const batidas = extrairBatidasPorDia(regsDia);
-          const e1 = normalizarHoraInput(batidas.entrada1);
-          const s1 = normalizarHoraInput(batidas.saida1);
-          if (e1 && e1 !== "00:00") entradas1.push(toMin(e1));
-          if (s1 && s1 !== "00:00") saidas1.push(toMin(s1));
-        }
-
-        const entradaMediana = median(entradas1);
-        const saidaMediana = median(saidas1);
-        const variacaoEntradaMin = entradas1.length > 1 ? Math.max(...entradas1) - Math.min(...entradas1) : 0;
-
-        return {
-          resumo,
-          diasComBatida: Math.max(entradas1.length, saidas1.length),
-          entradaMediana,
-          saidaMediana,
-          variacaoEntradaMin,
-        };
-      });
-
-      const equipeBases = new Map<string, { entrada: number; saida: number }>();
-      const byEquipe = new Map<string, typeof staffStats>();
-      for (const item of staffStats) {
-        const arr = byEquipe.get(item.resumo.equipe_label) || [];
-        arr.push(item);
-        byEquipe.set(item.resumo.equipe_label, arr);
-      }
-
-      byEquipe.forEach((items, equipe) => {
-        const entradas = items.map((i) => i.entradaMediana).filter((n) => Number.isFinite(n)) as number[];
-        const saidas = items.map((i) => i.saidaMediana).filter((n) => Number.isFinite(n)) as number[];
-        equipeBases.set(equipe, {
-          entrada: median(entradas),
-          saida: median(saidas),
-        });
-      });
-
-      const alertas: AlertaHorarioEquipe[] = [];
-      for (const item of staffStats) {
-        const base = equipeBases.get(item.resumo.equipe_label);
-        if (!base) continue;
-
-        const desvioEntradaMin = Number.isFinite(item.entradaMediana) && Number.isFinite(base.entrada)
-          ? Math.abs(item.entradaMediana - base.entrada)
-          : 0;
-        const desvioSaidaMin = Number.isFinite(item.saidaMediana) && Number.isFinite(base.saida)
-          ? Math.abs(item.saidaMediana - base.saida)
-          : 0;
-
-        const motivos: string[] = [];
-        let score = 0;
-
-        if (item.diasComBatida < 3) {
-          motivos.push("Poucas batidas válidas no período (amostra baixa)");
-          score += 1;
-        }
-        if (desvioEntradaMin >= 45) {
-          motivos.push(`Entrada fora do padrão da equipe (${Math.round(desvioEntradaMin)} min)`);
-          score += 3;
-        }
-        if (desvioSaidaMin >= 60) {
-          motivos.push(`Saída fora do padrão da equipe (${Math.round(desvioSaidaMin)} min)`);
-          score += 2;
-        }
-        if (item.variacaoEntradaMin >= 120) {
-          motivos.push(`Alta variação de entrada no mês (${Math.round(item.variacaoEntradaMin)} min)`);
-          score += 2;
-        }
-
-        if (motivos.length > 0) {
-          alertas.push({
-            resumoId: item.resumo.id,
-            colaborador: item.resumo.colaborador_nome,
-            equipe: item.resumo.equipe_label,
-            diasComBatida: item.diasComBatida,
-            entradaPadrao: minToHora(item.entradaMediana),
-            saidaPadrao: minToHora(item.saidaMediana),
-            desvioEntradaMin,
-            desvioSaidaMin,
-            variacaoEntradaMin: item.variacaoEntradaMin,
-            score,
-            motivos,
-          });
-        }
-      }
-
-      setAlertasHorarioEquipe(alertas.sort((a, b) => b.score - a.score || b.desvioEntradaMin - a.desvioEntradaMin));
-      setLoadingAnaliseHorario(false);
-    };
-
-    rodarAnaliseHorarioEquipe();
-
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.company_id, temImportado, resumosEnriquecidos, mes, competenciaAtual]);
-
   const abrirHistoricoDiario = async (r: ResumoImportadoEnriquecido) => {
     if (!profile?.company_id) return;
 
@@ -1811,10 +1622,6 @@ export default function BancoHoras() {
     }
   }, [funcoesDisponiveis, funcaoFiltro]);
 
-  const alertasByResumoId = useMemo(() => {
-    return new Map(alertasHorarioEquipe.map((a) => [a.resumoId, a]));
-  }, [alertasHorarioEquipe]);
-
   const importadosFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return resumosEnriquecidos.filter((r) => {
@@ -1825,25 +1632,17 @@ export default function BancoHoras() {
         : saldoFiltro === "POSITIVOS"
           ? r.saldo > 0
           : r.saldo < 0;
-      const matchAlerta = !filtroSomenteAlertasHorario || alertasByResumoId.has(r.id);
 
-      if (!matchEquipe || !matchFuncao || !matchSaldo || !matchAlerta) return false;
+      if (!matchEquipe || !matchFuncao || !matchSaldo) return false;
       if (!q) return true;
 
       return [r.colaborador_nome, r.equipe_label, r.funcao_label].join(" ").toLowerCase().includes(q);
     });
-  }, [resumosEnriquecidos, busca, equipeFiltro, funcaoFiltro, saldoFiltro, filtroSomenteAlertasHorario, alertasByResumoId]);
+  }, [resumosEnriquecidos, busca, equipeFiltro, funcaoFiltro, saldoFiltro]);
 
   const totalCredito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.credito_horas || 0), 0), [importadosFiltrados]);
   const totalDebito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.debito_horas || 0), 0), [importadosFiltrados]);
   const totalHE = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.total_horas_extras_horas || 0), 0), [importadosFiltrados]);
-
-  const alertasHorarioFiltrados = useMemo(() => {
-    const ids = new Set(importadosFiltrados.map((r) => r.id));
-    return alertasHorarioEquipe.filter((a) => ids.has(a.resumoId));
-  }, [alertasHorarioEquipe, importadosFiltrados]);
-
-  const topAlertasHorario = useMemo(() => alertasHorarioFiltrados.slice(0, 5), [alertasHorarioFiltrados]);
 
   const filtradosCalc = busca.trim()
     ? saldosCalculados.filter((s) => {
@@ -2342,7 +2141,6 @@ export default function BancoHoras() {
                   setFuncaoFiltro("TODAS");
                   setSaldoFiltro("TODOS");
                   setBusca("");
-                  setFiltroSomenteAlertasHorario(false);
                 }}
                 className="underline underline-offset-2"
               >
@@ -2517,40 +2315,6 @@ export default function BancoHoras() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold flex items-center gap-2 text-amber-900">
-                  <AlertTriangle className="w-4 h-4" />
-                  Análise automática de padrão de horário por equipe
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={filtroSomenteAlertasHorario ? "default" : "outline"}
-                  onClick={() => setFiltroSomenteAlertasHorario((v) => !v)}
-                  disabled={alertasHorarioFiltrados.length === 0}
-                >
-                  {filtroSomenteAlertasHorario ? "Mostrando só alertas" : "Filtrar só alertas"}
-                </Button>
-              </div>
-              <p className="text-xs text-amber-800">
-                {loadingAnaliseHorario
-                  ? "Analisando batidas da competência para encontrar horários fora do padrão da equipe..."
-                  : `${alertasHorarioFiltrados.length} colaborador(es) com possível desvio de horário no filtro atual.`}
-              </p>
-              {topAlertasHorario.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {topAlertasHorario.map((a) => (
-                    <div key={a.resumoId} className="rounded-lg border border-amber-200 bg-white px-2 py-1.5 text-xs">
-                      <p className="font-semibold text-amber-900">{a.colaborador}</p>
-                      <p className="text-muted-foreground">{a.equipe} · entrada típica {a.entradaPadrao} · saída {a.saidaPadrao}</p>
-                      <p className="text-amber-800">{a.motivos[0]}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             <div className="rounded-xl border border-border bg-card p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold flex items-center gap-2"><SlidersHorizontal className="w-4 h-4" /> Ajuste individual de H.E.</p>
@@ -2574,7 +2338,6 @@ export default function BancoHoras() {
 
             <div className="space-y-2">
               {importadosFiltrados.map((r) => {
-                const alertaHorario = alertasByResumoId.get(r.id);
                 return (
                   <div key={r.id} className="bg-card rounded-xl border border-border p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -2589,16 +2352,6 @@ export default function BancoHoras() {
                         Saldo {r.saldo >= 0 ? "+" : ""}{fmtDec(r.saldo)} h
                       </span>
                     </div>
-
-                    {alertaHorario && (
-                      <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
-                        <p className="font-semibold">⚠️ Horário fora do padrão da equipe</p>
-                        <p>
-                          Entrada típica {alertaHorario.entradaPadrao} · saída {alertaHorario.saidaPadrao} · desvio entrada {Math.round(alertaHorario.desvioEntradaMin)} min
-                        </p>
-                        <p className="text-amber-800">{alertaHorario.motivos.join(" · ")}</p>
-                      </div>
-                    )}
 
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
                       <div className="rounded-lg bg-muted/40 p-2"><b>Crédito</b><br />{fmtDec(r.credito_horas)} h</div>
