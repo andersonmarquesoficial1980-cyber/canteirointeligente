@@ -15,6 +15,7 @@ interface RdoDetalhe {
   clima: string;
   encarregado: string;
   engenheiro_responsavel: string;
+  engenheiro_responsavel_user_id?: string | null;
   status_validacao: string;
   tipo_rdo: string;
 }
@@ -74,7 +75,8 @@ export default function EngValidarRdo() {
 
       const nomeEng = String(prof?.nome_completo || "").trim();
       const engRdo = String((rdoRes.data as any)?.engenheiro_responsavel || "").trim();
-      const canValidate = isAdmin || namesLikelyMatch(nomeEng, engRdo);
+      const engUserId = String((rdoRes.data as any)?.engenheiro_responsavel_user_id || "").trim();
+      const canValidate = isAdmin || (engUserId ? engUserId === user.id : namesLikelyMatch(nomeEng, engRdo));
 
       if (!canValidate) {
         setAcessoNegado(true);

@@ -16,6 +16,8 @@ interface RdoPendente {
   turno: string;
   tipo_rdo: string;
   status_validacao: string;
+  engenheiro_responsavel?: string | null;
+  engenheiro_responsavel_user_id?: string | null;
 }
 
 export default function EngValidacoes() {
@@ -58,7 +60,7 @@ export default function EngValidacoes() {
 
       let query = (supabase as any)
         .from("rdo_diarios")
-        .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo, status_validacao, engenheiro_responsavel")
+        .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo, status_validacao, engenheiro_responsavel, engenheiro_responsavel_user_id")
         .eq("company_id", prof.company_id)
         .in("status_validacao", ["enviado", "aguardando_validacao"])
         .is("validado_por", null)
@@ -76,7 +78,13 @@ export default function EngValidacoes() {
           setLoading(false);
           return;
         }
-        setRdos(pendentes.filter((rdo) => namesLikelyMatch(nomeEng, rdo?.engenheiro_responsavel)));
+        setRdos(
+          pendentes.filter((rdo) => {
+            const byUserId = !!rdo?.engenheiro_responsavel_user_id && rdo.engenheiro_responsavel_user_id === user.id;
+            if (byUserId) return true;
+            return namesLikelyMatch(nomeEng, rdo?.engenheiro_responsavel);
+          }),
+        );
       } else {
         setRdos(pendentes);
       }
