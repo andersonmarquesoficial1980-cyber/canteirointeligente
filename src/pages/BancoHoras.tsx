@@ -322,13 +322,10 @@ function horaOuTraco(v?: string | null): string {
 
 function calcHorasPorBatidasDiretas(entrada1: string, saida1: string, entrada2: string, saida2: string): number {
   const pares: Array<[string, string]> = [];
-  const limpar = (h: string | null) => (h && h !== "00:00" ? h : null);
-
-  const p1e = limpar(normalizarHoraInput(entrada1));
-  const p1s = limpar(normalizarHoraInput(saida1));
-  const p2e = limpar(normalizarHoraInput(entrada2));
-  const p2s = limpar(normalizarHoraInput(saida2));
-
+  const p1e = normalizarHoraInput(entrada1);
+  const p1s = normalizarHoraInput(saida1);
+  const p2e = normalizarHoraInput(entrada2);
+  const p2s = normalizarHoraInput(saida2);
   if (p1e && p1s) pares.push([p1e, p1s]);
   if (p2e && p2s) pares.push([p2e, p2s]);
   if (pares.length === 0) return 0;
