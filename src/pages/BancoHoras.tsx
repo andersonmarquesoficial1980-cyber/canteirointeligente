@@ -5,7 +5,7 @@
  * Modo B (fallback): cálculo a partir de ponto_registros
  */
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock, ChevronLeft, ChevronRight, RotateCcw, X, Printer, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock, ChevronLeft, ChevronRight, RotateCcw, X, Printer, SlidersHorizontal, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -120,6 +120,16 @@ interface CompetenciaStatus {
   observacao: string | null;
   fechado_em: string | null;
   reaberto_em: string | null;
+}
+
+interface ImportPdfJob {
+  id: string;
+  competencia: string;
+  equipe_nome: string | null;
+  status: string;
+  metadata?: Record<string, any> | null;
+  created_at: string;
+  applied_at?: string | null;
 }
 
 type FiltroSaldo = "TODOS" | "POSITIVOS" | "NEGATIVOS";
@@ -350,6 +360,10 @@ export default function BancoHoras() {
   const [loadingFechamento, setLoadingFechamento] = useState(false);
   const [loadingSyncPontomais, setLoadingSyncPontomais] = useState(false);
   const [ultimaSyncPontomais, setUltimaSyncPontomais] = useState<string | null>(null);
+  const [importJobAtual, setImportJobAtual] = useState<ImportPdfJob | null>(null);
+  const [loadingImportPdf, setLoadingImportPdf] = useState(false);
+  const [loadingPrecheckPdf, setLoadingPrecheckPdf] = useState(false);
+  const [loadingAplicarPdf, setLoadingAplicarPdf] = useState(false);
   const [rolePerfil, setRolePerfil] = useState<{ role: string | null; perfil: string | null }>({ role: null, perfil: null });
   const [salvandoAjusteId, setSalvandoAjusteId] = useState<string | null>(null);
   const [historicoAbertoId, setHistoricoAbertoId] = useState<string | null>(null);
@@ -447,6 +461,16 @@ export default function BancoHoras() {
       .limit(1)
       .maybeSingle();
     setUltimaSyncPontomais(lastSync?.created_at || null);
+
+    const { data: lastImportJob } = await (supabase as any)
+      .from("ponto_he_import_jobs")
+      .select("id, competencia, equipe_nome, status, metadata, created_at, applied_at")
+      .eq("company_id", profile.company_id)
+      .eq("competencia", ini)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setImportJobAtual((lastImportJob || null) as ImportPdfJob | null);
 
     // 3) Fallback para cálculo no ponto bruto
     const { data: regs } = await (supabase as any)
@@ -571,6 +595,180 @@ export default function BancoHoras() {
 
     await carregarDados();
     setLoadingSyncPontomais(false);
+  };
+
+  const ensureImportJobAberto = async (): Promise<ImportPdfJob | null> => {
+    if (!profile?.company_id) return null;
+
+    const { data: existing } = await (supabase as any)
+      .from("ponto_he_import_jobs")
+      .select("id, competencia, equipe_nome, status, metadata, created_at, applied_at")
+      .eq("company_id", profile.company_id)
+      .eq("competencia", competenciaAtual)
+      .in("status", ["criado", "arquivos_enviados", "parseado", "precheck_pendente", "precheck_ok", "erro"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      setImportJobAtual(existing as ImportPdfJob);
+      return existing as ImportPdfJob;
+    }
+
+    const { data: created, error } = await (supabase as any)
+      .from("ponto_he_import_jobs")
+      .insert({
+        company_id: profile.company_id,
+        competencia: competenciaAtual,
+        equipe_nome: equipeFiltro !== "TODAS" ? equipeFiltro : null,
+        origem: "pdf",
+        status: "criado",
+      })
+      .select("id, competencia, equipe_nome, status, metadata, created_at, applied_at")
+      .single();
+
+    if (error || !created) {
+      toast({ title: "Erro ao criar job de importação", description: error?.message || "Falha ao iniciar importação PDF.", variant: "destructive" });
+      return null;
+    }
+
+    setImportJobAtual(created as ImportPdfJob);
+    return created as ImportPdfJob;
+  };
+
+  const selecionarPdfParaImportacao = async () => {
+    if (!profile?.company_id) return;
+    if (competenciaStatus.status === "fechado") {
+      toast({ title: "Competência fechada", description: "Reabra a competência antes de importar PDF.", variant: "destructive" });
+      return;
+    }
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/pdf";
+    input.multiple = true;
+
+    input.onchange = async () => {
+      const files = Array.from(input.files || []);
+      if (files.length === 0) return;
+
+      setLoadingImportPdf(true);
+      try {
+        const job = await ensureImportJobAberto();
+        if (!job) return;
+
+        for (const file of files) {
+          const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+          const storagePath = `${profile.company_id}/${competenciaAtual}/${job.id}/${safeName}`;
+
+          const { error: uploadError } = await (supabase as any)
+            .storage
+            .from("ponto-he-imports")
+            .upload(storagePath, file, { upsert: true, contentType: "application/pdf" });
+
+          if (uploadError) throw new Error(`Falha upload ${file.name}: ${uploadError.message}`);
+
+          const { error: fileRowError } = await (supabase as any)
+            .from("ponto_he_import_arquivos")
+            .insert({
+              company_id: profile.company_id,
+              job_id: job.id,
+              file_name: file.name,
+              storage_path: storagePath,
+              status: "enviado",
+              parser_payload: {
+                size_bytes: file.size,
+                mime: file.type || "application/pdf",
+              },
+            });
+
+          if (fileRowError) throw new Error(`Falha registro ${file.name}: ${fileRowError.message}`);
+        }
+
+        await (supabase as any)
+          .from("ponto_he_import_jobs")
+          .update({ status: "arquivos_enviados" })
+          .eq("id", job.id)
+          .eq("company_id", profile.company_id);
+
+        let seedInfo = "";
+        if (equipeFiltro !== "TODAS") {
+          const { data: seedData, error: seedError } = await (supabase as any).rpc("fn_ponto_he_pdf_seed_job_team", {
+            p_job_id: job.id,
+          });
+          if (!seedError && seedData?.ok) {
+            seedInfo = ` · Equipe pré-carregada: ${Number(seedData.seeded || 0)} colaborador(es)`;
+          }
+        }
+
+        toast({
+          title: "PDF(s) anexado(s)",
+          description: `${files.length} arquivo(s) enviado(s).${seedInfo} Próximo passo: rodar pré-check e aplicar importação.`,
+        });
+
+        await carregarDados();
+      } catch (e: any) {
+        toast({ title: "Erro no upload de PDF", description: e?.message || "Falha ao anexar arquivos.", variant: "destructive" });
+      } finally {
+        setLoadingImportPdf(false);
+      }
+    };
+
+    input.click();
+  };
+
+  const rodarPrecheckPdf = async () => {
+    if (!importJobAtual?.id) {
+      toast({ title: "Sem job ativo", description: "Anexe PDF(s) para criar um job de importação.", variant: "destructive" });
+      return;
+    }
+
+    setLoadingPrecheckPdf(true);
+    const { data, error } = await (supabase as any).rpc("fn_ponto_he_pdf_precheck", { p_job_id: importJobAtual.id });
+
+    if (error || !data?.ok) {
+      toast({ title: "Pré-check falhou", description: error?.message || data?.error || "Erro ao validar importação PDF.", variant: "destructive" });
+      setLoadingPrecheckPdf(false);
+      return;
+    }
+
+    toast({
+      title: data.nao_mapeados > 0 ? "Pré-check com pendências" : "Pré-check OK",
+      description: `Mapeados: ${Number(data.mapeados || 0)} · Não mapeados: ${Number(data.nao_mapeados || 0)} · Batidas: ${Number(data.total_batidas || 0)}`,
+      variant: data.nao_mapeados > 0 ? "destructive" : undefined,
+    });
+
+    await carregarDados();
+    setLoadingPrecheckPdf(false);
+  };
+
+  const aplicarImportacaoPdf = async () => {
+    if (!importJobAtual?.id) {
+      toast({ title: "Sem job ativo", description: "Anexe PDF(s) e execute o pré-check antes de aplicar.", variant: "destructive" });
+      return;
+    }
+
+    if (!window.confirm(`Aplicar importação PDF na competência ${mes}?`)) return;
+
+    setLoadingAplicarPdf(true);
+    const { data, error } = await (supabase as any).rpc("fn_ponto_he_pdf_apply", {
+      p_job_id: importJobAtual.id,
+      p_observacao: `Apply via UI em ${new Date().toISOString()}`,
+    });
+
+    if (error || !data?.ok) {
+      toast({ title: "Falha no apply", description: error?.message || data?.error || "Erro ao aplicar importação PDF.", variant: "destructive" });
+      setLoadingAplicarPdf(false);
+      return;
+    }
+
+    toast({
+      title: "Importação aplicada",
+      description: `Resumo: ${Number(data.upsert_resumo || 0)} · Batidas inseridas: ${Number(data.batidas_inseridas || 0)}.`,
+    });
+
+    await carregarDados();
+    setLoadingAplicarPdf(false);
   };
 
   const saldosCalculados = useMemo((): SaldoFuncionario[] => {
@@ -1073,6 +1271,13 @@ export default function BancoHoras() {
   const totalBaseAtual = temImportado ? resumosImportados.length : saldosCalculados.length;
   const totalFiltradoAtual = temImportado ? importadosFiltrados.length : filtradosCalc.length;
   const equipeSelecionada = equipeFiltro !== "TODAS";
+
+  const importStats = {
+    totalColaboradores: Number(importJobAtual?.metadata?.total_colaboradores || 0),
+    mapeados: Number(importJobAtual?.metadata?.mapeados || 0),
+    naoMapeados: Number(importJobAtual?.metadata?.nao_mapeados || 0),
+    totalBatidas: Number(importJobAtual?.metadata?.total_batidas || 0),
+  };
 
   const comparativoAjustes = useMemo<ComparativoAjuste[]>(() => {
     return resumosEnriquecidos
@@ -1646,6 +1851,66 @@ export default function BancoHoras() {
             )}
           </div>
         </div>
+
+        {canManageFechamento && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-blue-700" />
+                  Importação oficial via PDF PontoMais
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Fluxo recomendado: anexar PDF(s) → pré-check de vínculo/cobertura → aplicar importação.
+                </p>
+                <p className="text-[11px] mt-2 text-blue-900">
+                  Job atual: <b>{importJobAtual?.id ? importJobAtual.id.slice(0, 8) : "—"}</b> · Status: <b>{importJobAtual?.status || "sem job"}</b>
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={selecionarPdfParaImportacao} disabled={loadingImportPdf || competenciaStatus.status === "fechado"}>
+                  <Upload className="w-3.5 h-3.5 mr-1" />
+                  {loadingImportPdf ? "Enviando..." : "Anexar PDF(s)"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={rodarPrecheckPdf} disabled={loadingPrecheckPdf || !importJobAtual?.id || competenciaStatus.status === "fechado"}>
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                  {loadingPrecheckPdf ? "Validando..." : "Rodar pré-check"}
+                </Button>
+                <Button size="sm" onClick={aplicarImportacaoPdf} disabled={loadingAplicarPdf || !importJobAtual?.id || competenciaStatus.status === "fechado"}>
+                  <FileSpreadsheet className="w-3.5 h-3.5 mr-1" />
+                  {loadingAplicarPdf ? "Aplicando..." : "Aplicar importação"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              <div className="rounded-lg border border-blue-200 bg-white/70 px-2 py-1.5">
+                <span className="text-muted-foreground">Colaboradores no job</span>
+                <p className="font-semibold">{importStats.totalColaboradores}</p>
+              </div>
+              <div className="rounded-lg border border-green-200 bg-white/70 px-2 py-1.5">
+                <span className="text-muted-foreground">Mapeados</span>
+                <p className="font-semibold text-green-700">{importStats.mapeados}</p>
+              </div>
+              <div className="rounded-lg border border-red-200 bg-white/70 px-2 py-1.5">
+                <span className="text-muted-foreground">Não mapeados</span>
+                <p className="font-semibold text-red-700">{importStats.naoMapeados}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white/70 px-2 py-1.5">
+                <span className="text-muted-foreground">Batidas válidas</span>
+                <p className="font-semibold">{importStats.totalBatidas}</p>
+              </div>
+            </div>
+
+            {importStats.naoMapeados > 0 && (
+              <p className="mt-2 text-xs text-amber-700 flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Existem colaboradores sem vínculo. Corrija no staging antes de aplicar/fechar competência.
+              </p>
+            )}
+          </div>
+        )}
 
         {temImportado ? (
           <>
