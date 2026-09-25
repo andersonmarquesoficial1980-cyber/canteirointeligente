@@ -93,12 +93,12 @@ function ObraCard({ obra }: { obra: ObraStats }) {
         </span>
         {obra.cancelamentos > 0 && (
           <span className="flex items-center gap-1 text-red-400">
-            <XCircle className="w-3 h-3" />{obra.cancelamentos} cancel.
+            <XCircle className="w-3 h-3" />{obra.cancelamentos} cancelamento{obra.cancelamentos !== 1 ? "s" : ""}
           </span>
         )}
         {obra.ultima_data && (
           <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />Ult: {fmtDate(obra.ultima_data)}
+            <Clock className="w-3 h-3" />Últ.: {fmtDate(obra.ultima_data)}
           </span>
         )}
         {obra.tipo_rdo && (
@@ -309,6 +309,8 @@ export default function DashboardObras() {
                     <Tooltip
                       contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, color: "#fff" }}
                       itemStyle={{ color: "#a5b4fc" }}
+                      formatter={(value: any) => [`${value} RDO${Number(value) === 1 ? "" : "s"}`, "Lançamentos"]}
+                      labelFormatter={(label) => `Dia ${label}`}
                     />
                     <Area type="monotone" dataKey="count" name="RDOs" stroke="#6366f1" strokeWidth={2} fill="url(#rdoGrad)" dot={{ fill: "#6366f1", r: 3 }} />
                   </AreaChart>

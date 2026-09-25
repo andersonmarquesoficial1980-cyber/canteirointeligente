@@ -21,7 +21,7 @@ function now() { return new Date().toLocaleTimeString("pt-BR", { hour: "2-digit"
 
 const STATUS_META: Record<string, { label: string; color: string; icon: any }> = {
   Trabalhando:  { label: "Trabalhando",    color: "#10b981", icon: Activity },
-  "Em Trânsito":{ label: "Em Trânsito",    color: "#f59e0b", icon: Truck },
+  "Em Trânsito":{ label: "Em trânsito",    color: "#f59e0b", icon: Truck },
   Disponível:   { label: "Disponível",     color: "#6366f1", icon: Warehouse },
   Inoperante:   { label: "Inoperante",     color: "#ef4444", icon: Wrench },
   Folga:        { label: "Folga",          color: "#64748b", icon: Warehouse },
@@ -109,6 +109,7 @@ export default function DashboardFrota() {
 
   const pieData = Object.entries(statusCount).map(([name, value]) => ({
     name,
+    label: STATUS_META[name]?.label || name,
     value,
     color: STATUS_META[name]?.color || "#94a3b8",
   }));
@@ -127,8 +128,8 @@ export default function DashboardFrota() {
     if (active && payload?.length) {
       return (
         <div className="rounded-xl p-3 border text-xs" style={{ background: "#1e293b", borderColor: "#334155" }}>
-          <p className="text-white font-bold">{payload[0].name}</p>
-          <p style={{ color: payload[0].payload.color }}>{payload[0].value} equipamentos</p>
+          <p className="text-white font-bold">Status: {payload[0].payload.label || payload[0].name}</p>
+          <p style={{ color: payload[0].payload.color }}>{payload[0].value} equipamento{Number(payload[0].value) === 1 ? "" : "s"}</p>
         </div>
       );
     }
@@ -207,7 +208,7 @@ export default function DashboardFrota() {
                   <div key={i} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ background: p.color }} />
-                      <span className="text-slate-300 text-xs">{p.name}</span>
+                      <span className="text-slate-300 text-xs">{p.label || p.name}</span>
                     </div>
                     <span className="text-white font-bold text-sm">{p.value}</span>
                   </div>
@@ -231,7 +232,7 @@ export default function DashboardFrota() {
                     <YAxis dataKey="frota" type="category" tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 600 }}
                       axisLine={false} tickLine={false} width={50} />
                     <Tooltip contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, color: "#fff" }}
-                      formatter={(v: any) => [`${v} dias`, "Dias trabalhados"]} />
+                      formatter={(v: any) => [`${v} dia${Number(v) === 1 ? "" : "s"}`, "Dias em operação"]} />
                     <Bar dataKey="dias" fill="#f59e0b" radius={[0, 6, 6, 0]}>
                       {maiUsados.map((_, i) => (
                         <Cell key={i} fill={i === 0 ? "#f59e0b" : i === 1 ? "#f97316" : "#6366f1"} />

@@ -118,8 +118,8 @@ export default function DashboardManutencao() {
       statusMap[o.status] = (statusMap[o.status] || 0) + 1;
     }
     setByStatus([
-      { name: "Aberta", value: statusMap["aberta"] || 0, color: "#f59e0b" },
-      { name: "Em Andamento", value: statusMap["em_andamento"] || 0, color: "#6366f1" },
+      { name: "Em aberto", value: statusMap["aberta"] || 0, color: "#f59e0b" },
+      { name: "Em andamento", value: statusMap["em_andamento"] || 0, color: "#6366f1" },
     ]);
 
     setLastUpdate(now());
@@ -241,14 +241,18 @@ export default function DashboardManutencao() {
               <div className="rounded-2xl border border-white/10 p-5"
                 style={{ background: "rgba(255,255,255,0.03)" }}>
                 <h2 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-indigo-400" /> OS por Status
+                  <TrendingUp className="w-4 h-4 text-indigo-400" /> OS por status
                 </h2>
                 <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={byStatus} margin={{ top: 4, right: 4, left: -25, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                     <XAxis dataKey="name" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, color: "#fff" }} />
+                    <Tooltip
+                      contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, color: "#fff" }}
+                      formatter={(value: any) => [`${value} OS`, "Quantidade"]}
+                      labelFormatter={(label) => `Status: ${label}`}
+                    />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                       {byStatus.map((b, i) => <Cell key={i} fill={b.color} />)}
                     </Bar>
