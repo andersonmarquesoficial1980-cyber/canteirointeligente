@@ -29,6 +29,7 @@ const TIPOS_RELATORIO = [
   { id: "producao_pavimentacao", label: "Produção de Pavimentação (RDO)", emoji: "🛣️", desc: "Produção de pavimentação por período, OGS e apontador" },
   { id: "controle_lancamentos", label: "Controle de Lançamentos", emoji: "📊", desc: "Visão gerencial dos diários por usuário e por equipamento" },
   { id: "rdo_tecnico_dashboard", label: "Dashboard RDO Técnico", emoji: "🧠", desc: "Visão executiva do RDO Técnico com botões por assunto" },
+  { id: "dashboards_obras", label: "Dashboards Obras", emoji: "📺", desc: "Hub único com todos os dashboards operacionais de Obras" },
 ];
 
 function fmtDate(d: string) {
@@ -390,6 +391,7 @@ export default function RelatoriosHome() {
                   if (t.id === "producao_pavimentacao") { navigate(withReturnTo(`/relatorios/producao-pavimentacao${origemQueryPrefix}`)); return; }
                   if (t.id === "controle_lancamentos") { navigate(withReturnTo(`/relatorios/controle-lancamentos${origemQueryPrefix}`)); return; }
                   if (t.id === "rdo_tecnico_dashboard") { navigate(withReturnTo(`/relatorios/rdo-tecnico-dashboard${origemQueryPrefix}`)); return; }
+                  if (t.id === "dashboards_obras") { navigate(withReturnTo(`/relatorios/dashboards-obras${origemQueryPrefix}`)); return; }
                   if (t.id === "abastecimento") {
                     const hoje = toLocalISODate();
                     const now = new Date();

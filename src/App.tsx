@@ -405,11 +405,17 @@ function AppRoutes() {
         {/* Alias para compatibilidade */}
         <Route path="/relatorios/equipamento/:fleet" element={<RelatorioEquipamento />} />
         <Route path="/dashboard" element={<RequireAdminOrSuperAdmin><DashboardAdmin /></RequireAdminOrSuperAdmin>} />
-        {/* WF Dashboards para TVs */}
-        <Route path="/wf-dashboards" element={<RequireAdminOrSuperAdmin><WFDashboards /></RequireAdminOrSuperAdmin>} />
-        <Route path="/wf-dashboards/obras" element={<RequireAdminOrSuperAdmin><DashboardObras /></RequireAdminOrSuperAdmin>} />
-        <Route path="/wf-dashboards/manutencao" element={<RequireAdminOrSuperAdmin><DashboardManutencao /></RequireAdminOrSuperAdmin>} />
-        <Route path="/wf-dashboards/frota" element={<RequireAdminOrSuperAdmin><DashboardFrota /></RequireAdminOrSuperAdmin>} />
+        {/* Dashboards Obras (novo hub em WF Relatórios) */}
+        <Route path="/relatorios/dashboards-obras" element={<RequireModule moduleId="relatorios"><WFDashboards /></RequireModule>} />
+        <Route path="/relatorios/dashboards-obras/obras" element={<RequireModule moduleId="relatorios"><DashboardObras /></RequireModule>} />
+        <Route path="/relatorios/dashboards-obras/manutencao" element={<RequireModule moduleId="relatorios"><DashboardManutencao /></RequireModule>} />
+        <Route path="/relatorios/dashboards-obras/frota" element={<RequireModule moduleId="relatorios"><DashboardFrota /></RequireModule>} />
+
+        {/* Legacy aliases — manter compatibilidade de links antigos */}
+        <Route path="/wf-dashboards" element={<Navigate to="/relatorios/dashboards-obras" replace />} />
+        <Route path="/wf-dashboards/obras" element={<Navigate to="/relatorios/dashboards-obras/obras" replace />} />
+        <Route path="/wf-dashboards/manutencao" element={<Navigate to="/relatorios/dashboards-obras/manutencao" replace />} />
+        <Route path="/wf-dashboards/frota" element={<Navigate to="/relatorios/dashboards-obras/frota" replace />} />
         <Route path="/super-admin" element={
           <RequireAdminOrSuperAdmin>
             <SuperAdmin />

@@ -3,7 +3,7 @@
  * Tela principal de escolha do dashboard para exibir nas TVs.
  * Design: Dark, premium, com cards animados.
  */
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { HardHat, Wrench, Truck, Monitor, Maximize2, ArrowLeft, LayoutDashboard } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -24,7 +24,7 @@ interface DashOption {
 const DASHBOARDS: DashOption[] = [
   {
     id: "obras",
-    route: "/wf-dashboards/obras",
+    route: "/relatorios/dashboards-obras/obras",
     title: "Obras & RDOs",
     subtitle: "Dashboard da Presidência",
     description: "Obras ativas, andamento, RDOs do dia, cancelamentos e tendências dos últimos 30 dias.",
@@ -36,7 +36,7 @@ const DASHBOARDS: DashOption[] = [
   },
   {
     id: "manutencao",
-    route: "/wf-dashboards/manutencao",
+    route: "/relatorios/dashboards-obras/manutencao",
     title: "Manutenção",
     subtitle: "Dashboard da Diretoria",
     description: "OS abertas, prioridades urgentes, documentos vencendo e equipamentos inoperantes.",
@@ -48,7 +48,7 @@ const DASHBOARDS: DashOption[] = [
   },
   {
     id: "frota",
-    route: "/wf-dashboards/frota",
+    route: "/relatorios/dashboards-obras/frota",
     title: "Frota & Equipamentos",
     subtitle: "Dashboard de Equipamentos",
     description: "Status em tempo real, equipamentos mais utilizados, abastecimento do dia e alertas da frota.",
@@ -62,7 +62,9 @@ const DASHBOARDS: DashOption[] = [
 
 export default function WFDashboards() {
   const navigate = useNavigate();
-  const goBack = useSmartBack("/admin/configuracoes");
+  const location = useLocation();
+  const defaultBack = location.pathname.startsWith("/relatorios") ? "/relatorios" : "/admin/configuracoes";
+  const goBack = useSmartBack(defaultBack);
 
   const openFullscreen = (route: string) => {
     navigate(route);
@@ -86,7 +88,7 @@ export default function WFDashboards() {
           <div>
             <h1 className="text-white font-black text-xl leading-none flex items-center gap-2">
               <LayoutDashboard className="w-5 h-5 text-indigo-400" />
-              WF Dashboards
+              Dashboards Obras
             </h1>
             <p className="text-slate-400 text-sm mt-0.5">Painéis para TVs — tempo real, sem login</p>
           </div>
@@ -175,7 +177,7 @@ export default function WFDashboards() {
             <div className="grid grid-cols-3 gap-6 text-sm text-slate-400">
               <div>
                 <p className="text-white text-xs font-bold mb-1">1. Abrir o link</p>
-                <p className="text-xs">No computador da TV, acesse app.workflux.com.br e navegue até WF Dashboards</p>
+                <p className="text-xs">No computador da TV, acesse app.workflux.com.br e navegue até WF Relatórios → Dashboards Obras</p>
               </div>
               <div>
                 <p className="text-white text-xs font-bold mb-1">2. Tela cheia</p>
