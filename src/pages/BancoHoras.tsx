@@ -621,6 +621,7 @@ export default function BancoHoras() {
   const [loadingImportPdf, setLoadingImportPdf] = useState(false);
   const [loadingPrecheckPdf, setLoadingPrecheckPdf] = useState(false);
   const [loadingAplicarPdf, setLoadingAplicarPdf] = useState(false);
+  const [loadingCancelarImportacao, setLoadingCancelarImportacao] = useState(false);
   const [rolePerfil, setRolePerfil] = useState<{ role: string | null; perfil: string | null }>({ role: null, perfil: null });
   const [salvandoAjusteId, setSalvandoAjusteId] = useState<string | null>(null);
   const [historicoAbertoId, setHistoricoAbertoId] = useState<string | null>(null);
@@ -724,6 +725,7 @@ export default function BancoHoras() {
       .select("id, competencia, equipe_nome, status, metadata, created_at, applied_at")
       .eq("company_id", profile.company_id)
       .eq("competencia", ini)
+      .in("status", ["criado", "arquivos_enviados", "parseado", "precheck_pendente", "precheck_ok"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -857,25 +859,7 @@ export default function BancoHoras() {
   const ensureImportJobAberto = async (): Promise<ImportPdfJob | null> => {
     if (!profile?.company_id) return null;
 
-    const query = (supabase as any)
-      .from("ponto_he_import_jobs")
-      .select("id, competencia, equipe_nome, status, metadata, created_at, applied_at")
-      .eq("company_id", profile.company_id)
-      .eq("competencia", competenciaAtual)
-      .in("status", ["criado", "arquivos_enviados", "parseado", "precheck_pendente", "erro"])
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const { data: existing } = await (equipeFiltro !== "TODAS"
-      ? query.eq("equipe_nome", equipeFiltro)
-      : query.is("equipe_nome", null)
-    ).maybeSingle();
-
-    if (existing) {
-      setImportJobAtual(existing as ImportPdfJob);
-      return existing as ImportPdfJob;
-    }
-
+    // Sempre cria novo job para não reaproveitar anexos anteriores.
     const { data: created, error } = await (supabase as any)
       .from("ponto_he_import_jobs")
       .insert({
@@ -895,6 +879,37 @@ export default function BancoHoras() {
 
     setImportJobAtual(created as ImportPdfJob);
     return created as ImportPdfJob;
+  };
+
+  const cancelarImportacaoAtual = async () => {
+    if (!profile?.company_id || !importJobAtual?.id) return;
+    if (!window.confirm(`Cancelar o job ${importJobAtual.id.slice(0, 8)} e descartar este anexo da tela?`)) return;
+
+    setLoadingCancelarImportacao(true);
+    const { error } = await (supabase as any)
+      .from("ponto_he_import_jobs")
+      .update({
+        status: "erro",
+        metadata: {
+          ...(importJobAtual.metadata || {}),
+          canceled_at: new Date().toISOString(),
+          canceled_via: "ui",
+          canceled: true,
+        },
+      })
+      .eq("id", importJobAtual.id)
+      .eq("company_id", profile.company_id);
+
+    if (error) {
+      toast({ title: "Erro ao cancelar job", description: error.message, variant: "destructive" });
+      setLoadingCancelarImportacao(false);
+      return;
+    }
+
+    toast({ title: "Job cancelado", description: "Anexo/etapas deste job não aparecerão mais como job atual." });
+    setImportJobAtual(null);
+    await carregarDados();
+    setLoadingCancelarImportacao(false);
   };
 
   const selecionarPdfParaImportacao = async () => {
@@ -2189,6 +2204,14 @@ export default function BancoHoras() {
                 <Button size="sm" onClick={aplicarImportacaoPdf} disabled={loadingAplicarPdf || !importJobAtual?.id || competenciaStatus.status === "fechado"}>
                   <FileSpreadsheet className="w-3.5 h-3.5 mr-1" />
                   {loadingAplicarPdf ? "Aplicando..." : "Aplicar importação"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={cancelarImportacaoAtual}
+                  disabled={loadingCancelarImportacao || !importJobAtual?.id || competenciaStatus.status === "fechado"}
+                >
+                  {loadingCancelarImportacao ? "Cancelando..." : "Cancelar job"}
                 </Button>
               </div>
             </div>
