@@ -677,6 +677,8 @@ export default function BancoHoras() {
   const [equipeFiltro, setEquipeFiltro] = useState<string>("TODAS");
   const [funcaoFiltro, setFuncaoFiltro] = useState<string>("TODAS");
   const [saldoFiltro, setSaldoFiltro] = useState<FiltroSaldo>("TODOS");
+  const [periodoFiltroInicio, setPeriodoFiltroInicio] = useState<string>("");
+  const [periodoFiltroFim, setPeriodoFiltroFim] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [loadingFechamento, setLoadingFechamento] = useState(false);
   const [loadingSyncPontomais, setLoadingSyncPontomais] = useState(false);
@@ -737,6 +739,14 @@ export default function BancoHoras() {
     const now = new Date();
     setMes(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   };
+
+  useEffect(() => {
+    const [ano, mesNum] = mes.split("-").map(Number);
+    const ini = `${mes}-01`;
+    const fim = `${mes}-${new Date(ano, mesNum, 0).getDate()}`;
+    setPeriodoFiltroInicio(ini);
+    setPeriodoFiltroFim(fim);
+  }, [mes]);
 
   const navegarMes = (delta: number) => {
     const [ano, mesNum] = mes.split("-").map(Number);
@@ -1512,8 +1522,14 @@ export default function BancoHoras() {
       return;
     }
 
-    const inicio = r.periodo_inicio || `${mes}-01`;
-    const fim = r.periodo_fim || `${mes}-${new Date(Number(mes.split("-")[0]), Number(mes.split("-")[1]), 0).getDate()}`;
+    const inicioBase = r.periodo_inicio || `${mes}-01`;
+    const fimBase = r.periodo_fim || `${mes}-${new Date(Number(mes.split("-")[0]), Number(mes.split("-")[1]), 0).getDate()}`;
+    const filtroInicio = (periodoFiltroInicio || inicioBase).trim();
+    const filtroFim = (periodoFiltroFim || fimBase).trim();
+    const janelaInicio = filtroInicio <= filtroFim ? filtroInicio : filtroFim;
+    const janelaFim = filtroInicio <= filtroFim ? filtroFim : filtroInicio;
+    const inicio = inicioBase > janelaInicio ? inicioBase : janelaInicio;
+    const fim = fimBase < janelaFim ? fimBase : janelaFim;
 
     setLoadingHistoricoId(r.id);
 
@@ -1851,6 +1867,11 @@ export default function BancoHoras() {
 
   const importadosFiltrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
+    const filtroInicio = (periodoFiltroInicio || `${mes}-01`).trim();
+    const filtroFim = (periodoFiltroFim || competenciaAtual).trim();
+    const janelaInicio = filtroInicio <= filtroFim ? filtroInicio : filtroFim;
+    const janelaFim = filtroInicio <= filtroFim ? filtroFim : filtroInicio;
+
     return resumosEnriquecidos.filter((r) => {
       const matchEquipe = equipeFiltro === "TODAS" || r.equipe_label === equipeFiltro;
       const matchFuncao = funcaoFiltro === "TODAS" || r.funcao_label === funcaoFiltro;
@@ -1861,12 +1882,16 @@ export default function BancoHoras() {
           : r.saldo < 0;
       const matchAlerta = !filtroSomenteAlertasHorario || alertasByResumoId.has(r.id);
 
-      if (!matchEquipe || !matchFuncao || !matchSaldo || !matchAlerta) return false;
+      const periodoInicio = (r.periodo_inicio || `${mes}-01`).trim();
+      const periodoFim = (r.periodo_fim || competenciaAtual).trim();
+      const matchPeriodo = periodoInicio <= janelaFim && periodoFim >= janelaInicio;
+
+      if (!matchEquipe || !matchFuncao || !matchSaldo || !matchAlerta || !matchPeriodo) return false;
       if (!q) return true;
 
       return [r.colaborador_nome, r.equipe_label, r.funcao_label].join(" ").toLowerCase().includes(q);
     });
-  }, [resumosEnriquecidos, busca, equipeFiltro, funcaoFiltro, saldoFiltro, filtroSomenteAlertasHorario, alertasByResumoId]);
+  }, [resumosEnriquecidos, busca, equipeFiltro, funcaoFiltro, saldoFiltro, filtroSomenteAlertasHorario, alertasByResumoId, periodoFiltroInicio, periodoFiltroFim, mes, competenciaAtual]);
 
   const totalCredito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.credito_horas || 0), 0), [importadosFiltrados]);
   const totalDebito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.debito_horas || 0), 0), [importadosFiltrados]);
@@ -1993,8 +2018,14 @@ export default function BancoHoras() {
     const resumoRows: Array<Record<string, any>> = [];
 
     for (const { r, staff_id } of selecionados) {
-      const inicio = r.periodo_inicio || `${mes}-01`;
-      const fimColab = r.periodo_fim || competenciaAtual;
+      const inicioBase = r.periodo_inicio || `${mes}-01`;
+      const fimBase = r.periodo_fim || competenciaAtual;
+      const filtroInicio = (periodoFiltroInicio || inicioBase).trim();
+      const filtroFim = (periodoFiltroFim || fimBase).trim();
+      const janelaInicio = filtroInicio <= filtroFim ? filtroInicio : filtroFim;
+      const janelaFim = filtroInicio <= filtroFim ? filtroFim : filtroInicio;
+      const inicio = inicioBase > janelaInicio ? inicioBase : janelaInicio;
+      const fimColab = fimBase < janelaFim ? fimBase : janelaFim;
       const datas = eachDateIso(inicio, fimColab);
       const freqTurno = new Map<string, number>();
       let diasComBatida = 0;
@@ -2355,6 +2386,27 @@ export default function BancoHoras() {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="rounded-xl border border-border bg-card px-3 py-2">
+              <label className="text-[10px] font-semibold uppercase text-muted-foreground">Período início</label>
+              <input
+                type="date"
+                value={periodoFiltroInicio}
+                onChange={(e) => setPeriodoFiltroInicio(e.target.value)}
+                className="w-full mt-1 h-8 bg-transparent text-sm outline-none"
+              />
+            </div>
+            <div className="rounded-xl border border-border bg-card px-3 py-2">
+              <label className="text-[10px] font-semibold uppercase text-muted-foreground">Período fim</label>
+              <input
+                type="date"
+                value={periodoFiltroFim}
+                onChange={(e) => setPeriodoFiltroFim(e.target.value)}
+                className="w-full mt-1 h-8 bg-transparent text-sm outline-none"
+              />
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
             <span>Mostrando <b>{totalFiltradoAtual}</b> de <b>{totalBaseAtual}</b></span>
             <div className="flex items-center gap-3">
@@ -2377,6 +2429,9 @@ export default function BancoHoras() {
                   setSaldoFiltro("TODOS");
                   setBusca("");
                   setFiltroSomenteAlertasHorario(false);
+                  const [ano, mesNum] = mes.split("-").map(Number);
+                  setPeriodoFiltroInicio(`${mes}-01`);
+                  setPeriodoFiltroFim(`${mes}-${new Date(ano, mesNum, 0).getDate()}`);
                 }}
                 className="underline underline-offset-2"
               >
