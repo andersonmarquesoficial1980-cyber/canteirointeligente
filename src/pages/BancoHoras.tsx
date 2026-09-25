@@ -880,10 +880,7 @@ export default function BancoHoras() {
       return;
     }
 
-    if (equipeFiltro === "TODAS") {
-      toast({ title: "Selecione uma equipe", description: "Para operação prática, envie PDF por equipe para o mês ir aparecendo por carga.", variant: "destructive" });
-      return;
-    }
+    // Agora permite upload com "Todas as equipes": a equipe será inferida pelo conteúdo do PDF.
 
     const input = document.createElement("input");
     input.type = "file";
@@ -933,14 +930,18 @@ export default function BancoHoras() {
           .eq("id", job.id)
           .eq("company_id", profile.company_id);
 
-        const { data: seedData, error: seedError } = await (supabase as any).rpc("fn_ponto_he_pdf_seed_job_team", {
-          p_job_id: job.id,
-        });
-        if (seedError || !seedData?.ok) {
-          throw new Error(seedError?.message || "Falha ao pré-carregar colaboradores da equipe.");
+        let seededEquipe = 0;
+        if (equipeFiltro !== "TODAS") {
+          const { data: seedData, error: seedError } = await (supabase as any).rpc("fn_ponto_he_pdf_seed_job_team", {
+            p_job_id: job.id,
+          });
+          if (seedError || !seedData?.ok) {
+            throw new Error(seedError?.message || "Falha ao pré-carregar colaboradores da equipe.");
+          }
+          seededEquipe = Number(seedData.seeded || 0);
         }
 
-        const parsed = await extrairColaboradoresDoPdfPontoMais(files as File[], competenciaAtual, equipeFiltro);
+        const parsed = await extrairColaboradoresDoPdfPontoMais(files as File[], competenciaAtual, equipeFiltro !== "TODAS" ? equipeFiltro : undefined);
         let stagedColaboradores = 0;
         if (parsed.colaboradores.length > 0) {
           const { data: stageData, error: stageError } = await (supabase as any).rpc("fn_ponto_he_pdf_stage_payload", {
@@ -968,7 +969,7 @@ export default function BancoHoras() {
 
         toast({
           title: "Equipe importada com sucesso",
-          description: `${files.length} PDF(s) enviado(s) · ${stagedColaboradores > 0 ? `${stagedColaboradores} colaborador(es) parseado(s) com ${parsed.totalBatidas} dia(s) com batidas` : "sem parsing detalhado (apenas seed da equipe)"} · equipe ${equipeFiltro} atualizada no mês ${mes}.`,
+          description: `${files.length} PDF(s) enviado(s) · ${stagedColaboradores > 0 ? `${stagedColaboradores} colaborador(es) parseado(s) com ${parsed.totalBatidas} dia(s) com batidas` : "sem parsing detalhado"}${seededEquipe > 0 ? ` · ${seededEquipe} colaborador(es) pré-carregado(s) da equipe` : ""} · referência: ${equipeFiltro === "TODAS" ? "equipes inferidas do PDF" : `equipe ${equipeFiltro}`} no mês ${mes}.`,
         });
 
         await carregarDados();
