@@ -4,6 +4,7 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { namesLikelyMatch } from "@/lib/nameMatch";
 
 interface RdoDetalhe {
   id: string;
@@ -71,9 +72,9 @@ export default function EngValidarRdo() {
         perfilNorm === "gerente" ||
         !!perms?.is_admin;
 
-      const nomeEng = String(prof?.nome_completo || "").trim().toLowerCase();
-      const engRdo = String((rdoRes.data as any)?.engenheiro_responsavel || "").trim().toLowerCase();
-      const canValidate = isAdmin || (!!nomeEng && !!engRdo && nomeEng === engRdo);
+      const nomeEng = String(prof?.nome_completo || "").trim();
+      const engRdo = String((rdoRes.data as any)?.engenheiro_responsavel || "").trim();
+      const canValidate = isAdmin || namesLikelyMatch(nomeEng, engRdo);
 
       if (!canValidate) {
         setAcessoNegado(true);

@@ -5,6 +5,7 @@ import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, Chev
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { namesLikelyMatch } from "@/lib/nameMatch";
 
 const VALIDATION_START_DATE = "2026-07-17";
 
@@ -72,7 +73,10 @@ export default function EngHome() {
         .is("validado_por", null)
         .gte("data", VALIDATION_START_DATE)
         .order("data", { ascending: false })
-        .limit(20);
+        .limit(500);
+
+      const { data: rdos } = await rdoQuery;
+      const pendentes = (rdos || []) as any[];
 
       if (!isAdmin) {
         const nomeEng = String(prof?.nome_completo || "").trim();
@@ -80,15 +84,14 @@ export default function EngHome() {
           setRdosPendentes([]);
           setCanViewValidacoes(false);
         } else {
-          rdoQuery = rdoQuery.ilike("engenheiro_responsavel", nomeEng);
-          const { data: rdos } = await rdoQuery;
-          const pendentes = rdos || [];
-          setRdosPendentes(pendentes);
-          setCanViewValidacoes(pendentes.length > 0);
+          const meusPendentes = pendentes.filter((rdo) =>
+            namesLikelyMatch(nomeEng, rdo?.engenheiro_responsavel),
+          );
+          setRdosPendentes(meusPendentes);
+          setCanViewValidacoes(meusPendentes.length > 0);
         }
       } else {
-        const { data: rdos } = await rdoQuery;
-        setRdosPendentes(rdos || []);
+        setRdosPendentes(pendentes.slice(0, 20));
         setCanViewValidacoes(true);
       }
 

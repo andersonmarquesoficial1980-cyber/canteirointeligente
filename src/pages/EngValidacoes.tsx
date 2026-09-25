@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, ClipboardCheck, Clock, ChevronRight, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { namesLikelyMatch } from "@/lib/nameMatch";
 
 const VALIDATION_START_DATE = "2026-07-17";
 
@@ -63,7 +64,10 @@ export default function EngValidacoes() {
         .is("validado_por", null)
         .gte("data", VALIDATION_START_DATE)
         .order("data", { ascending: false })
-        .limit(50);
+        .limit(500);
+
+      const { data } = await query;
+      const pendentes = (data || []) as any[];
 
       if (!isAdmin) {
         const nomeEng = String(prof?.nome_completo || "").trim();
@@ -72,11 +76,10 @@ export default function EngValidacoes() {
           setLoading(false);
           return;
         }
-        query = query.ilike("engenheiro_responsavel", nomeEng);
+        setRdos(pendentes.filter((rdo) => namesLikelyMatch(nomeEng, rdo?.engenheiro_responsavel)));
+      } else {
+        setRdos(pendentes);
       }
-
-      const { data } = await query;
-      setRdos(data || []);
       setLoading(false);
     };
     load();
