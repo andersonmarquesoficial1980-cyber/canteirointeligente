@@ -14,6 +14,9 @@ import {
   Building2,
   Users,
   FileText,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -118,6 +121,35 @@ function csvEscape(val: unknown) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
+function parseIsoDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+function toIsoDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function getPeriodoAnterior(dataIni: string, dataFim: string) {
+  const ini = parseIsoDate(dataIni);
+  const fim = parseIsoDate(dataFim);
+  const diffDias = Math.max(1, Math.round((fim.getTime() - ini.getTime()) / 86400000) + 1);
+
+  const fimAnt = new Date(ini);
+  fimAnt.setDate(fimAnt.getDate() - 1);
+  const iniAnt = new Date(fimAnt);
+  iniAnt.setDate(iniAnt.getDate() - (diffDias - 1));
+
+  return {
+    atualDias: diffDias,
+    anteriorIni: toIsoDate(iniAnt),
+    anteriorFim: toIsoDate(fimAnt),
+  };
+}
+
 export default function RelatorioRdoTecnicoDashboard() {
   const navigate = useNavigate();
   const goBack = useSmartBack("/relatorios");
@@ -138,9 +170,12 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [tab, setTab] = useState<AssuntoTab>("geral");
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<RdoTecnicoRow[]>([]);
+  const [rowsPrev, setRowsPrev] = useState<RdoTecnicoRow[]>([]);
   const [ogsOptions, setOgsOptions] = useState<FiltroOption[]>([]);
   const [engMap, setEngMap] = useState<Record<string, string>>({});
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
+
+  const periodoAnterior = useMemo(() => getPeriodoAnterior(dataIni, dataFim), [dataIni, dataFim]);
 
   const companyId = profile?.company_id;
 
@@ -148,9 +183,10 @@ export default function RelatorioRdoTecnicoDashboard() {
     if (!companyId) return;
     setLoading(true);
     try {
-      const { data: rdoData, error } = await (supabase as any)
-        .from("rdo_engenheiro")
-        .select(`
+      const [atualRes, anteriorRes] = await Promise.all([
+        (supabase as any)
+          .from("rdo_engenheiro")
+          .select(`
           id, ogs_number, data, status, equipe, localizacao, engenheiro_id,
           houve_producao, motivo_sem_producao, outro_motivo_sem_producao,
           choveu, intensidade_chuva, tipo_servico,
@@ -162,15 +198,37 @@ export default function RelatorioRdoTecnicoDashboard() {
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
-        .eq("company_id", companyId)
-        .gte("data", dataIni)
-        .lte("data", dataFim)
-        .order("data", { ascending: false });
+          .eq("company_id", companyId)
+          .gte("data", dataIni)
+          .lte("data", dataFim)
+          .order("data", { ascending: false }),
+        (supabase as any)
+          .from("rdo_engenheiro")
+          .select(`
+          id, ogs_number, data, status, equipe, localizacao, engenheiro_id,
+          houve_producao, motivo_sem_producao, outro_motivo_sem_producao,
+          choveu, intensidade_chuva, tipo_servico,
+          usina_programada, usina_atendeu, usina_nao_atendeu_motivo,
+          equipamentos_conforme, equipamentos_nao_conformes,
+          houve_ocorrencia, descricao_ocorrencia, observacoes,
+          fresagem_m2, rap_espumado_m2, binder_ton, cbuq_fx3_ton,
+          gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
+          geogrelha_m2, bgtc_m3, macadame_m3,
+          perc_conclusao_via
+        `)
+          .eq("company_id", companyId)
+          .gte("data", periodoAnterior.anteriorIni)
+          .lte("data", periodoAnterior.anteriorFim)
+          .order("data", { ascending: false }),
+      ]);
 
-      if (error) throw error;
+      if (atualRes.error) throw atualRes.error;
+      if (anteriorRes.error) throw anteriorRes.error;
 
-      const lista = ((rdoData || []) as RdoTecnicoRow[]);
+      const lista = ((atualRes.data || []) as RdoTecnicoRow[]);
+      const listaPrev = ((anteriorRes.data || []) as RdoTecnicoRow[]);
       setRows(lista);
+      setRowsPrev(listaPrev);
 
       const { data: eqsCad } = await (supabase as any)
         .from("ci_equipes")
@@ -182,7 +240,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       const ogsUniques = [...new Set(lista.map(r => r.ogs_number).filter(Boolean) as string[])];
       setOgsOptions(ogsUniques.sort((a, b) => Number(b) - Number(a)).map(o => ({ value: o, label: `OGS ${o}` })));
 
-      const engIds = [...new Set(lista.map(r => r.engenheiro_id).filter(Boolean) as string[])];
+      const engIds = [...new Set([...lista, ...listaPrev].map(r => r.engenheiro_id).filter(Boolean) as string[])];
       if (engIds.length > 0) {
         const { data: perfis } = await supabase
           .from("profiles")
@@ -200,6 +258,7 @@ export default function RelatorioRdoTecnicoDashboard() {
     } catch (e) {
       console.error("[RelatorioRdoTecnicoDashboard]", e);
       setRows([]);
+      setRowsPrev([]);
       setOgsOptions([]);
       setEngMap({});
       setEquipesCadastro([]);
@@ -251,6 +310,36 @@ export default function RelatorioRdoTecnicoDashboard() {
       return texto.includes(q);
     });
   }, [rows, filtroStatus, filtroOgs, filtroEng, filtroEquipe, busca, engMap]);
+
+  const linhasPrevFiltradas = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+
+    return rowsPrev.filter((r) => {
+      if (filtroStatus && r.status !== filtroStatus) return false;
+      if (filtroOgs && r.ogs_number !== filtroOgs) return false;
+      if (filtroEng && r.engenheiro_id !== filtroEng) return false;
+      if (filtroEquipe && (r.equipe || "") !== filtroEquipe) return false;
+
+      if (!q) return true;
+
+      const nomeEng = r.engenheiro_id ? engMap[r.engenheiro_id] || "" : "";
+      const texto = [
+        r.ogs_number,
+        r.equipe,
+        r.localizacao,
+        r.tipo_servico,
+        r.status,
+        nomeEng,
+        r.motivo_sem_producao,
+        r.outro_motivo_sem_producao,
+        r.descricao_ocorrencia,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return texto.includes(q);
+    });
+  }, [rowsPrev, filtroStatus, filtroOgs, filtroEng, filtroEquipe, busca, engMap]);
 
   const kpis = useMemo(() => {
     const total = linhasFiltradas.length;
@@ -306,6 +395,79 @@ export default function RelatorioRdoTecnicoDashboard() {
       semNomeEng,
     };
   }, [linhasFiltradas, engMap]);
+
+  const kpisPrev = useMemo(() => {
+    const total = linhasPrevFiltradas.length;
+    const enviados = linhasPrevFiltradas.filter(r => r.status === "enviado").length;
+    const rascunhos = linhasPrevFiltradas.filter(r => r.status !== "enviado").length;
+    const comProducao = linhasPrevFiltradas.filter(r => r.houve_producao).length;
+    const semProducao = total - comProducao;
+    const comOcorrencia = linhasPrevFiltradas.filter(r => r.houve_ocorrencia).length;
+    const comChuva = linhasPrevFiltradas.filter(r => r.choveu).length;
+    const usinaNaoAtendeu = linhasPrevFiltradas.filter(r => r.usina_atendeu === false).length;
+    const naoConformeEquip = linhasPrevFiltradas.filter(r => r.equipamentos_conforme === false).length;
+
+    const conformeCount = linhasPrevFiltradas.filter(r => r.equipamentos_conforme === true).length;
+    const avaliadosEquip = linhasPrevFiltradas.filter(r => r.equipamentos_conforme !== null).length;
+    const percConformeEquip = avaliadosEquip > 0 ? (conformeCount / avaliadosEquip) * 100 : 0;
+
+    const toneladas = linhasPrevFiltradas.reduce((acc, r) => acc
+      + (r.binder_ton || 0)
+      + (r.cbuq_fx3_ton || 0)
+      + (r.gap_ton || 0)
+      + (r.bgs_ton || 0)
+      + (r.sma_ton || 0)
+      + (r.cauq_rima_ton || 0)
+      + (r.bm25_ton || 0)
+      + (r.egl_ton || 0)
+      + (r.rachao_ton || 0), 0);
+
+    const areaM2 = linhasPrevFiltradas.reduce((acc, r) => acc
+      + (r.fresagem_m2 || 0)
+      + (r.rap_espumado_m2 || 0)
+      + (r.geogrelha_m2 || 0), 0);
+
+    const volumeM3 = linhasPrevFiltradas.reduce((acc, r) => acc
+      + (r.bgtc_m3 || 0)
+      + (r.macadame_m3 || 0), 0);
+
+    return {
+      total,
+      enviados,
+      rascunhos,
+      comProducao,
+      semProducao,
+      comOcorrencia,
+      comChuva,
+      usinaNaoAtendeu,
+      naoConformeEquip,
+      percConformeEquip,
+      toneladas,
+      areaM2,
+      volumeM3,
+    };
+  }, [linhasPrevFiltradas]);
+
+  const comparativo = useMemo(() => {
+    const calc = (atual: number, anterior: number) => {
+      const delta = atual - anterior;
+      const perc = anterior === 0 ? (atual === 0 ? 0 : 100) : (delta / anterior) * 100;
+      return { atual, anterior, delta, perc };
+    };
+
+    return {
+      total: calc(kpis.total, kpisPrev.total),
+      comProducao: calc(kpis.comProducao, kpisPrev.comProducao),
+      semProducao: calc(kpis.semProducao, kpisPrev.semProducao),
+      naoConforme: calc(kpis.naoConformeEquip, kpisPrev.naoConformeEquip),
+      toneladas: calc(kpis.toneladas, kpisPrev.toneladas),
+      areaM2: calc(kpis.areaM2, kpisPrev.areaM2),
+      volumeM3: calc(kpis.volumeM3, kpisPrev.volumeM3),
+      chuva: calc(kpis.comChuva, kpisPrev.comChuva),
+      ocorrencias: calc(kpis.comOcorrencia, kpisPrev.comOcorrencia),
+      conformidade: calc(kpis.percConformeEquip, kpisPrev.percConformeEquip),
+    };
+  }, [kpis, kpisPrev]);
 
   const serieEngenheiro = useMemo(() => {
     const map: Record<string, number> = {};
@@ -450,6 +612,56 @@ export default function RelatorioRdoTecnicoDashboard() {
     URL.revokeObjectURL(url);
   };
 
+  const exportarCsvExecutivo = () => {
+    const linhasResumo = [
+      ["Métrica", "Período Atual", "Período Anterior", "Variação Absoluta", "Variação %"],
+      ["Lançamentos", kpis.total, kpisPrev.total, comparativo.total.delta, comparativo.total.perc],
+      ["Com produção", kpis.comProducao, kpisPrev.comProducao, comparativo.comProducao.delta, comparativo.comProducao.perc],
+      ["Sem produção", kpis.semProducao, kpisPrev.semProducao, comparativo.semProducao.delta, comparativo.semProducao.perc],
+      ["Não conformidade equipamentos", kpis.naoConformeEquip, kpisPrev.naoConformeEquip, comparativo.naoConforme.delta, comparativo.naoConforme.perc],
+      ["Toneladas (t)", kpis.toneladas, kpisPrev.toneladas, comparativo.toneladas.delta, comparativo.toneladas.perc],
+      ["Área (m²)", kpis.areaM2, kpisPrev.areaM2, comparativo.areaM2.delta, comparativo.areaM2.perc],
+      ["Volume (m³)", kpis.volumeM3, kpisPrev.volumeM3, comparativo.volumeM3.delta, comparativo.volumeM3.perc],
+      ["Com chuva", kpis.comChuva, kpisPrev.comChuva, comparativo.chuva.delta, comparativo.chuva.perc],
+      ["Ocorrências", kpis.comOcorrencia, kpisPrev.comOcorrencia, comparativo.ocorrencias.delta, comparativo.ocorrencias.perc],
+      ["Conformidade equipamentos (%)", kpis.percConformeEquip, kpisPrev.percConformeEquip, comparativo.conformidade.delta, comparativo.conformidade.perc],
+    ];
+
+    const linhasPendencias = [
+      [],
+      ["Pendências prioritárias", "Prioridade", "Data", "OGS", "Engenheiro", "Equipe", "Assunto", "Detalhe"],
+      ...pendenciasPrioritarias.map((p) => [
+        "",
+        p.prioridade,
+        fmtDate(p.rdo.data),
+        p.rdo.ogs_number || "",
+        p.rdo.engenheiro_id ? (engMap[p.rdo.engenheiro_id] || "") : "",
+        p.rdo.equipe || "",
+        p.assunto,
+        p.detalhe,
+      ]),
+    ];
+
+    const linhas = [
+      ["Dashboard RDO Técnico — Resumo Executivo"],
+      ["Período atual", `${fmtDate(dataIni)} a ${fmtDate(dataFim)}`],
+      ["Período anterior", `${fmtDate(periodoAnterior.anteriorIni)} a ${fmtDate(periodoAnterior.anteriorFim)}`],
+      ["Filtros", `Status=${filtroStatus || "Todos"}; OGS=${filtroOgs || "Todas"}; Engenheiro=${filtroEng ? (engMap[filtroEng] || filtroEng) : "Todos"}; Equipe=${filtroEquipe || "Todas"}; Busca=${busca || "-"}`],
+      [],
+      ...linhasResumo,
+      ...linhasPendencias,
+    ];
+
+    const csv = "\uFEFF" + linhas.map((l) => l.map(csvEscape).join(";")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `WF_RDO_Tecnico_Resumo_Executivo_${dataIni}_a_${dataFim}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const renderTabelaAssunto = () => {
     if (tab === "geral") {
       return (
@@ -481,7 +693,7 @@ export default function RelatorioRdoTecnicoDashboard() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[920px] text-sm">
-              <thead className="bg-muted/40">
+              <thead className="bg-muted/40 sticky top-0 z-10">
                 <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-3 py-2">Data</th>
                   <th className="px-3 py-2">OGS</th>
@@ -545,9 +757,14 @@ export default function RelatorioRdoTecnicoDashboard() {
           <span className="block font-display font-extrabold text-sm text-primary-foreground">Dashboard RDO Técnico</span>
           <span className="block text-[11px] text-primary-foreground/80">Acompanhamento executivo de Engenharia</span>
         </div>
-        <Button onClick={exportarCsv} disabled={linhasFiltradas.length === 0} className="h-9 rounded-xl bg-white text-primary hover:bg-white/90">
-          <Download className="w-4 h-4 mr-1" /> CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={exportarCsvExecutivo} disabled={linhasFiltradas.length === 0} variant="outline" className="h-9 rounded-xl bg-white/10 border-white/30 text-white hover:bg-white/20">
+            <Download className="w-4 h-4 mr-1" /> Resumo Exec.
+          </Button>
+          <Button onClick={exportarCsv} disabled={linhasFiltradas.length === 0} className="h-9 rounded-xl bg-white text-primary hover:bg-white/90">
+            <Download className="w-4 h-4 mr-1" /> CSV
+          </Button>
+        </div>
       </header>
 
       <main className="max-w-[1500px] mx-auto p-4 space-y-4 pb-10">
@@ -611,12 +828,30 @@ export default function RelatorioRdoTecnicoDashboard() {
         ) : (
           <>
             <section className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              <KpiCard icon={ClipboardList} titulo="Lançamentos" valor={fmtNum(kpis.total)} cor="text-slate-700" />
-              <KpiCard icon={BarChart3} titulo="Com Produção" valor={fmtNum(kpis.comProducao)} cor="text-blue-700" />
-              <KpiCard icon={AlertTriangle} titulo="Sem Produção" valor={fmtNum(kpis.semProducao)} cor="text-red-700" />
-              <KpiCard icon={Gauge} titulo="Não Conforme" valor={fmtNum(kpis.naoConformeEquip)} cor="text-orange-700" />
-              <KpiCard icon={Users} titulo="Toneladas" valor={fmtNum(kpis.toneladas, 1)} cor="text-emerald-700" />
-              <KpiCard icon={Activity} titulo="Área (m²)" valor={fmtNum(kpis.areaM2, 1)} cor="text-indigo-700" />
+              <KpiCard icon={ClipboardList} titulo="Lançamentos" valor={fmtNum(kpis.total)} cor="text-slate-700" delta={comparativo.total.delta} deltaPct={comparativo.total.perc} />
+              <KpiCard icon={BarChart3} titulo="Com Produção" valor={fmtNum(kpis.comProducao)} cor="text-blue-700" delta={comparativo.comProducao.delta} deltaPct={comparativo.comProducao.perc} />
+              <KpiCard icon={AlertTriangle} titulo="Sem Produção" valor={fmtNum(kpis.semProducao)} cor="text-red-700" delta={comparativo.semProducao.delta} deltaPct={comparativo.semProducao.perc} invert />
+              <KpiCard icon={Gauge} titulo="Não Conforme" valor={fmtNum(kpis.naoConformeEquip)} cor="text-orange-700" delta={comparativo.naoConforme.delta} deltaPct={comparativo.naoConforme.perc} invert />
+              <KpiCard icon={Users} titulo="Toneladas" valor={fmtNum(kpis.toneladas, 1)} cor="text-emerald-700" delta={comparativo.toneladas.delta} deltaPct={comparativo.toneladas.perc} />
+              <KpiCard icon={Activity} titulo="Área (m²)" valor={fmtNum(kpis.areaM2, 1)} cor="text-indigo-700" delta={comparativo.areaM2.delta} deltaPct={comparativo.areaM2.perc} />
+            </section>
+
+            <section className="rounded-2xl border bg-white p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-sm font-bold">Comparativo com período anterior</h3>
+                <p className="text-xs text-muted-foreground">
+                  Atual: <span className="font-semibold text-foreground">{fmtDate(dataIni)} a {fmtDate(dataFim)}</span> ·
+                  Anterior: <span className="font-semibold text-foreground"> {fmtDate(periodoAnterior.anteriorIni)} a {fmtDate(periodoAnterior.anteriorFim)}</span>
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
+                <ComparativoCard titulo="Lançamentos" atual={comparativo.total.atual} anterior={comparativo.total.anterior} delta={comparativo.total.delta} perc={comparativo.total.perc} />
+                <ComparativoCard titulo="Com produção" atual={comparativo.comProducao.atual} anterior={comparativo.comProducao.anterior} delta={comparativo.comProducao.delta} perc={comparativo.comProducao.perc} />
+                <ComparativoCard titulo="Sem produção" atual={comparativo.semProducao.atual} anterior={comparativo.semProducao.anterior} delta={comparativo.semProducao.delta} perc={comparativo.semProducao.perc} invert />
+                <ComparativoCard titulo="Toneladas (t)" atual={comparativo.toneladas.atual} anterior={comparativo.toneladas.anterior} delta={comparativo.toneladas.delta} perc={comparativo.toneladas.perc} frac={1} />
+                <ComparativoCard titulo="Área (m²)" atual={comparativo.areaM2.atual} anterior={comparativo.areaM2.anterior} delta={comparativo.areaM2.delta} perc={comparativo.areaM2.perc} frac={1} />
+                <ComparativoCard titulo="Conformidade (%)" atual={comparativo.conformidade.atual} anterior={comparativo.conformidade.anterior} delta={comparativo.conformidade.delta} perc={comparativo.conformidade.perc} frac={1} />
+              </div>
             </section>
 
             {(kpis.semNomeEng > 0 || kpis.usinaNaoAtendeu > 0 || kpis.naoConformeEquip > 0 || kpis.semProducao > 0) && (
@@ -696,7 +931,7 @@ export default function RelatorioRdoTecnicoDashboard() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[980px] text-sm">
-                    <thead className="bg-muted/40">
+                    <thead className="bg-muted/40 sticky top-0 z-10">
                       <tr className="text-left text-xs text-muted-foreground">
                         <th className="px-3 py-2">Prioridade</th>
                         <th className="px-3 py-2">Data</th>
@@ -770,11 +1005,17 @@ function KpiCard({
   titulo,
   valor,
   cor,
+  delta,
+  deltaPct,
+  invert,
 }: {
   icon: any;
   titulo: string;
   valor: string;
   cor: string;
+  delta?: number;
+  deltaPct?: number;
+  invert?: boolean;
 }) {
   return (
     <div className="rounded-2xl border bg-white p-3">
@@ -783,6 +1024,61 @@ function KpiCard({
         <Icon className={`w-4 h-4 ${cor}`} />
       </div>
       <p className="text-2xl font-black mt-1 text-foreground leading-none">{valor}</p>
+      {delta != null && deltaPct != null ? (
+        <div className="mt-2">
+          <DeltaPill delta={delta} perc={deltaPct} invert={invert} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DeltaPill({ delta, perc, invert }: { delta: number; perc: number; invert?: boolean }) {
+  const isUp = delta > 0;
+  const isNeutral = delta === 0;
+  const shouldBeGood = invert ? !isUp : isUp;
+
+  const cls = isNeutral
+    ? "bg-slate-100 text-slate-600"
+    : shouldBeGood
+      ? "bg-emerald-100 text-emerald-700"
+      : "bg-rose-100 text-rose-700";
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
+      {isNeutral ? <Minus className="w-3 h-3" /> : isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+      {delta > 0 ? "+" : ""}{fmtNum(delta, 1)} ({perc > 0 ? "+" : ""}{fmtNum(perc, 1)}%)
+    </span>
+  );
+}
+
+function ComparativoCard({
+  titulo,
+  atual,
+  anterior,
+  delta,
+  perc,
+  frac,
+  invert,
+}: {
+  titulo: string;
+  atual: number;
+  anterior: number;
+  delta: number;
+  perc: number;
+  frac?: number;
+  invert?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border p-3 bg-muted/10">
+      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{titulo}</p>
+      <div className="mt-1 flex items-end justify-between gap-2">
+        <div>
+          <p className="text-2xl font-black leading-none">{fmtNum(atual, frac ?? 0)}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Anterior: {fmtNum(anterior, frac ?? 0)}</p>
+        </div>
+        <DeltaPill delta={delta} perc={perc} invert={invert} />
+      </div>
     </div>
   );
 }
