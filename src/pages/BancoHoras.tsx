@@ -394,6 +394,29 @@ function brDateToIso(raw: string): string | null {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+function sanitizeTextForJson(raw: string | null | undefined): string {
+  return String(raw || "")
+    // remove controles não imprimíveis (exceto tab/newline/cr)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, " ")
+    // remove surrogates isolados que podem quebrar jsonb no Postgres
+    .replace(/[\uD800-\uDFFF]/g, "")
+    .trim();
+}
+
+function sanitizeParsedPayload(colaboradores: ParsedColaboradorPdf[]): ParsedColaboradorPdf[] {
+  return colaboradores.map((c) => ({
+    ...c,
+    nome: sanitizeTextForJson(c.nome),
+    matricula: c.matricula ? sanitizeTextForJson(c.matricula) : undefined,
+    equipe: c.equipe ? sanitizeTextForJson(c.equipe) : undefined,
+    funcao: c.funcao ? sanitizeTextForJson(c.funcao) : undefined,
+    batidas: (c.batidas || []).map((b) => ({
+      ...b,
+      linha_origem: b.linha_origem ? sanitizeTextForJson(b.linha_origem) : undefined,
+    })),
+  }));
+}
+
 function linhaPareceNomeColaborador(line: string): boolean {
   const raw = String(line || "").trim();
   if (raw.length < 8) return false;
@@ -956,7 +979,8 @@ export default function BancoHoras() {
         }
 
         const parsed = await extrairColaboradoresDoPdfPontoMais(files as File[], competenciaAtual, equipeFiltro !== "TODAS" ? equipeFiltro : undefined);
-        if (parsed.colaboradores.length === 0) {
+        const colaboradoresSanitizados = sanitizeParsedPayload(parsed.colaboradores);
+        if (colaboradoresSanitizados.length === 0) {
           throw new Error("Não consegui extrair colaboradores do PDF. O arquivo pode estar em imagem/scan sem texto selecionável. Me envie esse PDF para calibrar OCR/parser.");
         }
 
@@ -964,7 +988,7 @@ export default function BancoHoras() {
         {
           const { data: stageData, error: stageError } = await (supabase as any).rpc("fn_ponto_he_pdf_stage_payload", {
             p_job_id: job.id,
-            p_payload: { colaboradores: parsed.colaboradores },
+            p_payload: { colaboradores: colaboradoresSanitizados },
           });
           if (stageError || !stageData?.ok) {
             throw new Error(stageError?.message || stageData?.error || "Falha ao gravar parser de PDF no staging.");
