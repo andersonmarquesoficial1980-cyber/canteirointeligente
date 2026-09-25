@@ -96,6 +96,7 @@ interface ResumoImportado {
   he_100_horas: number;
   adicional_noturno_horas: number;
   total_horas_extras_horas: number;
+  updated_at?: string | null;
   payload?: {
     he_manual?: {
       initial?: AjusteSnapshot;
@@ -627,6 +628,8 @@ export default function BancoHoras() {
   const [historicoAbertoId, setHistoricoAbertoId] = useState<string | null>(null);
   const [historicoDias, setHistoricoDias] = useState<LinhaHistoricoDiario[]>([]);
   const [loadingHistoricoId, setLoadingHistoricoId] = useState<string | null>(null);
+  const [loadingRevalidarResumo, setLoadingRevalidarResumo] = useState(false);
+  const [ultimaValidacaoResumo, setUltimaValidacaoResumo] = useState<string | null>(null);
 
   useEffect(() => {
     const loadAcl = async () => {
@@ -676,6 +679,7 @@ export default function BancoHoras() {
   const carregarDados = async () => {
     if (!mes || !profile?.company_id) return;
     setLoading(true);
+    setResumosImportados([]);
 
     const [y, m] = mes.split("-");
     const ini = `${y}-${m}-01`;
@@ -684,7 +688,7 @@ export default function BancoHoras() {
     // 1) Tenta resumo importado (PDF)
     const { data: imported } = await (supabase as any)
       .from("ponto_he_resumo_mensal")
-      .select("id, employee_id, colaborador_nome, equipe_nome, periodo_inicio, periodo_fim, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas, payload")
+      .select("id, employee_id, colaborador_nome, equipe_nome, periodo_inicio, periodo_fim, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas, updated_at, payload")
       .eq("company_id", profile.company_id)
       .eq("competencia", ini)
       .order("colaborador_nome", { ascending: true });
@@ -743,6 +747,40 @@ export default function BancoHoras() {
 
     if (regs) setRegistros(regs);
     setLoading(false);
+  };
+
+  const revalidarResumoNoBanco = async () => {
+    if (!profile?.company_id || !mes) return;
+    setLoadingRevalidarResumo(true);
+    try {
+      await carregarDados();
+
+      const [y, m] = mes.split("-");
+      const ini = `${y}-${m}-01`;
+
+      const { data, error } = await (supabase as any)
+        .from("ponto_he_resumo_mensal")
+        .select("id, total_horas_extras_horas")
+        .eq("company_id", profile.company_id)
+        .eq("competencia", ini);
+
+      if (error) {
+        toast({ title: "Falha na revalidação", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      const rows = (data || []) as Array<{ id: string; total_horas_extras_horas: number }>;
+      const zeros = rows.filter((r) => Number(r.total_horas_extras_horas || 0) === 0).length;
+      const positivos = rows.filter((r) => Number(r.total_horas_extras_horas || 0) > 0).length;
+
+      setUltimaValidacaoResumo(new Date().toISOString());
+      toast({
+        title: "Revalidação concluída",
+        description: `Resumo no banco: ${rows.length} colaboradores · ${positivos} com H.E. > 0 · ${zeros} zerados.`,
+      });
+    } finally {
+      setLoadingRevalidarResumo(false);
+    }
   };
 
   useEffect(() => {
@@ -2112,21 +2150,38 @@ export default function BancoHoras() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
             <span>Mostrando <b>{totalFiltradoAtual}</b> de <b>{totalBaseAtual}</b></span>
-            <button
-              type="button"
-              onClick={() => {
-                setEquipeFiltro("TODAS");
-                setFuncaoFiltro("TODAS");
-                setSaldoFiltro("TODOS");
-                setBusca("");
-              }}
-              className="underline underline-offset-2"
-            >
-              Limpar filtros
-            </button>
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={revalidarResumoNoBanco}
+                disabled={loadingRevalidarResumo || loading}
+                className="h-7 text-[11px]"
+              >
+                <RotateCcw className={`w-3 h-3 mr-1 ${loadingRevalidarResumo ? "animate-spin" : ""}`} />
+                {loadingRevalidarResumo ? "Revalidando..." : "Revalidar resumo no banco"}
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEquipeFiltro("TODAS");
+                  setFuncaoFiltro("TODAS");
+                  setSaldoFiltro("TODOS");
+                  setBusca("");
+                }}
+                className="underline underline-offset-2"
+              >
+                Limpar filtros
+              </button>
+            </div>
           </div>
+
+          <p className="text-[11px] text-muted-foreground px-1">
+            Última validação de confiança: {ultimaValidacaoResumo ? fmtDateTime(ultimaValidacaoResumo) : "ainda não executada"}
+          </p>
         </div>
 
         {/* Fechamento da competência */}
@@ -2299,6 +2354,9 @@ export default function BancoHoras() {
                       <div>
                         <p className="font-semibold text-sm">{r.colaborador_nome}</p>
                         <p className="text-xs text-muted-foreground">{r.equipe_label} · {r.funcao_label}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Atualizado em: {fmtDateTime(r.updated_at || null)}
+                        </p>
                       </div>
                       <span className={`text-xs font-bold ${r.saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
                         Saldo {r.saldo >= 0 ? "+" : ""}{fmtDec(r.saldo)} h
