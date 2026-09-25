@@ -181,9 +181,9 @@ export default function DashboardManutencao() {
           {/* KPIs */}
           <div className="grid grid-cols-4 gap-4">
             <KpiCard icon={Wrench} label="OS em aberto" value={osAbertas.length} sub="Aguardando / Em andamento" color="#6366f1" />
-            <KpiCard icon={AlertTriangle} label="Urgentes / Altas" value={urgentes} sub="Requer atenção imediata" color="#ef4444" alert />
+            <KpiCard icon={AlertTriangle} label="OS críticas" value={urgentes} sub="Urgente/alta — ação imediata" color="#ef4444" alert />
             <KpiCard icon={CheckCircle2} label="Concluídas (30d)" value={osFechadas30} sub="Últimos 30 dias" color="#10b981" />
-            <KpiCard icon={FileText} label="Docs vencidos" value={vencidos} sub={`+${vencendo7} vencem em 7 dias`} color="#f59e0b" alert />
+            <KpiCard icon={FileText} label="Documentos vencidos" value={vencidos} sub={`+${vencendo7} vencem em 7 dias`} color="#f59e0b" alert />
           </div>
 
           {/* Linha 2 */}
@@ -192,7 +192,7 @@ export default function DashboardManutencao() {
             <div className="col-span-2 rounded-2xl border border-white/10 p-5 overflow-hidden flex flex-col"
               style={{ background: "rgba(255,255,255,0.03)" }}>
               <h2 className="text-white font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Wrench className="w-4 h-4 text-orange-400" /> OS em Aberto
+                <Wrench className="w-4 h-4 text-orange-400" /> OS em aberto
               </h2>
               {osAbertas.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center">
@@ -226,7 +226,7 @@ export default function DashboardManutencao() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <span className="text-[10px] text-slate-500">
-                          {o.status === "em_andamento" ? "🔧 Em andamento" : "⏳ Aberta"}
+                          {o.status === "em_andamento" ? "🔧 Em andamento" : "⏳ Em aberto"}
                         </span>
                       </div>
                     </div>

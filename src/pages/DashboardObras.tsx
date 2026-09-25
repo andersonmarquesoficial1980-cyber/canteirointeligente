@@ -84,7 +84,7 @@ function ObraCard({ obra }: { obra: ObraStats }) {
       <div className="flex items-start justify-between gap-2">
         <span className="font-bold text-white text-sm leading-tight flex-1">{obra.obra_nome}</span>
         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${s.badge}`}>
-          {obra.status === "ativa" ? "ATIVA" : obra.status === "cancelada" ? "CANCELOU" : "SEM RDO"}
+          {obra.status === "ativa" ? "Ativa" : obra.status === "cancelada" ? "Cancelada" : "Sem RDO"}
         </span>
       </div>
       <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">

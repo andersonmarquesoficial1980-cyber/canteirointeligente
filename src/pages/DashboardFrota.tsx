@@ -176,8 +176,8 @@ export default function DashboardFrota() {
           <div className="grid grid-cols-4 gap-4">
             <KpiCard icon={Truck} label="Equipamentos hoje" value={totalHoje} sub="Com diário registrado" color="#6366f1" />
             <KpiCard icon={Activity} label="Trabalhando" value={trabalhando} sub={`${totalHoje > 0 ? Math.round(trabalhando / totalHoje * 100) : 0}% da frota`} color="#10b981" />
-            <KpiCard icon={Wrench} label="Inoperante" value={inoperante} sub="Requer atenção" color="#ef4444" />
-            <KpiCard icon={Fuel} label="Abastecido hoje" value={`${totalLitros.toFixed(0)} L`} sub={`${abast.length} equipamentos`} color="#f59e0b" />
+            <KpiCard icon={Wrench} label="Inoperantes" value={inoperante} sub="Requer atenção" color="#ef4444" />
+            <KpiCard icon={Fuel} label="Abastecimento (hoje)" value={`${totalLitros.toFixed(0)} L`} sub={`${abast.length} equipamentos`} color="#f59e0b" />
           </div>
 
           {/* Linha 2 */}
