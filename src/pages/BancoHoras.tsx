@@ -630,6 +630,8 @@ export default function BancoHoras() {
   const [loadingHistoricoId, setLoadingHistoricoId] = useState<string | null>(null);
   const [loadingRevalidarResumo, setLoadingRevalidarResumo] = useState(false);
   const [ultimaValidacaoResumo, setUltimaValidacaoResumo] = useState<string | null>(null);
+  const [statusConfiancaResumo, setStatusConfiancaResumo] = useState<"nao_validado" | "ok" | "divergente">("nao_validado");
+  const [detalheConfiancaResumo, setDetalheConfiancaResumo] = useState<string>("");
 
   useEffect(() => {
     const loadAcl = async () => {
@@ -676,8 +678,8 @@ export default function BancoHoras() {
     setMes(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`);
   };
 
-  const carregarDados = async () => {
-    if (!mes || !profile?.company_id) return;
+  const carregarDados = async (): Promise<ResumoImportado[]> => {
+    if (!mes || !profile?.company_id) return [];
     setLoading(true);
     setResumosImportados([]);
 
@@ -747,13 +749,14 @@ export default function BancoHoras() {
 
     if (regs) setRegistros(regs);
     setLoading(false);
+    return (imported || []) as ResumoImportado[];
   };
 
   const revalidarResumoNoBanco = async () => {
     if (!profile?.company_id || !mes) return;
     setLoadingRevalidarResumo(true);
     try {
-      await carregarDados();
+      const uiRows = await carregarDados();
 
       const [y, m] = mes.split("-");
       const ini = `${y}-${m}-01`;
@@ -766,6 +769,8 @@ export default function BancoHoras() {
 
       if (error) {
         toast({ title: "Falha na revalidação", description: error.message, variant: "destructive" });
+        setStatusConfiancaResumo("divergente");
+        setDetalheConfiancaResumo("Erro ao validar fonte oficial no banco.");
         return;
       }
 
@@ -773,11 +778,36 @@ export default function BancoHoras() {
       const zeros = rows.filter((r) => Number(r.total_horas_extras_horas || 0) === 0).length;
       const positivos = rows.filter((r) => Number(r.total_horas_extras_horas || 0) > 0).length;
 
+      const uiMap = new Map(uiRows.map((r) => [r.id, Number(r.total_horas_extras_horas || 0)]));
+      const dbMap = new Map(rows.map((r) => [r.id, Number(r.total_horas_extras_horas || 0)]));
+
+      let diffs = 0;
+      for (const [id, dbVal] of dbMap.entries()) {
+        const uiVal = uiMap.get(id);
+        if (uiVal === undefined || Math.abs(uiVal - dbVal) > 0.01) diffs += 1;
+      }
+      for (const id of uiMap.keys()) {
+        if (!dbMap.has(id)) diffs += 1;
+      }
+
       setUltimaValidacaoResumo(new Date().toISOString());
-      toast({
-        title: "Revalidação concluída",
-        description: `Resumo no banco: ${rows.length} colaboradores · ${positivos} com H.E. > 0 · ${zeros} zerados.`,
-      });
+
+      if (diffs > 0) {
+        setStatusConfiancaResumo("divergente");
+        setDetalheConfiancaResumo(`Detectadas ${diffs} divergência(s) entre tela e banco. Recarregue a tela e revalide.`);
+        toast({
+          title: "⚠️ Divergência detectada",
+          description: `Resumo no banco: ${rows.length} colaboradores · ${positivos} com H.E. > 0 · ${zeros} zerados. Divergências: ${diffs}.`,
+          variant: "destructive",
+        });
+      } else {
+        setStatusConfiancaResumo("ok");
+        setDetalheConfiancaResumo("Tela alinhada com o banco para a competência filtrada.");
+        toast({
+          title: "Revalidação concluída",
+          description: `Resumo no banco: ${rows.length} colaboradores · ${positivos} com H.E. > 0 · ${zeros} zerados.`,
+        });
+      }
     } finally {
       setLoadingRevalidarResumo(false);
     }
@@ -801,6 +831,9 @@ export default function BancoHoras() {
   }, [profile?.company_id]);
 
   useEffect(() => {
+    setStatusConfiancaResumo("nao_validado");
+    setDetalheConfiancaResumo("");
+    setUltimaValidacaoResumo(null);
     carregarDados();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mes, profile?.company_id]);
@@ -2179,9 +2212,29 @@ export default function BancoHoras() {
             </div>
           </div>
 
-          <p className="text-[11px] text-muted-foreground px-1">
-            Última validação de confiança: {ultimaValidacaoResumo ? fmtDateTime(ultimaValidacaoResumo) : "ainda não executada"}
-          </p>
+          <div className="px-1 space-y-1">
+            <p className="text-[11px] text-muted-foreground">
+              Última validação de confiança: {ultimaValidacaoResumo ? fmtDateTime(ultimaValidacaoResumo) : "ainda não executada"}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`text-[11px] rounded-full px-2 py-0.5 border ${
+                statusConfiancaResumo === "ok"
+                  ? "bg-green-50 text-green-700 border-green-200"
+                  : statusConfiancaResumo === "divergente"
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : "bg-muted text-muted-foreground border-border"
+              }`}>
+                {statusConfiancaResumo === "ok"
+                  ? "Confiabilidade: alinhado ao banco"
+                  : statusConfiancaResumo === "divergente"
+                    ? "Confiabilidade: divergência detectada"
+                    : "Confiabilidade: pendente de validação"}
+              </span>
+              {detalheConfiancaResumo && (
+                <span className="text-[11px] text-muted-foreground">{detalheConfiancaResumo}</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Fechamento da competência */}
