@@ -159,6 +159,21 @@ interface ComparativoAjuste {
   motivo: string;
 }
 
+interface AlertaBatida {
+  data: string;
+  motivo: string;
+}
+
+interface AnaliseColaborador {
+  resumoId: string;
+  colaborador: string;
+  equipe: string;
+  score: number;
+  alertas: AlertaBatida[];
+  diasComBatida: number;
+  entradaMediaMin: number | null;
+}
+
 function fmtHoras(h: number): string {
   const abs = Math.abs(h);
   const hh = Math.floor(abs);
@@ -174,6 +189,28 @@ function fmtDec(v: number): string {
 function toMin(hora: string): number {
   const [h, m] = hora.split(":").map(Number);
   return h * 60 + (m || 0);
+}
+
+function parseHoraSegura(v: unknown): string | null {
+  const s = String(v || "").trim();
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(s)) return null;
+  if (s === "00:00") return null;
+  return s;
+}
+
+function duracaoPar(entrada: string | null, saida: string | null): number {
+  if (!entrada || !saida) return 0;
+  let diff = toMin(saida) - toMin(entrada);
+  if (diff < 0) diff += 24 * 60;
+  return diff / 60;
+}
+
+function mediana(nums: number[]): number | null {
+  if (!nums.length) return null;
+  const arr = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(arr.length / 2);
+  if (arr.length % 2 === 0) return (arr[mid - 1] + arr[mid]) / 2;
+  return arr[mid];
 }
 
 function fmtDateTime(dt: string | null): string {
@@ -1573,6 +1610,105 @@ export default function BancoHoras() {
   const totalDebito = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.debito_horas || 0), 0), [importadosFiltrados]);
   const totalHE = useMemo(() => importadosFiltrados.reduce((a, b) => a + Number(b.total_horas_extras_horas || 0), 0), [importadosFiltrados]);
 
+  const analiseColaboradores = useMemo<AnaliseColaborador[]>(() => {
+    const base = importadosFiltrados.map((r) => {
+      const batidas = Array.isArray(r.payload?.source_payload?.batidas) ? r.payload?.source_payload?.batidas : [];
+      const alertas: AlertaBatida[] = [];
+      let diasComBatida = 0;
+      const entradasPrimeira: number[] = [];
+
+      for (const b of batidas) {
+        const data = String(b?.data || "");
+        const e1 = parseHoraSegura(b?.entrada1);
+        const s1 = parseHoraSegura(b?.saida1);
+        const e2 = parseHoraSegura(b?.entrada2);
+        const s2 = parseHoraSegura(b?.saida2);
+
+        const temAlguma = Boolean(e1 || s1 || e2 || s2);
+        if (!temAlguma) continue;
+
+        diasComBatida += 1;
+        if (e1) entradasPrimeira.push(toMin(e1));
+
+        if (Boolean(e1) !== Boolean(s1)) {
+          alertas.push({ data, motivo: "Par 1 incompleto (entrada/saída)" });
+        }
+        if (Boolean(e2) !== Boolean(s2)) {
+          alertas.push({ data, motivo: "Par 2 incompleto (entrada/saída)" });
+        }
+
+        const h1 = duracaoPar(e1, s1);
+        const h2 = duracaoPar(e2, s2);
+        const horasDia = h1 + h2;
+
+        if (e1 && s1 && toMin(s1) < toMin(e1)) {
+          alertas.push({ data, motivo: "Saída 1 menor que entrada 1 (virada/inconsistência)" });
+        }
+        if (e2 && s2 && toMin(s2) < toMin(e2)) {
+          alertas.push({ data, motivo: "Saída 2 menor que entrada 2 (virada/inconsistência)" });
+        }
+
+        if (horasDia > 0 && horasDia < 4) {
+          alertas.push({ data, motivo: `Jornada muito baixa (${fmtDec(horasDia)}h)` });
+        }
+        if (horasDia > 12) {
+          alertas.push({ data, motivo: `Jornada muito alta (${fmtDec(horasDia)}h)` });
+        }
+      }
+
+      const entradaMediaMin = entradasPrimeira.length
+        ? entradasPrimeira.reduce((a, b) => a + b, 0) / entradasPrimeira.length
+        : null;
+
+      return {
+        resumoId: r.id,
+        colaborador: r.colaborador_nome,
+        equipe: r.equipe_label,
+        score: alertas.length,
+        alertas,
+        diasComBatida,
+        entradaMediaMin,
+      };
+    });
+
+    const medianByEquipe = new Map<string, number>();
+    for (const equipe of Array.from(new Set(base.map((a) => a.equipe)))) {
+      const amostras = base
+        .filter((a) => a.equipe === equipe && a.entradaMediaMin !== null)
+        .map((a) => Number(a.entradaMediaMin));
+      const med = mediana(amostras);
+      if (med !== null) medianByEquipe.set(equipe, med);
+    }
+
+    return base
+      .map((a) => {
+        const med = medianByEquipe.get(a.equipe);
+        if (med !== undefined && a.entradaMediaMin !== null) {
+          const diff = Math.abs(a.entradaMediaMin - med);
+          if (diff >= 120) {
+            a.alertas.push({ data: "padrão", motivo: "Entrada média fora do padrão da equipe (>= 2h)" });
+            a.score += 1;
+          }
+        }
+        return a;
+      })
+      .sort((x, y) => y.score - x.score || x.colaborador.localeCompare(y.colaborador));
+  }, [importadosFiltrados]);
+
+  const analiseResumo = useMemo(() => {
+    const totalComAlerta = analiseColaboradores.filter((a) => a.score > 0).length;
+    const totalAlertas = analiseColaboradores.reduce((acc, a) => acc + a.score, 0);
+    return {
+      totalComAlerta,
+      totalAlertas,
+      top: analiseColaboradores.slice(0, 6),
+    };
+  }, [analiseColaboradores]);
+
+  const analiseByResumoId = useMemo(() => {
+    return new Map(analiseColaboradores.map((a) => [a.resumoId, a]));
+  }, [analiseColaboradores]);
+
   const filtradosCalc = busca.trim()
     ? saldosCalculados.filter((s) => {
       const matchBusca = s.funcionario.nome.toLowerCase().includes(busca.toLowerCase()) || s.funcionario.matricula?.includes(busca);
@@ -2270,6 +2406,36 @@ export default function BancoHoras() {
               </div>
             </div>
 
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    Análise automática de anomalias de ponto
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Mostra quem está fora do padrão sem precisar abrir colaborador por colaborador.
+                  </p>
+                </div>
+                <div className="text-xs font-medium">
+                  {analiseResumo.totalComAlerta} com alerta · {analiseResumo.totalAlertas} alertas
+                </div>
+              </div>
+
+              {analiseResumo.totalComAlerta === 0 ? (
+                <p className="text-xs text-green-700">Nenhuma anomalia relevante detectada nas batidas filtradas.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {analiseResumo.top.filter((a) => a.score > 0).map((a) => (
+                    <div key={a.resumoId} className="rounded-lg border border-amber-200 bg-white px-2 py-2 text-xs">
+                      <p className="font-semibold">{a.colaborador} <span className="text-amber-700">· {a.score} alerta(s)</span></p>
+                      <p className="text-muted-foreground truncate">{a.alertas.slice(0, 2).map((x) => `${x.data ? fmtDate(x.data) : ""} ${x.motivo}`).join(" · ")}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="rounded-xl border border-border bg-card p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold flex items-center gap-2"><SlidersHorizontal className="w-4 h-4" /> Ajuste individual de H.E.</p>
@@ -2300,10 +2466,23 @@ export default function BancoHoras() {
                         <p className="font-semibold text-sm">{r.colaborador_nome}</p>
                         <p className="text-xs text-muted-foreground">{r.equipe_label} · {r.funcao_label}</p>
                       </div>
-                      <span className={`text-xs font-bold ${r.saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        Saldo {r.saldo >= 0 ? "+" : ""}{fmtDec(r.saldo)} h
-                      </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`text-xs font-bold ${r.saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          Saldo {r.saldo >= 0 ? "+" : ""}{fmtDec(r.saldo)} h
+                        </span>
+                        {(analiseByResumoId.get(r.id)?.score || 0) > 0 && (
+                          <span className="text-[10px] rounded-full px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200">
+                            {analiseByResumoId.get(r.id)?.score} alerta(s) de batida
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {(analiseByResumoId.get(r.id)?.score || 0) > 0 && (
+                      <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+                        {analiseByResumoId.get(r.id)?.alertas.slice(0, 2).map((a) => `${a.data ? fmtDate(a.data) : ""} ${a.motivo}`).join(" · ")}
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
                       <div className="rounded-lg bg-muted/40 p-2"><b>Crédito</b><br />{fmtDec(r.credito_horas)} h</div>
