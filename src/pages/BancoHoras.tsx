@@ -2326,6 +2326,65 @@ export default function BancoHoras() {
     setTimeout(() => win.print(), 350);
   };
 
+  const exportarPlanoAuditoriaExcel = async () => {
+    if (analiseEquipes.alertas.length === 0) return;
+
+    const XLSX = await import("xlsx");
+    const wb = XLSX.utils.book_new();
+
+    const linhasPlano = planoAcaoEquipe.map((p, idx) => ({
+      Prioridade: idx + 1,
+      Equipe: p.equipe,
+      "Alertas na equipe": p.alertas,
+      "Críticos na equipe": p.criticos,
+      "Colaborador foco": p.topo?.colaborador || "",
+      "Severidade foco": p.topo?.severidade || "",
+      "Desvio foco (h)": Number(p.topo?.desvio_abs_horas || 0),
+      "Ação prioritária": p.topo?.acao_prioritaria || "",
+      "Recomendação": p.topo?.recomendacao || "",
+      Responsavel: "",
+      Prazo: "",
+      Status: "PENDENTE",
+      Período: `${periodoInicio || "-"} a ${periodoFim || "-"}`,
+    }));
+
+    const linhasAlertas = analiseEquipes.alertas.map((a) => ({
+      Equipe: a.equipe,
+      Colaborador: a.colaborador,
+      Função: a.funcao,
+      Severidade: a.severidade,
+      "HE total": Number(a.he_total),
+      "Mediana equipe": Number(a.mediana_equipe),
+      "Desvio (h)": Number(a.desvio_abs_horas),
+      "Score robusto": Number(a.score_robusto),
+      "Crédito (h)": Number(a.credito_horas),
+      "Débito (h)": Number(a.debito_horas),
+      "Saldo (h)": Number(a.saldo),
+      "Ação prioritária": a.acao_prioritaria,
+      Recomendação: a.recomendacao,
+    }));
+
+    const wsPlano = XLSX.utils.json_to_sheet(linhasPlano);
+    const wsAlertas = XLSX.utils.json_to_sheet(linhasAlertas);
+
+    wsPlano["!autofilter"] = { ref: wsPlano["!ref"] };
+    wsAlertas["!autofilter"] = { ref: wsAlertas["!ref"] };
+
+    wsPlano["!cols"] = [
+      { wch: 10 }, { wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 16 }, { wch: 14 },
+      { wch: 34 }, { wch: 50 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 24 },
+    ];
+    wsAlertas["!cols"] = [
+      { wch: 20 }, { wch: 26 }, { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 30 }, { wch: 45 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsPlano, "Plano Auditoria");
+    XLSX.utils.book_append_sheet(wb, wsAlertas, "Alertas Detalhados");
+
+    XLSX.writeFile(wb, `WF_Plano_Auditoria_HE_${mes}.xlsx`, { cellStyles: true });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
@@ -2710,7 +2769,19 @@ export default function BancoHoras() {
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-medium">Plano de ação prioritário por equipe</p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium">Plano de ação prioritário por equipe</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportarPlanoAuditoriaExcel}
+                    disabled={analiseEquipes.alertas.length === 0}
+                    className="h-7 text-[11px]"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 mr-1" />
+                    Gerar plano de auditoria (.xlsx)
+                  </Button>
+                </div>
                 {planoAcaoEquipe.length === 0 ? (
                   <p className="text-xs text-muted-foreground rounded-md border bg-white px-2 py-1.5">
                     Sem ações pendentes no filtro atual.
