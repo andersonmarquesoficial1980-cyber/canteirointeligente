@@ -645,27 +645,26 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], periodoInicioRe
             let adicionalNoturnoDia = 0;
 
             // Layout PontoMais: [batidas...][credito][debito][intervalo][normais][he70][he100][noturno]
-            // Há arquivos com 2 ou 3 pares de batida na mesma linha.
-            if (horas.length >= 11) {
-              const possiblePunchCount = horas.length - 7;
-              if (possiblePunchCount >= 4 && possiblePunchCount <= 6) {
-                const punches = horas.slice(0, possiblePunchCount);
-                const dur = horas.slice(possiblePunchCount, possiblePunchCount + 7);
+            // BUG corrigido: quando havia 3 batidas + 7 totais (10 tokens), a 4ª posição era crédito e acabava
+            // sendo lida como "2ª saída". Agora aceitamos 2..6 batidas e alternamos entrada/saída corretamente.
+            const possiblePunchCount = horas.length - 7;
+            if (possiblePunchCount >= 2 && possiblePunchCount <= 6) {
+              const punches = horas.slice(0, possiblePunchCount);
+              const dur = horas.slice(possiblePunchCount, possiblePunchCount + 7);
 
-                entrada1 = punches[0];
-                saida1 = punches[1];
-                entrada2 = punches[2];
-                saida2 = punches[3];
-                entrada3 = punches[4];
-                saida3 = punches[5];
+              entrada1 = punches[0];
+              saida1 = punches[1];
+              entrada2 = punches[2];
+              saida2 = punches[3];
+              entrada3 = punches[4];
+              saida3 = punches[5];
 
-                creditoDia = parseHoraTokenParaDecimal(dur[0]);
-                debitoDia = parseHoraTokenParaDecimal(dur[1]);
-                horasNormaisDia = parseHoraTokenParaDecimal(dur[3]);
-                he70Dia = parseHoraTokenParaDecimal(dur[4]);
-                he100Dia = parseHoraTokenParaDecimal(dur[5]);
-                adicionalNoturnoDia = parseHoraTokenParaDecimal(dur[6]);
-              }
+              creditoDia = parseHoraTokenParaDecimal(dur[0]);
+              debitoDia = parseHoraTokenParaDecimal(dur[1]);
+              horasNormaisDia = parseHoraTokenParaDecimal(dur[3]);
+              he70Dia = parseHoraTokenParaDecimal(dur[4]);
+              he100Dia = parseHoraTokenParaDecimal(dur[5]);
+              adicionalNoturnoDia = parseHoraTokenParaDecimal(dur[6]);
             }
 
             atual.batidas.push({
