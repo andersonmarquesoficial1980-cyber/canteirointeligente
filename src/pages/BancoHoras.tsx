@@ -352,6 +352,14 @@ type ParsedBatidaPdf = {
   saida1?: string;
   entrada2?: string;
   saida2?: string;
+  entrada3?: string;
+  saida3?: string;
+  credito_horas?: number;
+  debito_horas?: number;
+  horas_normais?: number;
+  he_70_horas?: number;
+  he_100_horas?: number;
+  adicional_noturno_horas?: number;
   linha_origem?: string;
 };
 
@@ -534,34 +542,63 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], periodoInicioRe
         if (dataMatch?.[1] && horas.length > 0) {
           const iso = brDateToIso(dataMatch[1]);
           if (iso && iso >= periodoInicio && iso <= periodoFim) {
+            let entrada1 = horas[0];
+            let saida1 = horas[1];
+            let entrada2 = horas[2];
+            let saida2 = horas[3];
+            let entrada3: string | undefined;
+            let saida3: string | undefined;
+
+            let creditoDia = 0;
+            let debitoDia = 0;
+            let horasNormaisDia = 0;
+            let he70Dia = 0;
+            let he100Dia = 0;
+            let adicionalNoturnoDia = 0;
+
+            // Layout PontoMais: [batidas...][credito][debito][intervalo][normais][he70][he100][noturno]
+            // Há arquivos com 2 ou 3 pares de batida na mesma linha.
+            if (horas.length >= 11) {
+              const possiblePunchCount = horas.length - 7;
+              if (possiblePunchCount >= 4 && possiblePunchCount <= 6) {
+                const punches = horas.slice(0, possiblePunchCount);
+                const dur = horas.slice(possiblePunchCount, possiblePunchCount + 7);
+
+                entrada1 = punches[0];
+                saida1 = punches[1];
+                entrada2 = punches[2];
+                saida2 = punches[3];
+                entrada3 = punches[4];
+                saida3 = punches[5];
+
+                creditoDia = parseHoraTokenParaDecimal(dur[0]);
+                debitoDia = parseHoraTokenParaDecimal(dur[1]);
+                horasNormaisDia = parseHoraTokenParaDecimal(dur[3]);
+                he70Dia = parseHoraTokenParaDecimal(dur[4]);
+                he100Dia = parseHoraTokenParaDecimal(dur[5]);
+                adicionalNoturnoDia = parseHoraTokenParaDecimal(dur[6]);
+              }
+            }
+
             atual.batidas.push({
               data: iso,
-              entrada1: horas[0],
-              saida1: horas[1],
-              entrada2: horas[2],
-              saida2: horas[3],
+              entrada1,
+              saida1,
+              entrada2,
+              saida2,
+              entrada3,
+              saida3,
+              credito_horas: creditoDia,
+              debito_horas: debitoDia,
+              horas_normais: horasNormaisDia,
+              he_70_horas: he70Dia,
+              he_100_horas: he100Dia,
+              adicional_noturno_horas: adicionalNoturnoDia,
               linha_origem: line,
             });
             totalBatidas += 1;
           }
           continue;
-        }
-
-        const horaToken = (line.match(/(\d{1,3}:\d{2}|\d+[.,]\d{1,2})/) || [null])[1];
-        if (!horaToken) continue;
-
-        if (/cr[eé]dito|saldo\s*positivo|extra\s*time|hora\s*extra/i.test(line)) {
-          atual.credito_horas = Number((atual.credito_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
-        } else if (/d[eé]bito|saldo\s*negativo|falta/i.test(line)) {
-          atual.debito_horas = Number((atual.debito_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
-        } else if (/horas?\s*normais/i.test(line)) {
-          atual.horas_normais = Number((atual.horas_normais + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
-        } else if (/he\s*70|70%/i.test(line)) {
-          atual.he_70_horas = Number((atual.he_70_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
-        } else if (/he\s*100|100%/i.test(line)) {
-          atual.he_100_horas = Number((atual.he_100_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
-        } else if (/ad\.?\s*noturno/i.test(line)) {
-          atual.adicional_noturno_horas = Number((atual.adicional_noturno_horas + parseHoraTokenParaDecimal(horaToken)).toFixed(2));
         }
       }
     }
@@ -569,22 +606,34 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], periodoInicioRe
 
   const colaboradores = Array.from(byKey.values())
     .map((c) => {
-      const heTotal = c.total_horas_extras_horas > 0
-        ? c.total_horas_extras_horas
-        : (c.he_70_horas + c.he_100_horas) > 0
-          ? Number((c.he_70_horas + c.he_100_horas).toFixed(2))
-          : c.credito_horas;
-
       const batidasUnicas = new Map<string, ParsedBatidaPdf>();
       for (const b of c.batidas) {
-        const key = `${b.data}|${b.entrada1 || ""}|${b.saida1 || ""}|${b.entrada2 || ""}|${b.saida2 || ""}`;
+        const key = `${b.data}|${b.entrada1 || ""}|${b.saida1 || ""}|${b.entrada2 || ""}|${b.saida2 || ""}|${b.entrada3 || ""}|${b.saida3 || ""}`;
         if (!batidasUnicas.has(key)) batidasUnicas.set(key, b);
       }
 
+      const batidasOrdenadas = Array.from(batidasUnicas.values()).sort((a, b) => a.data.localeCompare(b.data));
+
+      const creditoHoras = Number(batidasOrdenadas.reduce((acc, b) => acc + Number(b.credito_horas || 0), 0).toFixed(2));
+      const debitoHoras = Number(batidasOrdenadas.reduce((acc, b) => acc + Number(b.debito_horas || 0), 0).toFixed(2));
+      const horasNormais = Number(batidasOrdenadas.reduce((acc, b) => acc + Number(b.horas_normais || 0), 0).toFixed(2));
+      const he70Horas = Number(batidasOrdenadas.reduce((acc, b) => acc + Number(b.he_70_horas || 0), 0).toFixed(2));
+      const he100Horas = Number(batidasOrdenadas.reduce((acc, b) => acc + Number(b.he_100_horas || 0), 0).toFixed(2));
+      const adicionalNoturnoHoras = Number(batidasOrdenadas.reduce((acc, b) => acc + Number(b.adicional_noturno_horas || 0), 0).toFixed(2));
+
+      const heTotalCalculado = Number((he70Horas + he100Horas).toFixed(2));
+      const heTotal = heTotalCalculado > 0 ? heTotalCalculado : creditoHoras;
+
       return {
         ...c,
+        credito_horas: creditoHoras,
+        debito_horas: debitoHoras,
+        horas_normais: horasNormais,
+        he_70_horas: he70Horas,
+        he_100_horas: he100Horas,
+        adicional_noturno_horas: adicionalNoturnoHoras,
         total_horas_extras_horas: heTotal,
-        batidas: Array.from(batidasUnicas.values()).sort((a, b) => a.data.localeCompare(b.data)),
+        batidas: batidasOrdenadas,
       };
     })
     .filter((c) => c.nome && c.nome.length > 2);
