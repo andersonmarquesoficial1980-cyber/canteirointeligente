@@ -185,6 +185,8 @@ interface AnaliseEquipeResumo {
   desvio_padrao_he: number;
   cv_percent: number;
   alertas: number;
+  risco_score: number;
+  risco_nivel: "BAIXO" | "MEDIO" | "ALTO" | "CRITICO";
 }
 
 function fmtHoras(h: number): string {
@@ -721,6 +723,7 @@ export default function BancoHoras() {
   const [equipeFiltro, setEquipeFiltro] = useState<string>("TODAS");
   const [funcaoFiltro, setFuncaoFiltro] = useState<string>("TODAS");
   const [saldoFiltro, setSaldoFiltro] = useState<FiltroSaldo>("TODOS");
+  const [somenteDivergencias, setSomenteDivergencias] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingFechamento, setLoadingFechamento] = useState(false);
   const [loadingSyncPontomais, setLoadingSyncPontomais] = useState(false);
@@ -1800,6 +1803,7 @@ export default function BancoHoras() {
       const mad = calcMediana(absDesvios);
 
       let alertasEquipe = 0;
+      let alertasCriticosEquipe = 0;
       for (const m of membros) {
         const he = Number(m.total_horas_extras_horas || 0);
         const desvioAbs = Math.abs(he - mediana);
@@ -1825,8 +1829,23 @@ export default function BancoHoras() {
             severidade,
           });
           alertasEquipe += 1;
+          if (severidade === "CRITICO") alertasCriticosEquipe += 1;
         }
       }
+
+      const riscoBruto =
+        (cvPercent * 0.9)
+        + (amplitude * 2)
+        + ((membros.length > 0 ? alertasEquipe / membros.length : 0) * 40)
+        + (alertasCriticosEquipe * 15);
+      const riscoScore = Number(Math.max(0, Math.min(100, riscoBruto)).toFixed(1));
+      const riscoNivel: AnaliseEquipeResumo["risco_nivel"] = riscoScore >= 75
+        ? "CRITICO"
+        : riscoScore >= 55
+          ? "ALTO"
+          : riscoScore >= 35
+            ? "MEDIO"
+            : "BAIXO";
 
       resumoPorEquipe.push({
         equipe,
@@ -1839,6 +1858,8 @@ export default function BancoHoras() {
         desvio_padrao_he: Number(desvio.toFixed(2)),
         cv_percent: cvPercent,
         alertas: alertasEquipe,
+        risco_score: riscoScore,
+        risco_nivel: riscoNivel,
       });
     }
 
@@ -1866,13 +1887,22 @@ export default function BancoHoras() {
     };
   }, [importadosFiltrados]);
 
+  const nomesComAlerta = useMemo(() => {
+    return new Set(analiseEquipes.alertas.map((a) => normalizeText(a.colaborador)));
+  }, [analiseEquipes.alertas]);
+
+  const importadosVisiveis = useMemo(() => {
+    if (!somenteDivergencias) return importadosFiltrados;
+    return importadosFiltrados.filter((r) => nomesComAlerta.has(normalizeText(r.colaborador_nome)));
+  }, [importadosFiltrados, nomesComAlerta, somenteDivergencias]);
+
   const exportarComparativoExcel = async () => {
-    if (!profile?.company_id || importadosFiltrados.length === 0) return;
+    if (!profile?.company_id || importadosVisiveis.length === 0) return;
 
     const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
 
-    const selecionados = importadosFiltrados
+    const selecionados = importadosVisiveis
       .map((r) => ({ r, staff_id: resolverEmployeeId(r) }))
       .filter((x) => Boolean(x.staff_id));
 
@@ -2333,8 +2363,22 @@ export default function BancoHoras() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
-            <span>Mostrando <b>{totalFiltradoAtual}</b> de <b>{totalBaseAtual}</b></span>
+            <span>
+              Mostrando <b>{temImportado ? importadosVisiveis.length : totalFiltradoAtual}</b> de <b>{totalBaseAtual}</b>
+              {temImportado && somenteDivergencias && " · somente divergências"}
+            </span>
             <div className="flex items-center gap-3">
+              {temImportado && (
+                <Button
+                  type="button"
+                  variant={somenteDivergencias ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSomenteDivergencias((v) => !v)}
+                  className="h-7 text-[11px]"
+                >
+                  {somenteDivergencias ? "Exibir todos" : "Somente divergências"}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -2353,6 +2397,7 @@ export default function BancoHoras() {
                   setFuncaoFiltro("TODAS");
                   setSaldoFiltro("TODOS");
                   setBusca("");
+                  setSomenteDivergencias(false);
                 }}
                 className="underline underline-offset-2"
               >
@@ -2546,13 +2591,14 @@ export default function BancoHoras() {
                       <th className="text-right p-2">Faixa min→max</th>
                       <th className="text-right p-2">Amplitude</th>
                       <th className="text-right p-2">CV %</th>
+                      <th className="text-right p-2">Risco</th>
                       <th className="text-right p-2">Alertas</th>
                     </tr>
                   </thead>
                   <tbody>
                     {analiseEquipes.resumoPorEquipe.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="p-3 text-center text-muted-foreground">Sem dados para análise no filtro atual.</td>
+                        <td colSpan={9} className="p-3 text-center text-muted-foreground">Sem dados para análise no filtro atual.</td>
                       </tr>
                     ) : analiseEquipes.resumoPorEquipe.map((eq) => (
                       <tr key={eq.equipe} className="border-t">
@@ -2564,6 +2610,9 @@ export default function BancoHoras() {
                         <td className="p-2 text-right font-semibold">{fmtDec(eq.amplitude_he)}</td>
                         <td className={`p-2 text-right ${eq.cv_percent >= 35 ? "text-red-700 font-semibold" : eq.cv_percent >= 20 ? "text-amber-700 font-semibold" : "text-green-700"}`}>
                           {fmtDec(eq.cv_percent)}%
+                        </td>
+                        <td className={`p-2 text-right font-semibold ${eq.risco_nivel === "CRITICO" ? "text-red-700" : eq.risco_nivel === "ALTO" ? "text-amber-700" : eq.risco_nivel === "MEDIO" ? "text-blue-700" : "text-green-700"}`}>
+                          {fmtDec(eq.risco_score)} ({eq.risco_nivel})
                         </td>
                         <td className="p-2 text-right">{eq.alertas}</td>
                       </tr>
@@ -2603,7 +2652,7 @@ export default function BancoHoras() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={exportarComparativoExcel} disabled={importadosFiltrados.length === 0}>
+                <Button variant="outline" size="sm" onClick={exportarComparativoExcel} disabled={importadosVisiveis.length === 0}>
                   <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Excel nome a nome
                 </Button>
                 <Button variant="outline" size="sm" onClick={exportarComparativoPdf} disabled={comparativoAjustes.length === 0}>
@@ -2612,12 +2661,16 @@ export default function BancoHoras() {
               </div>
             </div>
 
-            {!loading && importadosFiltrados.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground py-6">Nenhum resumo importado para o período selecionado.</p>
+            {!loading && importadosVisiveis.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground py-6">
+                {somenteDivergencias
+                  ? "Nenhuma discrepância detectada para os filtros atuais."
+                  : "Nenhum resumo importado para o período selecionado."}
+              </p>
             )}
 
             <div className="space-y-2">
-              {importadosFiltrados.map((r) => {
+              {importadosVisiveis.map((r) => {
                 return (
                   <div key={r.id} className="bg-card rounded-xl border border-border p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
