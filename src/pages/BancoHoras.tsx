@@ -630,10 +630,10 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], periodoInicioRe
         if (dataMatch?.[1] && horas.length > 0) {
           const iso = brDateToIso(dataMatch[1]);
           if (iso && iso >= periodoInicio && iso <= periodoFim) {
-            let entrada1 = horas[0];
-            let saida1 = horas[1];
-            let entrada2 = horas[2];
-            let saida2 = horas[3];
+            let entrada1: string | undefined;
+            let saida1: string | undefined;
+            let entrada2: string | undefined;
+            let saida2: string | undefined;
             let entrada3: string | undefined;
             let saida3: string | undefined;
 
@@ -645,12 +645,15 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], periodoInicioRe
             let adicionalNoturnoDia = 0;
 
             // Layout PontoMais: [batidas...][credito][debito][intervalo][normais][he70][he100][noturno]
-            // BUG corrigido: quando havia 3 batidas + 7 totais (10 tokens), a 4ª posição era crédito e acabava
-            // sendo lida como "2ª saída". Agora aceitamos 2..6 batidas e alternamos entrada/saída corretamente.
-            const possiblePunchCount = horas.length - 7;
-            if (possiblePunchCount >= 2 && possiblePunchCount <= 6) {
-              const punches = horas.slice(0, possiblePunchCount);
-              const dur = horas.slice(possiblePunchCount, possiblePunchCount + 7);
+            // Correção crítica:
+            // - não pré-preencher saída com tokens brutos (evita confundir 1ª saída com Horas Normais)
+            // - aceitar 0..6 batidas antes dos 7 totais
+            // - ignorar horários extras em observações (limite das 13 primeiras ocorrências = 6 batidas + 7 totais)
+            const tokens = horas.slice(0, 13);
+            const possiblePunchCount = tokens.length - 7;
+            if (possiblePunchCount >= 0 && possiblePunchCount <= 6) {
+              const punches = tokens.slice(0, possiblePunchCount);
+              const dur = tokens.slice(possiblePunchCount, possiblePunchCount + 7);
 
               entrada1 = punches[0];
               saida1 = punches[1];
@@ -665,6 +668,14 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], periodoInicioRe
               he70Dia = parseHoraTokenParaDecimal(dur[4]);
               he100Dia = parseHoraTokenParaDecimal(dur[5]);
               adicionalNoturnoDia = parseHoraTokenParaDecimal(dur[6]);
+            } else if (tokens.length > 0 && tokens.length <= 6) {
+              // fallback defensivo para linhas sem bloco completo de totais
+              entrada1 = tokens[0];
+              saida1 = tokens[1];
+              entrada2 = tokens[2];
+              saida2 = tokens[3];
+              entrada3 = tokens[4];
+              saida3 = tokens[5];
             }
 
             atual.batidas.push({
