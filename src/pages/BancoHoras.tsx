@@ -139,6 +139,7 @@ interface ResumoImportadoEnriquecido extends ResumoImportado {
   equipe_label: string;
   funcao_label: string;
   saldo: number;
+  resumo_estimado_por_batidas?: boolean;
 }
 
 interface ComparativoAjuste {
@@ -1338,20 +1339,68 @@ export default function BancoHoras() {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), (f.equipe || "").trim()]));
   }, [funcionarios]);
 
+  const saldoCalcByEmployeeId = useMemo(() => {
+    const map = new Map<string, { horasTrabalhadas: number; saldo: number; diasTrabalhados: number }>();
+    for (const s of saldosCalculados) {
+      map.set(s.funcionario.id, {
+        horasTrabalhadas: Number(s.horasTrabalhadas || 0),
+        saldo: Number(s.saldo || 0),
+        diasTrabalhados: Number(s.diasTrabalhados || 0),
+      });
+    }
+    return map;
+  }, [saldosCalculados]);
+
+  const saldoCalcByNome = useMemo(() => {
+    const map = new Map<string, { horasTrabalhadas: number; saldo: number; diasTrabalhados: number }>();
+    for (const s of saldosCalculados) {
+      map.set(normalizeText(s.funcionario.nome), {
+        horasTrabalhadas: Number(s.horasTrabalhadas || 0),
+        saldo: Number(s.saldo || 0),
+        diasTrabalhados: Number(s.diasTrabalhados || 0),
+      });
+    }
+    return map;
+  }, [saldosCalculados]);
+
   const resumosEnriquecidos = useMemo<ResumoImportadoEnriquecido[]>(() => {
     return resumosImportados.map((r) => {
       const equipeWf = (r.employee_id && equipeByEmployeeId.get(r.employee_id)) || equipeByNome.get(normalizeText(r.colaborador_nome)) || "";
       const equipe = (equipeWf || "Sem equipe").trim();
       const funcao = funcaoByNome.get(normalizeText(r.colaborador_nome)) || "Sem função";
-      const saldo = Number(r.credito_horas || 0) - Number(r.debito_horas || 0);
+
+      const resumoZerado = Number(r.credito_horas || 0) === 0
+        && Number(r.debito_horas || 0) === 0
+        && Number(r.he_70_horas || 0) === 0
+        && Number(r.he_100_horas || 0) === 0
+        && Number(r.total_horas_extras_horas || 0) === 0
+        && Number(r.horas_normais || 0) === 0;
+
+      const fallbackCalc = (r.employee_id && saldoCalcByEmployeeId.get(r.employee_id))
+        || saldoCalcByNome.get(normalizeText(r.colaborador_nome));
+
+      const podeAplicarFallback = resumoZerado
+        && Boolean(fallbackCalc)
+        && Number(fallbackCalc?.diasTrabalhados || 0) > 0
+        && (Math.abs(Number(fallbackCalc?.saldo || 0)) > 0 || Number(fallbackCalc?.horasTrabalhadas || 0) > 0);
+
+      const creditoFallback = podeAplicarFallback ? Number(Math.max(Number(fallbackCalc?.saldo || 0), 0).toFixed(2)) : Number(r.credito_horas || 0);
+      const debitoFallback = podeAplicarFallback ? Number(Math.max(-Number(fallbackCalc?.saldo || 0), 0).toFixed(2)) : Number(r.debito_horas || 0);
+      const horasNormaisFallback = podeAplicarFallback ? Number(Number(fallbackCalc?.horasTrabalhadas || 0).toFixed(2)) : Number(r.horas_normais || 0);
+      const saldo = Number((creditoFallback - debitoFallback).toFixed(2));
+
       return {
         ...r,
+        credito_horas: creditoFallback,
+        debito_horas: debitoFallback,
+        horas_normais: horasNormaisFallback,
         equipe_label: equipe,
         funcao_label: funcao,
         saldo,
+        resumo_estimado_por_batidas: podeAplicarFallback,
       };
     });
-  }, [resumosImportados, funcaoByNome, equipeByEmployeeId, equipeByNome]);
+  }, [resumosImportados, funcaoByNome, equipeByEmployeeId, equipeByNome, saldoCalcByEmployeeId, saldoCalcByNome]);
 
   const employeeIdByNome = useMemo(() => {
     return new Map(funcionarios.map((f) => [normalizeText(f.nome), f.id]));
@@ -2872,6 +2921,11 @@ export default function BancoHoras() {
                         <p className="text-[10px] text-muted-foreground">
                           Atualizado em: {fmtDateTime(r.updated_at || null)}
                         </p>
+                        {r.resumo_estimado_por_batidas && (
+                          <p className="text-[10px] text-amber-700">
+                            Resumo estimado pelas batidas do período (importação veio zerada).
+                          </p>
+                        )}
                       </div>
                       <span className={`text-xs font-bold ${r.saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
                         Saldo {r.saldo >= 0 ? "+" : ""}{fmtDec(r.saldo)} h
