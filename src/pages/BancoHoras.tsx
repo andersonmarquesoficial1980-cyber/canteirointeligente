@@ -1963,7 +1963,7 @@ export default function BancoHoras() {
     const totalDepois = Number(comparativoAjustes.reduce((a, b) => a + b.total_depois, 0).toFixed(2));
     const reducaoTotal = Number(comparativoAjustes.reduce((a, b) => a + b.reducao_total, 0).toFixed(2));
 
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Banco de Horas - Antes/Depois ${mes}</title><style>
+    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Conferência de Ponto PDF - Antes/Depois ${mes}</title><style>
       body{font-family:Arial,sans-serif;padding:16px;color:#111827;font-size:12px}
       h1{font-size:18px;color:#1d4ed8;margin:0 0 6px 0}
       p{margin:2px 0 10px 0;color:#374151}
@@ -1976,7 +1976,7 @@ export default function BancoHoras() {
       @media print{body{padding:8px}}
     </style></head><body>`;
 
-    html += `<h1>Banco de Horas — Comparativo Antes/Depois</h1>`;
+    html += `<h1>Conferência de Ponto PDF — Comparativo Antes/Depois</h1>`;
     html += `<p><strong>Competência:</strong> ${mes} (${fmtDate(competenciaAtual)})</p>`;
     html += `<div class="kpi">
       <div><strong>Colaboradores ajustados</strong><br/>${comparativoAjustes.length}</div>
@@ -2025,9 +2025,9 @@ export default function BancoHoras() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">
-          <h1 className="font-display font-bold text-base">Banco de Horas</h1>
+          <h1 className="font-display font-bold text-base">Conferência de Ponto (PDF RH)</h1>
           <p className="text-[10px] text-primary-foreground/70">
-            {temImportado ? "Resumo importado da Jornada (Pontomais)" : "Saldo mensal por funcionário"}
+            {temImportado ? "Resumo importado da Jornada (PontoMais PDF)" : "Conferência mensal por colaborador"}
           </p>
         </div>
       </header>

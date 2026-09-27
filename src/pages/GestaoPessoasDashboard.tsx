@@ -215,7 +215,7 @@ const RH_ITEMS = [
   { label: "Gestão de VT",         desc: "Tarifas, conduções e custo mensal por funcionário",    icon: MapPin,       rota: "/vale-transporte",             cor: "bg-purple-500/20 text-purple-600" },
   { label: "Solicitações de Ponto",desc: "Ajuste de ponto e abono de falta",                     icon: MessageSquare,rota: "/rh/solicitacoes",             cor: "bg-yellow-500/20 text-yellow-600" },
   { label: "Aprovações",           desc: "Aprovar ou reprovar solicitações da equipe",           icon: CheckSquare,  rota: "/rh/aprovacoes",               cor: "bg-teal-500/20 text-teal-600" },
-  { label: "Banco de Horas",       desc: "Saldo de horas por funcionário no mês",                icon: Clock,        rota: "/rh/banco-horas",              cor: "bg-indigo-500/20 text-indigo-600" },
+  { label: "Conferência de Ponto (PDF RH)", desc: "Importação e auditoria das jornadas enviadas pelo RH (PontoMais)", icon: Clock, rota: "/rh/conferencia-ponto-pdf", cor: "bg-indigo-500/20 text-indigo-600" },
   { label: "Programação de Férias",desc: "Controle de férias, coletivas e saldo por funcionário",icon: Calendar,    rota: "/gestao-pessoas/ferias",       cor: "bg-green-500/20 text-green-600" },
   { label: "Pendências RH",        desc: "Solicitações de classificação, aumento, demissão e substituição", icon: ListChecks, rota: "/gestao-pessoas/pendencias", cor: "bg-amber-500/20 text-amber-700" },
   { label: "WhatsApp RH",          desc: "Inbox de mensagens dos funcionários via WhatsApp",     icon: Smartphone,   rota: "/gestao-pessoas/whatsapp",     cor: "bg-green-600/20 text-green-700" },
@@ -553,10 +553,17 @@ export default function GestaoPessoasDashboard() {
       titulo: "Jornadas e Benefícios",
       items: [
         {
-          label: "Gerenciamento de Ponto",
-          desc: "Registrar ponto, espelho, solicitações, aprovações e banco de horas",
+          label: "Conferência de Ponto (PDF RH)",
+          desc: "Fluxo oficial atual: importar PDF do PontoMais e analisar divergências",
           icon: Clock,
           cor: "bg-indigo-500/20 text-indigo-600",
+          rota: "/gestao-pessoas/ponto-pdf",
+        },
+        {
+          label: "Ponto Workflux (Implantação)",
+          desc: "Registrar ponto, espelho, solicitações e aprovações direto no app",
+          icon: Camera,
+          cor: "bg-blue-500/20 text-blue-600",
           rota: "/gestao-pessoas/gerenciamento-ponto",
         },
         {

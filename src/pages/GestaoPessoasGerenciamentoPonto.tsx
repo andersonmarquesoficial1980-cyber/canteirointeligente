@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Camera, ClipboardList, MessageSquare, CheckSquare, Clock, ChevronRight, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Camera, ClipboardList, MessageSquare, CheckSquare, ChevronRight, type LucideIcon } from "lucide-react";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useSmartBack } from "@/hooks/useSmartBack";
 
@@ -13,39 +13,32 @@ type PontoItem = {
 
 const PONTO_ITEMS: PontoItem[] = [
   {
-    label: "Registrar Ponto",
-    desc: "Ponto facial com GPS e geofencing automático",
+    label: "Registrar Ponto (Workflux)",
+    desc: "Ponto facial com GPS e geofencing automático.",
     rota: "/rh/registrar-ponto",
     icon: Camera,
     cor: "bg-blue-500/20 text-blue-600",
   },
   {
     label: "Espelho de Ponto",
-    desc: "Histórico mensal, horas trabalhadas e extras",
+    desc: "Histórico mensal de batidas e horas trabalhadas.",
     rota: "/rh/espelho-ponto",
     icon: ClipboardList,
     cor: "bg-green-500/20 text-green-600",
   },
   {
     label: "Solicitações de Ponto",
-    desc: "Ajuste de ponto e abono de falta",
+    desc: "Ajustes e abonos solicitados pelos colaboradores.",
     rota: "/rh/solicitacoes",
     icon: MessageSquare,
     cor: "bg-yellow-500/20 text-yellow-600",
   },
   {
     label: "Aprovações",
-    desc: "Aprovar ou reprovar solicitações da equipe",
+    desc: "Aprovar ou reprovar solicitações da equipe.",
     rota: "/rh/aprovacoes",
     icon: CheckSquare,
     cor: "bg-teal-500/20 text-teal-600",
-  },
-  {
-    label: "Banco de Horas",
-    desc: "Saldo de horas por funcionário no mês",
-    rota: "/rh/banco-horas",
-    icon: Clock,
-    cor: "bg-indigo-500/20 text-indigo-600",
   },
 ];
 
@@ -54,7 +47,8 @@ export default function GestaoPessoasGerenciamentoPonto() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const origem = searchParams.get("origem") || "";
-  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
+  const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas/ponto-pdf");
+
   const withContext = (path: string) => {
     const [pathname, queryString = ""] = path.split("?");
     const params = new URLSearchParams(queryString);
@@ -74,12 +68,20 @@ export default function GestaoPessoasGerenciamentoPonto() {
         </button>
         <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
-          <span className="block font-display font-bold text-sm">Gerenciamento de Ponto</span>
-          <span className="block text-[10px] text-primary-foreground/70">Administração de ponto dos funcionários</span>
+          <span className="block font-display font-bold text-sm">Ponto Workflux (Implantação)</span>
+          <span className="block text-[10px] text-primary-foreground/70">Área separada da conferência operacional via PDF do RH</span>
         </div>
       </header>
 
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+          <p className="text-sm font-semibold text-amber-900">🔧 Trilha em implantação</p>
+          <p className="text-xs text-amber-900/90 mt-1">
+            Use esta área para a evolução do ponto nativo no Workflux. O fluxo operacional atual da Fremix via PDF está em
+            <strong> Conferência de Ponto (PDF RH)</strong>.
+          </p>
+        </section>
+
         {PONTO_ITEMS.map((item) => {
           const Icon = item.icon;
           return (

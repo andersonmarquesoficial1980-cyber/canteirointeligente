@@ -60,6 +60,7 @@ import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
 import GestaoPessoasEquipe from "./pages/GestaoPessoasEquipe";
 import GestaoPessoasCandidatos from "./pages/GestaoPessoasCandidatos";
 import GestaoPessoasGerenciamentoPonto from "./pages/GestaoPessoasGerenciamentoPonto";
+import GestaoPessoasPontoPdf from "./pages/GestaoPessoasPontoPdf";
 import GestaoPessoasGerenciamentoVT from "./pages/GestaoPessoasGerenciamentoVT";
 import GestaoPessoasPendencias from "./pages/GestaoPessoasPendencias";
 import FichaCandidato from "./pages/FichaCandidato";
@@ -151,6 +152,20 @@ function RedirectEquipamento() {
   if (ano) params.set("ano", ano);
   if (returnTo) params.set("returnTo", returnTo);
   if (params.toString()) to += `?${params.toString()}`;
+  return <Navigate to={to} replace />;
+}
+
+// Gestão de Pessoas agora abre direto na conferência de ponto por PDF
+function RedirectGestaoPessoasHome() {
+  const location = useLocation();
+  const to = `/gestao-pessoas/ponto-pdf${location.search || ""}`;
+  return <Navigate to={to} replace />;
+}
+
+// Compat legado: antigo /rh/banco-horas -> novo /rh/conferencia-ponto-pdf
+function RedirectRhBancoHorasLegacy() {
+  const location = useLocation();
+  const to = `/rh/conferencia-ponto-pdf${location.search || ""}`;
   return <Navigate to={to} replace />;
 }
 
@@ -432,7 +447,9 @@ function AppRoutes() {
         <Route path="/manutencao/ocorrencias" element={<RequireModule moduleId="manutencao"><EquipamentoOcorrencias /></RequireModule>} />
         <Route path="/manutencao/ocorrencia/:id" element={<RequireModule moduleId="manutencao"><OcorrenciaDetalhe /></RequireModule>} />
         <Route path="/medicoes/terceiros" element={<RequireModule moduleId="medicoes"><MedicoesTerceiros /></RequireModule>} />
-        <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
+        <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><RedirectGestaoPessoasHome /></RequireModule>} />
+        <Route path="/gestao-pessoas/ponto-pdf" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasPontoPdf /></RequireModule>} />
+        <Route path="/gestao-pessoas/dashboard" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />
         <Route path="/gestao-pessoas/gerenciamento-ponto" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasGerenciamentoPonto /></RequireModule>} />
         <Route path="/gestao-pessoas/gerenciamento-vt" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasGerenciamentoVT /></RequireModule>} />
         <Route path="/gestao-pessoas/pendencias" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasPendencias /></RequireModule>} />
@@ -478,7 +495,8 @@ function AppRoutes() {
         <Route path="/rh/espelho-ponto" element={<RequireModule moduleId="rh"><EspelhoPonto /></RequireModule>} />
         <Route path="/rh/solicitacoes" element={<RequireModule moduleId="rh"><PontoSolicitacoes /></RequireModule>} />
         <Route path="/rh/aprovacoes" element={<RequireModule moduleId="rh"><PontoAprovacoes /></RequireModule>} />
-        <Route path="/rh/banco-horas" element={<RequireModule moduleId="rh"><BancoHoras /></RequireModule>} />
+        <Route path="/rh/conferencia-ponto-pdf" element={<RequireModule moduleId="rh"><BancoHoras /></RequireModule>} />
+        <Route path="/rh/banco-horas" element={<RequireModule moduleId="rh"><RedirectRhBancoHorasLegacy /></RequireModule>} />
 
         {/* Vale Transporte */}
         <Route path="/vale-transporte" element={<RequireModule moduleId="gestao-pessoas"><ValeTransporte /></RequireModule>} />

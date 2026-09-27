@@ -35,11 +35,11 @@ const RH_SECTIONS = [
     route: "/rh/aprovacoes",
   },
   {
-    id: "banco-horas",
-    label: "Banco de Horas",
-    description: "Saldo de horas por funcionário no mês",
+    id: "conferencia-ponto-pdf",
+    label: "Conferência de Ponto (PDF RH)",
+    description: "Importação e auditoria das jornadas enviadas pelo RH (PontoMais)",
     icon: Clock,
-    route: "/rh/banco-horas",
+    route: "/rh/conferencia-ponto-pdf",
   },
   {
     id: "trajeto-vt",

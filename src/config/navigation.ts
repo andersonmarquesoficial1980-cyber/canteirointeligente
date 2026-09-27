@@ -18,7 +18,7 @@ export const HUB_MODULES = [
   { id: "abastecimento", label: "WF Abastecimento", subtitle: "Comboio, Posto e Shelbox", icon: Fuel, route: "/abastecimento", adminOnly: false },
   { id: "relatorios", label: "WF Relatórios", subtitle: "Relatórios por Equipamento", icon: BarChart3, route: "/relatorios", adminOnly: false },
   { id: "gestao-frotas", label: "WF Gestão de Frotas", subtitle: "Veículos, máquinas e documentos", icon: Car, route: "/gestao-frotas", adminOnly: false },
-  { id: "gestao-pessoas", label: "WF Gestão de Pessoas", subtitle: "Pessoas, ponto, VT e histórico", icon: UserCheck, route: "/gestao-pessoas", adminOnly: false },
+  { id: "gestao-pessoas", label: "WF Gestão de Pessoas", subtitle: "Pessoas, ponto, VT e histórico", icon: UserCheck, route: "/gestao-pessoas/ponto-pdf", adminOnly: false },
   { id: "suprimentos", label: "WF Suprimentos", subtitle: "Fretes, Peças e Estoque", icon: Truck, route: "/suprimentos", adminOnly: false },
   { id: "medicoes", label: "WF Medições", subtitle: "Equipamentos terceirizados", icon: Receipt, route: "/medicoes", adminOnly: false },
   { id: "sst", label: "WF Segurança do Trabalho", subtitle: "Inspeções, checklists e Integração", icon: HardHat, route: "/sst", adminOnly: false },
