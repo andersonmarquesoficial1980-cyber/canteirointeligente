@@ -160,6 +160,33 @@ interface ComparativoAjuste {
   motivo: string;
 }
 
+interface AnaliseEquipeAlerta {
+  equipe: string;
+  colaborador: string;
+  funcao: string;
+  he_total: number;
+  credito_horas: number;
+  debito_horas: number;
+  saldo: number;
+  mediana_equipe: number;
+  desvio_abs_horas: number;
+  score_robusto: number;
+  severidade: "CRITICO" | "ALERTA" | "ATENCAO";
+}
+
+interface AnaliseEquipeResumo {
+  equipe: string;
+  colaboradores: number;
+  media_he: number;
+  mediana_he: number;
+  minimo_he: number;
+  maximo_he: number;
+  amplitude_he: number;
+  desvio_padrao_he: number;
+  cv_percent: number;
+  alertas: number;
+}
+
 function fmtHoras(h: number): string {
   const abs = Math.abs(h);
   const hh = Math.floor(abs);
@@ -170,6 +197,25 @@ function fmtHoras(h: number): string {
 
 function fmtDec(v: number): string {
   return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function calcMedia(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  return nums.reduce((acc, n) => acc + n, 0) / nums.length;
+}
+
+function calcMediana(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  const arr = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(arr.length / 2);
+  return arr.length % 2 === 0 ? (arr[mid - 1] + arr[mid]) / 2 : arr[mid];
+}
+
+function calcDesvioPadrao(nums: number[]): number {
+  if (nums.length <= 1) return 0;
+  const media = calcMedia(nums);
+  const variancia = nums.reduce((acc, n) => acc + ((n - media) ** 2), 0) / nums.length;
+  return Math.sqrt(variancia);
 }
 
 function toMin(hora: string): number {
@@ -1729,6 +1775,97 @@ export default function BancoHoras() {
       .sort((a, b) => a.colaborador.localeCompare(b.colaborador));
   }, [resumosEnriquecidos]);
 
+  const analiseEquipes = useMemo(() => {
+    const grupos = new Map<string, ResumoImportadoEnriquecido[]>();
+    for (const r of importadosFiltrados) {
+      const equipe = (r.equipe_label || "Sem equipe").trim();
+      if (!grupos.has(equipe)) grupos.set(equipe, []);
+      grupos.get(equipe)!.push(r);
+    }
+
+    const resumoPorEquipe: AnaliseEquipeResumo[] = [];
+    const alertas: AnaliseEquipeAlerta[] = [];
+
+    for (const [equipe, membros] of grupos.entries()) {
+      const heVals = membros.map((m) => Number(m.total_horas_extras_horas || 0));
+      const media = calcMedia(heVals);
+      const mediana = calcMediana(heVals);
+      const minimo = Math.min(...heVals);
+      const maximo = Math.max(...heVals);
+      const amplitude = maximo - minimo;
+      const desvio = calcDesvioPadrao(heVals);
+      const cvPercent = media > 0 ? Number(((desvio / media) * 100).toFixed(2)) : 0;
+
+      const absDesvios = heVals.map((v) => Math.abs(v - mediana));
+      const mad = calcMediana(absDesvios);
+
+      let alertasEquipe = 0;
+      for (const m of membros) {
+        const he = Number(m.total_horas_extras_horas || 0);
+        const desvioAbs = Math.abs(he - mediana);
+        const scoreRobusto = mad > 0 ? desvioAbs / (1.4826 * mad) : (desvio > 0 ? desvioAbs / desvio : 0);
+
+        let severidade: AnaliseEquipeAlerta["severidade"] | null = null;
+        if (membros.length >= 2 && (desvioAbs >= 8 || scoreRobusto >= 3.5)) severidade = "CRITICO";
+        else if (membros.length >= 2 && (desvioAbs >= 4 || scoreRobusto >= 2.5)) severidade = "ALERTA";
+        else if (membros.length >= 3 && (desvioAbs >= 2 || scoreRobusto >= 1.8)) severidade = "ATENCAO";
+
+        if (severidade) {
+          alertas.push({
+            equipe,
+            colaborador: m.colaborador_nome,
+            funcao: m.funcao_label,
+            he_total: he,
+            credito_horas: Number(m.credito_horas || 0),
+            debito_horas: Number(m.debito_horas || 0),
+            saldo: Number(m.saldo || 0),
+            mediana_equipe: mediana,
+            desvio_abs_horas: Number(desvioAbs.toFixed(2)),
+            score_robusto: Number(scoreRobusto.toFixed(2)),
+            severidade,
+          });
+          alertasEquipe += 1;
+        }
+      }
+
+      resumoPorEquipe.push({
+        equipe,
+        colaboradores: membros.length,
+        media_he: Number(media.toFixed(2)),
+        mediana_he: Number(mediana.toFixed(2)),
+        minimo_he: Number(minimo.toFixed(2)),
+        maximo_he: Number(maximo.toFixed(2)),
+        amplitude_he: Number(amplitude.toFixed(2)),
+        desvio_padrao_he: Number(desvio.toFixed(2)),
+        cv_percent: cvPercent,
+        alertas: alertasEquipe,
+      });
+    }
+
+    const severidadePeso = { CRITICO: 3, ALERTA: 2, ATENCAO: 1 } as const;
+    alertas.sort((a, b) => {
+      const diffSev = severidadePeso[b.severidade] - severidadePeso[a.severidade];
+      if (diffSev !== 0) return diffSev;
+      return b.desvio_abs_horas - a.desvio_abs_horas;
+    });
+
+    resumoPorEquipe.sort((a, b) => b.amplitude_he - a.amplitude_he);
+
+    const medias = resumoPorEquipe.map((r) => r.media_he);
+    const discrepanciaEntreEquipes = medias.length >= 2
+      ? Number((Math.max(...medias) - Math.min(...medias)).toFixed(2))
+      : 0;
+
+    return {
+      resumoPorEquipe,
+      alertas,
+      totalEquipes: resumoPorEquipe.length,
+      totalAlertasCriticos: alertas.filter((a) => a.severidade === "CRITICO").length,
+      totalAlertas: alertas.length,
+      discrepanciaEntreEquipes,
+    };
+  }, [importadosFiltrados]);
+
   const exportarComparativoExcel = async () => {
     if (!profile?.company_id || importadosFiltrados.length === 0) return;
 
@@ -2367,6 +2504,94 @@ export default function BancoHoras() {
                 <FileSpreadsheet className="w-4 h-4 text-blue-600 mx-auto mb-1" />
                 <p className="text-base font-bold text-blue-700">{fmtDec(totalHE)} h</p>
                 <p className="text-[10px] text-blue-600">H.E. total (70%+100%)</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3 space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Análise inteligente por equipe (discrepância de H.E.)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Detecta colaboradores fora do padrão da própria equipe, considerando mediana e dispersão da H.E. total.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs min-w-[280px]">
+                  <div className="rounded-md border bg-white/80 px-2 py-1.5">
+                    <span className="text-muted-foreground">Equipes</span>
+                    <p className="font-semibold">{analiseEquipes.totalEquipes}</p>
+                  </div>
+                  <div className="rounded-md border bg-white/80 px-2 py-1.5">
+                    <span className="text-muted-foreground">Alertas críticos</span>
+                    <p className="font-semibold text-red-700">{analiseEquipes.totalAlertasCriticos}</p>
+                  </div>
+                  <div className="rounded-md border bg-white/80 px-2 py-1.5">
+                    <span className="text-muted-foreground">Total de alertas</span>
+                    <p className="font-semibold text-amber-700">{analiseEquipes.totalAlertas}</p>
+                  </div>
+                  <div className="rounded-md border bg-white/80 px-2 py-1.5">
+                    <span className="text-muted-foreground">Dif. média entre equipes</span>
+                    <p className="font-semibold">{fmtDec(analiseEquipes.discrepanciaEntreEquipes)} h</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-auto rounded-lg border bg-white/80">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/60">
+                    <tr>
+                      <th className="text-left p-2">Equipe</th>
+                      <th className="text-right p-2">Colabs</th>
+                      <th className="text-right p-2">HE média</th>
+                      <th className="text-right p-2">HE mediana</th>
+                      <th className="text-right p-2">Faixa min→max</th>
+                      <th className="text-right p-2">Amplitude</th>
+                      <th className="text-right p-2">CV %</th>
+                      <th className="text-right p-2">Alertas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analiseEquipes.resumoPorEquipe.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="p-3 text-center text-muted-foreground">Sem dados para análise no filtro atual.</td>
+                      </tr>
+                    ) : analiseEquipes.resumoPorEquipe.map((eq) => (
+                      <tr key={eq.equipe} className="border-t">
+                        <td className="p-2 font-medium">{eq.equipe}</td>
+                        <td className="p-2 text-right">{eq.colaboradores}</td>
+                        <td className="p-2 text-right">{fmtDec(eq.media_he)}</td>
+                        <td className="p-2 text-right">{fmtDec(eq.mediana_he)}</td>
+                        <td className="p-2 text-right">{fmtDec(eq.minimo_he)} → {fmtDec(eq.maximo_he)}</td>
+                        <td className="p-2 text-right font-semibold">{fmtDec(eq.amplitude_he)}</td>
+                        <td className={`p-2 text-right ${eq.cv_percent >= 35 ? "text-red-700 font-semibold" : eq.cv_percent >= 20 ? "text-amber-700 font-semibold" : "text-green-700"}`}>
+                          {fmtDec(eq.cv_percent)}%
+                        </td>
+                        <td className="p-2 text-right">{eq.alertas}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium">Top discrepâncias (fora do padrão da equipe)</p>
+                {analiseEquipes.alertas.length === 0 ? (
+                  <p className="text-xs text-green-700 rounded-md border border-green-200 bg-green-50 px-2 py-1.5">
+                    Nenhum colaborador fora da curva relevante no filtro atual.
+                  </p>
+                ) : (
+                  analiseEquipes.alertas.slice(0, 10).map((a, idx) => (
+                    <div key={`${a.equipe}-${a.colaborador}-${idx}`} className="rounded-md border bg-white px-2 py-1.5 text-xs flex flex-wrap items-center gap-2">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${a.severidade === "CRITICO" ? "bg-red-100 text-red-700" : a.severidade === "ALERTA" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                        {a.severidade}
+                      </span>
+                      <span className="font-semibold">{a.colaborador}</span>
+                      <span className="text-muted-foreground">({a.equipe})</span>
+                      <span>HE: <b>{fmtDec(a.he_total)}h</b></span>
+                      <span>Mediana equipe: <b>{fmtDec(a.mediana_equipe)}h</b></span>
+                      <span>Desvio: <b>{fmtDec(a.desvio_abs_horas)}h</b></span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
