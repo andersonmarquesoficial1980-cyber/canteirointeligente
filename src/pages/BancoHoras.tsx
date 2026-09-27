@@ -172,6 +172,8 @@ interface AnaliseEquipeAlerta {
   desvio_abs_horas: number;
   score_robusto: number;
   severidade: "CRITICO" | "ALERTA" | "ATENCAO";
+  acao_prioritaria: string;
+  recomendacao: string;
 }
 
 interface AnaliseEquipeResumo {
@@ -218,6 +220,43 @@ function calcDesvioPadrao(nums: number[]): number {
   const media = calcMedia(nums);
   const variancia = nums.reduce((acc, n) => acc + ((n - media) ** 2), 0) / nums.length;
   return Math.sqrt(variancia);
+}
+
+function sugerirAcaoAlerta(a: {
+  severidade: "CRITICO" | "ALERTA" | "ATENCAO";
+  saldo: number;
+  desvio_abs_horas: number;
+}): { acao: string; recomendacao: string } {
+  if (a.severidade === "CRITICO") {
+    if (a.saldo >= 0) {
+      return {
+        acao: "Auditar batidas e autorização de H.E.",
+        recomendacao: "Comparar histórico diário com escala/equipe e validar se houve evento operacional excepcional.",
+      };
+    }
+    return {
+      acao: "Revisar faltas/jornada do período",
+      recomendacao: "Conferir ausência, erro de marcação ou alocação indevida na equipe antes de fechar competência.",
+    };
+  }
+
+  if (a.severidade === "ALERTA") {
+    if (a.desvio_abs_horas >= 5) {
+      return {
+        acao: "Validar coerência com líderes da equipe",
+        recomendacao: "Confirmar se a diferença era esperada pela operação (cobertura, apoio, plantão, deslocamento).",
+      };
+    }
+    return {
+      acao: "Monitorar próximos fechamentos",
+      recomendacao: "Se repetir por 2 competências, abrir revisão de escala e distribuição de carga na equipe.",
+    };
+  }
+
+  return {
+    acao: "Acompanhar tendência",
+    recomendacao: "Discrepância leve; manter observação e priorizar casos críticos/alerta nesta rodada.",
+  };
 }
 
 function toMin(hora: string): number {
@@ -1815,6 +1854,12 @@ export default function BancoHoras() {
         else if (membros.length >= 3 && (desvioAbs >= 2 || scoreRobusto >= 1.8)) severidade = "ATENCAO";
 
         if (severidade) {
+          const acaoSug = sugerirAcaoAlerta({
+            severidade,
+            saldo: Number(m.saldo || 0),
+            desvio_abs_horas: Number(desvioAbs.toFixed(2)),
+          });
+
           alertas.push({
             equipe,
             colaborador: m.colaborador_nome,
@@ -1827,6 +1872,8 @@ export default function BancoHoras() {
             desvio_abs_horas: Number(desvioAbs.toFixed(2)),
             score_robusto: Number(scoreRobusto.toFixed(2)),
             severidade,
+            acao_prioritaria: acaoSug.acao,
+            recomendacao: acaoSug.recomendacao,
           });
           alertasEquipe += 1;
           if (severidade === "CRITICO") alertasCriticosEquipe += 1;
@@ -1887,14 +1934,55 @@ export default function BancoHoras() {
     };
   }, [importadosFiltrados]);
 
-  const nomesComAlerta = useMemo(() => {
-    return new Set(analiseEquipes.alertas.map((a) => normalizeText(a.colaborador)));
+  const alertasPorColaborador = useMemo(() => {
+    const map = new Map<string, AnaliseEquipeAlerta>();
+    for (const a of analiseEquipes.alertas) {
+      const key = normalizeText(a.colaborador);
+      const atual = map.get(key);
+      const peso = (s: AnaliseEquipeAlerta["severidade"]) => (s === "CRITICO" ? 3 : s === "ALERTA" ? 2 : 1);
+      if (!atual || peso(a.severidade) > peso(atual.severidade) || a.desvio_abs_horas > atual.desvio_abs_horas) {
+        map.set(key, a);
+      }
+    }
+    return map;
   }, [analiseEquipes.alertas]);
+
+  const nomesComAlerta = useMemo(() => {
+    return new Set(alertasPorColaborador.keys());
+  }, [alertasPorColaborador]);
 
   const importadosVisiveis = useMemo(() => {
     if (!somenteDivergencias) return importadosFiltrados;
     return importadosFiltrados.filter((r) => nomesComAlerta.has(normalizeText(r.colaborador_nome)));
   }, [importadosFiltrados, nomesComAlerta, somenteDivergencias]);
+
+  const planoAcaoEquipe = useMemo(() => {
+    const byEq = new Map<string, AnaliseEquipeAlerta[]>();
+    for (const a of analiseEquipes.alertas) {
+      if (!byEq.has(a.equipe)) byEq.set(a.equipe, []);
+      byEq.get(a.equipe)!.push(a);
+    }
+
+    const peso = (s: AnaliseEquipeAlerta["severidade"]) => (s === "CRITICO" ? 3 : s === "ALERTA" ? 2 : 1);
+
+    return Array.from(byEq.entries()).map(([equipe, arr]) => {
+      const ordenados = [...arr].sort((x, y) => {
+        const p = peso(y.severidade) - peso(x.severidade);
+        if (p !== 0) return p;
+        return y.desvio_abs_horas - x.desvio_abs_horas;
+      });
+      const topo = ordenados[0];
+      return {
+        equipe,
+        alertas: arr.length,
+        criticos: arr.filter((x) => x.severidade === "CRITICO").length,
+        topo,
+      };
+    }).sort((a, b) => {
+      if (b.criticos !== a.criticos) return b.criticos - a.criticos;
+      return b.alertas - a.alertas;
+    });
+  }, [analiseEquipes.alertas]);
 
   const exportarComparativoExcel = async () => {
     if (!profile?.company_id || importadosVisiveis.length === 0) return;
@@ -2622,6 +2710,30 @@ export default function BancoHoras() {
               </div>
 
               <div className="space-y-2">
+                <p className="text-xs font-medium">Plano de ação prioritário por equipe</p>
+                {planoAcaoEquipe.length === 0 ? (
+                  <p className="text-xs text-muted-foreground rounded-md border bg-white px-2 py-1.5">
+                    Sem ações pendentes no filtro atual.
+                  </p>
+                ) : (
+                  planoAcaoEquipe.map((p) => (
+                    <div key={p.equipe} className="rounded-md border bg-white px-2 py-1.5 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold">{p.equipe}</span>
+                        <span className="text-muted-foreground">alertas: {p.alertas}</span>
+                        {p.criticos > 0 && <span className="text-red-700 font-semibold">críticos: {p.criticos}</span>}
+                      </div>
+                      {p.topo && (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          <b>Ação:</b> {p.topo.acao_prioritaria} · <b>Foco:</b> {p.topo.colaborador} ({fmtDec(p.topo.desvio_abs_horas)}h de desvio)
+                        </p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <p className="text-xs font-medium">Top discrepâncias (fora do padrão da equipe)</p>
                 {analiseEquipes.alertas.length === 0 ? (
                   <p className="text-xs text-green-700 rounded-md border border-green-200 bg-green-50 px-2 py-1.5">
@@ -2629,15 +2741,23 @@ export default function BancoHoras() {
                   </p>
                 ) : (
                   analiseEquipes.alertas.slice(0, 10).map((a, idx) => (
-                    <div key={`${a.equipe}-${a.colaborador}-${idx}`} className="rounded-md border bg-white px-2 py-1.5 text-xs flex flex-wrap items-center gap-2">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${a.severidade === "CRITICO" ? "bg-red-100 text-red-700" : a.severidade === "ALERTA" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
-                        {a.severidade}
-                      </span>
-                      <span className="font-semibold">{a.colaborador}</span>
-                      <span className="text-muted-foreground">({a.equipe})</span>
-                      <span>HE: <b>{fmtDec(a.he_total)}h</b></span>
-                      <span>Mediana equipe: <b>{fmtDec(a.mediana_equipe)}h</b></span>
-                      <span>Desvio: <b>{fmtDec(a.desvio_abs_horas)}h</b></span>
+                    <div key={`${a.equipe}-${a.colaborador}-${idx}`} className="rounded-md border bg-white px-2 py-2 text-xs space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${a.severidade === "CRITICO" ? "bg-red-100 text-red-700" : a.severidade === "ALERTA" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                          {a.severidade}
+                        </span>
+                        <span className="font-semibold">{a.colaborador}</span>
+                        <span className="text-muted-foreground">({a.equipe})</span>
+                        <span>HE: <b>{fmtDec(a.he_total)}h</b></span>
+                        <span>Mediana equipe: <b>{fmtDec(a.mediana_equipe)}h</b></span>
+                        <span>Desvio: <b>{fmtDec(a.desvio_abs_horas)}h</b></span>
+                      </div>
+                      <div className="text-[11px] rounded bg-muted/50 px-2 py-1">
+                        <b>Ação prioritária:</b> {a.acao_prioritaria}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground px-1">
+                        {a.recomendacao}
+                      </div>
                     </div>
                   ))
                 )}
@@ -2671,6 +2791,7 @@ export default function BancoHoras() {
 
             <div className="space-y-2">
               {importadosVisiveis.map((r) => {
+                const alertaAtual = alertasPorColaborador.get(normalizeText(r.colaborador_nome));
                 return (
                   <div key={r.id} className="bg-card rounded-xl border border-border p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -2685,6 +2806,18 @@ export default function BancoHoras() {
                         Saldo {r.saldo >= 0 ? "+" : ""}{fmtDec(r.saldo)} h
                       </span>
                     </div>
+
+                    {alertaAtual && (
+                      <div className={`mb-2 rounded-md px-2 py-1 text-[11px] border ${
+                        alertaAtual.severidade === "CRITICO"
+                          ? "bg-red-50 border-red-200 text-red-700"
+                          : alertaAtual.severidade === "ALERTA"
+                            ? "bg-amber-50 border-amber-200 text-amber-700"
+                            : "bg-blue-50 border-blue-200 text-blue-700"
+                      }`}>
+                        <b>{alertaAtual.severidade}</b> · {alertaAtual.acao_prioritaria}
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
                       <div className="rounded-lg bg-muted/40 p-2"><b>Crédito</b><br />{fmtDec(r.credito_horas)} h</div>
