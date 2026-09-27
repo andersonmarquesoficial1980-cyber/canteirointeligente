@@ -5,7 +5,7 @@
  * Modo B (fallback): cálculo a partir de ponto_registros
  */
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock, ChevronLeft, ChevronRight, RotateCcw, X, Printer, SlidersHorizontal, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Clock, TrendingUp, TrendingDown, Search, FileSpreadsheet, Lock, Unlock, RotateCcw, X, Printer, SlidersHorizontal, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -428,10 +428,9 @@ function linhaPareceNomeColaborador(line: string): boolean {
   return semPontuacao.split(" ").length >= 2 && semPontuacao === semPontuacao.toUpperCase();
 }
 
-async function extrairColaboradoresDoPdfPontoMais(files: File[], competenciaAtual: string, equipePadrao?: string): Promise<{ colaboradores: ParsedColaboradorPdf[]; totalBatidas: number }> {
-  const [ano, mes] = competenciaAtual.split("-").map(Number);
-  const periodoInicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
-  const periodoFim = `${ano}-${String(mes).padStart(2, "0")}-${String(new Date(ano, mes, 0).getDate()).padStart(2, "0")}`;
+async function extrairColaboradoresDoPdfPontoMais(files: File[], periodoInicioRef: string, periodoFimRef: string, equipePadrao?: string): Promise<{ colaboradores: ParsedColaboradorPdf[]; totalBatidas: number }> {
+  const periodoInicio = periodoInicioRef;
+  const periodoFim = periodoFimRef;
 
   const byKey = new Map<string, ParsedColaboradorPdf>();
   let totalBatidas = 0;
@@ -534,7 +533,7 @@ async function extrairColaboradoresDoPdfPontoMais(files: File[], competenciaAtua
         const horas = Array.from(line.matchAll(HORA_RE)).map((m) => m[0]);
         if (dataMatch?.[1] && horas.length > 0) {
           const iso = brDateToIso(dataMatch[1]);
-          if (iso && iso.startsWith(`${ano}-${String(mes).padStart(2, "0")}`)) {
+          if (iso && iso >= periodoInicio && iso <= periodoFim) {
             atual.batidas.push({
               data: iso,
               entrada1: horas[0],
@@ -603,10 +602,23 @@ export default function BancoHoras() {
   const [resumosImportados, setResumosImportados] = useState<ResumoImportado[]>([]);
   const [competenciaStatus, setCompetenciaStatus] = useState<CompetenciaStatus>({ status: "aberto", observacao: null, fechado_em: null, reaberto_em: null });
 
-  const [mes, setMes] = useState(() => {
+  const periodoPadraoAtual = useMemo(() => {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const inicio = `${y}-${String(m).padStart(2, "0")}-01`;
+    const fim = `${y}-${String(m).padStart(2, "0")}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+    return { inicio, fim };
+  }, []);
+
+  const [periodoInicio, setPeriodoInicio] = useState(periodoPadraoAtual.inicio);
+  const [periodoFim, setPeriodoFim] = useState(periodoPadraoAtual.fim);
+
+  const mes = useMemo(() => {
+    const base = periodoFim || periodoInicio || periodoPadraoAtual.fim;
+    return base.slice(0, 7);
+  }, [periodoFim, periodoInicio, periodoPadraoAtual.fim]);
+
   const competenciaAtual = `${mes}-01`;
 
   const [jornadaPadrao, setJornadaPadrao] = useState(8);
@@ -630,6 +642,11 @@ export default function BancoHoras() {
   const [loadingHistoricoId, setLoadingHistoricoId] = useState<string | null>(null);
   const [loadingRevalidarResumo, setLoadingRevalidarResumo] = useState(false);
   const [ultimaValidacaoResumo, setUltimaValidacaoResumo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!periodoInicio || !periodoFim) return;
+    if (periodoInicio > periodoFim) setPeriodoFim(periodoInicio);
+  }, [periodoInicio, periodoFim]);
 
   useEffect(() => {
     const loadAcl = async () => {
@@ -659,38 +676,26 @@ export default function BancoHoras() {
 
   const canManageAjustes = canManageFechamento;
 
-  const labelCompetencia = useMemo(() => {
-    const [ano, mesNum] = mes.split("-").map(Number);
-    const dt = new Date(ano, (mesNum || 1) - 1, 1);
-    return dt.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-  }, [mes]);
-
-  const irMesAtual = () => {
-    const now = new Date();
-    setMes(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
-  };
-
-  const navegarMes = (delta: number) => {
-    const [ano, mesNum] = mes.split("-").map(Number);
-    const dt = new Date(ano, (mesNum || 1) - 1 + delta, 1);
-    setMes(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`);
+  const irPeriodoAtual = () => {
+    setPeriodoInicio(periodoPadraoAtual.inicio);
+    setPeriodoFim(periodoPadraoAtual.fim);
   };
 
   const carregarDados = async () => {
-    if (!mes || !profile?.company_id) return;
+    if (!periodoInicio || !periodoFim || !profile?.company_id) return;
     setLoading(true);
     setResumosImportados([]);
 
-    const [y, m] = mes.split("-");
-    const ini = `${y}-${m}-01`;
-    const fim = `${y}-${m}-${new Date(Number(y), Number(m), 0).getDate()}`;
+    const ini = periodoInicio;
+    const fim = periodoFim;
+    const competenciaRef = `${mes}-01`;
 
     // 1) Tenta resumo importado (PDF)
     const { data: imported } = await (supabase as any)
       .from("ponto_he_resumo_mensal")
       .select("id, employee_id, colaborador_nome, equipe_nome, periodo_inicio, periodo_fim, credito_horas, debito_horas, horas_normais, he_70_horas, he_100_horas, adicional_noturno_horas, total_horas_extras_horas, updated_at, payload")
       .eq("company_id", profile.company_id)
-      .eq("competencia", ini)
+      .eq("competencia", competenciaRef)
       .order("colaborador_nome", { ascending: true });
 
     setResumosImportados((imported || []) as ResumoImportado[]);
@@ -700,7 +705,7 @@ export default function BancoHoras() {
       .from("ponto_he_competencias")
       .select("status, observacao, fechado_em, reaberto_em")
       .eq("company_id", profile.company_id)
-      .eq("competencia", ini)
+      .eq("competencia", competenciaRef)
       .maybeSingle();
 
     if (statusData?.status) {
@@ -718,7 +723,7 @@ export default function BancoHoras() {
       .from("pontomais_sync_runs")
       .select("created_at")
       .eq("company_id", profile.company_id)
-      .eq("competencia", ini)
+      .eq("competencia", competenciaRef)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -728,7 +733,7 @@ export default function BancoHoras() {
       .from("ponto_he_import_jobs")
       .select("id, competencia, equipe_nome, status, metadata, created_at, applied_at")
       .eq("company_id", profile.company_id)
-      .eq("competencia", ini)
+      .eq("competencia", competenciaRef)
       .in("status", ["criado", "arquivos_enviados", "parseado", "precheck_pendente", "precheck_ok"])
       .order("created_at", { ascending: false })
       .limit(1)
@@ -755,14 +760,13 @@ export default function BancoHoras() {
     try {
       await carregarDados();
 
-      const [y, m] = mes.split("-");
-      const ini = `${y}-${m}-01`;
+      const competenciaRef = `${mes}-01`;
 
       const { data, error } = await (supabase as any)
         .from("ponto_he_resumo_mensal")
         .select("id, total_horas_extras_horas")
         .eq("company_id", profile.company_id)
-        .eq("competencia", ini);
+        .eq("competencia", competenciaRef);
 
       if (error) {
         toast({ title: "Falha na revalidação", description: error.message, variant: "destructive" });
@@ -803,7 +807,7 @@ export default function BancoHoras() {
   useEffect(() => {
     carregarDados();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mes, profile?.company_id]);
+  }, [periodoInicio, periodoFim, profile?.company_id]);
 
   const fecharCompetencia = async () => {
     if (!profile?.company_id) return;
@@ -1031,7 +1035,7 @@ export default function BancoHoras() {
           seededEquipe = Number(seedData.seeded || 0);
         }
 
-        const parsed = await extrairColaboradoresDoPdfPontoMais(files as File[], competenciaAtual, equipeFiltro !== "TODAS" ? equipeFiltro : undefined);
+        const parsed = await extrairColaboradoresDoPdfPontoMais(files as File[], periodoInicio, periodoFim, equipeFiltro !== "TODAS" ? equipeFiltro : undefined);
         const colaboradoresSanitizados = sanitizeParsedPayload(parsed.colaboradores);
         if (colaboradoresSanitizados.length === 0) {
           throw new Error("Não consegui extrair colaboradores do PDF. O arquivo pode estar em imagem/scan sem texto selecionável. Me envie esse PDF para calibrar OCR/parser.");
@@ -1256,8 +1260,8 @@ export default function BancoHoras() {
       return;
     }
 
-    const inicio = r.periodo_inicio || `${mes}-01`;
-    const fim = r.periodo_fim || `${mes}-${new Date(Number(mes.split("-")[0]), Number(mes.split("-")[1]), 0).getDate()}`;
+    const inicio = periodoInicio || r.periodo_inicio || `${mes}-01`;
+    const fim = periodoFim || r.periodo_fim || `${mes}-${new Date(Number(mes.split("-")[0]), Number(mes.split("-")[1]), 0).getDate()}`;
 
     setLoadingHistoricoId(r.id);
 
@@ -2034,41 +2038,33 @@ export default function BancoHoras() {
 
       <div className="max-w-5xl mx-auto px-4 py-4 space-y-4 pb-10">
         <div className="sticky top-[58px] z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 -mx-4 px-4 py-2 space-y-3 border-b border-border/40">
-          {/* Navegação de competência mais intuitiva */}
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-2">
-            <button
-              type="button"
-              onClick={() => navegarMes(-1)}
-              className="h-9 w-9 shrink-0 rounded-lg border border-border bg-secondary hover:bg-muted flex items-center justify-center"
-              aria-label="Mês anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            <label className="flex-1 h-9 rounded-lg border border-border bg-secondary px-3 flex items-center justify-center text-sm font-semibold capitalize cursor-pointer">
-              {labelCompetencia}
+          {/* Filtro por período (não por mês) */}
+          <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card p-2">
+            <label className="flex-1 min-w-[170px] rounded-lg border border-border bg-secondary px-3 py-1.5">
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground">Início</span>
               <input
-                type="month"
-                value={mes}
-                onChange={(e) => setMes(e.target.value)}
-                className="sr-only"
+                type="date"
+                value={periodoInicio}
+                onChange={(e) => setPeriodoInicio(e.target.value)}
+                className="w-full bg-transparent text-sm outline-none"
+              />
+            </label>
+
+            <label className="flex-1 min-w-[170px] rounded-lg border border-border bg-secondary px-3 py-1.5">
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground">Fim</span>
+              <input
+                type="date"
+                value={periodoFim}
+                onChange={(e) => setPeriodoFim(e.target.value)}
+                className="w-full bg-transparent text-sm outline-none"
               />
             </label>
 
             <button
               type="button"
-              onClick={() => navegarMes(1)}
-              className="h-9 w-9 shrink-0 rounded-lg border border-border bg-secondary hover:bg-muted flex items-center justify-center"
-              aria-label="Próximo mês"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={irMesAtual}
+              onClick={irPeriodoAtual}
               className="h-9 px-3 shrink-0 rounded-lg border border-border bg-secondary hover:bg-muted text-xs font-semibold flex items-center gap-1"
-              aria-label="Ir para mês atual"
+              aria-label="Ir para período atual"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Atual
             </button>
@@ -2343,7 +2339,7 @@ export default function BancoHoras() {
             </div>
 
             {!loading && importadosFiltrados.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground py-6">Nenhum resumo importado para o mês selecionado.</p>
+              <p className="text-center text-sm text-muted-foreground py-6">Nenhum resumo importado para o período selecionado.</p>
             )}
 
             <div className="space-y-2">
@@ -2405,7 +2401,7 @@ export default function BancoHoras() {
                         {historicoAbertoId === r.id && (
                           <div className="rounded-lg bg-muted/30 p-3 border border-border/60">
                             <p className="text-xs text-muted-foreground mb-2">
-                              Período: {fmtDate(r.periodo_inicio || `${mes}-01`)} a {fmtDate(r.periodo_fim || competenciaAtual)} · Jornada padrão {jornadaPadrao}h
+                              Período: {fmtDate(periodoInicio || r.periodo_inicio || `${mes}-01`)} a {fmtDate(periodoFim || r.periodo_fim || competenciaAtual)} · Jornada padrão {jornadaPadrao}h
                             </p>
 
                             <div className="overflow-auto max-h-[420px] border rounded-md bg-background">
