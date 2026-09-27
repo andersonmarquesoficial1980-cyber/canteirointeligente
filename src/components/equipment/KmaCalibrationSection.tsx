@@ -1,3 +1,4 @@
+import { StorageImage } from "@/components/StorageMedia";
 import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -241,7 +242,7 @@ export default function KmaCalibrationSection({ entries, onChange, onGeneratePdf
 
                   {entry.ticketPhotoPreview ? (
                     <div className="relative inline-block">
-                      <img
+                      <StorageImage
                         src={entry.ticketPhotoPreview}
                         alt="Ticket"
                         className="rounded-xl max-h-36 border-2 border-green-300/60 shadow-sm"

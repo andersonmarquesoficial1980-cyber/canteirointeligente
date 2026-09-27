@@ -1,8 +1,10 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { isScheduledExport } from "./auth.ts";
 
-const COMPANY_NAME = "Fremix Pavimentação";
+const WORKFLUX_COMPANY_ID = Deno.env.get("WORKFLUX_COMPANY_ID") || Deno.env.get("DEFAULT_COMPANY_ID") || "";
+const COMPANY_NAME = Deno.env.get("WORKFLUX_COMPANY_NAME") || "Fremix Pavimentação";
 const BUCKET_NAME  = "exports";
-const FILE_PATH    = "nf-massa/NF_Massa_Fremix.csv";
+const LEGACY_FILE_PATH = Deno.env.get("NF_MASSA_EXPORT_PATH") || "nf-massa/NF_Massa_Fremix.csv";
 
 function fmtDate(d: string): string {
   if (!d) return "";
@@ -37,17 +39,73 @@ function q(v: any): string {
   return `"${String(v ?? "-").replace(/"/g, '""')}"`; 
 }
 
-Deno.serve(async (_req) => {
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function slugifyCompany(name: string): string {
+  return (name || "empresa")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64) || "empresa";
+}
+
+Deno.serve(async (req) => {
   try {
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // 1. company_id
-    const { data: cos } = await sb.from("companies").select("id").ilike("name", `%${COMPANY_NAME}%`).limit(1);
-    if (!cos?.length) throw new Error("Empresa nao encontrada");
-    const cid = cos[0].id;
+    const scheduler = isScheduledExport(req, Deno.env.get("WORKFLUX_EXPORT_CRON_SECRET") || "");
+    let callerId: string | null = null;
+    if (!scheduler) {
+      const bearer = req.headers.get("Authorization")?.match(/^Bearer (.+)$/i)?.[1];
+      if (!bearer) return new Response(null, { status: 401 });
+      const { data: { user }, error: authError } = await sb.auth.getUser(bearer);
+      if (authError || !user) return new Response(null, { status: 401 });
+      callerId = user.id;
+    }
+
+    // 1. company_id (FREMIX_ONLY por enquanto: prioriza secret e mantém fallback por nome)
+    let cid = WORKFLUX_COMPANY_ID;
+    let companyNameResolved = COMPANY_NAME;
+
+    if (cid) {
+      const { data: byId, error: byIdErr } = await sb
+        .from("companies")
+        .select("id,name")
+        .eq("id", cid)
+        .maybeSingle();
+      if (byIdErr) throw byIdErr;
+      if (byId?.name) companyNameResolved = byId.name;
+    } else {
+      const { data: cos, error: cosErr } = await sb
+        .from("companies")
+        .select("id,name")
+        .ilike("name", `%${COMPANY_NAME}%`)
+        .limit(1);
+      if (cosErr) throw cosErr;
+      if (!cos?.length) throw new Error("Empresa nao encontrada");
+      cid = cos[0].id;
+      companyNameResolved = cos[0].name || companyNameResolved;
+    }
+
+    if (!scheduler) {
+      const { data: profile, error: profileError } = await sb.from("profiles")
+        .select("company_id,role,status,can_export").eq("user_id", callerId).maybeSingle();
+      if (profileError || !profile || profile.status !== "ativo" ||
+        !(profile.role === "superadmin" || (profile.company_id === cid && (profile.role === "admin" || profile.can_export === true)))) {
+        return new Response(null, { status: 403 });
+      }
+    }
+    // Authenticated health check: no regeneration, upload or delivery.
+    if (req.method === "HEAD") return new Response(null, { status: 200 });
 
     // 2. Periodo 01/01/ano ate hoje
     const today  = new Date();
@@ -70,17 +128,28 @@ Deno.serve(async (_req) => {
     const ogsNums = [...new Set(rdos.map((r: any) => r.obra_nome).filter(Boolean))];
     const ogsMap: Record<string, any> = {};
     if (ogsNums.length) {
-      const { data: ogsR } = await sb.from("ogs_reference")
-        .select("ogs_number, client_name, location_address")
-        .eq("company_id", cid).in("ogs_number", ogsNums);
-      (ogsR || []).forEach((o: any) => { ogsMap[o.ogs_number] = o; });
+      for (const ogsChunk of chunkArray(ogsNums, 100)) {
+        const { data: ogsR, error: ogsErr } = await sb
+          .from("ogs_reference")
+          .select("ogs_number, client_name, location_address")
+          .eq("company_id", cid)
+          .in("ogs_number", ogsChunk);
+        if (ogsErr) throw ogsErr;
+        (ogsR || []).forEach((o: any) => { ogsMap[o.ogs_number] = o; });
+      }
     }
 
-    // 5. NFs
-    const { data: nfs, error: e2 } = await sb
-      .from("rdo_nf_massa").select("rdo_id, nf, placa, usina, tonelagem, tipo_material")
-      .in("rdo_id", rdoIds);
-    if (e2) throw e2;
+    // 5. NFs (consulta em lotes para evitar URL longa no filtro IN)
+    const nfs: any[] = [];
+    for (const idsChunk of chunkArray(rdoIds, 50)) {
+      const { data: nfsChunk, error: e2 } = await sb
+        .from("rdo_nf_massa")
+        .select("rdo_id, nf, placa, usina, tonelagem, tipo_material")
+        .eq("company_id", cid)
+        .in("rdo_id", idsChunk);
+      if (e2) throw e2;
+      nfs.push(...(nfsChunk || []));
+    }
 
     // 6. Montar rows
     const rows = (nfs || []).map((n: any) => {
@@ -101,7 +170,7 @@ Deno.serve(async (_req) => {
     // 7. CSV
     const gerado = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
     const csv = [
-      q("Relatorio de Notas Fiscais de Massa - Fremix Pavimentacao"),
+      q(`Relatorio de Notas Fiscais de Massa - ${companyNameResolved}`),
       q(`Periodo: ${fmtDate(ini)} a ${fmtDate(fim)}`),
       q(`Gerado em: ${gerado}`),
       "",
@@ -110,23 +179,49 @@ Deno.serve(async (_req) => {
       ["","","","","","","","","","",fmtN(total)].map(q).join(";"),
     ].join("\n");
 
-    // 8. Upload Supabase Storage (sobrescreve sempre o mesmo arquivo)
+    // 8. Upload Supabase Storage
     const csvBytes = new TextEncoder().encode("\uFEFF" + csv);
-    const { error: upErr } = await sb.storage
+    const companySlug = slugifyCompany(companyNameResolved);
+    const tenantFilePath = `nf-massa/${companySlug}/${cid}/NF_Massa_${companySlug}_${ini}_${fim}.csv`;
+
+    // caminho padronizado multi-cliente (novo)
+    const { error: upTenantErr } = await sb.storage
       .from(BUCKET_NAME)
-      .upload(FILE_PATH, csvBytes, {
+      .upload(tenantFilePath, csvBytes, {
         contentType: "text/csv;charset=utf-8",
         upsert: true,
       });
-    if (upErr) throw upErr;
+    if (upTenantErr) throw upTenantErr;
 
-    // 9. URL publica permanente
-    const { data: urlData } = sb.storage.from(BUCKET_NAME).getPublicUrl(FILE_PATH);
+    // caminho legado Fremix (compatibilidade)
+    const { error: upLegacyErr } = await sb.storage
+      .from(BUCKET_NAME)
+      .upload(LEGACY_FILE_PATH, csvBytes, {
+        contentType: "text/csv;charset=utf-8",
+        upsert: true,
+      });
+    if (upLegacyErr) throw upLegacyErr;
 
-    const res = { ok: true, registros: rows.length, total_toneladas: total.toFixed(2),
-      periodo: `${fmtDate(ini)} a ${fmtDate(fim)}`, gerado_em: gerado,
-      url_download: urlData.publicUrl };
-    console.log("OK:", JSON.stringify(res));
+    // 9. Temporary links only, released to the authorized caller.
+    const { data: urlTenant, error: signTenantError } = await sb.storage.from(BUCKET_NAME).createSignedUrl(tenantFilePath, 300);
+    const { data: urlLegacy, error: signLegacyError } = await sb.storage.from(BUCKET_NAME).createSignedUrl(LEGACY_FILE_PATH, 300);
+    if (signTenantError || signLegacyError || !urlTenant || !urlLegacy) throw new Error("Falha ao autorizar download");
+
+    const res = {
+      ok: true,
+      registros: rows.length,
+      total_toneladas: total.toFixed(2),
+      periodo: `${fmtDate(ini)} a ${fmtDate(fim)}`,
+      gerado_em: gerado,
+      company_id: cid,
+      company_slug: companySlug,
+      file_path_tenant: tenantFilePath,
+      file_path_legacy: LEGACY_FILE_PATH,
+      url_download: urlLegacy.signedUrl,
+      url_download_tenant: urlTenant.signedUrl,
+      expires_in: 300,
+    };
+    console.log("OK:", JSON.stringify({ registros: rows.length, company_id: cid }));
     return new Response(JSON.stringify(res), { headers: { "Content-Type": "application/json" } });
   } catch (err: any) {
     console.error("ERRO:", err.message);

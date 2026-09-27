@@ -1,3 +1,4 @@
+import { StorageImage, StorageLink } from "@/components/StorageMedia";
 /**
  * FichaFuncionario — Prontuário completo do funcionário
  * Rota: /gestao-pessoas/:id
@@ -873,7 +874,7 @@ export default function FichaFuncionario() {
           <div className="relative shrink-0">
             <div className="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center overflow-hidden">
               {func.foto_url
-                ? <img src={func.foto_url} alt={func.name} className="w-16 h-16 rounded-2xl object-cover" />
+                ? <StorageImage src={func.foto_url} alt={func.name} className="w-16 h-16 rounded-2xl object-cover" />
                 : <User className="w-8 h-8 text-primary" />
               }
             </div>
@@ -1205,10 +1206,10 @@ export default function FichaFuncionario() {
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {doc.arquivo_url && (
-                          <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                          <StorageLink href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
                             className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary">
                             <Eye className="w-4 h-4" />
-                          </a>
+                          </StorageLink>
                         )}
                         {isAdmin && (
                           <button onClick={() => removerDocumento(doc.id)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-destructive">

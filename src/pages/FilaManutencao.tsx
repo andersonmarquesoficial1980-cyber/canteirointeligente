@@ -1,3 +1,4 @@
+import { StorageImage } from "@/components/StorageMedia";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -153,7 +154,7 @@ export default function FilaManutencao() {
                     </h2>
                     <p className="text-lg text-zinc-300 whitespace-pre-wrap">{demanda.descricao || "Sem descrição"}</p>
                     {demanda.foto_url && (
-                      <img src={demanda.foto_url} alt="Foto manutenção" className="mt-2 rounded-xl border border-zinc-700 max-h-72" />
+                      <StorageImage src={demanda.foto_url} alt="Foto manutenção" className="mt-2 rounded-xl border border-zinc-700 max-h-72" />
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-2">

@@ -1,3 +1,5 @@
+import { resolveStorageUrl } from "@/lib/storageAccess";
+import { StorageImage } from "@/components/StorageMedia";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Save, Camera, Trash2, ChevronDown, FileText } from "lucide-react";
@@ -460,11 +462,12 @@ export default function SSTForm() {
     doc.save(nomeArq);
   }
 
-  function loadImageAsDataUrl(url: string): Promise<string> {
+  async function loadImageAsDataUrl(url: string): Promise<string> {
+    const authorizedUrl = await resolveStorageUrl(url);
     return new Promise((resolve, reject) => {
       const img = new Image(); img.crossOrigin = "anonymous";
       img.onload = () => { const c = document.createElement("canvas"); c.width=img.width; c.height=img.height; c.getContext("2d")!.drawImage(img,0,0); resolve(c.toDataURL("image/jpeg",0.85)); };
-      img.onerror = reject; img.src = url;
+      img.onerror = reject; img.src = authorizedUrl;
     });
   }
 
@@ -583,7 +586,7 @@ export default function SSTForm() {
                   style={{ position: "absolute", top: 8, right: 8, background: "#ef4444", border: "none", borderRadius: "50%", width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Trash2 size={12} color="white" />
                 </button>
-                <img src={foto.url || foto} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />
+                <StorageImage src={foto.url || foto} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />
                 <input
                   value={foto.legenda || ""}
                   onChange={e => updateFoto(i, "legenda", e.target.value)}

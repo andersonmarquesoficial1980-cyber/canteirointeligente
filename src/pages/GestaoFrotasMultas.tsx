@@ -1,3 +1,4 @@
+import { StorageLink } from "@/components/StorageMedia";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, IdCard, Plus, Save, User } from "lucide-react";
@@ -701,7 +702,7 @@ export default function GestaoFrotasMultas() {
                   <p className="text-xs flex items-center gap-1"><IdCard className="w-3.5 h-3.5" /> <strong>CNH:</strong></p>
                   {cnh?.arquivo_url ? (
                     <div className="text-xs flex flex-wrap items-center gap-2">
-                      <a className="underline text-primary" href={cnh.arquivo_url} target="_blank" rel="noreferrer">Ver anexo CNH</a>
+                      <StorageLink className="underline text-primary" href={cnh.arquivo_url} target="_blank" rel="noreferrer">Ver anexo CNH</StorageLink>
                       <span className="text-muted-foreground">Validade: {fmtDate(cnh.validade)}</span>
                     </div>
                   ) : (

@@ -1,3 +1,4 @@
+import { StorageImage } from "@/components/StorageMedia";
 import { useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -292,7 +293,7 @@ function ChecklistItem({
             />
           </div>
           {result.photoPreview && (
-            <img
+            <StorageImage
               src={result.photoPreview}
               alt="Foto da avaria"
               className="w-20 h-20 object-cover rounded-xl border border-border shadow-card"

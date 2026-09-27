@@ -1,3 +1,4 @@
+import { StorageLink } from "@/components/StorageMedia";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -695,14 +696,14 @@ export default function GestaoFrotasVeiculo() {
 
                 <div className="flex flex-wrap items-center gap-2">
                   {cnhPrincipal.arquivo_url ? (
-                    <a
+                    <StorageLink
                       href={cnhPrincipal.arquivo_url}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/15"
                     >
                       <ExternalLink className="w-3 h-3" /> Ver CNH
-                    </a>
+                    </StorageLink>
                   ) : (
                     <span className="text-xs text-muted-foreground">Documento sem link de arquivo.</span>
                   )}

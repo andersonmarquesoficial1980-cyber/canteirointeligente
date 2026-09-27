@@ -1,3 +1,4 @@
+import { StorageImage } from "@/components/StorageMedia";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
@@ -173,7 +174,7 @@ export default function DetalhesDemanda() {
             <p className="text-sm"><strong>Equipamento:</strong> {demanda.equipamento || "-"}</p>
             <p className="text-sm"><strong>Problema:</strong> {demanda.descricao || "-"}</p>
             {demanda.foto_url && (
-              <img src={demanda.foto_url} alt="Foto do problema" className="w-full max-h-80 object-contain rounded-xl border" />
+              <StorageImage src={demanda.foto_url} alt="Foto do problema" className="w-full max-h-80 object-contain rounded-xl border" />
             )}
           </section>
         )}

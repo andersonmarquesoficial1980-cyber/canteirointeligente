@@ -1,3 +1,4 @@
+import { StorageImage, StorageLink } from "@/components/StorageMedia";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -198,7 +199,7 @@ function FotosPerfilSection({ fotos }: { fotos: FotoPerfilUrls }) {
           <div key={key} className="space-y-1">
             <p className="text-xs text-muted-foreground font-medium">{label}</p>
             <div className="relative rounded-xl overflow-hidden border border-border">
-              <img
+              <StorageImage
                 src={fotos[key]}
                 alt={label}
                 className="w-full h-28 object-cover"
@@ -211,7 +212,7 @@ function FotosPerfilSection({ fotos }: { fotos: FotoPerfilUrls }) {
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
-                <a
+                <StorageLink
                   href={fotos[key]}
                   download
                   target="_blank"
@@ -220,7 +221,7 @@ function FotosPerfilSection({ fotos }: { fotos: FotoPerfilUrls }) {
                   title="Download"
                 >
                   ↓
-                </a>
+                </StorageLink>
               </div>
             </div>
           </div>
@@ -232,7 +233,7 @@ function FotosPerfilSection({ fotos }: { fotos: FotoPerfilUrls }) {
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
           onClick={() => setAmpliada(null)}
         >
-          <img src={ampliada} alt="Ampliada" className="max-w-full max-h-full rounded-xl object-contain" />
+          <StorageImage src={ampliada} alt="Ampliada" className="max-w-full max-h-full rounded-xl object-contain" />
           <button
             className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80"
             onClick={() => setAmpliada(null)}

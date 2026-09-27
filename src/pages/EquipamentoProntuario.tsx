@@ -1,3 +1,4 @@
+import { StorageLink } from "@/components/StorageMedia";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -366,9 +367,9 @@ export default function EquipamentoProntuario() {
                         {d.data_vencimento && <span>Vence: {fmtDate(d.data_vencimento)}</span>}
                       </div>
                       {d.arquivo_url && (
-                        <a href={d.arquivo_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium mt-1 block">
+                        <StorageLink href={d.arquivo_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium mt-1 block">
                           📎 Ver anexo
-                        </a>
+                        </StorageLink>
                       )}
                     </div>
                     <button onClick={() => deletarDoc(d.id)} className="text-destructive p-1 ml-2">
@@ -471,9 +472,9 @@ export default function EquipamentoProntuario() {
                     </div>
                     {m.observacoes && <p className="text-xs text-muted-foreground mt-1 italic">{m.observacoes}</p>}
                     {m.arquivo_url && (
-                      <a href={m.arquivo_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium mt-1 block">
+                      <StorageLink href={m.arquivo_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium mt-1 block">
                         📎 Ver anexo
-                      </a>
+                      </StorageLink>
                     )}
                   </div>
                   <button onClick={() => deletarManut(m.id)} className="text-destructive p-1 ml-2">

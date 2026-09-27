@@ -1,3 +1,4 @@
+import { StorageLink } from "@/components/StorageMedia";
 /**
  * SST — Documentos dos Funcionários
  * Usa a mesma tabela employee_documentos da FichaFuncionario (GP)
@@ -477,10 +478,10 @@ export default function SSTFuncionariosDocs() {
 
                     <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                       {doc.arquivo_url && (
-                        <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                        <StorageLink href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
                           style={{ background: "#f0f7ff", color: "#0055AA", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>
                           Ver
-                        </a>
+                        </StorageLink>
                       )}
                       <button onClick={() => removerDocumento(doc)}
                         style={{ background: "#fef2f2", color: "#ef4444", border: "none", borderRadius: 8, padding: "6px 8px", cursor: "pointer" }}>

@@ -1,3 +1,5 @@
+import { resolveStorageUrl } from "@/lib/storageAccess";
+import { StorageLink } from "@/components/StorageMedia";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -62,7 +64,7 @@ export default function DocumentosIntegracao() {
     // Chama a Edge Function analisar-documento (OpenAI key fica segura no servidor)
     const { data: { session } } = await supabase.auth.getSession();
     const res = await supabase.functions.invoke("analisar-documento", {
-      body: { documento_id: doc.id, arquivo_url: doc.arquivo_url, tipo_documento: doc.tipo_documento },
+      body: { documento_id: doc.id, arquivo_url: await resolveStorageUrl(doc.arquivo_url), tipo_documento: doc.tipo_documento },
     });
     if (res.error) throw new Error(res.error.message);
     // A Edge Function já faz o update no banco e retorna o resultado
@@ -205,7 +207,7 @@ export default function DocumentosIntegracao() {
                             {doc.ia_validade && <p>📅 Validade: {doc.ia_validade}</p>}
                             {doc.ia_observacao && <p>💬 {doc.ia_observacao}</p>}
                             {doc.arquivo_url && (
-                              <a href={doc.arquivo_url} target="_blank" rel="noreferrer" className="underline">Ver arquivo</a>
+                              <StorageLink href={doc.arquivo_url} target="_blank" rel="noreferrer" className="underline">Ver arquivo</StorageLink>
                             )}
                             {doc.status === "pendente" && !doc.arquivo_url && <p className="text-gray-500">Sem arquivo anexado</p>}
                           </div>

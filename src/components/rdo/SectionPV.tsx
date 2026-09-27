@@ -1,3 +1,4 @@
+import { StorageImage } from "@/components/StorageMedia";
 import { useState, useRef, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -292,7 +293,7 @@ export default function SectionPV({ data, onChange }: SectionPVProps) {
                 <div className="grid grid-cols-3 gap-2">
                   {fotos.map((url, i) => (
                     <div key={i} className="relative group">
-                      <img src={url} alt={`${type} ${i + 1}`} className="w-full h-20 object-cover rounded-lg border border-border" />
+                      <StorageImage src={url} alt={`${type} ${i + 1}`} className="w-full h-20 object-cover rounded-lg border border-border" />
                       <button
                         onClick={() => removePhoto(type, i)}
                         className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"

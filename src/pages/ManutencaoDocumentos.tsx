@@ -1,3 +1,4 @@
+import { StorageLink } from "@/components/StorageMedia";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -183,7 +184,7 @@ export default function ManutencaoDocumentos() {
                     </div>
                   </div>
                   {doc.arquivo_url && (
-                    <a href={doc.arquivo_url} target="_blank" rel="noreferrer" className="text-primary text-xs underline flex-shrink-0">Ver PDF</a>
+                    <StorageLink href={doc.arquivo_url} target="_blank" rel="noreferrer" className="text-primary text-xs underline flex-shrink-0">Ver PDF</StorageLink>
                   )}
                 </div>
               </div>

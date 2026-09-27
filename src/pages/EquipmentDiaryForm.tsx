@@ -1,3 +1,4 @@
+import { StorageImage } from "@/components/StorageMedia";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -3834,7 +3835,7 @@ export default function EquipmentDiaryForm() {
                   >
                     {preview ? (
                       <>
-                        <img src={preview} alt={label} className="absolute inset-0 w-full h-full object-cover rounded-xl opacity-80" />
+                        <StorageImage src={preview} alt={label} className="absolute inset-0 w-full h-full object-cover rounded-xl opacity-80" />
                         <div className="relative z-10 bg-green-500/80 rounded-full p-0.5">
                           <CheckCircle2 className="w-4 h-4 text-white" />
                         </div>

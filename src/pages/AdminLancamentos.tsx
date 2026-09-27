@@ -1,3 +1,4 @@
+import { StorageImage, StorageLink } from "@/components/StorageMedia";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -89,7 +90,7 @@ function FotosPerfilAdmin({ fotos }: { fotos: FotoPerfilUrls }) {
           <div key={key} className="space-y-1">
             <p className="text-xs text-muted-foreground">{label}</p>
             <div className="relative rounded-lg overflow-hidden border border-border">
-              <img src={fotos[key]} alt={label} className="w-full h-24 object-cover" />
+              <StorageImage src={fotos[key]} alt={label} className="w-full h-24 object-cover" />
               <div className="absolute inset-0 flex items-end justify-end p-1 gap-1">
                 <button
                   onClick={() => setAmpliada(fotos[key]!)}
@@ -97,10 +98,10 @@ function FotosPerfilAdmin({ fotos }: { fotos: FotoPerfilUrls }) {
                 >
                   <ZoomIn className="w-3 h-3" />
                 </button>
-                <a
+                <StorageLink
                   href={fotos[key]} download target="_blank" rel="noopener noreferrer"
                   className="bg-black/60 rounded p-1 text-white hover:bg-black/80 text-xs font-bold leading-none flex items-center px-1.5"
-                >↓</a>
+                >↓</StorageLink>
               </div>
             </div>
           </div>
@@ -108,7 +109,7 @@ function FotosPerfilAdmin({ fotos }: { fotos: FotoPerfilUrls }) {
       </div>
       {ampliada && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setAmpliada(null)}>
-          <img src={ampliada} alt="Ampliada" className="max-w-full max-h-full rounded-xl object-contain" />
+          <StorageImage src={ampliada} alt="Ampliada" className="max-w-full max-h-full rounded-xl object-contain" />
           <button className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2" onClick={() => setAmpliada(null)}>✕</button>
         </div>
       )}

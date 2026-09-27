@@ -1,3 +1,4 @@
+import { StorageImage, StorageLink } from "@/components/StorageMedia";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -210,9 +211,9 @@ export default function OcorrenciaDetalhe() {
           {ocorr.foto_url && (
             <div>
               <p className="text-xs text-muted-foreground mb-1">Foto</p>
-              <a href={ocorr.foto_url} target="_blank" rel="noopener noreferrer">
-                <img src={ocorr.foto_url} className="w-full max-h-48 rounded-xl object-cover" alt="foto ocorrência" />
-              </a>
+              <StorageLink href={ocorr.foto_url} target="_blank" rel="noopener noreferrer">
+                <StorageImage src={ocorr.foto_url} className="w-full max-h-48 rounded-xl object-cover" alt="foto ocorrência" />
+              </StorageLink>
             </div>
           )}
         </div>

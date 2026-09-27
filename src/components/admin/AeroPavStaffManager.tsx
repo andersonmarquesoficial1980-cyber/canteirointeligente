@@ -132,8 +132,8 @@ export default function AeroPavStaffManager() {
       const { error: upErr } = await supabase.storage.from("face-photos").upload(fileName, blob, { contentType: "image/jpeg" });
       let photoUrl: string | null = null;
       if (!upErr) {
-        const { data: urlData } = await supabase.storage.from("face-photos").createSignedUrl(fileName, 60 * 60 * 24 * 365);
-        photoUrl = urlData?.signedUrl || null;
+        const { data: urlData } = supabase.storage.from("face-photos").getPublicUrl(fileName);
+        photoUrl = urlData.publicUrl;
       }
 
       // Save descriptor

@@ -1,3 +1,4 @@
+import { StorageImage } from "@/components/StorageMedia";
 /**
  * WF Gestão de Pessoas — Lista de Funcionários
  * Abas: Todos | Por Função | Por Equipe | Por Responsável | Centro de Custo | Aniversariantes
@@ -228,7 +229,7 @@ function LinhaFuncionario({
         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
       >
         {f.foto_url ? (
-          <img src={f.foto_url} alt="" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+          <StorageImage src={f.foto_url} alt="" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
         ) : (
           <div style={{
             width: 36, height: 36, borderRadius: "50%", flexShrink: 0,

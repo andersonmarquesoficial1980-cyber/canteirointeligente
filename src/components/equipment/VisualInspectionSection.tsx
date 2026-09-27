@@ -1,3 +1,4 @@
+import { StorageImage } from "@/components/StorageMedia";
 import { useState, useRef } from "react";
 import { Camera, X, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -102,7 +103,7 @@ export default function VisualInspectionSection({ markers, onChange }: Props) {
         onClick={handleImageClick}
         onTouchStart={handleTouch}
       >
-        <img
+        <StorageImage
           src={fresadoraDiagram}
           alt="Diagrama da fresadora — toque para marcar avarias"
           className="w-full h-auto pointer-events-none"
@@ -138,7 +139,7 @@ export default function VisualInspectionSection({ markers, onChange }: Props) {
                 #{i + 1} — {m.damageType}
               </span>
               {m.photoPreview && (
-                <img src={m.photoPreview} alt="" className="w-8 h-8 rounded object-cover border border-border" />
+                <StorageImage src={m.photoPreview} alt="" className="w-8 h-8 rounded object-cover border border-border" />
               )}
               <button
                 type="button"
@@ -198,7 +199,7 @@ export default function VisualInspectionSection({ markers, onChange }: Props) {
                 onChange={handlePhoto}
               />
               {activeMarker?.photoPreview && (
-                <img
+                <StorageImage
                   src={activeMarker.photoPreview}
                   alt="Preview"
                   className="w-full h-32 object-cover rounded border border-border"

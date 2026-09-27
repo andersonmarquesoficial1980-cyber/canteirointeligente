@@ -1,3 +1,5 @@
+import { resolveStorageUrl } from "@/lib/storageAccess";
+import { StorageImage } from "@/components/StorageMedia";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -561,7 +563,7 @@ export default function RelatorioChecklist() {
         }
         if (entry.photoUrl) {
           try {
-            const resp = await fetch(entry.photoUrl);
+            const resp = await fetch(await resolveStorageUrl(entry.photoUrl));
             const blob = await resp.blob();
             const base64 = await new Promise<string>((res) => {
               const reader = new FileReader();
@@ -681,11 +683,11 @@ export default function RelatorioChecklist() {
                       <p className="text-xs text-muted-foreground italic">{entry.observation}</p>
                     )}
                     {entry.photoUrl && (
-                      <img
+                      <StorageImage
                         src={entry.photoUrl}
                         alt="Foto da avaria"
                         className="w-32 h-32 object-cover rounded-xl border border-border cursor-pointer hover:opacity-80"
-                        onClick={() => window.open(entry.photoUrl!, "_blank")}
+                        onClick={(event) => window.open(event.currentTarget.src, "_blank", "noopener,noreferrer")}
                       />
                     )}
                   </div>

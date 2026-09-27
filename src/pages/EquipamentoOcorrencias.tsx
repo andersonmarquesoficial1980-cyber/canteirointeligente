@@ -1,3 +1,4 @@
+import { StorageImage } from "@/components/StorageMedia";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -277,7 +278,7 @@ export default function EquipamentoOcorrencias() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
-                  {o.foto_url && <img src={o.foto_url} className="w-14 h-14 rounded-lg object-cover" alt="foto" />}
+                  {o.foto_url && <StorageImage src={o.foto_url} className="w-14 h-14 rounded-lg object-cover" alt="foto" />}
                 </div>
               </div>
             </button>
