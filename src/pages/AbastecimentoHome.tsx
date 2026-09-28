@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { loadFuelEquipment, loadFuelOperatorNames } from "@/lib/abastecimentoCatalog";
+import { toast } from "sonner";
 
 const VEHICLE_PREFIXES = ["CM", "CC", "CP", "CE", "CB", "VT", "MCO", "BUS"];
 const MACARICO_TYPE_VALUE = "MACARICO";
@@ -310,7 +312,7 @@ export default function AbastecimentoHome() {
   async function buscarTudo() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setLoading(false); return; }
     setUserId(user.id);
     const { data: profile } = await supabase
       .from("profiles")
@@ -325,8 +327,13 @@ export default function AbastecimentoHome() {
     const isAdminByProfile = perfilNorm === "administrador" || roleNorm === "admin" || roleNorm === "superadmin";
 
     setCompanyId(cid);
+    if (!cid) {
+      toast.error("Empresa não identificada. Confira seu perfil antes de carregar o Abastecimento.");
+      setLoading(false);
+      return;
+    }
 
-    const [abast, reposicoesRes, equips, ogsRes, cfgRes, opComboio, opLubri] = await Promise.all([
+    const [abast, reposicoesRes, equipRows, ogsRes, cfgRes, opComboio, opLubri] = await Promise.all([
       supabase.from("abastecimentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }).limit(3000),
       (supabase as any)
         .from("comboio_reposicoes")
@@ -335,7 +342,10 @@ export default function AbastecimentoHome() {
         .order("data", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(3000),
-      (supabase as any).from("equipamentos").select("id, frota, nome, placa, tipo, categoria_rdo").in("status", ["ativo", "Operando"]).order("frota"),
+      loadFuelEquipment(supabase, cid).catch((error) => {
+        toast.error(`Erro ao carregar equipamentos: ${error.message}`);
+        return [];
+      }),
       (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address"),
       (supabase as any).from("abastecimento_config").select("*").eq("company_id", cid).maybeSingle(),
       // Habilitados para Comboio e Lubrificador (join manual via funcionario_id)
@@ -345,7 +355,7 @@ export default function AbastecimentoHome() {
 
     if (abast.data) setAbastecimentos(abast.data as AbastecimentoRow[]);
     if (reposicoesRes.data) setReposicoes(reposicoesRes.data as ReposicaoRow[]);
-    if (equips.data) setEquipamentos(equips.data);
+    setEquipamentos(equipRows);
     if (ogsRes.data) setOgsData(ogsRes.data);
     if (cfgRes.data) setAbastConfig(cfgRes.data);
 
@@ -354,12 +364,12 @@ export default function AbastecimentoHome() {
     const idsLubri = (opLubri.data || []).map((r: any) => r.funcionario_id).filter(Boolean);
 
     if (idsComboio.length > 0) {
-      const { data: nomes } = await (supabase as any).from("employees").select("name").in("id", idsComboio).order("name");
-      if (nomes) setMotoristas(nomes.map((r: any) => r.name).filter(Boolean));
+      try { setMotoristas(await loadFuelOperatorNames(supabase, cid, idsComboio)); }
+      catch (error) { toast.error(`Erro ao carregar motoristas: ${(error as Error).message}`); }
     }
     if (idsLubri.length > 0) {
-      const { data: nomes } = await (supabase as any).from("employees").select("name").in("id", idsLubri).order("name");
-      if (nomes) setLubrificadores(nomes.map((r: any) => r.name).filter(Boolean));
+      try { setLubrificadores(await loadFuelOperatorNames(supabase, cid, idsLubri)); }
+      catch (error) { toast.error(`Erro ao carregar lubrificadores: ${(error as Error).message}`); }
     }
     // Checar se usuário pode gerenciar Abastecimento (admin de perfil, role Fuel/Super ou permissão explícita)
     const { data: roleAssignments } = await (supabase as any)
