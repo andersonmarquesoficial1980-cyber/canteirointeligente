@@ -18,6 +18,12 @@ const props = {
 };
 
 describe("tela de reunião", () => {
+  it("uses compact searchable team chips instead of a full-height team sidebar", () => {
+    render(<EfficiencyMeeting {...props} />);
+    expect(screen.getByRole("group", { name: "Equipes em destaque" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Buscar outra equipe" })).toBeTruthy();
+    expect(screen.queryByRole("complementary", { name: "Filtrar por equipe" })).toBeNull();
+  });
   it("shows all, team and unallocated people/equipment with known costs and missing prices", () => {
     render(<EfficiencyMeeting {...props} />);
     expect(screen.getByText("Ana")).toBeTruthy();

@@ -19,6 +19,7 @@ import { saveMonthlyRental } from "@/lib/programadorRental";
 import { EfficiencyMeeting } from "@/components/EfficiencyMeeting";
 import { fetchTeamsForCompany } from "@/lib/programadorTeams";
 import { ProgramadorRoster } from "@/components/ProgramadorRoster";
+import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
 import { prepareRosterPersonChange, prepareRosterEquipmentChange, type PersonDraft, type EquipmentDraft } from "@/lib/programadorRoster";
 
 const STATUS_FUNC_OPTIONS = [
@@ -304,6 +305,10 @@ export default function ProgramadorHome() {
     () => [...new Set((equipes || []).map((e) => (e.nome || "").trim()).filter(Boolean))]
       .sort((a, b) => a.localeCompare(b, "pt-BR")),
     [equipes]
+  );
+  const equipesDestaque = useMemo(
+    () => rankTeamsByAllocation(equipesAtivas, funcionarios, frota),
+    [equipesAtivas, funcionarios, frota]
   );
 
   const equipeOptionsComFallback = (valorAtual?: string) => {
@@ -1027,15 +1032,15 @@ export default function ProgramadorHome() {
   return (
     <div className="min-h-screen bg-page flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-header-gradient px-4 py-3 shadow-lg">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} className="text-white/80 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
-            <ArrowLeft className="w-6 h-6" />
+      <header className="sticky top-0 z-50 flex h-14 items-center bg-header-gradient px-3 shadow-sm">
+        <div className="flex w-full items-center gap-2.5">
+          <button onClick={goBack} className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <LogoHomeButton className="w-10 h-10 rounded-full border-2 border-white/30 shadow-md" />
+          <LogoHomeButton className="w-8 h-8 rounded-full border border-white/30" />
           <div className="flex-1">
-            <h1 className="text-lg font-display font-bold text-white">WF Programador</h1>
-            <p className="text-xs text-white/70">Equipes · Funcionários · Equipamentos</p>
+            <h1 className="text-base font-display font-bold text-white leading-tight">WF Programador</h1>
+            <p className="hidden sm:block text-[11px] text-white/70">Equipes · Funcionários · Equipamentos</p>
           </div>
           <button
             onClick={() => navigate(`/programador/programacao-noturna${origemQuery}`)}
@@ -1047,7 +1052,7 @@ export default function ProgramadorHome() {
       </header>
 
       {/* Tabs */}
-      {!modoReuniao && <div className="flex border-b border-border bg-card sticky top-[68px] z-40">
+      {!modoReuniao && <div className="flex border-b border-border bg-card sticky top-14 z-40">
         {([
           { id: "equipes", label: "Equipes", icon: Calendar },
           { id: "funcionarios", label: "Funcionários", icon: Users },
@@ -1058,16 +1063,16 @@ export default function ProgramadorHome() {
             setRosterDirty(false);
             setAba(t.id);
           }}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-3 text-xs font-bold transition-colors border-b-2 ${
+            className={`flex-1 flex h-10 items-center justify-center gap-1.5 text-xs font-semibold transition-colors border-b-2 ${
               aba === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
             }`}>
-            <t.icon className="w-4 h-4" />
+            <t.icon className="w-3.5 h-3.5" />
             {t.label}
           </button>
         ))}
       </div>}
 
-      <div className="flex-1 px-4 py-5 pb-4 space-y-4">
+      <div className="flex-1 px-3 py-3 pb-4 space-y-3">
         {modoReuniao && (
           <EfficiencyMeeting
             people={funcionarios} equipment={frota} initialTeam={progEquipe}
@@ -1095,115 +1100,92 @@ export default function ProgramadorHome() {
 
         {/* ── ABA EQUIPES ── */}
         {!modoReuniao && aba === "equipes" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
 
             {/* Contexto de alocação (sem programação diária) */}
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <div className="rounded-xl border border-border bg-card px-3 py-2.5 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-sm font-bold text-foreground">Alocação atual por equipe</h3>
-                  <p className="text-xs text-muted-foreground">Selecione a equipe para gerenciar pessoas e equipamentos alocados.</p>
+                  <h3 className="text-sm font-semibold text-foreground">Alocação por equipe</h3>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/integracao-obras${origemQuery}`)}>
                     <Building2 className="w-4 h-4 mr-1" /> Integrações
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/programador/programacao-noturna${origemQuery}`)}>
-                    <CalendarDays className="w-4 h-4 mr-1" /> Programação de Obras
-                  </Button>
                 </div>
               </div>
-
-              <div className="space-y-1.5">
-                <Label>Equipe *</Label>
-                <Select value={progEquipe} onValueChange={setProgEquipe}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a equipe/setor" /></SelectTrigger>
-                  <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
-                </Select>
-                {progEquipe && equipeResponsavel(progEquipe) && (
-                  <p className="text-xs text-muted-foreground pl-1">Responsável: {equipeResponsavel(progEquipe)}</p>
-                )}
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center gap-1.5">
+                <TeamPicker teams={equipesAtivas} featured={equipesDestaque} value={progEquipe} onChange={setProgEquipe} />
+                {progEquipe && equipeResponsavel(progEquipe) && <p className="text-[11px] text-muted-foreground xl:max-w-64 truncate" title={equipeResponsavel(progEquipe) || undefined}>
+                  Responsável: {equipeResponsavel(progEquipe)}
+                </p>}
               </div>
             </div>
 
             {/* Painel operacional por equipe (Pessoas + Equipamentos) */}
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-4 lg:min-h-[calc(100vh-270px)] lg:flex lg:flex-col">
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground">Gestão da equipe selecionada</h3>
-                    <p className="text-xs text-muted-foreground">{modoReuniao ? "Visão de eficiência por equipe: pessoas, frota, status e locação mensal conhecida." : "Altere equipe e status de pessoas e equipamentos nos cadastros centrais, com histórico."}</p>
-                  </div>
-                  <div className="text-right space-y-2">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Pendências</p>
-                      <p className="text-sm font-bold text-primary">{funcMudancasPendentes + equipMudancasPendentes}</p>
-                    </div>
-                    <Button type="button" size="sm" variant={modoOperacaoNoturna ? "default" : "outline"} onClick={alternarModoOperacaoNoturna}>
-                      {modoOperacaoNoturna ? "Modo Operação: ON" : "Modo Operação Noturna"}
-                    </Button>
-                    <Button type="button" size="sm" variant={modoReuniao ? "default" : "outline"}
-                      disabled={cadastrosLoading || !!cadastrosError || !!(funcMudancasPendentes + equipMudancasPendentes)}
-                      onClick={() => {
-                        if (!modoReuniao) {
-                          setOnlyChangedFunc(false); setOnlyChangedEquip(false);
-                          setModoOperacaoNoturna(false);
-                          setFilterFuncStatus("TODOS"); setFilterEquipStatus("TODOS");
-                          setFuncSearch(""); setEquipSearch("");
-                        }
-                        setModoReuniao((v) => !v);
-                      }}>
-                      {modoReuniao ? "Sair da apresentação" : "Apresentar eficiência"}
-                    </Button>
-                  </div>
+            <div className="rounded-xl border border-border bg-card p-3 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Gestão da equipe</h3>
+                  <p className="text-[11px] text-muted-foreground">Pessoas e frota no cadastro central · alterações com histórico</p>
                 </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(funcMudancasPendentes + equipMudancasPendentes) > 0 && (
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
+                      {funcMudancasPendentes + equipMudancasPendentes} pendente(s)
+                    </span>
+                  )}
+                  <Button type="button" size="sm" className="h-8 text-xs" variant={modoOperacaoNoturna ? "default" : "outline"} onClick={alternarModoOperacaoNoturna}>
+                    {modoOperacaoNoturna ? "Operação noturna: ON" : "Operação noturna"}
+                  </Button>
+                  <Button type="button" size="sm" className="h-8 text-xs" variant="outline"
+                    disabled={cadastrosLoading || !!cadastrosError || !!(funcMudancasPendentes + equipMudancasPendentes)}
+                    onClick={() => {
+                      setOnlyChangedFunc(false); setOnlyChangedEquip(false);
+                      setModoOperacaoNoturna(false);
+                      setFilterFuncStatus("TODOS"); setFilterEquipStatus("TODOS");
+                      setFuncSearch(""); setEquipSearch("");
+                      setModoReuniao(true);
+                    }}>Apresentar eficiência</Button>
+                </div>
+              </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                  <div className="rounded-lg border border-border bg-muted/20 px-2 py-2">
-                    <p className="text-[11px] text-muted-foreground">Pessoas</p>
-                    <p className="text-sm font-bold">{funcionariosDaEquipe.length}</p>
-                  </div>
-                  <div className="rounded-lg border border-border bg-muted/20 px-2 py-2">
-                    <p className="text-[11px] text-muted-foreground">Equipamentos</p>
-                    <p className="text-sm font-bold">{equipamentosDaEquipe.length}</p>
-                  </div>
-                  <div className="rounded-lg border border-border bg-muted/20 px-2 py-2">
-                    <p className="text-[11px] text-muted-foreground">Terceiros · mensal conhecido</p>
-                    <p className="text-sm font-bold">{moeda(resumoLocacaoEquipe.monthlyKnown)}</p>
-                    <p className="text-[11px] text-muted-foreground">{resumoLocacaoEquipe.rented} terceiro(s){resumoLocacaoEquipe.withoutPrice ? ` · ${resumoLocacaoEquipe.withoutPrice} sem valor cadastrado` : ""}</p>
-                  </div>
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-2">
-                    <p className="text-[11px] text-amber-700">Pendências Pessoas</p>
-                    <p className="text-sm font-bold text-amber-800">{funcMudancasPendentes}</p>
-                  </div>
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-2">
-                    <p className="text-[11px] text-blue-700">Pendências Equip.</p>
-                    <p className="text-sm font-bold text-blue-800">{equipMudancasPendentes}</p>
-                  </div>
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-2 py-2">
-                    <p className="text-[11px] text-red-700">Críticos Pessoas</p>
-                    <p className="text-sm font-bold text-red-800">{criticosFuncCount}</p>
-                  </div>
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-2 py-2">
-                    <p className="text-[11px] text-red-700">Críticos Equip.</p>
-                    <p className="text-sm font-bold text-red-800">{criticosEquipCount}</p>
-                  </div>
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-1.5" aria-label="Resumo da equipe selecionada">
+                <div className="rounded-lg border border-border bg-muted/10 px-2.5 py-1.5">
+                  <p className="text-[11px] text-muted-foreground">Pessoas</p>
+                  <p className="text-base font-semibold tabular-nums">{funcionariosDaEquipe.length}</p>
+                  <p className="text-[10px] text-muted-foreground">{funcMudancasPendentes} pendentes · {criticosFuncCount} críticos</p>
                 </div>
+                <div className="rounded-lg border border-border bg-muted/10 px-2.5 py-1.5">
+                  <p className="text-[11px] text-muted-foreground">Equipamentos</p>
+                  <p className="text-base font-semibold tabular-nums">{equipamentosDaEquipe.length}</p>
+                  <p className="text-[10px] text-muted-foreground">{equipMudancasPendentes} pendentes · {criticosEquipCount} críticos</p>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/10 px-2.5 py-1.5">
+                  <p className="text-[11px] text-muted-foreground">Terceiros</p>
+                  <p className="text-base font-semibold tabular-nums">{resumoLocacaoEquipe.rented}</p>
+                  <p className="text-[10px] text-muted-foreground">{resumoLocacaoEquipe.withoutPrice} sem valor cadastrado</p>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/10 px-2.5 py-1.5">
+                  <p className="text-[11px] text-muted-foreground">Mensal conhecido</p>
+                  <p className="text-base font-semibold tabular-nums">{moeda(resumoLocacaoEquipe.monthlyKnown)}</p>
+                  <p className="text-[10px] text-muted-foreground">Não inclui preços ausentes</p>
+                </div>
+              </div>
 
                 {modoOperacaoNoturna && (
                   <p className="text-[11px] text-primary font-semibold">
                     Modo operação noturna ativo: lista prioriza alterados e críticos para ação imediata.
                   </p>
                 )}
-              </div>
 
               {!progEquipe ? (
                 <p className="text-xs text-muted-foreground">Selecione uma equipe acima para visualizar os membros e equipamentos vinculados.</p>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start lg:flex-1 min-h-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 items-start min-h-0">
                     {/* Funcionários */}
-                    <div className="rounded-xl border border-border p-3 space-y-3 lg:flex lg:flex-col min-h-0">
+                    <div className="min-w-0 rounded-xl border border-border p-2.5 space-y-2 lg:flex lg:flex-col min-h-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Users2 className="w-4 h-4 text-primary" />
@@ -1212,14 +1194,14 @@ export default function ProgramadorHome() {
                         <span className="text-xs text-muted-foreground">{funcMudancasPendentes} mudança(s)</span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <Input
+                      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(150px,180px)] 2xl:grid-cols-[minmax(0,1fr)_170px_auto] gap-1.5">
+                        <Input className="h-8 min-w-0 text-xs"
                           value={funcSearch}
                           onChange={(e) => setFuncSearch(e.target.value)}
                           placeholder="Buscar por nome, matrícula ou equipe..."
                         />
                         <Select value={filterFuncStatus} onValueChange={setFilterFuncStatus}>
-                          <SelectTrigger><SelectValue placeholder="Filtrar status" /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Filtrar status" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="TODOS">Todos os status</SelectItem>
                             {STATUS_FUNC_VALUES.map((s) => <SelectItem key={`ffs-${s}`} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}
@@ -1230,19 +1212,22 @@ export default function ProgramadorHome() {
                         </Button>
                       </div>
 
-                      {!modoReuniao && <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <details className="rounded-lg border border-border/70 px-2.5 py-1.5">
+                        <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">Ações em lote · pessoas</summary>
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                         <Select value={bulkFuncEquipe} onValueChange={setBulkFuncEquipe}>
-                          <SelectTrigger><SelectValue placeholder="Lote: nova equipe" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Nova equipe" /></SelectTrigger>
                           <SelectContent>{equipesAtivas.map(nome => <SelectItem key={`bf-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
                         </Select>
                         <Select value={bulkFuncStatus} onValueChange={setBulkFuncStatus}>
-                          <SelectTrigger><SelectValue placeholder="Lote: novo status" /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Novo status" /></SelectTrigger>
                           <SelectContent>{STATUS_FUNC_VALUES.map((s) => <SelectItem key={`bfs-${s}`} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}</SelectContent>
                         </Select>
-                        <Button type="button" variant="outline" onClick={aplicarLoteFuncionarios}>Aplicar lote (Pessoas)</Button>
-                      </div>}
+                        <Button type="button" size="sm" variant="outline" onClick={aplicarLoteFuncionarios}>Aplicar lote (Pessoas)</Button>
+                        </div>
+                      </details>
 
-                      <div className="space-y-2 max-h-72 lg:max-h-none lg:flex-1 overflow-auto pr-1">
+                      <div className="space-y-1.5 max-h-80 lg:max-h-[calc(100vh-330px)] overflow-auto pr-1">
                         {funcionariosDaEquipeFiltrados.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum funcionário encontrado com os filtros atuais.</p>
                         ) : funcionariosDaEquipeFiltrados.map((f) => {
@@ -1250,8 +1235,8 @@ export default function ProgramadorHome() {
                           const mudou = funcionarioMudou(f, draft);
                           return (
                             <div key={f.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
-                              <div className="flex flex-col lg:flex-row lg:items-start gap-2">
-                                <div className="flex items-start justify-between gap-2 lg:flex-1 min-w-0">
+                              <div className="flex flex-col xl:flex-row xl:items-center gap-1.5">
+                                <div className="flex items-start justify-between gap-2 xl:flex-1 min-w-0">
                                   <p className="text-xs font-semibold leading-tight break-words">{f.matricula ? `[${f.matricula}] ` : ""}{f.name}</p>
                                   <div className="flex items-center gap-1 shrink-0">
                                     {(() => {
@@ -1263,17 +1248,20 @@ export default function ProgramadorHome() {
                                     {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
                                   </div>
                                 </div>
-                                {modoReuniao ? <p className="text-xs text-muted-foreground">{f.role || "Função não informada"} · {draft.equipe || "Sem equipe"} · {getFuncStatusLabel(draft.status)}</p> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full lg:w-[280px] xl:w-[340px] 2xl:w-[380px] lg:grid-cols-[minmax(0,1fr)_96px] shrink-0">
+                                <div className="grid grid-cols-[minmax(0,1fr)_minmax(142px,160px)] gap-1.5 w-full xl:w-[390px] 2xl:w-[440px] shrink-0">
                                   <Select value={draft.equipe || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "equipe", v)}>
-                                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Equipe" /></SelectTrigger>
+                                    <SelectTrigger className="h-8 min-w-0 text-xs" aria-label={`Equipe de ${f.name}`}><SelectValue placeholder="Equipe" /></SelectTrigger>
                                     <SelectContent>{equipeOptionsComFallback(draft.equipe).map(nome => <SelectItem key={`${f.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Select value={draft.status || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "status", v)}>
-                                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                                    <SelectTrigger className="h-8 min-w-0 text-xs" aria-label={`Status de ${f.name}`} title={getFuncStatusLabel(draft.status)}><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>{statusFuncOptionsComFallback(draft.status).map(s => <SelectItem key={`${f.id}-st-${s}`} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}</SelectContent>
-                                  </Select></div>}
+                                  </Select></div>
                               </div>
-                              {!modoReuniao && <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 text-xs" onClick={() => abrirFuncionarioDaEquipe(f.id)}>Gerenciar pessoa</Button>}
+                              <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 text-[11px] text-muted-foreground">
+                                <span>{f.role || "Função não informada"}</span>
+                                <button type="button" className="text-primary hover:underline" onClick={() => abrirFuncionarioDaEquipe(f.id)}>Gerenciar pessoa</button>
+                              </div>
                             </div>
                           );
                         })}
@@ -1281,7 +1269,7 @@ export default function ProgramadorHome() {
                     </div>
 
                     {/* Equipamentos */}
-                    <div className="rounded-xl border border-border p-3 space-y-3 lg:flex lg:flex-col min-h-0">
+                    <div className="min-w-0 rounded-xl border border-border p-2.5 space-y-2 lg:flex lg:flex-col min-h-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Truck className="w-4 h-4 text-primary" />
@@ -1290,14 +1278,14 @@ export default function ProgramadorHome() {
                         <span className="text-xs text-muted-foreground">{equipMudancasPendentes} mudança(s)</span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <Input
+                      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(150px,180px)] 2xl:grid-cols-[minmax(0,1fr)_170px_auto] gap-1.5">
+                        <Input className="h-8 min-w-0 text-xs"
                           value={equipSearch}
                           onChange={(e) => setEquipSearch(e.target.value)}
                           placeholder="Buscar por frota, tipo ou equipe..."
                         />
                         <Select value={filterEquipStatus} onValueChange={setFilterEquipStatus}>
-                          <SelectTrigger><SelectValue placeholder="Filtrar status" /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Filtrar status" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="TODOS">Todos os status</SelectItem>
                             {STATUS_EQUIP_VALUES.map((s) => <SelectItem key={`fes-${s}`} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}
@@ -1308,19 +1296,22 @@ export default function ProgramadorHome() {
                         </Button>
                       </div>
 
-                      {!modoReuniao && <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <details className="rounded-lg border border-border/70 px-2.5 py-1.5">
+                        <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">Ações em lote · equipamentos</summary>
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                         <Select value={bulkEquipEquipe} onValueChange={setBulkEquipEquipe}>
-                          <SelectTrigger><SelectValue placeholder="Lote: nova equipe" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Nova equipe" /></SelectTrigger>
                           <SelectContent>{equipesAtivas.map(nome => <SelectItem key={`be-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
                         </Select>
                         <Select value={bulkEquipStatus} onValueChange={setBulkEquipStatus}>
-                          <SelectTrigger><SelectValue placeholder="Lote: novo status" /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Novo status" /></SelectTrigger>
                           <SelectContent>{STATUS_EQUIP_VALUES.map((s) => <SelectItem key={`bes-${s}`} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}</SelectContent>
                         </Select>
-                        <Button type="button" variant="outline" onClick={aplicarLoteEquipamentos}>Aplicar lote (Equip.)</Button>
-                      </div>}
+                        <Button type="button" size="sm" variant="outline" onClick={aplicarLoteEquipamentos}>Aplicar lote (Equip.)</Button>
+                        </div>
+                      </details>
 
-                      <div className="space-y-2 max-h-72 lg:max-h-none lg:flex-1 overflow-auto pr-1">
+                      <div className="space-y-1.5 max-h-80 lg:max-h-[calc(100vh-330px)] overflow-auto pr-1">
                         {equipamentosDaEquipeFiltrados.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum equipamento encontrado com os filtros atuais.</p>
                         ) : equipamentosDaEquipeFiltrados.map((eq) => {
@@ -1328,8 +1319,8 @@ export default function ProgramadorHome() {
                           const mudou = equipamentoMudou(eq, draft);
                           return (
                             <div key={eq.id} className={`rounded-lg border p-2 ${mudou ? "border-primary bg-primary/5" : "border-border"}`}>
-                              <div className="flex flex-col lg:flex-row lg:items-start gap-2">
-                                <div className="flex items-start justify-between gap-2 lg:flex-1 min-w-0">
+                              <div className="flex flex-col xl:flex-row xl:items-center gap-1.5">
+                                <div className="flex items-start justify-between gap-2 xl:flex-1 min-w-0">
                                   <p className="text-xs font-semibold leading-tight break-words">{eq.frota} — {eq.tipo}</p>
                                   <div className="flex items-center gap-1 shrink-0">
                                     {(() => {
@@ -1341,22 +1332,22 @@ export default function ProgramadorHome() {
                                     {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
                                   </div>
                                 </div>
-                                {modoReuniao ? <p className="text-xs text-muted-foreground">{draft.setor || "Sem equipe"} · {getEquipStatusLabel(draft.status)}</p> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full lg:w-[280px] xl:w-[340px] 2xl:w-[380px] lg:grid-cols-[minmax(0,1fr)_96px] shrink-0">
+                                <div className="grid grid-cols-[minmax(0,1fr)_minmax(142px,160px)] gap-1.5 w-full xl:w-[390px] 2xl:w-[440px] shrink-0">
                                   <Select value={draft.setor || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "setor", v)}>
-                                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
+                                    <SelectTrigger className="h-8 min-w-0 text-xs" aria-label={`Equipe do equipamento ${eq.frota || eq.tipo}`}><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
                                     <SelectContent>{equipeOptionsComFallback(draft.setor).map(nome => <SelectItem key={`${eq.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Select value={draft.status || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "status", v)}>
-                                    <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                                    <SelectTrigger className="h-8 min-w-0 text-xs" aria-label={`Status do equipamento ${eq.frota || eq.tipo}`} title={getEquipStatusLabel(draft.status)}><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>{statusEquipOptionsComFallback(draft.status).map(s => <SelectItem key={`${eq.id}-st-${s}`} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}</SelectContent>
-                                  </Select></div>}
+                                  </Select></div>
                               </div>
-                              <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
                                 <span>{(eq.condicao || "").toUpperCase() === "TERCEIRO" ? "Terceiro" : eq.condicao || "Condição não informada"}</span>
                                 {(eq.condicao || "").toUpperCase() === "TERCEIRO" && <span>{eq.valor_mensal != null ? `${moeda(eq.valor_mensal)}/mês` : "Valor mensal não cadastrado"}</span>}
                                 {eq.empresa_proprietaria && <span>{eq.empresa_proprietaria}</span>}
+                                <button type="button" className="ml-auto text-primary hover:underline" onClick={() => abrirEquipamentoDaEquipe(eq.id)}>Gerenciar equipamento</button>
                               </div>
-                              {!modoReuniao && <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 text-xs" onClick={() => abrirEquipamentoDaEquipe(eq.id)}>Gerenciar equipamento</Button>}
                             </div>
                           );
                         })}

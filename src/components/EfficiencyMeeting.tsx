@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
 import { prepareEfficiencyMeeting, meetingStatus, type MeetingEquipment, type MeetingPerson } from "@/lib/programadorMeeting";
 
 type Props = {
@@ -32,6 +33,7 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
   const all = useMemo(() => prepareEfficiencyMeeting(people, equipment, {}), [people, equipment]);
+  const featuredTeams = useMemo(() => rankTeamsByAllocation(all.teams, people, equipment), [all.teams, people, equipment]);
   const byTeam = useMemo(() => prepareEfficiencyMeeting(people, equipment, { team }), [people, equipment, team]);
   const view = useMemo(() => prepareEfficiencyMeeting(people, equipment, { team, status, type, search }), [people, equipment, team, status, type, search]);
   const types = useMemo(() => [...new Set(byTeam.equipment.map(e => (e.tipo || "").trim()).filter(Boolean))]
@@ -41,7 +43,7 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
   };
   const totalMaintenance = view.equipment.filter(e => meetingStatus(e) === "manutencao").length;
   return (
-    <section className="space-y-3" aria-label="Reunião de eficiência">
+    <section className="space-y-2.5" aria-label="Reunião de eficiência">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-bold text-foreground">Reunião de eficiência</h2>
@@ -56,7 +58,7 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
       </div>
       {error && <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-800">Dados possivelmente incompletos: {error}. Não use estes totais para decisão sem atualizar.</p>}
       {!updatedAt && !error && <p role="status" className="text-sm text-muted-foreground">Carregando cadastros...</p>}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2" aria-label="Indicadores do filtro atual">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1.5" aria-label="Indicadores do filtro atual">
         {[
           ["Pessoas na equipe", String(view.people.length)],
           ["Equipamentos no filtro", String(view.equipment.length)],
@@ -64,28 +66,20 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
           ["Em manutenção", String(totalMaintenance)],
           ["Mensal conhecido", money(view.rental.monthlyKnown)],
           ["Preços pendentes", String(view.rental.withoutPrice)],
-        ].map(([label, value]) => <div key={label} className="rounded-lg border border-border bg-card px-3 py-2">
-          <p className="text-[11px] text-muted-foreground">{label}</p><p className="text-lg font-semibold tabular-nums">{value}</p>
+        ].map(([label, value]) => <div key={label} className="rounded-lg border border-border bg-card px-2.5 py-1.5">
+          <p className="text-[11px] text-muted-foreground">{label}</p><p className="text-base font-semibold tabular-nums">{value}</p>
         </div>)}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-3 items-start">
-        <aside className="rounded-lg border border-border bg-card p-2 lg:sticky lg:top-[80px]" aria-label="Filtrar por equipe">
-          <h3 className="text-sm font-bold px-2 py-1">Equipes</h3>
-          <div className="flex lg:flex-col flex-wrap gap-1 max-h-48 lg:max-h-[calc(100vh-210px)] overflow-auto">
-            {[["", "Todas as equipes"], ...all.teams.map(name => [name, name]), ["__sem_equipe__", "Sem equipe"]].map(([value, label]) => (
-              <button key={value} type="button" onClick={() => changeTeam(value)} aria-pressed={team === value}
-                className={`text-left rounded-md px-2 py-1.5 text-xs font-medium ${team === value ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </aside>
-        <div className="min-w-0 space-y-3">
-          <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+      <div className="min-w-0 space-y-2.5">
+          <div className="rounded-xl border border-border bg-card px-3 py-2 space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-[auto_minmax(0,1fr)] md:items-center gap-2 border-b border-border/60 pb-1.5">
+              <span className="text-xs font-semibold text-muted-foreground">Equipe</span>
+              <TeamPicker teams={all.teams} featured={featuredTeams} value={team} onChange={changeTeam} allowAll allowNoTeam />
+            </div>
             <div className="flex flex-wrap gap-1" aria-label="Status dos equipamentos">
               {filterNames.map(([value, label]) => <button key={value} type="button" aria-pressed={status === value}
                 onClick={() => setStatus(value)}
-                className={`rounded-full border px-2.5 py-1 text-xs ${status === value ? "bg-primary text-primary-foreground border-primary" : "border-border text-foreground"}`}>{label}</button>)}
+                className={`rounded-full border px-2.5 py-1 text-xs ${status === value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>{label}</button>)}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-2">
               <label className="text-xs text-muted-foreground">Tipo de equipamento
@@ -98,7 +92,7 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
                 <Input className="h-9" value={search} onChange={e => setSearch(e.target.value)} placeholder="Frota, placa, tipo, empresa..." />
               </label>
             </div>
-            <p className="text-[11px] text-muted-foreground">Status, tipo e busca filtram somente equipamentos; pessoas permanecem visíveis para a equipe escolhida. Valores são mensais conhecidos, não custo total da equipe.</p>
+            <p className="text-[11px] text-muted-foreground">Os filtros de status, tipo e busca afetam apenas equipamentos. Mensal conhecido não é o custo total.</p>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
             <section className="rounded-lg border border-border bg-card min-w-0" aria-label="Pessoas da reunião">
@@ -136,7 +130,6 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
             </div>)}</div>
           </section>}
         </div>
-      </div>
     </section>
   );
 }
