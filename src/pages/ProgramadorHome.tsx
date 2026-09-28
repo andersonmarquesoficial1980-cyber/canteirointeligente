@@ -15,6 +15,7 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { buildPersonMovement, buildEquipmentMovement, summarizeTeamRental, assertNewAdmission } from "@/lib/programadorIndividual";
+import { saveMonthlyRental } from "@/lib/programadorRental";
 
 const STATUS_FUNC_OPTIONS = [
   { value: "ativo", label: "ATIVO" },
@@ -185,6 +186,7 @@ export default function ProgramadorHome() {
   const [equipStatus, setEquipStatus] = useState("");
   const [equipEquipeOrig, setEquipEquipeOrig] = useState("");
   const [equipEquipeDest, setEquipEquipeDest] = useState("");
+  const [valorMensalDraft, setValorMensalDraft] = useState("");
   const recarregarCadastros = async () => {
     if (!companyId) {
       setEquipes([]); setFuncionarios([]); setFrota([]); setOgsList([]);
@@ -251,6 +253,7 @@ export default function ProgramadorHome() {
     setEquipEquipeOrig(eq?.setor || "");
     setEquipEquipeDest("");
     setEquipStatus("");
+    setValorMensalDraft(eq?.valor_mensal != null ? String(eq.valor_mensal).replace(".", ",") : "");
   };
 
   const abrirFuncionarioDaEquipe = (id: string) => {
@@ -894,6 +897,30 @@ export default function ProgramadorHome() {
     }
   };
 
+  const salvarValorMensal = async () => {
+    const equipment = frota.find(f => f.id === equipFrota);
+    if (!equipment || !companyId) return;
+    setSaving(true);
+    let confirmed = false;
+    try {
+      const result = await saveMonthlyRental(supabase as any, equipment, companyId, valorMensalDraft);
+      confirmed = true;
+      const { data: persisted, error: readError } = await (supabase as any)
+        .from("equipamentos").select("valor_mensal")
+        .eq("id", equipment.id).eq("company_id", companyId).single();
+      if (readError || Number(persisted?.valor_mensal) !== result.depois) {
+        throw new Error(readError?.message || "O valor salvo não pôde ser conferido. Atualize a tela antes de tentar novamente.");
+      }
+      await recarregarCadastros();
+      setValorMensalDraft(String(result.depois).replace(".", ","));
+      toast({ title: "Valor mensal salvo e conferido na Gestão de Frotas", description: `Antes: ${result.antes == null ? "não cadastrado" : moeda(result.antes)} · Agora: ${moeda(result.depois)}. Histórico gravado.` });
+    } catch (error) {
+      toast({ title: confirmed ? "Valor aplicado; conferência da tela pendente" : "Valor mensal não atualizado", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-page flex flex-col">
       {/* Header */}
@@ -1465,6 +1492,21 @@ export default function ProgramadorHome() {
                   <p className="text-xs text-muted-foreground">A mudança será gravada na Gestão de Frotas com histórico.</p>
                 </div>;
               })()}
+              {(frota.find(f => f.id === equipFrota)?.condicao || "").trim().toUpperCase() === "TERCEIRO" && (
+                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+                  <Label htmlFor="valor-mensal-programador">Valor mensal do equipamento de terceiro (R$/mês)</Label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input id="valor-mensal-programador" inputMode="decimal" aria-label="Valor mensal do equipamento de terceiro"
+                      placeholder="Ex.: 1.234,56" value={valorMensalDraft}
+                      onChange={(event) => setValorMensalDraft(event.target.value)} disabled={saving} />
+                    <Button type="button" variant="outline" disabled={saving || !valorMensalDraft.trim()}
+                      onClick={salvarValorMensal} className="sm:shrink-0">
+                      {saving ? "Salvando..." : "Salvar valor mensal"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Salva diretamente em Gestão de Frotas com histórico antes/depois. Não altera equipe nem status.</p>
+                </div>
+              )}
               {modoEquip === "status" && (
                 <div className="space-y-1.5">
                   <Label>Novo status *</Label>
