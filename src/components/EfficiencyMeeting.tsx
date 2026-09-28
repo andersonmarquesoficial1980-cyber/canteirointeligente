@@ -1,13 +1,15 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
+import { groupPeopleForProgramador, groupEquipmentForProgramador } from "@/lib/programadorGroups";
 import { prepareEfficiencyMeeting, meetingStatus, type MeetingEquipment, type MeetingPerson } from "@/lib/programadorMeeting";
 
 type Props = {
   people: MeetingPerson[];
   equipment: MeetingEquipment[];
   initialTeam: string;
+  pinnedTeams?: string[];
   updatedAt: string | null;
   error?: string;
   loading?: boolean;
@@ -27,7 +29,7 @@ const filterNames: [string, string][] = [
 ];
 
 /** Read-only meeting surface: no master writes, drafts, or forms are mounted here. */
-export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
+export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
   const [team, setTeam] = useState(initialTeam);
   const [status, setStatus] = useState("todos");
   const [type, setType] = useState("");
@@ -36,6 +38,8 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
   const featuredTeams = useMemo(() => rankTeamsByAllocation(all.teams, people, equipment), [all.teams, people, equipment]);
   const byTeam = useMemo(() => prepareEfficiencyMeeting(people, equipment, { team }), [people, equipment, team]);
   const view = useMemo(() => prepareEfficiencyMeeting(people, equipment, { team, status, type, search }), [people, equipment, team, status, type, search]);
+  const peopleGroups = useMemo(() => groupPeopleForProgramador(view.people), [view.people]);
+  const equipmentGroups = useMemo(() => groupEquipmentForProgramador(view.equipment), [view.equipment]);
   const types = useMemo(() => [...new Set(byTeam.equipment.map(e => (e.tipo || "").trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, "pt-BR")), [byTeam.equipment]);
   const changeTeam = (next: string) => {
@@ -74,7 +78,7 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
           <div className="rounded-xl border border-border bg-card px-3 py-2 space-y-2">
             <div className="grid grid-cols-1 md:grid-cols-[auto_minmax(0,1fr)] md:items-center gap-2 border-b border-border/60 pb-1.5">
               <span className="text-xs font-semibold text-muted-foreground">Equipe</span>
-              <TeamPicker teams={all.teams} featured={featuredTeams} value={team} onChange={changeTeam} allowAll allowNoTeam />
+              <TeamPicker teams={all.teams} featured={featuredTeams} pinned={pinnedTeams} value={team} onChange={changeTeam} allowAll allowNoTeam />
             </div>
             <div className="flex flex-wrap gap-1" aria-label="Status dos equipamentos">
               {filterNames.map(([value, label]) => <button key={value} type="button" aria-pressed={status === value}
@@ -99,7 +103,10 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
               <h3 className="border-b border-border px-3 py-2 font-semibold text-sm">Pessoas ({view.people.length})</h3>
               <div className="max-h-[55vh] overflow-auto">
                 {view.people.length ? <table className="w-full text-left text-xs"><thead className="text-muted-foreground"><tr><th className="p-2">Nome</th><th className="p-2">Função</th><th className="p-2">Status</th>{onManagePerson && <th className="p-2">Ação</th>}</tr></thead>
-                  <tbody>{view.people.map(p => <tr key={p.id} className="border-t border-border"><td className="p-2 font-medium">{p.name}<span className="block text-[11px] text-muted-foreground">{p.matricula || "Sem matrícula"} · {p.equipe || "Sem equipe"}</span></td><td className="p-2">{p.role || "—"}</td><td className="p-2">{p.status || "Não informado"}</td>{onManagePerson && <td className="p-2"><button type="button" className="text-primary underline underline-offset-2" aria-label={`Gerenciar pessoa ${p.name}`} onClick={() => onManagePerson(p.id)}>Gerenciar</button></td>}</tr>)}</tbody>
+                  <tbody>{peopleGroups.map(group => <Fragment key={group.title}>
+                    <tr className="border-t border-border bg-muted/40"><th scope="rowgroup" colSpan={onManagePerson ? 4 : 3} className="px-2 py-1.5 text-left text-xs font-semibold">{group.title} <span className="font-normal text-muted-foreground">({group.items.length})</span></th></tr>
+                    {group.items.map(p => <tr key={p.id} className="border-t border-border"><td className="p-2 font-medium">{p.name}<span className="block text-[11px] text-muted-foreground">{p.matricula || "Sem matrícula"} · {p.equipe || "Sem equipe"}</span></td><td className="p-2">{p.role || "—"}</td><td className="p-2">{p.status || "Não informado"}</td>{onManagePerson && <td className="p-2"><button type="button" className="text-primary underline underline-offset-2" aria-label={`Gerenciar pessoa ${p.name}`} onClick={() => onManagePerson(p.id)}>Gerenciar</button></td>}</tr>)}
+                  </Fragment>)}</tbody>
                 </table> : <p className="p-3 text-xs text-muted-foreground">Nenhuma pessoa nesta equipe.</p>}
               </div>
             </section>
@@ -107,7 +114,9 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
               <h3 className="border-b border-border px-3 py-2 font-semibold text-sm">Equipamentos ({view.equipment.length})</h3>
               <div className="max-h-[55vh] overflow-auto">
                 {view.equipment.length ? <table className="w-full text-left text-xs"><thead className="text-muted-foreground"><tr><th className="p-2">Frota / tipo</th><th className="p-2">Equipe / empresa</th><th className="p-2">Status</th><th className="p-2 text-right">R$/mês</th>{onManageEquipment && <th className="p-2">Ação</th>}</tr></thead>
-                  <tbody>{view.equipment.map(e => {
+                  <tbody>{equipmentGroups.map(group => <Fragment key={group.title}>
+                    <tr className="border-t border-border bg-muted/40"><th scope="rowgroup" colSpan={onManageEquipment ? 5 : 4} className="px-2 py-1.5 text-left text-xs font-semibold">{group.title} <span className="font-normal text-muted-foreground">({group.items.length})</span></th></tr>
+                    {group.items.map(e => {
                     const rental = (e.condicao || "").trim().toUpperCase() === "TERCEIRO";
                     const state = meetingStatus(e);
                     return <tr key={e.id} className={`border-t border-border ${state === "manutencao" ? "bg-amber-50/70" : ""}`}>
@@ -117,7 +126,8 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, updatedAt, e
                       <td className="p-2 text-right whitespace-nowrap tabular-nums">{rental ? (e.valor_mensal == null ? "Sem valor" : money(e.valor_mensal)) : "—"}</td>
                       {onManageEquipment && <td className="p-2"><button type="button" className="text-primary underline underline-offset-2" aria-label={`Gerenciar equipamento ${e.centro_custo || e.frota || e.placa || "sem código"}`} onClick={() => onManageEquipment(e.id)}>Gerenciar</button></td>}
                     </tr>;
-                  })}</tbody>
+                    })}
+                  </Fragment>)}</tbody>
                 </table> : <p className="p-3 text-xs text-muted-foreground">Nenhum equipamento encontrado com os filtros atuais.</p>}
               </div>
             </section>

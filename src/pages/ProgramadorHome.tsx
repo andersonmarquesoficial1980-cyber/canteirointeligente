@@ -20,6 +20,8 @@ import { EfficiencyMeeting } from "@/components/EfficiencyMeeting";
 import { fetchTeamsForCompany } from "@/lib/programadorTeams";
 import { ProgramadorRoster } from "@/components/ProgramadorRoster";
 import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
+import { groupPeopleForProgramador, groupEquipmentForProgramador } from "@/lib/programadorGroups";
+import { useProgramadorPinnedTeams } from "@/hooks/useProgramadorPinnedTeams";
 import { prepareRosterPersonChange, prepareRosterEquipmentChange, type PersonDraft, type EquipmentDraft } from "@/lib/programadorRoster";
 
 const STATUS_FUNC_OPTIONS = [
@@ -310,6 +312,8 @@ export default function ProgramadorHome() {
     () => rankTeamsByAllocation(equipesAtivas, funcionarios, frota),
     [equipesAtivas, funcionarios, frota]
   );
+  const sugestoesEquipes = useMemo(() => equipesDestaque.slice(0, 4), [equipesDestaque]);
+  const baloesEquipe = useProgramadorPinnedTeams(companyId, profile?.user_id || null, equipesAtivas, sugestoesEquipes);
 
   const equipeOptionsComFallback = (valorAtual?: string) => {
     const lista = [...equipesAtivas];
@@ -428,6 +432,8 @@ export default function ProgramadorHome() {
       return (a.frota || "").localeCompare(b.frota || "", "pt-BR");
     });
   }, [equipamentosDaEquipe, equipDraft, onlyChangedEquip, filterEquipStatus, equipSearch, modoOperacaoNoturna]);
+  const gruposPessoas = useMemo(() => groupPeopleForProgramador(funcionariosDaEquipeFiltrados), [funcionariosDaEquipeFiltrados]);
+  const gruposEquipamentos = useMemo(() => groupEquipmentForProgramador(equipamentosDaEquipeFiltrados), [equipamentosDaEquipeFiltrados]);
 
   const criticosFuncCount = useMemo(
     () => funcionariosDaEquipeFiltrados.filter((f) => riscoFuncionarioStatus((funcDraft[f.id]?.status ?? f.status)) >= 2).length,
@@ -1075,7 +1081,7 @@ export default function ProgramadorHome() {
       <div className="flex-1 px-3 py-3 pb-4 space-y-3">
         {modoReuniao && (
           <EfficiencyMeeting
-            people={funcionarios} equipment={frota} initialTeam={progEquipe}
+            people={funcionarios} equipment={frota} initialTeam={progEquipe} pinnedTeams={baloesEquipe.pinned}
             updatedAt={cadastrosUpdatedAt} error={cadastrosError} loading={cadastrosLoading}
             onRefresh={() => { void recarregarCadastros(); }} onExit={() => setModoReuniao(false)}
             onManagePerson={(id) => {
@@ -1115,11 +1121,13 @@ export default function ProgramadorHome() {
                 </div>
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center gap-1.5">
-                <TeamPicker teams={equipesAtivas} featured={equipesDestaque} value={progEquipe} onChange={setProgEquipe} />
+                <TeamPicker teams={equipesAtivas} pinned={baloesEquipe.pinned} value={progEquipe} onChange={setProgEquipe}
+                  onPin={baloesEquipe.pin} onUnpin={baloesEquipe.unpin} />
                 {progEquipe && equipeResponsavel(progEquipe) && <p className="text-[11px] text-muted-foreground xl:max-w-64 truncate" title={equipeResponsavel(progEquipe) || undefined}>
                   Responsável: {equipeResponsavel(progEquipe)}
                 </p>}
               </div>
+              {baloesEquipe.error && <p role="alert" className="text-[11px] text-amber-800">{baloesEquipe.error}</p>}
             </div>
 
             {/* Painel operacional por equipe (Pessoas + Equipamentos) */}
@@ -1230,7 +1238,11 @@ export default function ProgramadorHome() {
                       <div className="space-y-1.5 max-h-80 lg:max-h-[calc(100vh-330px)] overflow-auto pr-1">
                         {funcionariosDaEquipeFiltrados.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum funcionário encontrado com os filtros atuais.</p>
-                        ) : funcionariosDaEquipeFiltrados.map((f) => {
+                        ) : gruposPessoas.map((group) => <section key={group.title} className="space-y-1.5" aria-label={group.title}>
+                          <h5 className="sticky top-0 z-10 flex items-center justify-between rounded-md bg-muted/70 px-2.5 py-1.5 text-xs font-semibold text-foreground">
+                            {group.title}<span className="font-normal tabular-nums text-muted-foreground">{group.items.length}</span>
+                          </h5>
+                          {group.items.map((f) => {
                           const draft = funcDraft[f.id] || { equipe: f.equipe || "", status: normalizeFuncionarioStatus(f.status) };
                           const mudou = funcionarioMudou(f, draft);
                           return (
@@ -1264,7 +1276,8 @@ export default function ProgramadorHome() {
                               </div>
                             </div>
                           );
-                        })}
+                          })}
+                        </section>)}
                       </div>
                     </div>
 
@@ -1314,7 +1327,11 @@ export default function ProgramadorHome() {
                       <div className="space-y-1.5 max-h-80 lg:max-h-[calc(100vh-330px)] overflow-auto pr-1">
                         {equipamentosDaEquipeFiltrados.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum equipamento encontrado com os filtros atuais.</p>
-                        ) : equipamentosDaEquipeFiltrados.map((eq) => {
+                        ) : gruposEquipamentos.map((group) => <section key={group.title} className="space-y-1.5" aria-label={group.title}>
+                          <h5 className="sticky top-0 z-10 flex items-center justify-between rounded-md bg-muted/70 px-2.5 py-1.5 text-xs font-semibold text-foreground">
+                            {group.title}<span className="font-normal tabular-nums text-muted-foreground">{group.items.length}</span>
+                          </h5>
+                          {group.items.map((eq) => {
                           const draft = equipDraft[eq.id] || { setor: eq.setor || "", status: normalizeEquipamentoStatus(eq.status) };
                           const mudou = equipamentoMudou(eq, draft);
                           return (
@@ -1350,7 +1367,8 @@ export default function ProgramadorHome() {
                               </div>
                             </div>
                           );
-                        })}
+                          })}
+                        </section>)}
                       </div>
                     </div>
                   </div>

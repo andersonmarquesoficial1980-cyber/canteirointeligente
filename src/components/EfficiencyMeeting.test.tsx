@@ -18,6 +18,28 @@ const props = {
 };
 
 describe("tela de reunião", () => {
+  it("groups personnel and fleet in operational order without losing any record", () => {
+    render(<EfficiencyMeeting {...props} people={[
+      { id: "m", name: "Motorista", equipe: "EQUIPE A", status: "ativo", role: "MOTORISTA DE CAMINHÃO", matricula: "2" },
+      { id: "e", name: "Chefe", equipe: "EQUIPE A", status: "ativo", role: "ENCARREGADO DE OBRAS", matricula: "1" },
+    ]} equipment={[
+      { ...props.equipment[0], id: "r", tipo: "ROLO CHAPA" },
+      { ...props.equipment[1], id: "f", tipo: "FRESADORA" },
+    ]} />);
+    const names = screen.getAllByRole("row").map(row => row.textContent || "");
+    expect(names.findIndex(name => name.includes("Encarregado"))).toBeLessThan(names.findIndex(name => name.includes("Motoristas")));
+    expect(names.findIndex(name => name.includes("Fresadora"))).toBeLessThan(names.findIndex(name => name.includes("Rolos")));
+    expect(screen.getByText("Chefe")).toBeTruthy();
+    expect(screen.getByText("Motorista")).toBeTruthy();
+  });
+  it("reflects configured chips in presentation without offering to edit them", () => {
+    const { rerender } = render(<EfficiencyMeeting {...props} pinnedTeams={[]} />);
+    const quick = screen.getByRole("group", { name: "Equipes em destaque" });
+    expect(within(quick).queryByRole("button", { name: "EQUIPE A" })).toBeNull();
+    rerender(<EfficiencyMeeting {...props} pinnedTeams={["EQUIPE A"]} />);
+    expect(within(quick).getByRole("button", { name: "EQUIPE A" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Adicionar balão de equipe" })).toBeNull();
+  });
   it("uses compact searchable team chips instead of a full-height team sidebar", () => {
     render(<EfficiencyMeeting {...props} />);
     expect(screen.getByRole("group", { name: "Equipes em destaque" })).toBeTruthy();
