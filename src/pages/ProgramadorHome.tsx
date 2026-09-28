@@ -13,6 +13,7 @@ import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { applyProgramadorBatch } from "@/lib/programadorBatch";
 
 const STATUS_FUNC_OPTIONS = [
   { value: "ativo", label: "ATIVO" },
@@ -680,95 +681,49 @@ export default function ProgramadorHome() {
     }
 
     setSaving(true);
-
-    const erros: string[] = [];
-
-    for (const u of funcUpdates) {
-      let q: any = supabase.from("employees").update({
-        equipe: u.draft.equipe || null,
-        status: normalizeFuncionarioStatus(u.draft.status),
-        data_demissao: normalizeFuncionarioStatus(u.draft.status) === "demitido" ? (progData || new Date().toISOString().slice(0, 10)) : null,
-      }).eq("id", u.atual.id);
-      if (companyId) q = q.eq("company_id", companyId);
-      const { error } = await q;
-      if (error) erros.push(`Funcionário ${u.atual.name}: ${error.message}`);
-    }
-
-    for (const u of equipUpdates) {
-      let q: any = (supabase as any).from("equipamentos").update({ setor: u.draft.setor || null, status: normalizeEquipamentoStatus(u.draft.status) }).eq("id", u.atual.id);
-      if (companyId) q = q.eq("company_id", companyId);
-      const { error } = await q;
-      if (error) erros.push(`Frota ${u.atual.frota}: ${error.message}`);
-    }
-
-    if (erros.length) {
-      toast({ title: "Erro ao salvar mudanças", description: erros[0], variant: "destructive" });
+    let appliedSuccessfully = false;
+    try {
+      const applied = await applyProgramadorBatch(supabase as any, {
+        companyId,
+        date: progData || new Date().toISOString().slice(0, 10),
+        team: progEquipe || "-",
+        overrideReason: forcedRun ? forceReason.trim() : "",
+        employees: funcUpdates.map((u) => ({
+          id: u.atual.id, equipe: u.draft.equipe || null,
+          status: normalizeFuncionarioStatus(u.draft.status),
+        })),
+        equipments: equipUpdates.map((u) => ({
+          id: u.atual.id, setor: u.draft.setor || null,
+          status: normalizeEquipamentoStatus(u.draft.status),
+          responsavel_destino: equipeResponsavel(u.draft.setor || "") || null,
+        })),
+      });
+      appliedSuccessfully = true;
+      const avisosCount = validacao.issues.filter((i) => i.level === "aviso").length;
+      await recarregarCadastros();
+      setLastApplySummary({
+        when: new Date().toISOString(),
+        funcionarios: applied.funcionarios,
+        equipamentos: applied.equipamentos,
+        avisos: avisosCount,
+        forcaramIntegracao: forcedRun,
+        motivo: forcedRun ? forceReason.trim() : undefined,
+      });
+      setForceIntegracaoOverride(false);
+      setForceReason("");
+      toast({
+        title: forcedRun ? "⚠️ Movimentações aplicadas com override" : "✅ Movimentações aplicadas",
+        description: `${applied.funcionarios} funcionário(s) e ${applied.equipamentos} equipamento(s) atualizados${avisosCount ? ` • ${avisosCount} aviso(s)` : ""}.`,
+      });
+    } catch (error) {
+      toast({
+        title: appliedSuccessfully ? "Alterações aplicadas; falha ao atualizar a tela" : "Falha na aplicação do lote",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    } finally {
       setSaving(false);
-      return;
     }
-
-    const dataMov = progData || new Date().toISOString().slice(0, 10);
-    const overrideTag = forcedRun ? ` [FORÇADO INTEGRAÇÃO: ${forceReason.trim()}]` : "";
-
-    const auditoriaFuncs = funcUpdates.map((u) => {
-      const tipo = u.mudouEquipe && u.mudouStatus ? "transferencia_status" : u.mudouEquipe ? "transferencia" : "status";
-      return (supabase as any).from("ci_mov_funcionarios").insert({
-        data: dataMov,
-        tipo,
-        funcionario_id: u.atual.id,
-        funcionario_nome: u.atual.name,
-        matricula: u.atual.matricula || null,
-        equipe_origem: u.atual.equipe || null,
-        equipe_destino: u.draft.equipe || null,
-        status: normalizeFuncionarioStatus(u.draft.status),
-        company_id: companyId || u.atual.company_id || null,
-        obs: `Movimentação via WF Programador (Equipe: ${progEquipe || "-"})${overrideTag}`,
-      });
-    });
-
-    const auditoriaEquips = equipUpdates.map((u) => {
-      const tipo = u.mudouSetor && u.mudouStatus ? "transferencia_status" : u.mudouSetor ? "transferencia" : "status";
-      return (supabase as any).from("ci_mov_equipamentos").insert({
-        data: dataMov,
-        tipo,
-        frota: u.atual.frota,
-        tipo_equipamento: u.atual.tipo || null,
-        equipe_origem: u.atual.setor || null,
-        equipe_destino: u.draft.setor || null,
-        status: normalizeEquipamentoStatus(u.draft.status),
-        responsavel_destino: equipeResponsavel(u.draft.setor || ""),
-        company_id: companyId || u.atual.company_id || null,
-        obs: `Movimentação via WF Programador (Equipe: ${progEquipe || "-"})${overrideTag}`,
-      });
-    });
-
-    const auditoriaRes = await Promise.allSettled([...auditoriaFuncs, ...auditoriaEquips]);
-    const auditFalhas = auditoriaRes.filter((r) => r.status === "fulfilled" && (r as any).value?.error).length
-      + auditoriaRes.filter((r) => r.status === "rejected").length;
-
-    const avisosCount = validacao.issues.filter((i) => i.level === "aviso").length;
-
-    toast({
-      title: forcedRun ? "⚠️ Movimentações aplicadas com override" : "✅ Movimentações aplicadas",
-      description: `${funcUpdates.length} funcionário(s) e ${equipUpdates.length} equipamento(s) atualizados${auditFalhas ? ` • ${auditFalhas} falha(s) na auditoria` : ""}${avisosCount ? ` • ${avisosCount} aviso(s)` : ""}.`,
-      variant: auditFalhas ? "destructive" : "default",
-    });
-
-    // recarrega dados mestres já normalizados
-    await recarregarCadastros();
-
-    setLastApplySummary({
-      when: new Date().toISOString(),
-      funcionarios: funcUpdates.length,
-      equipamentos: equipUpdates.length,
-      avisos: avisosCount,
-      forcaramIntegracao: forcedRun,
-      motivo: forcedRun ? forceReason.trim() : undefined,
-    });
-    setForceIntegracaoOverride(false);
-    setForceReason("");
-
-    setSaving(false);
   };
 
   // SALVAR PROGRAMAÇÃO DE EQUIPE
