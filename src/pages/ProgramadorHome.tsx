@@ -1270,7 +1270,8 @@ export default function ProgramadorHome() {
                                     <SelectContent>{statusFuncOptionsComFallback(draft.status).map(s => <SelectItem key={`${f.id}-st-${s}`} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}</SelectContent>
                                   </Select></div>
                               </div>
-                              <div className="mt-1 flex justify-end text-[11px]">
+                              <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 text-[11px] text-muted-foreground">
+                                <span>{f.role || "Função não informada"}</span>
                                 <button type="button" className="text-primary hover:underline" onClick={() => abrirFuncionarioDaEquipe(f.id)}>Gerenciar pessoa</button>
                               </div>
                             </div>
