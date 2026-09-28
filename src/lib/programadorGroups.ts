@@ -26,7 +26,15 @@ function personCategory(role: string | null) {
   return "Outros";
 }
 
-function equipmentCategory(type: string | null) {
+function equipmentCategory(type: string | null, registeredCategory?: string | null) {
+  // The master fleet registry owns the category. Type matching is only a fallback
+  // for older rows whose categoria_rdo is absent or not one of these groups.
+  const category = norm(registeredCategory).replace(/_/g, " ");
+  if (category === "PEQUENO PORTE") return "Pequeno Porte";
+  if (category === "FRESAGEM") return "Fresadora";
+  if (category === "BOBCAT") return "Bobcat";
+  if (category === "ROLO COMPACTADOR") return "Rolos";
+  if (category === "VIBROACABADORA") return "Vibroacabadoras";
   const text = norm(type);
   if (text.includes("FRESADOR")) return "Fresadora";
   if (/BOBCAT|MINI.?CARREGADEIRA|MINI.?CARREGADOR/.test(text)) return "Bobcat";
@@ -47,6 +55,6 @@ function grouped<T>(rows: readonly T[], titles: readonly string[], category: (ro
 export function groupPeopleForProgramador<T extends { role?: string | null }>(rows: readonly T[]): Group<T>[] {
   return grouped(rows, PEOPLE_ORDER, row => personCategory(row.role ?? null));
 }
-export function groupEquipmentForProgramador<T extends { tipo?: string | null }>(rows: readonly T[]): Group<T>[] {
-  return grouped(rows, EQUIPMENT_ORDER, row => equipmentCategory(row.tipo ?? null));
+export function groupEquipmentForProgramador<T extends { tipo?: string | null; categoria_rdo?: string | null }>(rows: readonly T[]): Group<T>[] {
+  return grouped(rows, EQUIPMENT_ORDER, row => equipmentCategory(row.tipo ?? null, row.categoria_rdo));
 }

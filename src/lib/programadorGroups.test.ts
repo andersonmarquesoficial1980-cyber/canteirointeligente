@@ -38,6 +38,14 @@ describe("ordem operacional por categoria", () => {
     expect(groups).toEqual([{ title: "Ajudantes", items: [{ id: "b", role: "ajudante" }, { id: "a", role: "AJUDANTE GERAL" }] }]);
     expect(groupEquipmentForProgramador([])).toEqual([]);
   });
+  it("uses the registered categoria_rdo before interpreting the equipment type, in both views", () => {
+    const rows = [
+      { id: "romp", tipo: "ROMPEDOR PNEUMÁTICO", categoria_rdo: "PEQUENO PORTE" },
+      { id: "serra", tipo: "SERRA CLIPPER", categoria_rdo: "PEQUENO PORTE" },
+      { id: "custom", tipo: "EQUIPAMENTO NOVO", categoria_rdo: "pequeno_porte" },
+    ];
+    expect(groupEquipmentForProgramador(rows)).toEqual([{ title: "Pequeno Porte", items: rows }]);
+  });
   it("places small surveying gear and portable tools in Pequeno Porte", () => {
     expect(groupEquipmentForProgramador([{ tipo: "DENSÍMETRO" }, { tipo: "MOTOBOMBA" }]).map(group => group.title))
       .toEqual(["Pequeno Porte"]);

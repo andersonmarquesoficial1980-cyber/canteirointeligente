@@ -6,6 +6,7 @@ export type MeetingPerson = {
 };
 export type MeetingEquipment = {
   id: string; setor: string | null; tipo: string | null; frota: string | null;
+  categoria_rdo?: string | null;
   status?: string | null; condicao: string | null; valor_mensal: number | null;
   empresa_proprietaria: string | null; locadora?: string | null;
   centro_custo?: string | null; placa?: string | null;

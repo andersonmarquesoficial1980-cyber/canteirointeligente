@@ -88,7 +88,7 @@ const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 
 interface Equipe { id: string; nome: string; responsavel: string | null; }
 interface Funcionario { id: string; name: string; matricula: string | null; role: string | null; equipe: string | null; status: string | null; company_id?: string | null; }
-interface Frota { id: string; frota: string; tipo: string; setor: string | null; status?: string | null; company_id?: string | null; condicao: string | null; valor_mensal: number | null; empresa_proprietaria: string | null; locadora?: string | null; centro_custo?: string | null; placa?: string | null; }
+interface Frota { id: string; frota: string; tipo: string; categoria_rdo?: string | null; setor: string | null; status?: string | null; company_id?: string | null; condicao: string | null; valor_mensal: number | null; empresa_proprietaria: string | null; locadora?: string | null; centro_custo?: string | null; placa?: string | null; }
 interface Ogs { ogs_number: string; client_name: string; location_address: string; }
 
 type Aba = "equipes" | "funcionarios" | "equipamentos";
@@ -212,7 +212,7 @@ export default function ProgramadorHome() {
     let funcionariosQuery: any = supabase.from("employees").select("id, name, matricula, role, equipe, status, company_id", { count: "exact" }).order("name");
     if (companyId) funcionariosQuery = funcionariosQuery.eq("company_id", companyId);
 
-    let frotaQuery: any = (supabase as any).from("equipamentos").select("id, frota, centro_custo, placa, tipo, setor, status, company_id, condicao, valor_mensal, empresa_proprietaria", { count: "exact" }).order("tipo").order("frota");
+    let frotaQuery: any = (supabase as any).from("equipamentos").select("id, frota, centro_custo, placa, tipo, categoria_rdo, setor, status, company_id, condicao, valor_mensal, empresa_proprietaria", { count: "exact" }).order("tipo").order("frota");
     if (companyId) frotaQuery = frotaQuery.eq("company_id", companyId);
 
     let ogsQuery: any = (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address");
