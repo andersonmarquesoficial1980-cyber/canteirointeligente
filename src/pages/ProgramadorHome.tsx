@@ -161,6 +161,7 @@ export default function ProgramadorHome() {
   const [modoOperacaoNoturna, setModoOperacaoNoturna] = useState(false);
   const [modoReuniao, setModoReuniao] = useState(false);
   const [rosterDirty, setRosterDirty] = useState(false);
+  const [showAdmission, setShowAdmission] = useState(false);
   const [cadastrosLoading, setCadastrosLoading] = useState(false);
   const [cadastrosError, setCadastrosError] = useState("");
   const [cadastrosUpdatedAt, setCadastrosUpdatedAt] = useState<string | null>(null);
@@ -1453,6 +1454,43 @@ export default function ProgramadorHome() {
 
         {/* As abas individuais listam os cadastros mestres; sem formulários de movimentação. */}
         {!modoReuniao && (aba === "funcionarios" || aba === "equipamentos") && (
+          <div className="space-y-3">
+          {aba === "funcionarios" && (
+            <div>
+              <Button type="button" variant="outline" size="sm" disabled={saving || !!cadastrosError || cadastrosLoading}
+                onClick={() => { setModoFunc("admissao"); setShowAdmission(value => !value); }}>
+                {showAdmission ? "Fechar nova admissão" : "+ Nova admissão"}
+              </Button>
+              {showAdmission && <div className="rounded-lg border border-border bg-card p-3 mt-2 space-y-2" aria-label="Nova admissão">
+                <p className="font-semibold text-sm">Cadastrar funcionário no cadastro central</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label className="text-xs text-muted-foreground">Nome completo *
+                    <Input className="mt-1 uppercase" value={novoNome} onChange={event => setNovoNome(event.target.value)} />
+                  </label>
+                  <label className="text-xs text-muted-foreground">Matrícula *
+                    <Input className="mt-1" value={novaMatricula} onChange={event => setNovaMatricula(event.target.value)} />
+                  </label>
+                  <label className="text-xs text-muted-foreground">Função *
+                    <Input className="mt-1 uppercase" value={novaFuncao} onChange={event => setNovaFuncao(event.target.value)} />
+                  </label>
+                  <label className="text-xs text-muted-foreground">Equipe *
+                    <select className="block w-full h-10 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={novaEquipe} onChange={event => setNovaEquipe(event.target.value)}>
+                      <option value="">Selecione a equipe</option>{equipesAtivas.map(value => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs text-muted-foreground">Data de admissão *
+                    <Input className="mt-1" type="date" value={novaAdmissao} onChange={event => setNovaAdmissao(event.target.value)} />
+                  </label>
+                  <label className="text-xs text-muted-foreground">Observações
+                    <Input className="mt-1" value={novaObs} onChange={event => setNovaObs(event.target.value)} />
+                  </label>
+                </div>
+                <Button type="button" size="sm" disabled={saving || !novoNome.trim() || !novaMatricula.trim() || !novaFuncao.trim() || !novaEquipe || !novaAdmissao}
+                  onClick={salvarMovFunc}>{saving ? "Salvando..." : "Registrar admissão"}</Button>
+                <p className="text-[11px] text-muted-foreground">Matrículas existentes exigem revisão humana. Se o cadastro for criado mas a auditoria falhar, não repita a admissão.</p>
+              </div>}
+            </div>
+          )}
           <ProgramadorRoster
             key={aba}
             kind={aba}
@@ -1467,6 +1505,7 @@ export default function ProgramadorHome() {
             onSavePrice={salvarPrecoNaLista}
             onDirtyChange={setRosterDirty}
           />
+          </div>
         )}
 
       </div>
