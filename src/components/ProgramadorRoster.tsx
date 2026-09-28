@@ -1,0 +1,193 @@
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { filterRosterPeople, filterRosterEquipment, type RosterPerson, type RosterEquipment, type PersonDraft, type EquipmentDraft } from "@/lib/programadorRoster";
+
+type Props = {
+  kind: "funcionarios" | "equipamentos";
+  people: RosterPerson[]; equipment: RosterEquipment[]; teams: string[];
+  saving: boolean; error: string; initialSelectedId?: string;
+  onSavePerson: (id: string, draft: PersonDraft) => Promise<void>;
+  onSaveEquipment: (id: string, draft: EquipmentDraft) => Promise<void>;
+  onSavePrice: (id: string, text: string) => Promise<number>;
+  onDirtyChange?: (dirty: boolean) => void;
+};
+const personStatuses = [
+  ["ativo", "Ativo"], ["afastado", "Afastado"], ["ferias", "Férias"], ["demitido", "Demitido"],
+];
+const equipmentStatuses = [
+  ["ativo", "Operacional"], ["em_manutencao", "Manutenção"], ["inoperante", "Inoperante"],
+  ["devolver", "Devolver"], ["devolvido", "Devolvido"], ["diaria", "Diária"],
+  ["disposicao", "Disposição"], ["inativo", "Inativo"],
+];
+const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+/** The full master catalog is filtered first; only rendering is paged. */
+export function ProgramadorRoster({ kind, people, equipment, teams, saving, error, initialSelectedId, onSavePerson, onSaveEquipment, onSavePrice, onDirtyChange }: Props) {
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState("");
+  const [type, setType] = useState("");
+  const [team, setTeam] = useState("");
+  const [status, setStatus] = useState("");
+  const [sort, setSort] = useState<"asc" | "desc">("asc");
+  const [visibleCount, setVisibleCount] = useState(40);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || null);
+  const [teamDraft, setTeamDraft] = useState("");
+  const [statusDraft, setStatusDraft] = useState("");
+  const [priceDraft, setPriceDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const selectedPerson = kind === "funcionarios" ? people.find(p => p.id === selectedId) : undefined;
+  const selectedEquipment = kind === "equipamentos" ? equipment.find(e => e.id === selectedId) : undefined;
+  const selected = selectedPerson || selectedEquipment;
+  const savedPrice = selectedEquipment?.valor_mensal == null ? "" : String(selectedEquipment.valor_mensal).replace(".", ",");
+  const rowDirty = !!selected && (teamDraft !== ((selectedPerson?.equipe ?? selectedEquipment?.setor) || "")
+    || statusDraft !== (selected.status || ""));
+  const priceDirty = !!selectedEquipment && priceDraft !== savedPrice;
+  const dirty = rowDirty || priceDirty;
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+
+  const filteredPeople = useMemo(() => filterRosterPeople(people, { search, role, team, status, sort }), [people, search, role, team, status, sort]);
+  const filteredEquipment = useMemo(() => filterRosterEquipment(equipment, { search, type, team, status, sort }), [equipment, search, type, team, status, sort]);
+  const rows = kind === "funcionarios" ? filteredPeople : filteredEquipment;
+  useEffect(() => {
+    if (!initialSelectedId) return;
+    const row = kind === "funcionarios" ? people.find(p => p.id === initialSelectedId) : equipment.find(e => e.id === initialSelectedId);
+    if (!row) return;
+    setSelectedId(initialSelectedId);
+    setTeamDraft(("equipe" in row ? row.equipe : row.setor) || "");
+    setStatusDraft(row.status || "");
+    setPriceDraft("valor_mensal" in row && row.valor_mensal != null ? String(row.valor_mensal).replace(".", ",") : "");
+  }, [initialSelectedId, kind]);
+  useEffect(() => {
+    if (selectedId) {
+      const index = rows.findIndex(row => row.id === selectedId);
+      if (index >= visibleCount) setVisibleCount(index + 1);
+    }
+  }, [selectedId, rows, visibleCount]);
+
+  const roles = useMemo(() => [...new Set(people.map(p => p.role?.trim()).filter((v): v is string => !!v))].sort((a,b) => a.localeCompare(b,"pt-BR")), [people]);
+  const types = useMemo(() => [...new Set(equipment.map(e => e.tipo?.trim()).filter((v): v is string => !!v))].sort((a,b) => a.localeCompare(b,"pt-BR")), [equipment]);
+  const allTeams = useMemo(() => [...new Set([...teams, ...people.map(p => p.equipe || ""), ...equipment.map(e => e.setor || "")].filter(Boolean))].sort((a,b) => a.localeCompare(b,"pt-BR")), [teams, people, equipment]);
+
+  const openRow = (row: RosterPerson | RosterEquipment) => {
+    if (dirty && !window.confirm("Descartar alterações não salvas neste registro?")) return;
+    setSelectedId(row.id);
+    setTeamDraft(("equipe" in row ? row.equipe : row.setor) || "");
+    setStatusDraft(row.status || "");
+    setPriceDraft("valor_mensal" in row && row.valor_mensal != null ? String(row.valor_mensal).replace(".", ",") : "");
+    setNotice("");
+  };
+  const closeRow = () => { setSelectedId(null); setNotice(""); onDirtyChange?.(false); };
+  const saveRow = async () => {
+    if (!selected || !rowDirty || saving || busy || error) return;
+    setBusy(true); setNotice("");
+    try {
+      if (selectedPerson) await onSavePerson(selectedPerson.id, { equipe: teamDraft, status: statusDraft });
+      else if (selectedEquipment) await onSaveEquipment(selectedEquipment.id, { setor: teamDraft, status: statusDraft });
+    } catch (cause) { setNotice((cause as Error).message || "Não foi possível salvar."); }
+    finally { setBusy(false); }
+  };
+  const savePrice = async () => {
+    if (!selectedEquipment || !priceDirty || rowDirty || saving || busy || error) return;
+    setBusy(true); setNotice("");
+    try {
+      const saved = await onSavePrice(selectedEquipment.id, priceDraft);
+      setPriceDraft(String(saved).replace(".", ","));
+    } catch (cause) { setNotice((cause as Error).message || "Não foi possível salvar o valor."); }
+    finally { setBusy(false); }
+  };
+  const statusOptions = kind === "funcionarios" ? personStatuses : equipmentStatuses;
+  const rendered = rows.slice(0, visibleCount);
+  return (
+    <section className="space-y-3" aria-label={kind === "funcionarios" ? "Lista de funcionários" : "Lista de equipamentos"}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div><h2 className="text-lg font-bold">{kind === "funcionarios" ? "Funcionários" : "Equipamentos"}</h2>
+          <p className="text-xs text-muted-foreground">{rows.length} de {kind === "funcionarios" ? people.length : equipment.length} registros · Cadastro central · Clique em Gerenciar para alterar equipe, status{kind === "equipamentos" ? " ou valor mensal" : ""}.</p></div>
+      </div>
+      {error && <p role="alert" className="border border-red-300 bg-red-50 text-red-800 rounded-md p-2 text-sm">Dados indisponíveis: {error}</p>}
+      <div className="rounded-lg border border-border bg-card p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
+        <label className="text-xs text-muted-foreground sm:col-span-2">{kind === "funcionarios" ? "Buscar funcionário" : "Buscar frota, placa ou equipamento"}
+          <Input className="h-8 mt-1" value={search} disabled={dirty} onChange={e => { setSearch(e.target.value); setVisibleCount(40); }} placeholder={kind === "funcionarios" ? "Nome, matrícula ou função" : "Frota, centro de custo, placa, tipo"} />
+        </label>
+        {kind === "funcionarios" ? (
+          <label className="text-xs text-muted-foreground">Filtrar por função
+            <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={role} disabled={dirty} onChange={e => { setRole(e.target.value); setVisibleCount(40); }}>
+              <option value="">Todas as funções</option>{roles.map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+        ) : (
+          <label className="text-xs text-muted-foreground">Filtrar por tipo
+            <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={type} disabled={dirty} onChange={e => { setType(e.target.value); setVisibleCount(40); }}>
+              <option value="">Todos os tipos</option>{types.map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+        )}
+        <label className="text-xs text-muted-foreground">Filtrar por equipe
+          <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={team} disabled={dirty} onChange={e => { setTeam(e.target.value); setVisibleCount(40); }}>
+            <option value="">Todas as equipes</option><option value="__sem__">Sem equipe</option>{allTeams.map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </label>
+        <label className="text-xs text-muted-foreground">Filtrar por status
+          <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={status} disabled={dirty} onChange={e => { setStatus(e.target.value); setVisibleCount(40); }}>
+            <option value="">Todos os status</option>{statusOptions.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+          </select>
+        </label>
+        <label className="text-xs text-muted-foreground">{kind === "funcionarios" ? "Ordem alfabética" : "Ordenar por frota"}
+          <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={sort} disabled={dirty} onChange={e => setSort(e.target.value as "asc" | "desc")}>
+            <option value="asc">A → Z</option><option value="desc">Z → A</option>
+          </select>
+        </label>
+      </div>
+      <div className="space-y-1.5">
+        {rendered.length === 0 && <p className="text-sm text-muted-foreground p-3">Nenhum registro corresponde aos filtros.</p>}
+        {rendered.map(row => {
+          const person = kind === "funcionarios" ? row as RosterPerson : null;
+          const eq = kind === "equipamentos" ? row as RosterEquipment : null;
+          const label = person?.name || eq?.centro_custo || eq?.frota || eq?.placa || "Equipamento sem código";
+          const actionLabel = person?.name || eq?.frota || label;
+          const thirdParty = (eq?.condicao || "").trim().toUpperCase() === "TERCEIRO";
+          const displayedStatus = statusOptions.find(([value]) => value === row.status)?.[1] || row.status || "Status não informado";
+          const expanded = selectedId === row.id;
+          return <article key={row.id} className={`rounded-lg border bg-card p-2.5 ${expanded ? "border-primary" : "border-border"}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-semibold text-sm break-words">{label}{eq && eq.frota && eq.centro_custo && eq.frota !== eq.centro_custo ? <span className="text-xs font-normal text-muted-foreground"> · {eq.frota}</span> : null}</p>
+                <p className="text-xs text-muted-foreground">{person ? `${person.matricula || "Sem matrícula"} · ${person.role || "Sem função"}` : `${eq?.tipo || "Sem tipo"} · ${thirdParty ? "Terceiro" : eq?.condicao === "PROPRIO" ? "Próprio" : eq?.condicao || "Condição não informada"}`}
+                  {" · "}{(person?.equipe || eq?.setor) || "Sem equipe"}{" · "}{displayedStatus}
+                  {thirdParty ? ` · ${eq?.valor_mensal == null ? "Valor mensal não cadastrado" : `${brl(eq.valor_mensal)}/mês`}` : ""}
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="h-8 shrink-0" disabled={saving || busy || !!error} onClick={() => expanded ? closeRow() : openRow(row)} aria-label={expanded ? (dirty ? `Descartar alterações de ${actionLabel}` : `Fechar ${actionLabel}`) : `Gerenciar ${actionLabel}`}>{expanded ? (dirty ? "Descartar" : "Fechar") : "Gerenciar"}</Button>
+            </div>
+            {expanded && <div className="mt-3 border-t border-border pt-3 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_180px_120px] gap-2 items-end">
+                <label className="text-xs text-muted-foreground">Equipe / setor de {actionLabel}
+                  <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={teamDraft} disabled={saving || busy || !!error} onChange={e => setTeamDraft(e.target.value)}>
+                    <option value="">Sem equipe</option>{[...new Set([...teams, (person?.equipe || eq?.setor) || ""].filter(Boolean))].sort((a,b) => a.localeCompare(b,"pt-BR")).map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs text-muted-foreground">Status de {actionLabel}
+                  <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={statusDraft} disabled={saving || busy || !!error} onChange={e => setStatusDraft(e.target.value)}>
+                    {statusOptions.map(([value,text]) => <option key={value} value={value}>{text}</option>)}
+                  </select>
+                </label>
+                <Button type="button" size="sm" className="h-8" disabled={!rowDirty || saving || busy || !!error} onClick={saveRow} aria-label={`Salvar ${actionLabel}`}>{busy ? "Salvando..." : "Salvar"}</Button>
+              </div>
+              {thirdParty && eq && <div className="flex flex-wrap gap-2 items-end">
+                <label className="text-xs text-muted-foreground">Valor mensal {actionLabel}
+                  <Input className="h-8 mt-1 w-44" inputMode="decimal" value={priceDraft} disabled={saving || busy || !!error} placeholder="Ex.: 1.234,56" onChange={e => setPriceDraft(e.target.value)} />
+                </label>
+                <Button type="button" variant="outline" size="sm" className="h-8" disabled={!priceDirty || rowDirty || !priceDraft.trim() || saving || busy || !!error} onClick={savePrice} aria-label={`Salvar valor mensal ${actionLabel}`}>Salvar valor mensal</Button>
+              </div>}
+              {notice && <p role="alert" className="text-xs text-destructive">{notice}</p>}
+              <p className="text-[11px] text-muted-foreground">As alterações são gravadas no cadastro central com histórico. Nenhuma data ou origem/destino precisa ser informada.</p>
+            </div>}
+          </article>;
+        })}
+        {rows.length > visibleCount && <Button type="button" variant="outline" className="w-full" disabled={dirty} onClick={() => setVisibleCount(v => v + 40)}>Mostrar mais ({rows.length - visibleCount} restantes)</Button>}
+      </div>
+    </section>
+  );
+}

@@ -18,6 +18,8 @@ import { buildPersonMovement, buildEquipmentMovement, summarizeTeamRental, asser
 import { saveMonthlyRental } from "@/lib/programadorRental";
 import { EfficiencyMeeting } from "@/components/EfficiencyMeeting";
 import { fetchTeamsForCompany } from "@/lib/programadorTeams";
+import { ProgramadorRoster } from "@/components/ProgramadorRoster";
+import { prepareRosterPersonChange, prepareRosterEquipmentChange, type PersonDraft, type EquipmentDraft } from "@/lib/programadorRoster";
 
 const STATUS_FUNC_OPTIONS = [
   { value: "ativo", label: "ATIVO" },
@@ -158,6 +160,7 @@ export default function ProgramadorHome() {
   const [filterEquipStatus, setFilterEquipStatus] = useState("TODOS");
   const [modoOperacaoNoturna, setModoOperacaoNoturna] = useState(false);
   const [modoReuniao, setModoReuniao] = useState(false);
+  const [rosterDirty, setRosterDirty] = useState(false);
   const [cadastrosLoading, setCadastrosLoading] = useState(false);
   const [cadastrosError, setCadastrosError] = useState("");
   const [cadastrosUpdatedAt, setCadastrosUpdatedAt] = useState<string | null>(null);
@@ -940,6 +943,86 @@ export default function ProgramadorHome() {
     }
   };
 
+  const dataMovimentacao = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+
+  const salvarFuncionarioNaLista = async (id: string, draft: PersonDraft): Promise<void> => {
+    const person = funcionarios.find(f => f.id === id);
+    if (!person || !companyId || cadastrosError || cadastrosLoading) throw new Error("Cadastro indisponível; atualize a tela antes de salvar");
+    const change = prepareRosterPersonChange(person, companyId, draft);
+    if (change.status === "demitido" && person.status !== "demitido"
+      && !window.confirm(`Confirmar a demissão de ${person.name}? O cadastro e o histórico serão atualizados.`)) {
+      throw new Error("Demissão cancelada");
+    }
+    setSaving(true);
+    let applied = false;
+    try {
+      const result = await applyProgramadorBatch(supabase as any, {
+        companyId, date: dataMovimentacao(), team: person.equipe || "-", overrideReason: "",
+        employees: [change], equipments: [],
+      });
+      if (result.funcionarios !== 1) throw new Error("O banco não aplicou a alteração. Atualize a tela e confira o registro.");
+      applied = true;
+      const { data: persisted, error } = await (supabase as any).from("employees").select("equipe,status")
+        .eq("id", id).eq("company_id", companyId).single();
+      if (error || !persisted || persisted.equipe !== change.equipe || persisted.status !== change.status) {
+        throw new Error(error?.message || "A alteração foi aplicada, mas a conferência não confirmou os dados. Atualize a tela antes de tentar novamente.");
+      }
+      await recarregarCadastros();
+      toast({ title: "Funcionário atualizado em Gestão de Pessoas, com histórico" });
+    } catch (cause) {
+      if (applied) throw new Error(`Alteração aplicada; conferência da tela pendente. Não repita sem verificar o cadastro: ${(cause as Error).message}`);
+      throw cause;
+    } finally { setSaving(false); }
+  };
+
+  const salvarEquipamentoNaLista = async (id: string, draft: EquipmentDraft): Promise<void> => {
+    const equipment = frota.find(f => f.id === id);
+    if (!equipment || !companyId || cadastrosError || cadastrosLoading) throw new Error("Cadastro indisponível; atualize a tela antes de salvar");
+    const change = prepareRosterEquipmentChange(equipment, companyId, draft, equipeResponsavel(draft.setor));
+    setSaving(true);
+    let applied = false;
+    try {
+      const result = await applyProgramadorBatch(supabase as any, {
+        companyId, date: dataMovimentacao(), team: equipment.setor || "-", overrideReason: "",
+        employees: [], equipments: [change],
+      });
+      if (result.equipamentos !== 1) throw new Error("O banco não aplicou a alteração. Atualize a tela e confira o registro.");
+      applied = true;
+      const { data: persisted, error } = await (supabase as any).from("equipamentos").select("setor,status")
+        .eq("id", id).eq("company_id", companyId).single();
+      if (error || !persisted || persisted.setor !== change.setor || persisted.status !== change.status) {
+        throw new Error(error?.message || "A alteração foi aplicada, mas a conferência não confirmou os dados. Atualize a tela antes de tentar novamente.");
+      }
+      await recarregarCadastros();
+      toast({ title: "Equipamento atualizado em Gestão de Frotas, com histórico" });
+    } catch (cause) {
+      if (applied) throw new Error(`Alteração aplicada; conferência da tela pendente. Não repita sem verificar o cadastro: ${(cause as Error).message}`);
+      throw cause;
+    } finally { setSaving(false); }
+  };
+
+  const salvarPrecoNaLista = async (id: string, text: string): Promise<number> => {
+    const equipment = frota.find(f => f.id === id);
+    if (!equipment || !companyId || cadastrosError || cadastrosLoading) throw new Error("Cadastro indisponível; atualize a tela antes de salvar");
+    setSaving(true);
+    let applied = false;
+    try {
+      const result = await saveMonthlyRental(supabase as any, equipment, companyId, text);
+      applied = true;
+      const { data: persisted, error } = await (supabase as any).from("equipamentos").select("valor_mensal")
+        .eq("id", id).eq("company_id", companyId).single();
+      if (error || persisted?.valor_mensal == null || Number(persisted.valor_mensal) !== result.depois) {
+        throw new Error(error?.message || "Valor aplicado, mas não confirmado na consulta. Confira o equipamento antes de tentar novamente.");
+      }
+      await recarregarCadastros();
+      toast({ title: "Valor mensal confirmado em Gestão de Frotas", description: `Antes: ${result.antes == null ? "não cadastrado" : moeda(result.antes)} · Agora: ${moeda(result.depois)}` });
+      return result.depois;
+    } catch (cause) {
+      if (applied) throw new Error(`Valor aplicado; conferência da tela pendente. Não repita sem verificar o cadastro: ${(cause as Error).message}`);
+      throw cause;
+    } finally { setSaving(false); }
+  };
+
   return (
     <div className="min-h-screen bg-page flex flex-col">
       {/* Header */}
@@ -969,7 +1052,11 @@ export default function ProgramadorHome() {
           { id: "funcionarios", label: "Funcionários", icon: Users },
           { id: "equipamentos", label: "Equipamentos", icon: Wrench },
         ] as const).map(t => (
-          <button key={t.id} onClick={() => setAba(t.id)}
+          <button key={t.id} onClick={() => {
+            if (t.id !== aba && rosterDirty && !window.confirm("Descartar alterações não salvas neste registro?")) return;
+            setRosterDirty(false);
+            setAba(t.id);
+          }}
             className={`flex-1 flex flex-col items-center gap-0.5 py-3 text-xs font-bold transition-colors border-b-2 ${
               aba === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
             }`}>
@@ -1364,237 +1451,22 @@ export default function ProgramadorHome() {
           </div>
         )}
 
-        {/* ── ABA FUNCIONÁRIOS ── */}
-        {!modoReuniao && aba === "funcionarios" && (
-          <div className="space-y-4">
-            {/* Tipo de movimentação */}
-            <div className="flex gap-2 flex-wrap">
-              {([
-                { id: "status", label: "Mudar Status" },
-                { id: "transferencia", label: "Transferir" },
-                { id: "admissao", label: "Admissão" },
-                { id: "demissao", label: "Demissão" },
-              ] as const).map(m => (
-                <button key={m.id} onClick={() => setModoFunc(m.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                    modoFunc === m.id ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border"
-                  }`}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-
-              {/* ADMISSÃO — campos diferentes */}
-              {modoFunc === "admissao" ? (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>Nome completo *</Label>
-                    <Input placeholder="NOME DO FUNCIONÁRIO" value={novoNome} onChange={e => setNovoNome(e.target.value)} className="uppercase" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>Matrícula *</Label>
-                      <Input placeholder="000000" value={novaMatricula} onChange={e => setNovaMatricula(e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Data de admissão *</Label>
-                      <Input type="date" value={novaAdmissao} onChange={e => setNovaAdmissao(e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Função *</Label>
-                    <Input placeholder="FUNÇÃO" value={novaFuncao} onChange={e => setNovaFuncao(e.target.value)} className="uppercase" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Equipe *</Label>
-                    <Select value={novaEquipe} onValueChange={setNovaEquipe}>
-                      <SelectTrigger><SelectValue placeholder="Selecione a equipe/setor" /></SelectTrigger>
-                      <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Observações</Label>
-                    <Textarea rows={2} value={novaObs} onChange={e => setNovaObs(e.target.value)} placeholder="Opcional..." />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>Data *</Label>
-                    <Input type="date" value={funcData} onChange={e => setFuncData(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Funcionário *</Label>
-                    <Select value={funcId} onValueChange={handleFuncSelect}>
-                      <SelectTrigger><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
-                      <SelectContent>
-                        {funcionarios.map(f => (
-                          <SelectItem key={f.id} value={f.id}>
-                            {f.matricula ? `[${f.matricula}] ` : ""}{f.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {funcId && (() => {
-                    const atual = funcionarios.find(f => f.id === funcId);
-                    return atual && <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm space-y-1">
-                      <p className="font-semibold">{atual.name}</p>
-                      <p>Função: {atual.role || "Não informada"} · Equipe: {atual.equipe || "Sem equipe"} · Status: {getFuncStatusLabel(atual.status)}</p>
-                      <p className="text-xs text-muted-foreground">A mudança será gravada na Gestão de Pessoas com histórico.</p>
-                    </div>;
-                  })()}
-                  {modoFunc === "status" && (
-                    <div className="space-y-1.5">
-                      <Label>Novo status *</Label>
-                      <Select value={funcStatus} onValueChange={setFuncStatus}>
-                        <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
-                        <SelectContent>{STATUS_FUNC_VALUES.map((s) => <SelectItem key={s} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {modoFunc === "transferencia" && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label>De</Label>
-                        <Select value={funcEquipeOrig} onValueChange={setFuncEquipeOrig}>
-                          <SelectTrigger><SelectValue placeholder="Equipe/Setor atual" /></SelectTrigger>
-                          <SelectContent>{equipeOptionsComFallback(funcEquipeOrig).map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Para</Label>
-                        <Select value={funcEquipeDest} onValueChange={setFuncEquipeDest}>
-                          <SelectTrigger><SelectValue placeholder="Nova equipe/setor" /></SelectTrigger>
-                          <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  )}
-
-                  {modoFunc === "demissao" && (
-                    <p className="text-xs text-destructive font-medium">⚠️ Registrará demissão para {funcNome || "o funcionário selecionado"}</p>
-                  )}
-
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Histórico automático: data, origem e destino, status e usuário responsável. Observações livres ainda não estão disponíveis para movimentações individuais.</p>
-                  </div>
-                </>
-              )}
-
-              <Button onClick={salvarMovFunc}
-                disabled={saving || !!cadastrosError || cadastrosLoading || (modoFunc === "admissao" ? (!novoNome || !novaMatricula || !novaFuncao || !novaEquipe) : !funcNome)}
-                className="w-full bg-header-gradient text-white font-bold rounded-xl hover:opacity-90">
-                {saving ? "Salvando..." : `✅ Registrar ${modoFunc === "admissao" ? "Admissão" : modoFunc === "demissao" ? "Demissão" : "Movimentação"}`}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ── ABA EQUIPAMENTOS ── */}
-        {!modoReuniao && aba === "equipamentos" && (
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              {([
-                { id: "transferencia", label: "Transferir" },
-                { id: "status", label: "Mudar Status" },
-              ] as const).map(m => (
-                <button key={m.id} onClick={() => setModoEquip(m.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                    modoEquip === m.id ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border"
-                  }`}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-              <div className="space-y-1.5">
-                <Label>Data *</Label>
-                <Input type="date" value={equipData} onChange={e => setEquipData(e.target.value)} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Equipamento (Frota) *</Label>
-                <Select value={equipFrota} onValueChange={handleEquipSelect}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o equipamento" /></SelectTrigger>
-                  <SelectContent>
-                    {frota.map(f => <SelectItem key={f.id} value={f.id}>{f.frota} — {f.tipo}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {equipFrota && (() => {
-                const atual = frota.find(f => f.id === equipFrota);
-                return atual && <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm space-y-1">
-                  <p className="font-semibold">{atual.frota} — {atual.tipo}</p>
-                  <p>Equipe: {atual.setor || "Sem equipe"} · Status: {getEquipStatusLabel(atual.status)} · Condição: {atual.condicao || "Não informada"}</p>
-                  {(atual.condicao || "").toUpperCase() === "TERCEIRO" && <p>Locação mensal: {atual.valor_mensal && atual.valor_mensal > 0 ? moeda(atual.valor_mensal) : "Não cadastrada"}</p>}
-                  <p className="text-xs text-muted-foreground">A mudança será gravada na Gestão de Frotas com histórico.</p>
-                </div>;
-              })()}
-              {(frota.find(f => f.id === equipFrota)?.condicao || "").trim().toUpperCase() === "TERCEIRO" && (
-                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-                  <Label htmlFor="valor-mensal-programador">Valor mensal do equipamento de terceiro (R$/mês)</Label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Input id="valor-mensal-programador" inputMode="decimal" aria-label="Valor mensal do equipamento de terceiro"
-                      placeholder="Ex.: 1.234,56" value={valorMensalDraft}
-                      onChange={(event) => setValorMensalDraft(event.target.value)} disabled={saving} />
-                    <Button type="button" variant="outline" disabled={saving || !!cadastrosError || cadastrosLoading || !valorMensalDraft.trim()}
-                      onClick={salvarValorMensal} className="sm:shrink-0">
-                      {saving ? "Salvando..." : "Salvar valor mensal"}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Salva diretamente em Gestão de Frotas com histórico antes/depois. Não altera equipe nem status.</p>
-                </div>
-              )}
-              {modoEquip === "status" && (
-                <div className="space-y-1.5">
-                  <Label>Novo status *</Label>
-                  <Select value={equipStatus} onValueChange={setEquipStatus}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
-                    <SelectContent>{STATUS_EQUIP_VALUES.map((s) => <SelectItem key={s} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {modoEquip === "transferencia" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>De</Label>
-                    <Select value={equipEquipeOrig} onValueChange={setEquipEquipeOrig}>
-                      <SelectTrigger><SelectValue placeholder="Equipe/Setor atual" /></SelectTrigger>
-                      <SelectContent>{equipeOptionsComFallback(equipEquipeOrig).map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Para</Label>
-                    <Select value={equipEquipeDest} onValueChange={setEquipEquipeDest}>
-                      <SelectTrigger><SelectValue placeholder="Nova equipe/setor" /></SelectTrigger>
-                      <SelectContent>{equipesAtivas.map(nome => <SelectItem key={nome} value={nome}>{nome}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              {equipEquipeDest && equipeResponsavel(equipEquipeDest) && (
-                <p className="text-xs text-muted-foreground pl-1">Responsável destino: {equipeResponsavel(equipEquipeDest)}</p>
-              )}
-
-              <div className="space-y-1.5">
-                <p className="text-xs text-muted-foreground">Histórico automático: data, origem e destino, status e usuário responsável. Observações livres ainda não estão disponíveis para movimentações individuais.</p>
-              </div>
-
-              <Button onClick={salvarMovEquip} disabled={saving || !!cadastrosError || cadastrosLoading || !equipFrota}
-                className="w-full bg-header-gradient text-white font-bold rounded-xl hover:opacity-90">
-                {saving ? "Salvando..." : "✅ Registrar Movimentação"}
-              </Button>
-            </div>
-          </div>
+        {/* As abas individuais listam os cadastros mestres; sem formulários de movimentação. */}
+        {!modoReuniao && (aba === "funcionarios" || aba === "equipamentos") && (
+          <ProgramadorRoster
+            key={aba}
+            kind={aba}
+            people={funcionarios}
+            equipment={frota}
+            teams={equipesAtivas}
+            saving={saving || cadastrosLoading}
+            error={cadastrosError}
+            initialSelectedId={aba === "funcionarios" ? funcId : equipFrota}
+            onSavePerson={salvarFuncionarioNaLista}
+            onSaveEquipment={salvarEquipamentoNaLista}
+            onSavePrice={salvarPrecoNaLista}
+            onDirtyChange={setRosterDirty}
+          />
         )}
 
       </div>
