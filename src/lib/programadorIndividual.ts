@@ -26,7 +26,7 @@ export function summarizeTeamRental(rows: { condicao: string | null; valor_mensa
   return {
     rented: rentals.length,
     monthlyKnown: rentals.reduce((sum, row) => sum + (Number(row.valor_mensal) > 0 ? Number(row.valor_mensal) : 0), 0),
-    withoutPrice: rentals.filter(row => !Number.isFinite(Number(row.valor_mensal)) || Number(row.valor_mensal) <= 0).length,
+    withoutPrice: rentals.filter(row => row.valor_mensal == null || !Number.isFinite(Number(row.valor_mensal)) || Number(row.valor_mensal) < 0).length,
   };
 }
 

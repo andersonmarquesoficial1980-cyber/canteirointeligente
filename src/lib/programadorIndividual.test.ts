@@ -26,6 +26,10 @@ describe("movimentação individual do Programador", () => {
       { condicao: "PROPRIO", valor_mensal: 8000 },
     ])).toEqual({ rented: 2, monthlyKnown: 1250, withoutPrice: 1 });
   });
+  it("does not present an explicitly zero rental price as uncatalogued", () => {
+    expect(summarizeTeamRental([{ condicao: "TERCEIRO", valor_mensal: 0 }]))
+      .toEqual({ rented: 1, monthlyKnown: 0, withoutPrice: 0 });
+  });
   it("blocks admission if the matricula already exists instead of overwriting the employee", () => {
     expect(() => assertNewAdmission("c1", "existing-id")).toThrow(/matrícula já existe/);
     expect(() => assertNewAdmission(null, null)).toThrow(/Empresa/);

@@ -16,6 +16,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { buildPersonMovement, buildEquipmentMovement, summarizeTeamRental, assertNewAdmission } from "@/lib/programadorIndividual";
 import { saveMonthlyRental } from "@/lib/programadorRental";
+import { EfficiencyMeeting } from "@/components/EfficiencyMeeting";
 
 const STATUS_FUNC_OPTIONS = [
   { value: "ativo", label: "ATIVO" },
@@ -81,7 +82,7 @@ const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 
 interface Equipe { id: string; nome: string; responsavel: string | null; }
 interface Funcionario { id: string; name: string; matricula: string | null; role: string | null; equipe: string | null; status: string | null; company_id?: string | null; }
-interface Frota { id: string; frota: string; tipo: string; setor: string | null; status?: string | null; company_id?: string | null; condicao: string | null; valor_mensal: number | null; empresa_proprietaria: string | null; }
+interface Frota { id: string; frota: string; tipo: string; setor: string | null; status?: string | null; company_id?: string | null; condicao: string | null; valor_mensal: number | null; empresa_proprietaria: string | null; locadora?: string | null; centro_custo?: string | null; placa?: string | null; }
 interface Ogs { ogs_number: string; client_name: string; location_address: string; }
 
 type Aba = "equipes" | "funcionarios" | "equipamentos";
@@ -156,6 +157,9 @@ export default function ProgramadorHome() {
   const [filterEquipStatus, setFilterEquipStatus] = useState("TODOS");
   const [modoOperacaoNoturna, setModoOperacaoNoturna] = useState(false);
   const [modoReuniao, setModoReuniao] = useState(false);
+  const [cadastrosLoading, setCadastrosLoading] = useState(false);
+  const [cadastrosError, setCadastrosError] = useState("");
+  const [cadastrosUpdatedAt, setCadastrosUpdatedAt] = useState<string | null>(null);
 
   // Utilitário: divide endereços com ;
   const splitRuas = (address: string) => address.split(";").map(r => r.trim()).filter(Boolean);
@@ -190,21 +194,31 @@ export default function ProgramadorHome() {
   const recarregarCadastros = async () => {
     if (!companyId) {
       setEquipes([]); setFuncionarios([]); setFrota([]); setOgsList([]);
+      setCadastrosUpdatedAt(null);
+      setCadastrosError("Empresa não identificada");
       return;
     }
+    setCadastrosLoading(true);
+    setCadastrosError("");
+    try {
     let equipesQuery: any = (supabase as any).from("ci_equipes").select("*").eq("ativa", true).order("nome");
     if (companyId) equipesQuery = equipesQuery.eq("company_id", companyId);
 
-    let funcionariosQuery: any = supabase.from("employees").select("id, name, matricula, role, equipe, status, company_id").order("name");
+    let funcionariosQuery: any = supabase.from("employees").select("id, name, matricula, role, equipe, status, company_id", { count: "exact" }).order("name");
     if (companyId) funcionariosQuery = funcionariosQuery.eq("company_id", companyId);
 
-    let frotaQuery: any = (supabase as any).from("equipamentos").select("id, frota, tipo, setor, status, company_id, condicao, valor_mensal, empresa_proprietaria").order("tipo").order("frota");
+    let frotaQuery: any = (supabase as any).from("equipamentos").select("id, frota, centro_custo, placa, tipo, setor, status, company_id, condicao, valor_mensal, empresa_proprietaria", { count: "exact" }).order("tipo").order("frota");
     if (companyId) frotaQuery = frotaQuery.eq("company_id", companyId);
 
     let ogsQuery: any = (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address");
     if (companyId) ogsQuery = ogsQuery.eq("company_id", companyId);
 
     const [eqRes, funcRes, frotaRes, ogsRes] = await Promise.all([equipesQuery, funcionariosQuery, frotaQuery, ogsQuery]);
+    const failed = [eqRes, funcRes, frotaRes, ogsRes].find(result => result.error);
+    if (failed) throw new Error(failed.error.message);
+    if (funcRes.count !== funcRes.data?.length || frotaRes.count !== frotaRes.data?.length) {
+      throw new Error("A consulta retornou apenas parte dos cadastros. Totais de reunião indisponíveis até carregar todos os registros.");
+    }
     if (eqRes?.data) setEquipes(eqRes.data);
     if (funcRes?.data) {
       const normalizados = (funcRes.data as Funcionario[]).map((f) => ({
@@ -221,6 +235,12 @@ export default function ProgramadorHome() {
       setFrota(normalizados);
     }
     if (ogsRes?.data) setOgsList(sortOgsData(ogsRes.data));
+    setCadastrosUpdatedAt(new Date().toISOString());
+    } catch (error) {
+      setCadastrosError((error as Error).message || "Falha na leitura dos cadastros centrais");
+    } finally {
+      setCadastrosLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -944,7 +964,7 @@ export default function ProgramadorHome() {
       </header>
 
       {/* Tabs */}
-      <div className="flex border-b border-border bg-card sticky top-[68px] z-40">
+      {!modoReuniao && <div className="flex border-b border-border bg-card sticky top-[68px] z-40">
         {([
           { id: "equipes", label: "Equipes", icon: Calendar },
           { id: "funcionarios", label: "Funcionários", icon: Users },
@@ -958,12 +978,36 @@ export default function ProgramadorHome() {
             {t.label}
           </button>
         ))}
-      </div>
+      </div>}
 
       <div className="flex-1 px-4 py-5 pb-4 space-y-4">
+        {modoReuniao && (
+          <EfficiencyMeeting
+            people={funcionarios} equipment={frota} initialTeam={progEquipe}
+            updatedAt={cadastrosUpdatedAt} error={cadastrosError} loading={cadastrosLoading}
+            onRefresh={() => { void recarregarCadastros(); }} onExit={() => setModoReuniao(false)}
+            onManagePerson={(id) => {
+              const person = funcionarios.find(f => f.id === id);
+              if (person) setProgEquipe(person.equipe || "");
+              setModoReuniao(false);
+              abrirFuncionarioDaEquipe(id);
+            }}
+            onManageEquipment={(id) => {
+              const equipment = frota.find(f => f.id === id);
+              if (equipment) setProgEquipe(equipment.setor || "");
+              setModoReuniao(false);
+              abrirEquipamentoDaEquipe(id);
+            }}
+          />
+        )}
+        {!modoReuniao && cadastrosError && (
+          <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+            Falha ao consultar os cadastros de Pessoas e Frotas: {cadastrosError}. Atualize a página antes de alterar registros.
+          </p>
+        )}
 
         {/* ── ABA EQUIPES ── */}
-        {aba === "equipes" && (
+        {!modoReuniao && aba === "equipes" && (
           <div className="space-y-4">
 
             {/* Contexto de alocação (sem programação diária) */}
@@ -1012,7 +1056,7 @@ export default function ProgramadorHome() {
                       {modoOperacaoNoturna ? "Modo Operação: ON" : "Modo Operação Noturna"}
                     </Button>
                     <Button type="button" size="sm" variant={modoReuniao ? "default" : "outline"}
-                      disabled={!modoReuniao && !!(funcMudancasPendentes + equipMudancasPendentes)}
+                      disabled={cadastrosLoading || !!cadastrosError || !!(funcMudancasPendentes + equipMudancasPendentes)}
                       onClick={() => {
                         if (!modoReuniao) {
                           setOnlyChangedFunc(false); setOnlyChangedEquip(false);
@@ -1222,7 +1266,7 @@ export default function ProgramadorHome() {
                               </div>
                               <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-muted-foreground">
                                 <span>{(eq.condicao || "").toUpperCase() === "TERCEIRO" ? "Terceiro" : eq.condicao || "Condição não informada"}</span>
-                                {(eq.condicao || "").toUpperCase() === "TERCEIRO" && <span>{eq.valor_mensal && eq.valor_mensal > 0 ? `${moeda(eq.valor_mensal)}/mês` : "Valor mensal não cadastrado"}</span>}
+                                {(eq.condicao || "").toUpperCase() === "TERCEIRO" && <span>{eq.valor_mensal != null ? `${moeda(eq.valor_mensal)}/mês` : "Valor mensal não cadastrado"}</span>}
                                 {eq.empresa_proprietaria && <span>{eq.empresa_proprietaria}</span>}
                               </div>
                               {!modoReuniao && <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 text-xs" onClick={() => abrirEquipamentoDaEquipe(eq.id)}>Gerenciar equipamento</Button>}
@@ -1296,13 +1340,15 @@ export default function ProgramadorHome() {
                   )}
 
                   {!modoReuniao && <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 lg:mt-auto">
-                    <Button type="button" variant="outline" onClick={validarMudancasEquipe} disabled={validating || saving || (!funcMudancasPendentes && !equipMudancasPendentes)}>
+                    <Button type="button" variant="outline" onClick={validarMudancasEquipe} disabled={validating || saving || !!cadastrosError || cadastrosLoading || (!funcMudancasPendentes && !equipMudancasPendentes)}>
                       {validating ? "Validando..." : "Validar alterações"}
                     </Button>
                     <Button
                       onClick={salvarMudancasEquipe}
                       disabled={
                         saving
+                        || !!cadastrosError
+                        || cadastrosLoading
                         || validating
                         || (!funcMudancasPendentes && !equipMudancasPendentes)
                         || (hasBlockingIssues && (!canForceCurrentBlocking || !forceIntegracaoOverride || !forceReasonValid))
@@ -1320,7 +1366,7 @@ export default function ProgramadorHome() {
         )}
 
         {/* ── ABA FUNCIONÁRIOS ── */}
-        {aba === "funcionarios" && (
+        {!modoReuniao && aba === "funcionarios" && (
           <div className="space-y-4">
             {/* Tipo de movimentação */}
             <div className="flex gap-2 flex-wrap">
@@ -1442,7 +1488,7 @@ export default function ProgramadorHome() {
               )}
 
               <Button onClick={salvarMovFunc}
-                disabled={saving || (modoFunc === "admissao" ? (!novoNome || !novaMatricula || !novaFuncao || !novaEquipe) : !funcNome)}
+                disabled={saving || !!cadastrosError || cadastrosLoading || (modoFunc === "admissao" ? (!novoNome || !novaMatricula || !novaFuncao || !novaEquipe) : !funcNome)}
                 className="w-full bg-header-gradient text-white font-bold rounded-xl hover:opacity-90">
                 {saving ? "Salvando..." : `✅ Registrar ${modoFunc === "admissao" ? "Admissão" : modoFunc === "demissao" ? "Demissão" : "Movimentação"}`}
               </Button>
@@ -1451,7 +1497,7 @@ export default function ProgramadorHome() {
         )}
 
         {/* ── ABA EQUIPAMENTOS ── */}
-        {aba === "equipamentos" && (
+        {!modoReuniao && aba === "equipamentos" && (
           <div className="space-y-4">
             <div className="flex gap-2">
               {([
@@ -1499,7 +1545,7 @@ export default function ProgramadorHome() {
                     <Input id="valor-mensal-programador" inputMode="decimal" aria-label="Valor mensal do equipamento de terceiro"
                       placeholder="Ex.: 1.234,56" value={valorMensalDraft}
                       onChange={(event) => setValorMensalDraft(event.target.value)} disabled={saving} />
-                    <Button type="button" variant="outline" disabled={saving || !valorMensalDraft.trim()}
+                    <Button type="button" variant="outline" disabled={saving || !!cadastrosError || cadastrosLoading || !valorMensalDraft.trim()}
                       onClick={salvarValorMensal} className="sm:shrink-0">
                       {saving ? "Salvando..." : "Salvar valor mensal"}
                     </Button>
@@ -1544,7 +1590,7 @@ export default function ProgramadorHome() {
                 <p className="text-xs text-muted-foreground">Histórico automático: data, origem e destino, status e usuário responsável. Observações livres ainda não estão disponíveis para movimentações individuais.</p>
               </div>
 
-              <Button onClick={salvarMovEquip} disabled={saving || !equipFrota}
+              <Button onClick={salvarMovEquip} disabled={saving || !!cadastrosError || cadastrosLoading || !equipFrota}
                 className="w-full bg-header-gradient text-white font-bold rounded-xl hover:opacity-90">
                 {saving ? "Salvando..." : "✅ Registrar Movimentação"}
               </Button>
