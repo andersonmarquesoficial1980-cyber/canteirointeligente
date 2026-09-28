@@ -4,6 +4,13 @@ type Team = { id: string; nome: string; responsavel: string | null; ativa: boole
 
 const key = (value?: string | null) => (value || "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+/** Selector value is a UI sentinel, never a persisted team name. */
+export function filterByTeamSelection<T>(rows: readonly T[], selected: string, teamOf: (row: T) => string | null | undefined): T[] {
+  if (!selected) return [];
+  if (selected === "__sem_equipe__") return rows.filter(row => !teamOf(row)?.trim());
+  return rows.filter(row => key(teamOf(row)) === key(selected));
+}
+
 /** ci_equipes is a legacy global catalog WITHOUT company_id. Only display names
  * already referenced by masters of this company or teams led by its employee. */
 export async function fetchTeamsForCompany(

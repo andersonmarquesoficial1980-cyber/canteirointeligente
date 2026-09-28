@@ -52,6 +52,13 @@ describe("seleção compacta de equipe", () => {
     expect(onChange).toHaveBeenCalledWith("SERRALHERIA");
     expect(screen.queryByRole("textbox", { name: "Buscar equipe" })).toBeNull();
   });
+  it("offers Sem equipe in management even with no pinned teams", () => {
+    const onChange = vi.fn();
+    render(<TeamPicker teams={teams} pinned={[]} value="" onChange={onChange} onPin={vi.fn()} onUnpin={vi.fn()} allowNoTeam />);
+    const quick = screen.getByRole("group", { name: "Equipes em destaque" });
+    fireEvent.click(within(quick).getByRole("button", { name: "Sem equipe" }));
+    expect(onChange).toHaveBeenCalledWith("__sem_equipe__");
+  });
   it("preserves all-teams and unallocated choices in the read-only meeting", () => {
     const onChange = vi.fn();
     render(<TeamPicker teams={teams} value="" onChange={onChange} allowAll allowNoTeam />);

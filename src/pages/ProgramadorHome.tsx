@@ -17,7 +17,7 @@ import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { buildPersonMovement, buildEquipmentMovement, summarizeTeamRental, assertNewAdmission } from "@/lib/programadorIndividual";
 import { saveMonthlyRental } from "@/lib/programadorRental";
 import { EfficiencyMeeting } from "@/components/EfficiencyMeeting";
-import { fetchTeamsForCompany } from "@/lib/programadorTeams";
+import { fetchTeamsForCompany, filterByTeamSelection } from "@/lib/programadorTeams";
 import { ProgramadorRoster } from "@/components/ProgramadorRoster";
 import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
 import { groupPeopleForProgramador, groupEquipmentForProgramador } from "@/lib/programadorGroups";
@@ -341,15 +341,11 @@ export default function ProgramadorHome() {
   const equipeResponsavel = (nome: string) => equipes.find(e => e.nome === nome)?.responsavel ?? null;
 
   const funcionariosDaEquipe = useMemo(() => {
-    if (!progEquipe) return [] as Funcionario[];
-    const alvo = progEquipe.trim().toLowerCase();
-    return funcionarios.filter((f) => (f.equipe || "").trim().toLowerCase() === alvo);
+    return filterByTeamSelection(funcionarios, progEquipe, (f) => f.equipe);
   }, [funcionarios, progEquipe]);
 
   const equipamentosDaEquipe = useMemo(() => {
-    if (!progEquipe) return [] as Frota[];
-    const alvo = progEquipe.trim().toLowerCase();
-    return frota.filter((f) => (f.setor || "").trim().toLowerCase() === alvo);
+    return filterByTeamSelection(frota, progEquipe, (f) => f.setor);
   }, [frota, progEquipe]);
 
   const resumoLocacaoEquipe = useMemo(() => summarizeTeamRental(equipamentosDaEquipe), [equipamentosDaEquipe]);
@@ -643,7 +639,7 @@ export default function ProgramadorHome() {
     }));
 
     for (const f of funcFinal) {
-      if (!(f.finalEquipe || "").trim()) {
+      if (funcionarioMudou(f, funcDraft[f.id]) && !(f.finalEquipe || "").trim()) {
         issues.push({
           level: "erro",
           scope: "funcionario",
@@ -651,7 +647,7 @@ export default function ProgramadorHome() {
           detail: "Defina a equipe antes de aplicar.",
         });
       }
-      if (!(f.finalStatus || "").trim()) {
+      if (funcionarioMudou(f, funcDraft[f.id]) && !(f.finalStatus || "").trim()) {
         issues.push({
           level: "erro",
           scope: "funcionario",
@@ -662,7 +658,7 @@ export default function ProgramadorHome() {
     }
 
     for (const eq of equipFinal) {
-      if (!(eq.finalSetor || "").trim()) {
+      if (equipamentoMudou(eq, equipDraft[eq.id]) && !(eq.finalSetor || "").trim()) {
         issues.push({
           level: "erro",
           scope: "equipamento",
@@ -670,7 +666,7 @@ export default function ProgramadorHome() {
           detail: "Defina a equipe/setor antes de aplicar.",
         });
       }
-      if (!(eq.finalStatus || "").trim()) {
+      if (equipamentoMudou(eq, equipDraft[eq.id]) && !(eq.finalStatus || "").trim()) {
         issues.push({
           level: "erro",
           scope: "equipamento",
@@ -752,7 +748,7 @@ export default function ProgramadorHome() {
       const applied = await applyProgramadorBatch(supabase as any, {
         companyId,
         date: progData || new Date().toISOString().slice(0, 10),
-        team: progEquipe || "-",
+        team: progEquipe === "__sem_equipe__" ? "Sem equipe" : progEquipe || "-",
         overrideReason: forcedRun ? forceReason.trim() : "",
         employees: funcUpdates.map((u) => ({
           id: u.atual.id, equipe: u.draft.equipe || null,
@@ -794,7 +790,7 @@ export default function ProgramadorHome() {
 
   // SALVAR PROGRAMAÇÃO DE EQUIPE
   const salvarProgramacao = async () => {
-    if (!progEquipe || !progData) return;
+    if (!progEquipe || progEquipe === "__sem_equipe__" || !progData) return;
     setSaving(true);
     const equipeInfo = equipes.find(e => e.nome === progEquipe);
     const { error } = await (supabase as any).from("ci_programacoes").insert({
@@ -1122,7 +1118,7 @@ export default function ProgramadorHome() {
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center gap-1.5">
                 <TeamPicker teams={equipesAtivas} pinned={baloesEquipe.pinned} value={progEquipe} onChange={setProgEquipe}
-                  onPin={baloesEquipe.pin} onUnpin={baloesEquipe.unpin} />
+                  onPin={baloesEquipe.pin} onUnpin={baloesEquipe.unpin} allowNoTeam />
                 {progEquipe && equipeResponsavel(progEquipe) && <p className="text-[11px] text-muted-foreground xl:max-w-64 truncate" title={equipeResponsavel(progEquipe) || undefined}>
                   Responsável: {equipeResponsavel(progEquipe)}
                 </p>}
@@ -1197,7 +1193,7 @@ export default function ProgramadorHome() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Users2 className="w-4 h-4 text-primary" />
-                          <h4 className="text-sm font-semibold">Pessoas da equipe ({funcionariosDaEquipeFiltrados.length}/{funcionariosDaEquipe.length})</h4>
+                          <h4 className="text-sm font-semibold">{progEquipe === "__sem_equipe__" ? "Pessoas sem equipe" : "Pessoas da equipe"} ({funcionariosDaEquipeFiltrados.length}/{funcionariosDaEquipe.length})</h4>
                         </div>
                         <span className="text-xs text-muted-foreground">{funcMudancasPendentes} mudança(s)</span>
                       </div>
@@ -1286,7 +1282,7 @@ export default function ProgramadorHome() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Truck className="w-4 h-4 text-primary" />
-                          <h4 className="text-sm font-semibold">Equipamentos da equipe ({equipamentosDaEquipeFiltrados.length}/{equipamentosDaEquipe.length})</h4>
+                          <h4 className="text-sm font-semibold">{progEquipe === "__sem_equipe__" ? "Equipamentos sem equipe" : "Equipamentos da equipe"} ({equipamentosDaEquipeFiltrados.length}/{equipamentosDaEquipe.length})</h4>
                         </div>
                         <span className="text-xs text-muted-foreground">{equipMudancasPendentes} mudança(s)</span>
                       </div>

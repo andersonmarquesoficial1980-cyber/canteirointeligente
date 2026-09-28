@@ -1,7 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchTeamsForCompany } from "./programadorTeams";
+import { fetchTeamsForCompany, filterByTeamSelection } from "./programadorTeams";
 
 const company = "fremix";
+
+describe("filtro de equipe no gerenciamento", () => {
+  const rows = [{ team: null }, { team: " " }, { team: "CBUQ01" }, { team: "CBUQ02" }];
+  it("shows people or equipment without an assigned team only when Sem equipe is selected", () => {
+    expect(filterByTeamSelection(rows, "__sem_equipe__", row => row.team)).toEqual(rows.slice(0, 2));
+    expect(filterByTeamSelection(rows, "CBUQ01", row => row.team)).toEqual([rows[2]]);
+    expect(filterByTeamSelection(rows, "", row => row.team)).toEqual([]);
+  });
+});
+
 const people = [
   { id: "p1", company_id: company, equipe: "EQUIPE A" },
   { id: "p2", company_id: company, equipe: null },
