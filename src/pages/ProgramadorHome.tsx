@@ -17,6 +17,7 @@ import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { buildPersonMovement, buildEquipmentMovement, summarizeTeamRental, assertNewAdmission } from "@/lib/programadorIndividual";
 import { saveMonthlyRental } from "@/lib/programadorRental";
 import { EfficiencyMeeting } from "@/components/EfficiencyMeeting";
+import { fetchTeamsForCompany } from "@/lib/programadorTeams";
 
 const STATUS_FUNC_OPTIONS = [
   { value: "ativo", label: "ATIVO" },
@@ -201,9 +202,6 @@ export default function ProgramadorHome() {
     setCadastrosLoading(true);
     setCadastrosError("");
     try {
-    let equipesQuery: any = (supabase as any).from("ci_equipes").select("*").eq("ativa", true).order("nome");
-    if (companyId) equipesQuery = equipesQuery.eq("company_id", companyId);
-
     let funcionariosQuery: any = supabase.from("employees").select("id, name, matricula, role, equipe, status, company_id", { count: "exact" }).order("name");
     if (companyId) funcionariosQuery = funcionariosQuery.eq("company_id", companyId);
 
@@ -213,13 +211,14 @@ export default function ProgramadorHome() {
     let ogsQuery: any = (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address");
     if (companyId) ogsQuery = ogsQuery.eq("company_id", companyId);
 
-    const [eqRes, funcRes, frotaRes, ogsRes] = await Promise.all([equipesQuery, funcionariosQuery, frotaQuery, ogsQuery]);
-    const failed = [eqRes, funcRes, frotaRes, ogsRes].find(result => result.error);
+    const [funcRes, frotaRes, ogsRes] = await Promise.all([funcionariosQuery, frotaQuery, ogsQuery]);
+    const failed = [funcRes, frotaRes, ogsRes].find(result => result.error);
     if (failed) throw new Error(failed.error.message);
     if (funcRes.count !== funcRes.data?.length || frotaRes.count !== frotaRes.data?.length) {
       throw new Error("A consulta retornou apenas parte dos cadastros. Totais de reunião indisponíveis até carregar todos os registros.");
     }
-    if (eqRes?.data) setEquipes(eqRes.data);
+    const companyTeams = await fetchTeamsForCompany(supabase as any, companyId, funcRes.data as Funcionario[], frotaRes.data as Frota[]);
+    setEquipes(companyTeams);
     if (funcRes?.data) {
       const normalizados = (funcRes.data as Funcionario[]).map((f) => ({
         ...f,
