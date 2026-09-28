@@ -14,6 +14,7 @@ import { sortOgsData } from "@/hooks/useOgsReference";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { applyProgramadorBatch } from "@/lib/programadorBatch";
+import { buildPersonMovement, buildEquipmentMovement, summarizeTeamRental, assertNewAdmission } from "@/lib/programadorIndividual";
 
 const STATUS_FUNC_OPTIONS = [
   { value: "ativo", label: "ATIVO" },
@@ -79,7 +80,7 @@ const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 
 interface Equipe { id: string; nome: string; responsavel: string | null; }
 interface Funcionario { id: string; name: string; matricula: string | null; role: string | null; equipe: string | null; status: string | null; company_id?: string | null; }
-interface Frota { id: string; frota: string; tipo: string; setor: string | null; status?: string | null; company_id?: string | null; }
+interface Frota { id: string; frota: string; tipo: string; setor: string | null; status?: string | null; company_id?: string | null; condicao: string | null; valor_mensal: number | null; empresa_proprietaria: string | null; }
 interface Ogs { ogs_number: string; client_name: string; location_address: string; }
 
 type Aba = "equipes" | "funcionarios" | "equipamentos";
@@ -153,6 +154,7 @@ export default function ProgramadorHome() {
   const [filterFuncStatus, setFilterFuncStatus] = useState("TODOS");
   const [filterEquipStatus, setFilterEquipStatus] = useState("TODOS");
   const [modoOperacaoNoturna, setModoOperacaoNoturna] = useState(false);
+  const [modoReuniao, setModoReuniao] = useState(false);
 
   // Utilitário: divide endereços com ;
   const splitRuas = (address: string) => address.split(";").map(r => r.trim()).filter(Boolean);
@@ -168,7 +170,6 @@ export default function ProgramadorHome() {
   const [funcEquipeDest, setFuncEquipeDest] = useState("");
   const [funcFuncao, setFuncFuncao] = useState("");
   const [funcAdmissao, setFuncAdmissao] = useState("");
-  const [funcObs, setFuncObs] = useState("");
   // Admissão: novo funcionário
   const [novoNome, setNovoNome] = useState("");
   const [novaMatricula, setNovaMatricula] = useState("");
@@ -184,16 +185,18 @@ export default function ProgramadorHome() {
   const [equipStatus, setEquipStatus] = useState("");
   const [equipEquipeOrig, setEquipEquipeOrig] = useState("");
   const [equipEquipeDest, setEquipEquipeDest] = useState("");
-  const [equipObs, setEquipObs] = useState("");
-
   const recarregarCadastros = async () => {
+    if (!companyId) {
+      setEquipes([]); setFuncionarios([]); setFrota([]); setOgsList([]);
+      return;
+    }
     let equipesQuery: any = (supabase as any).from("ci_equipes").select("*").eq("ativa", true).order("nome");
     if (companyId) equipesQuery = equipesQuery.eq("company_id", companyId);
 
     let funcionariosQuery: any = supabase.from("employees").select("id, name, matricula, role, equipe, status, company_id").order("name");
     if (companyId) funcionariosQuery = funcionariosQuery.eq("company_id", companyId);
 
-    let frotaQuery: any = (supabase as any).from("equipamentos").select("id, frota, tipo, setor, status, company_id").order("tipo").order("frota");
+    let frotaQuery: any = (supabase as any).from("equipamentos").select("id, frota, tipo, setor, status, company_id, condicao, valor_mensal, empresa_proprietaria").order("tipo").order("frota");
     if (companyId) frotaQuery = frotaQuery.eq("company_id", companyId);
 
     let ogsQuery: any = (supabase as any).from("ogs_reference").select("ogs_number, client_name, location_address");
@@ -242,10 +245,33 @@ export default function ProgramadorHome() {
     setFuncEquipeOrig(f?.equipe ?? "");
   };
 
-  const handleEquipSelect = (frotaCod: string) => {
-    setEquipFrota(frotaCod);
-    const eq = frota.find((f) => f.frota === frotaCod);
-    if (eq?.setor) setEquipEquipeOrig(eq.setor);
+  const handleEquipSelect = (equipmentId: string) => {
+    setEquipFrota(equipmentId);
+    const eq = frota.find((f) => f.id === equipmentId);
+    setEquipEquipeOrig(eq?.setor || "");
+    setEquipEquipeDest("");
+    setEquipStatus("");
+  };
+
+  const abrirFuncionarioDaEquipe = (id: string) => {
+    if (funcMudancasPendentes + equipMudancasPendentes > 0) {
+      toast({ title: "Alterações pendentes na equipe", description: "Aplique os ajustes da equipe antes de gerenciar uma pessoa separadamente.", variant: "destructive" });
+      return;
+    }
+    handleFuncSelect(id);
+    setModoFunc("status");
+    setFuncStatus(""); setFuncEquipeDest("");
+    setAba("funcionarios");
+  };
+
+  const abrirEquipamentoDaEquipe = (id: string) => {
+    if (funcMudancasPendentes + equipMudancasPendentes > 0) {
+      toast({ title: "Alterações pendentes na equipe", description: "Aplique os ajustes da equipe antes de gerenciar um equipamento separadamente.", variant: "destructive" });
+      return;
+    }
+    handleEquipSelect(id);
+    setModoEquip("status");
+    setAba("equipamentos");
   };
 
   const equipesAtivas = useMemo(
@@ -290,6 +316,9 @@ export default function ProgramadorHome() {
     const alvo = progEquipe.trim().toLowerCase();
     return frota.filter((f) => (f.setor || "").trim().toLowerCase() === alvo);
   }, [frota, progEquipe]);
+
+  const resumoLocacaoEquipe = useMemo(() => summarizeTeamRental(equipamentosDaEquipe), [equipamentosDaEquipe]);
+  const moeda = (valor: number) => valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const norm = (value?: string | null) => (value || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 
@@ -752,6 +781,7 @@ export default function ProgramadorHome() {
       if (!novoNome || !novaMatricula || !novaFuncao || !novaEquipe) return;
       setSaving(true);
       try {
+        assertNewAdmission(companyId, null);
         const matricula = novaMatricula.trim();
         const nome = novoNome.trim().toUpperCase();
         const funcao = novaFuncao.trim().toUpperCase();
@@ -771,55 +801,35 @@ export default function ProgramadorHome() {
           return;
         }
 
-        if (existente?.id) {
-          let q: any = supabase.from("employees").update({
-            name: nome,
-            role: funcao,
-            equipe: novaEquipe,
-            status: "ativo",
-            data_admissao: dataBase,
-            data_demissao: null,
-          }).eq("id", existente.id);
-          if (companyId) q = q.eq("company_id", companyId);
-          const { error: erroUpdate } = await q;
-          if (erroUpdate) {
-            toast({ title: "Erro ao sincronizar cadastro", description: erroUpdate.message, variant: "destructive" });
-            setSaving(false);
-            return;
-          }
-        } else {
-          const { error: erroInsert } = await (supabase as any).from("employees").insert({
-            name: nome,
-            matricula: matricula,
-            role: funcao,
-            equipe: novaEquipe,
-            status: "ativo",
-            data_admissao: dataBase,
-            data_demissao: null,
-            company_id: companyId || null,
-          });
-          if (erroInsert) {
-            toast({ title: "Erro ao criar cadastro", description: erroInsert.message, variant: "destructive" });
-            setSaving(false);
-            return;
-          }
-        }
+        assertNewAdmission(companyId, existente?.id || null);
+        const { data: created, error: erroInsert } = await (supabase as any).from("employees").insert({
+          name: nome,
+          matricula,
+          role: funcao,
+          equipe: novaEquipe,
+          status: "ativo",
+          data_admissao: dataBase,
+          data_demissao: null,
+          company_id: companyId,
+        }).select("id").single();
+        if (erroInsert) throw erroInsert;
 
         const { error } = await (supabase as any).from("ci_mov_funcionarios").insert({
           data: dataBase,
           tipo: "admissao",
+          funcionario_id: created.id,
           funcionario_nome: nome,
           matricula: matricula,
           equipe_destino: novaEquipe,
           funcao: funcao,
           status: "ativo",
           data_admissao: dataBase,
-          company_id: companyId || null,
+          company_id: companyId,
           obs: novaObs || null,
         });
 
         if (error) {
-          toast({ title: "Erro", description: error.message, variant: "destructive" });
+          toast({ title: "Cadastro criado; auditoria pendente", description: `Não repita a admissão. Registro criado, mas o histórico falhou: ${error.message}`, variant: "destructive" });
         } else {
           await recarregarCadastros();
           toast({ title: "✅ Admissão registrada e sincronizada!" });
@@ -831,110 +841,57 @@ export default function ProgramadorHome() {
       setSaving(false);
       return;
     }
-    if (!funcNome) return;
-    setSaving(true);
-    const payload: any = {
-      data: funcData, tipo: modoFunc,
-      funcionario_id: funcId || null, funcionario_nome: funcNome,
-      matricula: funcMatricula || null,
-    };
-    if (modoFunc === "status") payload.status = normalizeFuncionarioStatus(funcStatus);
-    if (modoFunc === "transferencia") { payload.equipe_origem = funcEquipeOrig; payload.equipe_destino = funcEquipeDest; }
-    if (modoFunc === "demissao") payload.status = "demitido";
-    payload.company_id = companyId || null;
-    payload.obs = funcObs || null;
-    let upErr: any = null;
-    if (funcId && (modoFunc === "status" || modoFunc === "transferencia" || modoFunc === "demissao")) {
-      const updatePayload: any = {};
-      if (modoFunc === "status") {
-        const nextStatus = normalizeFuncionarioStatus(funcStatus);
-        updatePayload.status = nextStatus;
-        updatePayload.data_demissao = nextStatus === "demitido" ? (funcData || new Date().toISOString().slice(0, 10)) : null;
-      }
-      if (modoFunc === "transferencia") updatePayload.equipe = funcEquipeDest || null;
-      if (modoFunc === "demissao") {
-        updatePayload.status = "demitido";
-        updatePayload.data_demissao = funcData || new Date().toISOString().slice(0, 10);
-      }
-      let q: any = supabase.from("employees").update(updatePayload).eq("id", funcId);
-      if (companyId) q = q.eq("company_id", companyId);
-      const { error } = await q;
-      upErr = error;
-    }
-
-    if (upErr) {
-      toast({ title: "Erro ao sincronizar cadastro", description: upErr.message, variant: "destructive" });
-      setSaving(false);
+    const person = funcionarios.find(f => f.id === funcId);
+    if (!person || !companyId) {
+      toast({ title: "Selecione um funcionário da empresa", variant: "destructive" });
       return;
     }
-
-    const { error: movErr } = await (supabase as any).from("ci_mov_funcionarios").insert(payload);
-
-    await recarregarCadastros();
-
-    if (movErr) {
-      const trilhaIndisponivel = /42P01|does not exist|relation/i.test(String(movErr?.message || ""));
-      toast({
-        title: trilhaIndisponivel ? "✅ Cadastro sincronizado (trilha de auditoria indisponível)" : "✅ Cadastro sincronizado (auditoria pendente)",
-        description: `Funcionário atualizado em employees, mas não foi possível gravar em ci_mov_funcionarios: ${movErr.message}`,
-        variant: trilhaIndisponivel ? "default" : "destructive",
+    setSaving(true);
+    try {
+      const isTransfer = modoFunc === "transferencia";
+      const target = isTransfer ? funcEquipeDest : modoFunc === "demissao" ? "demitido" : funcStatus;
+      const change = buildPersonMovement(person, companyId, isTransfer ? "transferencia" : "status", target);
+      await applyProgramadorBatch(supabase as any, {
+        companyId, date: funcData, team: person.equipe || "-", overrideReason: "",
+        employees: [change], equipments: [],
       });
-    } else {
-      toast({ title: "✅ Movimentação registrada e sincronizada!" });
+      await recarregarCadastros();
+      toast({ title: "Movimentação aplicada em Gestão de Pessoas e auditada" });
+      setFuncId(""); setFuncNome(""); setFuncMatricula(""); setFuncStatus(""); setFuncEquipeOrig(""); setFuncEquipeDest("");
+    } catch (error) {
+      toast({ title: "Movimentação não concluída", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-
-    setFuncId(""); setFuncNome(""); setFuncMatricula(""); setFuncStatus(""); setFuncEquipeOrig(""); setFuncEquipeDest(""); setFuncObs("");
-    setSaving(false);
   };
 
   // SALVAR MOVIMENTAÇÃO EQUIPAMENTO
   const salvarMovEquip = async () => {
-    if (!equipFrota) return;
-    setSaving(true);
-    const frotaInfo = frota.find(f => f.frota === equipFrota);
-    const payload: any = {
-      data: equipData, tipo: modoEquip,
-      frota: equipFrota, tipo_equipamento: frotaInfo?.tipo || null,
-      obs: equipObs || null,
-    };
-    if (modoEquip === "status") payload.status = normalizeEquipamentoStatus(equipStatus);
-    if (modoEquip === "transferencia") {
-      payload.equipe_origem = equipEquipeOrig;
-      payload.equipe_destino = equipEquipeDest;
-      payload.responsavel_destino = equipeResponsavel(equipEquipeDest);
-    }
-    payload.company_id = companyId || null;
-    const updatePayload: any = {};
-    if (modoEquip === "status") updatePayload.status = normalizeEquipamentoStatus(equipStatus);
-    if (modoEquip === "transferencia") updatePayload.setor = equipEquipeDest || null;
-
-    let q: any = (supabase as any).from("equipamentos").update(updatePayload).eq("frota", equipFrota);
-    if (companyId) q = q.eq("company_id", companyId);
-    const { error: upErr } = await q;
-
-    if (upErr) {
-      toast({ title: "Erro ao sincronizar cadastro", description: upErr.message, variant: "destructive" });
-      setSaving(false);
+    const equipment = frota.find(f => f.id === equipFrota);
+    if (!equipment || !companyId) {
+      toast({ title: "Selecione um equipamento da empresa", variant: "destructive" });
       return;
     }
-
-    const { error: movErr } = await (supabase as any).from("ci_mov_equipamentos").insert(payload);
-
-    await recarregarCadastros();
-
-    if (movErr) {
-      const trilhaIndisponivel = /42P01|does not exist|relation/i.test(String(movErr?.message || ""));
-      toast({
-        title: trilhaIndisponivel ? "✅ Cadastro sincronizado (trilha de auditoria indisponível)" : "✅ Cadastro sincronizado (auditoria pendente)",
-        description: `Equipamento atualizado em equipamentos, mas não foi possível gravar em ci_mov_equipamentos: ${movErr.message}`,
-        variant: trilhaIndisponivel ? "default" : "destructive",
+    setSaving(true);
+    try {
+      const isTransfer = modoEquip === "transferencia";
+      const change = buildEquipmentMovement(
+        equipment, companyId, modoEquip,
+        isTransfer ? equipEquipeDest : equipStatus,
+        equipeResponsavel(isTransfer ? equipEquipeDest : equipment.setor || ""),
+      );
+      await applyProgramadorBatch(supabase as any, {
+        companyId, date: equipData, team: equipment.setor || "-", overrideReason: "",
+        employees: [], equipments: [change],
       });
-    } else {
-      toast({ title: "✅ Movimentação registrada e sincronizada!" });
+      await recarregarCadastros();
+      toast({ title: "Movimentação aplicada em Gestão de Frotas e auditada" });
+      setEquipFrota(""); setEquipStatus(""); setEquipEquipeOrig(""); setEquipEquipeDest("");
+    } catch (error) {
+      toast({ title: "Movimentação não concluída", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-
-    setEquipFrota(""); setEquipStatus(""); setEquipEquipeOrig(""); setEquipEquipeDest(""); setEquipObs("");
-    setSaving(false);
   };
 
   return (
@@ -1017,7 +974,7 @@ export default function ProgramadorHome() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-foreground">Gestão da equipe selecionada</h3>
-                    <p className="text-xs text-muted-foreground">Altere equipe e status de pessoas e equipamentos com aplicação imediata.</p>
+                    <p className="text-xs text-muted-foreground">{modoReuniao ? "Visão de eficiência por equipe: pessoas, frota, status e locação mensal conhecida." : "Altere equipe e status de pessoas e equipamentos nos cadastros centrais, com histórico."}</p>
                   </div>
                   <div className="text-right space-y-2">
                     <div>
@@ -1026,6 +983,19 @@ export default function ProgramadorHome() {
                     </div>
                     <Button type="button" size="sm" variant={modoOperacaoNoturna ? "default" : "outline"} onClick={alternarModoOperacaoNoturna}>
                       {modoOperacaoNoturna ? "Modo Operação: ON" : "Modo Operação Noturna"}
+                    </Button>
+                    <Button type="button" size="sm" variant={modoReuniao ? "default" : "outline"}
+                      disabled={!modoReuniao && !!(funcMudancasPendentes + equipMudancasPendentes)}
+                      onClick={() => {
+                        if (!modoReuniao) {
+                          setOnlyChangedFunc(false); setOnlyChangedEquip(false);
+                          setModoOperacaoNoturna(false);
+                          setFilterFuncStatus("TODOS"); setFilterEquipStatus("TODOS");
+                          setFuncSearch(""); setEquipSearch("");
+                        }
+                        setModoReuniao((v) => !v);
+                      }}>
+                      {modoReuniao ? "Sair da apresentação" : "Apresentar eficiência"}
                     </Button>
                   </div>
                 </div>
@@ -1038,6 +1008,11 @@ export default function ProgramadorHome() {
                   <div className="rounded-lg border border-border bg-muted/20 px-2 py-2">
                     <p className="text-[11px] text-muted-foreground">Equipamentos</p>
                     <p className="text-sm font-bold">{equipamentosDaEquipe.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/20 px-2 py-2">
+                    <p className="text-[11px] text-muted-foreground">Terceiros · mensal conhecido</p>
+                    <p className="text-sm font-bold">{moeda(resumoLocacaoEquipe.monthlyKnown)}</p>
+                    <p className="text-[11px] text-muted-foreground">{resumoLocacaoEquipe.rented} terceiro(s){resumoLocacaoEquipe.withoutPrice ? ` · ${resumoLocacaoEquipe.withoutPrice} sem valor cadastrado` : ""}</p>
                   </div>
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-2">
                     <p className="text-[11px] text-amber-700">Pendências Pessoas</p>
@@ -1097,7 +1072,7 @@ export default function ProgramadorHome() {
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      {!modoReuniao && <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                         <Select value={bulkFuncEquipe} onValueChange={setBulkFuncEquipe}>
                           <SelectTrigger><SelectValue placeholder="Lote: nova equipe" /></SelectTrigger>
                           <SelectContent>{equipesAtivas.map(nome => <SelectItem key={`bf-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
@@ -1107,7 +1082,7 @@ export default function ProgramadorHome() {
                           <SelectContent>{STATUS_FUNC_VALUES.map((s) => <SelectItem key={`bfs-${s}`} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}</SelectContent>
                         </Select>
                         <Button type="button" variant="outline" onClick={aplicarLoteFuncionarios}>Aplicar lote (Pessoas)</Button>
-                      </div>
+                      </div>}
 
                       <div className="space-y-2 max-h-72 lg:max-h-none lg:flex-1 overflow-auto pr-1">
                         {funcionariosDaEquipeFiltrados.length === 0 ? (
@@ -1130,7 +1105,7 @@ export default function ProgramadorHome() {
                                     {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full lg:w-[280px] xl:w-[340px] 2xl:w-[380px] lg:grid-cols-[minmax(0,1fr)_96px] shrink-0">
+                                {modoReuniao ? <p className="text-xs text-muted-foreground">{f.role || "Função não informada"} · {draft.equipe || "Sem equipe"} · {getFuncStatusLabel(draft.status)}</p> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full lg:w-[280px] xl:w-[340px] 2xl:w-[380px] lg:grid-cols-[minmax(0,1fr)_96px] shrink-0">
                                   <Select value={draft.equipe || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "equipe", v)}>
                                     <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Equipe" /></SelectTrigger>
                                     <SelectContent>{equipeOptionsComFallback(draft.equipe).map(nome => <SelectItem key={`${f.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
@@ -1138,9 +1113,9 @@ export default function ProgramadorHome() {
                                   <Select value={draft.status || ""} onValueChange={(v) => atualizarFuncDraft(f.id, "status", v)}>
                                     <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>{statusFuncOptionsComFallback(draft.status).map(s => <SelectItem key={`${f.id}-st-${s}`} value={s}>{getFuncStatusLabel(s)}</SelectItem>)}</SelectContent>
-                                  </Select>
-                                </div>
+                                  </Select></div>}
                               </div>
+                              {!modoReuniao && <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 text-xs" onClick={() => abrirFuncionarioDaEquipe(f.id)}>Gerenciar pessoa</Button>}
                             </div>
                           );
                         })}
@@ -1175,7 +1150,7 @@ export default function ProgramadorHome() {
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      {!modoReuniao && <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                         <Select value={bulkEquipEquipe} onValueChange={setBulkEquipEquipe}>
                           <SelectTrigger><SelectValue placeholder="Lote: nova equipe" /></SelectTrigger>
                           <SelectContent>{equipesAtivas.map(nome => <SelectItem key={`be-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
@@ -1185,7 +1160,7 @@ export default function ProgramadorHome() {
                           <SelectContent>{STATUS_EQUIP_VALUES.map((s) => <SelectItem key={`bes-${s}`} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}</SelectContent>
                         </Select>
                         <Button type="button" variant="outline" onClick={aplicarLoteEquipamentos}>Aplicar lote (Equip.)</Button>
-                      </div>
+                      </div>}
 
                       <div className="space-y-2 max-h-72 lg:max-h-none lg:flex-1 overflow-auto pr-1">
                         {equipamentosDaEquipeFiltrados.length === 0 ? (
@@ -1208,7 +1183,7 @@ export default function ProgramadorHome() {
                                     {mudou && <span className="text-[10px] font-bold text-primary">ALTERADO</span>}
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full lg:w-[280px] xl:w-[340px] 2xl:w-[380px] lg:grid-cols-[minmax(0,1fr)_96px] shrink-0">
+                                {modoReuniao ? <p className="text-xs text-muted-foreground">{draft.setor || "Sem equipe"} · {getEquipStatusLabel(draft.status)}</p> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full lg:w-[280px] xl:w-[340px] 2xl:w-[380px] lg:grid-cols-[minmax(0,1fr)_96px] shrink-0">
                                   <Select value={draft.setor || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "setor", v)}>
                                     <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Equipe/Setor" /></SelectTrigger>
                                     <SelectContent>{equipeOptionsComFallback(draft.setor).map(nome => <SelectItem key={`${eq.id}-eq-${nome}`} value={nome}>{nome}</SelectItem>)}</SelectContent>
@@ -1216,9 +1191,14 @@ export default function ProgramadorHome() {
                                   <Select value={draft.status || ""} onValueChange={(v) => atualizarEquipDraft(eq.id, "status", v)}>
                                     <SelectTrigger className="h-7 text-[11px]"><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>{statusEquipOptionsComFallback(draft.status).map(s => <SelectItem key={`${eq.id}-st-${s}`} value={s}>{getEquipStatusLabel(s)}</SelectItem>)}</SelectContent>
-                                  </Select>
-                                </div>
+                                  </Select></div>}
                               </div>
+                              <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                                <span>{(eq.condicao || "").toUpperCase() === "TERCEIRO" ? "Terceiro" : eq.condicao || "Condição não informada"}</span>
+                                {(eq.condicao || "").toUpperCase() === "TERCEIRO" && <span>{eq.valor_mensal && eq.valor_mensal > 0 ? `${moeda(eq.valor_mensal)}/mês` : "Valor mensal não cadastrado"}</span>}
+                                {eq.empresa_proprietaria && <span>{eq.empresa_proprietaria}</span>}
+                              </div>
+                              {!modoReuniao && <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 text-xs" onClick={() => abrirEquipamentoDaEquipe(eq.id)}>Gerenciar equipamento</Button>}
                             </div>
                           );
                         })}
@@ -1288,7 +1268,7 @@ export default function ProgramadorHome() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 lg:mt-auto">
+                  {!modoReuniao && <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 lg:mt-auto">
                     <Button type="button" variant="outline" onClick={validarMudancasEquipe} disabled={validating || saving || (!funcMudancasPendentes && !equipMudancasPendentes)}>
                       {validating ? "Validando..." : "Validar alterações"}
                     </Button>
@@ -1305,7 +1285,7 @@ export default function ProgramadorHome() {
                       <Save className="w-4 h-4" />
                       {saving ? "Aplicando mudanças..." : `Validar e aplicar (${funcMudancasPendentes + equipMudancasPendentes})`}
                     </Button>
-                  </div>
+                  </div>}
                 </>
               )}
             </div>
@@ -1387,6 +1367,14 @@ export default function ProgramadorHome() {
                     </Select>
                   </div>
 
+                  {funcId && (() => {
+                    const atual = funcionarios.find(f => f.id === funcId);
+                    return atual && <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm space-y-1">
+                      <p className="font-semibold">{atual.name}</p>
+                      <p>Função: {atual.role || "Não informada"} · Equipe: {atual.equipe || "Sem equipe"} · Status: {getFuncStatusLabel(atual.status)}</p>
+                      <p className="text-xs text-muted-foreground">A mudança será gravada na Gestão de Pessoas com histórico.</p>
+                    </div>;
+                  })()}
                   {modoFunc === "status" && (
                     <div className="space-y-1.5">
                       <Label>Novo status *</Label>
@@ -1421,8 +1409,7 @@ export default function ProgramadorHome() {
                   )}
 
                   <div className="space-y-1.5">
-                    <Label>Observações</Label>
-                    <Textarea rows={2} value={funcObs} onChange={e => setFuncObs(e.target.value)} placeholder="Opcional..." />
+                    <p className="text-xs text-muted-foreground">Histórico automático: data, origem e destino, status e usuário responsável. Observações livres ainda não estão disponíveis para movimentações individuais.</p>
                   </div>
                 </>
               )}
@@ -1464,11 +1451,20 @@ export default function ProgramadorHome() {
                 <Select value={equipFrota} onValueChange={handleEquipSelect}>
                   <SelectTrigger><SelectValue placeholder="Selecione o equipamento" /></SelectTrigger>
                   <SelectContent>
-                    {frota.map(f => <SelectItem key={f.id} value={f.frota}>{f.frota} — {f.tipo}</SelectItem>)}
+                    {frota.map(f => <SelectItem key={f.id} value={f.id}>{f.frota} — {f.tipo}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
+              {equipFrota && (() => {
+                const atual = frota.find(f => f.id === equipFrota);
+                return atual && <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm space-y-1">
+                  <p className="font-semibold">{atual.frota} — {atual.tipo}</p>
+                  <p>Equipe: {atual.setor || "Sem equipe"} · Status: {getEquipStatusLabel(atual.status)} · Condição: {atual.condicao || "Não informada"}</p>
+                  {(atual.condicao || "").toUpperCase() === "TERCEIRO" && <p>Locação mensal: {atual.valor_mensal && atual.valor_mensal > 0 ? moeda(atual.valor_mensal) : "Não cadastrada"}</p>}
+                  <p className="text-xs text-muted-foreground">A mudança será gravada na Gestão de Frotas com histórico.</p>
+                </div>;
+              })()}
               {modoEquip === "status" && (
                 <div className="space-y-1.5">
                   <Label>Novo status *</Label>
@@ -1503,8 +1499,7 @@ export default function ProgramadorHome() {
               )}
 
               <div className="space-y-1.5">
-                <Label>Observações</Label>
-                <Textarea rows={2} value={equipObs} onChange={e => setEquipObs(e.target.value)} placeholder="Opcional..." />
+                <p className="text-xs text-muted-foreground">Histórico automático: data, origem e destino, status e usuário responsável. Observações livres ainda não estão disponíveis para movimentações individuais.</p>
               </div>
 
               <Button onClick={salvarMovEquip} disabled={saving || !equipFrota}
