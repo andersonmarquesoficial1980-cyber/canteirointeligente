@@ -1,5 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchTeamsForCompany, filterByTeamSelection } from "./programadorTeams";
+import { fetchTeamsForCompany, filterByTeamSelection, programadorEmployeesQuery } from "./programadorTeams";
+
+describe("origem do cadastro de pessoas no Programador", () => {
+  it("queries only own employees of the selected company, without duplicating the master registry", () => {
+    const query = { select: vi.fn(), eq: vi.fn(), order: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.order.mockReturnValue(query);
+    const client = { from: vi.fn().mockReturnValue(query) };
+    expect(programadorEmployeesQuery(client, "fremix")).toBe(query);
+    expect(client.from).toHaveBeenCalledWith("employees");
+    expect(query.select).toHaveBeenCalledWith("id, name, matricula, role, equipe, status, company_id", { count: "exact" });
+    expect(query.eq).toHaveBeenCalledWith("company_id", "fremix");
+    expect(query.eq).toHaveBeenCalledWith("origem", "PROPRIO");
+  });
+});
 
 const company = "fremix";
 

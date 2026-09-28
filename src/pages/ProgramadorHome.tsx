@@ -17,7 +17,7 @@ import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { buildPersonMovement, buildEquipmentMovement, summarizeTeamRental, assertNewAdmission } from "@/lib/programadorIndividual";
 import { saveMonthlyRental } from "@/lib/programadorRental";
 import { EfficiencyMeeting } from "@/components/EfficiencyMeeting";
-import { fetchTeamsForCompany, filterByTeamSelection } from "@/lib/programadorTeams";
+import { fetchTeamsForCompany, filterByTeamSelection, programadorEmployeesQuery } from "@/lib/programadorTeams";
 import { ProgramadorRoster } from "@/components/ProgramadorRoster";
 import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
 import { groupPeopleForProgramador, groupEquipmentForProgramador } from "@/lib/programadorGroups";
@@ -209,8 +209,7 @@ export default function ProgramadorHome() {
     setCadastrosLoading(true);
     setCadastrosError("");
     try {
-    let funcionariosQuery: any = supabase.from("employees").select("id, name, matricula, role, equipe, status, company_id", { count: "exact" }).order("name");
-    if (companyId) funcionariosQuery = funcionariosQuery.eq("company_id", companyId);
+    const funcionariosQuery = programadorEmployeesQuery(supabase, companyId);
 
     let frotaQuery: any = (supabase as any).from("equipamentos").select("id, frota, centro_custo, placa, tipo, categoria_rdo, setor, status, company_id, condicao, valor_mensal, empresa_proprietaria", { count: "exact" }).order("tipo").order("frota");
     if (companyId) frotaQuery = frotaQuery.eq("company_id", companyId);
