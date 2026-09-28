@@ -15,6 +15,8 @@ import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { ResponsavelInput } from "@/components/rdo/ResponsavelInput";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { getLegacyModeState, isLegacyFallbackEnabled } from "@/lib/materialsFeatureFlags";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { resolveTruckEquipment } from "@/lib/truckEquipmentLink";
 
 // Materials are now loaded dynamically from insumos_materiais
 
@@ -42,6 +44,7 @@ function localDateISO() {
 
 function DepartureForm() {
   const queryClient = useQueryClient();
+  const { profile } = useUserProfile();
   const { data: ogsData } = useOgsReference();
   const [placa, setPlaca] = useState("");
   const [material, setMaterial] = useState("");
@@ -59,6 +62,20 @@ function DepartureForm() {
     queryKey: ["truck_registry_list"],
     queryFn: async () => {
       const { data, error } = await supabase.from("truck_registry").select("*").order("placa");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Read identity from the fleet when the plate is unique in this company.
+  // Trips retain their original plate; unmatched trucks remain unchanged.
+  const { data: fleet } = useQuery({
+    queryKey: ["trucker_equipment_identity", profile?.company_id],
+    enabled: Boolean(profile?.company_id),
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("equipamentos")
+        .select("id,company_id,placa,frota,modelo_completo,nome")
+        .eq("company_id", profile!.company_id!);
       if (error) throw error;
       return data || [];
     },
@@ -266,7 +283,10 @@ function DepartureForm() {
               <SelectContent>
                 {(trucks || []).filter((t) => t.placa).map((t) => (
                   <SelectItem key={t.id} value={t.placa}>
-                    {t.placa}{t.modelo ? ` — ${t.modelo}` : ""}{t.fornecedor ? ` (${t.fornecedor})` : ""}
+                    {(() => {
+                      const equipment = resolveTruckEquipment({ company_id: (t as any).company_id ?? null, placa: t.placa }, fleet || []);
+                      return `${t.placa}${equipment?.frota ? ` — ${equipment.frota}` : t.modelo ? ` — ${t.modelo}` : ""}${t.fornecedor ? ` (${t.fornecedor})` : ""}${equipment ? " · Cadastro de Equipamentos" : ""}`;
+                    })()}
                   </SelectItem>
                 ))}
               </SelectContent>
