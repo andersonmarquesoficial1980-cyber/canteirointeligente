@@ -3,12 +3,16 @@ import { Button } from "@/components/ui/button";
 import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
 import { groupPeopleForProgramador, groupEquipmentForProgramador } from "@/lib/programadorGroups";
 import { prepareEfficiencyMeeting, meetingStatus, type MeetingEquipment, type MeetingPerson } from "@/lib/programadorMeeting";
+import { ProgramadorNote } from "@/components/ProgramadorNote";
+import { noteKey, type OperationalNotes } from "@/lib/programadorNotes";
 
 type Props = {
   people: MeetingPerson[];
   equipment: MeetingEquipment[];
   initialTeam: string;
   pinnedTeams?: string[];
+  notes?: OperationalNotes;
+  notesError?: string;
   updatedAt: string | null;
   error?: string;
   loading?: boolean;
@@ -28,7 +32,7 @@ const filterNames: [string, string][] = [
 ];
 
 /** Read-only meeting surface: no master writes, drafts, or forms are mounted here. */
-export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
+export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
   const [team, setTeam] = useState(initialTeam);
   const [status, setStatus] = useState("todos");
   const all = useMemo(() => prepareEfficiencyMeeting(people, equipment, {}), [people, equipment]);
@@ -56,6 +60,7 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams,
         </div>
       </div>
       {error && <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-800">Dados possivelmente incompletos: {error}. Não use estes totais para decisão sem atualizar.</p>}
+      {notesError && <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">Observações indisponíveis: {notesError}. Atualize os dados antes da reunião.</p>}
       {!updatedAt && !error && <p role="status" className="text-sm text-muted-foreground">Carregando cadastros...</p>}
       <div className="min-w-0 space-y-2">
           <div className="rounded-xl border border-border bg-card px-3 py-1.5 space-y-1">
@@ -78,7 +83,7 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams,
               <h3 className="border-b border-border px-2 py-1 font-semibold text-sm">Pessoas ({view.people.length})</h3>
               <div className="max-h-[calc(100dvh-16rem)] min-h-[240px] overflow-auto">
                 {view.people.length ? <table className="w-full text-left text-xs"><thead className="text-muted-foreground"><tr><th className="px-2 py-1">Nome</th><th className="px-2 py-1">Função</th><th className="px-2 py-1">Status</th>{onManagePerson && <th className="px-2 py-1">Ação</th>}</tr></thead>
-                  <tbody>{orderedPeople.map(p => <tr key={p.id} className="border-t border-border"><td className="px-2 py-1 font-medium">{p.name}<span className="block text-[11px] text-muted-foreground">{p.matricula || "Sem matrícula"}{!team && ` · ${p.equipe || "Sem equipe"}`}</span></td><td className="px-2 py-1">{p.role || "—"}</td><td className="px-2 py-1">{p.status || "Não informado"}</td>{onManagePerson && <td className="px-2 py-1"><button type="button" className="text-primary underline underline-offset-2" aria-label={`Gerenciar pessoa ${p.name}`} onClick={() => onManagePerson(p.id)}>Gerenciar</button></td>}</tr>)}</tbody>
+                  <tbody>{orderedPeople.map(p => <tr key={p.id} className="border-t border-border"><td className="px-2 py-1 font-medium">{p.name} <ProgramadorNote text={notes?.[noteKey("pessoa", p.id)]} label={p.name} /><span className="block text-[11px] text-muted-foreground">{p.matricula || "Sem matrícula"}{!team && ` · ${p.equipe || "Sem equipe"}`}</span></td><td className="px-2 py-1">{p.role || "—"}</td><td className="px-2 py-1">{p.status || "Não informado"}</td>{onManagePerson && <td className="px-2 py-1"><button type="button" className="text-primary underline underline-offset-2" aria-label={`Gerenciar pessoa ${p.name}`} onClick={() => onManagePerson(p.id)}>Gerenciar</button></td>}</tr>)}</tbody>
                 </table> : <p className="p-3 text-xs text-muted-foreground">Nenhuma pessoa nesta equipe.</p>}
               </div>
             </section>
@@ -90,7 +95,7 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams,
                     const rental = (e.condicao || "").trim().toUpperCase() === "TERCEIRO";
                     const state = meetingStatus(e);
                     return <tr key={e.id} className={`border-t border-border ${state === "manutencao" ? "bg-amber-50/70" : ""}`}>
-                      <td className="px-2 py-1 font-medium">{e.centro_custo || e.frota || e.placa || "Sem identificação"}<span className="block text-[11px] font-normal text-muted-foreground">{e.tipo || "Tipo não informado"}</span></td>
+                      <td className="px-2 py-1 font-medium">{e.centro_custo || e.frota || e.placa || "Sem identificação"} <ProgramadorNote text={notes?.[noteKey("equipamento", e.id)]} label={e.centro_custo || e.frota || e.placa || "equipamento"} /><span className="block text-[11px] font-normal text-muted-foreground">{e.tipo || "Tipo não informado"}</span></td>
                       <td className="px-2 py-1">{!team && <span className="block">{e.setor || "Sem equipe"}</span>}<span className="block text-[11px] text-muted-foreground">{rental ? (e.empresa_proprietaria || e.locadora || "Terceiro sem empresa") : (team ? "Próprio" : "Próprio / não locado")}</span></td>
                       <td className="px-2 py-1">{statusName[state] || state}</td>
                       <td className="px-2 py-1 text-right whitespace-nowrap tabular-nums">{rental ? (e.valor_mensal == null ? "Sem valor" : money(e.valor_mensal)) : "—"}</td>

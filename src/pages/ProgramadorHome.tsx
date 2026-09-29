@@ -17,6 +17,8 @@ import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { buildPersonMovement, buildEquipmentMovement, summarizeTeamRental, assertNewAdmission } from "@/lib/programadorIndividual";
 import { saveMonthlyRental } from "@/lib/programadorRental";
 import { EfficiencyMeeting } from "@/components/EfficiencyMeeting";
+import { ProgramadorNoteEditor } from "@/components/ProgramadorNoteEditor";
+import { fetchOperationalNotes, noteKey, saveOperationalNote, type NoteSubject, type OperationalNotes } from "@/lib/programadorNotes";
 import { fetchTeamsForCompany, filterByTeamSelection, excludeReturnedFleet, programadorEmployeesQuery } from "@/lib/programadorTeams";
 import { ProgramadorRoster } from "@/components/ProgramadorRoster";
 import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
@@ -168,6 +170,8 @@ export default function ProgramadorHome() {
   const [cadastrosLoading, setCadastrosLoading] = useState(false);
   const [cadastrosError, setCadastrosError] = useState("");
   const [cadastrosUpdatedAt, setCadastrosUpdatedAt] = useState<string | null>(null);
+  const [operationalNotes, setOperationalNotes] = useState<OperationalNotes>({});
+  const [notesError, setNotesError] = useState("");
 
   // Utilitário: divide endereços com ;
   const splitRuas = (address: string) => address.split(";").map(r => r.trim()).filter(Boolean);
@@ -202,12 +206,14 @@ export default function ProgramadorHome() {
   const recarregarCadastros = async () => {
     if (!companyId) {
       setEquipes([]); setFuncionarios([]); setFrota([]); setOgsList([]);
+      setOperationalNotes({}); setNotesError("");
       setCadastrosUpdatedAt(null);
       setCadastrosError("Empresa não identificada");
       return;
     }
     setCadastrosLoading(true);
     setCadastrosError("");
+    setOperationalNotes({}); setNotesError("");
     try {
     const funcionariosQuery = programadorEmployeesQuery(supabase, companyId);
 
@@ -240,6 +246,8 @@ export default function ProgramadorHome() {
       setFrota(normalizados);
     }
     if (ogsRes?.data) setOgsList(sortOgsData(ogsRes.data));
+    try { setOperationalNotes(await fetchOperationalNotes(supabase, companyId)); }
+    catch (cause) { setOperationalNotes({}); setNotesError((cause as Error).message || "Falha na leitura das observações"); }
     setCadastrosUpdatedAt(new Date().toISOString());
     } catch (error) {
       setCadastrosError((error as Error).message || "Falha na leitura dos cadastros centrais");
@@ -251,6 +259,18 @@ export default function ProgramadorHome() {
   useEffect(() => {
     recarregarCadastros();
   }, [companyId]);
+
+  const saveNote = async (type: NoteSubject, id: string, text: string) => {
+    if (!companyId || cadastrosError || notesError || cadastrosLoading) throw new Error("Atualize os dados antes de editar observações");
+    const persisted = await saveOperationalNote(supabase, companyId, type, id, text);
+    setOperationalNotes(current => {
+      const next = { ...current };
+      if (persisted) next[noteKey(type, id)] = persisted;
+      else delete next[noteKey(type, id)];
+      return next;
+    });
+    toast({ title: "Observação operacional confirmada" });
+  };
 
   const handleOgsChange = (ogs: string) => {
     setProgOgs(ogs);
@@ -1078,6 +1098,7 @@ export default function ProgramadorHome() {
         {modoReuniao && (
           <EfficiencyMeeting
             people={funcionarios} equipment={frota} initialTeam={progEquipe} pinnedTeams={baloesEquipe.pinned}
+            notes={operationalNotes} notesError={notesError}
             updatedAt={cadastrosUpdatedAt} error={cadastrosError} loading={cadastrosLoading}
             onRefresh={() => { void recarregarCadastros(); }} onExit={() => setModoReuniao(false)}
             onManagePerson={(id) => {
@@ -1099,6 +1120,7 @@ export default function ProgramadorHome() {
             Falha ao consultar os cadastros de Pessoas e Frotas: {cadastrosError}. Atualize a página antes de alterar registros.
           </p>
         )}
+        {!modoReuniao && notesError && <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">Observações indisponíveis: {notesError}. Atualize os dados antes de editar.</p>}
 
         {/* ── ABA EQUIPES ── */}
         {!modoReuniao && aba === "equipes" && (
@@ -1268,6 +1290,9 @@ export default function ProgramadorHome() {
                               </div>
                               <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 text-[11px] text-muted-foreground">
                                 <span>{f.role || "Função não informada"}</span>
+                                <ProgramadorNoteEditor label={f.name} note={operationalNotes[noteKey("pessoa", f.id)]}
+                                  disabled={!!notesError || !!cadastrosError || cadastrosLoading}
+                                  onSave={text => saveNote("pessoa", f.id, text)} />
                                 <button type="button" className="text-primary hover:underline" onClick={() => abrirFuncionarioDaEquipe(f.id)}>Gerenciar pessoa</button>
                               </div>
                             </div>
@@ -1359,6 +1384,9 @@ export default function ProgramadorHome() {
                                 <span>{(eq.condicao || "").toUpperCase() === "TERCEIRO" ? "Terceiro" : eq.condicao || "Condição não informada"}</span>
                                 {(eq.condicao || "").toUpperCase() === "TERCEIRO" && <span>{eq.valor_mensal != null ? `${moeda(eq.valor_mensal)}/mês` : "Valor mensal não cadastrado"}</span>}
                                 {eq.empresa_proprietaria && <span>{eq.empresa_proprietaria}</span>}
+                                <ProgramadorNoteEditor label={eq.frota || eq.tipo} note={operationalNotes[noteKey("equipamento", eq.id)]}
+                                  disabled={!!notesError || !!cadastrosError || cadastrosLoading}
+                                  onSave={text => saveNote("equipamento", eq.id, text)} />
                                 <button type="button" className="ml-auto text-primary hover:underline" onClick={() => abrirEquipamentoDaEquipe(eq.id)}>Gerenciar equipamento</button>
                               </div>
                             </div>

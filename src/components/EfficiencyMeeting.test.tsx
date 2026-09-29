@@ -101,6 +101,13 @@ describe("tela de reunião", () => {
     expect(within(fleetTable).getByText("Equipamentos (1)")).toBeTruthy();
     expect(screen.getByText(/1 sem valor cadastrado/)).toBeTruthy();
   });
+  it("shows only operational notes on the matching person and equipment in presentation", () => {
+    render(<EfficiencyMeeting {...props} notes={{ "pessoa:p1": "Revisar escala", "equipamento:q1": "Conferir pneus" }} />);
+    expect(screen.getByRole("button", { name: "Observação de Ana" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Observação de A1" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Observação de Beto" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Observação de B2" })).toBeNull();
+  });
   it("reflects configured chips in presentation without offering to edit them", () => {
     const { rerender } = render(<EfficiencyMeeting {...props} pinnedTeams={[]} />);
     const quick = screen.getByRole("group", { name: "Equipes em destaque" });
