@@ -89,7 +89,7 @@ const getEquipStatusLabel = (value?: string | null) => {
 const PERIODOS = ["NOTURNO", "DIURNO", "INTEGRAL"];
 
 interface Equipe { id: string; nome: string; responsavel: string | null; }
-interface Funcionario { id: string; name: string; matricula: string | null; role: string | null; equipe: string | null; status: string | null; company_id?: string | null; }
+interface Funcionario { id: string; name: string; matricula: string | null; role: string | null; equipe: string | null; status: string | null; centro_custo?: string | null; company_id?: string | null; }
 interface Frota { id: string; frota: string; tipo: string; categoria_rdo?: string | null; setor: string | null; status?: string | null; company_id?: string | null; condicao: string | null; valor_mensal: number | null; empresa_proprietaria: string | null; locadora?: string | null; centro_custo?: string | null; placa?: string | null; }
 interface Ogs { ogs_number: string; client_name: string; location_address: string; }
 

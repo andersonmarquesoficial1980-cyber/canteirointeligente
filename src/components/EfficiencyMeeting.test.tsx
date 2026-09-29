@@ -18,6 +18,63 @@ const props = {
 };
 
 describe("tela de reunião", () => {
+  it("toggles function balloons in employee presentation without changing the team selection", () => {
+    render(<EfficiencyMeeting {...props} mode="funcionarios" people={[
+      props.people[0],
+      { ...props.people[0], id: "p3", name: "Cris", role: "Apontador" },
+    ]} initialTeam="EQUIPE A" />);
+    expect(screen.getByRole("group", { name: "Filtrar funções" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ocultar função Motorista" }));
+    expect(screen.queryByText("Ana")).toBeNull();
+    expect(screen.getByText("Cris")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "EQUIPE A" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar função Motorista" }));
+    expect(screen.getByText("Ana")).toBeTruthy();
+  });
+  it("identifies and hides a cost center in employee presentation", () => {
+    render(<EfficiencyMeeting {...props} mode="funcionarios" people={[
+      { ...props.people[0], centro_custo: "CC 01" },
+      { ...props.people[1], centro_custo: "CC 02" },
+    ]} />);
+    const staff = screen.getByRole("region", { name: "Pessoas da reunião" });
+    expect(within(staff).getByText(/CC: CC 01/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ocultar centro de custo CC 01" }));
+    expect(within(staff).queryByText("Ana")).toBeNull();
+    expect(within(staff).getByText("Beto")).toBeTruthy();
+  });
+  it("hides chosen cost centers in the combined presentation, including the other catalog", () => {
+    render(<EfficiencyMeeting {...props} people={[
+      { ...props.people[0], centro_custo: "CC 01" },
+      { ...props.people[1], centro_custo: "CC 02" },
+    ]} equipment={[
+      { ...props.equipment[0], centro_custo: "CC 01" },
+      { ...props.equipment[1], centro_custo: "CC 02" },
+    ]} />);
+    const fleet = screen.getByRole("region", { name: "Equipamentos da reunião" });
+    expect(within(fleet).getByText("CC 01")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ocultar centro de custo CC 01" }));
+    expect(screen.queryByText("Ana")).toBeNull();
+    expect(within(fleet).queryByText("CC 01")).toBeNull();
+    expect(screen.getByText("Beto")).toBeTruthy();
+    expect(within(fleet).getByText("CC 02")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar centro de custo CC 01" }));
+    expect(screen.getByText("Ana")).toBeTruthy();
+  });
+  it("filters equipment-type balloons and recalculates costs while keeping returned fleet out", () => {
+    render(<EfficiencyMeeting {...props} mode="equipamentos" equipment={[
+      ...props.equipment,
+      { ...props.equipment[0], id: "returned", tipo: "GUINDASTE", status: "devolvido", frota: "D3" },
+    ]} />);
+    expect(screen.getByRole("group", { name: "Filtrar tipos de equipamento" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Ocultar tipo GUINDASTE" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Ocultar tipo CAMINHÃO BASCULANTE" }));
+    expect(screen.queryByText("A1")).toBeNull();
+    expect(screen.queryByText("D3")).toBeNull();
+    expect(screen.getByText("B2")).toBeTruthy();
+    expect(screen.queryByText("Locadora A")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar tipo CAMINHÃO BASCULANTE" }));
+    expect(screen.getByText("A1")).toBeTruthy();
+  });
   it("presents only employees across full width with team chips and operational notes", () => {
     render(<EfficiencyMeeting {...props} mode="funcionarios" teams={["EQUIPE A", "SEM PESSOAS"]} pinnedTeams={["SEM PESSOAS"]} initialTeam="EQUIPE A" notes={{ "pessoa:p1": "Rever escala" }} />);
     expect(screen.getByRole("button", { name: "SEM PESSOAS" })).toBeTruthy();

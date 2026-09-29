@@ -3,7 +3,7 @@ import { excludeReturnedFleet } from "./programadorTeams";
 
 export type MeetingPerson = {
   id: string; name: string; equipe: string | null; status: string | null;
-  matricula?: string | null; role?: string | null;
+  matricula?: string | null; role?: string | null; centro_custo?: string | null;
 };
 export type MeetingEquipment = {
   id: string; setor: string | null; tipo: string | null; frota: string | null;
@@ -12,9 +12,28 @@ export type MeetingEquipment = {
   empresa_proprietaria: string | null; locadora?: string | null;
   centro_custo?: string | null; placa?: string | null;
 };
-export type MeetingFilters = { team?: string; status?: string; type?: string; search?: string };
+export type MeetingFilters = {
+  team?: string; status?: string; type?: string; search?: string;
+  hiddenRoles?: readonly string[]; hiddenTypes?: readonly string[]; hiddenCostCenters?: readonly string[];
+};
 
 const normal = (value?: string | null) => (value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+export const meetingFilterKey = (value?: string | null, emptyKey = "__sem_centro__") => normal(value) || emptyKey;
+export type BalloonOption = { key: string; label: string; count: number };
+/** Options come only from the already company-scoped meeting rows (never the global catalog). */
+export function balloonOptions<T>(rows: readonly T[], field: (row: T) => string | null | undefined, emptyKey: string, emptyLabel: string): BalloonOption[] {
+  const options = new Map<string, BalloonOption>();
+  for (const row of rows) {
+    const value = field(row)?.trim();
+    const key = meetingFilterKey(value, emptyKey);
+    const current = options.get(key);
+    if (current) current.count++;
+    else options.set(key, { key, label: value || emptyLabel, count: 1 });
+  }
+  return [...options.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"));
+}
+const isHidden = (hidden: readonly string[] | undefined, value: string | null | undefined, emptyKey: string) =>
+  hidden?.some(item => meetingFilterKey(item, emptyKey) === meetingFilterKey(value, emptyKey)) || false;
 const isRental = (eq: MeetingEquipment) => normal(eq.condicao) === "terceiro";
 export const meetingStatus = (eq: MeetingEquipment) => {
   const status = normal(eq.status).replace(/[_\s]/g, "");
@@ -40,9 +59,14 @@ export function prepareEfficiencyMeeting<P extends MeetingPerson, E extends Meet
     .filter((t): t is string => Boolean(t)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const inTeam = (value?: string | null) => !filters.team
     || (filters.team === "__sem_equipe__" ? !value?.trim() : normal(value) === normal(filters.team));
-  const selectedPeople = people.filter(p => inTeam(p.equipe)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const selectedPeople = people.filter(p => inTeam(p.equipe)
+    && !isHidden(filters.hiddenRoles, p.role, "__sem_funcao__")
+    && !isHidden(filters.hiddenCostCenters, p.centro_custo, "__sem_centro__"))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const search = normal(filters.search);
   const selectedEquipment = availableEquipment.filter(e => inTeam(e.setor)
+    && !isHidden(filters.hiddenTypes, e.tipo, "__sem_tipo__")
+    && !isHidden(filters.hiddenCostCenters, e.centro_custo, "__sem_centro__")
     && (!filters.type || normal(e.tipo) === normal(filters.type))
     && (!filters.status || filters.status === "todos" || (filters.status === "terceiro" ? isRental(e) : meetingStatus(e) === filters.status))
     && (!search || [e.centro_custo, e.frota, e.placa, e.tipo, e.setor, e.empresa_proprietaria, e.locadora]

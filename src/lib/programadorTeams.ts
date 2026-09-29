@@ -19,7 +19,7 @@ export function filterByTeamSelection<T>(rows: readonly T[], selected: string, t
 /** employees is the single master for both origins; Programador manages only own staff. */
 export function programadorEmployeesQuery(client: any, companyId: string) {
   return client.from("employees")
-    .select("id, name, matricula, role, equipe, status, company_id", { count: "exact" })
+    .select("id, name, matricula, role, equipe, status, company_id, centro_custo", { count: "exact" })
     .eq("company_id", companyId)
     .eq("origem", "PROPRIO")
     .order("name");

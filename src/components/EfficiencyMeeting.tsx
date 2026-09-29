@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
 import { groupPeopleForProgramador, groupEquipmentForProgramador } from "@/lib/programadorGroups";
-import { prepareEfficiencyMeeting, meetingStatus, type MeetingEquipment, type MeetingPerson } from "@/lib/programadorMeeting";
+import { balloonOptions, prepareEfficiencyMeeting, meetingStatus, type MeetingEquipment, type MeetingPerson } from "@/lib/programadorMeeting";
 import { ProgramadorNote } from "@/components/ProgramadorNote";
 import { noteKey, type OperationalNotes } from "@/lib/programadorNotes";
+import { PresentationBalloons } from "@/components/PresentationBalloons";
 
 type Props = {
   mode?: "equipes" | "funcionarios" | "equipamentos";
@@ -37,10 +38,19 @@ const filterNames: [string, string][] = [
 export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, initialTeam, pinnedTeams, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
   const [team, setTeam] = useState(initialTeam);
   const [status, setStatus] = useState("todos");
+  const [hiddenRoles, setHiddenRoles] = useState<string[]>([]);
+  const [hiddenTypes, setHiddenTypes] = useState<string[]>([]);
+  const [hiddenCostCenters, setHiddenCostCenters] = useState<string[]>([]);
   const all = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment, {}), [mode, people, equipment]);
   const availableTeams = useMemo(() => [...new Set([...(teams || []), ...all.teams])], [teams, all.teams]);
   const featuredTeams = useMemo(() => rankTeamsByAllocation(availableTeams, mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment), [availableTeams, mode, people, equipment]);
-  const view = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment, { team, status }), [mode, people, equipment, team, status]);
+  const roleOptions = useMemo(() => balloonOptions(all.people, p => p.role, "__sem_funcao__", "Sem função"), [all.people]);
+  const typeOptions = useMemo(() => balloonOptions(all.equipment, e => e.tipo, "__sem_tipo__", "Sem tipo"), [all.equipment]);
+  const costOptions = useMemo(() => balloonOptions([...all.people, ...all.equipment], row => row.centro_custo, "__sem_centro__", "Sem centro de custo"), [all.people, all.equipment]);
+  const view = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment,
+    { team, status, hiddenRoles, hiddenTypes, hiddenCostCenters }), [mode, people, equipment, team, status, hiddenRoles, hiddenTypes, hiddenCostCenters]);
+  const toggle = (setter: Dispatch<SetStateAction<string[]>>) => (key: string) =>
+    setter(current => current.includes(key) ? current.filter(value => value !== key) : [...current, key]);
   const peopleGroups = useMemo(() => groupPeopleForProgramador(view.people), [view.people]);
   const equipmentGroups = useMemo(() => groupEquipmentForProgramador(view.equipment), [view.equipment]);
   const orderedPeople = useMemo(() => peopleGroups.flatMap(group => group.items), [peopleGroups]);
@@ -71,6 +81,12 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
               <span className="text-xs font-semibold text-muted-foreground">Equipe</span>
               <TeamPicker teams={availableTeams} featured={featuredTeams} pinned={pinnedTeams} value={team} onChange={changeTeam} allowAll allowNoTeam />
             </div>
+            {mode === "funcionarios" && <PresentationBalloons title="Funções · toque para ocultar" groupLabel="Filtrar funções" singular="função"
+              options={roleOptions} hidden={hiddenRoles} onToggle={toggle(setHiddenRoles)} onReset={() => setHiddenRoles([])} />}
+            {mode === "equipamentos" && <PresentationBalloons title="Tipos · toque para ocultar" groupLabel="Filtrar tipos de equipamento" singular="tipo"
+              options={typeOptions} hidden={hiddenTypes} onToggle={toggle(setHiddenTypes)} onReset={() => setHiddenTypes([])} />}
+            <PresentationBalloons title="Centros de custo · toque para ocultar" groupLabel="Filtrar centros de custo" singular="centro de custo"
+              options={costOptions} hidden={hiddenCostCenters} onToggle={toggle(setHiddenCostCenters)} onReset={() => setHiddenCostCenters([])} />
             {mode !== "funcionarios" && <div className="flex flex-wrap items-center gap-1 border-t border-border/60 pt-1" aria-label="Status dos equipamentos">
               {filterNames.map(([value, label]) => <button key={value} type="button" aria-pressed={status === value}
                 onClick={() => setStatus(value)}
@@ -87,7 +103,7 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
               <h3 className={`border-b border-border px-2 py-1 font-semibold ${mode === "equipes" ? "text-sm" : "text-base"}`}>Pessoas ({view.people.length})</h3>
               <div className="max-h-[calc(100dvh-16rem)] min-h-[240px] overflow-auto">
                 {view.people.length ? <table className={`w-full text-left ${mode === "equipes" ? "text-xs" : "text-sm"}`}><thead className="text-muted-foreground"><tr><th className="px-2 py-1">Nome</th><th className="px-2 py-1">Função</th><th className="px-2 py-1">Status</th>{onManagePerson && <th className="px-2 py-1">Ação</th>}</tr></thead>
-                  <tbody>{orderedPeople.map(p => <tr key={p.id} className="border-t border-border"><td className="px-2 py-1 font-medium">{p.name} <ProgramadorNote text={notes?.[noteKey("pessoa", p.id)]} label={p.name} /><span className="block text-[11px] text-muted-foreground">{p.matricula || "Sem matrícula"}{!team && ` · ${p.equipe || "Sem equipe"}`}</span></td><td className="px-2 py-1">{p.role || "—"}</td><td className="px-2 py-1">{p.status || "Não informado"}</td>{onManagePerson && <td className="px-2 py-1"><button type="button" className="text-primary underline underline-offset-2" aria-label={`Gerenciar pessoa ${p.name}`} onClick={() => onManagePerson(p.id)}>Gerenciar</button></td>}</tr>)}</tbody>
+                  <tbody>{orderedPeople.map(p => <tr key={p.id} className="border-t border-border"><td className="px-2 py-1 font-medium">{p.name} <ProgramadorNote text={notes?.[noteKey("pessoa", p.id)]} label={p.name} /><span className="block text-[11px] text-muted-foreground">{p.matricula || "Sem matrícula"}{!team && ` · ${p.equipe || "Sem equipe"}`}{mode === "funcionarios" && p.centro_custo && ` · CC: ${p.centro_custo}`}</span></td><td className="px-2 py-1">{p.role || "—"}</td><td className="px-2 py-1">{p.status || "Não informado"}</td>{onManagePerson && <td className="px-2 py-1"><button type="button" className="text-primary underline underline-offset-2" aria-label={`Gerenciar pessoa ${p.name}`} onClick={() => onManagePerson(p.id)}>Gerenciar</button></td>}</tr>)}</tbody>
                 </table> : <p className="p-3 text-xs text-muted-foreground">Nenhuma pessoa nesta equipe.</p>}
               </div>
             </section>}

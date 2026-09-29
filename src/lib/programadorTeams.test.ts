@@ -10,7 +10,7 @@ describe("origem do cadastro de pessoas no Programador", () => {
     const client = { from: vi.fn().mockReturnValue(query) };
     expect(programadorEmployeesQuery(client, "fremix")).toBe(query);
     expect(client.from).toHaveBeenCalledWith("employees");
-    expect(query.select).toHaveBeenCalledWith("id, name, matricula, role, equipe, status, company_id", { count: "exact" });
+    expect(query.select).toHaveBeenCalledWith("id, name, matricula, role, equipe, status, company_id, centro_custo", { count: "exact" });
     expect(query.eq).toHaveBeenCalledWith("company_id", "fremix");
     expect(query.eq).toHaveBeenCalledWith("origem", "PROPRIO");
   });

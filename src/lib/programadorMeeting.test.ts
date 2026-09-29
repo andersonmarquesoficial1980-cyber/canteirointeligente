@@ -13,6 +13,30 @@ const equipment = [
 
 // These are master records, never copied to a second table or modified by the meeting view.
 describe("reunião de eficiência do Programador", () => {
+  it("excludes hidden roles, equipment types and cost centers without changing master records or rental totals", () => {
+    const staff = [
+      { ...people[0], centro_custo: "CC 01" },
+      { ...people[0], id: "p3", name: "Cris", role: "Apontador", centro_custo: "CC 02" },
+    ];
+    const fleet = [
+      { ...equipment[0], centro_custo: "CC 01" },
+      { ...equipment[1], centro_custo: "CC 02" },
+      { ...equipment[2], centro_custo: null },
+    ];
+    const view = prepareEfficiencyMeeting(staff, fleet, {
+      hiddenRoles: ["motorista"], hiddenTypes: ["escavadeira"], hiddenCostCenters: ["cc 02"],
+    });
+    expect(view.people.map(p => p.id)).toEqual([]);
+    expect(view.equipment.map(e => e.id)).toEqual(["q1"]);
+    expect(view.rental).toEqual({ rented: 1, monthlyKnown: 1500, withoutPrice: 0 });
+    expect(fleet).toHaveLength(3);
+    expect(staff).toHaveLength(2);
+  });
+  it("lets presentation hide records without a cost center", () => {
+    const result = prepareEfficiencyMeeting(people, equipment, { hiddenCostCenters: ["__sem_centro__"] });
+    expect(result.people).toHaveLength(0);
+    expect(result.equipment).toHaveLength(0);
+  });
   it("covers all teams and unallocated master records without counting own fleet rental", () => {
     const result = prepareEfficiencyMeeting(people, equipment, {});
     expect(result.people.map(p => p.id)).toEqual(["p1", "p2"]);
