@@ -90,6 +90,17 @@ describe("tela de reunião", () => {
     expect(within(fleetTable).queryByText("Sem equipe")).toBeNull();
     expect(within(fleetTable).getByText("Locadora B")).toBeTruthy();
   });
+  it("does not list returned fleet or count its rental in the unallocated presentation", () => {
+    render(<EfficiencyMeeting {...props} initialTeam="__sem_equipe__" equipment={[
+      ...props.equipment,
+      { ...props.equipment[0], id: "returned", setor: null, frota: "D3", status: "devolvido", valor_mensal: 2500 },
+    ]} />);
+    const fleetTable = screen.getByRole("region", { name: "Equipamentos da reunião" });
+    expect(within(fleetTable).queryByText("D3")).toBeNull();
+    expect(within(fleetTable).getByText("B2")).toBeTruthy();
+    expect(within(fleetTable).getByText("Equipamentos (1)")).toBeTruthy();
+    expect(screen.getByText(/1 sem valor cadastrado/)).toBeTruthy();
+  });
   it("reflects configured chips in presentation without offering to edit them", () => {
     const { rerender } = render(<EfficiencyMeeting {...props} pinnedTeams={[]} />);
     const quick = screen.getByRole("group", { name: "Equipes em destaque" });

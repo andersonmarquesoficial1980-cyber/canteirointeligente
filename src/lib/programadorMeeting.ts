@@ -33,13 +33,15 @@ export const meetingStatus = (eq: MeetingEquipment) => {
 export function prepareEfficiencyMeeting<P extends MeetingPerson, E extends MeetingEquipment>(
   people: readonly P[], equipment: readonly E[], filters: MeetingFilters,
 ) {
-  const teams = [...new Set([...people.map(p => p.equipe?.trim()), ...equipment.map(e => e.setor?.trim())]
+  // Returned fleet remains in the master register, but is no longer available to schedule in a meeting.
+  const availableEquipment = equipment.filter(e => normal(e.status) !== "devolvido");
+  const teams = [...new Set([...people.map(p => p.equipe?.trim()), ...availableEquipment.map(e => e.setor?.trim())]
     .filter((t): t is string => Boolean(t)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const inTeam = (value?: string | null) => !filters.team
     || (filters.team === "__sem_equipe__" ? !value?.trim() : normal(value) === normal(filters.team));
   const selectedPeople = people.filter(p => inTeam(p.equipe)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const search = normal(filters.search);
-  const selectedEquipment = equipment.filter(e => inTeam(e.setor)
+  const selectedEquipment = availableEquipment.filter(e => inTeam(e.setor)
     && (!filters.type || normal(e.tipo) === normal(filters.type))
     && (!filters.status || filters.status === "todos" || (filters.status === "terceiro" ? isRental(e) : meetingStatus(e) === filters.status))
     && (!search || [e.centro_custo, e.frota, e.placa, e.tipo, e.setor, e.empresa_proprietaria, e.locadora]

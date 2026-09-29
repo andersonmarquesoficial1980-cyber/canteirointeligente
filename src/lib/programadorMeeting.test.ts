@@ -24,6 +24,24 @@ describe("reunião de eficiência do Programador", () => {
       { name: "Locadora B", count: 1, monthlyKnown: 0, withoutPrice: 1 },
     ]);
   });
+  it("excludes returned fleet from every meeting filter, counts, costs and team shortcuts without touching master records", () => {
+    const returned = [
+      { ...equipment[0], id: "returned-free", setor: null, status: "DEVOLVIDO", valor_mensal: 2000 },
+      { ...equipment[0], id: "returned-team", setor: "EQUIPE B", status: "devolvido", valor_mensal: null },
+      { ...equipment[0], id: "to-return", setor: null, status: "devolver", valor_mensal: 300 },
+    ];
+    const masters = [...equipment, ...returned];
+    for (const filters of [{}, { team: "__sem_equipe__" }, { status: "terceiro" }, { team: "EQUIPE B" }]) {
+      const result = prepareEfficiencyMeeting(people, masters, filters);
+      expect(result.equipment.map(e => e.id)).not.toContain("returned-free");
+      expect(result.equipment.map(e => e.id)).not.toContain("returned-team");
+      expect(result.teams).not.toContain("EQUIPE B");
+      expect(result.rental.monthlyKnown).toBe(filters.team === "EQUIPE B" ? 0 : filters.team === "__sem_equipe__" ? 300 : 1800);
+      expect(result.byLessor.some(group => group.name === "Locadora A" && group.monthlyKnown > 1800)).toBe(false);
+    }
+    expect(prepareEfficiencyMeeting(people, masters, { team: "__sem_equipe__" }).equipment.map(e => e.id)).toContain("to-return");
+    expect(masters).toHaveLength(6);
+  });
   it("shows unallocated people and equipment separately from the selected team", () => {
     const team = prepareEfficiencyMeeting(people, equipment, { team: "equipe a" });
     expect(team.people.map(p => p.id)).toEqual(["p1"]);
