@@ -18,6 +18,37 @@ const props = {
 };
 
 describe("tela de reunião", () => {
+  it("presents only employees across full width with team chips and operational notes", () => {
+    render(<EfficiencyMeeting {...props} mode="funcionarios" teams={["EQUIPE A", "SEM PESSOAS"]} pinnedTeams={["SEM PESSOAS"]} initialTeam="EQUIPE A" notes={{ "pessoa:p1": "Rever escala" }} />);
+    expect(screen.getByRole("button", { name: "SEM PESSOAS" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Apresentação de funcionários" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Apresentação de funcionários" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Pessoas da reunião" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Equipamentos da reunião" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Resumo por locadora" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Manutenção" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Observação de Ana" })).toBeTruthy();
+    expect(screen.queryByText("Beto")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Sem equipe" }));
+    expect(screen.getByText("Beto")).toBeTruthy();
+    expect(screen.queryByText("Ana")).toBeNull();
+  });
+  it("presents only active fleet, with status, prices and team chips", () => {
+    render(<EfficiencyMeeting {...props} mode="equipamentos" initialTeam="EQUIPE A" equipment={[
+      ...props.equipment,
+      { ...props.equipment[0], id: "returned", frota: "D3", status: "devolvido", valor_mensal: 9000 },
+    ]} />);
+    expect(screen.getByRole("region", { name: "Apresentação de equipamentos" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Apresentação de equipamentos" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Equipamentos da reunião" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Pessoas da reunião" })).toBeNull();
+    expect(screen.queryByText("D3")).toBeNull();
+    expect(screen.getByText("A1")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Operacionais" }));
+    expect(screen.queryByText("A1")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Sem equipe" }));
+    expect(screen.getByText("B2")).toBeTruthy();
+  });
   it("groups personnel and fleet in operational order without losing any record", () => {
     render(<EfficiencyMeeting {...props} people={[
       { id: "m", name: "Motorista", equipe: "EQUIPE A", status: "ativo", role: "MOTORISTA DE CAMINHÃO", matricula: "2" },

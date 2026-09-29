@@ -7,6 +7,8 @@ import { ProgramadorNote } from "@/components/ProgramadorNote";
 import { noteKey, type OperationalNotes } from "@/lib/programadorNotes";
 
 type Props = {
+  mode?: "equipes" | "funcionarios" | "equipamentos";
+  teams?: string[];
   people: MeetingPerson[];
   equipment: MeetingEquipment[];
   initialTeam: string;
@@ -32,12 +34,13 @@ const filterNames: [string, string][] = [
 ];
 
 /** Read-only meeting surface: no master writes, drafts, or forms are mounted here. */
-export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
+export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, initialTeam, pinnedTeams, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
   const [team, setTeam] = useState(initialTeam);
   const [status, setStatus] = useState("todos");
-  const all = useMemo(() => prepareEfficiencyMeeting(people, equipment, {}), [people, equipment]);
-  const featuredTeams = useMemo(() => rankTeamsByAllocation(all.teams, people, equipment), [all.teams, people, equipment]);
-  const view = useMemo(() => prepareEfficiencyMeeting(people, equipment, { team, status }), [people, equipment, team, status]);
+  const all = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment, {}), [mode, people, equipment]);
+  const availableTeams = useMemo(() => [...new Set([...(teams || []), ...all.teams])], [teams, all.teams]);
+  const featuredTeams = useMemo(() => rankTeamsByAllocation(availableTeams, mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment), [availableTeams, mode, people, equipment]);
+  const view = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment, { team, status }), [mode, people, equipment, team, status]);
   const peopleGroups = useMemo(() => groupPeopleForProgramador(view.people), [view.people]);
   const equipmentGroups = useMemo(() => groupEquipmentForProgramador(view.equipment), [view.equipment]);
   const orderedPeople = useMemo(() => peopleGroups.flatMap(group => group.items), [peopleGroups]);
@@ -46,12 +49,12 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams,
     setTeam(next); setStatus("todos");
   };
   return (
-    <section className="space-y-2" aria-label="Reunião de eficiência">
+    <section className="space-y-2" aria-label={mode === "funcionarios" ? "Apresentação de funcionários" : mode === "equipamentos" ? "Apresentação de equipamentos" : "Reunião de eficiência"}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-bold text-foreground">Reunião de eficiência</h2>
+          <h2 className="text-lg font-bold text-foreground">{mode === "funcionarios" ? "Apresentação de funcionários" : mode === "equipamentos" ? "Apresentação de equipamentos" : "Reunião de eficiência"}</h2>
           <p className="text-xs text-muted-foreground">
-            Dados dos cadastros de Pessoas e Frotas · {updatedAt ? `Atualizados em ${new Date(updatedAt).toLocaleString("pt-BR")}` : "Aguardando consulta"}
+            {mode === "funcionarios" ? "Dados do cadastro de Pessoas" : mode === "equipamentos" ? "Dados do cadastro de Frotas" : "Dados dos cadastros de Pessoas e Frotas"} · {updatedAt ? `Atualizados em ${new Date(updatedAt).toLocaleString("pt-BR")}` : "Aguardando consulta"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -66,31 +69,32 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams,
           <div className="rounded-xl border border-border bg-card px-3 py-1.5 space-y-1">
             <div className="grid grid-cols-1 md:grid-cols-[auto_minmax(0,1fr)] md:items-center gap-1">
               <span className="text-xs font-semibold text-muted-foreground">Equipe</span>
-              <TeamPicker teams={all.teams} featured={featuredTeams} pinned={pinnedTeams} value={team} onChange={changeTeam} allowAll allowNoTeam />
+              <TeamPicker teams={availableTeams} featured={featuredTeams} pinned={pinnedTeams} value={team} onChange={changeTeam} allowAll allowNoTeam />
             </div>
-            <div className="flex flex-wrap items-center gap-1 border-t border-border/60 pt-1" aria-label="Status dos equipamentos">
+            {mode !== "funcionarios" && <div className="flex flex-wrap items-center gap-1 border-t border-border/60 pt-1" aria-label="Status dos equipamentos">
               {filterNames.map(([value, label]) => <button key={value} type="button" aria-pressed={status === value}
                 onClick={() => setStatus(value)}
                 className={`rounded-full border px-2.5 py-0.5 text-xs ${status === value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>{label}</button>)}
               <div className="ml-auto flex gap-3 text-xs text-muted-foreground" aria-label="Indicadores do filtro atual">
-                <span>Pessoas na equipe <strong className="text-foreground tabular-nums">{view.people.length}</strong></span>
+                {mode === "equipes" && <span>Pessoas na equipe <strong className="text-foreground tabular-nums">{view.people.length}</strong></span>}
                 <span>Equipamentos no filtro <strong className="text-foreground tabular-nums">{view.equipment.length}</strong></span>
               </div>
-            </div>
+            </div>}
+            {mode === "funcionarios" && <p className="text-xs text-muted-foreground">Pessoas no filtro <strong className="text-foreground tabular-nums">{view.people.length}</strong></p>}
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
-            <section className="rounded-lg border border-border bg-card min-w-0" aria-label="Pessoas da reunião">
-              <h3 className="border-b border-border px-2 py-1 font-semibold text-sm">Pessoas ({view.people.length})</h3>
+          <div className={`grid grid-cols-1 ${mode === "equipes" ? "lg:grid-cols-2" : ""} gap-2 items-start`}>
+            {mode !== "equipamentos" && <section className="rounded-lg border border-border bg-card min-w-0" aria-label="Pessoas da reunião">
+              <h3 className={`border-b border-border px-2 py-1 font-semibold ${mode === "equipes" ? "text-sm" : "text-base"}`}>Pessoas ({view.people.length})</h3>
               <div className="max-h-[calc(100dvh-16rem)] min-h-[240px] overflow-auto">
-                {view.people.length ? <table className="w-full text-left text-xs"><thead className="text-muted-foreground"><tr><th className="px-2 py-1">Nome</th><th className="px-2 py-1">Função</th><th className="px-2 py-1">Status</th>{onManagePerson && <th className="px-2 py-1">Ação</th>}</tr></thead>
+                {view.people.length ? <table className={`w-full text-left ${mode === "equipes" ? "text-xs" : "text-sm"}`}><thead className="text-muted-foreground"><tr><th className="px-2 py-1">Nome</th><th className="px-2 py-1">Função</th><th className="px-2 py-1">Status</th>{onManagePerson && <th className="px-2 py-1">Ação</th>}</tr></thead>
                   <tbody>{orderedPeople.map(p => <tr key={p.id} className="border-t border-border"><td className="px-2 py-1 font-medium">{p.name} <ProgramadorNote text={notes?.[noteKey("pessoa", p.id)]} label={p.name} /><span className="block text-[11px] text-muted-foreground">{p.matricula || "Sem matrícula"}{!team && ` · ${p.equipe || "Sem equipe"}`}</span></td><td className="px-2 py-1">{p.role || "—"}</td><td className="px-2 py-1">{p.status || "Não informado"}</td>{onManagePerson && <td className="px-2 py-1"><button type="button" className="text-primary underline underline-offset-2" aria-label={`Gerenciar pessoa ${p.name}`} onClick={() => onManagePerson(p.id)}>Gerenciar</button></td>}</tr>)}</tbody>
                 </table> : <p className="p-3 text-xs text-muted-foreground">Nenhuma pessoa nesta equipe.</p>}
               </div>
-            </section>
-            <section className="rounded-lg border border-border bg-card min-w-0" aria-label="Equipamentos da reunião">
-              <h3 className="border-b border-border px-2 py-1 font-semibold text-sm">Equipamentos ({view.equipment.length})</h3>
+            </section>}
+            {mode !== "funcionarios" && <section className="rounded-lg border border-border bg-card min-w-0" aria-label="Equipamentos da reunião">
+              <h3 className={`border-b border-border px-2 py-1 font-semibold ${mode === "equipes" ? "text-sm" : "text-base"}`}>Equipamentos ({view.equipment.length})</h3>
               <div className="max-h-[calc(100dvh-16rem)] min-h-[240px] overflow-auto">
-                {view.equipment.length ? <table className="w-full text-left text-xs"><thead className="text-muted-foreground"><tr><th className="px-2 py-1">Frota / tipo</th><th className="px-2 py-1">{team ? "Empresa" : "Equipe / empresa"}</th><th className="px-2 py-1">Status</th><th className="px-2 py-1 text-right">R$/mês</th>{onManageEquipment && <th className="px-2 py-1">Ação</th>}</tr></thead>
+                {view.equipment.length ? <table className={`w-full text-left ${mode === "equipes" ? "text-xs" : "text-sm"}`}><thead className="text-muted-foreground"><tr><th className="px-2 py-1">Frota / tipo</th><th className="px-2 py-1">{team ? "Empresa" : "Equipe / empresa"}</th><th className="px-2 py-1">Status</th><th className="px-2 py-1 text-right">R$/mês</th>{onManageEquipment && <th className="px-2 py-1">Ação</th>}</tr></thead>
                   <tbody>{orderedEquipment.map(e => {
                     const rental = (e.condicao || "").trim().toUpperCase() === "TERCEIRO";
                     const state = meetingStatus(e);
@@ -104,10 +108,10 @@ export function EfficiencyMeeting({ people, equipment, initialTeam, pinnedTeams,
                     })}</tbody>
                 </table> : <p className="p-3 text-xs text-muted-foreground">Nenhum equipamento encontrado com os filtros atuais.</p>}
               </div>
-            </section>
+            </section>}
           </div>
-          {view.rental.withoutPrice > 0 && <p role="note" className="text-xs font-semibold text-amber-800">{view.rental.withoutPrice} sem valor cadastrado · Mensal conhecido não é o total dos contratos.</p>}
-          {view.byLessor.length > 0 && <section className="rounded-lg border border-border bg-card p-3" aria-label="Resumo por locadora">
+          {mode !== "funcionarios" && view.rental.withoutPrice > 0 && <p role="note" className="text-xs font-semibold text-amber-800">{view.rental.withoutPrice} sem valor cadastrado · Mensal conhecido não é o total dos contratos.</p>}
+          {mode !== "funcionarios" && view.byLessor.length > 0 && <section className="rounded-lg border border-border bg-card p-3" aria-label="Resumo por locadora">
             <h3 className="text-sm font-semibold">Terceiros por empresa — filtro atual</h3>
             <div className="flex flex-wrap gap-2 mt-2">{view.byLessor.map(group => <div key={group.name} className="rounded-md border border-border px-3 py-2 text-xs">
               <span className="font-semibold">{group.name}</span> · {group.count} equipamento(s) · {money(group.monthlyKnown)}/mês conhecido{group.withoutPrice ? ` · ${group.withoutPrice} sem valor` : ""}

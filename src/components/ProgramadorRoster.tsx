@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TeamPicker } from "@/components/TeamPicker";
 import { filterRosterPeople, filterRosterEquipment, type RosterPerson, type RosterEquipment, type PersonDraft, type EquipmentDraft } from "@/lib/programadorRoster";
 
 type Props = {
@@ -11,6 +12,11 @@ type Props = {
   onSaveEquipment: (id: string, draft: EquipmentDraft) => Promise<void>;
   onSavePrice: (id: string, text: string) => Promise<number>;
   onDirtyChange?: (dirty: boolean) => void;
+  pinnedTeams?: string[];
+  onPin?: (team: string) => void;
+  onUnpin?: (team: string) => void;
+  onPresent?: (team: string) => void;
+  pinsError?: string;
 };
 const personStatuses = [
   ["ativo", "Ativo"], ["afastado", "Afastado"], ["ferias", "Férias"], ["demitido", "Demitido"],
@@ -23,7 +29,7 @@ const equipmentStatuses = [
 const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 /** The full master catalog is filtered first; only rendering is paged. */
-export function ProgramadorRoster({ kind, people, equipment, teams, saving, error, initialSelectedId, onSavePerson, onSaveEquipment, onSavePrice, onDirtyChange }: Props) {
+export function ProgramadorRoster({ kind, people, equipment, teams, saving, error, initialSelectedId, onSavePerson, onSaveEquipment, onSavePrice, onDirtyChange, pinnedTeams, onPin, onUnpin, onPresent, pinsError }: Props) {
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("");
   const [type, setType] = useState("");
@@ -55,10 +61,15 @@ export function ProgramadorRoster({ kind, people, equipment, teams, saving, erro
     if (!initialSelectedId) return;
     const row = kind === "funcionarios" ? people.find(p => p.id === initialSelectedId) : equipment.find(e => e.id === initialSelectedId);
     if (!row) return;
+    if (!rows.some(item => item.id === initialSelectedId)) {
+      setSearch(""); setRole(""); setType(""); setTeam(""); setStatus(""); setVisibleCount(40);
+    }
     setSelectedId(initialSelectedId);
     setTeamDraft(("equipe" in row ? row.equipe : row.setor) || "");
     setStatusDraft(row.status || "");
     setPriceDraft("valor_mensal" in row && row.valor_mensal != null ? String(row.valor_mensal).replace(".", ",") : "");
+  // Re-focus only on explicit selection changes; ordinary filters must not reset themselves.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSelectedId, kind]);
   useEffect(() => {
     if (selectedId) {
@@ -105,9 +116,19 @@ export function ProgramadorRoster({ kind, people, equipment, teams, saving, erro
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div><h2 className="text-lg font-bold">{kind === "funcionarios" ? "Funcionários" : "Equipamentos"}</h2>
           <p className="text-xs text-muted-foreground">{rows.length} de {kind === "funcionarios" ? people.length : equipment.length} registros · Cadastro central · Clique em Gerenciar para alterar equipe, status{kind === "equipamentos" ? " ou valor mensal" : ""}.</p></div>
+        {onPresent && <Button type="button" variant="outline" size="sm" disabled={saving || busy || dirty || !!error}
+          onClick={() => onPresent(team === "__sem__" ? "__sem_equipe__" : team)}>Apresentar lista</Button>}
       </div>
       {error && <p role="alert" className="border border-red-300 bg-red-50 text-red-800 rounded-md p-2 text-sm">Dados indisponíveis: {error}</p>}
-      <div className="rounded-lg border border-border bg-card p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
+      {pinsError && <p role="alert" className="border border-amber-300 bg-amber-50 text-amber-800 rounded-md p-2 text-sm">{pinsError}</p>}
+      <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+        <fieldset disabled={dirty || saving || busy || !!error} className="min-w-0">
+          <legend className="mb-1 text-xs text-muted-foreground">Filtrar por equipe</legend>
+          <TeamPicker teams={allTeams} pinned={pinnedTeams} value={team === "__sem__" ? "__sem_equipe__" : team}
+            onChange={value => { setTeam(value === "__sem_equipe__" ? "__sem__" : value); setVisibleCount(40); }}
+            onPin={onPin} onUnpin={onUnpin} allowAll allowNoTeam />
+        </fieldset>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
         <label className="text-xs text-muted-foreground sm:col-span-2">{kind === "funcionarios" ? "Buscar funcionário" : "Buscar frota, placa ou equipamento"}
           <Input className="h-8 mt-1" value={search} disabled={dirty} onChange={e => { setSearch(e.target.value); setVisibleCount(40); }} placeholder={kind === "funcionarios" ? "Nome, matrícula ou função" : "Frota, centro de custo, placa, tipo"} />
         </label>
@@ -124,11 +145,7 @@ export function ProgramadorRoster({ kind, people, equipment, teams, saving, erro
             </select>
           </label>
         )}
-        <label className="text-xs text-muted-foreground">Filtrar por equipe
-          <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={team} disabled={dirty} onChange={e => { setTeam(e.target.value); setVisibleCount(40); }}>
-            <option value="">Todas as equipes</option><option value="__sem__">Sem equipe</option>{allTeams.map(value => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>
+
         <label className="text-xs text-muted-foreground">Filtrar por status
           <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={status} disabled={dirty} onChange={e => { setStatus(e.target.value); setVisibleCount(40); }}>
             <option value="">Todos os status</option>{statusOptions.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
@@ -139,6 +156,7 @@ export function ProgramadorRoster({ kind, people, equipment, teams, saving, erro
             <option value="asc">A → Z</option><option value="desc">Z → A</option>
           </select>
         </label>
+        </div>
       </div>
       <div className="space-y-1.5">
         {rendered.length === 0 && <p className="text-sm text-muted-foreground p-3">Nenhum registro corresponde aos filtros.</p>}

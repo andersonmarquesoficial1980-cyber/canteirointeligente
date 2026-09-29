@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ProgramadorRoster } from "./ProgramadorRoster";
 
 const people = [
@@ -13,6 +14,57 @@ const equipment = [
 const base = { people, equipment, teams: ["Equipe A", "Equipe B"], saving: false, error: "", onSavePerson: vi.fn().mockResolvedValue(undefined), onSaveEquipment: vi.fn().mockResolvedValue(undefined), onSavePrice: vi.fn().mockResolvedValue(1300) };
 
 describe("abas de listas do WF Programador", () => {
+  it.each(["funcionarios", "equipamentos"] as const)("offers customizable shared team chips and presentation in %s", kind => {
+    const onPresent = vi.fn();
+    const onPin = vi.fn();
+    const onUnpin = vi.fn();
+    render(<ProgramadorRoster {...base} kind={kind} pinnedTeams={["Equipe A"]} onPin={onPin} onUnpin={onUnpin} onPresent={onPresent} />);
+    const chips = screen.getByRole("group", { name: "Equipes em destaque" });
+    expect(within(chips).getByRole("button", { name: "Equipe A" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar balão de equipe" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fixar Equipe B" }));
+    expect(onPin).toHaveBeenCalledWith("Equipe B");
+    fireEvent.click(within(chips).getByRole("button", { name: "Equipe A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remover balão Equipe A" }));
+    expect(onUnpin).toHaveBeenCalledWith("Equipe A");
+    fireEvent.click(screen.getByRole("button", { name: "Apresentar lista" }));
+    expect(onPresent).toHaveBeenCalledWith("Equipe A");
+    fireEvent.click(within(chips).getByRole("button", { name: "Sem equipe" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apresentar lista" }));
+    expect(onPresent).toHaveBeenLastCalledWith("__sem_equipe__");
+  });
+  it("does not enter presentation with unsaved employee edits", () => {
+    const onPresent = vi.fn();
+    render(<ProgramadorRoster {...base} kind="funcionarios" onPresent={onPresent} />);
+    fireEvent.click(screen.getByRole("button", { name: "Gerenciar Álvaro" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Status de Álvaro" }), { target: { value: "afastado" } });
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Apresentar lista" }).disabled).toBe(true);
+  });
+  it("shows a warning if browser-local pinned teams could not be persisted", () => {
+    render(<ProgramadorRoster {...base} kind="equipamentos" pinsError="Não foi possível salvar os balões neste navegador." />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Não foi possível salvar os balões");
+  });
+  it("retains employee filters while the presentation is shown and exited", () => {
+    function Flow() {
+      const [present, setPresent] = useState(false);
+      return <><div hidden={present}><ProgramadorRoster {...base} kind="funcionarios" onPresent={() => setPresent(true)} /></div>
+        {present && <button type="button" onClick={() => setPresent(false)}>Sair da apresentação</button>}</>;
+    }
+    render(<Flow />);
+    fireEvent.click(screen.getByRole("button", { name: "Equipe A" }));
+    expect(screen.queryByText("Bruna")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Apresentar lista" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sair da apresentação" }));
+    expect(screen.queryByText("Bruna")).toBeNull();
+    expect(screen.getByRole("button", { name: "Equipe A" }).getAttribute("aria-pressed")).toBe("true");
+  });
+  it("opens the requested record even when the previous team filter hid it", () => {
+    const { rerender } = render(<ProgramadorRoster {...base} kind="funcionarios" />);
+    fireEvent.click(screen.getByRole("button", { name: "Equipe A" }));
+    expect(screen.queryByText("Bruna")).toBeNull();
+    rerender(<ProgramadorRoster {...base} kind="funcionarios" initialSelectedId="p2" />);
+    expect(screen.getByRole("combobox", { name: "Status de Bruna" })).toBeTruthy();
+  });
   it("opens directly on all employees, with search and function filter but no date or movement form", () => {
     render(<ProgramadorRoster {...base} kind="funcionarios" />);
     expect(screen.getByText("Álvaro")).toBeTruthy();

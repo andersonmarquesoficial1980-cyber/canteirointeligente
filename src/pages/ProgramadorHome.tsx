@@ -165,6 +165,9 @@ export default function ProgramadorHome() {
   const [filterEquipStatus, setFilterEquipStatus] = useState("TODOS");
   const [modoOperacaoNoturna, setModoOperacaoNoturna] = useState(false);
   const [modoReuniao, setModoReuniao] = useState(false);
+  const [presentationKind, setPresentationKind] = useState<Aba>("equipes");
+  const [presentationTeam, setPresentationTeam] = useState("");
+  const [rosterFocusVersion, setRosterFocusVersion] = useState(0);
   const [rosterDirty, setRosterDirty] = useState(false);
   const [showAdmission, setShowAdmission] = useState(false);
   const [cadastrosLoading, setCadastrosLoading] = useState(false);
@@ -1097,19 +1100,21 @@ export default function ProgramadorHome() {
       <div className="flex-1 px-3 py-3 pb-4 space-y-3">
         {modoReuniao && (
           <EfficiencyMeeting
-            people={funcionarios} equipment={frota} initialTeam={progEquipe} pinnedTeams={baloesEquipe.pinned}
+            mode={presentationKind} people={funcionarios} equipment={frota} teams={equipesAtivas} initialTeam={presentationTeam} pinnedTeams={baloesEquipe.pinned}
             notes={operationalNotes} notesError={notesError}
             updatedAt={cadastrosUpdatedAt} error={cadastrosError} loading={cadastrosLoading}
             onRefresh={() => { void recarregarCadastros(); }} onExit={() => setModoReuniao(false)}
             onManagePerson={(id) => {
               const person = funcionarios.find(f => f.id === id);
-              if (person) setProgEquipe(person.equipe || "");
+              if (presentationKind === "equipes" && person) setProgEquipe(person.equipe || "");
+              if (presentationKind !== "equipes") setRosterFocusVersion(version => version + 1);
               setModoReuniao(false);
               abrirFuncionarioDaEquipe(id);
             }}
             onManageEquipment={(id) => {
               const equipment = frota.find(f => f.id === id);
-              if (equipment) setProgEquipe(equipment.setor || "");
+              if (presentationKind === "equipes" && equipment) setProgEquipe(equipment.setor || "");
+              if (presentationKind !== "equipes") setRosterFocusVersion(version => version + 1);
               setModoReuniao(false);
               abrirEquipamentoDaEquipe(id);
             }}
@@ -1171,6 +1176,7 @@ export default function ProgramadorHome() {
                       setModoOperacaoNoturna(false);
                       setFilterFuncStatus("TODOS"); setFilterEquipStatus("TODOS");
                       setFuncSearch(""); setEquipSearch("");
+                      setPresentationKind("equipes"); setPresentationTeam(progEquipe);
                       setModoReuniao(true);
                     }}>Apresentar eficiência</Button>
                 </div>
@@ -1486,8 +1492,8 @@ export default function ProgramadorHome() {
         )}
 
         {/* As abas individuais listam os cadastros mestres; sem formulários de movimentação. */}
-        {!modoReuniao && (aba === "funcionarios" || aba === "equipamentos") && (
-          <div className="space-y-3">
+        {(aba === "funcionarios" || aba === "equipamentos") && (
+          <div className={modoReuniao ? "hidden" : "space-y-3"}>
           {aba === "funcionarios" && (
             <div>
               <Button type="button" variant="outline" size="sm" disabled={saving || !!cadastrosError || cadastrosLoading}
@@ -1525,11 +1531,19 @@ export default function ProgramadorHome() {
             </div>
           )}
           <ProgramadorRoster
-            key={aba}
+            key={`${aba}:${rosterFocusVersion}`}
             kind={aba}
             people={funcionarios}
             equipment={frota}
             teams={equipesAtivas}
+            pinnedTeams={baloesEquipe.pinned}
+            pinsError={baloesEquipe.error}
+            onPin={baloesEquipe.pin}
+            onUnpin={baloesEquipe.unpin}
+            onPresent={(team) => {
+              if (rosterDirty || cadastrosLoading || cadastrosError) return;
+              setPresentationKind(aba); setPresentationTeam(team); setModoReuniao(true);
+            }}
             saving={saving || cadastrosLoading}
             error={cadastrosError}
             initialSelectedId={aba === "funcionarios" ? funcId : equipFrota}
