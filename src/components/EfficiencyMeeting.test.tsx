@@ -26,11 +26,43 @@ describe("tela de reunião", () => {
       { ...props.equipment[0], id: "r", tipo: "ROLO CHAPA" },
       { ...props.equipment[1], id: "f", tipo: "FRESADORA" },
     ]} />);
-    const names = screen.getAllByRole("row").map(row => row.textContent || "");
-    expect(names.findIndex(name => name.includes("Encarregado"))).toBeLessThan(names.findIndex(name => name.includes("Motoristas")));
-    expect(names.findIndex(name => name.includes("Fresadora"))).toBeLessThan(names.findIndex(name => name.includes("Rolos")));
+    const names = within(screen.getByRole("region", { name: "Pessoas da reunião" })).getAllByRole("row").map(row => row.textContent || "");
+    const fleet = within(screen.getByRole("region", { name: "Equipamentos da reunião" })).getAllByRole("row").map(row => row.textContent || "");
+    expect(names.findIndex(name => name.includes("Chefe"))).toBeLessThan(names.findIndex(name => name.includes("Motorista")));
+    expect(fleet.findIndex(name => name.includes("FRESADORA"))).toBeLessThan(fleet.findIndex(name => name.includes("ROLO CHAPA")));
     expect(screen.getByText("Chefe")).toBeTruthy();
     expect(screen.getByText("Motorista")).toBeTruthy();
+  });
+  it("prioritizes the roster over financial cards and advanced equipment controls", () => {
+    render(<EfficiencyMeeting {...props} />);
+    const indicators = screen.getByLabelText("Indicadores do filtro atual");
+    expect(within(indicators).getByText("Pessoas na equipe")).toBeTruthy();
+    expect(within(indicators).getByText("Equipamentos no filtro")).toBeTruthy();
+    expect(within(indicators).queryByText("Mensal conhecido")).toBeNull();
+    expect(within(indicators).queryByText("Preços pendentes")).toBeNull();
+    expect(within(indicators).queryByText("Em manutenção")).toBeNull();
+    expect(within(indicators).queryByText("Terceiros")).toBeNull();
+    expect(screen.queryByText("Tipo de equipamento")).toBeNull();
+    expect(screen.queryByText("Buscar equipamento ou locadora")).toBeNull();
+    expect(screen.getByRole("button", { name: "Manutenção" })).toBeTruthy();
+    expect(screen.getByText(/1 sem valor cadastrado/)).toBeTruthy();
+  });
+  it("shows ordered people and fleet without redundant group heading rows", () => {
+    render(<EfficiencyMeeting {...props} people={[
+      { id: "m", name: "João", equipe: "EQUIPE A", status: "ativo", role: "MOTORISTA", matricula: "2" },
+      { id: "e", name: "Ana", equipe: "EQUIPE A", status: "ativo", role: "ENCARREGADO DE OBRAS", matricula: "1" },
+    ]} equipment={[
+      { ...props.equipment[0], id: "r", tipo: "ROLO CHAPA", frota: "R1" },
+      { ...props.equipment[1], id: "f", tipo: "FRESADORA", frota: "F1" },
+    ]} />);
+    const peopleRows = within(screen.getByRole("region", { name: "Pessoas da reunião" })).getAllByRole("row");
+    const equipmentRows = within(screen.getByRole("region", { name: "Equipamentos da reunião" })).getAllByRole("row");
+    expect(peopleRows[1].textContent).toContain("Ana");
+    expect(peopleRows[2].textContent).toContain("João");
+    expect(equipmentRows[1].textContent).toContain("F1");
+    expect(equipmentRows[2].textContent).toContain("R1");
+    expect(peopleRows).toHaveLength(3);
+    expect(equipmentRows).toHaveLength(3);
   });
   it("reflects configured chips in presentation without offering to edit them", () => {
     const { rerender } = render(<EfficiencyMeeting {...props} pinnedTeams={[]} />);
