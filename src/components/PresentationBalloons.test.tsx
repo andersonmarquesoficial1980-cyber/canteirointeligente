@@ -4,6 +4,22 @@ import { balloonOptions } from "@/lib/programadorMeeting";
 import { PresentationBalloons } from "./PresentationBalloons";
 
 describe("balões de visibilidade na apresentação", () => {
+  it("keeps inclusion balloons neutral until chosen, with an explicit all-categories reset", () => {
+    const onToggle = vi.fn();
+    const onReset = vi.fn();
+    const options = ["Motorista", "Apontador"].map(label => ({ key: label.toLowerCase(), label, count: 1 }));
+    const { rerender } = render(<PresentationBalloons title="Funções" groupLabel="Filtrar funções" singular="função"
+      options={options} mode="include" selected={[]} allLabel="Todas as funções" onToggle={onToggle} onReset={onReset} />);
+    expect(screen.getByRole("button", { name: "Todas as funções" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Selecionar função Motorista" }).getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar função Motorista" }));
+    expect(onToggle).toHaveBeenCalledWith("motorista");
+    rerender(<PresentationBalloons title="Funções" groupLabel="Filtrar funções" singular="função"
+      options={options} mode="include" selected={["motorista"]} allLabel="Todas as funções" onToggle={onToggle} onReset={onReset} />);
+    expect(screen.getByRole("button", { name: "Retirar função Motorista" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Todas as funções" }));
+    expect(onReset).toHaveBeenCalledOnce();
+  });
   it("groups spelling variants without losing the blank cost center", () => {
     const rows = [{ cost: " CC 01 " }, { cost: "cc 01" }, { cost: null }];
     expect(balloonOptions(rows, row => row.cost, "__sem_centro__", "Sem centro de custo")).toEqual([

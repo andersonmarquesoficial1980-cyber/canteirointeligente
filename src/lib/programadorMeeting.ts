@@ -14,7 +14,7 @@ export type MeetingEquipment = {
 };
 export type MeetingFilters = {
   team?: string; status?: string; type?: string; search?: string;
-  hiddenRoles?: readonly string[]; hiddenTypes?: readonly string[]; hiddenCostCenters?: readonly string[];
+  selectedRoles?: readonly string[]; selectedTypes?: readonly string[]; hiddenCostCenters?: readonly string[];
 };
 
 const normal = (value?: string | null) => (value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
@@ -53,19 +53,20 @@ export const meetingStatus = (eq: MeetingEquipment) => {
 export function prepareEfficiencyMeeting<P extends MeetingPerson, E extends MeetingEquipment>(
   people: readonly P[], equipment: readonly E[], filters: MeetingFilters,
 ) {
-  // Returned fleet remains in the master register, but is no longer available to schedule in a meeting.
+  // Master records remain untouched; dismissed staff and returned fleet never enter a presentation.
+  const availablePeople = people.filter(person => normal(person.status) !== "demitido");
   const availableEquipment = excludeReturnedFleet(equipment);
-  const teams = [...new Set([...people.map(p => p.equipe?.trim()), ...availableEquipment.map(e => e.setor?.trim())]
+  const teams = [...new Set([...availablePeople.map(p => p.equipe?.trim()), ...availableEquipment.map(e => e.setor?.trim())]
     .filter((t): t is string => Boolean(t)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const inTeam = (value?: string | null) => !filters.team
     || (filters.team === "__sem_equipe__" ? !value?.trim() : normal(value) === normal(filters.team));
-  const selectedPeople = people.filter(p => inTeam(p.equipe)
-    && !isHidden(filters.hiddenRoles, p.role, "__sem_funcao__")
+  const selectedPeople = availablePeople.filter(p => inTeam(p.equipe)
+    && (!filters.selectedRoles?.length || filters.selectedRoles.some(key => meetingFilterKey(key, "__sem_funcao__") === meetingFilterKey(p.role, "__sem_funcao__")))
     && !isHidden(filters.hiddenCostCenters, p.centro_custo, "__sem_centro__"))
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const search = normal(filters.search);
   const selectedEquipment = availableEquipment.filter(e => inTeam(e.setor)
-    && !isHidden(filters.hiddenTypes, e.tipo, "__sem_tipo__")
+    && (!filters.selectedTypes?.length || filters.selectedTypes.some(key => meetingFilterKey(key, "__sem_tipo__") === meetingFilterKey(e.tipo, "__sem_tipo__")))
     && !isHidden(filters.hiddenCostCenters, e.centro_custo, "__sem_centro__")
     && (!filters.type || normal(e.tipo) === normal(filters.type))
     && (!filters.status || filters.status === "todos" || (filters.status === "terceiro" ? isRental(e) : meetingStatus(e) === filters.status))

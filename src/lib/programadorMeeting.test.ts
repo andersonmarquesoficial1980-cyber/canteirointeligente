@@ -13,7 +13,7 @@ const equipment = [
 
 // These are master records, never copied to a second table or modified by the meeting view.
 describe("reunião de eficiência do Programador", () => {
-  it("excludes hidden roles, equipment types and cost centers without changing master records or rental totals", () => {
+  it("includes only selected roles and types, while hiding cost centers, without changing master records", () => {
     const staff = [
       { ...people[0], centro_custo: "CC 01" },
       { ...people[0], id: "p3", name: "Cris", role: "Apontador", centro_custo: "CC 02" },
@@ -24,13 +24,26 @@ describe("reunião de eficiência do Programador", () => {
       { ...equipment[2], centro_custo: null },
     ];
     const view = prepareEfficiencyMeeting(staff, fleet, {
-      hiddenRoles: ["motorista"], hiddenTypes: ["escavadeira"], hiddenCostCenters: ["cc 02"],
+      selectedRoles: ["MOTORISTA"], selectedTypes: ["caminhao basculante"], hiddenCostCenters: ["cc 02"],
     });
-    expect(view.people.map(p => p.id)).toEqual([]);
+    expect(prepareEfficiencyMeeting(staff, fleet, { selectedRoles: ["motorista"], selectedTypes: ["caminhao basculante"] }).people.map(p => p.id)).toEqual(["p1"]);
+    expect(view.people.map(p => p.id)).toEqual(["p1"]);
     expect(view.equipment.map(e => e.id)).toEqual(["q1"]);
     expect(view.rental).toEqual({ rented: 1, monthlyKnown: 1500, withoutPrice: 0 });
     expect(fleet).toHaveLength(3);
     expect(staff).toHaveLength(2);
+  });
+  it("excludes dismissed employees from every presentation and its team/category catalogs, but not the master", () => {
+    const roster = [
+      ...people,
+      { id: "dismissed", name: "Carla", equipe: "EQUIPE DEMITIDOS", status: " DEMITIDO ", role: "Técnica" },
+    ];
+    for (const filters of [{}, { team: "__sem_equipe__" }, { team: "EQUIPE DEMITIDOS" }, { selectedRoles: ["tecnica"] }]) {
+      const view = prepareEfficiencyMeeting(roster, equipment, filters);
+      expect(view.people.map(p => p.id)).not.toContain("dismissed");
+      expect(view.teams).not.toContain("EQUIPE DEMITIDOS");
+    }
+    expect(roster).toHaveLength(3);
   });
   it("lets presentation hide records without a cost center", () => {
     const result = prepareEfficiencyMeeting(people, equipment, { hiddenCostCenters: ["__sem_centro__"] });

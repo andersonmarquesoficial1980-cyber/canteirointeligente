@@ -38,17 +38,17 @@ const filterNames: [string, string][] = [
 export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, initialTeam, pinnedTeams, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
   const [team, setTeam] = useState(initialTeam);
   const [status, setStatus] = useState("todos");
-  const [hiddenRoles, setHiddenRoles] = useState<string[]>([]);
-  const [hiddenTypes, setHiddenTypes] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [hiddenCostCenters, setHiddenCostCenters] = useState<string[]>([]);
   const all = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment, {}), [mode, people, equipment]);
   const availableTeams = useMemo(() => [...new Set([...(teams || []), ...all.teams])], [teams, all.teams]);
-  const featuredTeams = useMemo(() => rankTeamsByAllocation(availableTeams, mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment), [availableTeams, mode, people, equipment]);
+  const featuredTeams = useMemo(() => rankTeamsByAllocation(availableTeams, all.people, all.equipment), [availableTeams, all.people, all.equipment]);
   const roleOptions = useMemo(() => balloonOptions(all.people, p => p.role, "__sem_funcao__", "Sem função"), [all.people]);
   const typeOptions = useMemo(() => balloonOptions(all.equipment, e => e.tipo, "__sem_tipo__", "Sem tipo"), [all.equipment]);
   const costOptions = useMemo(() => balloonOptions([...all.people, ...all.equipment], row => row.centro_custo, "__sem_centro__", "Sem centro de custo"), [all.people, all.equipment]);
   const view = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment,
-    { team, status, hiddenRoles, hiddenTypes, hiddenCostCenters }), [mode, people, equipment, team, status, hiddenRoles, hiddenTypes, hiddenCostCenters]);
+    { team, status, selectedRoles, selectedTypes, hiddenCostCenters }), [mode, people, equipment, team, status, selectedRoles, selectedTypes, hiddenCostCenters]);
   const toggle = (setter: Dispatch<SetStateAction<string[]>>) => (key: string) =>
     setter(current => current.includes(key) ? current.filter(value => value !== key) : [...current, key]);
   const peopleGroups = useMemo(() => groupPeopleForProgramador(view.people), [view.people]);
@@ -81,10 +81,12 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
               <span className="text-xs font-semibold text-muted-foreground">Equipe</span>
               <TeamPicker teams={availableTeams} featured={featuredTeams} pinned={pinnedTeams} value={team} onChange={changeTeam} allowAll allowNoTeam />
             </div>
-            {mode === "funcionarios" && <PresentationBalloons title="Funções · toque para ocultar" groupLabel="Filtrar funções" singular="função"
-              options={roleOptions} hidden={hiddenRoles} onToggle={toggle(setHiddenRoles)} onReset={() => setHiddenRoles([])} />}
-            {mode === "equipamentos" && <PresentationBalloons title="Tipos · toque para ocultar" groupLabel="Filtrar tipos de equipamento" singular="tipo"
-              options={typeOptions} hidden={hiddenTypes} onToggle={toggle(setHiddenTypes)} onReset={() => setHiddenTypes([])} />}
+            {mode === "funcionarios" && <PresentationBalloons title="Funções · escolha o que mostrar" groupLabel="Filtrar funções" singular="função"
+              options={roleOptions} mode="include" selected={selectedRoles} allLabel="Todas as funções"
+              onToggle={toggle(setSelectedRoles)} onReset={() => setSelectedRoles([])} />}
+            {mode === "equipamentos" && <PresentationBalloons title="Tipos · escolha o que mostrar" groupLabel="Filtrar tipos de equipamento" singular="tipo"
+              options={typeOptions} mode="include" selected={selectedTypes} allLabel="Todos os tipos"
+              onToggle={toggle(setSelectedTypes)} onReset={() => setSelectedTypes([])} />}
             <PresentationBalloons title="Centros de custo · toque para ocultar" groupLabel="Filtrar centros de custo" singular="centro de custo"
               options={costOptions} hidden={hiddenCostCenters} onToggle={toggle(setHiddenCostCenters)} onReset={() => setHiddenCostCenters([])} />
             {mode !== "funcionarios" && <div className="flex flex-wrap items-center gap-1 border-t border-border/60 pt-1" aria-label="Status dos equipamentos">

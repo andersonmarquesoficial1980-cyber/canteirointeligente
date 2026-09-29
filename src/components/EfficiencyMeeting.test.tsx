@@ -18,18 +18,32 @@ const props = {
 };
 
 describe("tela de reunião", () => {
-  it("toggles function balloons in employee presentation without changing the team selection", () => {
+  it("selects only the employee functions to show and restores all explicitly", () => {
     render(<EfficiencyMeeting {...props} mode="funcionarios" people={[
       props.people[0],
       { ...props.people[0], id: "p3", name: "Cris", role: "Apontador" },
     ]} initialTeam="EQUIPE A" />);
     expect(screen.getByRole("group", { name: "Filtrar funções" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Ocultar função Motorista" }));
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar função Motorista" }));
+    expect(screen.getByText("Ana")).toBeTruthy();
+    expect(screen.queryByText("Cris")).toBeNull();
+    expect(screen.getByRole("button", { name: "EQUIPE A" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar função Apontador" }));
+    expect(screen.getByText("Cris")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retirar função Motorista" }));
     expect(screen.queryByText("Ana")).toBeNull();
     expect(screen.getByText("Cris")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "EQUIPE A" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "Mostrar função Motorista" }));
+    fireEvent.click(screen.getByRole("button", { name: "Todas as funções" }));
     expect(screen.getByText("Ana")).toBeTruthy();
+  });
+  it.each(["equipes", "funcionarios"] as const)("never presents dismissed staff in %s mode", mode => {
+    render(<EfficiencyMeeting {...props} mode={mode} people={[
+      ...props.people,
+      { id: "dem", name: "Demitida", equipe: "EQUIPE DEM", status: "demitido", role: "Função exclusiva" },
+    ]} />);
+    expect(screen.queryByText("Demitida")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Selecionar função Função exclusiva" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "EQUIPE DEM" })).toBeNull();
   });
   it("identifies and hides a cost center in employee presentation", () => {
     render(<EfficiencyMeeting {...props} mode="funcionarios" people={[
@@ -60,19 +74,19 @@ describe("tela de reunião", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mostrar centro de custo CC 01" }));
     expect(screen.getByText("Ana")).toBeTruthy();
   });
-  it("filters equipment-type balloons and recalculates costs while keeping returned fleet out", () => {
+  it("selects equipment types to show and recalculates costs while keeping returned fleet out", () => {
     render(<EfficiencyMeeting {...props} mode="equipamentos" equipment={[
       ...props.equipment,
       { ...props.equipment[0], id: "returned", tipo: "GUINDASTE", status: "devolvido", frota: "D3" },
     ]} />);
     expect(screen.getByRole("group", { name: "Filtrar tipos de equipamento" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Ocultar tipo GUINDASTE" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Ocultar tipo CAMINHÃO BASCULANTE" }));
+    expect(screen.queryByRole("button", { name: "Selecionar tipo GUINDASTE" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Selecionar tipo ESCAVADEIRA" }));
     expect(screen.queryByText("A1")).toBeNull();
     expect(screen.queryByText("D3")).toBeNull();
     expect(screen.getByText("B2")).toBeTruthy();
     expect(screen.queryByText("Locadora A")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Mostrar tipo CAMINHÃO BASCULANTE" }));
+    fireEvent.click(screen.getByRole("button", { name: "Todos os tipos" }));
     expect(screen.getByText("A1")).toBeTruthy();
   });
   it("presents only employees across full width with team chips and operational notes", () => {
