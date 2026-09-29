@@ -17,7 +17,7 @@ import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { buildPersonMovement, buildEquipmentMovement, summarizeTeamRental, assertNewAdmission } from "@/lib/programadorIndividual";
 import { saveMonthlyRental } from "@/lib/programadorRental";
 import { EfficiencyMeeting } from "@/components/EfficiencyMeeting";
-import { fetchTeamsForCompany, filterByTeamSelection, programadorEmployeesQuery } from "@/lib/programadorTeams";
+import { fetchTeamsForCompany, filterByTeamSelection, excludeReturnedFleet, programadorEmployeesQuery } from "@/lib/programadorTeams";
 import { ProgramadorRoster } from "@/components/ProgramadorRoster";
 import { TeamPicker, rankTeamsByAllocation } from "@/components/TeamPicker";
 import { groupPeopleForProgramador, groupEquipmentForProgramador } from "@/lib/programadorGroups";
@@ -223,7 +223,7 @@ export default function ProgramadorHome() {
     if (funcRes.count !== funcRes.data?.length || frotaRes.count !== frotaRes.data?.length) {
       throw new Error("A consulta retornou apenas parte dos cadastros. Totais de reunião indisponíveis até carregar todos os registros.");
     }
-    const companyTeams = await fetchTeamsForCompany(supabase as any, companyId, funcRes.data as Funcionario[], frotaRes.data as Frota[]);
+    const companyTeams = await fetchTeamsForCompany(supabase as any, companyId, funcRes.data as Funcionario[], excludeReturnedFleet(frotaRes.data as Frota[]));
     setEquipes(companyTeams);
     if (funcRes?.data) {
       const normalizados = (funcRes.data as Funcionario[]).map((f) => ({
@@ -307,9 +307,10 @@ export default function ProgramadorHome() {
       .sort((a, b) => a.localeCompare(b, "pt-BR")),
     [equipes]
   );
+  const frotaAlocavel = useMemo(() => excludeReturnedFleet(frota), [frota]);
   const equipesDestaque = useMemo(
-    () => rankTeamsByAllocation(equipesAtivas, funcionarios, frota),
-    [equipesAtivas, funcionarios, frota]
+    () => rankTeamsByAllocation(equipesAtivas, funcionarios, frotaAlocavel),
+    [equipesAtivas, funcionarios, frotaAlocavel]
   );
   const sugestoesEquipes = useMemo(() => equipesDestaque.slice(0, 4), [equipesDestaque]);
   const baloesEquipe = useProgramadorPinnedTeams(companyId, profile?.user_id || null, equipesAtivas, sugestoesEquipes);
@@ -344,8 +345,8 @@ export default function ProgramadorHome() {
   }, [funcionarios, progEquipe]);
 
   const equipamentosDaEquipe = useMemo(() => {
-    return filterByTeamSelection(frota, progEquipe, (f) => f.setor);
-  }, [frota, progEquipe]);
+    return filterByTeamSelection(frotaAlocavel, progEquipe, (f) => f.setor);
+  }, [frotaAlocavel, progEquipe]);
 
   const resumoLocacaoEquipe = useMemo(() => summarizeTeamRental(equipamentosDaEquipe), [equipamentosDaEquipe]);
   const moeda = (valor: number) => valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

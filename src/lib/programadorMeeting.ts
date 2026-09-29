@@ -1,4 +1,5 @@
 import { summarizeTeamRental } from "./programadorIndividual";
+import { excludeReturnedFleet } from "./programadorTeams";
 
 export type MeetingPerson = {
   id: string; name: string; equipe: string | null; status: string | null;
@@ -34,7 +35,7 @@ export function prepareEfficiencyMeeting<P extends MeetingPerson, E extends Meet
   people: readonly P[], equipment: readonly E[], filters: MeetingFilters,
 ) {
   // Returned fleet remains in the master register, but is no longer available to schedule in a meeting.
-  const availableEquipment = equipment.filter(e => normal(e.status) !== "devolvido");
+  const availableEquipment = excludeReturnedFleet(equipment);
   const teams = [...new Set([...people.map(p => p.equipe?.trim()), ...availableEquipment.map(e => e.setor?.trim())]
     .filter((t): t is string => Boolean(t)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const inTeam = (value?: string | null) => !filters.team

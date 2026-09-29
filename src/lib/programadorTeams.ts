@@ -4,6 +4,11 @@ type Team = { id: string; nome: string; responsavel: string | null; ativa: boole
 
 const key = (value?: string | null) => (value || "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+/** Keep returned equipment in the master registry; remove it only from allocation views. */
+export function excludeReturnedFleet<T extends { status?: string | null }>(fleet: readonly T[]): T[] {
+  return fleet.filter(eq => key(eq.status) !== "devolvido");
+}
+
 /** Selector value is a UI sentinel, never a persisted team name. */
 export function filterByTeamSelection<T>(rows: readonly T[], selected: string, teamOf: (row: T) => string | null | undefined): T[] {
   if (!selected) return [];

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchTeamsForCompany, filterByTeamSelection, programadorEmployeesQuery } from "./programadorTeams";
+import { fetchTeamsForCompany, filterByTeamSelection, excludeReturnedFleet, programadorEmployeesQuery } from "./programadorTeams";
 
 describe("origem do cadastro de pessoas no Programador", () => {
   it("queries only own employees of the selected company, without duplicating the master registry", () => {
@@ -24,6 +24,20 @@ describe("filtro de equipe no gerenciamento", () => {
     expect(filterByTeamSelection(rows, "__sem_equipe__", row => row.team)).toEqual(rows.slice(0, 2));
     expect(filterByTeamSelection(rows, "CBUQ01", row => row.team)).toEqual([rows[2]]);
     expect(filterByTeamSelection(rows, "", row => row.team)).toEqual([]);
+  });
+});
+
+describe("frota disponível para alocação por equipe", () => {
+  it("removes returned equipment from the team roster without mutating the master list", () => {
+    const fleet = [
+      { id: "returned", setor: null, status: " DEVOLVIDO " },
+      { id: "pending", setor: null, status: "devolver" },
+      { id: "working", setor: "EQUIPE A", status: "ativo" },
+    ];
+    const available = excludeReturnedFleet(fleet);
+    expect(available.map(eq => eq.id)).toEqual(["pending", "working"]);
+    expect(filterByTeamSelection(available, "__sem_equipe__", eq => eq.setor).map(eq => eq.id)).toEqual(["pending"]);
+    expect(fleet).toHaveLength(3);
   });
 });
 
