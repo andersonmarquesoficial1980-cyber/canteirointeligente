@@ -13,6 +13,8 @@ type Props = {
   people: MeetingPerson[];
   equipment: MeetingEquipment[];
   initialTeam: string;
+  zoom?: number;
+  onZoomChange?: (zoom: number) => void;
   pinnedTeams?: string[];
   notes?: OperationalNotes;
   notesError?: string;
@@ -35,7 +37,7 @@ const filterNames: [string, string][] = [
 ];
 
 /** Read-only meeting surface: no master writes, drafts, or forms are mounted here. */
-export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, initialTeam, pinnedTeams, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
+export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, initialTeam, zoom = 100, onZoomChange, pinnedTeams, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
   const [team, setTeam] = useState(initialTeam);
   const [status, setStatus] = useState("todos");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
@@ -68,6 +70,15 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {onZoomChange && <div role="group" aria-label="Zoom da apresentação" className="flex items-center gap-1 rounded-md border border-border px-1">
+            <span className="px-1 text-xs font-semibold text-muted-foreground">Zoom</span>
+            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0 text-lg" aria-label="Diminuir zoom"
+              disabled={zoom <= 75} onClick={() => onZoomChange(Math.max(75, zoom - 25))}>−</Button>
+            <Button type="button" size="sm" variant="ghost" className="h-8 min-w-14 px-1 tabular-nums" aria-label="Restaurar zoom a 100%"
+              disabled={zoom === 100} onClick={() => onZoomChange(100)}>{zoom}%</Button>
+            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0 text-lg" aria-label="Aumentar zoom"
+              disabled={zoom >= 200} onClick={() => onZoomChange(Math.min(200, zoom + 25))}>+</Button>
+          </div>}
           <Button type="button" size="sm" variant="outline" onClick={onRefresh} disabled={loading}>{loading ? "Atualizando..." : "Atualizar dados"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={onExit}>Sair da apresentação</Button>
         </div>
@@ -75,7 +86,7 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
       {error && <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-800">Dados possivelmente incompletos: {error}. Não use estes totais para decisão sem atualizar.</p>}
       {notesError && <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">Observações indisponíveis: {notesError}. Atualize os dados antes da reunião.</p>}
       {!updatedAt && !error && <p role="status" className="text-sm text-muted-foreground">Carregando cadastros...</p>}
-      <div className="min-w-0 space-y-2">
+      <div className="min-w-0 space-y-2" data-testid="presentation-content" style={{ zoom: `${zoom}%` }}>
           <div className="rounded-xl border border-border bg-card px-3 py-1.5 space-y-1">
             <div className="grid grid-cols-1 md:grid-cols-[auto_minmax(0,1fr)] md:items-center gap-1">
               <span className="text-xs font-semibold text-muted-foreground">Equipe</span>
@@ -100,7 +111,7 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
             </div>}
             {mode === "funcionarios" && <p className="text-xs text-muted-foreground">Pessoas no filtro <strong className="text-foreground tabular-nums">{view.people.length}</strong></p>}
           </div>
-          <div className={`grid grid-cols-1 ${mode === "equipes" ? "lg:grid-cols-2" : ""} gap-2 items-start`}>
+          <div className={`grid grid-cols-1 ${mode === "equipes" && zoom < 150 ? "lg:grid-cols-2" : ""} gap-2 items-start`}>
             {mode !== "equipamentos" && <section className="rounded-lg border border-border bg-card min-w-0" aria-label="Pessoas da reunião">
               <h3 className={`border-b border-border px-2 py-1 font-semibold ${mode === "equipes" ? "text-sm" : "text-base"}`}>Pessoas ({view.people.length})</h3>
               <div className="max-h-[calc(100dvh-16rem)] min-h-[240px] overflow-auto">

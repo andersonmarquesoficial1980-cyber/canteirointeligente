@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { EfficiencyMeeting } from "./EfficiencyMeeting";
@@ -18,6 +19,37 @@ const props = {
 };
 
 describe("tela de reunião", () => {
+  it.each(["equipes", "funcionarios", "equipamentos"] as const)("zooms readable content in %s presentation without scaling the controls", mode => {
+    function ZoomHarness() {
+      const [zoom, setZoom] = useState(100);
+      return <EfficiencyMeeting {...props} mode={mode} zoom={zoom} onZoomChange={setZoom} />;
+    }
+    render(<ZoomHarness />);
+    const controls = screen.getByRole("group", { name: "Zoom da apresentação" });
+    expect(within(controls).getByText("Zoom")).toBeTruthy();
+    const content = screen.getByTestId("presentation-content");
+    expect(content.style.zoom).toBe("100%");
+    fireEvent.click(within(controls).getByRole("button", { name: "Aumentar zoom" }));
+    expect(content.style.zoom).toBe("125%");
+    expect(within(controls).getByText("125%")).toBeTruthy();
+    fireEvent.click(within(controls).getByRole("button", { name: "Restaurar zoom a 100%" }));
+    expect(content.style.zoom).toBe("100%");
+    fireEvent.click(within(controls).getByRole("button", { name: "Diminuir zoom" }));
+    expect(content.style.zoom).toBe("75%");
+    expect(within(controls).getByRole<HTMLButtonElement>("button", { name: "Diminuir zoom" }).disabled).toBe(true);
+    expect(controls.closest('[data-testid="presentation-content"]')).toBeNull();
+  });
+  it("caps zoom to prevent content from growing beyond the supported presentation range", () => {
+    function ZoomHarness() {
+      const [zoom, setZoom] = useState(175);
+      return <EfficiencyMeeting {...props} zoom={zoom} onZoomChange={setZoom} />;
+    }
+    render(<ZoomHarness />);
+    const controls = screen.getByRole("group", { name: "Zoom da apresentação" });
+    fireEvent.click(within(controls).getByRole("button", { name: "Aumentar zoom" }));
+    expect(screen.getByTestId("presentation-content").style.zoom).toBe("200%");
+    expect(within(controls).getByRole<HTMLButtonElement>("button", { name: "Aumentar zoom" }).disabled).toBe(true);
+  });
   it("selects only the employee functions to show and restores all explicitly", () => {
     render(<EfficiencyMeeting {...props} mode="funcionarios" people={[
       props.people[0],

@@ -167,6 +167,7 @@ export default function ProgramadorHome() {
   const [modoReuniao, setModoReuniao] = useState(false);
   const [presentationKind, setPresentationKind] = useState<Aba>("equipes");
   const [presentationTeam, setPresentationTeam] = useState("");
+  const [presentationZoom, setPresentationZoom] = useState(100);
   const [rosterFocusVersion, setRosterFocusVersion] = useState(0);
   const [rosterDirty, setRosterDirty] = useState(false);
   const [showAdmission, setShowAdmission] = useState(false);
@@ -1101,6 +1102,7 @@ export default function ProgramadorHome() {
         {modoReuniao && (
           <EfficiencyMeeting
             mode={presentationKind} people={funcionarios} equipment={frota} teams={equipesAtivas} initialTeam={presentationTeam} pinnedTeams={baloesEquipe.pinned}
+            zoom={presentationZoom} onZoomChange={setPresentationZoom}
             notes={operationalNotes} notesError={notesError}
             updatedAt={cadastrosUpdatedAt} error={cadastrosError} loading={cadastrosLoading}
             onRefresh={() => { void recarregarCadastros(); }} onExit={() => setModoReuniao(false)}
