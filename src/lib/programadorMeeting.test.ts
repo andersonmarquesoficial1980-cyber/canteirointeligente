@@ -13,6 +13,23 @@ const equipment = [
 
 // These are master records, never copied to a second table or modified by the meeting view.
 describe("reunião de eficiência do Programador", () => {
+  it("compares multiple selected teams including unallocated people without mixing other teams", () => {
+    const staff = [
+      ...people,
+      { ...people[0], id: "p3", name: "Cris", equipe: "EQUIPE B", role: "Ajudante" },
+      { ...people[0], id: "p4", name: "Dora", equipe: "EQUIPE C", role: "Ajudante" },
+    ];
+    const filtered = prepareEfficiencyMeeting(staff, equipment, { teams: ["equipe b", "__sem_equipe__"] });
+    expect(filtered.people.map(p => p.id)).toEqual(["p2", "p3"]);
+    expect(filtered.equipment.map(e => e.id)).toEqual(["q2"]);
+    expect(filtered.rental).toEqual({ rented: 1, monthlyKnown: 0, withoutPrice: 1 });
+    expect(prepareEfficiencyMeeting(staff, equipment, { teams: [] }).people).toHaveLength(4);
+  });
+  it("searches employee names and IDs separately from equipment search", () => {
+    const result = prepareEfficiencyMeeting(people, equipment, { personSearch: "ana" });
+    expect(result.people.map(p => p.id)).toEqual(["p1"]);
+    expect(result.equipment).toHaveLength(3);
+  });
   it("includes only selected roles and types, while hiding cost centers, without changing master records", () => {
     const staff = [
       { ...people[0], centro_custo: "CC 01" },

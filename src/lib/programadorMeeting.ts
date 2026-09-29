@@ -13,7 +13,7 @@ export type MeetingEquipment = {
   centro_custo?: string | null; placa?: string | null;
 };
 export type MeetingFilters = {
-  team?: string; status?: string; type?: string; search?: string;
+  team?: string; teams?: readonly string[]; status?: string; type?: string; search?: string; personSearch?: string;
   selectedRoles?: readonly string[]; selectedTypes?: readonly string[]; hiddenCostCenters?: readonly string[];
 };
 
@@ -58,9 +58,14 @@ export function prepareEfficiencyMeeting<P extends MeetingPerson, E extends Meet
   const availableEquipment = excludeReturnedFleet(equipment);
   const teams = [...new Set([...availablePeople.map(p => p.equipe?.trim()), ...availableEquipment.map(e => e.setor?.trim())]
     .filter((t): t is string => Boolean(t)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const inTeam = (value?: string | null) => !filters.team
-    || (filters.team === "__sem_equipe__" ? !value?.trim() : normal(value) === normal(filters.team));
+  const matchesTeam = (selected: string, value?: string | null) => selected === "__sem_equipe__"
+    ? !value?.trim() : normal(value) === normal(selected);
+  const inTeam = (value?: string | null) => filters.teams?.length
+    ? filters.teams.some(selected => matchesTeam(selected, value))
+    : !filters.team || matchesTeam(filters.team, value);
+  const personSearch = normal(filters.personSearch);
   const selectedPeople = availablePeople.filter(p => inTeam(p.equipe)
+    && (!personSearch || [p.name, p.matricula, p.role, p.equipe, p.centro_custo].some(field => normal(field).includes(personSearch)))
     && (!filters.selectedRoles?.length || filters.selectedRoles.some(key => meetingFilterKey(key, "__sem_funcao__") === meetingFilterKey(p.role, "__sem_funcao__")))
     && !isHidden(filters.hiddenCostCenters, p.centro_custo, "__sem_centro__"))
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
