@@ -64,6 +64,32 @@ describe("tela de reunião", () => {
     expect(peopleRows).toHaveLength(3);
     expect(equipmentRows).toHaveLength(3);
   });
+  it("omits the repeated team in rows when a crew is selected, preserving employee ID and equipment owner", () => {
+    render(<EfficiencyMeeting {...props} initialTeam="EQUIPE A" equipment={[
+      props.equipment[0],
+      { ...props.equipment[0], id: "own", frota: "P1", condicao: "PROPRIO", empresa_proprietaria: null, valor_mensal: null },
+    ]} />);
+    const peopleTable = screen.getByRole("region", { name: "Pessoas da reunião" });
+    const fleetTable = screen.getByRole("region", { name: "Equipamentos da reunião" });
+    expect(within(peopleTable).getByText(/100/)).toBeTruthy();
+    expect(within(peopleTable).queryByText(/EQUIPE A/)).toBeNull();
+    expect(within(fleetTable).getByRole("columnheader", { name: "Empresa" })).toBeTruthy();
+    expect(within(fleetTable).getByText("Locadora A")).toBeTruthy();
+    expect(within(fleetTable).getByText("Próprio")).toBeTruthy();
+    expect(within(fleetTable).queryByText(/EQUIPE A/)).toBeNull();
+  });
+  it("retains each team in the all-teams view and hides repeated 'Sem equipe' in the unallocated view", () => {
+    render(<EfficiencyMeeting {...props} />);
+    const peopleTable = screen.getByRole("region", { name: "Pessoas da reunião" });
+    const fleetTable = screen.getByRole("region", { name: "Equipamentos da reunião" });
+    expect(within(peopleTable).getByText(/100 · EQUIPE A/)).toBeTruthy();
+    expect(within(fleetTable).getByRole("columnheader", { name: "Equipe / empresa" })).toBeTruthy();
+    expect(within(fleetTable).getByText("EQUIPE A")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Sem equipe/i }));
+    expect(within(peopleTable).queryByText("Sem equipe")).toBeNull();
+    expect(within(fleetTable).queryByText("Sem equipe")).toBeNull();
+    expect(within(fleetTable).getByText("Locadora B")).toBeTruthy();
+  });
   it("reflects configured chips in presentation without offering to edit them", () => {
     const { rerender } = render(<EfficiencyMeeting {...props} pinnedTeams={[]} />);
     const quick = screen.getByRole("group", { name: "Equipes em destaque" });
