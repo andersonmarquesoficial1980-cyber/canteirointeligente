@@ -19,95 +19,41 @@ const props = {
 };
 
 function choose(group: string, action: string) {
-  const toggle = screen.getByRole("button", { name: group });
-  if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
-  fireEvent.click(within(screen.getByRole("group", { name: `Opções de ${group.replace("Filtrar ", "")}` })).getByRole("checkbox", { name: action }));
+  fireEvent.click(within(screen.getByRole("group", { name: group })).getByRole("button", { name: action }));
 }
 
 describe("tela de reunião", () => {
-  it("compares helpers from two selected teams side by side and sorts names alphabetically", () => {
+  it("shows selected teams together in one alphabetical list without comparison panels", () => {
     render(<EfficiencyMeeting {...props} mode="funcionarios" people={[
-      { ...props.people[0], id: "a", name: "Zilda", equipe: "Equipe A", role: "AJUDANTE", matricula: "1" },
-      { ...props.people[0], id: "b", name: "Ana", equipe: "Equipe A", role: "AJUDANTE", matricula: "2" },
-      { ...props.people[0], id: "c", name: "Bruna", equipe: "Equipe B", role: "AJUDANTE", matricula: "3" },
-      { ...props.people[0], id: "d", name: "Carlos", equipe: "Equipe C", role: "AJUDANTE", matricula: "4" },
-    ]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Filtrar equipes" }));
-    const choices = screen.getByRole("group", { name: "Opções de equipes" });
-    fireEvent.click(within(choices).getByRole("checkbox", { name: "Selecionar equipe Equipe A" }));
-    fireEvent.click(within(choices).getByRole("checkbox", { name: "Selecionar equipe Equipe B" }));
-    const comparison = screen.getByRole("group", { name: "Comparação entre equipes (pessoas)" });
-    const a = within(comparison).getByRole("region", { name: "Equipe A — pessoas" });
-    const b = within(comparison).getByRole("region", { name: "Equipe B — pessoas" });
-    expect(within(a).getAllByRole("row").slice(1).map(row => row.textContent?.split(" ")[0])).toEqual(["Ana", "Zilda"]);
-    expect(within(b).getByText("Bruna")).toBeTruthy();
-    expect(screen.queryByText("Carlos")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Filtrar funções" }));
-    fireEvent.click(within(screen.getByRole("group", { name: "Opções de funções" })).getByRole("checkbox", { name: "Selecionar função AJUDANTE" }));
-    expect(within(a).getByText("Ana")).toBeTruthy();
-    expect(within(b).getByText("Bruna")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Ocultar filtros" }));
-    expect(screen.queryByRole("button", { name: "Filtrar equipes" })).toBeNull();
-    expect(screen.getByRole("group", { name: "Comparação entre equipes (pessoas)" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Mostrar filtros" }));
-    expect(screen.getByRole("button", { name: "Filtrar equipes" })).toBeTruthy();
-  });
-  it("can switch between alphabetical and operational order during the same presentation", () => {
-    render(<EfficiencyMeeting {...props} mode="funcionarios" people={[
-      { ...props.people[0], id: "z", name: "Zé", role: "ENCARREGADO DE OBRAS" },
-      { ...props.people[0], id: "a", name: "Ana", role: "AJUDANTE" },
-    ]} />);
-    const people = screen.getByRole("region", { name: "Pessoas da reunião" });
-    expect(within(people).getAllByRole("row")[1].textContent).toContain("Ana");
-    fireEvent.change(screen.getByRole("combobox", { name: "Ordenação de funcionários" }), { target: { value: "operacional" } });
-    expect(within(people).getAllByRole("row")[1].textContent).toContain("Zé");
-    fireEvent.change(screen.getByRole("combobox", { name: "Ordenação de funcionários" }), { target: { value: "nome-asc" } });
-    expect(within(people).getAllByRole("row")[1].textContent).toContain("Ana");
-  });
-  it("updates facet counts without losing choices, and one reset recovers from incompatible filters", () => {
-    render(<EfficiencyMeeting {...props} mode="funcionarios" people={[
-      { ...props.people[0], id: "a", name: "Ana", equipe: "Equipe A", role: "AJUDANTE", centro_custo: "CC 01" },
-      { ...props.people[0], id: "b", name: "Bia", equipe: "Equipe A", role: "MOTORISTA", centro_custo: "CC 02" },
-      { ...props.people[0], id: "c", name: "Clara", equipe: "Equipe B", role: "AJUDANTE", centro_custo: "CC 01" },
-    ]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Filtrar equipes" }));
-    const teams = screen.getByRole("group", { name: "Opções de equipes" });
-    expect(within(teams).getByRole("checkbox", { name: "Selecionar equipe Equipe A" }).textContent).toContain("2");
-    choose("Filtrar funções", "Selecionar função AJUDANTE");
-    expect(within(teams).getByRole("checkbox", { name: "Selecionar equipe Equipe A" }).textContent).toContain("1");
-    choose("Filtrar equipes", "Selecionar equipe Equipe A");
-    choose("Filtrar centros de custo", "Ocultar centro de custo CC 01");
-    expect(screen.getByRole("heading", { name: "Pessoas (0)" })).toBeTruthy();
-    fireEvent.change(within(teams).getByRole("textbox", { name: "Buscar equipe" }), { target: { value: "nada" } });
-    fireEvent.click(screen.getByRole("button", { name: "Limpar filtros e ordenação" }));
-    expect(screen.getByRole("heading", { name: "Pessoas (3)" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Todas as equipes" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "Filtrar equipes" }));
-    expect((within(screen.getByRole("group", { name: "Opções de equipes" })).getByRole("textbox", { name: "Buscar equipe" }) as HTMLInputElement).value).toBe("");
-  });
-  it("compares fleets from selected teams and live search adjusts the displayed rental totals", () => {
-    render(<EfficiencyMeeting {...props} mode="equipamentos" equipment={[
-      { ...props.equipment[0], frota: "Z9", setor: "Equipe A", tipo: "CAMINHÃO" },
-      { ...props.equipment[1], frota: "A1", setor: "Equipe B", tipo: "ESCAVADEIRA" },
-      { ...props.equipment[0], id: "r", frota: "R1", setor: "Equipe C", tipo: "ROLO" },
+      { ...props.people[0], id: "a", name: "Zilda", equipe: "Equipe A", role: "AJUDANTE" },
+      { ...props.people[0], id: "b", name: "Ana", equipe: "Equipe B", role: "AJUDANTE" },
+      { ...props.people[0], id: "c", name: "Clara", equipe: "Equipe C", role: "AJUDANTE" },
     ]} />);
     choose("Filtrar equipes", "Selecionar equipe Equipe A");
     choose("Filtrar equipes", "Selecionar equipe Equipe B");
-    const compare = screen.getByRole("group", { name: "Comparação entre equipes (equipamentos)" });
-    expect(within(within(compare).getByRole("region", { name: "Equipe A — equipamentos" })).getByText("Z9")).toBeTruthy();
-    expect(within(within(compare).getByRole("region", { name: "Equipe B — equipamentos" })).getByText("A1")).toBeTruthy();
-    expect(screen.queryByText("R1")).toBeNull();
-    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar equipamento" }), { target: { value: "escavadeira" } });
-    expect(screen.getByRole("heading", { name: "Equipamentos (1)" })).toBeTruthy();
-    expect(screen.queryByText("Z9")).toBeNull();
-    expect(within(compare).getByRole("region", { name: "Equipe A — equipamentos" })).toBeTruthy();
+    const choices = screen.getByRole("group", { name: "Filtrar equipes" });
+    expect(within(choices).getByRole("button", { name: "Retirar equipe Equipe A" })).toBeTruthy();
+    expect(within(choices).getByRole("button", { name: "Retirar equipe Equipe B" })).toBeTruthy();
+    expect(within(choices).getByRole("button", { name: "Selecionar equipe Equipe C" })).toBeTruthy();
+    const staff = screen.getByRole("region", { name: "Pessoas da reunião" });
+    const rows = within(staff).getAllByRole("row");
+    expect(within(staff).getAllByRole("table")).toHaveLength(1);
+    expect(rows[1].textContent).toContain("Ana");
+    expect(rows[2].textContent).toContain("Zilda");
+    expect(screen.queryByText("Clara")).toBeNull();
+    expect(screen.queryByRole("group", { name: /Comparação entre equipes/ })).toBeNull();
   });
-  it("keeps staff comparison side by side at 150% zoom while avoiding cramped fleet columns", () => {
-    render(<EfficiencyMeeting {...props} zoom={150} />);
-    choose("Filtrar equipes", "Selecionar equipe EQUIPE A");
-    choose("Filtrar equipes", "Selecionar equipe Sem equipe");
-    expect(screen.getByRole("group", { name: "Comparação entre equipes (pessoas)" }).className).toContain("lg:grid-cols-2");
-    expect(screen.getByRole("group", { name: "Comparação entre equipes (equipamentos)" }).className).not.toContain("lg:grid-cols-2");
+  it("limits presentation controls to four category filters and keeps zoom and costs", () => {
+    render(<EfficiencyMeeting {...props} zoom={125} onZoomChange={vi.fn()} />);
+    expect(screen.getByRole("group", { name: "Filtrar equipes" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Filtrar funções" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Filtrar tipos de equipamento" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Filtrar centros de custo" })).toBeTruthy();
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Manutenção" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Zoom da apresentação" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Resumo por locadora" })).toBeTruthy();
   });
   it.each(["equipes", "funcionarios", "equipamentos"] as const)("zooms readable content in %s presentation without scaling the controls", mode => {
     function ZoomHarness() {
@@ -229,7 +175,7 @@ describe("tela de reunião", () => {
     expect(screen.getByText("Beto")).toBeTruthy();
     expect(screen.queryByText("Ana")).toBeNull();
   });
-  it("presents only active fleet, with status, prices and team chips", () => {
+  it("presents only active fleet with prices and team filters", () => {
     render(<EfficiencyMeeting {...props} mode="equipamentos" initialTeam="EQUIPE A" equipment={[
       ...props.equipment,
       { ...props.equipment[0], id: "returned", frota: "D3", status: "devolvido", valor_mensal: 9000 },
@@ -240,33 +186,16 @@ describe("tela de reunião", () => {
     expect(screen.queryByRole("region", { name: "Pessoas da reunião" })).toBeNull();
     expect(screen.queryByText("D3")).toBeNull();
     expect(screen.getByText("A1")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Operacionais" }));
-    expect(screen.queryByText("A1")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Operacionais" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Todas as equipes" }));
     choose("Filtrar equipes", "Selecionar equipe Sem equipe");
     expect(screen.getByText("B2")).toBeTruthy();
   });
-  it("groups personnel and fleet in operational order without losing any record", () => {
-    render(<EfficiencyMeeting {...props} people={[
-      { id: "m", name: "Motorista", equipe: "EQUIPE A", status: "ativo", role: "MOTORISTA DE CAMINHÃO", matricula: "2" },
-      { id: "e", name: "Chefe", equipe: "EQUIPE A", status: "ativo", role: "ENCARREGADO DE OBRAS", matricula: "1" },
-    ]} equipment={[
-      { ...props.equipment[0], id: "r", tipo: "ROLO CHAPA" },
-      { ...props.equipment[1], id: "f", tipo: "FRESADORA" },
-    ]} />);
-    fireEvent.change(screen.getByRole("combobox", { name: "Ordenação de funcionários" }), { target: { value: "operacional" } });
-    fireEvent.change(screen.getByRole("combobox", { name: "Ordenação de equipamentos" }), { target: { value: "operacional" } });
-    const names = within(screen.getByRole("region", { name: "Pessoas da reunião" })).getAllByRole("row").map(row => row.textContent || "");
-    const fleet = within(screen.getByRole("region", { name: "Equipamentos da reunião" })).getAllByRole("row").map(row => row.textContent || "");
-    expect(names.findIndex(name => name.includes("Chefe"))).toBeLessThan(names.findIndex(name => name.includes("Motorista")));
-    expect(fleet.findIndex(name => name.includes("FRESADORA"))).toBeLessThan(fleet.findIndex(name => name.includes("ROLO CHAPA")));
-    expect(screen.getByText("Chefe")).toBeTruthy();
-    expect(screen.getByText("Motorista")).toBeTruthy();
-  });
+
   it("prioritizes the roster over financial cards and advanced equipment controls", () => {
     render(<EfficiencyMeeting {...props} />);
     const indicators = screen.getByLabelText("Indicadores do filtro atual");
-    expect(within(indicators).getByText("Pessoas na equipe")).toBeTruthy();
+    expect(within(indicators).getByText("Pessoas no filtro")).toBeTruthy();
     expect(within(indicators).getByText("Equipamentos no filtro")).toBeTruthy();
     expect(within(indicators).queryByText("Mensal conhecido")).toBeNull();
     expect(within(indicators).queryByText("Preços pendentes")).toBeNull();
@@ -274,7 +203,7 @@ describe("tela de reunião", () => {
     expect(within(indicators).queryByText("Terceiros")).toBeNull();
     expect(screen.queryByText("Tipo de equipamento")).toBeNull();
     expect(screen.queryByText("Buscar equipamento ou locadora")).toBeNull();
-    expect(screen.getByRole("button", { name: "Manutenção" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Manutenção" })).toBeNull();
     expect(screen.getByText(/1 sem valor cadastrado/)).toBeTruthy();
   });
   it("shows ordered people and fleet without redundant group heading rows", () => {
@@ -340,23 +269,20 @@ describe("tela de reunião", () => {
   });
   it("prioritizes configured teams in the complete filter without editing shortcuts", () => {
     const { rerender } = render(<EfficiencyMeeting {...props} teams={["EQUIPE A", "SEM PESSOAS"]} pinnedTeams={[]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Filtrar equipes" }));
-    const choices = screen.getByRole("group", { name: "Opções de equipes" });
-    const before = within(choices).getAllByRole("checkbox").map(item => item.getAttribute("aria-label"));
+    const choices = screen.getByRole("group", { name: "Filtrar equipes" });
+    const before = within(choices).getAllByRole("button").map(item => item.getAttribute("aria-label"));
     rerender(<EfficiencyMeeting {...props} teams={["EQUIPE A", "SEM PESSOAS"]} pinnedTeams={["SEM PESSOAS"]} />);
-    const after = within(choices).getAllByRole("checkbox").map(item => item.getAttribute("aria-label"));
+    const after = within(choices).getAllByRole("button").map(item => item.getAttribute("aria-label"));
     expect(after).toContain("Selecionar equipe SEM PESSOAS");
     expect(after.indexOf("Selecionar equipe SEM PESSOAS")).toBeLessThan(before.indexOf("Selecionar equipe SEM PESSOAS"));
     expect(screen.queryByRole("button", { name: "Adicionar balão de equipe" })).toBeNull();
   });
-  it("uses a searchable complete team filter instead of a truncated Outros+ menu", () => {
+  it("shows every team directly, without an options submenu or Outros+", () => {
     render(<EfficiencyMeeting {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Filtrar equipes" }));
-    const choices = screen.getByRole("group", { name: "Opções de equipes" });
-    expect(within(choices).getByRole("textbox", { name: "Buscar equipe" })).toBeTruthy();
-    expect(within(choices).getByRole("checkbox", { name: "Selecionar equipe EQUIPE A" })).toBeTruthy();
+    const choices = screen.getByRole("group", { name: "Filtrar equipes" });
+    expect(within(choices).getByRole("button", { name: "Selecionar equipe EQUIPE A" })).toBeTruthy();
     expect(screen.queryByText("Outros +")).toBeNull();
-    expect(screen.queryByRole("complementary", { name: "Filtrar por equipe" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Opções de equipes" })).toBeNull();
   });
   it("shows all, team and unallocated people/equipment with known costs and missing prices", () => {
     render(<EfficiencyMeeting {...props} />);
@@ -374,7 +300,7 @@ describe("tela de reunião", () => {
   it("applies equipment filters without hiding people and exits through explicit action", () => {
     const onExit = vi.fn();
     render(<EfficiencyMeeting {...props} onExit={onExit} />);
-    fireEvent.click(screen.getByRole("button", { name: "Manutenção" }));
+    choose("Filtrar tipos de equipamento", "Selecionar tipo CAMINHÃO BASCULANTE");
     expect(screen.getByText("Ana")).toBeTruthy();
     expect(screen.queryByText("B2")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Sair da apresentação/i }));
