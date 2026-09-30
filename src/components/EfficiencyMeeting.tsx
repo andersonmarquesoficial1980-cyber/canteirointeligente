@@ -14,6 +14,7 @@ type Props = {
   zoom?: number;
   onZoomChange?: (zoom: number) => void;
   pinnedTeams?: string[];
+  preferenceScope?: string;
   notes?: OperationalNotes;
   notesError?: string;
   updatedAt: string | null;
@@ -32,7 +33,7 @@ const statusName: Record<string, string> = {
 const alphabetic = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
 
 /** Read-only meeting surface: no master writes, drafts, or forms are mounted here. */
-export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, initialTeam, zoom = 100, onZoomChange, pinnedTeams, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
+export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, initialTeam, zoom = 100, onZoomChange, pinnedTeams, preferenceScope, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
   const [selectedTeams, setSelectedTeams] = useState<string[]>(initialTeam ? [initialTeam] : []);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -66,6 +67,7 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
   const orderedPeople = useMemo(() => [...view.people].sort((a, b) => alphabetic.compare(a.name || "", b.name || "") || alphabetic.compare(a.matricula || "", b.matricula || "")), [view.people]);
   const orderedEquipment = useMemo(() => [...view.equipment].sort((a, b) => alphabetic.compare(a.frota || a.centro_custo || "", b.frota || b.centro_custo || "")), [view.equipment]);
   const resetFilters = () => { setSelectedTeams([]); setSelectedRoles([]); setSelectedTypes([]); setSelectedStatuses([]); setHiddenCostCenters([]); };
+  const shortcutKey = (group: string) => preferenceScope ? `workflux:programador:apresentacao-baloes:v1:${preferenceScope}:${group}` : "";
   return (
     <section className="space-y-2" aria-label={mode === "funcionarios" ? "Apresentação de funcionários" : mode === "equipamentos" ? "Apresentação de equipamentos" : "Reunião de eficiência"}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -98,19 +100,20 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
           <button type="button" className="text-xs font-semibold text-primary underline" onClick={resetFilters}>Limpar filtros</button>
         </div>
         <PresentationBalloons title="Equipes" groupLabel="Filtrar equipes" singular="equipe"
-          options={teamOptions} mode="include" selected={selectedTeams} allLabel="Todas as equipes"
+          options={teamOptions} mode="include" selected={selectedTeams} allLabel="Todas as equipes" storageKey={shortcutKey("equipes")}
           onToggle={toggle(setSelectedTeams)} onReset={() => setSelectedTeams([])} />
         {mode !== "equipamentos" && <PresentationBalloons title="Funções" groupLabel="Filtrar funções" singular="função"
-          options={roleOptions} mode="include" selected={selectedRoles} allLabel="Todas as funções"
+          options={roleOptions} mode="include" selected={selectedRoles} allLabel="Todas as funções" storageKey={shortcutKey("funcoes")}
           onToggle={toggle(setSelectedRoles)} onReset={() => setSelectedRoles([])} />}
         {mode !== "funcionarios" && <PresentationBalloons title="Tipos de equipamento" groupLabel="Filtrar tipos de equipamento" singular="tipo"
-          options={typeOptions} mode="include" selected={selectedTypes} allLabel="Todos os tipos"
+          options={typeOptions} mode="include" selected={selectedTypes} allLabel="Todos os tipos" storageKey={shortcutKey("tipos")}
           onToggle={toggle(setSelectedTypes)} onReset={() => setSelectedTypes([])} />}
         {mode !== "funcionarios" && <PresentationBalloons title="Status dos equipamentos" groupLabel="Filtrar status dos equipamentos" singular="status"
-          options={statusOptions} mode="include" selected={selectedStatuses} allLabel="Todos os status"
+          options={statusOptions} mode="include" selected={selectedStatuses} allLabel="Todos os status" storageKey={shortcutKey("status")}
           onToggle={toggle(setSelectedStatuses)} onReset={() => setSelectedStatuses([])} />}
         <PresentationBalloons title="Ocultar centros de custo" groupLabel="Filtrar centros de custo" singular="centro de custo"
-          options={costOptions} hidden={hiddenCostCenters} onToggle={toggle(setHiddenCostCenters)} onReset={() => setHiddenCostCenters([])} />
+          options={costOptions} hidden={hiddenCostCenters} storageKey={shortcutKey("centros")}
+          onToggle={toggle(setHiddenCostCenters)} onReset={() => setHiddenCostCenters([])} />
         <p className="border-t border-border/60 pt-1 text-xs text-muted-foreground" aria-label="Indicadores do filtro atual">
           {mode !== "equipamentos" && <span>Pessoas no filtro <strong className="text-foreground tabular-nums">{view.people.length}</strong></span>}
           {mode === "equipes" && " · "}

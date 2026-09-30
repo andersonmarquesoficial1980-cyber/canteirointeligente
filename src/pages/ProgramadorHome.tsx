@@ -1102,6 +1102,7 @@ export default function ProgramadorHome() {
         {modoReuniao && (
           <EfficiencyMeeting
             mode={presentationKind} people={funcionarios} equipment={frota} teams={equipesAtivas} initialTeam={presentationTeam} pinnedTeams={baloesEquipe.pinned}
+            preferenceScope={companyId && profile?.user_id ? `${companyId}:${profile.user_id}` : undefined}
             zoom={presentationZoom} onZoomChange={setPresentationZoom}
             notes={operationalNotes} notesError={notesError}
             updatedAt={cadastrosUpdatedAt} error={cadastrosError} loading={cadastrosLoading}

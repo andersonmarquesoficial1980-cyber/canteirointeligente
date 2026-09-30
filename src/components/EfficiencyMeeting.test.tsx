@@ -23,6 +23,21 @@ function choose(group: string, action: string) {
 }
 
 describe("tela de reunião", () => {
+  it("keeps shortcut visibility scoped to the signed-in company and user", () => {
+    const scopeA = "company-a:user-a";
+    const scopeB = "company-a:user-b";
+    const keyA = `workflux:programador:apresentacao-baloes:v1:${scopeA}:funcoes`;
+    localStorage.removeItem(keyA);
+    const { unmount } = render(<EfficiencyMeeting {...props} mode="funcionarios" preferenceScope={scopeA} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remover balão Motorista" }));
+    expect(screen.queryByRole("button", { name: "Selecionar função Motorista" })).toBeNull();
+    unmount();
+    const next = render(<EfficiencyMeeting {...props} mode="funcionarios" preferenceScope={scopeA} />);
+    expect(screen.queryByRole("button", { name: "Selecionar função Motorista" })).toBeNull();
+    next.rerender(<EfficiencyMeeting {...props} mode="funcionarios" preferenceScope={scopeB} />);
+    expect(screen.getByRole("button", { name: "Selecionar função Motorista" })).toBeTruthy();
+    localStorage.removeItem(keyA);
+  });
   it("recalculates footer quantities and known rental costs from all active presentation filters", () => {
     render(<EfficiencyMeeting {...props} equipment={[
       ...props.equipment,
