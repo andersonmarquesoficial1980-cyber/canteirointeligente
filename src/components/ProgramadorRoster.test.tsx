@@ -14,6 +14,29 @@ const equipment = [
 const base = { people, equipment, teams: ["Equipe A", "Equipe B"], saving: false, error: "", onSavePerson: vi.fn().mockResolvedValue(undefined), onSaveEquipment: vi.fn().mockResolvedValue(undefined), onSavePrice: vi.fn().mockResolvedValue(1300) };
 
 describe("abas de listas do WF Programador", () => {
+  it.each([
+    { kind: "funcionarios" as const, group: "Filtrar por função", chosen: "Motorista", other: "Operadora", all: "Todas as funções", visible: "Álvaro", hidden: "Bruna", total: "Pessoas 1" },
+    { kind: "equipamentos" as const, group: "Filtrar por tipo", chosen: "Basculante", other: "Rolo", all: "Todos os tipos", visible: "Gerenciar BC10", hidden: "Gerenciar RL02", total: "Equipamentos 1" },
+  ])("filters $kind using category chips instead of a dropdown", ({ kind, group, chosen, other, all, visible, hidden, total }) => {
+    render(<ProgramadorRoster {...base} kind={kind} />);
+    const choices = screen.getByRole("group", { name: group });
+    expect(within(choices).getByRole("button", { name: chosen })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: group })).toBeNull();
+    fireEvent.click(within(choices).getByRole("button", { name: chosen }));
+    expect(within(choices).getByRole("button", { name: chosen }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(choices).getByRole("button", { name: other })).toBeTruthy();
+    if (kind === "funcionarios") {
+      expect(screen.getByText(visible)).toBeTruthy();
+      expect(screen.queryByText(hidden)).toBeNull();
+    } else {
+      expect(screen.getByRole("button", { name: visible })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: hidden })).toBeNull();
+    }
+    expect(screen.getByRole("region", { name: "Resumo da lista filtrada" }).textContent).toContain(total);
+    fireEvent.click(within(choices).getByRole("button", { name: all }));
+    expect(within(choices).getByRole("button", { name: chosen }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("region", { name: "Resumo da lista filtrada" }).textContent).toContain(kind === "funcionarios" ? "Pessoas 2" : "Equipamentos 2");
+  });
   it("recalculates the equipment footer for the full filtered list, excluding returned historical cost", () => {
     render(<ProgramadorRoster {...base} kind="equipamentos" equipment={[
       ...equipment,
@@ -110,7 +133,7 @@ describe("abas de listas do WF Programador", () => {
       .toEqual(["Gerenciar Bruna", "Gerenciar Álvaro"]);
     expect(screen.queryByText("Data *")).toBeNull();
     expect(screen.queryByText("De")).toBeNull();
-    fireEvent.change(screen.getByRole("combobox", { name: "Filtrar por função" }), { target: { value: "Motorista" } });
+    fireEvent.click(within(screen.getByRole("group", { name: "Filtrar por função" })).getByRole("button", { name: "Motorista" }));
     expect(screen.getByText("Álvaro")).toBeTruthy();
     expect(screen.queryByText("Bruna")).toBeNull();
   });
@@ -135,9 +158,9 @@ describe("abas de listas do WF Programador", () => {
     render(<ProgramadorRoster {...base} kind="equipamentos" onSavePrice={onSavePrice} />);
     expect(screen.getByText(/BC10/)).toBeTruthy();
     expect(screen.getByText("RL02")).toBeTruthy();
-    fireEvent.change(screen.getByRole("combobox", { name: "Filtrar por tipo" }), { target: { value: "Basculante" } });
+    fireEvent.click(within(screen.getByRole("group", { name: "Filtrar por tipo" })).getByRole("button", { name: "Basculante" }));
     expect(screen.queryByText("RL02")).toBeNull();
-    fireEvent.change(screen.getByRole("combobox", { name: "Filtrar por tipo" }), { target: { value: "" } });
+    fireEvent.click(within(screen.getByRole("group", { name: "Filtrar por tipo" })).getByRole("button", { name: "Todos os tipos" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Buscar frota, placa ou equipamento" }), { target: { value: "bc10" } });
     expect(screen.queryByText("RL02")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Gerenciar BC10" }));

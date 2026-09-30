@@ -30,6 +30,22 @@ const equipmentStatuses = [
 ];
 const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+function RosterFilterChips({ label, allLabel, options, value, disabled, onChange, wrap = false }: {
+  label: string; allLabel: string; options: readonly (readonly string[])[];
+  value: string; disabled: boolean; onChange: (value: string) => void; wrap?: boolean;
+}) {
+  return <fieldset disabled={disabled} className="min-w-0">
+    <legend className="mb-1 text-xs text-muted-foreground">{label}</legend>
+    <div className={`flex gap-1.5 ${wrap ? "flex-wrap" : "min-w-0 overflow-x-auto whitespace-nowrap py-1 [scrollbar-width:thin]"}`}>
+      {[["", allLabel], ...options].map(([key, name]) => <button key={key} type="button"
+        aria-pressed={value === key} onClick={() => onChange(key)}
+        className={`shrink-0 rounded-full border px-3 py-1 text-xs ${value === key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:border-primary/50"}`}>
+        {name}
+      </button>)}
+    </div>
+  </fieldset>;
+}
+
 /** The full master catalog is filtered first; only rendering is paged. */
 export function ProgramadorRoster({ kind, people, equipment, teams, saving, error, initialSelectedId, onSavePerson, onSaveEquipment, onSavePrice, onDirtyChange, pinnedTeams, onPin, onUnpin, onPresent, pinsError }: Props) {
   const [search, setSearch] = useState("");
@@ -131,35 +147,17 @@ export function ProgramadorRoster({ kind, people, equipment, teams, saving, erro
             onChange={value => { setTeam(value === "__sem_equipe__" ? "__sem__" : value); setVisibleCount(40); }}
             onPin={onPin} onUnpin={onUnpin} allowAll allowNoTeam />
         </fieldset>
-        <fieldset disabled={dirty || saving || busy || !!error} className="min-w-0">
-          <legend className="mb-1 text-xs text-muted-foreground">Filtrar por status</legend>
-          <div className="flex flex-wrap gap-1.5">
-            {[["", "Todos os status"], ...statusOptions].map(([value, label]) => <button key={value} type="button"
-              aria-pressed={status === value} onClick={() => { setStatus(value); setVisibleCount(40); }}
-              className={`rounded-full border px-3 py-1 text-xs ${status === value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:border-primary/50"}`}>
-              {label}
-            </button>)}
-          </div>
-        </fieldset>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+        {kind === "funcionarios"
+          ? <RosterFilterChips label="Filtrar por função" allLabel="Todas as funções" options={roles.map(name => [name, name])}
+              value={role} disabled={dirty || saving || busy || !!error} onChange={value => { setRole(value); setVisibleCount(40); }} />
+          : <RosterFilterChips label="Filtrar por tipo" allLabel="Todos os tipos" options={types.map(name => [name, name])}
+              value={type} disabled={dirty || saving || busy || !!error} onChange={value => { setType(value); setVisibleCount(40); }} />}
+        <RosterFilterChips label="Filtrar por status" allLabel="Todos os status" options={statusOptions}
+          value={status} disabled={dirty || saving || busy || !!error} wrap onChange={value => { setStatus(value); setVisibleCount(40); }} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         <label className="text-xs text-muted-foreground sm:col-span-2">{kind === "funcionarios" ? "Buscar funcionário" : "Buscar frota, placa ou equipamento"}
           <Input className="h-8 mt-1" value={search} disabled={dirty} onChange={e => { setSearch(e.target.value); setVisibleCount(40); }} placeholder={kind === "funcionarios" ? "Nome, matrícula ou função" : "Frota, centro de custo, placa, tipo"} />
         </label>
-        {kind === "funcionarios" ? (
-          <label className="text-xs text-muted-foreground">Filtrar por função
-            <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={role} disabled={dirty} onChange={e => { setRole(e.target.value); setVisibleCount(40); }}>
-              <option value="">Todas as funções</option>{roles.map(value => <option key={value} value={value}>{value}</option>)}
-            </select>
-          </label>
-        ) : (
-          <label className="text-xs text-muted-foreground">Filtrar por tipo
-            <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={type} disabled={dirty} onChange={e => { setType(e.target.value); setVisibleCount(40); }}>
-              <option value="">Todos os tipos</option>{types.map(value => <option key={value} value={value}>{value}</option>)}
-            </select>
-          </label>
-        )}
-
-
         <label className="text-xs text-muted-foreground">{kind === "funcionarios" ? "Ordem alfabética" : "Ordenar por frota"}
           <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={sort} disabled={dirty} onChange={e => setSort(e.target.value as "asc" | "desc")}>
             <option value="asc">A → Z</option><option value="desc">Z → A</option>
