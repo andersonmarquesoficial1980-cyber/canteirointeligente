@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TeamPicker } from "@/components/TeamPicker";
 import { filterRosterPeople, filterRosterEquipment, type RosterPerson, type RosterEquipment, type PersonDraft, type EquipmentDraft } from "@/lib/programadorRoster";
+import { excludeReturnedFleet } from "@/lib/programadorTeams";
+import { summarizeTeamRental } from "@/lib/programadorIndividual";
 
 type Props = {
   kind: "funcionarios" | "equipamentos";
@@ -56,6 +58,7 @@ export function ProgramadorRoster({ kind, people, equipment, teams, saving, erro
 
   const filteredPeople = useMemo(() => filterRosterPeople(people, { search, role, team, status, sort }), [people, search, role, team, status, sort]);
   const filteredEquipment = useMemo(() => filterRosterEquipment(equipment, { search, type, team, status, sort }), [equipment, search, type, team, status, sort]);
+  const rentalSummary = useMemo(() => summarizeTeamRental(excludeReturnedFleet(filteredEquipment)), [filteredEquipment]);
   const rows = kind === "funcionarios" ? filteredPeople : filteredEquipment;
   useEffect(() => {
     if (!initialSelectedId) return;
@@ -128,6 +131,16 @@ export function ProgramadorRoster({ kind, people, equipment, teams, saving, erro
             onChange={value => { setTeam(value === "__sem_equipe__" ? "__sem__" : value); setVisibleCount(40); }}
             onPin={onPin} onUnpin={onUnpin} allowAll allowNoTeam />
         </fieldset>
+        <fieldset disabled={dirty || saving || busy || !!error} className="min-w-0">
+          <legend className="mb-1 text-xs text-muted-foreground">Filtrar por status</legend>
+          <div className="flex flex-wrap gap-1.5">
+            {[["", "Todos os status"], ...statusOptions].map(([value, label]) => <button key={value} type="button"
+              aria-pressed={status === value} onClick={() => { setStatus(value); setVisibleCount(40); }}
+              className={`rounded-full border px-3 py-1 text-xs ${status === value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:border-primary/50"}`}>
+              {label}
+            </button>)}
+          </div>
+        </fieldset>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
         <label className="text-xs text-muted-foreground sm:col-span-2">{kind === "funcionarios" ? "Buscar funcionário" : "Buscar frota, placa ou equipamento"}
           <Input className="h-8 mt-1" value={search} disabled={dirty} onChange={e => { setSearch(e.target.value); setVisibleCount(40); }} placeholder={kind === "funcionarios" ? "Nome, matrícula ou função" : "Frota, centro de custo, placa, tipo"} />
@@ -146,11 +159,7 @@ export function ProgramadorRoster({ kind, people, equipment, teams, saving, erro
           </label>
         )}
 
-        <label className="text-xs text-muted-foreground">Filtrar por status
-          <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={status} disabled={dirty} onChange={e => { setStatus(e.target.value); setVisibleCount(40); }}>
-            <option value="">Todos os status</option>{statusOptions.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
-          </select>
-        </label>
+
         <label className="text-xs text-muted-foreground">{kind === "funcionarios" ? "Ordem alfabética" : "Ordenar por frota"}
           <select className="block w-full h-8 mt-1 border border-input rounded-md bg-background px-2 text-sm text-foreground" value={sort} disabled={dirty} onChange={e => setSort(e.target.value as "asc" | "desc")}>
             <option value="asc">A → Z</option><option value="desc">Z → A</option>
@@ -206,6 +215,14 @@ export function ProgramadorRoster({ kind, people, equipment, teams, saving, erro
         })}
         {rows.length > visibleCount && <Button type="button" variant="outline" className="w-full" disabled={dirty} onClick={() => setVisibleCount(v => v + 40)}>Mostrar mais ({rows.length - visibleCount} restantes)</Button>}
       </div>
+      {!error && <footer role="region" aria-label="Resumo da lista filtrada" className="flex flex-wrap gap-x-6 gap-y-1 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+        {kind === "funcionarios" ? <span>Pessoas <strong className="tabular-nums">{filteredPeople.length}</strong></span> : <>
+          <span>Equipamentos <strong className="tabular-nums">{filteredEquipment.length}</strong></span>
+          <span>Terceiros não devolvidos <strong className="tabular-nums">{rentalSummary.rented}</strong></span>
+          <span>Mensal conhecido <strong className="tabular-nums">{brl(rentalSummary.monthlyKnown)}</strong></span>
+          <span>Sem valor <strong className="tabular-nums">{rentalSummary.withoutPrice}</strong></span>
+        </>}
+      </footer>}
     </section>
   );
 }

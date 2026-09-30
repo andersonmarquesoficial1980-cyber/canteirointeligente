@@ -14,6 +14,40 @@ const equipment = [
 const base = { people, equipment, teams: ["Equipe A", "Equipe B"], saving: false, error: "", onSavePerson: vi.fn().mockResolvedValue(undefined), onSaveEquipment: vi.fn().mockResolvedValue(undefined), onSavePrice: vi.fn().mockResolvedValue(1300) };
 
 describe("abas de listas do WF Programador", () => {
+  it("recalculates the equipment footer for the full filtered list, excluding returned historical cost", () => {
+    render(<ProgramadorRoster {...base} kind="equipamentos" equipment={[
+      ...equipment,
+      { ...equipment[0], id: "missing", frota: "BC11", centro_custo: "BC11", valor_mensal: null },
+      { ...equipment[0], id: "returned", frota: "DEV01", centro_custo: "DEV01", status: "devolvido", valor_mensal: 9000 },
+    ]} />);
+    const footer = screen.getByRole("region", { name: "Resumo da lista filtrada" });
+    expect(footer.textContent).toContain("Equipamentos 4");
+    expect(footer.textContent).toContain("Terceiros não devolvidos 2");
+    expect(footer.textContent).toContain("1.200,00");
+    expect(footer.textContent).toContain("Sem valor 1");
+    expect(footer.textContent).not.toContain("9.000,00");
+    fireEvent.click(within(screen.getByRole("group", { name: "Filtrar por status" })).getByRole("button", { name: "Devolvido" }));
+    expect(footer.textContent).toContain("Equipamentos 1");
+    expect(footer.textContent).toContain("Terceiros não devolvidos 0");
+    expect(footer.textContent).toContain("0,00");
+    fireEvent.click(within(screen.getByRole("group", { name: "Filtrar por status" })).getByRole("button", { name: "Todos os status" }));
+    fireEvent.click(screen.getByRole("button", { name: "Equipe B" }));
+    expect(footer.textContent).toContain("Equipamentos 1");
+    expect(footer.textContent).toContain("Terceiros não devolvidos 0");
+  });
+  it("filters the master equipment list with visible status chips, including returned history", () => {
+    render(<ProgramadorRoster {...base} kind="equipamentos" equipment={[
+      ...equipment, { ...equipment[0], id: "returned", frota: "DEV01", centro_custo: "DEV01", status: "devolvido" },
+    ]} />);
+    const statuses = screen.getByRole("group", { name: "Filtrar por status" });
+    fireEvent.click(within(statuses).getByRole("button", { name: "Devolvido" }));
+    expect(within(statuses).getByRole("button", { name: "Devolvido" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(statuses).getByRole("button", { name: "Operacional" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Gerenciar DEV01" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Gerenciar BC10" })).toBeNull();
+    fireEvent.click(within(statuses).getByRole("button", { name: "Todos os status" }));
+    expect(screen.getByRole("button", { name: "Gerenciar BC10" })).toBeTruthy();
+  });
   it.each(["funcionarios", "equipamentos"] as const)("offers customizable shared team chips and presentation in %s", kind => {
     const onPresent = vi.fn();
     const onPin = vi.fn();

@@ -36,6 +36,7 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
   const [selectedTeams, setSelectedTeams] = useState<string[]>(initialTeam ? [initialTeam] : []);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [hiddenCostCenters, setHiddenCostCenters] = useState<string[]>([]);
   const all = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment, {}), [mode, people, equipment]);
   const availableTeams = useMemo(() => {
@@ -53,15 +54,18 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
   }, [availableTeams, pinnedTeams]);
   const roleOptions = useMemo(() => balloonOptions(all.people, p => p.role, "__sem_funcao__", "Sem função").sort((a, b) => alphabetic.compare(a.label, b.label)), [all.people]);
   const typeOptions = useMemo(() => balloonOptions(all.equipment, e => e.tipo, "__sem_tipo__", "Sem tipo").sort((a, b) => alphabetic.compare(a.label, b.label)), [all.equipment]);
+  const statusOptions = useMemo(() => Object.entries(statusName)
+    .filter(([key]) => key !== "devolvido" && all.equipment.some(eq => meetingStatus(eq) === key))
+    .map(([key, label]) => ({ key, label, count: 0 })), [all.equipment]);
   const costOptions = useMemo(() => balloonOptions([...all.people, ...all.equipment], row => row.centro_custo, "__sem_centro__", "Sem centro de custo").sort((a, b) => alphabetic.compare(a.label, b.label)), [all.people, all.equipment]);
   const view = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment,
-    { teams: selectedTeams, selectedRoles, selectedTypes, hiddenCostCenters }),
-    [mode, people, equipment, selectedTeams, selectedRoles, selectedTypes, hiddenCostCenters]);
+    { teams: selectedTeams, selectedRoles, selectedTypes, selectedStatuses, hiddenCostCenters }),
+    [mode, people, equipment, selectedTeams, selectedRoles, selectedTypes, selectedStatuses, hiddenCostCenters]);
   const toggle = (setter: Dispatch<SetStateAction<string[]>>) => (key: string) =>
     setter(current => current.includes(key) ? current.filter(value => value !== key) : [...current, key]);
   const orderedPeople = useMemo(() => [...view.people].sort((a, b) => alphabetic.compare(a.name || "", b.name || "") || alphabetic.compare(a.matricula || "", b.matricula || "")), [view.people]);
   const orderedEquipment = useMemo(() => [...view.equipment].sort((a, b) => alphabetic.compare(a.frota || a.centro_custo || "", b.frota || b.centro_custo || "")), [view.equipment]);
-  const resetFilters = () => { setSelectedTeams([]); setSelectedRoles([]); setSelectedTypes([]); setHiddenCostCenters([]); };
+  const resetFilters = () => { setSelectedTeams([]); setSelectedRoles([]); setSelectedTypes([]); setSelectedStatuses([]); setHiddenCostCenters([]); };
   return (
     <section className="space-y-2" aria-label={mode === "funcionarios" ? "Apresentação de funcionários" : mode === "equipamentos" ? "Apresentação de equipamentos" : "Reunião de eficiência"}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -102,6 +106,9 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
         {mode !== "funcionarios" && <PresentationBalloons title="Tipos de equipamento" groupLabel="Filtrar tipos de equipamento" singular="tipo"
           options={typeOptions} mode="include" selected={selectedTypes} allLabel="Todos os tipos"
           onToggle={toggle(setSelectedTypes)} onReset={() => setSelectedTypes([])} />}
+        {mode !== "funcionarios" && <PresentationBalloons title="Status dos equipamentos" groupLabel="Filtrar status dos equipamentos" singular="status"
+          options={statusOptions} mode="include" selected={selectedStatuses} allLabel="Todos os status"
+          onToggle={toggle(setSelectedStatuses)} onReset={() => setSelectedStatuses([])} />}
         <PresentationBalloons title="Ocultar centros de custo" groupLabel="Filtrar centros de custo" singular="centro de custo"
           options={costOptions} hidden={hiddenCostCenters} onToggle={toggle(setHiddenCostCenters)} onReset={() => setHiddenCostCenters([])} />
         <p className="border-t border-border/60 pt-1 text-xs text-muted-foreground" aria-label="Indicadores do filtro atual">
@@ -147,6 +154,15 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
             </div>)}</div>
           </section>}
         </div>
+      <footer role="region" aria-label="Resumo do filtro da apresentação" className="flex flex-wrap gap-x-6 gap-y-1 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+        {mode !== "equipamentos" && <span>Pessoas <strong className="tabular-nums">{view.people.length}</strong></span>}
+        {mode !== "funcionarios" && <>
+          <span>Equipamentos <strong className="tabular-nums">{view.equipment.length}</strong></span>
+          <span>Terceiros <strong className="tabular-nums">{view.rental.rented}</strong></span>
+          <span>Mensal conhecido <strong className="tabular-nums">{money(view.rental.monthlyKnown)}</strong></span>
+          <span>Sem valor <strong className="tabular-nums">{view.rental.withoutPrice}</strong></span>
+        </>}
+      </footer>
     </section>
   );
 }

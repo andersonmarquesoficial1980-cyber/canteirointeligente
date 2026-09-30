@@ -23,6 +23,45 @@ function choose(group: string, action: string) {
 }
 
 describe("tela de reunião", () => {
+  it("recalculates footer quantities and known rental costs from all active presentation filters", () => {
+    render(<EfficiencyMeeting {...props} equipment={[
+      ...props.equipment,
+      { ...props.equipment[0], id: "own", frota: "P3", condicao: "PROPRIO", status: "ativo", valor_mensal: 3000 },
+      { ...props.equipment[0], id: "returned", frota: "DEV01", status: "devolvido", valor_mensal: 9000 },
+    ]} />);
+    const footer = screen.getByRole("region", { name: "Resumo do filtro da apresentação" });
+    expect(footer.textContent).toContain("Pessoas 2");
+    expect(footer.textContent).toContain("Equipamentos 3");
+    expect(footer.textContent).toContain("Terceiros 2");
+    expect(footer.textContent).toContain("1.500,00");
+    expect(footer.textContent).toContain("Sem valor 1");
+    choose("Filtrar equipes", "Selecionar equipe EQUIPE A");
+    expect(footer.textContent).toContain("Pessoas 1");
+    expect(footer.textContent).toContain("Equipamentos 2");
+    expect(footer.textContent).toContain("Terceiros 1");
+    expect(footer.textContent).toContain("Sem valor 0");
+    choose("Filtrar status dos equipamentos", "Selecionar status Operacional");
+    expect(footer.textContent).toContain("Equipamentos 1");
+    expect(footer.textContent).toContain("Terceiros 0");
+    expect(footer.textContent).toContain("0,00");
+    expect(footer.textContent).not.toContain("9.000,00");
+  });
+  it.each(["equipes", "equipamentos"] as const)("filters %s fleet by status chips without ever offering returned equipment", mode => {
+    render(<EfficiencyMeeting {...props} mode={mode} equipment={[
+      ...props.equipment,
+      { ...props.equipment[0], id: "returned", frota: "DEV01", status: " Devolvido ", valor_mensal: 9000 },
+    ]} />);
+    const statuses = screen.getByRole("group", { name: "Filtrar status dos equipamentos" });
+    expect(within(statuses).queryByRole("button", { name: "Devolvido" })).toBeNull();
+    expect(screen.queryByText("DEV01")).toBeNull();
+    choose("Filtrar status dos equipamentos", "Selecionar status Manutenção");
+    expect(screen.getByText("A1")).toBeTruthy();
+    expect(screen.queryByText("B2")).toBeNull();
+    expect(within(statuses).getByRole("button", { name: "Retirar status Manutenção" })).toBeTruthy();
+    fireEvent.click(within(statuses).getByRole("button", { name: "Todos os status" }));
+    expect(screen.getByText("B2")).toBeTruthy();
+    expect(screen.queryByText("DEV01")).toBeNull();
+  });
   it("shows selected teams together in one alphabetical list without comparison panels", () => {
     render(<EfficiencyMeeting {...props} mode="funcionarios" people={[
       { ...props.people[0], id: "a", name: "Zilda", equipe: "Equipe A", role: "AJUDANTE" },
@@ -43,11 +82,12 @@ describe("tela de reunião", () => {
     expect(screen.queryByText("Clara")).toBeNull();
     expect(screen.queryByRole("group", { name: /Comparação entre equipes/ })).toBeNull();
   });
-  it("limits presentation controls to four category filters and keeps zoom and costs", () => {
+  it("keeps simple category and status chips, zoom and costs", () => {
     render(<EfficiencyMeeting {...props} zoom={125} onZoomChange={vi.fn()} />);
     expect(screen.getByRole("group", { name: "Filtrar equipes" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Filtrar funções" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Filtrar tipos de equipamento" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Filtrar status dos equipamentos" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Filtrar centros de custo" })).toBeTruthy();
     expect(screen.queryByRole("searchbox")).toBeNull();
     expect(screen.queryByRole("combobox")).toBeNull();

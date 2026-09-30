@@ -14,7 +14,7 @@ export type MeetingEquipment = {
 };
 export type MeetingFilters = {
   team?: string; teams?: readonly string[]; status?: string; type?: string; search?: string; personSearch?: string;
-  selectedRoles?: readonly string[]; selectedTypes?: readonly string[]; hiddenCostCenters?: readonly string[];
+  selectedRoles?: readonly string[]; selectedTypes?: readonly string[]; selectedStatuses?: readonly string[]; hiddenCostCenters?: readonly string[];
 };
 
 const normal = (value?: string | null) => (value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
@@ -72,6 +72,7 @@ export function prepareEfficiencyMeeting<P extends MeetingPerson, E extends Meet
   const search = normal(filters.search);
   const selectedEquipment = availableEquipment.filter(e => inTeam(e.setor)
     && (!filters.selectedTypes?.length || filters.selectedTypes.some(key => meetingFilterKey(key, "__sem_tipo__") === meetingFilterKey(e.tipo, "__sem_tipo__")))
+    && (!filters.selectedStatuses?.length || filters.selectedStatuses.includes(meetingStatus(e)))
     && !isHidden(filters.hiddenCostCenters, e.centro_custo, "__sem_centro__")
     && (!filters.type || normal(e.tipo) === normal(filters.type))
     && (!filters.status || filters.status === "todos" || (filters.status === "terceiro" ? isRental(e) : meetingStatus(e) === filters.status))
