@@ -20,6 +20,7 @@ const corsHeaders = {
 
 const MAX_PAGE_SIZE = 500;
 const MAX_RANGE_DAYS = 90;
+const NON_DRAFT_RDO_FILTER = "status_validacao.is.null,status_validacao.neq.rascunho";
 
 const REPORT_KEYS = new Set([
   "rdo-fremix",
@@ -197,6 +198,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     .eq("company_id", companyId)
     .gte("data", start)
     .lte("data", end)
+    .or(NON_DRAFT_RDO_FILTER)
     .order("data", { ascending: false });
 
   if (tipoRdo) rdoQuery = rdoQuery.eq("tipo_rdo", tipoRdo);
@@ -635,6 +637,7 @@ async function handleRdoSummary(sb: ReturnType<typeof createClient>, companyId: 
   if (obra) q = q.ilike("obra_nome", `%${obra.trim()}%`);
   if (turno) q = q.eq("turno", turno);
   if (status) q = q.eq("status_validacao", status);
+  else q = q.or(NON_DRAFT_RDO_FILTER);
 
   const { data, error, count } = await q;
   if (error) throw new Error(error.message);
@@ -689,6 +692,7 @@ async function handleRdoDetails(sb: ReturnType<typeof createClient>, companyId: 
   if (encarregado) q = q.ilike("encarregado", `%${encarregado.trim()}%`);
   if (engenheiro) q = q.ilike("engenheiro_responsavel", `%${engenheiro.trim()}%`);
   if (status) q = q.eq("status_validacao", status);
+  else q = q.or(NON_DRAFT_RDO_FILTER);
 
   const { data, error, count } = await q;
   if (error) throw new Error(error.message);
@@ -709,7 +713,8 @@ async function handleEquipamentosUtilizacao(sb: ReturnType<typeof createClient>,
     .select("id,data,obra_nome")
     .eq("company_id", companyId)
     .gte("data", start)
-    .lte("data", end);
+    .lte("data", end)
+    .or(NON_DRAFT_RDO_FILTER);
   if (rdoErr) throw new Error(rdoErr.message);
   if (!rdos?.length) return { total: 0, rows: [] };
 
@@ -824,7 +829,8 @@ async function handleProducao(
     .eq("company_id", companyId)
     .eq("tipo_rdo", tipoRdo)
     .gte("data", start)
-    .lte("data", end);
+    .lte("data", end)
+    .or(NON_DRAFT_RDO_FILTER);
 
   if (obra) rdoQ = rdoQ.ilike("obra_nome", `%${obra.trim()}%`);
 

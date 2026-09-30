@@ -125,7 +125,8 @@ export default function RdoForm() {
   const isOnline = useOnlineStatus();
   const today = getTodayInSaoPauloIso();
   const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
-  const isEditMode = !!searchParams.get("edit");
+  const editParamId = searchParams.get("edit");
+  const isEditMode = !!editParamId;
 
   // Header
   const [header, setHeader] = useState({
@@ -245,6 +246,8 @@ export default function RdoForm() {
   const submitInFlightRef = useRef(false);
   const draftInFlightRef = useRef(false);
   const [draftId, setDraftId] = useState<string | null>(null); // ID do rascunho salvo — evita duplicatas
+  const [editStatusValidacao, setEditStatusValidacao] = useState<string | null>(null);
+  const bloquearSalvarRascunhoEmRegistroEnviado = !!editParamId && !draftId && (editStatusValidacao || "").toLowerCase() !== "rascunho";
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
   const [copiandoDiaAnterior, setCopiandoDiaAnterior] = useState(false);
 
@@ -449,7 +452,7 @@ export default function RdoForm() {
 
   // Carregar RDO existente em modo edição
   useEffect(() => {
-    const editId = searchParams.get("edit");
+    const editId = editParamId;
     if (!editId) return;
     const carregar = async () => {
       const [{ data: rdo }, { data: efetivo }, { data: producao }, { data: equipamentos }, { data: nfRows }, { data: nfConcretoRows }, { data: tercRows }, { data: sinalizacaoRows }, { data: dmtRows }] = await Promise.all([
@@ -464,6 +467,12 @@ export default function RdoForm() {
         (supabase as any).from("rdo_informacoes_dmt").select("*").eq("rdo_id", editId).limit(1),
       ]);
       if (!rdo) return;
+
+      const statusAtual = ((rdo as any).status_validacao || "").toLowerCase();
+      setEditStatusValidacao((rdo as any).status_validacao || null);
+      if (statusAtual === "rascunho") {
+        setDraftId(editId);
+      }
       setHeader(prev => ({
         ...prev,
         data: rdo.data || prev.data,
@@ -1158,6 +1167,17 @@ export default function RdoForm() {
       draftInFlightRef.current = false;
       return;
     }
+
+    if (bloquearSalvarRascunhoEmRegistroEnviado) {
+      toast({
+        title: "Rascunho indisponível para este RDO",
+        description: "Este lançamento já foi enviado/validado. Para aplicar ajustes, use o botão Enviar RDO.",
+        variant: "destructive",
+      });
+      draftInFlightRef.current = false;
+      return;
+    }
+
     setSavingDraft(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -1191,7 +1211,7 @@ export default function RdoForm() {
       };
 
       // ID existente: vem de rascunho já salvo nesta sessão OU de ?edit= na URL
-      const existingId = draftId || searchParams.get("edit");
+      const existingId = draftId || editParamId;
       let rdoId = existingId || "";
 
       if (existingId) {
@@ -1270,6 +1290,9 @@ export default function RdoForm() {
         throw new Error("Não foi possível identificar o ID do rascunho para salvar os dados do formulário.");
       }
 
+      setDraftId(rdoId);
+      setEditStatusValidacao("rascunho");
+
       await persistRdoChildren(rdoId);
 
       toast({ title: "📝 Rascunho salvo!", description: "Todos os campos preenchidos foram salvos no rascunho." });
@@ -1290,7 +1313,8 @@ export default function RdoForm() {
     semProducao,
     tipoRdo,
     draftId,
-    searchParams,
+    editParamId,
+    bloquearSalvarRascunhoEmRegistroEnviado,
     setSearchParams,
     persistRdoChildren,
     findExistingRdoIdByNaturalKey,
@@ -1985,7 +2009,7 @@ export default function RdoForm() {
             size="sm"
             variant="outline"
             onClick={handleSaveDraft}
-            disabled={savingDraft || (!header.obra_nome && !isPatioRdo)}
+            disabled={savingDraft || bloquearSalvarRascunhoEmRegistroEnviado || (!header.obra_nome && !isPatioRdo)}
             className="bg-white/15 border-white/30 text-white hover:bg-white/25 gap-1.5 text-xs font-bold rounded-lg"
           >
             <Save className="w-4 h-4" />
@@ -2238,7 +2262,7 @@ export default function RdoForm() {
           <div className="flex gap-2">
             <Button
               onClick={handleSaveDraft}
-              disabled={savingDraft || (!header.obra_nome && !isPatioRdo)}
+              disabled={savingDraft || bloquearSalvarRascunhoEmRegistroEnviado || (!header.obra_nome && !isPatioRdo)}
               variant="outline"
               className="flex-1 h-12 text-sm gap-2 font-display font-bold rounded-xl border-2 border-primary text-primary hover:bg-primary/5"
             >
