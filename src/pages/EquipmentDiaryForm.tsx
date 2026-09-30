@@ -15,6 +15,7 @@ import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
+import { formatDiaryFleetLabel } from "@/lib/diaryFleetLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -2969,7 +2970,7 @@ export default function EquipmentDiaryForm() {
                   <SelectContent>
                     {fleetOptionsStrict.filter((eq: any) => eq && eq.frota).map((eq: any) => (
                       <SelectItem key={eq.id} value={eq.frota}>
-                        {eq.frota} — {eq.nome}
+                        {formatDiaryFleetLabel(eq, isTruck)}
                       </SelectItem>
                     ))}
                   </SelectContent>
