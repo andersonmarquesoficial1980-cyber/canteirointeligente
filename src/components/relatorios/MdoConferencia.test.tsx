@@ -29,7 +29,7 @@ function query(table: string) {
 }
 
 describe("conferência MDO por equipe", () => {
-  it("permite buscar e aplicar por funcionário no período sem escolher equipe ou abrir rascunho", async () => {
+  it("busca por nome sem acento, mostra resultado clicável e aplica só ao funcionário escolhido", async () => {
     existing = [];
     from.mockImplementation(query);
     rpc.mockImplementation((name: string) => {
@@ -38,17 +38,26 @@ describe("conferência MDO por equipe", () => {
       return Promise.resolve({ data: null, error: null });
     });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(<MdoConferencia companyId="fremix" inicio="2026-09-01" fim="2026-09-30" grade={[...grade, day("Givanildo-2", "2026-09-03", team)]} canEdit canApprove={false} />);
+    const peopleGrade = [...grade.map((r) => r.employee_id === "Givanildo-2" ? { ...r, funcionario: "José de Souza" } : r),
+      { ...day("Givanildo-2", "2026-09-03", team), funcionario: "José de Souza" }];
+    render(<MdoConferencia companyId="fremix" inicio="2026-09-01" fim="2026-09-30" grade={peopleGrade} canEdit canApprove={false} />);
     await waitFor(() => expect(screen.getByRole("combobox", { name: "OGS para período da equipe" }).querySelector('option[value="ogs-1"]')).toBeTruthy());
     fireEvent.change(screen.getByRole("combobox", { name: "Equipe para conferência MDO" }), { target: { value: "CBUQ02" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Editar por" }), { target: { value: "funcionario" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "Buscar funcionário para conferência MDO" }), { target: { value: "Givanildo-2" } });
-    const person = screen.getByRole("combobox", { name: "Funcionário para conferência MDO" });
-    expect(within(person).queryByText(/Outra-equipe/)).toBeNull();
-    fireEvent.change(person, { target: { value: "Givanildo-2" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Buscar funcionário para conferência MDO" }), { target: { value: "jose" } });
+    const result = screen.getByRole("button", { name: /José de Souza.*Givanildo-2/ });
+    expect(screen.queryByRole("button", { name: /Outra-equipe/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Selecione a OGS para aplicar/ }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(result);
+    expect(screen.getByText(/Selecionado: José de Souza/)).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: "Buscar funcionário para conferência MDO" }), { target: { value: "sem cadastro" } });
+    expect(screen.getByText(/Nenhum funcionário encontrado neste período/)).toBeTruthy();
+    expect(screen.queryByText(/Selecionado: José de Souza/)).toBeNull();
+    fireEvent.change(screen.getByRole("textbox", { name: "Buscar funcionário para conferência MDO" }), { target: { value: "jose" } });
+    fireEvent.click(screen.getByRole("button", { name: /José de Souza.*Givanildo-2/ }));
     fireEvent.change(screen.getByLabelText("Fim da edição do funcionário"), { target: { value: "2026-09-02" } });
     fireEvent.change(screen.getByRole("combobox", { name: "OGS para período" }), { target: { value: "ogs-1" } });
-    expect(within(screen.getByRole("table")).getByText("Givanildo-2")).toBeTruthy();
+    expect(within(screen.getByRole("table")).getByText("José de Souza")).toBeTruthy();
     expect(within(screen.getByRole("table")).queryByText("Givanildo-1")).toBeNull();
     const button = screen.getByRole("button", { name: /Aplicar OGS ao funcionário · 1 dia/ });
     expect(button.hasAttribute("disabled")).toBe(false);
@@ -57,7 +66,7 @@ describe("conferência MDO por equipe", () => {
       p_periodo: period.id, p_revisao: 0,
       p_celulas: [expect.objectContaining({ employee_id: "Givanildo-2", data: "2026-09-02", ogs_id: "ogs-1" })],
     }));
-    expect(confirm.mock.calls[0][0]).toContain("Givanildo-2");
+    expect(confirm.mock.calls[0][0]).toContain("José de Souza");
     confirm.mockRestore();
   });
 

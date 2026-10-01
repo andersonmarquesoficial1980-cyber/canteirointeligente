@@ -20,6 +20,7 @@ type Fechado = {
 
 const PAGE_SIZE = 120;
 const db = supabase as any; // As tabelas/RPCs passam a existir após a migração versionada.
+const foldSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").trim();
 
 async function fetchAll<T>(table: string, query: (q: any) => any): Promise<T[]> {
   const rows: T[] = [];
@@ -130,8 +131,8 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
     id: r.employee_id, nome: r.funcionario, matricula: r.matricula, equipe: r.equipe,
   }])).values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")), [grade]);
   const selectedPerson = people.find((p) => p.id === personId);
-  const peopleOptions = people.filter((p) => p.id === personId || `${p.nome} ${p.matricula} ${p.equipe}`
-    .toLocaleLowerCase("pt-BR").includes(personSearch.toLocaleLowerCase("pt-BR")));
+  const personQuery = foldSearch(personSearch);
+  const peopleOptions = personQuery ? people.filter((p) => foldSearch(`${p.nome} ${p.matricula} ${p.equipe}`).includes(personQuery)) : [];
   const targetChosen = editMode === "equipe" ? !!team : !!selectedPerson;
   const scoped = useMemo(() => displayed.filter((r) => (editMode === "equipe" ? team && r.equipe === team : personId && r.employee_id === personId)
     && r.data >= teamStart && r.data <= teamEnd), [displayed, editMode, team, personId, teamStart, teamEnd]);
@@ -314,13 +315,18 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
               <option value="">Selecione uma equipe</option>{teams.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
           </label> : <div className="space-y-1"><label className="text-sm block" htmlFor="mdo-person-search">Buscar funcionário</label>
-            <Input id="mdo-person-search" aria-label="Buscar funcionário para conferência MDO" value={personSearch} onChange={(e) => setPersonSearch(e.target.value)} placeholder="Nome ou matrícula" />
-            <label className="text-sm block" htmlFor="mdo-person-select">Funcionário</label>
-            <select id="mdo-person-select" aria-label="Funcionário para conferência MDO" className="border rounded p-2 bg-background w-full" value={personId}
-              onChange={(e) => { setPersonId(e.target.value); setSelected(new Set()); setSearch(""); setPage(0); }}>
-              <option value="">Selecione um funcionário</option>{peopleOptions.map((person) =>
-                <option key={person.id} value={person.id}>{person.nome} · {person.matricula} · {person.equipe}</option>)}
-            </select>
+            <Input id="mdo-person-search" aria-label="Buscar funcionário para conferência MDO" value={personSearch}
+              onChange={(e) => { setPersonSearch(e.target.value); setPersonId(""); setSelected(new Set()); setSearch(""); setPage(0); }} placeholder="Digite nome ou matrícula" />
+            {selectedPerson && !personQuery && <p className="text-sm rounded border p-2 bg-muted/40">Selecionado: {selectedPerson.nome} · {selectedPerson.matricula} · {selectedPerson.equipe}</p>}
+            {personQuery && <div className="rounded border bg-background max-h-48 overflow-auto" aria-label="Resultados da busca de funcionários">
+              {peopleOptions.length ? peopleOptions.slice(0, 20).map((person) => <button type="button" key={person.id}
+                className="block text-left text-sm w-full p-2 hover:bg-muted focus-visible:bg-muted border-b"
+                onClick={() => { setPersonId(person.id); setPersonSearch(""); setSelected(new Set()); setSearch(""); setPage(0); }}>
+                {person.nome} · {person.matricula} · {person.equipe}
+              </button>) : <p className="text-xs p-2" role="status">Nenhum funcionário encontrado neste período. Confira o nome ou clique em Buscar no topo.</p>}
+              {peopleOptions.length > 20 && <p className="text-xs p-2">Mostrando 20 de {peopleOptions.length}; digite mais letras para refinar.</p>}
+            </div>}
+            {!people.length && <p className="text-xs text-muted-foreground">Carregue o relatório pelo botão Buscar no topo para listar os funcionários.</p>}
           </div>}
           <label className="text-sm space-y-1">De
             <Input aria-label={`Início da edição ${editMode === "equipe" ? "da equipe" : "do funcionário"}`} type="date" min={inicio} max={fim} value={teamStart}
