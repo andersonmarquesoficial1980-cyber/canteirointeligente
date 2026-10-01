@@ -11,6 +11,8 @@ type Periodo = {
   status: "rascunho" | "aprovado"; revisao: number; aprovado_em: string | null; total_linhas: number | null;
 };
 type Ogs = { id: string; ogs_number: string | null };
+type EmployeeLookup = { id: string; name: string; matricula: string | null; equipe: string | null;
+  status: string | null; data_admissao: string | null; data_demissao: string | null };
 type CostUser = { user_id: string; nome: string; email: string; permitido: boolean };
 type Fechado = {
   employee_id: string; dia: string; nome: string; funcao: string | null;
@@ -22,10 +24,10 @@ const PAGE_SIZE = 120;
 const db = supabase as any; // As tabelas/RPCs passam a existir após a migração versionada.
 const foldSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").trim();
 
-async function fetchAll<T>(table: string, query: (q: any) => any): Promise<T[]> {
+async function fetchAll<T>(table: string, query: (q: any) => any, columns = "*"): Promise<T[]> {
   const rows: T[] = [];
   for (let offset = 0; ; offset += 500) {
-    const { data, error } = await query(db.from(table).select("*")).range(offset, offset + 499);
+    const { data, error } = await query(db.from(table).select(columns)).range(offset, offset + 499);
     if (error) throw error;
     rows.push(...(data || []));
     if (!data || data.length < 500) break;
@@ -33,9 +35,9 @@ async function fetchAll<T>(table: string, query: (q: any) => any): Promise<T[]> 
   return rows;
 }
 
-export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canApprove }: {
+export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canApprove, reportReady = grade.length > 0, reportLoading = false, onLoadReport }: {
   companyId: string; inicio: string; fim: string; grade: MdoBaseDay[];
-  canEdit: boolean; canApprove: boolean;
+  canEdit: boolean; canApprove: boolean; reportReady?: boolean; reportLoading?: boolean; onLoadReport?: () => Promise<void>;
 }) {
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [draft, setDraft] = useState<Periodo | null>(null);
@@ -58,6 +60,8 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
   const [editMode, setEditMode] = useState<"equipe" | "funcionario">("equipe");
   const [personId, setPersonId] = useState("");
   const [personSearch, setPersonSearch] = useState("");
+  const [roster, setRoster] = useState<EmployeeLookup[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
   const [teamStart, setTeamStart] = useState(inicio);
   const [teamEnd, setTeamEnd] = useState(fim);
   const [teamOgsId, setTeamOgsId] = useState("");
@@ -98,6 +102,21 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
       .then(setOgs).catch((err) => toast.error(`Falha ao buscar OGS: ${err.message}`));
   }, [companyId, inicio, fim, canEdit]);
 
+  // Sugestões independentes dos RDOs: a grade completa só é carregada após escolher a pessoa.
+  useEffect(() => {
+    if (!canEdit || !companyId) { setRoster([]); return; }
+    let active = true;
+    setRoster([]); setRosterLoading(true);
+    fetchAll<EmployeeLookup>("employees", (q) => q.eq("company_id", companyId).order("name"),
+      "id,name,matricula,equipe,status,data_admissao,data_demissao")
+      .then((rows) => { if (active) setRoster(rows.filter((e) =>
+        (!e.data_admissao || e.data_admissao <= fim) && (!e.data_demissao || e.data_demissao >= inicio)
+        && (e.status === "ativo" || Boolean(e.data_demissao)))); })
+      .catch((err) => { if (active) toast.error(`Não foi possível listar funcionários: ${err.message}`); })
+      .finally(() => { if (active) setRosterLoading(false); });
+    return () => { active = false; };
+  }, [companyId, inicio, fim, canEdit]);
+
   useEffect(() => {
     reloadDecisions(draft || undefined).catch((err) => toast.error(`Falha ao carregar ajustes: ${err.message}`));
   }, [draft?.id, ogs]);
@@ -127,13 +146,14 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
 
   const displayed = useMemo(() => applyDraftDecisions(grade, decisions), [grade, decisions]);
   const teams = useMemo(() => [...new Set(grade.map((r) => r.equipe))].sort((a, b) => a.localeCompare(b, "pt-BR")), [grade]);
-  const people = useMemo(() => [...new Map(grade.map((r) => [r.employee_id, {
-    id: r.employee_id, nome: r.funcionario, matricula: r.matricula, equipe: r.equipe,
-  }])).values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")), [grade]);
+  const people = useMemo(() => [...new Map([
+    ...roster.map((e) => [e.id, { id: e.id, nome: e.name || "", matricula: e.matricula || "-", equipe: e.equipe || "SEM EQUIPE" }] as const),
+    ...grade.map((r) => [r.employee_id, { id: r.employee_id, nome: r.funcionario, matricula: r.matricula, equipe: r.equipe }] as const),
+  ]).values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")), [grade, roster]);
   const selectedPerson = people.find((p) => p.id === personId);
   const personQuery = foldSearch(personSearch);
   const peopleOptions = personQuery ? people.filter((p) => foldSearch(`${p.nome} ${p.matricula} ${p.equipe}`).includes(personQuery)) : [];
-  const targetChosen = editMode === "equipe" ? !!team : !!selectedPerson;
+  const targetChosen = editMode === "equipe" ? !!team : Boolean(selectedPerson && reportReady && grade.some((r) => r.employee_id === selectedPerson.id));
   const scoped = useMemo(() => displayed.filter((r) => (editMode === "equipe" ? team && r.equipe === team : personId && r.employee_id === personId)
     && r.data >= teamStart && r.data <= teamEnd), [displayed, editMode, team, personId, teamStart, teamEnd]);
   const teamOgs = ogs.find((o) => o.id === teamOgsId);
@@ -200,6 +220,7 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
   };
 
   const applyPeriod = async () => {
+    if (!reportReady) return toast.error("Carregue o relatório completo antes de aplicar OGS");
     if (!targetChosen || teamStart < inicio || teamEnd > fim || teamStart > teamEnd) return toast.error("Escolha uma equipe ou funcionário e datas dentro do período do relatório");
     if (!teamOgs) return toast.error("Escolha a OGS para aplicar");
     if (!periodChanges.length) return toast.error("Não há dias elegíveis para essa alteração");
@@ -317,16 +338,18 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
           </label> : <div className="space-y-1"><label className="text-sm block" htmlFor="mdo-person-search">Buscar funcionário</label>
             <Input id="mdo-person-search" aria-label="Buscar funcionário para conferência MDO" value={personSearch}
               onChange={(e) => { setPersonSearch(e.target.value); setPersonId(""); setSelected(new Set()); setSearch(""); setPage(0); }} placeholder="Digite nome ou matrícula" />
-            {selectedPerson && !personQuery && <p className="text-sm rounded border p-2 bg-muted/40">Selecionado: {selectedPerson.nome} · {selectedPerson.matricula} · {selectedPerson.equipe}</p>}
+            {selectedPerson && !personQuery && <p className="text-sm rounded border p-2 bg-muted/40">Selecionado: {selectedPerson.nome} · {selectedPerson.matricula} · {selectedPerson.equipe}
+              {!reportReady && <span className="block text-xs">{reportLoading ? "Carregando relatório completo para conferir os dias..." : "Relatório não carregado. Clique em Buscar no topo se a carga automática falhar."} Nenhuma OGS será aplicada até a grade ficar pronta.</span>}</p>}
             {personQuery && <div className="rounded border bg-background max-h-48 overflow-auto" aria-label="Resultados da busca de funcionários">
               {peopleOptions.length ? peopleOptions.slice(0, 20).map((person) => <button type="button" key={person.id}
                 className="block text-left text-sm w-full p-2 hover:bg-muted focus-visible:bg-muted border-b"
-                onClick={() => { setPersonId(person.id); setPersonSearch(""); setSelected(new Set()); setSearch(""); setPage(0); }}>
+                onClick={() => { setPersonId(person.id); setPersonSearch(""); setSelected(new Set()); setSearch(""); setPage(0);
+                  if (!reportReady && !reportLoading && onLoadReport) void onLoadReport().catch((err) => toast.error(`Não foi possível carregar o relatório: ${err.message}`)); }}>
                 {person.nome} · {person.matricula} · {person.equipe}
-              </button>) : <p className="text-xs p-2" role="status">Nenhum funcionário encontrado neste período. Confira o nome ou clique em Buscar no topo.</p>}
+              </button>) : <p className="text-xs p-2" role="status">{rosterLoading ? "Carregando funcionários..." : "Nenhum funcionário encontrado neste período. Confira o nome e as datas."}</p>}
               {peopleOptions.length > 20 && <p className="text-xs p-2">Mostrando 20 de {peopleOptions.length}; digite mais letras para refinar.</p>}
             </div>}
-            {!people.length && <p className="text-xs text-muted-foreground">Carregue o relatório pelo botão Buscar no topo para listar os funcionários.</p>}
+            {!people.length && !rosterLoading && <p className="text-xs text-muted-foreground">Nenhum funcionário elegível encontrado para as datas selecionadas.</p>}
           </div>}
           <label className="text-sm space-y-1">De
             <Input aria-label={`Início da edição ${editMode === "equipe" ? "da equipe" : "do funcionário"}`} type="date" min={inicio} max={fim} value={teamStart}

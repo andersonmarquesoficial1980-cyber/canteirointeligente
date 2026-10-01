@@ -8,6 +8,7 @@ import { ArrowLeft, Search, FileSpreadsheet, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { toast } from "sonner";
 import { MdoConferencia } from "@/components/relatorios/MdoConferencia";
 import { eligibleOnDay } from "@/lib/mdoWorkbench";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
@@ -629,8 +630,10 @@ export default function RelatorioMdoPeriodo() {
       setRows(result);
     } catch (err) {
       console.error("[RelatorioMdoPeriodo] erro", err);
+      toast.error(`Falha ao carregar relatório MDO: ${err instanceof Error ? err.message : String(err)}`);
       setRows([]);
       setEmployeesAtivos([]);
+      setSearched(false);
     } finally {
       setLoading(false);
     }
@@ -870,7 +873,8 @@ export default function RelatorioMdoPeriodo() {
         {access?.export && companyId && dataIni && dataFim && dataIni <= dataFim && (
           <MdoConferencia key={`${companyId}:${dataIni}:${dataFim}`} companyId={companyId} inicio={dataIni} fim={dataFim}
             grade={access.edit && searched && !loading ? gradeFuncionarioDia : []}
-            canEdit={access.edit} canApprove={access.approve} />
+            canEdit={access.edit} canApprove={access.approve} reportReady={searched && !loading}
+            reportLoading={loading} onLoadReport={buscar} />
         )}
 
         {searched && access?.edit && !loading && (
