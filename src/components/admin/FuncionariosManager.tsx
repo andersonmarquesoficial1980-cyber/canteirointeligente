@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Search, X, Trash2 } from "lucide-react";
 import { useFuncoes } from "@/hooks/useFuncoes";
-import { useEmpresasParceiras } from "@/hooks/useEmpresasParceiras";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 
 interface Funcionario {
@@ -16,8 +15,6 @@ interface Funcionario {
   name: string;
   role: string;           // nome da função (compatibilidade)
   funcao_id: string;      // FK para funcoes
-  empresa_key: string;    // "FREMIX" ou id da empresa parceira
-  empresa_nome: string;   // nome para exibição
   equipe: string;
   responsavel: string;
   responsavel_employee_id: string;
@@ -38,8 +35,8 @@ interface Funcionario {
 }
 
 const EMPTY: Funcionario = {
-  matricula: "", name: "", role: "", funcao_id: "", empresa_key: "FREMIX",
-  empresa_nome: "FREMIX", equipe: "", responsavel: "", responsavel_employee_id: "",
+  matricula: "", name: "", role: "", funcao_id: "",
+  equipe: "", responsavel: "", responsavel_employee_id: "",
   centro_custo: "", centro_custo_codigo: "", centro_custo_descricao: "", data_admissao: "", data_demissao: "", data_nascimento: "", salario: "",
   cpf: "", rg: "", telefone: "", email: "", status: "ativo", obs_geral: "",
 };
@@ -49,7 +46,6 @@ const STATUS_OPTS = ["ativo", "ferias", "afastado", "demitido"];
 export default function FuncionariosManager() {
   const { toast } = useToast();
   const { funcoes } = useFuncoes();
-  const { empresas: empresasParceiras } = useEmpresasParceiras();
   const [items, setItems] = useState<any[]>([]);
   const [equipes, setEquipes] = useState<{ nome: string; responsavel: string | null }[]>([]);
   const [centrosCusto, setCentrosCusto] = useState<{id:string, nome:string, codigo?: string | null}[]>([]);
@@ -75,7 +71,9 @@ export default function FuncionariosManager() {
       (supabase as any).from("ci_equipes").select("nome, responsavel").eq("ativa", true).order("nome"),
       (supabase as any).from("ci_centros_custo").select("id, codigo, nome").eq("ativo", true).order("nome"),
     ]);
-    setItems(funcs || []);
+    // A tela Terceirizados usa os mesmos registros com origem TERCEIRO.
+    // Manter a mesma regra da Gestão de Pessoas (inclui legados sem origem).
+    setItems((funcs || []).filter((f: any) => f.origem !== "TERCEIRO"));
     // SOMENTE equipes cadastradas no Painel de Controle (ci_equipes)
     setEquipes((eqs || []).map((e: any) => ({ nome: e.nome, responsavel: e.responsavel || null })));
     setCentrosCusto(ccs || []);
@@ -110,18 +108,12 @@ export default function FuncionariosManager() {
   }
 
   function openEdit(f: any) {
-    // Determinar empresa_key: se tem empresa_parceira_id → usa o id, senão "FREMIX"
-    const empresaKey = f.empresa_parceira_id || "FREMIX";
-    const empresaNome = f.empresa_nome ||
-      (f.empresa_parceira_id ? (empresasParceiras.find(e => e.id === f.empresa_parceira_id)?.nome || "") : "FREMIX");
     setForm({
       id: f.id,
       matricula: f.matricula || "",
       name: f.name || "",
       role: f.role || "",
       funcao_id: f.funcao_id || "",
-      empresa_key: empresaKey,
-      empresa_nome: empresaNome,
       equipe: f.equipe || "",
       responsavel: f.responsavel || "",
       responsavel_employee_id: f.responsavel_employee_id || "",
@@ -158,9 +150,6 @@ export default function FuncionariosManager() {
     }
     setSaving(true);
 
-    // Resolver empresa
-    const isFremix = form.empresa_key === "FREMIX";
-    const empresaParceira = isFremix ? null : empresasParceiras.find(e => e.id === form.empresa_key);
     const funcaoSelecionada = funcoes.find(f => f.id === form.funcao_id);
 
     const payload: any = {
@@ -168,9 +157,9 @@ export default function FuncionariosManager() {
       name: form.name.trim().toUpperCase(),
       role: funcaoSelecionada?.nome || form.role.trim().toUpperCase(),  // compatibilidade
       funcao_id: form.funcao_id || null,
-      origem: isFremix ? "PROPRIO" : "TERCEIRO",
-      empresa_parceira_id: isFremix ? null : (form.empresa_key || null),
-      empresa_nome: isFremix ? "FREMIX" : (empresaParceira?.nome || null),
+      origem: "PROPRIO",
+      empresa_parceira_id: null,
+      empresa_nome: "FREMIX",
       equipe: form.equipe.trim() || null,
       responsavel: form.responsavel.trim() || null,
       responsavel_employee_id: form.responsavel_employee_id || null,
@@ -258,7 +247,7 @@ export default function FuncionariosManager() {
             <div>
               <p className="text-sm font-medium">{f.name}</p>
               <p className="text-xs text-muted-foreground">
-                {f.funcoes?.nome || f.role}{f.matricula ? ` · Mat. ${f.matricula}` : ""}{f.equipe ? ` · ${f.equipe}` : ""}{f.status ? ` · Status: ${String(f.status).charAt(0).toUpperCase() + String(f.status).slice(1)}` : ""}{f.empresa_nome && f.empresa_nome !== "FREMIX" ? ` · ${f.empresa_nome}` : ""}
+                {f.funcoes?.nome || f.role}{f.matricula ? ` · Mat. ${f.matricula}` : ""}{f.equipe ? ` · ${f.equipe}` : ""}{f.status ? ` · Status: ${String(f.status).charAt(0).toUpperCase() + String(f.status).slice(1)}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -301,20 +290,7 @@ export default function FuncionariosManager() {
                   </select>
                 </div>
 
-                {/* Empresa */}
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Empresa</Label>
-                  <select
-                    value={form.empresa_key}
-                    onChange={e => set("empresa_key", e.target.value)}
-                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm"
-                  >
-                    <option value="FREMIX">FREMIX (Própria)</option>
-                    {empresasParceiras.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
-                  </select>
-                </div>
-
-                {renderField("Matrícula", "matricula", "text", "Opcional para PJ e terceiros")}
+                {renderField("Matrícula", "matricula", "text", "Opcional")}
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Status</Label>
                   <select value={form.status} onChange={e => {
