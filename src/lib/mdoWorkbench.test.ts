@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyDraftDecisions, buildBulkChanges, eligibleOnDay, buildEligibleDays, mapPastedOgs, type MdoBaseDay, type MdoDecision } from "./mdoWorkbench";
+import { applyDraftDecisions, buildBulkChanges, buildTeamPeriodChanges, eligibleOnDay, buildEligibleDays, mapPastedOgs, type MdoBaseDay, type MdoDecision } from "./mdoWorkbench";
 
 const base: MdoBaseDay = {
   employee_id: "person-a", data: "2026-09-01", funcionario: "Maria", equipe: "Obra", funcao: "Auxiliar",
@@ -51,5 +51,37 @@ describe("conferência MDO", () => {
     expect(eligibleOnDay({ status: "demitido", data_admissao: "2026-08-01", data_demissao: "2026-09-15" }, "2026-09-10")).toBe(true);
     expect(eligibleOnDay({ status: "demitido", data_admissao: "2026-08-01", data_demissao: "2026-09-15" }, "2026-09-16")).toBe(false);
     expect(eligibleOnDay({ status: "ativo", data_admissao: "2026-09-10", data_demissao: null }, "2026-09-09")).toBe(false);
+  });
+
+  it("aplica OGS só aos dias pendentes da equipe e do intervalo, inclusive as pontas", () => {
+    const rows = applyDraftDecisions([
+      base,
+      { ...base, employee_id: "person-b", data: "2026-09-02" },
+      { ...base, employee_id: "person-c", data: "2026-09-02", equipe: "Outra" },
+      { ...base, data: "2026-09-03" },
+      { ...base, data: "2026-09-02", ogs: "OGS-ORIGINAL" },
+    ], []);
+    const changes = buildTeamPeriodChanges(rows, "Obra", "2026-09-01", "2026-09-02", { id: "ogs-1", ogs_number: "OGS-101" });
+    expect(changes.map((d) => `${d.employee_id}|${d.data}`)).toEqual(["person-a|2026-09-01", "person-b|2026-09-02"]);
+    expect(changes.every((d) => d.ogs_id === "ogs-1")).toBe(true);
+  });
+
+  it("preserva exclusões e justificativas mesmo ao substituir OGS já preenchidas", () => {
+    const rows = applyDraftDecisions([
+      base, { ...base, employee_id: "alocado", ogs: "OGS-ANTIGA" },
+      { ...base, employee_id: "fora" }, { ...base, employee_id: "ferias" },
+    ], [
+      { ...decision, employee_id: "fora", disposition: "exclude", ogs_id: null, reason: "Fora do escopo", include: false },
+      { ...decision, employee_id: "ferias", disposition: "exception", ogs_id: null, reason: "Férias", include: true },
+    ]);
+    const changes = buildTeamPeriodChanges(rows, "Obra", "2026-09-01", "2026-09-01", { id: "nova", ogs_number: "OGS-NOVA" }, true);
+    expect(changes.map((d) => d.employee_id)).toEqual(["person-a", "alocado"]);
+  });
+
+  it("recusa equipe, intervalo ou OGS ausente em vez de alterar todos", () => {
+    const rows = applyDraftDecisions([base], []);
+    expect(buildTeamPeriodChanges(rows, "", "2026-09-01", "2026-09-01", { id: "1", ogs_number: "OGS-1" })).toEqual([]);
+    expect(buildTeamPeriodChanges(rows, "Obra", "2026-09-02", "2026-09-01", { id: "1", ogs_number: "OGS-1" })).toEqual([]);
+    expect(buildTeamPeriodChanges(rows, "Obra", "2026-09-01", "2026-09-01", { id: "", ogs_number: "" })).toEqual([]);
   });
 });

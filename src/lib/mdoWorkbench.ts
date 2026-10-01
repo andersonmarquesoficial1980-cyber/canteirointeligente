@@ -72,3 +72,15 @@ export function buildBulkChanges<T extends MdoBaseDay>(
   return rows.filter((r) => selected.has(`${r.employee_id}|${r.data}`))
     .map((r) => ({ employee_id: r.employee_id, data: r.data, ...input }));
 }
+
+/** A equipe é a equipe atual de employees; dias de outro grupo ou fora do intervalo nunca entram. */
+export function buildTeamPeriodChanges<T extends MdoBaseDay & { situacao: string }>(
+  rows: T[], team: string, start: string, end: string,
+  ogs: { id: string; ogs_number: string | null }, replaceAllocated = false,
+): MdoDecision[] {
+  if (!team || !start || !end || start > end || !ogs.id || !ogs.ogs_number?.trim()) return [];
+  return rows.filter((r) => r.equipe === team && r.data >= start && r.data <= end
+    && (r.situacao === "PENDENTE" || (replaceAllocated && r.situacao === "ALOCADO")))
+    .map((r) => ({ employee_id: r.employee_id, data: r.data, disposition: "ogs",
+      ogs_id: ogs.id, ogs_number: ogs.ogs_number, reason: "", include: true }));
+}
