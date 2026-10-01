@@ -1101,7 +1101,7 @@ export default function ProgramadorHome() {
       <div className="flex-1 px-3 py-3 pb-4 space-y-3">
         {modoReuniao && (
           <EfficiencyMeeting
-            mode={presentationKind} people={funcionarios} equipment={frota} teams={equipesAtivas} initialTeam={presentationTeam} pinnedTeams={baloesEquipe.pinned}
+            companyId={companyId} mode={presentationKind} people={funcionarios} equipment={frota} teams={equipesAtivas} initialTeam={presentationTeam} pinnedTeams={baloesEquipe.pinned}
             preferenceScope={companyId && profile?.user_id ? `${companyId}:${profile.user_id}` : undefined}
             zoom={presentationZoom} onZoomChange={setPresentationZoom}
             notes={operationalNotes} notesError={notesError}

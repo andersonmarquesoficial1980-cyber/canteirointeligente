@@ -23,6 +23,17 @@ function choose(group: string, action: string) {
 }
 
 describe("tela de reunião", () => {
+  it.each(["equipes", "funcionarios"] as const)("oculta apenas os IDs indicados da Fremix em %s, sem ocultar quem tem RDO", mode => {
+    const staff = [
+      { ...props.people[0], id: "a0e74d66-de82-4d35-afdf-4af0e247f5ca", name: "GABRIELLI DE SOUSA" },
+      { ...props.people[0], id: "18ab8c67-35d6-46e5-b6ef-54088a70c8af", name: "GIBSON DOS SANTOS SILVA" },
+    ];
+    const page = render(<EfficiencyMeeting {...props} mode={mode} companyId="a1b2c3d4-e5f6-7890-abcd-ef1234567890" people={staff} />);
+    expect(screen.queryByText("GABRIELLI DE SOUSA")).toBeNull();
+    expect(screen.getByText("GIBSON DOS SANTOS SILVA")).toBeTruthy();
+    page.rerender(<EfficiencyMeeting {...props} mode={mode} companyId="outra-empresa" people={staff} />);
+    expect(screen.getByText("GABRIELLI DE SOUSA")).toBeTruthy();
+  });
   it("keeps shortcut visibility scoped to the signed-in company and user", () => {
     const scopeA = "company-a:user-a";
     const scopeB = "company-a:user-b";

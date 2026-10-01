@@ -4,8 +4,10 @@ import { balloonOptions, prepareEfficiencyMeeting, meetingFilterKey, meetingStat
 import { ProgramadorNote } from "@/components/ProgramadorNote";
 import { noteKey, type OperationalNotes } from "@/lib/programadorNotes";
 import { PresentationBalloons } from "@/components/PresentationBalloons";
+import { visibleInEfficiencyMeeting } from "@/config/efficiencyMeetingHiddenPeople";
 
 type Props = {
+  companyId?: string;
   mode?: "equipes" | "funcionarios" | "equipamentos";
   teams?: string[];
   people: MeetingPerson[];
@@ -33,13 +35,14 @@ const statusName: Record<string, string> = {
 const alphabetic = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
 
 /** Read-only meeting surface: no master writes, drafts, or forms are mounted here. */
-export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, initialTeam, zoom = 100, onZoomChange, pinnedTeams, preferenceScope, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
+export function EfficiencyMeeting({ companyId, mode = "equipes", teams, people, equipment, initialTeam, zoom = 100, onZoomChange, pinnedTeams, preferenceScope, notes, notesError, updatedAt, error, loading, onRefresh, onExit, onManagePerson, onManageEquipment }: Props) {
   const [selectedTeams, setSelectedTeams] = useState<string[]>(initialTeam ? [initialTeam] : []);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [hiddenCostCenters, setHiddenCostCenters] = useState<string[]>([]);
-  const all = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment, {}), [mode, people, equipment]);
+  const meetingPeople = useMemo(() => people.filter(person => visibleInEfficiencyMeeting(companyId, person.id)), [companyId, people]);
+  const all = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : meetingPeople, mode === "funcionarios" ? [] : equipment, {}), [mode, meetingPeople, equipment]);
   const availableTeams = useMemo(() => {
     const unique = new Map<string, string>();
     for (const name of [...(teams || []), ...all.teams]) if (name.trim() && !unique.has(meetingFilterKey(name))) unique.set(meetingFilterKey(name), name.trim());
@@ -59,9 +62,9 @@ export function EfficiencyMeeting({ mode = "equipes", teams, people, equipment, 
     .filter(([key]) => key !== "devolvido" && all.equipment.some(eq => meetingStatus(eq) === key))
     .map(([key, label]) => ({ key, label, count: 0 })), [all.equipment]);
   const costOptions = useMemo(() => balloonOptions([...all.people, ...all.equipment], row => row.centro_custo, "__sem_centro__", "Sem centro de custo").sort((a, b) => alphabetic.compare(a.label, b.label)), [all.people, all.equipment]);
-  const view = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : people, mode === "funcionarios" ? [] : equipment,
+  const view = useMemo(() => prepareEfficiencyMeeting(mode === "equipamentos" ? [] : meetingPeople, mode === "funcionarios" ? [] : equipment,
     { teams: selectedTeams, selectedRoles, selectedTypes, selectedStatuses, hiddenCostCenters }),
-    [mode, people, equipment, selectedTeams, selectedRoles, selectedTypes, selectedStatuses, hiddenCostCenters]);
+    [mode, meetingPeople, equipment, selectedTeams, selectedRoles, selectedTypes, selectedStatuses, hiddenCostCenters]);
   const toggle = (setter: Dispatch<SetStateAction<string[]>>) => (key: string) =>
     setter(current => current.includes(key) ? current.filter(value => value !== key) : [...current, key]);
   const orderedPeople = useMemo(() => [...view.people].sort((a, b) => alphabetic.compare(a.name || "", b.name || "") || alphabetic.compare(a.matricula || "", b.matricula || "")), [view.people]);
