@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,9 @@ import { ArrowLeft, Search, FileSpreadsheet, Printer } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { MdoConferencia } from "@/components/relatorios/MdoConferencia";
+import { eligibleOnDay } from "@/lib/mdoWorkbench";
+import { DEFAULT_COMPANY_ID } from "@/config/company";
 
 function fmtDate(d?: string | null) {
   if (!d) return "-";
@@ -96,6 +99,8 @@ type EmployeeLite = {
   role: string | null;
   matricula: string | null;
   status: string | null;
+  data_admissao: string | null;
+  data_demissao: string | null;
 };
 
 function makeDateRange(startIso: string, endIso: string) {
@@ -110,9 +115,23 @@ function makeDateRange(startIso: string, endIso: string) {
   return out;
 }
 
+async function pagedRows<T>(load: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>): Promise<T[]> {
+  const collected: T[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await load(offset, offset + 499);
+    if (error) throw error;
+    collected.push(...(data || []));
+    if (!data || data.length < 500) break;
+  }
+  return collected;
+}
+
 export default function RelatorioMdoPeriodo() {
   const goBack = useSmartBack("/relatorios");
   const { profile } = useUserProfile();
+  // O proprietário global não tem company_id no perfil; esta tela é da Fremix.
+  // A autorização real continua obrigatória na RPC/RLS do banco.
+  const companyId = profile?.company_id || (profile?.email?.toLowerCase() === "andersonmarquesoficial1980@gmail.com" ? DEFAULT_COMPANY_ID : null);
 
   const hoje = new Date().toISOString().slice(0, 10);
   const inicioMes = `${hoje.slice(0, 8)}01`;
@@ -121,6 +140,22 @@ export default function RelatorioMdoPeriodo() {
   const [dataFim, setDataFim] = useState(hoje);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [access, setAccess] = useState<{ edit: boolean; approve: boolean; export: boolean } | null>(null);
+  const [accessError, setAccessError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setAccess(null);
+    if (!companyId) return;
+    Promise.all((["edit", "approve", "export"] as const).map(async (action) => {
+      const { data, error } = await (supabase as any).rpc("mdo_custos_pode", { p_empresa: companyId, p_acao: action });
+      if (error) throw error;
+      return Boolean(data);
+    })).then(([edit, approve, canExport]) => {
+      if (active) { setAccess({ edit, approve, export: canExport }); setAccessError(""); }
+    }).catch((err) => { if (active) { setAccessError(`Conferência indisponível: ${err.message}`); setAccess(null); } });
+    return () => { active = false; };
+  }, [companyId]);
 
   const [rows, setRows] = useState<MdoDetalheRow[]>([]);
   const [employeesAtivos, setEmployeesAtivos] = useState<EmployeeLite[]>([]);
@@ -134,6 +169,7 @@ export default function RelatorioMdoPeriodo() {
   const [fSomenteSemPresenca, setFSomenteSemPresenca] = useState(false);
   const [fConsolidarDia, setFConsolidarDia] = useState(true);
   const [q, setQ] = useState("");
+  const diasPeriodo = useMemo(() => makeDateRange(dataIni, dataFim), [dataIni, dataFim]);
 
   const equipeOptions = useMemo(() => {
     return Array.from(new Set(employeesAtivos.map((e) => (e.equipe || "SEM EQUIPE").trim() || "SEM EQUIPE"))).sort((a, b) =>
@@ -163,6 +199,7 @@ export default function RelatorioMdoPeriodo() {
 
   const semPresenca = useMemo(() => {
     return employeesAtivos
+      .filter((e) => diasPeriodo.some((day) => eligibleOnDay(e, day)))
       .filter((e) => !presenteEmployeeIds.has(e.id))
       .filter((e) => (fEquipe === "TODAS" ? true : ((e.equipe || "SEM EQUIPE") === fEquipe)))
       .filter((e) => {
@@ -174,7 +211,7 @@ export default function RelatorioMdoPeriodo() {
           .includes(qq);
       })
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [employeesAtivos, presenteEmployeeIds, fEquipe, q]);
+  }, [employeesAtivos, presenteEmployeeIds, fEquipe, q, diasPeriodo]);
 
   const filteredRows = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -223,7 +260,7 @@ export default function RelatorioMdoPeriodo() {
 
     const score = (o: OrigemVinculo) => (o === "id_direto" ? 3 : o === "nome_exato" ? 2 : 1);
 
-    for (const r of filteredRows) {
+    for (const r of rows) {
       const employeeKey = r.employee_id_resolvido || normalizeName(r.nome_lancado || "") || `SEM_ID_${r.rdo_id}`;
       const key = `${r.data}|${employeeKey}`;
 
@@ -282,11 +319,11 @@ export default function RelatorioMdoPeriodo() {
         rdo_ids: Array.from(it.rdoIds).join(" | "),
       }))
       .sort((a, b) => b.data.localeCompare(a.data) || a.funcionario.localeCompare(b.funcionario, "pt-BR"));
-  }, [filteredRows]);
+  }, [rows]);
 
   const kpis = useMemo(() => {
     const idsVistos = new Set(filteredRows.map((r) => r.employee_id_resolvido).filter(Boolean) as string[]);
-    const ativosFiltradosEquipe = employeesAtivos.filter((e) =>
+    const ativosFiltradosEquipe = employeesAtivos.filter((e) => diasPeriodo.some((day) => eligibleOnDay(e, day))).filter((e) =>
       fEquipe === "TODAS" ? true : ((e.equipe || "SEM EQUIPE") === fEquipe),
     );
 
@@ -297,18 +334,16 @@ export default function RelatorioMdoPeriodo() {
       lancamentosIdDireto: filteredRows.filter((r) => r.origem_vinculo === "id_direto").length,
       lancamentosNomeExato: filteredRows.filter((r) => r.origem_vinculo === "nome_exato").length,
       lancamentosSemMatch: filteredRows.filter((r) => r.origem_vinculo === "sem_match").length,
-      duplicidadesNoDia: filteredRows.length - consolidatedRows.length,
+      duplicidadesNoDia: filteredRows.length - new Set(filteredRows.map((r) => `${r.data}|${r.employee_id_resolvido || normalizeName(r.nome_lancado)}`)).size,
     };
-  }, [filteredRows, consolidatedRows, employeesAtivos, fEquipe]);
+  }, [filteredRows, consolidatedRows, employeesAtivos, fEquipe, diasPeriodo]);
 
-  const canSearch = Boolean(profile?.company_id && dataIni && dataFim && dataIni <= dataFim);
-
-
-  const diasPeriodo = useMemo(() => makeDateRange(dataIni, dataFim), [dataIni, dataFim]);
+  const canSearch = Boolean(companyId && access?.edit && dataIni && dataFim && dataIni <= dataFim && diasPeriodo.length <= 93);
 
   const ativosFiltradosEquipe = useMemo(
-    () => employeesAtivos.filter((e) => (fEquipe === "TODAS" ? true : ((e.equipe || "SEM EQUIPE") === fEquipe))),
-    [employeesAtivos, fEquipe],
+    () => employeesAtivos.filter((e) => diasPeriodo.some((day) => eligibleOnDay(e, day)))
+      .filter((e) => (fEquipe === "TODAS" ? true : ((e.equipe || "SEM EQUIPE") === fEquipe))),
+    [employeesAtivos, fEquipe, diasPeriodo],
   );
 
   const coberturaDias = useMemo(() => {
@@ -328,8 +363,9 @@ export default function RelatorioMdoPeriodo() {
       idx.set(`${r.employee_id_resolvido}|${r.data}`, r);
     });
 
-    return ativosFiltradosEquipe.flatMap((e) => {
-      return diasPeriodo.map((d) => {
+    // A conferência cobre a empresa inteira, independentemente de filtros exploratórios.
+    return employeesAtivos.filter((e) => diasPeriodo.some((d) => eligibleOnDay(e, d))).flatMap((e) => {
+      return diasPeriodo.filter((d) => eligibleOnDay(e, d)).map((d) => {
         const hit = idx.get(`${e.id}|${d}`);
         const semRdo = !hit;
         return {
@@ -338,6 +374,7 @@ export default function RelatorioMdoPeriodo() {
           funcionario: e.name,
           equipe: e.equipe || "SEM EQUIPE",
           funcao_cadastro: e.role || "-",
+          funcao: e.role || "-",
           matricula: e.matricula || "-",
           status: e.status || "-",
           presenca_rdo: semRdo ? "NAO" : "SIM",
@@ -355,10 +392,12 @@ export default function RelatorioMdoPeriodo() {
         };
       });
     });
-  }, [consolidatedRows, ativosFiltradosEquipe, diasPeriodo]);
+  }, [consolidatedRows, employeesAtivos, diasPeriodo]);
+
+  const gradeRelatorioDia = useMemo(() => gradeFuncionarioDia.filter((r) => fEquipe === "TODAS" || r.equipe === fEquipe), [gradeFuncionarioDia, fEquipe]);
 
   const coberturaFuncionarioDia = useMemo(() => {
-    return gradeFuncionarioDia.map((r) => ({
+    return gradeRelatorioDia.map((r) => ({
       DATA: isoToExcelDate(r.data),
       NOME: r.funcionario,
       FUNÇÃO: r.funcao_cadastro,
@@ -371,9 +410,9 @@ export default function RelatorioMdoPeriodo() {
       QTD_LANCAMENTOS_NO_DIA: r.qtd_lancamentos_no_dia,
       RDO_IDS: r.rdo_ids,
     }));
-  }, [gradeFuncionarioDia]);
+  }, [gradeRelatorioDia]);
 
-  const rowsTela = fConsolidarDia ? gradeFuncionarioDia : filteredRows;
+  const rowsTela = fConsolidarDia ? gradeRelatorioDia : filteredRows;
 
   const qualidadeApontadores = useMemo(() => {
     const diasTotais = diasPeriodo.length || 1;
@@ -439,33 +478,31 @@ export default function RelatorioMdoPeriodo() {
   }, [filteredRows, consolidatedRows, diasPeriodo]);
 
   const buscar = async () => {
-    if (!profile?.company_id || !canSearch) return;
+    if (!companyId || !canSearch) return;
     setLoading(true);
     setSearched(true);
 
     try {
       // 1) RDO headers do período
-      const { data: rdos, error: rdoErr } = await supabase
+      const rdoList = await pagedRows<any>((from, to) => supabase
         .from("rdo_diarios")
         .select("id,data,obra_nome,ogs_id,encarregado,turno,tipo_rdo,status_validacao,user_id,company_id")
-        .eq("company_id", profile.company_id)
+        .eq("company_id", companyId)
         .or("status_validacao.is.null,status_validacao.neq.rascunho")
-        .gte("data", dataIni)
-        .lte("data", dataFim)
-        .order("data", { ascending: false });
-
-      if (rdoErr) throw rdoErr;
-      const rdoList = (rdos || []) as any[];
+        .gte("data", dataIni).lte("data", dataFim)
+        .order("data", { ascending: false }).order("id")
+        .range(from, to));
       const rdoIds = rdoList.map((r) => r.id).filter(Boolean);
 
       // 2) perfis dos apontadores
       const apontadorIds = Array.from(new Set(rdoList.map((r) => r.user_id).filter(Boolean)));
-      const { data: perfis } = apontadorIds.length
-        ? await supabase
-            .from("profiles")
-            .select("user_id,nome_completo,email")
-            .in("user_id", apontadorIds)
-        : { data: [] as any[] };
+      const perfis: any[] = [];
+      for (let i = 0; i < apontadorIds.length; i += 200) {
+        const part = await pagedRows<any>((from, to) => supabase.from("profiles")
+          .select("user_id,nome_completo,email").eq("company_id", companyId)
+          .in("user_id", apontadorIds.slice(i, i + 200)).order("user_id").range(from, to));
+        perfis.push(...part);
+      }
 
       const perfilMap: Record<string, { nome: string; email: string }> = {};
       (perfis || []).forEach((p: any) => {
@@ -474,12 +511,13 @@ export default function RelatorioMdoPeriodo() {
 
       // 2.1) mapa OGS id -> número amigável (evita UUID na exportação)
       const ogsIds = Array.from(new Set(rdoList.map((r) => r.ogs_id).filter(Boolean)));
-      const { data: ogsRefRows } = ogsIds.length
-        ? await (supabase as any)
-            .from("ogs_reference")
-            .select("id,ogs_number")
-            .in("id", ogsIds)
-        : { data: [] as any[] };
+      const ogsRefRows: any[] = [];
+      for (let i = 0; i < ogsIds.length; i += 200) {
+        const part = await pagedRows<any>((from, to) => (supabase as any).from("ogs_reference")
+          .select("id,ogs_number").eq("company_id", companyId)
+          .in("id", ogsIds.slice(i, i + 200)).order("id").range(from, to));
+        ogsRefRows.push(...part);
+      }
 
       const ogsNumberMap: Record<string, string> = {};
       (ogsRefRows || []).forEach((o: any) => {
@@ -492,25 +530,20 @@ export default function RelatorioMdoPeriodo() {
         const chunkSize = 200;
         for (let i = 0; i < rdoIds.length; i += chunkSize) {
           const ids = rdoIds.slice(i, i + chunkSize);
-          const { data: part, error: efErr } = await (supabase as any)
+          const part = await pagedRows<any>((from, to) => (supabase as any)
             .from("rdo_efetivo")
-            .select("rdo_id,funcao,nome,matricula,employee_id")
-            .in("rdo_id", ids);
-          if (efErr) throw efErr;
-          efetivo = efetivo.concat((part || []) as any[]);
+            .select("id,rdo_id,funcao,nome,matricula,employee_id")
+            .in("rdo_id", ids).order("id").range(from, to));
+          efetivo = efetivo.concat(part);
         }
       }
 
-      // 4) employees ativos do cadastro (base de comparação)
-      const { data: emps, error: empErr } = await supabase
+      // A base histórica inclui pessoas demitidas durante o período, nunca dias fora do vínculo.
+      const employees = await pagedRows<EmployeeLite>((from, to) => supabase
         .from("employees")
-        .select("id,name,equipe,role,matricula,status")
-        .eq("company_id", profile.company_id)
-        .eq("status", "ativo")
-        .order("name", { ascending: true });
-      if (empErr) throw empErr;
-
-      const employees = (emps || []) as EmployeeLite[];
+        .select("id,name,equipe,role,matricula,status,data_admissao,data_demissao")
+        .eq("company_id", companyId)
+        .order("name", { ascending: true }).order("id").range(from, to));
       setEmployeesAtivos(employees);
 
       const rdoMap = new Map<string, any>();
@@ -551,7 +584,7 @@ export default function RelatorioMdoPeriodo() {
           let origem: OrigemVinculo = "sem_match";
           let confianca: "alta" | "media" | "baixa" = "baixa";
 
-          if (ef.employee_id && employeeById.has(ef.employee_id)) {
+          if (nomes.length === 1 && ef.employee_id && employeeById.has(ef.employee_id)) {
             resolved = employeeById.get(ef.employee_id) || null;
             origem = "id_direto";
             confianca = "alta";
@@ -615,7 +648,7 @@ export default function RelatorioMdoPeriodo() {
       { indicador: "Dias sem lançamento no período", valor: coberturaDias.filter((d) => d.STATUS_DIA === "SEM LANÇAMENTO").length },
     ];
 
-    const detalhe = gradeFuncionarioDia.map((r) => ({
+    const detalhe = gradeRelatorioDia.map((r) => ({
       DATA: isoToExcelDate(r.data),
       NOME: r.funcionario,
       FUNÇÃO: r.funcao_cadastro,
@@ -699,9 +732,9 @@ export default function RelatorioMdoPeriodo() {
     doc.text("WF Relatórios - MDO por Período (RDO x Gestão de Pessoas)", 12, 12);
     doc.setFontSize(9);
     doc.text(`Período: ${fmtDate(dataIni)} a ${fmtDate(dataFim)}`, 12, 18);
-    doc.text(`Ativos: ${kpis.ativosCadastro} | Com presença: ${kpis.comPresenca} | Sem presença: ${kpis.semPresenca}`, 12, 23);
+    doc.text(`Prévia operacional: primeiras 1.200 linhas de ${gradeRelatorioDia.length}. NÃO é o fechamento aprovado para Custos.`, 12, 23);
 
-    const body = gradeFuncionarioDia.slice(0, 1200).map((r) => [
+    const body = gradeRelatorioDia.slice(0, 1200).map((r) => [
       fmtDate(r.data),
       r.funcionario || "-",
       r.equipe || "SEM EQUIPE",
@@ -727,7 +760,7 @@ export default function RelatorioMdoPeriodo() {
     doc.save(`WF_MDO_PERIODO_${dataIni}_a_${dataFim}.pdf`);
   }
 
-  const canExport = searched && !loading && (gradeFuncionarioDia.length > 0 || filteredRows.length > 0 || semPresenca.length > 0);
+  const canExport = access?.edit && searched && !loading && (gradeRelatorioDia.length > 0 || filteredRows.length > 0 || semPresenca.length > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -746,13 +779,13 @@ export default function RelatorioMdoPeriodo() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="text-xs text-muted-foreground">Data início</label>
-              <Input type="date" value={dataIni} onChange={(e) => setDataIni(e.target.value)} className="h-10" />
+              <Input type="date" value={dataIni} onChange={(e) => { setDataIni(e.target.value); setSearched(false); }} className="h-10" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Data fim</label>
-              <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-10" />
+              <Input type="date" value={dataFim} onChange={(e) => { setDataFim(e.target.value); setSearched(false); }} className="h-10" />
             </div>
-            <div>
+            {access?.edit && <div>
               <label className="text-xs text-muted-foreground">Equipe</label>
               <select value={fEquipe} onChange={(e) => setFEquipe(e.target.value)} className="h-10 w-full px-3 bg-secondary border border-border rounded-md text-sm">
                 <option value="TODAS">Todas</option>
@@ -760,8 +793,8 @@ export default function RelatorioMdoPeriodo() {
                   <option key={e} value={e}>{e}</option>
                 ))}
               </select>
-            </div>
-            <div>
+            </div>}
+            {access?.edit && <div>
               <label className="text-xs text-muted-foreground">Vínculo</label>
               <select value={fVinculo} onChange={(e) => setFVinculo(e.target.value as any)} className="h-10 w-full px-3 bg-secondary border border-border rounded-md text-sm">
                 <option value="todos">Todos</option>
@@ -769,10 +802,10 @@ export default function RelatorioMdoPeriodo() {
                 <option value="nome_exato">Nome exato</option>
                 <option value="sem_match">Sem match</option>
               </select>
-            </div>
+            </div>}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {access?.edit && <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="text-xs text-muted-foreground">OGS/Obra</label>
               <select value={fObra} onChange={(e) => setFObra(e.target.value)} className="h-10 w-full px-3 bg-secondary border border-border rounded-md text-sm">
@@ -804,10 +837,10 @@ export default function RelatorioMdoPeriodo() {
               <label className="text-xs text-muted-foreground">Busca livre</label>
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="nome, função, obra..." className="h-10" />
             </div>
-          </div>
+          </div>}
 
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-6 flex-wrap">
+            {access?.edit && <div className="flex items-center gap-6 flex-wrap">
               <label className="inline-flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -824,16 +857,23 @@ export default function RelatorioMdoPeriodo() {
                 />
                 Consolidar funcionário/dia (remove duplicidade visual)
               </label>
-            </div>
+            </div>}
 
-            <Button onClick={buscar} disabled={!canSearch || loading} className="h-10 gap-2">
+            {access?.edit && <Button onClick={buscar} disabled={!canSearch || loading} className="h-10 gap-2">
               <Search className="w-4 h-4" />
               {loading ? "Buscando..." : "Buscar"}
-            </Button>
+            </Button>}
           </div>
         </div>
 
-        {searched && !loading && (
+        {accessError && <p className="text-sm text-red-700" role="alert">{accessError}. Nenhum dado será exportado sem validar as permissões.</p>}
+        {access?.export && companyId && dataIni && dataFim && dataIni <= dataFim && (
+          <MdoConferencia key={`${companyId}:${dataIni}:${dataFim}`} companyId={companyId} inicio={dataIni} fim={dataFim}
+            grade={access.edit && searched && !loading ? gradeFuncionarioDia : []}
+            canEdit={access.edit} canApprove={access.approve} />
+        )}
+
+        {searched && access?.edit && !loading && (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Ativos cadastro</p><p className="text-lg font-bold">{kpis.ativosCadastro}</p></div>
             <div className="bg-card rounded-xl border p-3"><p className="text-xs text-muted-foreground">Com presença</p><p className="text-lg font-bold text-green-700">{kpis.comPresenca}</p></div>
@@ -846,7 +886,7 @@ export default function RelatorioMdoPeriodo() {
           </div>
         )}
 
-        {searched && !loading && qualidadeApontadores.length > 0 && (
+        {searched && access?.edit && !loading && qualidadeApontadores.length > 0 && (
           <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="px-4 py-3 border-b bg-muted/40 text-sm font-semibold">
               Qualidade por apontador (ranking de inconsistência)
@@ -888,12 +928,12 @@ export default function RelatorioMdoPeriodo() {
               <FileSpreadsheet className="w-4 h-4" /> Exportar Excel
             </Button>
             <Button variant="outline" onClick={exportarPdf} className="gap-2">
-              <Printer className="w-4 h-4" /> Exportar PDF
+              <Printer className="w-4 h-4" /> Prévia PDF operacional (até 1.200)
             </Button>
           </div>
         )}
 
-        {searched && !loading && fSomenteSemPresenca && (
+        {searched && access?.edit && !loading && fSomenteSemPresenca && (
           <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="px-4 py-3 border-b bg-muted/40 text-sm font-semibold">Funcionários sem presença no período ({semPresenca.length})</div>
             <div className="overflow-x-auto">
@@ -921,12 +961,13 @@ export default function RelatorioMdoPeriodo() {
           </div>
         )}
 
-        {searched && !loading && !fSomenteSemPresenca && (
+        {searched && access?.edit && !loading && !fSomenteSemPresenca && (
           <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="px-4 py-3 border-b bg-muted/40 text-sm font-semibold">
               {fConsolidarDia
                 ? `Detalhe MDO consolidado (${rowsTela.length} linhas)`
                 : `Detalhe MDO bruto (${rowsTela.length} linhas)`}
+              {rowsTela.length > 500 && <span className="ml-2 font-normal">Prévia das primeiras 500; Excel operacional contém a grade completa. Para Custos, use somente a versão aprovada acima.</span>}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -958,7 +999,7 @@ export default function RelatorioMdoPeriodo() {
                 </thead>
                 <tbody>
                   {fConsolidarDia
-                    ? gradeFuncionarioDia.map((r, i) => (
+                    ? gradeRelatorioDia.slice(0, 500).map((r, i) => (
                         <tr key={`${r.employee_id}-${r.data}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                           <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.data)}</td>
                           <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.funcionario || "-"}</td>
@@ -970,7 +1011,7 @@ export default function RelatorioMdoPeriodo() {
                           <td className="px-3 py-2 whitespace-nowrap font-semibold">{r.observacoes}</td>
                         </tr>
                       ))
-                    : filteredRows.map((r, i) => (
+                    : filteredRows.slice(0, 500).map((r, i) => (
                         <tr key={`${r.rdo_id}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                           <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.data)}</td>
                           <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.nome_lancado || "-"}</td>
