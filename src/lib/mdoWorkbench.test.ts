@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyDraftDecisions, buildBulkChanges, buildTeamPeriodChanges, eligibleOnDay, buildEligibleDays, mapPastedOgs, type MdoBaseDay, type MdoDecision } from "./mdoWorkbench";
+import { applyDraftDecisions, buildBulkChanges, buildPersonPeriodChanges, buildTeamPeriodChanges, eligibleOnDay, buildEligibleDays, mapPastedOgs, type MdoBaseDay, type MdoDecision } from "./mdoWorkbench";
 
 const base: MdoBaseDay = {
   employee_id: "person-a", data: "2026-09-01", funcionario: "Maria", equipe: "Obra", funcao: "Auxiliar",
@@ -83,5 +83,30 @@ describe("conferência MDO", () => {
     expect(buildTeamPeriodChanges(rows, "", "2026-09-01", "2026-09-01", { id: "1", ogs_number: "OGS-1" })).toEqual([]);
     expect(buildTeamPeriodChanges(rows, "Obra", "2026-09-02", "2026-09-01", { id: "1", ogs_number: "OGS-1" })).toEqual([]);
     expect(buildTeamPeriodChanges(rows, "Obra", "2026-09-01", "2026-09-01", { id: "", ogs_number: "" })).toEqual([]);
+  });
+
+  it("edita só o funcionário selecionado pelo ID, mesmo com homônimo em outra equipe", () => {
+    const rows = applyDraftDecisions([
+      base, { ...base, data: "2026-09-02" },
+      { ...base, employee_id: "homonimo", funcionario: "Maria", equipe: "Outra", data: "2026-09-02" },
+      { ...base, data: "2026-09-03" },
+    ], []);
+    const changes = buildPersonPeriodChanges(rows, "person-a", "2026-09-01", "2026-09-02", { id: "og-1", ogs_number: "2539" });
+    expect(changes.map((d) => `${d.employee_id}|${d.data}`)).toEqual(["person-a|2026-09-01", "person-a|2026-09-02"]);
+    expect(changes.every((d) => d.ogs_id === "og-1")).toBe(true);
+  });
+
+  it("edição individual por período preserva OGS existente, exclusão e justificativa por padrão", () => {
+    const rows = applyDraftDecisions([
+      base, { ...base, data: "2026-09-02", ogs: "OGS-RDO" },
+      { ...base, data: "2026-09-03" }, { ...base, data: "2026-09-04" },
+    ], [
+      { ...decision, data: "2026-09-03", disposition: "exclude", ogs_id: null, reason: "Fora do escopo", include: false },
+      { ...decision, data: "2026-09-04", disposition: "exception", ogs_id: null, reason: "Férias", include: true },
+    ]);
+    const ogs = { id: "nova", ogs_number: "OGS-NOVA" };
+    expect(buildPersonPeriodChanges(rows, "person-a", "2026-09-01", "2026-09-04", ogs).map((d) => d.data)).toEqual(["2026-09-01"]);
+    expect(buildPersonPeriodChanges(rows, "person-a", "2026-09-01", "2026-09-04", ogs, true).map((d) => d.data)).toEqual(["2026-09-01", "2026-09-02"]);
+    expect(buildPersonPeriodChanges(rows, "", "2026-09-01", "2026-09-04", ogs)).toEqual([]);
   });
 });

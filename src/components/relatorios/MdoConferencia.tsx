@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { applyDraftDecisions, buildBulkChanges, buildTeamPeriodChanges, mapPastedOgs, type MdoBaseDay, type MdoDecision, type MdoDisposition } from "@/lib/mdoWorkbench";
+import { applyDraftDecisions, buildBulkChanges, buildPersonPeriodChanges, buildTeamPeriodChanges, mapPastedOgs, type MdoBaseDay, type MdoDecision, type MdoDisposition } from "@/lib/mdoWorkbench";
 
 type Periodo = {
   id: string; data_inicio: string; data_fim: string; versao: number;
@@ -54,6 +54,9 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
   const [costUsers, setCostUsers] = useState<CostUser[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [team, setTeam] = useState("");
+  const [editMode, setEditMode] = useState<"equipe" | "funcionario">("equipe");
+  const [personId, setPersonId] = useState("");
+  const [personSearch, setPersonSearch] = useState("");
   const [teamStart, setTeamStart] = useState(inicio);
   const [teamEnd, setTeamEnd] = useState(fim);
   const [teamOgsId, setTeamOgsId] = useState("");
@@ -86,6 +89,8 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
 
   useEffect(() => {
     setSelected(new Set()); setPage(0); setDraft(null); setDecisions([]);
+    setTeam(""); setPersonId(""); setPersonSearch(""); setTeamStart(inicio); setTeamEnd(fim);
+    setTeamOgsId(""); setReplaceAllocated(false); setSearch(""); setFilter("pendentes");
     reloadPeriods().catch((err) => toast.error(`Não foi possível carregar a conferência: ${err.message}`));
     // OGS é lida apenas pelo editor; Custos consome exclusivamente o fechamento publicado.
     if (canEdit) fetchAll<Ogs>("ogs_reference", (q) => q.eq("company_id", companyId).order("ogs_number"))
@@ -121,11 +126,20 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
 
   const displayed = useMemo(() => applyDraftDecisions(grade, decisions), [grade, decisions]);
   const teams = useMemo(() => [...new Set(grade.map((r) => r.equipe))].sort((a, b) => a.localeCompare(b, "pt-BR")), [grade]);
-  const scoped = useMemo(() => displayed.filter((r) => team && r.equipe === team && r.data >= teamStart && r.data <= teamEnd),
-    [displayed, team, teamStart, teamEnd]);
+  const people = useMemo(() => [...new Map(grade.map((r) => [r.employee_id, {
+    id: r.employee_id, nome: r.funcionario, matricula: r.matricula, equipe: r.equipe,
+  }])).values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")), [grade]);
+  const selectedPerson = people.find((p) => p.id === personId);
+  const peopleOptions = people.filter((p) => p.id === personId || `${p.nome} ${p.matricula} ${p.equipe}`
+    .toLocaleLowerCase("pt-BR").includes(personSearch.toLocaleLowerCase("pt-BR")));
+  const targetChosen = editMode === "equipe" ? !!team : !!selectedPerson;
+  const scoped = useMemo(() => displayed.filter((r) => (editMode === "equipe" ? team && r.equipe === team : personId && r.employee_id === personId)
+    && r.data >= teamStart && r.data <= teamEnd), [displayed, editMode, team, personId, teamStart, teamEnd]);
   const teamOgs = ogs.find((o) => o.id === teamOgsId);
-  const teamChanges = useMemo(() => buildTeamPeriodChanges(displayed, team, teamStart, teamEnd,
-    teamOgs || { id: "", ogs_number: null }, replaceAllocated), [displayed, team, teamStart, teamEnd, teamOgsId, ogs, replaceAllocated]);
+  const periodChanges = useMemo(() => editMode === "equipe"
+    ? buildTeamPeriodChanges(displayed, team, teamStart, teamEnd, teamOgs || { id: "", ogs_number: null }, replaceAllocated)
+    : buildPersonPeriodChanges(displayed, selectedPerson?.id || "", teamStart, teamEnd, teamOgs || { id: "", ogs_number: null }, replaceAllocated),
+  [displayed, editMode, team, selectedPerson?.id, teamStart, teamEnd, teamOgsId, ogs, replaceAllocated]);
   const filtered = useMemo(() => scoped.filter((r) => {
     if (filter === "pendentes" && r.situacao !== "PENDENTE") return false;
     if (filter === "sem_rdo" && r.presenca_rdo !== "NAO") return false;
@@ -137,7 +151,7 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
   }), [scoped, filter, search]);
   const shown = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const pending = displayed.filter((r) => r.situacao === "PENDENTE").length;
-  const pendingTeam = scoped.filter((r) => r.situacao === "PENDENTE").length;
+  const pendingScope = scoped.filter((r) => r.situacao === "PENDENTE").length;
   const selectedRows = displayed.filter((r) => selected.has(`${r.employee_id}|${r.data}`));
 
   const ensureDraft = async (): Promise<Periodo> => {
@@ -184,16 +198,17 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
     } finally { setBusy(false); setSaveProgress(""); }
   };
 
-  const applyTeamPeriod = async () => {
-    if (!team || teamStart < inicio || teamEnd > fim || teamStart > teamEnd) return toast.error("Escolha uma equipe e datas dentro do período do relatório");
-    if (!teamOgs) return toast.error("Escolha a OGS para a equipe");
-    if (!teamChanges.length) return toast.error("Não há dias elegíveis para essa alteração");
-    const people = new Set(teamChanges.map((c) => c.employee_id)).size;
-    if (!window.confirm(`Equipe: ${team}\nDatas: ${teamStart} a ${teamEnd}\nOGS: ${teamOgs.ogs_number}\n${people} funcionários · ${teamChanges.length} dias.\n${replaceAllocated ? "Inclui substituição de OGS já atribuídas." : "Somente dias pendentes; OGS existentes preservadas."}\nJustificativas e exclusões são preservadas. ${draft ? "" : "Será criado um rascunho. "}Confirmar?`)) return;
+  const applyPeriod = async () => {
+    if (!targetChosen || teamStart < inicio || teamEnd > fim || teamStart > teamEnd) return toast.error("Escolha uma equipe ou funcionário e datas dentro do período do relatório");
+    if (!teamOgs) return toast.error("Escolha a OGS para aplicar");
+    if (!periodChanges.length) return toast.error("Não há dias elegíveis para essa alteração");
+    const affected = new Set(periodChanges.map((c) => c.employee_id)).size;
+    const target = editMode === "equipe" ? `Equipe: ${team}` : `Funcionário: ${selectedPerson?.nome} · matrícula ${selectedPerson?.matricula} · equipe ${selectedPerson?.equipe}`;
+    if (!window.confirm(`${target}\nDatas: ${teamStart} a ${teamEnd}\nOGS: ${teamOgs.ogs_number}\n${affected} funcionário(s) · ${periodChanges.length} dias.\n${replaceAllocated ? "Inclui substituição de OGS já atribuídas." : "Somente dias pendentes; OGS existentes preservadas."}\nJustificativas e exclusões são preservadas. ${draft ? "" : "Será criado um rascunho. "}Confirmar?`)) return;
     setBusy(true);
     try {
       const current = await ensureDraft();
-      await save(teamChanges, current);
+      await save(periodChanges, current);
     } catch (err: any) { toast.error(`Não foi possível abrir a conferência: ${err.message}`); }
     finally { setBusy(false); }
   };
@@ -284,45 +299,59 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
     </details>}
     {canEdit && <>
       <div className="rounded-lg border p-4 space-y-3">
-        <h3 className="font-semibold">Editar equipe por período</h3>
-        <p className="text-xs text-muted-foreground">Escolha a equipe do cadastro atual (ex.: CBUQ03 - GIVANILDO), as datas e uma OGS. Não altera RDO nem outras equipes.</p>
+        <h3 className="font-semibold">{editMode === "equipe" ? "Editar equipe por período" : "Editar funcionário por período"}</h3>
+        <p className="text-xs text-muted-foreground">{editMode === "equipe" ? "Escolha a equipe do cadastro atual (ex.: CBUQ03 - GIVANILDO), as datas e uma OGS. Não altera RDO nem outras equipes." : "Busque um funcionário do relatório, defina as datas e uma OGS. Não altera RDO nem outros funcionários."}</p>
+        <label className="text-sm space-y-1 inline-block">Editar por
+          <select aria-label="Editar por" className="border rounded p-2 bg-background w-full" value={editMode}
+            onChange={(e) => { setEditMode(e.target.value as "equipe" | "funcionario"); setSelected(new Set()); setSearch(""); setFilter("pendentes"); setPage(0); }}>
+            <option value="equipe">Equipe</option><option value="funcionario">Funcionário</option>
+          </select>
+        </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-          <label className="text-sm space-y-1">Equipe
+          {editMode === "equipe" ? <label className="text-sm space-y-1">Equipe
             <select aria-label="Equipe para conferência MDO" className="border rounded p-2 bg-background w-full" value={team}
-              onChange={(e) => { setTeam(e.target.value); setSelected(new Set()); setPage(0); }}>
+              onChange={(e) => { setTeam(e.target.value); setSelected(new Set()); setSearch(""); setPage(0); }}>
               <option value="">Selecione uma equipe</option>{teams.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
-          </label>
+          </label> : <div className="space-y-1"><label className="text-sm block" htmlFor="mdo-person-search">Buscar funcionário</label>
+            <Input id="mdo-person-search" aria-label="Buscar funcionário para conferência MDO" value={personSearch} onChange={(e) => setPersonSearch(e.target.value)} placeholder="Nome ou matrícula" />
+            <label className="text-sm block" htmlFor="mdo-person-select">Funcionário</label>
+            <select id="mdo-person-select" aria-label="Funcionário para conferência MDO" className="border rounded p-2 bg-background w-full" value={personId}
+              onChange={(e) => { setPersonId(e.target.value); setSelected(new Set()); setSearch(""); setPage(0); }}>
+              <option value="">Selecione um funcionário</option>{peopleOptions.map((person) =>
+                <option key={person.id} value={person.id}>{person.nome} · {person.matricula} · {person.equipe}</option>)}
+            </select>
+          </div>}
           <label className="text-sm space-y-1">De
-            <Input aria-label="Início da edição da equipe" type="date" min={inicio} max={fim} value={teamStart}
+            <Input aria-label={`Início da edição ${editMode === "equipe" ? "da equipe" : "do funcionário"}`} type="date" min={inicio} max={fim} value={teamStart}
               onChange={(e) => { setTeamStart(e.target.value); setSelected(new Set()); setPage(0); }} />
           </label>
           <label className="text-sm space-y-1">Até
-            <Input aria-label="Fim da edição da equipe" type="date" min={inicio} max={fim} value={teamEnd}
+            <Input aria-label={`Fim da edição ${editMode === "equipe" ? "da equipe" : "do funcionário"}`} type="date" min={inicio} max={fim} value={teamEnd}
               onChange={(e) => { setTeamEnd(e.target.value); setSelected(new Set()); setPage(0); }} />
           </label>
           <label className="text-sm space-y-1">OGS para Custos
-            <select aria-label="OGS para período da equipe" className="border rounded p-2 bg-background w-full" value={teamOgsId} onChange={(e) => setTeamOgsId(e.target.value)}>
+            <select aria-label={editMode === "equipe" ? "OGS para período da equipe" : "OGS para período"} className="border rounded p-2 bg-background w-full" value={teamOgsId} onChange={(e) => setTeamOgsId(e.target.value)}>
               <option value="">Selecione a OGS</option>{ogs.filter((o) => o.ogs_number?.trim()).map((o) => <option key={o.id} value={o.id}>{o.ogs_number}</option>)}
             </select>
           </label>
         </div>
-        {team && <p className="text-sm" role="status"><strong>{new Set(scoped.map((r) => r.employee_id)).size} funcionários</strong> · {scoped.length} funcionário/dia no período · <strong className="text-amber-700">{pendingTeam} pendentes</strong> na equipe. A aprovação considera todas as equipes ({pending} pendentes no relatório).</p>}
+        {targetChosen && <p className="text-sm" role="status"><strong>{new Set(scoped.map((r) => r.employee_id)).size} funcionário(s)</strong> · {scoped.length} funcionário/dia no período · <strong className="text-amber-700">{pendingScope} pendentes</strong> {editMode === "equipe" ? "na equipe" : "do funcionário"}. A aprovação considera todas as equipes ({pending} pendentes no relatório).</p>}
         <label className="text-xs inline-flex gap-2 items-center"><input type="checkbox" checked={replaceAllocated} onChange={(e) => setReplaceAllocated(e.target.checked)} />Substituir também OGS já atribuídas (não altera justificativas nem exclusões)</label>
-        <div className="flex items-center flex-wrap gap-3"><Button disabled={busy || !team || !teamOgs || !teamChanges.length || teamStart < inicio || teamEnd > fim || teamStart > teamEnd} onClick={applyTeamPeriod}>
-          {teamOgs ? `Aplicar OGS à equipe · ${teamChanges.length} dias` : "Selecione a OGS para aplicar"}</Button>
-          <span className="text-xs text-muted-foreground">{teamOgs ? `${new Set(teamChanges.map((c) => c.employee_id)).size} pessoas afetadas. ${replaceAllocated ? "Substitui OGS alocadas." : "Só dias pendentes; preserva OGS existentes."}` : "Selecione uma OGS para pré-visualizar o impacto."}</span></div>
+        <div className="flex items-center flex-wrap gap-3"><Button disabled={busy || !targetChosen || !teamOgs || !periodChanges.length || teamStart < inicio || teamEnd > fim || teamStart > teamEnd} onClick={applyPeriod}>
+          {teamOgs ? `Aplicar OGS ${editMode === "equipe" ? "à equipe" : "ao funcionário"} · ${periodChanges.length} ${periodChanges.length === 1 ? "dia" : "dias"}` : "Selecione a OGS para aplicar"}</Button>
+          <span className="text-xs text-muted-foreground">{teamOgs ? `${new Set(periodChanges.map((c) => c.employee_id)).size} pessoa(s) afetada(s). ${replaceAllocated ? "Substitui OGS alocadas." : "Só dias pendentes; preserva OGS existentes."}` : "Selecione uma OGS para pré-visualizar o impacto."}</span></div>
         {saveProgress && <p role="status" className="text-sm">{saveProgress}</p>}
       </div>
-      {team ? <div className="flex flex-wrap items-center gap-2 text-sm">
-        <strong>Revisão da equipe</strong>
+      {targetChosen ? <div className="flex flex-wrap items-center gap-2 text-sm">
+        <strong>Revisão {editMode === "equipe" ? "da equipe" : "do funcionário"}</strong>
         <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} placeholder="Buscar funcionário ou OGS" className="w-64" />
-        <select aria-label="Situação na equipe" className="border rounded px-2 py-2 bg-background" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(0); setSelected(new Set()); }}>
+        <select aria-label={`Situação ${editMode === "equipe" ? "na equipe" : "do funcionário"}`} className="border rounded px-2 py-2 bg-background" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(0); setSelected(new Set()); }}>
           <option value="pendentes">Somente pendentes</option><option value="sem_rdo">Sem RDO</option>
           <option value="excluidos">Fora de Custos</option><option value="todos">Todos</option>
         </select>
-      </div> : <p className="text-sm text-muted-foreground">Selecione uma equipe acima para revisar os funcionários e os dias.</p>}
-      {team && <details className="border rounded p-2 text-sm"><summary className="cursor-pointer font-medium">Ajustes individuais e exceções</summary>
+      </div> : <p className="text-sm text-muted-foreground">Selecione {editMode === "equipe" ? "uma equipe" : "um funcionário"} acima para revisar os dias.</p>}
+      {targetChosen && <details className="border rounded p-2 text-sm"><summary className="cursor-pointer font-medium">Ajustes individuais e exceções</summary>
         <div className="flex flex-wrap gap-2 items-center pt-3">
           <Button variant="outline" disabled={!draft || busy || !shown.length} onClick={() => setSelected(new Set(shown.map((r) => `${r.employee_id}|${r.data}`)))}>Selecionar página ({shown.length})</Button>
           <Button variant="outline" disabled={!draft || busy || !filtered.length} onClick={() => setSelected(new Set(filtered.map((r) => `${r.employee_id}|${r.data}`)))}>Selecionar filtro ({filtered.length})</Button>
