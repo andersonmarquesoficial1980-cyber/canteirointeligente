@@ -140,35 +140,41 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
   const pendingTeam = scoped.filter((r) => r.situacao === "PENDENTE").length;
   const selectedRows = displayed.filter((r) => selected.has(`${r.employee_id}|${r.data}`));
 
+  const ensureDraft = async (): Promise<Periodo> => {
+    if (draft) return draft;
+    const { data, error } = await db.rpc("mdo_custos_abrir", { p_empresa: companyId, p_inicio: inicio, p_fim: fim });
+    if (error) throw error;
+    const all = await reloadPeriods();
+    const current = all.find((p) => p.id === data);
+    if (!current) throw Error("Rascunho criado mas indisponível para leitura");
+    setDraft(current);
+    return current;
+  };
+
   const openDraft = async () => {
     setBusy(true);
     try {
-      const { data, error } = await db.rpc("mdo_custos_abrir", { p_empresa: companyId, p_inicio: inicio, p_fim: fim });
-      if (error) throw error;
-      const all = await reloadPeriods();
-      const current = all.find((p) => p.id === data);
-      if (!current) throw Error("Rascunho criado mas indisponível para leitura");
-      setDraft(current);
+      const current = await ensureDraft();
       toast.success(`Conferência versão ${current.versao} aberta`);
     } catch (err: any) { toast.error(err.message); } finally { setBusy(false); }
   };
 
-  const save = async (cells: MdoDecision[]) => {
-    if (!draft || !cells.length) return;
+  const save = async (cells: MdoDecision[], target: Periodo | null = draft) => {
+    if (!target || !cells.length) return;
     setBusy(true);
     try {
-      let revision = draft.revisao;
+      let revision = target.revisao;
       for (let offset = 0; offset < cells.length; offset += 200) {
         setSaveProgress(`Salvando ${offset + 1}–${Math.min(offset + 200, cells.length)} de ${cells.length} dias...`);
         const batch = cells.slice(offset, offset + 200);
         const { data, error } = await db.rpc("mdo_custos_alterar", {
-          p_periodo: draft.id, p_revisao: revision, p_celulas: batch,
+          p_periodo: target.id, p_revisao: revision, p_celulas: batch,
         });
         if (error) throw error;
         revision = data;
       }
-      setDraft({ ...draft, revisao: revision });
-      await reloadDecisions({ ...draft, revisao: revision });
+      setDraft({ ...target, revisao: revision });
+      await reloadDecisions({ ...target, revisao: revision });
       setSelected(new Set());
       toast.success(`${cells.length} funcionário(s)/dia atualizado(s). Revise antes de aprovar.`);
     } catch (err: any) {
@@ -178,14 +184,18 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
     } finally { setBusy(false); setSaveProgress(""); }
   };
 
-  const applyTeamPeriod = () => {
-    if (!draft) return toast.error("Abra uma conferência para editar");
+  const applyTeamPeriod = async () => {
     if (!team || teamStart < inicio || teamEnd > fim || teamStart > teamEnd) return toast.error("Escolha uma equipe e datas dentro do período do relatório");
     if (!teamOgs) return toast.error("Escolha a OGS para a equipe");
     if (!teamChanges.length) return toast.error("Não há dias elegíveis para essa alteração");
     const people = new Set(teamChanges.map((c) => c.employee_id)).size;
-    if (!window.confirm(`Equipe: ${team}\nDatas: ${teamStart} a ${teamEnd}\nOGS: ${teamOgs.ogs_number}\n${people} funcionários · ${teamChanges.length} dias.\n${replaceAllocated ? "Inclui substituição de OGS já atribuídas." : "Somente dias pendentes; OGS existentes preservadas."}\nJustificativas e exclusões são preservadas. Confirmar?`)) return;
-    void save(teamChanges);
+    if (!window.confirm(`Equipe: ${team}\nDatas: ${teamStart} a ${teamEnd}\nOGS: ${teamOgs.ogs_number}\n${people} funcionários · ${teamChanges.length} dias.\n${replaceAllocated ? "Inclui substituição de OGS já atribuídas." : "Somente dias pendentes; OGS existentes preservadas."}\nJustificativas e exclusões são preservadas. ${draft ? "" : "Será criado um rascunho. "}Confirmar?`)) return;
+    setBusy(true);
+    try {
+      const current = await ensureDraft();
+      await save(teamChanges, current);
+    } catch (err: any) { toast.error(`Não foi possível abrir a conferência: ${err.message}`); }
+    finally { setBusy(false); }
   };
 
   const applyBulk = () => {
@@ -299,7 +309,7 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
         </div>
         {team && <p className="text-sm" role="status"><strong>{new Set(scoped.map((r) => r.employee_id)).size} funcionários</strong> · {scoped.length} funcionário/dia no período · <strong className="text-amber-700">{pendingTeam} pendentes</strong> na equipe. A aprovação considera todas as equipes ({pending} pendentes no relatório).</p>}
         <label className="text-xs inline-flex gap-2 items-center"><input type="checkbox" checked={replaceAllocated} onChange={(e) => setReplaceAllocated(e.target.checked)} />Substituir também OGS já atribuídas (não altera justificativas nem exclusões)</label>
-        <div className="flex items-center flex-wrap gap-3"><Button disabled={!draft || busy || !team || !teamOgs || !teamChanges.length || teamStart < inicio || teamEnd > fim || teamStart > teamEnd} onClick={applyTeamPeriod}>
+        <div className="flex items-center flex-wrap gap-3"><Button disabled={busy || !team || !teamOgs || !teamChanges.length || teamStart < inicio || teamEnd > fim || teamStart > teamEnd} onClick={applyTeamPeriod}>
           {teamOgs ? `Aplicar OGS à equipe · ${teamChanges.length} dias` : "Selecione a OGS para aplicar"}</Button>
           <span className="text-xs text-muted-foreground">{teamOgs ? `${new Set(teamChanges.map((c) => c.employee_id)).size} pessoas afetadas. ${replaceAllocated ? "Substitui OGS alocadas." : "Só dias pendentes; preserva OGS existentes."}` : "Selecione uma OGS para pré-visualizar o impacto."}</span></div>
         {saveProgress && <p role="status" className="text-sm">{saveProgress}</p>}

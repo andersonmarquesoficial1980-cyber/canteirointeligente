@@ -19,16 +19,41 @@ const day = (employee_id: string, data: string, equipe: string): MdoBaseDay => (
 });
 const grade = [day("Givanildo-1", "2026-09-01", team), day("Givanildo-2", "2026-09-02", team),
   day("Givanildo-3", "2026-09-10", team), day("Outra-equipe", "2026-09-01", "CBUQ02")];
+let existing = [period];
 
 function query(table: string) {
-  const result = () => Promise.resolve({ data: table === "mdo_custos_periodos" ? [period] : table === "ogs_reference" ? ogs : [], error: null });
+  const result = () => Promise.resolve({ data: table === "mdo_custos_periodos" ? existing : table === "ogs_reference" ? ogs : [], error: null });
   const chain: any = { then: (resolve: any, reject: any) => result().then(resolve, reject) };
   for (const name of ["select", "eq", "order", "range"]) chain[name] = () => chain;
   return chain;
 }
 
 describe("conferência MDO por equipe", () => {
+  it("aplica em um clique mesmo sem rascunho aberto, criando-o após confirmação", async () => {
+    existing = [];
+    from.mockImplementation(query);
+    rpc.mockImplementation((name: string) => {
+      if (name === "mdo_custos_abrir") { existing = [period]; return Promise.resolve({ data: period.id, error: null }); }
+      if (name === "mdo_custos_alterar") return Promise.resolve({ data: 1, error: null });
+      return Promise.resolve({ data: null, error: null });
+    });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<MdoConferencia companyId="fremix" inicio="2026-09-01" fim="2026-09-30" grade={grade} canEdit canApprove={false} />);
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "OGS para período da equipe" }).querySelector('option[value="ogs-1"]')).toBeTruthy());
+    fireEvent.change(screen.getByRole("combobox", { name: "Equipe para conferência MDO" }), { target: { value: team } });
+    fireEvent.change(screen.getByRole("combobox", { name: "OGS para período da equipe" }), { target: { value: "ogs-1" } });
+    const button = screen.getByRole("button", { name: /Aplicar OGS à equipe · 3 dias/ });
+    expect(button.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(button);
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith("mdo_custos_alterar", expect.objectContaining({
+      p_periodo: period.id, p_celulas: expect.arrayContaining([expect.objectContaining({ employee_id: "Givanildo-1" })]),
+    })));
+    expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(rpc.mock.invocationCallOrder[1]);
+    confirm.mockRestore();
+  });
+
   it("mostra equipe e intervalo, e salva só os dias elegíveis com confirmação", async () => {
+    existing = [period];
     from.mockImplementation(query);
     rpc.mockImplementation((name: string) => name === "mdo_custos_alterar"
       ? Promise.resolve({ data: 1, error: null }) : Promise.resolve({ data: null, error: null }));
