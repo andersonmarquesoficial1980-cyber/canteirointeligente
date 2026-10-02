@@ -11,8 +11,7 @@ type Periodo = {
   status: "rascunho" | "aprovado"; revisao: number; aprovado_em: string | null; total_linhas: number | null;
 };
 type Ogs = { id: string; ogs_number: string | null };
-type EmployeeLookup = { id: string; name: string; matricula: string | null; equipe: string | null;
-  status: string | null; data_admissao: string | null; data_demissao: string | null };
+type EmployeeLookup = { id: string; name: string; matricula: string | null; equipe: string | null; status: string | null };
 type CostUser = { user_id: string; nome: string; email: string; permitido: boolean };
 type Fechado = {
   employee_id: string; dia: string; nome: string; funcao: string | null;
@@ -110,10 +109,8 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
     let active = true;
     setRoster([]); setRosterLoading(true);
     fetchAll<EmployeeLookup>("employees", (q) => q.eq("company_id", companyId).order("name"),
-      "id,name,matricula,equipe,status,data_admissao,data_demissao")
-      .then((rows) => { if (active) setRoster(rows.filter((e) =>
-        (!e.data_admissao || e.data_admissao <= fim) && (!e.data_demissao || e.data_demissao >= inicio)
-        && (e.status === "ativo" || Boolean(e.data_demissao)))); })
+      "id,name,matricula,equipe,status")
+      .then((rows) => { if (active) setRoster(rows); })
       .catch((err) => { if (active) toast.error(`Não foi possível listar funcionários: ${err.message}`); })
       .finally(() => { if (active) setRosterLoading(false); });
     return () => { active = false; };
@@ -152,8 +149,8 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
     ...grade.map((r) => r.equipe),
   ])].sort((a, b) => a.localeCompare(b, "pt-BR")), [grade, roster]);
   const people = useMemo(() => [...new Map([
-    ...roster.map((e) => [e.id, { id: e.id, nome: e.name || "", matricula: e.matricula || "-", equipe: e.equipe || "SEM EQUIPE" }] as const),
-    ...grade.map((r) => [r.employee_id, { id: r.employee_id, nome: r.funcionario, matricula: r.matricula, equipe: r.equipe }] as const),
+    ...roster.map((e) => [e.id, { id: e.id, nome: e.name || "", matricula: e.matricula || "-", equipe: e.equipe || "SEM EQUIPE", status: e.status }] as const),
+    ...grade.map((r) => [r.employee_id, { id: r.employee_id, nome: r.funcionario, matricula: r.matricula, equipe: r.equipe, status: r.status }] as const),
   ]).values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")), [grade, roster]);
   const selectedPerson = people.find((p) => p.id === personId);
   const personQuery = foldSearch(personSearch);
@@ -327,7 +324,7 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
     {canEdit && <>
       <div className="rounded-lg border p-4 space-y-3">
         <h3 className="font-semibold">{editMode === "equipe" ? "Editar equipe por período" : "Editar funcionário por período"}</h3>
-        <p className="text-xs text-muted-foreground">{editMode === "equipe" ? "Escolha a equipe do cadastro atual (ex.: CBUQ03 - GIVANILDO), as datas e uma OGS. Não altera RDO nem outras equipes." : "Busque um funcionário do relatório, defina as datas e uma OGS. Não altera RDO nem outros funcionários."}</p>
+        <p className="text-xs text-muted-foreground">{editMode === "equipe" ? "Escolha a equipe do cadastro atual (ex.: CBUQ03 - GIVANILDO), as datas e uma OGS. Não altera RDO nem outras equipes." : "Busque qualquer funcionário do cadastro; dias de afastados ou em férias só entram quando comprovados em RDO. Não altera RDO nem outros funcionários."}</p>
         <label className="text-sm space-y-1 inline-block">Editar por
           <select aria-label="Editar por" className="border rounded p-2 bg-background w-full" value={editMode}
             onChange={(e) => { setEditMode(e.target.value as "equipe" | "funcionario"); setSelected(new Set()); setSearch(""); setFilter("pendentes"); setPage(0); }}>
@@ -346,18 +343,19 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
           </label> : <div className="space-y-1"><label className="text-sm block" htmlFor="mdo-person-search">Buscar funcionário</label>
             <Input id="mdo-person-search" aria-label="Buscar funcionário para conferência MDO" value={personSearch}
               onChange={(e) => { setPersonSearch(e.target.value); setPersonId(""); setSelected(new Set()); setSearch(""); setPage(0); }} placeholder="Digite nome ou matrícula" />
-            {selectedPerson && !personQuery && <p className="text-sm rounded border p-2 bg-muted/40">Selecionado: {selectedPerson.nome} · {selectedPerson.matricula} · {selectedPerson.equipe}
+            {selectedPerson && !personQuery && <p className="text-sm rounded border p-2 bg-muted/40">Selecionado: {selectedPerson.nome} · {selectedPerson.matricula} · {selectedPerson.equipe} · situação atual: {selectedPerson.status || "não informada"}
               {!reportReady && <span className="block text-xs">{reportLoading ? "Carregando relatório completo para conferir os dias..." : "Relatório não carregado. Clique em Buscar no topo se a carga automática falhar."} Nenhuma OGS será aplicada até a grade ficar pronta.</span>}</p>}
+            {selectedPerson && reportReady && !grade.some((r) => r.employee_id === selectedPerson.id) && <p className="text-xs text-muted-foreground">Sem dias elegíveis ou RDO vinculado a este cadastro no período; nenhuma OGS pode ser aplicada. Confira o vínculo do RDO e as datas.</p>}
             {personQuery && <div className="rounded border bg-background max-h-48 overflow-auto" aria-label="Resultados da busca de funcionários">
               {peopleOptions.length ? peopleOptions.slice(0, 20).map((person) => <button type="button" key={person.id}
                 className="block text-left text-sm w-full p-2 hover:bg-muted focus-visible:bg-muted border-b"
-                onClick={() => { setPersonId(person.id); setPersonSearch(""); setSelected(new Set()); setSearch(""); setPage(0);
+                onClick={() => { setPersonId(person.id); setPersonSearch(""); setSelected(new Set()); setSearch(""); setFilter("todos"); setPage(0);
                   if (!reportReady && !reportLoading && onLoadReport) void onLoadReport().catch((err) => toast.error(`Não foi possível carregar o relatório: ${err.message}`)); }}>
-                {person.nome} · {person.matricula} · {person.equipe}
-              </button>) : <p className="text-xs p-2" role="status">{rosterLoading ? "Carregando funcionários..." : "Nenhum funcionário encontrado neste período. Confira o nome e as datas."}</p>}
+                {person.nome} · {person.matricula} · {person.equipe} · {person.status || "sem status"}
+              </button>) : <p className="text-xs p-2" role="status">{rosterLoading ? "Carregando funcionários..." : "Nenhum funcionário encontrado no cadastro da empresa. Confira nome ou matrícula."}</p>}
               {peopleOptions.length > 20 && <p className="text-xs p-2">Mostrando 20 de {peopleOptions.length}; digite mais letras para refinar.</p>}
             </div>}
-            {!people.length && !rosterLoading && <p className="text-xs text-muted-foreground">Nenhum funcionário elegível encontrado para as datas selecionadas.</p>}
+            {!people.length && !rosterLoading && <p className="text-xs text-muted-foreground">Nenhum funcionário encontrado no cadastro desta empresa.</p>}
           </div>}
           <label className="text-sm space-y-1">De
             <Input aria-label={`Início da edição ${editMode === "equipe" ? "da equipe" : "do funcionário"}`} type="date" min={inicio} max={fim} value={teamStart}

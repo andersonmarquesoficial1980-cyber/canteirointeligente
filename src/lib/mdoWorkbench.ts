@@ -32,6 +32,17 @@ export function eligibleOnDay(
   return employee.status === "ativo" || Boolean(employee.data_demissao && employee.data_demissao >= day);
 }
 
+/** Situação atual não apaga RDO histórico, mas não comprova trabalho nos outros dias. */
+export function eligibleForConferenceDay(
+  employee: { status: string | null; data_admissao: string | null; data_demissao: string | null },
+  day: string,
+  hasRdo: boolean,
+): boolean {
+  if (employee.data_admissao && employee.data_admissao > day) return false;
+  if (employee.data_demissao && employee.data_demissao < day) return false;
+  return eligibleOnDay(employee, day) || hasRdo;
+}
+
 export function buildEligibleDays<T extends { id: string; status: string | null; data_admissao: string | null; data_demissao: string | null }>(
   employees: T[], days: string[],
 ) {

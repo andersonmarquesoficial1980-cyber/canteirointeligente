@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyDraftDecisions, buildBulkChanges, buildPersonPeriodChanges, buildTeamPeriodChanges, eligibleOnDay, buildEligibleDays, mapPastedOgs, type MdoBaseDay, type MdoDecision } from "./mdoWorkbench";
+import { applyDraftDecisions, buildBulkChanges, buildPersonPeriodChanges, buildTeamPeriodChanges, eligibleOnDay, eligibleForConferenceDay, buildEligibleDays, mapPastedOgs, type MdoBaseDay, type MdoDecision } from "./mdoWorkbench";
 
 const base: MdoBaseDay = {
   employee_id: "person-a", data: "2026-09-01", funcionario: "Maria", equipe: "Obra", funcao: "Auxiliar",
@@ -51,6 +51,15 @@ describe("conferência MDO", () => {
     expect(eligibleOnDay({ status: "demitido", data_admissao: "2026-08-01", data_demissao: "2026-09-15" }, "2026-09-10")).toBe(true);
     expect(eligibleOnDay({ status: "demitido", data_admissao: "2026-08-01", data_demissao: "2026-09-15" }, "2026-09-16")).toBe(false);
     expect(eligibleOnDay({ status: "ativo", data_admissao: "2026-09-10", data_demissao: null }, "2026-09-09")).toBe(false);
+  });
+
+  it("inclui só dias de RDO de afastado, mas respeita admissão e demissão", () => {
+    const brian = { status: "afastado", data_admissao: "2026-07-20", data_demissao: null };
+    expect(eligibleForConferenceDay(brian, "2026-09-11", true)).toBe(true);
+    expect(eligibleForConferenceDay(brian, "2026-09-13", false)).toBe(false);
+    expect(eligibleForConferenceDay({ ...brian, data_admissao: "2026-09-12" }, "2026-09-11", true)).toBe(false);
+    expect(eligibleForConferenceDay({ ...brian, status: "demitido", data_demissao: "2026-09-10" }, "2026-09-11", true)).toBe(false);
+    expect(eligibleForConferenceDay({ ...brian, status: "ativo" }, "2026-09-13", false)).toBe(true);
   });
 
   it("aplica OGS só aos dias pendentes da equipe e do intervalo, inclusive as pontas", () => {

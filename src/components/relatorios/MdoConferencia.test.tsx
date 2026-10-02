@@ -30,6 +30,34 @@ function query(table: string) {
 }
 
 describe("conferência MDO por equipe", () => {
+  it("busca todos os status sem inventar dias e mostra RDO de afastado ao selecionar", async () => {
+    existing = [];
+    roster = [
+      { id: "brian", name: "BRIAN OLIVEIRA DA SILVA", matricula: "1788", equipe: "AFASTADOS", status: "afastado", data_admissao: "2026-07-20", data_demissao: null },
+      { id: "ex", name: "Ex Funcionário", matricula: "001", equipe: "SEM EQUIPE", status: "demitido", data_admissao: "2024-01-01", data_demissao: "2025-01-01" },
+    ];
+    from.mockImplementation(query);
+    rpc.mockResolvedValue({ data: null, error: null });
+    const loadReport = vi.fn().mockResolvedValue(undefined);
+    const props = { companyId: "fremix", inicio: "2026-09-01", fim: "2026-09-16", canEdit: true, canApprove: false, onLoadReport: loadReport };
+    const { rerender } = render(<MdoConferencia {...props} grade={[]} reportReady={false} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Editar por" }), { target: { value: "funcionario" } });
+    const input = screen.getByRole("textbox", { name: "Buscar funcionário para conferência MDO" });
+    fireEvent.change(input, { target: { value: "brian" } });
+    const found = await screen.findByRole("button", { name: /BRIAN OLIVEIRA DA SILVA.*afastado/ });
+    fireEvent.click(found);
+    expect(loadReport).toHaveBeenCalledTimes(1);
+    rerender(<MdoConferencia {...props} grade={[{ ...day("brian", "2026-09-11", "AFASTADOS"),
+      funcionario: "BRIAN OLIVEIRA DA SILVA", status: "afastado", presenca_rdo: "SIM", ogs: "2553" }]} reportReady />);
+    expect(within(screen.getByRole("table")).getByText("BRIAN OLIVEIRA DA SILVA")).toBeTruthy();
+    fireEvent.change(input, { target: { value: "ex func" } });
+    fireEvent.click(screen.getByRole("button", { name: /Ex Funcionário.*demitido/ }));
+    fireEvent.change(screen.getByRole("combobox", { name: "OGS para período" }), { target: { value: "ogs-1" } });
+    expect(screen.getByText(/Sem dias elegíveis ou RDO vinculado/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Aplicar OGS ao funcionário/ }).hasAttribute("disabled")).toBe(true);
+    roster = [];
+  });
+
   it("oferece equipes do cadastro antes de buscar RDO e carrega a grade ao escolher", async () => {
     existing = [];
     roster = [{ id: "person-1", name: "Josenildo", matricula: "001", equipe: team,
@@ -122,7 +150,7 @@ describe("conferência MDO por equipe", () => {
     fireEvent.click(result);
     expect(screen.getByText(/Selecionado: José de Souza/)).toBeTruthy();
     fireEvent.change(screen.getByRole("textbox", { name: "Buscar funcionário para conferência MDO" }), { target: { value: "sem cadastro" } });
-    expect(screen.getByText(/Nenhum funcionário encontrado neste período/)).toBeTruthy();
+    expect(screen.getByText(/Nenhum funcionário encontrado no cadastro da empresa/)).toBeTruthy();
     expect(screen.queryByText(/Selecionado: José de Souza/)).toBeNull();
     fireEvent.change(screen.getByRole("textbox", { name: "Buscar funcionário para conferência MDO" }), { target: { value: "jose" } });
     fireEvent.click(screen.getByRole("button", { name: /José de Souza.*Givanildo-2/ }));

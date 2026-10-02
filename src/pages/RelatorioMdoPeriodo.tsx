@@ -10,7 +10,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { MdoConferencia } from "@/components/relatorios/MdoConferencia";
-import { eligibleOnDay } from "@/lib/mdoWorkbench";
+import { eligibleOnDay, eligibleForConferenceDay } from "@/lib/mdoWorkbench";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 
 function fmtDate(d?: string | null) {
@@ -365,8 +365,8 @@ export default function RelatorioMdoPeriodo() {
     });
 
     // A conferência cobre a empresa inteira, independentemente de filtros exploratórios.
-    return employeesAtivos.filter((e) => diasPeriodo.some((d) => eligibleOnDay(e, d))).flatMap((e) => {
-      return diasPeriodo.filter((d) => eligibleOnDay(e, d)).map((d) => {
+    return employeesAtivos.flatMap((e) => {
+      return diasPeriodo.filter((d) => eligibleForConferenceDay(e, d, idx.has(`${e.id}|${d}`))).map((d) => {
         const hit = idx.get(`${e.id}|${d}`);
         const semRdo = !hit;
         return {
