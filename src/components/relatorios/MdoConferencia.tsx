@@ -83,7 +83,9 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
 
   const reloadDecisions = async (period: Periodo | undefined) => {
     if (!period || !canEdit) { setDecisions([]); return; }
-    const loaded = await fetchAll<any>("mdo_custos_decisoes", (q) => q.eq("periodo_id", period.id).order("dia"));
+    // A chave (dia, employee_id) é única no período. Ordenar só por dia causa
+    // sobreposição entre páginas de 500 e falsas pendências em dias como 11/09.
+    const loaded = await fetchAll<any>("mdo_custos_decisoes", (q) => q.eq("periodo_id", period.id).order("dia").order("employee_id"));
     setDecisions(loaded.map((d) => ({
       employee_id: d.employee_id, data: d.dia,
       disposition: d.disposicao === "excecao" ? "exception" : d.disposicao === "excluir" ? "exclude" : "ogs",

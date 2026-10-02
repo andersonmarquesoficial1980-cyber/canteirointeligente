@@ -30,6 +30,35 @@ function query(table: string) {
 }
 
 describe("conferência MDO por equipe", () => {
+  it("não inventa pendências quando a paginação de decisões corta o mesmo dia em 500 linhas", async () => {
+    const largeGrade = Array.from({ length: 504 }, (_, i) => day(`person-${String(i).padStart(3, "0")}`, "2026-09-11", team));
+    const decisions = largeGrade.map((r) => ({ employee_id: r.employee_id, dia: r.data,
+      disposicao: "ogs", ogs_id: "ogs-1", motivo: "" }));
+    existing = [period]; roster = [];
+    from.mockImplementation((table: string) => {
+      const orders: string[] = [];
+      let offset = 0, last = 499;
+      const chain: any = {};
+      chain.select = () => chain; chain.eq = () => chain;
+      chain.order = (column: string) => { orders.push(column); return chain; };
+      chain.range = (start: number, end: number) => { offset = start; last = end; return chain; };
+      chain.then = (resolve: any, reject: any) => {
+        const data = table === "mdo_custos_periodos" ? existing : table === "ogs_reference" ? ogs
+          : table === "employees" ? [] : table === "mdo_custos_decisoes"
+            ? orders.includes("employee_id") ? decisions.slice(offset, last + 1)
+              : offset ? decisions.slice(496, 500) : decisions.slice(0, 500)
+            : [];
+        return Promise.resolve({ data, error: null }).then(resolve, reject);
+      };
+      return chain;
+    });
+    rpc.mockResolvedValue({ data: null, error: null });
+    render(<MdoConferencia companyId="fremix" inicio="2026-09-01" fim="2026-09-30" grade={largeGrade} canEdit canApprove={false} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Equipe para conferência MDO" }), { target: { value: team } });
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("0 pendentes"));
+    expect(screen.queryByRole("button", { name: /Aplicar OGS à equipe · 4 dias/ })).toBeNull();
+  });
+
   it("sugere nome antes de buscar RDO e carrega a grade ao escolher sem permitir gravar grade vazia", async () => {
     existing = [];
     roster = [{ id: "bruno-id", name: "Bruno Santos", matricula: "007", equipe: team,
