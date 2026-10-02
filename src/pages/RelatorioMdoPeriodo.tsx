@@ -10,7 +10,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { MdoConferencia } from "@/components/relatorios/MdoConferencia";
-import { eligibleOnDay, eligibleForConferenceDay } from "@/lib/mdoWorkbench";
+import { buildConferenceCalendar, eligibleOnDay, type MdoTransition } from "@/lib/mdoWorkbench";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 
 function fmtDate(d?: string | null) {
@@ -160,6 +160,7 @@ export default function RelatorioMdoPeriodo() {
 
   const [rows, setRows] = useState<MdoDetalheRow[]>([]);
   const [employeesAtivos, setEmployeesAtivos] = useState<EmployeeLite[]>([]);
+  const [historico, setHistorico] = useState<MdoTransition[]>([]);
 
   // filtros client-side
   const [fEquipe, setFEquipe] = useState("TODAS");
@@ -171,12 +172,6 @@ export default function RelatorioMdoPeriodo() {
   const [fConsolidarDia, setFConsolidarDia] = useState(true);
   const [q, setQ] = useState("");
   const diasPeriodo = useMemo(() => makeDateRange(dataIni, dataFim), [dataIni, dataFim]);
-
-  const equipeOptions = useMemo(() => {
-    return Array.from(new Set(employeesAtivos.map((e) => (e.equipe || "SEM EQUIPE").trim() || "SEM EQUIPE"))).sort((a, b) =>
-      a.localeCompare(b, "pt-BR"),
-    );
-  }, [employeesAtivos]);
 
   const obraOptions = useMemo(() => {
     return Array.from(new Set(rows.map((r) => (r.obra_nome || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -364,36 +359,41 @@ export default function RelatorioMdoPeriodo() {
       idx.set(`${r.employee_id_resolvido}|${r.data}`, r);
     });
 
-    // A conferência cobre a empresa inteira, independentemente de filtros exploratórios.
-    return employeesAtivos.flatMap((e) => {
-      return diasPeriodo.filter((d) => eligibleForConferenceDay(e, d, idx.has(`${e.id}|${d}`))).map((d) => {
-        const hit = idx.get(`${e.id}|${d}`);
-        const semRdo = !hit;
-        return {
-          data: d,
-          employee_id: e.id,
-          funcionario: e.name,
-          equipe: e.equipe || "SEM EQUIPE",
-          funcao_cadastro: e.role || "-",
-          funcao: e.role || "-",
-          matricula: e.matricula || "-",
-          status: e.status || "-",
-          presenca_rdo: semRdo ? "NAO" : "SIM",
-          qtd_lancamentos_no_dia: hit?.qtd_lancamentos || 0,
-          ogs: hit?.ogs || "-",
-          obras: hit?.obras || "-",
-          encarregados: hit?.encarregados || "-",
-          apontadores: hit?.apontadores || "-",
-          rdo_ids: hit?.rdo_ids || "-",
-          origem_vinculo: hit?.origem_vinculo || "sem_match",
-          confianca_vinculo: hit?.confianca_vinculo || "baixa",
-          observacoes: semRdo
-            ? "NÃO CONSTA EM RDO NESTE DIA"
-            : `CONSTA EM RDO (${hit.qtd_lancamentos} LANÇAMENTO(S))`,
-        };
-      });
+    // Uma linha por funcionário e dia do período, inclusive sem RDO, afastado ou demitido.
+    // Equipe e status de cada dia vêm das transições históricas; nunca editamos o RDO.
+    return buildConferenceCalendar(employeesAtivos, diasPeriodo, historico).map((e) => {
+      const d = e.data;
+      const hit = idx.get(`${e.id}|${d}`);
+      const semRdo = !hit;
+      return {
+        data: d,
+        employee_id: e.id,
+        funcionario: e.name,
+        equipe: e.equipe,
+        funcao_cadastro: e.role || "-",
+        funcao: e.role || "-",
+        matricula: e.matricula || "-",
+        status: e.status,
+        presenca_rdo: semRdo ? "NAO" : "SIM",
+        qtd_lancamentos_no_dia: hit?.qtd_lancamentos || 0,
+        ogs: hit?.ogs || "-",
+        obras: hit?.obras || "-",
+        encarregados: hit?.encarregados || "-",
+        apontadores: hit?.apontadores || "-",
+        rdo_ids: hit?.rdo_ids || "-",
+        origem_vinculo: hit?.origem_vinculo || "sem_match",
+        confianca_vinculo: hit?.confianca_vinculo || "baixa",
+        observacoes: semRdo
+          ? "NÃO CONSTA EM RDO NESTE DIA — decidir Custos, não é ausência comprovada"
+          : `CONSTA EM RDO (${hit.qtd_lancamentos} LANÇAMENTO(S))`,
+      };
     });
-  }, [consolidatedRows, employeesAtivos, diasPeriodo]);
+  }, [consolidatedRows, employeesAtivos, diasPeriodo, historico]);
+
+  const equipeOptions = useMemo(() => Array.from(new Set([
+    ...employeesAtivos.map((e) => (e.equipe || "SEM EQUIPE").trim() || "SEM EQUIPE"),
+    ...gradeFuncionarioDia.map((r) => r.equipe),
+  ])).sort((a, b) => a.localeCompare(b, "pt-BR")), [employeesAtivos, gradeFuncionarioDia]);
 
   const gradeRelatorioDia = useMemo(() => gradeFuncionarioDia.filter((r) => fEquipe === "TODAS" || r.equipe === fEquipe), [gradeFuncionarioDia, fEquipe]);
 
@@ -404,7 +404,7 @@ export default function RelatorioMdoPeriodo() {
       FUNÇÃO: r.funcao_cadastro,
       OGS: r.ogs,
       STATUS: r.status,
-      "EQUIPE ATUAL": r.equipe,
+      "EQUIPE NO DIA": r.equipe,
       MATRICULA: r.matricula,
       OBSERVACOES: r.observacoes,
       PRESENCA_RDO: r.presenca_rdo,
@@ -539,12 +539,17 @@ export default function RelatorioMdoPeriodo() {
         }
       }
 
-      // A base histórica inclui pessoas demitidas durante o período, nunca dias fora do vínculo.
+      // Todos os cadastros e somente as transições de equipe/status necessárias
+      // para projetar o estado de cada dia; RPC faz autorização de editor no servidor.
       const employees = await pagedRows<EmployeeLite>((from, to) => supabase
         .from("employees")
         .select("id,name,equipe,role,matricula,status,data_admissao,data_demissao")
         .eq("company_id", companyId)
         .order("name", { ascending: true }).order("id").range(from, to));
+      const history = await pagedRows<MdoTransition>((from, to) => (supabase as any)
+        .rpc("mdo_custos_historico", { p_empresa: companyId, p_inicio: dataIni })
+        .order("data").order("created_at").order("id").range(from, to));
+      setHistorico(history);
       setEmployeesAtivos(employees);
 
       const rdoMap = new Map<string, any>();
@@ -633,6 +638,7 @@ export default function RelatorioMdoPeriodo() {
       toast.error(`Falha ao carregar relatório MDO: ${err instanceof Error ? err.message : String(err)}`);
       setRows([]);
       setEmployeesAtivos([]);
+      setHistorico([]);
       setSearched(false);
     } finally {
       setLoading(false);
@@ -657,7 +663,7 @@ export default function RelatorioMdoPeriodo() {
       FUNÇÃO: r.funcao_cadastro,
       OGS: r.ogs,
       STATUS: r.status,
-      "EQUIPE ATUAL": r.equipe,
+      "EQUIPE NO DIA": r.equipe,
       MATRICULA: r.matricula,
       OBSERVACOES: r.observacoes,
     }));
@@ -983,7 +989,7 @@ export default function RelatorioMdoPeriodo() {
                       <th className="text-left px-3 py-2">Função</th>
                       <th className="text-left px-3 py-2">OGS</th>
                       <th className="text-left px-3 py-2">Status</th>
-                      <th className="text-left px-3 py-2">Equipe Atual</th>
+                      <th className="text-left px-3 py-2">Equipe no dia</th>
                       <th className="text-left px-3 py-2">Matrícula</th>
                       <th className="text-left px-3 py-2">Observações</th>
                     </tr>

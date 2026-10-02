@@ -43,7 +43,7 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
   const [decisions, setDecisions] = useState<MdoDecision[]>([]);
   const [ogs, setOgs] = useState<Ogs[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [filter, setFilter] = useState("pendentes");
+  const [filter, setFilter] = useState("todos");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [disposition, setDisposition] = useState<MdoDisposition>("ogs");
@@ -96,7 +96,7 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
   useEffect(() => {
     setSelected(new Set()); setPage(0); setDraft(null); setDecisions([]);
     setTeam(""); setPersonId(""); setPersonSearch(""); setTeamStart(inicio); setTeamEnd(fim);
-    setTeamOgsId(""); setReplaceAllocated(false); setSearch(""); setFilter("pendentes");
+    setTeamOgsId(""); setReplaceAllocated(false); setSearch(""); setFilter("todos");
     reloadPeriods().catch((err) => toast.error(`Não foi possível carregar a conferência: ${err.message}`));
     // OGS é lida apenas pelo editor; Custos consome exclusivamente o fechamento publicado.
     if (canEdit) fetchAll<Ogs>("ogs_reference", (q) => q.eq("company_id", companyId).order("ogs_number"))
@@ -149,8 +149,9 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
     ...grade.map((r) => r.equipe),
   ])].sort((a, b) => a.localeCompare(b, "pt-BR")), [grade, roster]);
   const people = useMemo(() => [...new Map([
-    ...roster.map((e) => [e.id, { id: e.id, nome: e.name || "", matricula: e.matricula || "-", equipe: e.equipe || "SEM EQUIPE", status: e.status }] as const),
     ...grade.map((r) => [r.employee_id, { id: r.employee_id, nome: r.funcionario, matricula: r.matricula, equipe: r.equipe, status: r.status }] as const),
+    // Busca exibe a situação cadastral ATUAL; cada linha da grade mostra o estado do dia.
+    ...roster.map((e) => [e.id, { id: e.id, nome: e.name || "", matricula: e.matricula || "-", equipe: e.equipe || "SEM EQUIPE", status: e.status }] as const),
   ]).values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")), [grade, roster]);
   const selectedPerson = people.find((p) => p.id === personId);
   const personQuery = foldSearch(personSearch);
@@ -302,7 +303,7 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
   return <section className="rounded-xl border bg-card p-4 space-y-3" aria-label="Conferência MDO para Custos">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><h2 className="font-bold">Conferência MDO para Custos</h2>
-        <p className="text-xs text-muted-foreground">OGS do RDO é o dado original. OGS para Custos só muda nesta conferência; sem RDO não significa falta ao trabalho.</p></div>
+        <p className="text-xs text-muted-foreground">OGS do RDO é o dado original. OGS para Custos só muda nesta conferência; sem RDO não significa falta ao trabalho. Equipe/status históricos usam as mudanças registradas; sem histórico disponível, mostram o cadastro atual. Todos os dias sem OGS válida ficam pendentes para sua decisão.</p></div>
       {canEdit && <Button onClick={openDraft} disabled={busy || !!draft || !grade.length}> {draft ? `Rascunho v${draft.versao} · revisão ${draft.revisao}` : "Abrir nova conferência"}</Button>}
     </div>
     {periodos.some((p) => p.status === "aprovado") && <div className="flex flex-wrap gap-2 items-center rounded-md border p-2">
@@ -324,10 +325,10 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
     {canEdit && <>
       <div className="rounded-lg border p-4 space-y-3">
         <h3 className="font-semibold">{editMode === "equipe" ? "Editar equipe por período" : "Editar funcionário por período"}</h3>
-        <p className="text-xs text-muted-foreground">{editMode === "equipe" ? "Escolha a equipe do cadastro atual (ex.: CBUQ03 - GIVANILDO), as datas e uma OGS. Não altera RDO nem outras equipes." : "Busque qualquer funcionário do cadastro; dias de afastados ou em férias só entram quando comprovados em RDO. Não altera RDO nem outros funcionários."}</p>
+        <p className="text-xs text-muted-foreground">{editMode === "equipe" ? "Escolha a equipe de cada dia, as datas e uma OGS. Mudanças de equipe históricas são respeitadas; não altera RDO nem outras equipes." : "Busque qualquer funcionário do cadastro; todos os dias do período entram para decisão, mesmo sem RDO ou após afastamento. Não altera RDO nem outros funcionários."}</p>
         <label className="text-sm space-y-1 inline-block">Editar por
           <select aria-label="Editar por" className="border rounded p-2 bg-background w-full" value={editMode}
-            onChange={(e) => { setEditMode(e.target.value as "equipe" | "funcionario"); setSelected(new Set()); setSearch(""); setFilter("pendentes"); setPage(0); }}>
+            onChange={(e) => { setEditMode(e.target.value as "equipe" | "funcionario"); setSelected(new Set()); setSearch(""); setFilter("todos"); setPage(0); }}>
             <option value="equipe">Equipe</option><option value="funcionario">Funcionário</option>
           </select>
         </label>
@@ -408,12 +409,12 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
       <div className="border rounded-md overflow-auto max-h-[550px]">
         <table className="w-full text-xs"><thead className="sticky top-0 bg-card z-10"><tr className="border-b">
           <th className="p-2">Sel.</th><th className="p-2 text-left">Data</th><th className="p-2 text-left">Funcionário</th>
-          <th className="p-2 text-left">Equipe</th><th className="p-2 text-left">OGS do RDO</th><th className="p-2 text-left">OGS para Custos</th>
+          <th className="p-2 text-left">Equipe no dia</th><th className="p-2 text-left">Status no dia</th><th className="p-2 text-left">OGS do RDO</th><th className="p-2 text-left">OGS para Custos</th>
           <th className="p-2 text-left">Situação</th><th className="p-2 text-left">Motivo</th><th className="p-2 text-left">Editar</th></tr></thead><tbody>
           {shown.map((r) => { const key = `${r.employee_id}|${r.data}`; return <tr className="border-b" key={key}>
             <td className="p-2"><input type="checkbox" disabled={!draft || busy} checked={selected.has(key)} aria-label={`Selecionar ${r.funcionario} ${r.data}`} onChange={(e) => setSelected((prev) => { const next = new Set(prev); e.target.checked ? next.add(key) : next.delete(key); return next; })} /></td>
             <td className="p-2 whitespace-nowrap">{r.data.split("-").reverse().join("/")}</td>
-            <td className="p-2 font-medium whitespace-nowrap">{r.funcionario}</td><td className="p-2">{r.equipe}</td>
+            <td className="p-2 font-medium whitespace-nowrap">{r.funcionario}</td><td className="p-2">{r.equipe}</td><td className="p-2">{r.status}</td>
             <td className="p-2">{r.ogs_rdo}</td><td className="p-2 font-bold">{r.ogs_custos}</td>
             <td className="p-2">{r.situacao}</td><td className="p-2">{r.motivo || "-"}</td>
             <td className="p-2">{editingCell === key ? <select autoFocus className="border rounded bg-background p-1" defaultValue="" aria-label={`OGS para ${r.funcionario} em ${r.data}`}

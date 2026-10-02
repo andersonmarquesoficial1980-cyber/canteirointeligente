@@ -23,6 +23,35 @@ export type MdoDecision = {
   include: boolean;
 };
 
+/** Mudanças registradas no cadastro; efetivas a partir da própria data. */
+export type MdoTransition = {
+  id: string; employee_id: string; data: string; created_at: string;
+  campo: "equipe" | "status"; antes: string; depois: string;
+};
+
+/** Uma célula por pessoa/dia, inclusive sem RDO e fora do vínculo. Sem histórico,
+ * preserva o valor cadastral em vez de inventar uma equipe/status passado. */
+export function buildConferenceCalendar<T extends {
+  id: string; equipe: string | null; status: string | null;
+  data_admissao: string | null; data_demissao: string | null;
+}>(employees: T[], days: string[], transitions: MdoTransition[]) {
+  const byPerson = new Map<string, { equipe: MdoTransition[]; status: MdoTransition[] }>();
+  for (const t of transitions) {
+    if (!byPerson.has(t.employee_id)) byPerson.set(t.employee_id, { equipe: [], status: [] });
+    byPerson.get(t.employee_id)![t.campo].push(t);
+  }
+  for (const v of byPerson.values()) for (const events of [v.equipe, v.status]) {
+    events.sort((a, b) => a.data.localeCompare(b.data) || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  }
+  return employees.flatMap((e) => days.map((data) => {
+    const events = byPerson.get(e.id);
+    const equipe = events?.equipe.find((t) => t.data > data)?.antes || e.equipe || "SEM EQUIPE";
+    const status = e.data_admissao && e.data_admissao.slice(0, 10) > data ? "não admitido"
+      : events?.status.find((t) => t.data > data)?.antes || e.status || "-";
+    return { ...e, data, equipe, status };
+  }));
+}
+
 export function eligibleOnDay(
   employee: { status: string | null; data_admissao: string | null; data_demissao: string | null },
   day: string,

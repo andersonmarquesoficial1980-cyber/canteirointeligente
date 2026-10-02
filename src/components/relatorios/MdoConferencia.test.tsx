@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MdoConferencia } from "./MdoConferencia";
-import type { MdoBaseDay } from "@/lib/mdoWorkbench";
+import { buildConferenceCalendar, type MdoBaseDay } from "@/lib/mdoWorkbench";
 
 const { rpc, from } = vi.hoisted(() => ({
   rpc: vi.fn(),
@@ -30,6 +30,38 @@ function query(table: string) {
 }
 
 describe("conferência MDO por equipe", () => {
+  it("mostra os 30 dias de Brian e agrupa 28 em Thiago, 2 em AFASTADOS sem RDO", async () => {
+    existing = []; roster = [];
+    from.mockImplementation(query);
+    rpc.mockResolvedValue({ data: null, error: null });
+    const days = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 8, i + 1)).toISOString().slice(0, 10));
+    const calendar = buildConferenceCalendar(
+      [{ id: "brian", equipe: "AFASTADOS", status: "afastado", data_admissao: "2026-07-20", data_demissao: null }],
+      days,
+      [{ id: "team", employee_id: "brian", data: "2026-09-29", created_at: "2026-09-29T12:31:27Z", campo: "equipe", antes: "CBUQ04 - THIAGO HENRIQUE", depois: "AFASTADOS" },
+       { id: "status", employee_id: "brian", data: "2026-09-29", created_at: "2026-09-29T12:31:22Z", campo: "status", antes: "ativo", depois: "afastado" }],
+    );
+    const allDays = calendar.map((r) => ({ ...day(r.id, r.data, r.equipe), funcionario: "BRIAN OLIVEIRA DA SILVA", status: r.status }));
+    render(<MdoConferencia companyId="fremix" inicio={days[0]} fim={days[29]} grade={allDays} canEdit canApprove={false} />);
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "OGS para período da equipe" }).querySelector('option[value="ogs-1"]')).toBeTruthy());
+    fireEvent.change(screen.getByRole("combobox", { name: "Editar por" }), { target: { value: "funcionario" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Buscar funcionário para conferência MDO" }), { target: { value: "brian" } });
+    fireEvent.click(screen.getByRole("button", { name: /BRIAN OLIVEIRA DA SILVA.*afastado/ }));
+    expect(screen.getByText(/30 funcionário\/dia no período/)).toBeTruthy();
+    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(31);
+    const last = screen.getByRole("row", { name: /30\/09\/2026.*BRIAN OLIVEIRA DA SILVA/ });
+    expect(last.textContent).toContain("AFASTADOS");
+    expect(last.textContent).toContain("afastado");
+    const earlier = screen.getByRole("row", { name: /28\/09\/2026.*BRIAN OLIVEIRA DA SILVA/ });
+    expect(earlier.textContent).toContain("CBUQ04 - THIAGO HENRIQUE");
+    expect(earlier.textContent).toContain("ativo");
+    fireEvent.change(screen.getByRole("combobox", { name: "Editar por" }), { target: { value: "equipe" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Equipe para conferência MDO" }), { target: { value: "CBUQ04 - THIAGO HENRIQUE" } });
+    expect(screen.getByText(/28 funcionário\/dia no período/)).toBeTruthy();
+    fireEvent.change(screen.getByRole("combobox", { name: "Equipe para conferência MDO" }), { target: { value: "AFASTADOS" } });
+    expect(screen.getByText(/2 funcionário\/dia no período/)).toBeTruthy();
+  });
+
   it("busca todos os status sem inventar dias e mostra RDO de afastado ao selecionar", async () => {
     existing = [];
     roster = [

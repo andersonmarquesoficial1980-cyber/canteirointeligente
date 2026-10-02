@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyDraftDecisions, buildBulkChanges, buildPersonPeriodChanges, buildTeamPeriodChanges, eligibleOnDay, eligibleForConferenceDay, buildEligibleDays, mapPastedOgs, type MdoBaseDay, type MdoDecision } from "./mdoWorkbench";
+import { applyDraftDecisions, buildBulkChanges, buildPersonPeriodChanges, buildTeamPeriodChanges, buildConferenceCalendar, eligibleOnDay, eligibleForConferenceDay, buildEligibleDays, mapPastedOgs, type MdoBaseDay, type MdoDecision } from "./mdoWorkbench";
 
 const base: MdoBaseDay = {
   employee_id: "person-a", data: "2026-09-01", funcionario: "Maria", equipe: "Obra", funcao: "Auxiliar",
@@ -11,6 +11,36 @@ const decision: MdoDecision = {
 };
 
 describe("conferência MDO", () => {
+  it("mostra todos os dias de Brian: equipe Thiago até 28/09 e AFASTADOS a partir de 29/09", () => {
+    const employee = { id: "brian", equipe: "AFASTADOS", status: "afastado", data_admissao: "2026-07-20", data_demissao: null };
+    const transitions = [
+      { employee_id: "brian", data: "2026-09-29", campo: "equipe" as const, antes: "CBUQ04 - THIAGO HENRIQUE", depois: "AFASTADOS", created_at: "2026-09-29T12:31:27Z", id: "2" },
+      { employee_id: "brian", data: "2026-09-29", campo: "status" as const, antes: "ativo", depois: "afastado", created_at: "2026-09-29T12:31:22Z", id: "1" },
+    ];
+    const days = Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 8, i + 1)).toISOString().slice(0, 10));
+    const result = buildConferenceCalendar([employee], days, transitions);
+    expect(result).toHaveLength(30);
+    expect(result.filter((r) => r.equipe === "CBUQ04 - THIAGO HENRIQUE" && r.status === "ativo")).toHaveLength(28);
+    expect(result.map((r) => [r.data, r.equipe, r.status]).filter((r) => r[0] >= "2026-09-28")).toEqual([
+      ["2026-09-28", "CBUQ04 - THIAGO HENRIQUE", "ativo"],
+      ["2026-09-29", "AFASTADOS", "afastado"],
+      ["2026-09-30", "AFASTADOS", "afastado"],
+    ]);
+    const grade = applyDraftDecisions(result.map((r) => ({ ...base, employee_id: r.id, data: r.data, equipe: r.equipe, status: r.status })), []);
+    expect(grade).toHaveLength(30);
+    expect(grade.every((r) => r.situacao === "PENDENTE" && r.presenca_rdo === "NAO")).toBe(true);
+    expect(buildTeamPeriodChanges(grade, "CBUQ04 - THIAGO HENRIQUE", days[0], days[29], { id: "og", ogs_number: "2555" })).toHaveLength(28);
+    expect(buildPersonPeriodChanges(grade, "brian", days[0], days[29], { id: "og", ogs_number: "2555" })).toHaveLength(30);
+  });
+
+  it("exibe dias mesmo fora do vínculo, sem inventar presença ou OGS", () => {
+    const e = { id: "ex", equipe: "SEM EQUIPE", status: "demitido", data_admissao: "2026-09-10", data_demissao: "2026-09-20" };
+    expect(buildConferenceCalendar([e], ["2026-09-01", "2026-09-15", "2026-09-30"], [])
+      .map((r) => [r.data, r.status])).toEqual([
+      ["2026-09-01", "não admitido"], ["2026-09-15", "demitido"], ["2026-09-30", "demitido"],
+    ]);
+  });
+
   it("exibe OGS do RDO separada da decisão gerencial, sem alterar a fonte", () => {
     const result = applyDraftDecisions([base], [decision]);
     expect(result[0].ogs_rdo).toBe("-");
