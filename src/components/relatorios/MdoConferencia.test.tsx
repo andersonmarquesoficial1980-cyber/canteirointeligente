@@ -30,6 +30,26 @@ function query(table: string) {
 }
 
 describe("conferência MDO por equipe", () => {
+  it("oferece equipes do cadastro antes de buscar RDO e carrega a grade ao escolher", async () => {
+    existing = [];
+    roster = [{ id: "person-1", name: "Josenildo", matricula: "001", equipe: team,
+      status: "ativo", data_admissao: "2024-01-01", data_demissao: null }];
+    from.mockImplementation(query);
+    rpc.mockResolvedValue({ data: null, error: null });
+    const onLoadReport = vi.fn().mockResolvedValue(undefined);
+    const props = { companyId: "fremix", inicio: "2026-09-01", fim: "2026-09-30", canEdit: true, canApprove: false, onLoadReport };
+    const { rerender } = render(<MdoConferencia {...props} grade={[]} reportReady={false} />);
+    const selector = screen.getByRole("combobox", { name: "Equipe para conferência MDO" });
+    await waitFor(() => expect(within(selector).getByRole("option", { name: team })).toBeTruthy());
+    fireEvent.change(selector, { target: { value: team } });
+    await waitFor(() => expect(onLoadReport).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByRole("combobox", { name: "OGS para período da equipe" }), { target: { value: "ogs-1" } });
+    expect(screen.getByRole("button", { name: /Aplicar OGS à equipe/ }).hasAttribute("disabled")).toBe(true);
+    rerender(<MdoConferencia {...props} grade={[day("person-1", "2026-09-11", team)]} reportReady />);
+    expect(screen.getByRole("button", { name: /Aplicar OGS à equipe · 1 dia/ }).hasAttribute("disabled")).toBe(false);
+    roster = [];
+  });
+
   it("não inventa pendências quando a paginação de decisões corta o mesmo dia em 500 linhas", async () => {
     const largeGrade = Array.from({ length: 504 }, (_, i) => day(`person-${String(i).padStart(3, "0")}`, "2026-09-11", team));
     const decisions = largeGrade.map((r) => ({ employee_id: r.employee_id, dia: r.data,

@@ -104,7 +104,7 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
       .then(setOgs).catch((err) => toast.error(`Falha ao buscar OGS: ${err.message}`));
   }, [companyId, inicio, fim, canEdit]);
 
-  // Sugestões independentes dos RDOs: a grade completa só é carregada após escolher a pessoa.
+  // Pessoas e equipes independentes dos RDOs: a grade só carrega após escolher o alvo.
   useEffect(() => {
     if (!canEdit || !companyId) { setRoster([]); return; }
     let active = true;
@@ -147,7 +147,10 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
   };
 
   const displayed = useMemo(() => applyDraftDecisions(grade, decisions), [grade, decisions]);
-  const teams = useMemo(() => [...new Set(grade.map((r) => r.equipe))].sort((a, b) => a.localeCompare(b, "pt-BR")), [grade]);
+  const teams = useMemo(() => [...new Set([
+    ...roster.map((e) => (e.equipe || "SEM EQUIPE").trim() || "SEM EQUIPE"),
+    ...grade.map((r) => r.equipe),
+  ])].sort((a, b) => a.localeCompare(b, "pt-BR")), [grade, roster]);
   const people = useMemo(() => [...new Map([
     ...roster.map((e) => [e.id, { id: e.id, nome: e.name || "", matricula: e.matricula || "-", equipe: e.equipe || "SEM EQUIPE" }] as const),
     ...grade.map((r) => [r.employee_id, { id: r.employee_id, nome: r.funcionario, matricula: r.matricula, equipe: r.equipe }] as const),
@@ -334,9 +337,12 @@ export function MdoConferencia({ companyId, inicio, fim, grade, canEdit, canAppr
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
           {editMode === "equipe" ? <label className="text-sm space-y-1">Equipe
             <select aria-label="Equipe para conferência MDO" className="border rounded p-2 bg-background w-full" value={team}
-              onChange={(e) => { setTeam(e.target.value); setSelected(new Set()); setSearch(""); setPage(0); }}>
-              <option value="">Selecione uma equipe</option>{teams.map((name) => <option key={name} value={name}>{name}</option>)}
+              onChange={(e) => { const chosen = e.target.value; setTeam(chosen); setSelected(new Set()); setSearch(""); setPage(0);
+                if (chosen && !reportReady && !reportLoading && onLoadReport) void onLoadReport().catch((err) => toast.error(`Não foi possível carregar o relatório: ${err.message}`)); }}>
+              <option value="">{rosterLoading && !teams.length ? "Carregando equipes..." : "Selecione uma equipe"}</option>
+              {teams.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
+            {team && !reportReady && <span className="block text-xs text-muted-foreground">{reportLoading ? "Carregando relatório completo para conferir os dias..." : "Relatório não carregado. Clique em Buscar no topo se a carga automática falhar."} A aplicação fica bloqueada até a grade estar pronta.</span>}
           </label> : <div className="space-y-1"><label className="text-sm block" htmlFor="mdo-person-search">Buscar funcionário</label>
             <Input id="mdo-person-search" aria-label="Buscar funcionário para conferência MDO" value={personSearch}
               onChange={(e) => { setPersonSearch(e.target.value); setPersonId(""); setSelected(new Set()); setSearch(""); setPage(0); }} placeholder="Digite nome ou matrícula" />
