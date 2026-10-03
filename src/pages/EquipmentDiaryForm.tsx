@@ -16,6 +16,7 @@ import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 import { formatDiaryFleetLabel } from "@/lib/diaryFleetLabel";
+import { toSaoPauloISODate } from "@/lib/date-local";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -297,7 +298,7 @@ export default function EquipmentDiaryForm() {
 
   // Form state
   const [selectedFleet, setSelectedFleet] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(toSaoPauloISODate);
   const {
     isBlocked: isDateBlocked,
     isLoading: isUnlockLoading,
@@ -1022,7 +1023,7 @@ export default function EquipmentDiaryForm() {
         setFuelSyncedFromComboio(false);
 
         setSelectedFleet((diary.equipment_fleet || fleetFromQuery || "").toUpperCase());
-        setDate(diary.date || new Date().toISOString().split("T")[0]);
+        setDate(diary.date || toSaoPauloISODate());
         setOperator(diary.operator_name || "");
         setTurno(diary.period === "noturno" ? "noturno" : "diurno");
         setWorkStatus(diary.work_status || "");

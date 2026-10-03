@@ -5,6 +5,10 @@ export function toLocalISODate(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+export function toSaoPauloISODate(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
 export function addDaysLocalISO(baseDate: Date, days: number): string {
   const date = new Date(baseDate);
   date.setDate(date.getDate() + days);
