@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import {
@@ -68,6 +68,35 @@ interface RdoTecnicoRow {
   egl_ton: number | null;
   rachao_ton: number | null;
   perc_conclusao_via: number | null;
+}
+
+interface EngenheiroAtivo {
+  user_id: string;
+  nome_completo: string | null;
+  email: string | null;
+}
+
+interface RdoApontador {
+  id: string;
+  data: string;
+  obra_nome: string | null;
+  status_validacao: string | null;
+  engenheiro_responsavel_user_id: string | null;
+  validado_por: string | null;
+  validado_em: string | null;
+}
+
+// Páginas estáveis: o limite padrão da API não pode virar um total gerencial parcial.
+async function carregarTodas(queryPage: (inicio: number, fim: number) => any) {
+  const resultado: any[] = [];
+  const tamanho = 500;
+  for (let inicio = 0; ; inicio += tamanho) {
+    const { data, error } = await queryPage(inicio, inicio + tamanho - 1);
+    if (error) throw error;
+    resultado.push(...(data || []));
+    if (!data || data.length < tamanho) break;
+  }
+  return resultado;
 }
 
 interface FiltroOption {
@@ -174,6 +203,10 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [ogsOptions, setOgsOptions] = useState<FiltroOption[]>([]);
   const [engMap, setEngMap] = useState<Record<string, string>>({});
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
+  const [engenheirosAtivos, setEngenheirosAtivos] = useState<EngenheiroAtivo[]>([]);
+  const [rdosApontador, setRdosApontador] = useState<RdoApontador[]>([]);
+  const [erroCarga, setErroCarga] = useState("");
+  const [engenheiroAberto, setEngenheiroAberto] = useState<string | null>(null);
 
   const periodoAnterior = useMemo(() => getPeriodoAnterior(dataIni, dataFim), [dataIni, dataFim]);
 
@@ -182,9 +215,10 @@ export default function RelatorioRdoTecnicoDashboard() {
   const buscarDados = async () => {
     if (!companyId) return;
     setLoading(true);
+    setErroCarga("");
     try {
-      const [atualRes, anteriorRes] = await Promise.all([
-        (supabase as any)
+      const [lista, listaPrev, diariosApontador] = await Promise.all([
+        carregarTodas((inicio, fim) => (supabase as any)
           .from("rdo_engenheiro")
           .select(`
           id, ogs_number, data, status, equipe, localizacao, engenheiro_id,
@@ -201,8 +235,10 @@ export default function RelatorioRdoTecnicoDashboard() {
           .eq("company_id", companyId)
           .gte("data", dataIni)
           .lte("data", dataFim)
-          .order("data", { ascending: false }),
-        (supabase as any)
+          .order("data", { ascending: false })
+          .order("id", { ascending: false })
+          .range(inicio, fim)),
+        carregarTodas((inicio, fim) => (supabase as any)
           .from("rdo_engenheiro")
           .select(`
           id, ogs_number, data, status, equipe, localizacao, engenheiro_id,
@@ -219,16 +255,23 @@ export default function RelatorioRdoTecnicoDashboard() {
           .eq("company_id", companyId)
           .gte("data", periodoAnterior.anteriorIni)
           .lte("data", periodoAnterior.anteriorFim)
-          .order("data", { ascending: false }),
+          .order("data", { ascending: false })
+          .order("id", { ascending: false })
+          .range(inicio, fim)),
+        carregarTodas((inicio, fim) => (supabase as any)
+          .from("rdo_diarios")
+          .select("id, data, obra_nome, status_validacao, engenheiro_responsavel_user_id, validado_por, validado_em")
+          .eq("company_id", companyId)
+          .gte("data", "2026-07-17")
+          .lte("data", dataFim)
+          .in("status_validacao", ["enviado", "aguardando_validacao", "validado", "rejeitado"])
+          .order("data", { ascending: false })
+          .order("id", { ascending: false })
+          .range(inicio, fim)),
       ]);
-
-      if (atualRes.error) throw atualRes.error;
-      if (anteriorRes.error) throw anteriorRes.error;
-
-      const lista = ((atualRes.data || []) as RdoTecnicoRow[]);
-      const listaPrev = ((anteriorRes.data || []) as RdoTecnicoRow[]);
-      setRows(lista);
-      setRowsPrev(listaPrev);
+      setRows(lista as RdoTecnicoRow[]);
+      setRowsPrev(listaPrev as RdoTecnicoRow[]);
+      setRdosApontador(diariosApontador as RdoApontador[]);
 
       const { data: eqsCad } = await (supabase as any)
         .from("ci_equipes")
@@ -240,12 +283,18 @@ export default function RelatorioRdoTecnicoDashboard() {
       const ogsUniques = [...new Set(lista.map(r => r.ogs_number).filter(Boolean) as string[])];
       setOgsOptions(ogsUniques.sort((a, b) => Number(b) - Number(a)).map(o => ({ value: o, label: `OGS ${o}` })));
 
-      const engIds = [...new Set([...lista, ...listaPrev].map(r => r.engenheiro_id).filter(Boolean) as string[])];
+      const engIds = [...new Set([
+        ...[...lista, ...listaPrev].map(r => r.engenheiro_id),
+        ...diariosApontador.map(r => r.engenheiro_responsavel_user_id),
+      ].filter(Boolean) as string[])];
       if (engIds.length > 0) {
-        const { data: perfis } = await supabase
+        const { data: perfis, error: erroPerfis } = await supabase
           .from("profiles")
-          .select("user_id,nome_completo,email")
+          .select("user_id,nome_completo,email,status")
+          .eq("company_id", companyId)
           .in("user_id", engIds);
+        if (erroPerfis) throw erroPerfis;
+        setEngenheirosAtivos((perfis || []).filter(p => p.status === "ativo") as EngenheiroAtivo[]);
 
         const map: Record<string, string> = {};
         (perfis || []).forEach((p: any) => {
@@ -254,11 +303,15 @@ export default function RelatorioRdoTecnicoDashboard() {
         setEngMap(map);
       } else {
         setEngMap({});
+        setEngenheirosAtivos([]);
       }
     } catch (e) {
       console.error("[RelatorioRdoTecnicoDashboard]", e);
+      setErroCarga("Não foi possível carregar o painel completo. Nenhum total parcial foi exibido; tente atualizar.");
       setRows([]);
       setRowsPrev([]);
+      setEngenheirosAtivos([]);
+      setRdosApontador([]);
       setOgsOptions([]);
       setEngMap({});
       setEquipesCadastro([]);
@@ -469,20 +522,67 @@ export default function RelatorioRdoTecnicoDashboard() {
     };
   }, [kpis, kpisPrev]);
 
+  // Eixos separados: lançamento técnico não é validação do apontador.
+  // Sem escala histórica por OGS/dia, zero lançamento é sinal para apuração, não falta comprovada.
+  const acompanhamento = useMemo(() => {
+    const porId = new Map<string, {
+      id: string; nome: string; enviados: number; rascunhos: number;
+      recebidos: number; decididos: number; pendentes: RdoApontador[];
+      registros: RdoTecnicoRow[];
+    }>();
+    engenheirosAtivos.forEach((p) => porId.set(p.user_id, {
+      id: p.user_id, nome: p.nome_completo || p.email || "Sem nome",
+      enviados: 0, rascunhos: 0, recebidos: 0, decididos: 0, pendentes: [], registros: [],
+    }));
+    const tecnicos = rows.filter(r =>
+      (!filtroOgs || r.ogs_number === filtroOgs) &&
+      (!filtroEquipe || r.equipe === filtroEquipe) &&
+      (!busca.trim() || [r.ogs_number, r.equipe, r.localizacao, r.tipo_servico]
+        .join(" ").toLowerCase().includes(busca.trim().toLowerCase())));
+    tecnicos.forEach(r => {
+      const pessoa = r.engenheiro_id ? porId.get(r.engenheiro_id) : undefined;
+      if (!pessoa) return;
+      pessoa.registros.push(r);
+      if (r.status === "enviado") pessoa.enviados++;
+      else pessoa.rascunhos++;
+    });
+    rdosApontador.forEach(r => {
+      const pessoa = r.engenheiro_responsavel_user_id
+        ? porId.get(r.engenheiro_responsavel_user_id) : undefined;
+      if (!pessoa) return;
+      const pendente = !r.validado_por && ["enviado", "aguardando_validacao"].includes(r.status_validacao || "");
+      // O estoque inclui períodos anteriores; a taxa considera apenas os RDOs datados no período.
+      if (pendente) pessoa.pendentes.push(r);
+      if (r.data < dataIni) return;
+      pessoa.recebidos++;
+      if (r.validado_por && ["validado", "rejeitado"].includes(r.status_validacao || "")) pessoa.decididos++;
+    });
+    return [...porId.values()]
+      .filter(p => !filtroEng || p.id === filtroEng)
+      .sort((a, b) => b.pendentes.length - a.pendentes.length
+        || a.enviados - b.enviados || a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [engenheirosAtivos, rows, rdosApontador, dataIni, filtroEng, filtroOgs, filtroEquipe, busca]);
+
+  const resumoEquipe = useMemo(() => ({
+    semLancamento: acompanhamento.filter(p => p.enviados === 0).length,
+    comLancamento: acompanhamento.filter(p => p.enviados > 0).length,
+    aguardando: acompanhamento.reduce((s, p) => s + p.pendentes.length, 0),
+    semResponsavel: rdosApontador.filter(r => !r.engenheiro_responsavel_user_id
+      && !r.validado_por && ["enviado", "aguardando_validacao"].includes(r.status_validacao || "")).length,
+  }), [acompanhamento, rdosApontador]);
+
   const serieEngenheiro = useMemo(() => {
     const map: Record<string, number> = {};
-    linhasFiltradas.forEach((r) => {
-      const nome = r.engenheiro_id
-        ? (engMap[r.engenheiro_id] || `Sem cadastro (${r.engenheiro_id.slice(0, 6)})`)
-        : "Sem engenheiro";
-      map[nome] = (map[nome] || 0) + 1;
+    engenheirosAtivos.forEach((p) => { map[p.user_id] = 0; });
+    linhasFiltradas.filter(r => r.status === "enviado").forEach((r) => {
+      if (r.engenheiro_id) map[r.engenheiro_id] = (map[r.engenheiro_id] || 0) + 1;
     });
 
     return Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
+      .map(([id, value]) => ({ name: engMap[id] || engenheirosAtivos.find(p => p.user_id === id)?.nome_completo || `Sem cadastro (${id.slice(0, 6)})`, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
-  }, [linhasFiltradas, engMap]);
+  }, [linhasFiltradas, engMap, engenheirosAtivos]);
 
   const cardsAssunto = useMemo(() => {
     return {
@@ -560,10 +660,13 @@ export default function RelatorioRdoTecnicoDashboard() {
   }, [linhasFiltradas]);
 
   const engenheiroOptions = useMemo(() => {
-    return Object.entries(engMap)
+    const nomes = new Map<string, string>();
+    engenheirosAtivos.forEach(p => nomes.set(p.user_id, p.nome_completo || p.email || "Sem nome"));
+    Object.entries(engMap).forEach(([id, nome]) => nomes.set(id, nome));
+    return [...nomes]
       .map(([id, nome]) => ({ value: id, label: nome }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [engMap]);
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [engMap, engenheirosAtivos]);
 
   const exportarCsv = () => {
     const head = [
@@ -615,7 +718,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const exportarCsvExecutivo = () => {
     const linhasResumo = [
       ["Métrica", "Período Atual", "Período Anterior", "Variação Absoluta", "Variação %"],
-      ["RDOs lançados", kpis.total, kpisPrev.total, comparativo.total.delta, comparativo.total.perc],
+      ["RDOs registrados (inclui rascunhos)", kpis.total, kpisPrev.total, comparativo.total.delta, comparativo.total.perc],
       ["RDOs com produção", kpis.comProducao, kpisPrev.comProducao, comparativo.comProducao.delta, comparativo.comProducao.perc],
       ["RDOs sem produção", kpis.semProducao, kpisPrev.semProducao, comparativo.semProducao.delta, comparativo.semProducao.perc],
       ["RDOs não conformes (equipamentos)", kpis.naoConformeEquip, kpisPrev.naoConformeEquip, comparativo.naoConforme.delta, comparativo.naoConforme.perc],
@@ -825,10 +928,56 @@ export default function RelatorioRdoTecnicoDashboard() {
             <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
             <p className="text-sm text-muted-foreground mt-3">Carregando dados do RDO Técnico...</p>
           </div>
+        ) : erroCarga ? (
+          <div role="alert" className="rounded-2xl border border-red-300 bg-red-50 p-5 text-red-800">{erroCarga}</div>
         ) : (
           <>
+            <section className="rounded-2xl border bg-white p-4 space-y-4">
+              <div>
+                <h2 className="text-lg font-bold">Acompanhamento da Engenharia</h2>
+                <p className="text-xs text-muted-foreground">RDO Técnico: data da obra no período · Validações: RDOs dos apontadores datados no período · Fila: pendentes desde 17/07/2026 até a data final.</p>
+                <p className="text-xs text-amber-800 mt-1">Base parcial: usuários ativos identificados por autoria ou designação; não inclui quem nunca apareceu nessas fontes. Validações refletem os RDOs visíveis ao seu acesso. Sem envio não comprova falta: não há escala histórica de OGS/dias. A taxa de decisão não mede cumprimento de prazo nem é pontuação de desempenho.</p>
+                {(filtroStatus || filtroOgs || filtroEquipe || busca) && <p className="text-xs text-blue-700 mt-1">Nesta tabela, OGS, equipe e busca filtram lançamentos técnicos; Status não altera os totais enviados/rascunhos. A fila de validação permanece completa por engenheiro.</p>}
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                <div className="rounded-xl border p-3"><p className="text-muted-foreground">Engenheiros com envio</p><p className="text-2xl font-bold">{resumoEquipe.comLancamento}</p></div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-amber-800">Identificados sem envio no período</p><p className="text-2xl font-bold">{resumoEquipe.semLancamento}</p></div>
+                <div className="rounded-xl border border-orange-200 bg-orange-50 p-3"><p className="text-orange-800">Aguardando validação (visíveis)</p><p className="text-2xl font-bold">{resumoEquipe.aguardando}</p></div>
+                <div className="rounded-xl border p-3"><p className="text-muted-foreground">Pendentes sem vínculo por ID</p><p className="text-2xl font-bold">{resumoEquipe.semResponsavel}</p></div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px] text-sm">
+                  <thead className="bg-muted/40 text-left text-xs"><tr>
+                    <th className="p-2">Engenheiro · ordem de atenção</th><th className="p-2">RDO Técnico</th>
+                    <th className="p-2">Validações no período</th><th className="p-2">Fila em aberto</th><th className="p-2">Situação</th>
+                  </tr></thead>
+                  <tbody>
+                    {acompanhamento.map(p => {
+                      const aberto = engenheiroAberto === p.id;
+                      const maisAntigo = p.pendentes[p.pendentes.length - 1];
+                      return <Fragment key={p.id}>
+                        <tr key={`${p.id}-resumo`} className="border-t">
+                          <td className="p-2 font-semibold"><button className="text-left text-blue-700 hover:underline" aria-expanded={aberto} onClick={() => setEngenheiroAberto(aberto ? null : p.id)}>{p.nome} {aberto ? "▴" : "▾"}</button></td>
+                          <td className="p-2">{p.enviados} enviados · {p.rascunhos} rascunhos</td>
+                          <td className="p-2">{p.recebidos ? `${p.decididos}/${p.recebidos} decididos (${Math.round(p.decididos / p.recebidos * 100)}%)` : "Sem demanda"}</td>
+                          <td className="p-2">{p.pendentes.length}{maisAntigo ? ` · mais antigo: ${fmtDate(maisAntigo.data)}` : ""}</td>
+                          <td className="p-2">{p.pendentes.length ? <span className="text-orange-700 font-semibold">Aguardando decisão</span> : p.enviados ? <span className="text-green-700">Sem fila</span> : <span className="text-amber-700">Verificar alocação</span>}</td>
+                        </tr>
+                        {aberto && <tr key={`${p.id}-detalhe`} className="border-t bg-muted/20"><td colSpan={5} className="p-3 space-y-2">
+                          <p className="font-semibold">RDOs de apontadores aguardando ({p.pendentes.length})</p>
+                          {p.pendentes.length ? <ul className="space-y-1">{p.pendentes.map(r => <li key={r.id}>{fmtDate(r.data)} · {r.obra_nome || "Obra sem identificação"}</li>)}</ul> : <p className="text-muted-foreground">Nenhum RDO pendente vinculado.</p>}
+                          <p className="font-semibold">RDOs técnicos no período ({p.registros.length})</p>
+                          {p.registros.length ? <ul className="space-y-1">{p.registros.map(r => <li key={r.id}>{fmtDate(r.data)} · OGS {r.ogs_number || "—"} · {r.status === "enviado" ? "Enviado" : "Rascunho"}</li>)}</ul> : <p className="text-muted-foreground">Nenhum registro nos filtros atuais.</p>}
+                        </td></tr>}
+                      </Fragment>;
+                    })}
+                  </tbody>
+                </table>
+                {!acompanhamento.length && <p className="p-4 text-sm text-muted-foreground">Nenhum engenheiro ativo encontrado neste filtro.</p>}
+              </div>
+            </section>
             <section className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              <KpiCard icon={ClipboardList} titulo="RDOs lançados" valor={fmtNum(kpis.total)} cor="text-slate-700" delta={comparativo.total.delta} deltaPct={comparativo.total.perc} />
+              <KpiCard icon={ClipboardList} titulo="RDOs registrados (inclui rascunhos)" valor={fmtNum(kpis.total)} cor="text-slate-700" delta={comparativo.total.delta} deltaPct={comparativo.total.perc} />
               <KpiCard icon={BarChart3} titulo="RDOs com produção" valor={fmtNum(kpis.comProducao)} cor="text-blue-700" delta={comparativo.comProducao.delta} deltaPct={comparativo.comProducao.perc} />
               <KpiCard icon={AlertTriangle} titulo="RDOs sem produção" valor={fmtNum(kpis.semProducao)} cor="text-red-700" delta={comparativo.semProducao.delta} deltaPct={comparativo.semProducao.perc} invert />
               <KpiCard icon={Gauge} titulo="RDOs não conformes" valor={fmtNum(kpis.naoConformeEquip)} cor="text-orange-700" delta={comparativo.naoConforme.delta} deltaPct={comparativo.naoConforme.perc} invert />
@@ -845,7 +994,7 @@ export default function RelatorioRdoTecnicoDashboard() {
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
-                <ComparativoCard titulo="RDOs lançados" atual={comparativo.total.atual} anterior={comparativo.total.anterior} delta={comparativo.total.delta} perc={comparativo.total.perc} />
+                <ComparativoCard titulo="RDOs registrados (inclui rascunhos)" atual={comparativo.total.atual} anterior={comparativo.total.anterior} delta={comparativo.total.delta} perc={comparativo.total.perc} />
                 <ComparativoCard titulo="RDOs com produção" atual={comparativo.comProducao.atual} anterior={comparativo.comProducao.anterior} delta={comparativo.comProducao.delta} perc={comparativo.comProducao.perc} />
                 <ComparativoCard titulo="RDOs sem produção" atual={comparativo.semProducao.atual} anterior={comparativo.semProducao.anterior} delta={comparativo.semProducao.delta} perc={comparativo.semProducao.perc} invert />
                 <ComparativoCard titulo="Produção (t)" atual={comparativo.toneladas.atual} anterior={comparativo.toneladas.anterior} delta={comparativo.toneladas.delta} perc={comparativo.toneladas.perc} frac={1} />
@@ -903,7 +1052,7 @@ export default function RelatorioRdoTecnicoDashboard() {
               </div>
 
               <div className="rounded-2xl border bg-white p-4">
-                <h3 className="text-sm font-bold mb-2">Top engenheiros por lançamentos</h3>
+                <h3 className="text-sm font-bold mb-2">Top engenheiros por RDOs enviados</h3>
                 <div className="h-[250px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={serieEngenheiro} layout="vertical" margin={{ left: 10, right: 10, top: 4, bottom: 4 }}>
