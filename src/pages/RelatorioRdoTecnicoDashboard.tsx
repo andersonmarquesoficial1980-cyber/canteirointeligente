@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import {
@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { buildEngineeringMonitoring } from "@/lib/engineeringMonitoring";
 
 interface RdoTecnicoRow {
   id: string;
@@ -74,6 +75,7 @@ interface EngenheiroAtivo {
   user_id: string;
   nome_completo: string | null;
   email: string | null;
+  status: string | null;
 }
 
 interface RdoApontador {
@@ -206,7 +208,8 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [engenheirosAtivos, setEngenheirosAtivos] = useState<EngenheiroAtivo[]>([]);
   const [rdosApontador, setRdosApontador] = useState<RdoApontador[]>([]);
   const [erroCarga, setErroCarga] = useState("");
-  const [engenheiroAberto, setEngenheiroAberto] = useState<string | null>(null);
+  const [periodoCarregado, setPeriodoCarregado] = useState({ inicio: "", fim: "" });
+  const requisicaoAtual = useRef(0);
 
   const periodoAnterior = useMemo(() => getPeriodoAnterior(dataIni, dataFim), [dataIni, dataFim]);
 
@@ -214,6 +217,7 @@ export default function RelatorioRdoTecnicoDashboard() {
 
   const buscarDados = async () => {
     if (!companyId) return;
+    const requisicao = ++requisicaoAtual.current;
     setLoading(true);
     setErroCarga("");
     try {
@@ -269,43 +273,38 @@ export default function RelatorioRdoTecnicoDashboard() {
           .order("id", { ascending: false })
           .range(inicio, fim)),
       ]);
-      setRows(lista as RdoTecnicoRow[]);
-      setRowsPrev(listaPrev as RdoTecnicoRow[]);
-      setRdosApontador(diariosApontador as RdoApontador[]);
-
       const { data: eqsCad } = await (supabase as any)
         .from("ci_equipes")
         .select("nome")
         .eq("ativa", true)
         .order("nome");
-      setEquipesCadastro((eqsCad || []).map((e: any) => (e.nome || "").trim()).filter(Boolean));
-
       const ogsUniques = [...new Set(lista.map(r => r.ogs_number).filter(Boolean) as string[])];
-      setOgsOptions(ogsUniques.sort((a, b) => Number(b) - Number(a)).map(o => ({ value: o, label: `OGS ${o}` })));
 
       const engIds = [...new Set([
         ...[...lista, ...listaPrev].map(r => r.engenheiro_id),
         ...diariosApontador.map(r => r.engenheiro_responsavel_user_id),
       ].filter(Boolean) as string[])];
+      let perfis: EngenheiroAtivo[] = [];
       if (engIds.length > 0) {
-        const { data: perfis, error: erroPerfis } = await supabase
+        const { data, error: erroPerfis } = await supabase
           .from("profiles")
           .select("user_id,nome_completo,email,status")
           .eq("company_id", companyId)
           .in("user_id", engIds);
         if (erroPerfis) throw erroPerfis;
-        setEngenheirosAtivos((perfis || []).filter(p => p.status === "ativo") as EngenheiroAtivo[]);
-
-        const map: Record<string, string> = {};
-        (perfis || []).forEach((p: any) => {
-          map[p.user_id] = p.nome_completo || p.email || "Sem nome";
-        });
-        setEngMap(map);
-      } else {
-        setEngMap({});
-        setEngenheirosAtivos([]);
+        perfis = (data || []) as EngenheiroAtivo[];
       }
+      if (requisicao !== requisicaoAtual.current) return;
+      setRows(lista as RdoTecnicoRow[]);
+      setRowsPrev(listaPrev as RdoTecnicoRow[]);
+      setRdosApontador(diariosApontador as RdoApontador[]);
+      setEquipesCadastro((eqsCad || []).map((e: any) => (e.nome || "").trim()).filter(Boolean));
+      setOgsOptions(ogsUniques.sort((a, b) => Number(b) - Number(a)).map(o => ({ value: o, label: `OGS ${o}` })));
+      setEngenheirosAtivos(perfis.filter(p => p.status === "ativo"));
+      setEngMap(Object.fromEntries(perfis.map(p => [p.user_id, p.nome_completo || p.email || "Sem nome"])));
+      setPeriodoCarregado({ inicio: dataIni, fim: dataFim });
     } catch (e) {
+      if (requisicao !== requisicaoAtual.current) return;
       console.error("[RelatorioRdoTecnicoDashboard]", e);
       setErroCarga("Não foi possível carregar o painel completo. Nenhum total parcial foi exibido; tente atualizar.");
       setRows([]);
@@ -316,12 +315,12 @@ export default function RelatorioRdoTecnicoDashboard() {
       setEngMap({});
       setEquipesCadastro([]);
     }
-    setLoading(false);
+    if (requisicao === requisicaoAtual.current) setLoading(false);
   };
 
   useEffect(() => {
     if (companyId) buscarDados();
-  }, [companyId]);
+  }, [companyId, dataIni, dataFim]);
 
   const equipesFiltro = useMemo(() => {
     const doHistorico = rows.map((r) => (r.equipe || "").trim()).filter(Boolean);
@@ -522,54 +521,19 @@ export default function RelatorioRdoTecnicoDashboard() {
     };
   }, [kpis, kpisPrev]);
 
-  // Eixos separados: lançamento técnico não é validação do apontador.
-  // Sem escala histórica por OGS/dia, zero lançamento é sinal para apuração, não falta comprovada.
-  const acompanhamento = useMemo(() => {
-    const porId = new Map<string, {
-      id: string; nome: string; enviados: number; rascunhos: number;
-      recebidos: number; decididos: number; pendentes: RdoApontador[];
-      registros: RdoTecnicoRow[];
-    }>();
-    engenheirosAtivos.forEach((p) => porId.set(p.user_id, {
-      id: p.user_id, nome: p.nome_completo || p.email || "Sem nome",
-      enviados: 0, rascunhos: 0, recebidos: 0, decididos: 0, pendentes: [], registros: [],
-    }));
-    const tecnicos = rows.filter(r =>
-      (!filtroOgs || r.ogs_number === filtroOgs) &&
-      (!filtroEquipe || r.equipe === filtroEquipe) &&
-      (!busca.trim() || [r.ogs_number, r.equipe, r.localizacao, r.tipo_servico]
-        .join(" ").toLowerCase().includes(busca.trim().toLowerCase())));
-    tecnicos.forEach(r => {
-      const pessoa = r.engenheiro_id ? porId.get(r.engenheiro_id) : undefined;
-      if (!pessoa) return;
-      pessoa.registros.push(r);
-      if (r.status === "enviado") pessoa.enviados++;
-      else pessoa.rascunhos++;
-    });
-    rdosApontador.forEach(r => {
-      const pessoa = r.engenheiro_responsavel_user_id
-        ? porId.get(r.engenheiro_responsavel_user_id) : undefined;
-      if (!pessoa) return;
-      const pendente = !r.validado_por && ["enviado", "aguardando_validacao"].includes(r.status_validacao || "");
-      // O estoque inclui períodos anteriores; a taxa considera apenas os RDOs datados no período.
-      if (pendente) pessoa.pendentes.push(r);
-      if (r.data < dataIni) return;
-      pessoa.recebidos++;
-      if (r.validado_por && ["validado", "rejeitado"].includes(r.status_validacao || "")) pessoa.decididos++;
-    });
-    return [...porId.values()]
-      .filter(p => !filtroEng || p.id === filtroEng)
-      .sort((a, b) => b.pendentes.length - a.pendentes.length
-        || a.enviados - b.enviados || a.nome.localeCompare(b.nome, "pt-BR"));
-  }, [engenheirosAtivos, rows, rdosApontador, dataIni, filtroEng, filtroOgs, filtroEquipe, busca]);
-
-  const resumoEquipe = useMemo(() => ({
-    semLancamento: acompanhamento.filter(p => p.enviados === 0).length,
-    comLancamento: acompanhamento.filter(p => p.enviados > 0).length,
-    aguardando: acompanhamento.reduce((s, p) => s + p.pendentes.length, 0),
-    semResponsavel: rdosApontador.filter(r => !r.engenheiro_responsavel_user_id
-      && !r.validado_por && ["enviado", "aguardando_validacao"].includes(r.status_validacao || "")).length,
-  }), [acompanhamento, rdosApontador]);
+  // Duas fontes e dois recortes independentes: lançamentos no período;
+  // fila de apontamentos ainda pendentes desde 17/07 até a data final.
+  const monitoramento = useMemo(() => buildEngineeringMonitoring(
+    engenheirosAtivos,
+    rows.filter(r => (!filtroOgs || r.ogs_number === filtroOgs)
+      && (!filtroEquipe || r.equipe === filtroEquipe)
+      && (!busca.trim() || [r.ogs_number, r.equipe, r.localizacao, r.tipo_servico]
+        .join(" ").toLowerCase().includes(busca.trim().toLowerCase()))),
+    rdosApontador,
+    { from: dataIni, to: dataFim },
+  ), [engenheirosAtivos, rows, rdosApontador, filtroOgs, filtroEquipe, busca, dataIni, dataFim]);
+  const lancamentosEngenheiros = monitoramento.launchRows.filter(p => !filtroEng || p.id === filtroEng);
+  const validacoesPendentes = monitoramento.pendingRows.filter(p => !filtroEng || p.id === filtroEng);
 
   const serieEngenheiro = useMemo(() => {
     const map: Record<string, number> = {};
@@ -923,7 +887,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           </div>
         </div>
 
-        {loading ? (
+        {loading || (!erroCarga && (periodoCarregado.inicio !== dataIni || periodoCarregado.fim !== dataFim)) ? (
           <div className="rounded-2xl border bg-white p-12 text-center">
             <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
             <p className="text-sm text-muted-foreground mt-3">Carregando dados do RDO Técnico...</p>
@@ -932,49 +896,42 @@ export default function RelatorioRdoTecnicoDashboard() {
           <div role="alert" className="rounded-2xl border border-red-300 bg-red-50 p-5 text-red-800">{erroCarga}</div>
         ) : (
           <>
-            <section className="rounded-2xl border bg-white p-4 space-y-4">
-              <div>
-                <h2 className="text-lg font-bold">Acompanhamento da Engenharia</h2>
-                <p className="text-xs text-muted-foreground">RDO Técnico: data da obra no período · Validações: RDOs dos apontadores datados no período · Fila: pendentes desde 17/07/2026 até a data final.</p>
-                <p className="text-xs text-amber-800 mt-1">Base parcial: usuários ativos identificados por autoria ou designação; não inclui quem nunca apareceu nessas fontes. Validações refletem os RDOs visíveis ao seu acesso. Sem envio não comprova falta: não há escala histórica de OGS/dias. A taxa de decisão não mede cumprimento de prazo nem é pontuação de desempenho.</p>
-                {(filtroStatus || filtroOgs || filtroEquipe || busca) && <p className="text-xs text-blue-700 mt-1">Nesta tabela, OGS, equipe e busca filtram lançamentos técnicos; Status não altera os totais enviados/rascunhos. A fila de validação permanece completa por engenheiro.</p>}
-              </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                <div className="rounded-xl border p-3"><p className="text-muted-foreground">Engenheiros com envio</p><p className="text-2xl font-bold">{resumoEquipe.comLancamento}</p></div>
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3"><p className="text-amber-800">Identificados sem envio no período</p><p className="text-2xl font-bold">{resumoEquipe.semLancamento}</p></div>
-                <div className="rounded-xl border border-orange-200 bg-orange-50 p-3"><p className="text-orange-800">Aguardando validação (visíveis)</p><p className="text-2xl font-bold">{resumoEquipe.aguardando}</p></div>
-                <div className="rounded-xl border p-3"><p className="text-muted-foreground">Pendentes sem vínculo por ID</p><p className="text-2xl font-bold">{resumoEquipe.semResponsavel}</p></div>
-              </div>
+            <section className="rounded-2xl border bg-white p-4 space-y-3">
+              <h2 className="text-lg font-bold">1. Preenchimento de RDO Técnico pelos engenheiros</h2>
+              <p className="text-sm text-muted-foreground">{fmtDate(dataIni)} a {fmtDate(dataFim)} · {lancamentosEngenheiros.reduce((s, p) => s + p.enviados, 0)} enviados · {lancamentosEngenheiros.reduce((s, p) => s + p.rascunhos, 0)} rascunhos</p>
+              <p className="text-xs text-amber-800">Engenheiros identificados por autoria ou designação. Sem envio não comprova falta: não há escala por OGS/dia. O filtro Status não altera esta tabela; OGS, equipe e busca afetam apenas os lançamentos técnicos.</p>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[800px] text-sm">
-                  <thead className="bg-muted/40 text-left text-xs"><tr>
-                    <th className="p-2">Engenheiro · ordem de atenção</th><th className="p-2">RDO Técnico</th>
-                    <th className="p-2">Validações no período</th><th className="p-2">Fila em aberto</th><th className="p-2">Situação</th>
-                  </tr></thead>
-                  <tbody>
-                    {acompanhamento.map(p => {
-                      const aberto = engenheiroAberto === p.id;
-                      const maisAntigo = p.pendentes[p.pendentes.length - 1];
-                      return <Fragment key={p.id}>
-                        <tr key={`${p.id}-resumo`} className="border-t">
-                          <td className="p-2 font-semibold"><button className="text-left text-blue-700 hover:underline" aria-expanded={aberto} onClick={() => setEngenheiroAberto(aberto ? null : p.id)}>{p.nome} {aberto ? "▴" : "▾"}</button></td>
-                          <td className="p-2">{p.enviados} enviados · {p.rascunhos} rascunhos</td>
-                          <td className="p-2">{p.recebidos ? `${p.decididos}/${p.recebidos} decididos (${Math.round(p.decididos / p.recebidos * 100)}%)` : "Sem demanda"}</td>
-                          <td className="p-2">{p.pendentes.length}{maisAntigo ? ` · mais antigo: ${fmtDate(maisAntigo.data)}` : ""}</td>
-                          <td className="p-2">{p.pendentes.length ? <span className="text-orange-700 font-semibold">Aguardando decisão</span> : p.enviados ? <span className="text-green-700">Sem fila</span> : <span className="text-amber-700">Verificar alocação</span>}</td>
-                        </tr>
-                        {aberto && <tr key={`${p.id}-detalhe`} className="border-t bg-muted/20"><td colSpan={5} className="p-3 space-y-2">
-                          <p className="font-semibold">RDOs de apontadores aguardando ({p.pendentes.length})</p>
-                          {p.pendentes.length ? <ul className="space-y-1">{p.pendentes.map(r => <li key={r.id}>{fmtDate(r.data)} · {r.obra_nome || "Obra sem identificação"}</li>)}</ul> : <p className="text-muted-foreground">Nenhum RDO pendente vinculado.</p>}
-                          <p className="font-semibold">RDOs técnicos no período ({p.registros.length})</p>
-                          {p.registros.length ? <ul className="space-y-1">{p.registros.map(r => <li key={r.id}>{fmtDate(r.data)} · OGS {r.ogs_number || "—"} · {r.status === "enviado" ? "Enviado" : "Rascunho"}</li>)}</ul> : <p className="text-muted-foreground">Nenhum registro nos filtros atuais.</p>}
-                        </td></tr>}
-                      </Fragment>;
-                    })}
-                  </tbody>
+                <table className="w-full min-w-[550px] text-sm">
+                  <thead className="bg-muted/40 text-left"><tr><th className="p-2">Engenheiro</th><th className="p-2">Enviados</th><th className="p-2">Rascunhos</th><th className="p-2">Último RDO Técnico</th></tr></thead>
+                  <tbody>{lancamentosEngenheiros.map(p => <tr key={p.id} className="border-t align-top">
+                    <td className="p-2 font-semibold"><details><summary className="cursor-pointer text-blue-700">{p.nome}</summary>
+                      <ul className="font-normal mt-2 space-y-1">{p.registros.length ? p.registros.map(r => <li key={r.id}>{fmtDate(r.data)} · OGS {r.ogs_number || "—"} · {r.status === "enviado" ? "Enviado" : "Rascunho"}</li>) : <li>Nenhum RDO Técnico nos filtros.</li>}</ul>
+                    </details></td>
+                    <td className="p-2 font-semibold">{p.enviados}</td><td className="p-2">{p.rascunhos}</td>
+                    <td className="p-2">{p.registros.length ? fmtDate(p.registros[0].data) : "—"}</td>
+                  </tr>)}</tbody>
                 </table>
-                {!acompanhamento.length && <p className="p-4 text-sm text-muted-foreground">Nenhum engenheiro ativo encontrado neste filtro.</p>}
+                {!lancamentosEngenheiros.length && <p className="p-3 text-sm text-muted-foreground">Nenhum engenheiro identificado.</p>}
               </div>
+            </section>
+            <section className="rounded-2xl border bg-white p-4 space-y-3">
+              <h2 className="text-lg font-bold">2. Validações pendentes dos RDOs dos apontadores</h2>
+              <p className="text-sm text-muted-foreground">{validacoesPendentes.reduce((s, p) => s + p.pendentes.length, 0)} pendentes vinculados · RDOs de 17/07/2026 até {fmtDate(dataFim)} (inclui anteriores ao início do filtro).</p>
+              <p className="text-xs text-amber-800">Somente RDOs visíveis ao seu acesso; "mais antigo" indica a data do RDO, não a data do envio para validação. Esta tabela não avalia validações já concluídas.</p>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[550px] text-sm">
+                  <thead className="bg-muted/40 text-left"><tr><th className="p-2">Engenheiro responsável</th><th className="p-2">Aguardando validação</th><th className="p-2">Data do RDO mais antigo</th></tr></thead>
+                  <tbody>{validacoesPendentes.map(p => <tr key={p.id} className="border-t align-top">
+                    <td className="p-2 font-semibold"><details><summary className="cursor-pointer text-blue-700">{p.nome}</summary>
+                      <ul className="font-normal mt-2 space-y-1">{p.pendentes.map(r => <li key={r.id}>{fmtDate(r.data)} · {r.obra_nome || "Obra não identificada"}</li>)}</ul>
+                    </details></td>
+                    <td className="p-2 font-bold text-orange-700">{p.pendentes.length}</td>
+                    <td className="p-2">{fmtDate(p.pendentes[p.pendentes.length - 1].data)}</td>
+                  </tr>)}</tbody>
+                </table>
+                {!validacoesPendentes.length && <p className="p-3 text-sm text-muted-foreground">Nenhum RDO pendente vinculado nos filtros atuais.</p>}
+              </div>
+              {monitoramento.unassigned.length > 0 && <p className="text-sm text-amber-800">{monitoramento.unassigned.length} pendentes sem engenheiro identificado por usuário ativo — conferir vínculo antes de cobrar alguém.</p>}
             </section>
             <section className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
               <KpiCard icon={ClipboardList} titulo="RDOs registrados (inclui rascunhos)" valor={fmtNum(kpis.total)} cor="text-slate-700" delta={comparativo.total.delta} deltaPct={comparativo.total.perc} />
