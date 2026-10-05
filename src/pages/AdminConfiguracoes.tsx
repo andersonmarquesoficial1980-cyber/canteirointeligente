@@ -42,6 +42,7 @@ import AdminRolesPage from "./AdminRolesPage";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { canRollbackLegacyFallback, disableLegacyFallbackWithWindow, enableLegacyFallback, getLegacyModeState } from "@/lib/materialsFeatureFlags";
 import { sectionFromResource, isAdminSectionResource } from "@/lib/adminRoles";
+import { dbStatusToPainel, painelStatusToDb, STATUS_PAINEL_OPTIONS, type StatusPainel } from "@/lib/equipmentPanelStatus";
 
 const FleetDashboard = lazy(() => import("./FleetDashboard"));
 const UnifiedEquipmentView = lazy(() => import("@/components/admin/UnifiedEquipmentView"));
@@ -110,29 +111,6 @@ const CATEGORIA_EQUIP_UI_LABELS: Record<string, string> = {
   FRESAGEM: "FRESADORA",
 };
 
-const STATUS_PAINEL_OPTIONS = ["OPERACIONAL", "MANUTENÇÃO", "INOPERANTE", "DEVOLVER", "DEVOLVIDO", "RESERVA"] as const;
-type StatusPainel = (typeof STATUS_PAINEL_OPTIONS)[number];
-
-const STATUS_PAINEL_TO_DB: Record<StatusPainel, string> = {
-  OPERACIONAL: "ativo",
-  "MANUTENÇÃO": "em_manutencao",
-  INOPERANTE: "inativo",
-  DEVOLVER: "disposicao",
-  DEVOLVIDO: "inativo",
-  RESERVA: "disposicao",
-};
-
-function painelStatusToDb(statusPainel: string) {
-  return STATUS_PAINEL_TO_DB[(statusPainel as StatusPainel) || "OPERACIONAL"] || "ativo";
-}
-
-function dbStatusToPainel(statusDb?: string | null): StatusPainel {
-  const s = (statusDb || "").toLowerCase();
-  if (s === "em_manutencao" || s.includes("manut")) return "MANUTENÇÃO";
-  if (s === "inativo" || s.includes("inoperante")) return "INOPERANTE";
-  if (s === "disposicao" || s.includes("reserva") || s.includes("devolver") || s.includes("devolvido")) return "RESERVA";
-  return "OPERACIONAL";
-}
 
 function categoriaEquipLabel(categoria: string) {
   return CATEGORIA_EQUIP_UI_LABELS[categoria] || categoria;
