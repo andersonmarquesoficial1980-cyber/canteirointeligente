@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { namesLikelyMatch } from "@/lib/nameMatch";
+import { validatePointingRdo } from "@/lib/validatePointingRdo";
 
 interface RdoDetalhe {
   id: string;
@@ -195,25 +196,13 @@ export default function EngValidarRdo() {
     }
 
     setSalvando(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const { error } = await (supabase as any)
-      .from("rdo_diarios")
-      .update({
-        status_validacao: acao,
-        validado_por: user?.id,
-        validado_em: new Date().toISOString(),
-        ...(acao === "rejeitado" ? { motivo_rejeicao_eng: motivo } : {}),
-      })
-      .eq("id", id);
-
-    setSalvando(false);
-
-    if (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    try {
+      await validatePointingRdo(id!, acao, motivo);
+    } catch (error) {
+      toast({ title: "Erro ao salvar", description: error instanceof Error ? error.message : "Falha ao validar RDO", variant: "destructive" });
       return;
+    } finally {
+      setSalvando(false);
     }
 
     toast({
