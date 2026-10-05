@@ -194,7 +194,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
 
   let rdoQuery = sb
     .from("rdo_diarios")
-    .select("id,data,obra_nome,tipo_rdo,preenchido_por,encarregado,empreiteiro,created_at", { count: "exact" })
+    .select("id,data,obra_nome,local,tipo_rdo,preenchido_por,encarregado,empreiteiro,created_at", { count: "exact" })
     .eq("company_id", companyId)
     .gte("data", start)
     .lte("data", end)
@@ -346,7 +346,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       encarregado: rdo?.encarregado || null,
       obra_nome: rdo?.obra_nome || null,
       contratante: ogs?.client_name || null,
-      local: ogs?.location_address || null,
+      local: rdo?.local || null,
       tipo_rdo: rdo?.tipo_rdo || null,
       nf_numero: n.nf,
       nf: nfComPrefixo(n.nf, n.usina),
@@ -369,7 +369,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     const equipamentoRaw = normalizeString(n.equipamento) || null;
     const placaBetoneira = isValidPlateLike(equipamentoRaw) ? equipamentoRaw : null;
     const obraOgs = rdo?.obra_nome || null;
-    const localAplicacao = ogs?.location_address || null;
+    const localAplicacao = rdo?.local || null;
 
     return {
       id: n.id,
@@ -426,7 +426,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       obra_nome: rdo?.obra_nome || null,
       ogs: rdo?.obra_nome || null,
       contratante: ogs?.client_name || null,
-      local: ogs?.location_address || null,
+      local: rdo?.local || null,
       tipo_rdo: rdo?.tipo_rdo || null,
       empreiteiro_id: null,
       empreiteiro_nome: rdo?.empreiteiro || null,
@@ -513,7 +513,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       data_rdo: rdo?.data || null,
       ogs: rdo?.obra_nome || null,
       contratante: ogs?.client_name || null,
-      local: ogs?.location_address || null,
+      local: rdo?.local || null,
       equipamento_id: row.id,
       frota: row.frota || null,
       equipamento: equipamentoNome,
@@ -679,7 +679,7 @@ async function handleRdoDetails(sb: ReturnType<typeof createClient>, companyId: 
   let q = sb
     .from("rdo_diarios")
     .select(
-      "id,data,obra_nome,tipo_rdo,turno,clima,preenchido_por,encarregado,engenheiro_responsavel,status_validacao,validado_em,observacoes_gerais",
+      "id,data,obra_nome,local,tipo_rdo,turno,clima,preenchido_por,encarregado,engenheiro_responsavel,status_validacao,validado_em,observacoes_gerais",
       { count: "exact" },
     )
     .eq("company_id", companyId)
