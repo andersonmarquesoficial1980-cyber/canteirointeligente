@@ -31,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { buildEngineeringMonitoring } from "@/lib/engineeringMonitoring";
+import { classifyUnlinkedValidationRdos } from "@/lib/validationUnlinked";
 
 interface RdoTecnicoRow {
   id: string;
@@ -84,6 +85,11 @@ interface RdoApontador {
   obra_nome: string | null;
   status_validacao: string | null;
   engenheiro_responsavel_user_id: string | null;
+  engenheiro_responsavel: string | null;
+  encarregado: string | null;
+  encarregado_employee_id: string | null;
+  validado_encarregado: boolean;
+  nao_aprovado_encarregado: boolean;
   validado_por: string | null;
   validado_em: string | null;
 }
@@ -264,7 +270,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           .range(inicio, fim)),
         carregarTodas((inicio, fim) => (supabase as any)
           .from("rdo_diarios")
-          .select("id, data, obra_nome, status_validacao, engenheiro_responsavel_user_id, validado_por, validado_em")
+          .select("id, data, obra_nome, status_validacao, engenheiro_responsavel_user_id, engenheiro_responsavel, encarregado, encarregado_employee_id, validado_encarregado, nao_aprovado_encarregado, validado_por, validado_em")
           .eq("company_id", companyId)
           .gte("data", "2026-07-17")
           .lte("data", dataFim)
@@ -532,6 +538,7 @@ export default function RelatorioRdoTecnicoDashboard() {
     rdosApontador,
     { from: dataIni, to: dataFim },
   ), [engenheirosAtivos, rows, rdosApontador, filtroOgs, filtroEquipe, busca, dataIni, dataFim]);
+  const pendenciasSemVinculo = useMemo(() => classifyUnlinkedValidationRdos(rdosApontador), [rdosApontador]);
   const lancamentosEngenheiros = monitoramento.launchRows.filter(p => !filtroEng || p.id === filtroEng);
   const validacoesPendentes = monitoramento.pendingRows.filter(p => !filtroEng || p.id === filtroEng);
 
@@ -932,6 +939,22 @@ export default function RelatorioRdoTecnicoDashboard() {
                 {!validacoesPendentes.length && <p className="p-3 text-sm text-muted-foreground">Nenhum RDO pendente vinculado nos filtros atuais.</p>}
               </div>
               {monitoramento.unassigned.length > 0 && <p className="text-sm text-amber-800">{monitoramento.unassigned.length} pendentes sem engenheiro identificado por usuário ativo — conferir vínculo antes de cobrar alguém.</p>}
+              {(pendenciasSemVinculo.encarregado.length > 0 || pendenciasSemVinculo.engenharia.length > 0) && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 space-y-2">
+                  <p className="font-semibold">Conferência de vínculos pendentes — não atribuir por semelhança de nome</p>
+                  <p>Encarregado: {pendenciasSemVinculo.encarregado.length} sem ID · Engenharia: {pendenciasSemVinculo.engenharia.length} sem ID. RDOs desde 17/07/2026 até {fmtDate(dataFim)}.</p>
+                  <details><summary className="cursor-pointer font-semibold">Ver RDOs sem encarregado vinculado</summary>
+                    <ul className="mt-2 max-h-56 overflow-y-auto space-y-1">
+                      {pendenciasSemVinculo.encarregado.map(r => <li key={r.id}>{fmtDate(r.data)} · OGS {r.obra_nome || "—"} · {r.encarregado || "Sem encarregado informado"} · ID {r.id}</li>)}
+                    </ul>
+                  </details>
+                  <details><summary className="cursor-pointer font-semibold">Ver RDOs sem engenheiro vinculado</summary>
+                    <ul className="mt-2 max-h-56 overflow-y-auto space-y-1">
+                      {pendenciasSemVinculo.engenharia.map(r => <li key={r.id}>{fmtDate(r.data)} · OGS {r.obra_nome || "—"} · {r.engenheiro_responsavel || "Sem engenheiro informado"} · ID {r.id}</li>)}
+                    </ul>
+                  </details>
+                </div>
+              )}
             </section>
             <section className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
               <KpiCard icon={ClipboardList} titulo="RDOs registrados (inclui rascunhos)" valor={fmtNum(kpis.total)} cor="text-slate-700" delta={comparativo.total.delta} deltaPct={comparativo.total.perc} />
