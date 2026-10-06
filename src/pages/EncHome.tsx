@@ -6,8 +6,7 @@ import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ChevronRight, HardH
 import ReportarProblemaModal from "@/components/manutencao/ReportarProblemaModal";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 import { useSmartBack } from "@/hooks/useSmartBack";
-
-const VALIDATION_START_DATE = "2026-07-17";
+import { getMyForeman, listForemanPendingRdos } from "@/lib/foremanValidation";
 
 interface RdoPendente {
   id: string;
@@ -46,47 +45,18 @@ export default function EncHome() {
 
       if (!prof?.company_id) { setLoading(false); return; }
 
-      const normalizeName = (v: string) =>
-        String(v || "")
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/\s+/g, " ")
-          .trim()
-          .toUpperCase();
-
-      const perfilNome = normalizeName(prof?.nome_completo || "");
-
-      const { data: encarregadosEmpresa } = await (supabase as any)
-        .from("employees")
-        .select("name")
-        .eq("company_id", prof.company_id)
-        .eq("is_encarregado", true);
-
-      const candidatos = (encarregadosEmpresa || [])
-        .map((e: any) => String(e?.name || ""))
-        .filter(Boolean)
-        .filter((nome: string) => normalizeName(nome) === perfilNome);
-
-      const nomeEncarregado = candidatos.length === 1 ? candidatos[0] : null;
-
-      // Segurança: sem vínculo inequívoco, NÃO listar pendências da empresa inteira
-      if (!nomeEncarregado) {
+      try {
+        const identity = await getMyForeman();
+        if (!identity) {
+          setRdosPendentes([]);
+          setErroVinculo("Não há vínculo único entre seu usuário e um funcionário encarregado ativo. Solicite conferência do cadastro.");
+        } else {
+          setErroVinculo(null);
+          setRdosPendentes(await listForemanPendingRdos(identity));
+        }
+      } catch (error) {
         setRdosPendentes([]);
-        setErroVinculo("Seu usuário não está vinculado de forma única a um encarregado. Peça ao admin para ajustar o cadastro/permissões.");
-      } else {
-        setErroVinculo(null);
-        const { data: rdos } = await (supabase as any)
-          .from("rdo_diarios")
-          .select("id, data, obra_nome, preenchido_por, ogs_id")
-          .eq("company_id", prof.company_id)
-          .eq("validado_encarregado", false)
-          .eq("nao_aprovado_encarregado", false)
-          .eq("encarregado", nomeEncarregado)
-          .gte("data", VALIDATION_START_DATE)
-          .order("data", { ascending: false })
-          .limit(20);
-
-        setRdosPendentes(rdos || []);
+        setErroVinculo(error instanceof Error ? error.message : "Falha ao carregar validações.");
       }
 
       // Buscar obras/OGSs vinculadas (via encarregado_ogs, se houver configuração)
@@ -207,7 +177,7 @@ export default function EncHome() {
             <p className="text-sm text-muted-foreground">Carregando...</p>
           ) : minhasOgs.length === 0 ? (
             <div className="p-4 rounded-xl bg-muted text-sm text-muted-foreground text-center">
-              Nenhuma obra vinculada. Peça ao administrador para configurar suas obras.
+              Suas OGS ainda não foram configuradas. Isso não impede a validação dos RDOs atribuídos a você.
             </div>
           ) : (
             <div className="space-y-2">

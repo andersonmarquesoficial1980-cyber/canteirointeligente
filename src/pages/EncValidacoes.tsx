@@ -4,7 +4,7 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, ClipboardCheck, Clock, ChevronRight, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 
-const VALIDATION_START_DATE = "2026-07-17";
+import { getMyForeman, listForemanPendingRdos } from "@/lib/foremanValidation";
 
 interface RdoPendente {
   id: string;
@@ -28,58 +28,19 @@ export default function EncValidacoes() {
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Buscar perfil para obter nome_completo e company_id
-      const { data: prof } = await (supabase as any)
-        .from("profiles")
-        .select("nome_completo, company_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!prof?.company_id) { setLoading(false); return; }
-
-      const normalizeName = (v: string) =>
-        String(v || "")
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/\s+/g, " ")
-          .trim()
-          .toUpperCase();
-
-      const perfilNome = normalizeName(prof?.nome_completo || "");
-
-      const { data: encarregadosEmpresa } = await (supabase as any)
-        .from("employees")
-        .select("name")
-        .eq("company_id", prof.company_id)
-        .eq("is_encarregado", true);
-
-      const candidatos = (encarregadosEmpresa || [])
-        .map((e: any) => String(e?.name || ""))
-        .filter(Boolean)
-        .filter((nome: string) => normalizeName(nome) === perfilNome);
-
-      const nomeEncarregado = candidatos.length === 1 ? candidatos[0] : null;
-
-      // Segurança: sem vínculo inequívoco, NÃO listar pendências da empresa inteira
-      if (!nomeEncarregado) {
+      if (!user) { setLoading(false); return; }
+      try {
+        const identity = await getMyForeman();
+        if (!identity) {
+          setRdos([]);
+          setErroVinculo("Não há vínculo único entre seu usuário e um funcionário encarregado ativo. Solicite conferência do cadastro.");
+        } else {
+          setRdos(await listForemanPendingRdos(identity));
+          setErroVinculo(null);
+        }
+      } catch (error) {
         setRdos([]);
-        setErroVinculo("Seu usuário não está vinculado de forma única a um encarregado. Peça ao admin para ajustar o cadastro/permissões.");
-      } else {
-        setErroVinculo(null);
-        const { data } = await (supabase as any)
-          .from("rdo_diarios")
-          .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo")
-          .eq("company_id", prof.company_id)
-          .eq("validado_encarregado", false)
-          .eq("nao_aprovado_encarregado", false)
-          .eq("encarregado", nomeEncarregado)
-          .gte("data", VALIDATION_START_DATE)
-          .order("data", { ascending: false })
-          .limit(50);
-
-        setRdos(data || []);
+        setErroVinculo(error instanceof Error ? error.message : "Falha ao carregar validações.");
       }
       setLoading(false);
     };

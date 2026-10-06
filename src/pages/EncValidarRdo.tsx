@@ -4,6 +4,8 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Loader2, Users, Truck, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getMyForeman, validateForemanRdo } from "@/lib/foremanValidation";
+import { normalizePersonName } from "@/lib/nameMatch";
 
 interface RdoDetalhe {
   id: string;
@@ -13,6 +15,7 @@ interface RdoDetalhe {
   turno: string;
   clima: string;
   encarregado: string;
+  encarregado_employee_id?: string | null;
   tipo_rdo: string;
   validado_encarregado: boolean;
   nao_aprovado_encarregado: boolean;
@@ -69,6 +72,7 @@ export default function EncValidarRdo() {
   const [equipamentos, setEquipamentos] = useState<EquipamentoRow[]>([]);
   const [efetivo, setEfetivo] = useState<EfetivoRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [acessoNegado, setAcessoNegado] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [showMotivo, setShowMotivo] = useState(false);
@@ -76,17 +80,32 @@ export default function EncValidarRdo() {
   useEffect(() => {
     if (!id) return;
     const load = async () => {
-      const [rdoRes, prodRes, equiRes, efetRes] = await Promise.all([
-        (supabase as any).from("rdo_diarios").select("*").eq("id", id).single(),
-        (supabase as any).from("rdo_producao").select("*").eq("rdo_id", id),
-        (supabase as any).from("rdo_equipamentos").select("*").eq("rdo_id", id),
-        (supabase as any).from("rdo_efetivo").select("*").eq("rdo_id", id),
-      ]);
-      setRdo(rdoRes.data);
-      setProducoes(prodRes.data || []);
-      setEquipamentos(equiRes.data || []);
-      setEfetivo(efetRes.data || []);
-      setLoading(false);
+      try {
+        const identity = await getMyForeman();
+        if (!identity) { setAcessoNegado(true); return; }
+        const rdoRes = await (supabase as any).from("rdo_diarios").select("*").eq("id", id).single();
+        const row = rdoRes.data as (RdoDetalhe & { company_id: string }) | null;
+        if (rdoRes.error || !row || row.company_id !== identity.company_id ||
+          (row.encarregado_employee_id
+            ? row.encarregado_employee_id !== identity.id
+            : normalizePersonName(row.encarregado) !== normalizePersonName(identity.name))) {
+          setAcessoNegado(true);
+          return;
+        }
+        const [prodRes, equiRes, efetRes] = await Promise.all([
+          (supabase as any).from("rdo_producao").select("*").eq("rdo_id", id),
+          (supabase as any).from("rdo_equipamentos").select("*").eq("rdo_id", id),
+          (supabase as any).from("rdo_efetivo").select("*").eq("rdo_id", id),
+        ]);
+        setRdo(row);
+        setProducoes(prodRes.data || []);
+        setEquipamentos(equiRes.data || []);
+        setEfetivo(efetRes.data || []);
+      } catch {
+        setAcessoNegado(true);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [id]);
@@ -97,34 +116,13 @@ export default function EncValidarRdo() {
       return;
     }
     setSalvando(true);
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const updateData =
-      acao === "aprovar"
-        ? {
-            validado_encarregado: true,
-            nao_aprovado_encarregado: false,
-            validado_encarregado_por: user?.id,
-            validado_encarregado_em: new Date().toISOString(),
-            motivo_rejeicao_enc: null,
-          }
-        : {
-            nao_aprovado_encarregado: true,
-            validado_encarregado: false,
-            validado_encarregado_por: user?.id,
-            validado_encarregado_em: new Date().toISOString(),
-            motivo_rejeicao_enc: motivo.trim(),
-          };
-
-    const { error } = await (supabase as any)
-      .from("rdo_diarios")
-      .update(updateData)
-      .eq("id", id);
-
-    setSalvando(false);
-    if (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    try {
+      await validateForemanRdo(id!, acao === "aprovar" ? "aprovado" : "nao_aprovado", motivo);
+    } catch (error) {
+      toast({ title: "Erro ao salvar", description: error instanceof Error ? error.message : "Falha ao validar RDO", variant: "destructive" });
       return;
+    } finally {
+      setSalvando(false);
     }
     toast({
       title: acao === "aprovar" ? "RDO aprovado!" : "RDO marcado como não aprovado",
@@ -136,6 +134,12 @@ export default function EncValidarRdo() {
   if (loading) return (
     <div className="flex items-center justify-center min-h-[50vh]">
       <Loader2 className="w-6 h-6 animate-spin text-primary" />
+    </div>
+  );
+
+  if (acessoNegado) return (
+    <div className="max-w-lg mx-auto px-4 py-6 text-sm text-red-700">
+      Este RDO não está vinculado ao seu usuário como encarregado responsável.
     </div>
   );
 

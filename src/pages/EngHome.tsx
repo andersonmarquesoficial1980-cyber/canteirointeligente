@@ -87,8 +87,7 @@ export default function EngHome() {
           setCanViewValidacoes(false);
         } else {
           const meusPendentes = pendentes.filter((rdo) => {
-            const byUserId = !!rdo?.engenheiro_responsavel_user_id && rdo.engenheiro_responsavel_user_id === user.id;
-            if (byUserId) return true;
+            if (rdo?.engenheiro_responsavel_user_id) return rdo.engenheiro_responsavel_user_id === user.id;
             return namesLikelyMatch(nomeEng, rdo?.engenheiro_responsavel);
           });
           setRdosPendentes(meusPendentes);

@@ -45,14 +45,25 @@ export function EncEncarregadoOgsManager() {
 
     const companyId = profile?.company_id;
 
+    const { data: permitted, error: permittedError } = await (supabase as any)
+      .from("user_permissions")
+      .select("user_id")
+      .eq("company_id", companyId)
+      .eq("modulo_encarregado", true);
+    if (permittedError) {
+      toast({ title: "Erro ao carregar encarregados", description: permittedError.message, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+    const ids: string[] = (permitted || []).map((row: { user_id: string }) => row.user_id);
     const [encsRes, ogsRes, vincRes] = await Promise.all([
-      (supabase as any)
+      ids.length ? (supabase as any)
         .from("profiles")
         .select("user_id, nome_completo, email")
         .eq("company_id", companyId)
-        .in("perfil", ["Encarregado", "encarregado"])
+        .in("user_id", ids)
         .eq("status", "ativo")
-        .order("nome_completo"),
+        .order("nome_completo") : Promise.resolve({ data: [] }),
       (supabase as any)
         .from("ogs_reference")
         .select("id, ogs_number, client_name")
@@ -140,7 +151,7 @@ export function EncEncarregadoOgsManager() {
 
       {encarregados.length === 0 && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
-          Nenhum usuário com perfil "Encarregado" encontrado. Cadastre os encarregados primeiro em Funcionários e defina o perfil como "Encarregado".
+          Nenhum usuário ativo com permissão de WF Encarregado encontrado. Configure as permissões dos encarregados no Painel de Controle.
         </div>
       )}
 

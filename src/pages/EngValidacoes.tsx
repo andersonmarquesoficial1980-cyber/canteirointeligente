@@ -80,8 +80,7 @@ export default function EngValidacoes() {
         }
         setRdos(
           pendentes.filter((rdo) => {
-            const byUserId = !!rdo?.engenheiro_responsavel_user_id && rdo.engenheiro_responsavel_user_id === user.id;
-            if (byUserId) return true;
+            if (rdo?.engenheiro_responsavel_user_id) return rdo.engenheiro_responsavel_user_id === user.id;
             return namesLikelyMatch(nomeEng, rdo?.engenheiro_responsavel);
           }),
         );
