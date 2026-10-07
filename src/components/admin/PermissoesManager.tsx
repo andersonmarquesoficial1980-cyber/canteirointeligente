@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ interface Usuario {
   id: string;
   email: string;
   nome: string;
+  company_id: string | null;
 }
 
 interface Perms {
@@ -104,7 +105,6 @@ const MODULOS = [
   { key: "modulo_orcamentos", label: "WF Orçamentos" },
   { key: "modulo_planejamento", label: "WF Planejamento" },
   // WF Dashboard não existe mais como módulo independente (mantemos a coluna no banco por legado, sem exibir no painel)
-  { key: "is_admin", label: "Painel de Controle" },
 ];
 
 function emptyPerms(userId: string): Perms {
@@ -127,6 +127,9 @@ export default function PermissoesManager() {
   const { toast } = useToast();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [permsMap, setPermsMap] = useState<Record<string, Perms>>({});
+  const [erroLeitura, setErroLeitura] = useState<string | null>(null);
+  const [novos, setNovos] = useState<Record<string, boolean>>({});
+  const originais = useRef<Record<string, Perms>>({});
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState<string | null>(null);
   const [salvoOk, setSalvoOk] = useState<string | null>(null);
@@ -170,14 +173,13 @@ export default function PermissoesManager() {
 
       // Buscar o user_id criado
       const { data: profile } = await supabase
-        .from("profiles").select("user_id").eq("email", conviteEmail.trim().toLowerCase()).single();
+        .from("profiles").select("user_id, company_id").eq("email", conviteEmail.trim().toLowerCase()).single();
 
-      if (profile?.user_id) {
-        // Salvar permissões
-        const permsObj: any = { user_id: profile.user_id, is_admin: false, updated_at: new Date().toISOString() };
-        MODULOS.forEach(m => { permsObj[m.key] = convitePerms[m.key] || false; });
-        await supabase.from("user_permissions").upsert(permsObj, { onConflict: "user_id" });
-      }
+      if (!profile?.user_id || !profile.company_id) throw new Error("Usuário criado, mas perfil/empresa não foi confirmado. Permissões não foram concedidas.");
+      const permsObj: any = { user_id: profile.user_id, company_id: profile.company_id, is_admin: false, updated_at: new Date().toISOString() };
+      MODULOS.forEach(m => { permsObj[m.key] = convitePerms[m.key] || false; });
+      const { error: permissionError } = await supabase.from("user_permissions").upsert(permsObj, { onConflict: "user_id" });
+      if (permissionError) throw permissionError;
 
       setModalConvite(false);
       setFuncSelecionado(null);
@@ -193,39 +195,68 @@ export default function PermissoesManager() {
 
   async function buscarDados() {
     setLoading(true);
-    const [{ data: profiles }, { data: perms }] = await Promise.all([
-      supabase.from("profiles").select("user_id, email, nome_completo, role").order("nome_completo"),
-      supabase.from("user_permissions").select("*"),
-    ]);
+    setErroLeitura(null);
+    try {
+      // PostgREST limita respostas por página; não interpretar linhas omitidas como ausência de acesso.
+      const fetchAll = async (table: "profiles" | "user_permissions") => {
+        const rows: any[] = [];
+        for (let page = 0; ; page++) {
+          const columns = table === "profiles" ? "user_id, email, nome_completo, role, company_id" : "*";
+          const query = supabase.from(table).select(columns).range(page * 500, page * 500 + 499);
+          const { data, error } = table === "profiles" ? await query.order("nome_completo").order("user_id") : await query.order("user_id");
+          if (error) throw error;
+          if (!data) throw new Error(`Resposta vazia ao carregar ${table}`);
+          rows.push(...data);
+          if (data.length < 500) return rows;
+        }
+      };
+      const [profiles, perms] = await Promise.all([fetchAll("profiles"), fetchAll("user_permissions")]);
 
-    const users: Usuario[] = (profiles || []).map((p: any) => ({
-      id: p.user_id, email: p.email || "", nome: p.nome_completo || p.email || p.user_id,
-    }));
-    setUsuarios(users);
+      const users: Usuario[] = profiles.map((p: any) => ({
+        id: p.user_id, email: p.email || "", nome: p.nome_completo || p.email || p.user_id, company_id: p.company_id,
+      }));
+      setUsuarios(users);
 
-    const map: Record<string, Perms> = {};
-    (perms || []).forEach((p: any) => { map[p.user_id] = p; });
-    setPermsMap(map);
-    setLoading(false);
+      const map: Record<string, Perms> = {};
+      perms.forEach((p: any) => { map[p.user_id] = p; });
+      setPermsMap(map);
+      originais.current = map;
+      setNovos({});
+    } catch (err: any) {
+      setUsuarios([]);
+      setPermsMap({});
+      originais.current = {};
+      setErroLeitura(err.message || "Falha ao carregar permissões");
+    } finally { setLoading(false); }
   }
 
   async function salvar(userId: string) {
     setSalvando(userId);
     try {
-      const perms = permsMap[userId] || emptyPerms(userId);
-      // Separar equipamentos_permitidos (array) do resto para evitar conflito de tipo
-      const { equipamentos_permitidos, relatorios_permitidos, ...permsBase } = perms as any;
-      const payload = {
-        ...permsBase,
-        user_id: userId,
-        equipamentos_permitidos: equipamentos_permitidos ?? [],
-        relatorios_permitidos: relatorios_permitidos ?? null,
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = await supabase
-        .from("user_permissions")
-        .upsert(payload, { onConflict: "user_id" });
+      if (erroLeitura || (!originais.current[userId] && !novos[userId])) throw new Error("Permissões não carregadas. Atualize a página antes de salvar.");
+      const perms = permsMap[userId];
+      if (!perms) throw new Error("Permissões não carregadas.");
+      const original = originais.current[userId];
+      const fields = [...MODULOS.map(m => m.key), "is_admin", "equipamentos_permitidos", "relatorios_permitidos"];
+      const changed = Object.fromEntries(fields.filter(key => !original || JSON.stringify((perms as any)[key]) !== JSON.stringify((original as any)[key]))
+        .map(key => [key, (perms as any)[key]]));
+      const payload = { ...changed, updated_at: new Date().toISOString() };
+      if (original && Object.keys(changed).length === 0) return;
+      const companyId = usuarios.find(u => u.id === userId)?.company_id;
+      if (!original && !companyId) throw new Error("Empresa do usuário não encontrada; não é seguro criar permissões.");
+      const query = original
+        ? supabase.from("user_permissions").update(payload).eq("user_id", userId)
+        : supabase.from("user_permissions").insert({ user_id: userId, company_id: companyId, ...changed, updated_at: payload.updated_at });
+      const guarded = original ? (original as any).updated_at == null
+        ? query.is("updated_at", null)
+        : query.eq("updated_at", (original as any).updated_at)
+        : query;
+      const { data: saved, error } = await guarded.select("*").maybeSingle();
       if (error) throw error;
+      if (!saved) throw new Error("As permissões mudaram em outra sessão ou não puderam ser gravadas. Recarregue antes de salvar novamente.");
+      originais.current[userId] = saved as unknown as Perms;
+      setPermsMap(prev => ({ ...prev, [userId]: saved as unknown as Perms }));
+      setNovos(prev => ({ ...prev, [userId]: false }));
       setSalvoOk(userId);
       setTimeout(() => setSalvoOk(null), 2000);
     } catch (err: any) {
@@ -258,6 +289,7 @@ export default function PermissoesManager() {
   }, [usuarios, busca]);
 
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+  if (erroLeitura) return <div role="alert" className="p-4 text-destructive">Não foi possível carregar permissões: {erroLeitura}. Nenhuma alteração foi feita. <Button variant="outline" onClick={buscarDados}>Tentar novamente</Button></div>;
 
   return (
     <div className="space-y-4">
@@ -398,7 +430,7 @@ export default function PermissoesManager() {
                 <div className="min-w-0">
                   <p className="font-display font-bold text-sm truncate">{u.nome}</p>
                   <p className="text-[11px] text-muted-foreground truncate">
-                    {perms.is_admin ? "Administrador" : `${modulosAtivos} módulo${modulosAtivos !== 1 ? "s" : ""} ativo${modulosAtivos !== 1 ? "s" : ""}`}
+                    {!originais.current[u.id] && !novos[u.id] ? "Permissões não configuradas" : perms.is_admin ? "Administrador" : `${modulosAtivos} módulo${modulosAtivos !== 1 ? "s" : ""} ativo${modulosAtivos !== 1 ? "s" : ""}`}
                   </p>
                 </div>
               </div>
@@ -411,7 +443,12 @@ export default function PermissoesManager() {
             </button>
 
             {/* Painel expandido */}
-            {isAberto && (
+            {isAberto && !originais.current[u.id] && !novos[u.id] && (
+              <div className="p-4 text-sm">Nenhum registro de permissões encontrado. Não é possível presumir acesso zero.
+                <Button className="ml-2" variant="outline" onClick={() => setNovos(prev => ({ ...prev, [u.id]: true }))}>Configurar acesso novo</Button>
+              </div>
+            )}
+            {isAberto && (originais.current[u.id] || novos[u.id]) && (
               <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border/50">
 
                 {/* Admin toggle */}
@@ -456,7 +493,8 @@ export default function PermissoesManager() {
                                       checked={tipoMarcado(perms, tipo)}
                                       onChange={e => {
                                         const atualNormalizado = normalizarTiposPermitidos(perms.equipamentos_permitidos || []);
-                                        const semAliases = atualNormalizado.filter(x => x !== tipo.value && !(tipo.aliases || []).includes(x));
+                                        const aliases: readonly string[] = "aliases" in tipo ? tipo.aliases : [];
+                                        const semAliases = atualNormalizado.filter(x => x !== tipo.value && !aliases.includes(x));
                                         const novo = e.target.checked
                                           ? [...semAliases, tipo.value]
                                           : semAliases;

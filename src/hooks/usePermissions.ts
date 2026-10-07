@@ -52,7 +52,7 @@ const DEFAULT_PERMISSIONS: Permissions = {
 // Admin tem acesso a tudo
 const ADMIN_PERMISSIONS: Permissions = Object.fromEntries(
   Object.keys(DEFAULT_PERMISSIONS).map(k => [k, true])
-) as Permissions;
+) as unknown as Permissions;
 
 export function usePermissions() {
   const [permissions, setPermissions] = useState<Permissions | null>(null);
@@ -86,9 +86,9 @@ export function usePermissions() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      // has_role('admin') = anderson@fremix.com.br ou user_roles → acesso total
-      // is_admin em user_permissions = admin de empresa → respeita user_permissions
-      if (profile?.role === "admin" || profile?.role === "superadmin") {
+      // Somente o owner superadmin pode ignorar concessões individuais.
+      // role='admin' legado não pode restaurar acesso que foi retirado no painel.
+      if (profile?.role === "superadmin") {
         setPermissions(ADMIN_PERMISSIONS);
       } else if (perms) {
         setPermissions(perms as unknown as Permissions);

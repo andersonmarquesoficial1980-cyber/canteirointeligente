@@ -104,11 +104,22 @@ export default function UsersManager() {
 
       const newUserId = result?.user_id;
       if (newUserId && PERFIL_PERMISSIONS[perfil]) {
-        await supabase.from("user_permissions").upsert({
-          user_id: newUserId,
-          ...PERFIL_PERMISSIONS[perfil],
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id" });
+        // create-user também pode reativar uma conta antiga: nunca sobrescrever seu acesso customizado.
+        const { data: existing, error: readError } = await supabase.from("user_permissions")
+          .select("user_id").eq("user_id", newUserId).maybeSingle();
+        if (readError) throw readError;
+        if (!existing) {
+          const { data: newProfile, error: profileError } = await supabase.from("profiles")
+            .select("company_id").eq("user_id", newUserId).maybeSingle();
+          if (profileError || !newProfile?.company_id) throw profileError || new Error("Empresa não identificada para as permissões.");
+          const { error: permissionsError } = await supabase.from("user_permissions").insert({
+            user_id: newUserId,
+            company_id: newProfile.company_id,
+            ...PERFIL_PERMISSIONS[perfil],
+            updated_at: new Date().toISOString(),
+          });
+          if (permissionsError) throw permissionsError;
+        }
       }
 
       toast({ title: "✅ Usuário criado!", description: `${nome.trim()} (${authEmail})` });
@@ -196,14 +207,7 @@ export default function UsersManager() {
         if (resetError || resetResult?.error) throw new Error(resetResult?.error || resetError?.message || "Erro ao trocar senha");
       }
 
-      // 3. Atualizar permissões conforme novo perfil
-      if (PERFIL_PERMISSIONS[editPerfil]) {
-        await supabase.from("user_permissions").upsert({
-          user_id: editing.user_id,
-          ...PERFIL_PERMISSIONS[editPerfil],
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id" });
-      }
+      // Perfil descritivo não reescreve concessões individuais; acesso é editado somente em Permissões.
 
       toast({ title: "✅ Usuário atualizado!" });
       setEditing(null);
