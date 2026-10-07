@@ -16,6 +16,7 @@ import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 import { formatDiaryFleetLabel } from "@/lib/diaryFleetLabel";
+import { assessMeter, suggestFleet, type MeterDiary } from "@/lib/equipmentDiaryAudit";
 import { toSaoPauloISODate } from "@/lib/date-local";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -310,12 +311,13 @@ export default function EquipmentDiaryForm() {
   const [turno, setTurno] = useState<"diurno" | "noturno">("diurno");
   const [meterInitial, setMeterInitial] = useState("");
   const [meterFinal, setMeterFinal] = useState("");
+  const [meterReason, setMeterReason] = useState("");
   const [workStatus, setWorkStatus] = useState("");
   const [horimetroAlerta, setHorimetroAlerta] = useState<{ diff: number; ultimoValor: number; threshold: number } | null>(null);
   const [horimetroConfirmado, setHorimetroConfirmado] = useState(false);
   const { verificarInconsistencia, registrarAudit } = useHorimetroAudit(DEFAULT_COMPANY_ID);
   const isStatusManutencao = workStatus === "Manutenção";
-  const isModoSimples = workStatus === "Folga" || workStatus === "Cancelou" || isStatusManutencao;
+  const isModoSimples = workStatus === "Folga" || workStatus === "Cancelou" || workStatus === "Disposição" || isStatusManutencao;
   const [cancelouMotivo, setCancellouMotivo] = useState("");
   const [ogsNumber, setOgsNumber] = useState("");
   const [ogsSugerida, setOgsSugerida] = useState<{ ogs: string; equipe: string; local: string | null; cliente: string | null } | null>(null);
@@ -1465,6 +1467,80 @@ export default function EquipmentDiaryForm() {
     return base;
   }, [isCarreta, carretaCavalos, filteredFleetForType, isCaminhoes, caminhaoTipoNorm, equipmentTypeNorm]);
 
+  // Referência por frota e data de trabalho. Não usar o último envio global: um diário atrasado
+  // deve ser confrontado também com o lançamento posterior.
+  const { data: meterHistory = [], isFetching: loadingMeterHistory, isError: meterHistoryError, refetch: refreshMeterHistory } = useQuery<MeterDiary[]>({
+    queryKey: ["diary-meter-history", effectiveCompanyId, selectedFleet, date, isOnline],
+    enabled: isOnline && !!selectedFleet && !!date && !!effectiveCompanyId,
+    queryFn: async () => {
+      const select = "id,equipment_fleet,date,period,created_at,status,is_auto,meter_initial,meter_final,odometer_initial,odometer_final";
+      const base = () => (supabase as any).from("equipment_diaries").select(select)
+        .eq("company_id", effectiveCompanyId).eq("equipment_fleet", selectedFleet).eq("status", "enviado");
+      const [before, after] = await Promise.all([
+        base().lte("date", date).order("date", { ascending: false }).order("created_at", { ascending: false }).limit(60),
+        base().gte("date", date).order("date", { ascending: true }).order("created_at", { ascending: true }).limit(60),
+      ]);
+      if (before.error || after.error) throw before.error || after.error;
+      return [...new Map([...(before.data || []), ...(after.data || [])].map((r: MeterDiary) => [r.id, r])).values()] as MeterDiary[];
+    },
+    staleTime: 0,
+  });
+  const parseMeter = (value: string): number | null => value.trim() ? Number(value.replace(",", ".")) : null;
+  const meterAssessment = selectedFleet && date ? assessMeter(meterHistory, {
+    fleet: selectedFleet, date, period: turno, kind: usesOdometer ? "odometer" : "hourmeter",
+    initial: parseMeter(meterInitial), final: parseMeter(meterFinal), excludeId: editId || undefined,
+    created_at: meterHistory.find(r => r.id === editId)?.created_at,
+  }) : null;
+  useEffect(() => {
+    if (!isEditMode && isOnline && !meterInitial && !loadingMeterHistory && !meterHistoryError && meterAssessment?.previous) {
+      setMeterInitial(String(meterAssessment.previous.final));
+    }
+  }, [selectedFleet, date, turno, isEditMode, isOnline, loadingMeterHistory, meterHistoryError, meterAssessment?.previous?.final]);
+  useEffect(() => {
+    if (!isEditMode && isModoSimples && meterInitial && !meterFinal) setMeterFinal(meterInitial);
+  }, [isEditMode, isModoSimples, meterInitial, meterFinal]);
+  const changeMeterInitial = (value: string) => {
+    if (isModoSimples && (!meterFinal || meterFinal === meterInitial)) setMeterFinal(value);
+    setMeterInitial(value);
+  };
+  const { data: candidateRows = [] } = useQuery<MeterDiary[]>({
+    queryKey: ["diary-meter-candidates", effectiveCompanyId, date, selectedFleet, meterInitial, usesOdometer],
+    enabled: isOnline && !!effectiveCompanyId && !!date && !!selectedFleet && !!meterAssessment?.issue && !!meterInitial,
+    queryFn: async () => {
+      const fleets = fleetOptionsStrict.map((e: any) => e.frota).filter(Boolean);
+      if (!fleets.length) return [];
+      const { data, error } = await (supabase as any).from("equipment_diaries")
+        .select("id,equipment_fleet,date,period,created_at,status,is_auto,meter_initial,meter_final,odometer_initial,odometer_final")
+        .eq("company_id", effectiveCompanyId).eq("status", "enviado")
+        .in("equipment_fleet", fleets).lte("date", date)
+        .order("date", { ascending: false }).limit(500);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+  const fleetSuggestions = meterAssessment?.issue && meterInitial ? suggestFleet(candidateRows, {
+    fleet: selectedFleet, date, period: turno, kind: usesOdometer ? "odometer" : "hourmeter",
+    initial: parseMeter(meterInitial),
+  }, fleetOptionsStrict.map((e: any) => e.frota)) : [];
+  const meterNotice = selectedFleet && (
+    <div className="rounded-lg border border-border bg-card p-3 text-sm space-y-2" role="status">
+      <p className="font-medium">Conferência de {usesOdometer ? "odômetro" : "horímetro"} — {selectedFleet}</p>
+      {!isOnline ? <p>Offline: confira a frota e a leitura física. A sequência será conferida após a sincronização.</p> :
+      loadingMeterHistory ? <p>Buscando a última leitura...</p> : meterHistoryError ?
+        <p className="text-destructive">Não foi possível conferir a leitura. Tente novamente com conexão.</p> :
+        <p>Último final conhecido: <strong>{meterAssessment?.previous?.final ?? "sem histórico"}</strong>{meterAssessment?.previous && ` em ${meterAssessment.previous.date} (${meterAssessment.previous.period || "sem turno"})`}. Confirme no painel do equipamento.</p>}
+      {meterAssessment?.issue && !loadingMeterHistory && isOnline && <>
+        <p className="text-amber-700 font-medium">⚠️ Leitura divergente: esperado {meterAssessment.issue.expected ?? "—"}; informado {meterAssessment.issue.actual ?? "—"}. Confira frota, placa e leitura física.</p>
+        {fleetSuggestions.length > 0 && <p>Frota(s) com leitura compatível (apenas sugestão): {fleetSuggestions.map(f =>
+          <button key={f} type="button" className="underline mr-2 font-semibold" onClick={() => { setSelectedFleet(f); setMeterReason(""); }}>{f}</button>
+        )}</p>}
+        <Field label="Justificativa para enviar com divergência *">
+          <Textarea value={meterReason} onChange={e => setMeterReason(e.target.value)} placeholder="Confira o painel e explique o motivo da diferença" />
+        </Field>
+      </>}
+    </div>
+  );
+
   // staticFleetList e useStaticFleet removidos — fonte única agora é filteredFleetForType
 
   const getOperatorList = () => {
@@ -1627,7 +1703,7 @@ export default function EquipmentDiaryForm() {
     }
 
     // 3. OGS obrigatório (exceto Base/Pátio Central, Comboio e Carreta — atendem múltiplas obras)
-    if (!isPatioMode && !isComboio && !isCarreta && !ogsNumber && !isDraft) {
+    if (!isPatioMode && !isComboio && !isCarreta && !isModoSimples && !ogsNumber && !isDraft) {
       toast({ title: "⚠️ OGS obrigatória", description: "Selecione a OGS (obra) antes de enviar.", variant: "destructive" });
       return cancelSave();
     }
@@ -1651,6 +1727,12 @@ export default function EquipmentDiaryForm() {
       }
       if (!fimRaw) {
         toast({ title: `⚠️ ${meterLabel} obrigatório`, description: `Informe o ${meterLabel} Final antes de enviar.`, variant: "destructive" });
+        return cancelSave();
+      }
+      const initialNumber = Number(iniRaw.replace(",", "."));
+      const finalNumber = Number(fimRaw.replace(",", "."));
+      if (!Number.isFinite(initialNumber) || !Number.isFinite(finalNumber) || initialNumber < 0 || finalNumber < initialNumber) {
+        toast({ title: `⚠️ ${meterLabel} inválido`, description: "Use números não negativos; o final não pode ser menor que o inicial.", variant: "destructive" });
         return cancelSave();
       }
     }
@@ -1730,6 +1812,30 @@ export default function EquipmentDiaryForm() {
 
     const normalizedSelectedFleet = selectedFleet.trim().toUpperCase();
 
+    // Evita salvar com um histórico que mudou enquanto o operador preenchia a tela.
+    let saveMeterIssue = meterAssessment?.issue || null;
+    if (isOnline && !isDraft) {
+      const latest = await refreshMeterHistory();
+      if (latest.error || !latest.data) {
+        toast({ title: "Conferência indisponível", description: "Não foi possível consultar o último medidor. Tente novamente.", variant: "destructive" });
+        return cancelSave();
+      }
+      const check = assessMeter(latest.data, {
+        fleet: normalizedSelectedFleet, date, period: turno, kind: usesOdometer ? "odometer" : "hourmeter",
+        initial: parseMeter(meterInitial), final: parseMeter(meterFinal), excludeId: editId || undefined,
+        created_at: latest.data.find(r => r.id === editId)?.created_at,
+      });
+      saveMeterIssue = check.issue;
+      if (check.issue?.type === "invalid") {
+        toast({ title: "Medidor inválido", description: "Informe valores numéricos válidos e final maior ou igual ao inicial.", variant: "destructive" });
+        return cancelSave();
+      }
+      if (check.issue && meterReason.trim().length < 10) {
+        toast({ title: "Leitura divergente", description: "Confira a frota e informe uma justificativa de pelo menos 10 caracteres.", variant: "destructive" });
+        return cancelSave();
+      }
+    }
+
     let linkedPreopChecklistId = preopChecklistId;
 
     // Segurança operacional: nunca vincular checklist de data/período/frota diferentes.
@@ -1802,13 +1908,16 @@ export default function EquipmentDiaryForm() {
       // Preservar checklist_submitted_at se já foi enviado
       ...(checklistSubmittedAt ? { checklist_submitted_at: checklistSubmittedAt } : {}),
     };
+    if (!isDraft && saveMeterIssue && meterReason.trim()) {
+      diaryPayload.observations = `${diaryPayload.observations || ""}\n[Conferência do medidor: ${meterReason.trim()}]`.trim();
+    }
 
     if (usesOdometer) {
-      const toNDB = (v: string) => v ? Number(v.replace(",", ".")) || null : null;
+      const toNDB = (v: string) => v ? Number(v.replace(",", ".")) : null;
       diaryPayload.odometer_initial = toNDB(meterInitial);
       diaryPayload.odometer_final = toNDB(meterFinal);
     } else {
-      const toNDB = (v: string) => v ? Number(v.replace(",", ".")) || null : null;
+      const toNDB = (v: string) => v ? Number(v.replace(",", ".")) : null;
       diaryPayload.meter_initial = toNDB(meterInitial);
       diaryPayload.meter_final = toNDB(meterFinal);
     }
@@ -2964,7 +3073,7 @@ export default function EquipmentDiaryForm() {
                   <SelectContent />
                 </Select>
               ) : (
-                <Select value={selectedFleet} onValueChange={setSelectedFleet} disabled={loadingEquipamentos}>
+                <Select value={selectedFleet} onValueChange={value => { setSelectedFleet(value); setMeterInitial(""); setMeterFinal(""); setMeterReason(""); }} disabled={loadingEquipamentos}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : fleetOptionsStrict.length === 0 ? "Nenhuma frota cadastrada" : "Selecione..."} />
                   </SelectTrigger>
@@ -2979,9 +3088,10 @@ export default function EquipmentDiaryForm() {
               )}
             </Field>
             <Field label="Data">
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
+              <Input type="date" value={date} onChange={(e) => { setDate(e.target.value); if (!isEditMode) { setMeterInitial(""); setMeterFinal(""); setMeterReason(""); } }} className="bg-secondary border-border" />
             </Field>
           </FieldRow>
+          {meterNotice}
 
           {/* Carreta: Prancha */}
           {isCarreta && (
@@ -3206,7 +3316,7 @@ export default function EquipmentDiaryForm() {
                   type="text"
                   inputMode="decimal"
                   value={meterInitial}
-                  onChange={e => setMeterInitial(e.target.value)}
+                  onChange={e => changeMeterInitial(e.target.value)}
                   placeholder="0.0"
                   className="bg-secondary border-border"
                   onBlur={async () => {
@@ -3358,14 +3468,14 @@ export default function EquipmentDiaryForm() {
               type="text"
               inputMode="decimal"
               value={meterInitial}
-              onChange={(e) => setMeterInitial(e.target.value)}
+              onChange={(e) => changeMeterInitial(e.target.value)}
               placeholder="0.0"
               className="bg-secondary border-border"
             />
           </Field>
 
           {/* Horímetro/Odômetro Final — visível quando Folga, Cancelou ou Manutenção */}
-          {(workStatus === "Folga" || workStatus === "Cancelou" || isStatusManutencao) && (
+          {isModoSimples && (
             <Field label={`${meterLabel} Final`}>
               <Input
                 type="text"

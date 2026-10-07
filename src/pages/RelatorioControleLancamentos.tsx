@@ -11,10 +11,13 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { toLocalISODate } from "@/lib/date-local";
+import { assessMeter, dailyCoverage, type MeterDiary } from "@/lib/equipmentDiaryAudit";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface DiarioRow {
+  id: string;
+  is_auto: boolean;
   date: string;
   operator_name: string | null;
   equipment_fleet: string;
@@ -108,14 +111,15 @@ function statusIcon(ws: string | null) {
 // ─── CalCell ──────────────────────────────────────────────────────────────────
 
 function CalCell({ rows, onClick }: { rows: DiarioRow[]; onClick: () => void }) {
-  if (rows.length === 0) {
+  const manuais = rows.filter(r => r.status === "enviado" && !r.is_auto);
+  if (manuais.length === 0) {
     return (
       <div className="w-full h-10 rounded flex items-center justify-center bg-red-50 border border-red-200">
-        <span className="text-red-400 text-xs">❌</span>
+        <span className="text-red-500 text-xs">{rows.length ? "Auto ≠ diário" : "❌"}</span>
       </div>
     );
   }
-  const env = rows.filter(r => r.status === "enviado");
+  const env = manuais;
   const ras = rows.filter(r => r.status === "rascunho");
   return (
     <button onClick={onClick}
@@ -149,10 +153,12 @@ export default function RelatorioControleLancamentos() {
   const [aba, setAba]           = useState<"usuario" | "equipamento">("usuario");
   const [dataIni, setDataIni]   = useState(primeiroDia);
   const [dataFim, setDataFim]   = useState(ultimoDia);
+  const [loadedRange, setLoadedRange] = useState({ start: primeiroDia, end: ultimoDia });
   const [busca, setBusca]       = useState("");
   const [tipoFiltro, setTipoFiltro]           = useState("");
   const [apenasSemlancamento, setApenasSemlancamento] = useState(false);
   const [loading, setLoading]   = useState(false);
+  const [fetchError, setFetchError] = useState("");
   const [diarios, setDiarios]   = useState<DiarioRow[]>([]);
   const [todosUsuarios, setTodosUsuarios] = useState<{ id: string; nome: string; email: string }[]>([]);
   const [todasFrotas, setTodasFrotas]     = useState<{ frota: string; tipo: string; centro_custo?: string }[]>([]);
@@ -163,11 +169,15 @@ export default function RelatorioControleLancamentos() {
   const buscarDados = async () => {
     if (!companyId) return;
     setLoading(true);
+    setFetchError("");
     try {
       // 1 — diários do período
-      const { data: raw, error } = await (supabase as any)
+      const raw: any[] = [];
+      let error: any = null;
+      for (let offset = 0; ; offset += 1000) {
+        const page = await (supabase as any)
         .from("equipment_diaries")
-        .select(`date, operator_name, equipment_fleet, equipment_type,
+        .select(`id, is_auto, date, operator_name, equipment_fleet, equipment_type,
           ogs_number, location_address, period, work_status,
           meter_initial, meter_final, odometer_initial, odometer_final,
           fuel_type, fuel_liters, observations, status, created_at, user_id`)
@@ -175,9 +185,15 @@ export default function RelatorioControleLancamentos() {
         .or("status.is.null,status.neq.rascunho")
         .gte("date", dataIni)
         .lte("date", dataFim)
-        .order("date", { ascending: true });
+        .order("date", { ascending: true })
+        .order("id", { ascending: true })
+        .range(offset, offset + 999);
+        if (page.error) { error = page.error; break; }
+        raw.push(...(page.data || []));
+        if (!page.data || page.data.length < 1000) break;
+      }
 
-      if (error) { console.error("[ControleLancamentos]", error); setLoading(false); return; }
+      if (error) { console.error("[ControleLancamentos]", error); setFetchError("Não foi possível carregar todos os diários. Tente novamente."); setLoading(false); return; }
 
       // 2 — profiles dos user_ids únicos
       const userIds = [...new Set(((raw as any[]) || []).map((d: any) => d.user_id).filter(Boolean))];
@@ -190,6 +206,8 @@ export default function RelatorioControleLancamentos() {
       });
 
       const rows: DiarioRow[] = ((raw as any[]) || []).map((d: any) => ({
+        id: d.id,
+        is_auto: Boolean(d.is_auto),
         date: d.date,
         operator_name: d.operator_name,
         equipment_fleet: d.equipment_fleet || "—",
@@ -211,7 +229,7 @@ export default function RelatorioControleLancamentos() {
         usuario_nome: profileMap[d.user_id]?.nome || d.operator_name || "—",
         usuario_email: profileMap[d.user_id]?.email || "",
       }));
-      setDiarios(rows);
+
 
       // 3 — todos usuários ativos da empresa (para filtro sem lançamento)
       const { data: allProfiles } = await supabase
@@ -226,19 +244,23 @@ export default function RelatorioControleLancamentos() {
       })));
 
       // 4 — todos equipamentos da empresa (para filtro sem lançamento)
-      const { data: allEquip } = await (supabase as any)
+      const { data: allEquip, error: equipamentosError } = await (supabase as any)
         .from("equipamentos")
         .select("frota, tipo, centro_custo")
         .eq("company_id", companyId)
         .order("frota");
+      if (equipamentosError) throw equipamentosError;
       setTodasFrotas(((allEquip || []) as any[]).map((e: any) => ({
         frota: e.frota || "—",
         tipo: e.tipo || "",
         centro_custo: e.centro_custo || null,
       })));
+      setDiarios(rows);
+      setLoadedRange({ start: dataIni, end: dataFim });
 
     } catch (err) {
       console.error("[ControleLancamentos]", err);
+      setFetchError("Falha ao carregar a lista de equipamentos. Não considere o painel completo; tente novamente.");
     }
     setLoading(false);
   };
@@ -246,7 +268,7 @@ export default function RelatorioControleLancamentos() {
   useEffect(() => { if (companyId) buscarDados(); }, [companyId]);
 
   // ── Derivar ────────────────────────────────────────────────────────────────
-  const allDays = getAllDays(dataIni, dataFim);
+  const allDays = getAllDays(loadedRange.start, loadedRange.end);
   const diasLabel = allDays.map(d => {
     const dt = new Date(d + "T12:00:00");
     return {
@@ -286,7 +308,7 @@ export default function RelatorioControleLancamentos() {
 
   // Sets de quem lançou
   const usuariosComLancamento = new Set(diarios.filter(r => r.status === "enviado").map(r => r.usuario_id));
-  const frotasComLancamento   = new Set(diarios.filter(r => r.status === "enviado").map(r => r.equipment_fleet));
+  const frotasComLancamento   = new Set(diarios.filter(r => r.status === "enviado" && !r.is_auto).map(r => r.equipment_fleet));
 
   // Tipos únicos — SOMENTE da tabela equipamentos (fonte canônica), sem misturar texto livre dos diários
   const tiposEquipamento = [...new Set(
@@ -328,6 +350,23 @@ export default function RelatorioControleLancamentos() {
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const totalEnviados  = diarios.filter(d => d.status === "enviado").length;
   const totalRascunhos = diarios.filter(d => d.status === "rascunho").length;
+  const hojeISO = toLocalISODate(new Date());
+  const frotaPendencias = todasFrotas.map(f => {
+    const rows = diarios.filter(r => r.equipment_fleet === f.frota);
+    const coverage = dailyCoverage(loadedRange.start, loadedRange.end, rows as MeterDiary[], hojeISO);
+    const breaks = rows.filter(r => r.status === "enviado" && !r.is_auto).flatMap(r => {
+      const odometer = r.odometer_initial != null || r.odometer_final != null;
+      const assessment = assessMeter(rows as MeterDiary[], {
+        fleet: f.frota, date: r.date, period: r.period || "diurno", excludeId: r.id,
+        kind: odometer ? "odometer" : "hourmeter",
+        initial: odometer ? r.odometer_initial : r.meter_initial,
+        final: odometer ? r.odometer_final : r.meter_final,
+        created_at: r.created_at,
+      });
+      return assessment.issue ? [{ diary: r, issue: assessment.issue }] : [];
+    });
+    return { ...f, coverage, breaks, missing: coverage.filter(d => d.state === "missing") };
+  }).filter(f => f.missing.length || f.breaks.length);
 
   function toggleExpandido(key: string) {
     setExpandidos(prev => {
@@ -417,6 +456,21 @@ export default function RelatorioControleLancamentos() {
           </div>
 
           {/* KPIs */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-5">
+            <h2 className="font-semibold text-slate-800">Pendências diárias por frota</h2>
+            {fetchError && <p className="text-destructive font-semibold" role="alert">{fetchError}</p>}
+            <p className="text-sm text-slate-600 mb-3">Período carregado: {fmtDate(loadedRange.start)} a {fmtDate(loadedRange.end)} ({allDays.length} dias). Todos os dias contam, inclusive fins de semana e dias parados. Hoje ainda não está atrasado; diários automáticos não quitam a obrigação. Mais de um uso ou turno deve gerar mais de um lançamento; sem escala independente, o painel só confirma os turnos efetivamente enviados.</p>
+            {!fetchError && frotaPendencias.length === 0 ? <p className="text-sm text-slate-500">Nenhuma pendência detectada no período carregado.</p> : !fetchError &&
+              <div className="max-h-96 overflow-auto space-y-2">{frotaPendencias.map(f =>
+                <details key={f.frota} className="rounded-md border border-gray-200 p-2 text-sm">
+                  <summary className="cursor-pointer font-semibold">{f.centro_custo || f.frota} ({f.frota}) — {f.coverage.filter(d => d.count > 0).length}/{f.coverage.length} dias · {f.coverage.reduce((sum, d) => sum + d.count, 0)} diários · {f.missing.length} dias sem diário · {f.breaks.length} divergências</summary>
+                  <div className="mt-2 text-slate-700">
+                    {f.missing.length > 0 && <p>Dias sem envio: {f.missing.map(d => fmtDate(d.date)).join(", ")}</p>}
+                    {f.breaks.map(({ diary, issue }) => <p key={diary.id} className="mt-1">{fmtDate(diary.date)} · {diary.period || "turno não informado"} · {diary.operator_name || "sem operador"}: {issue.type.includes("regression") ? "regressão" : "salto"} — esperado {issue.expected ?? "—"}, informado {issue.actual ?? "—"}</p>)}
+                  </div>
+                </details>
+              )}</div>}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
             {[
               { label: "Usuários",     val: Object.keys(porUsuario).length, color: "bg-blue-600",   icon: <Users size={18}/> },
@@ -457,7 +511,7 @@ export default function RelatorioControleLancamentos() {
                 </div>
               )}
               {!loading && usuarioCards.map(card => {
-                const enviados   = card.rows.filter(r => r.status === "enviado");
+                const enviados   = card.rows.filter(r => r.status === "enviado" && !r.is_auto);
                 const diasUnicos = new Set(enviados.map(r => r.date)).size;
                 const pct        = card.semLancamento ? 0 : Math.round((diasUnicos / allDays.length) * 100);
                 const exp        = expandidos.has(card.key);
@@ -575,7 +629,7 @@ export default function RelatorioControleLancamentos() {
                 </div>
               )}
               {!loading && frotaCards.map(card => {
-                const enviados   = card.rows.filter(r => r.status === "enviado");
+                const enviados   = card.rows.filter(r => r.status === "enviado" && !r.is_auto);
                 const diasUnicos = new Set(enviados.map(r => r.date)).size;
                 const pct        = card.semLancamento ? 0 : Math.round((diasUnicos / allDays.length) * 100);
                 const exp        = expandidos.has("eq_" + card.key);
