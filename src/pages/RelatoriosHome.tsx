@@ -22,6 +22,7 @@ const TIPOS_RELATORIO = [
   { id: "funcionario", label: "Localização de Funcionário", emoji: "👷", desc: "Onde esteve em determinado período (via RDO)" },
   { id: "mdo_periodo", label: "MDO por Período", emoji: "🧾", desc: "Cruza RDO x Gestão de Pessoas com presença e divergências" },
   { id: "funcionarios_personalizado", label: "Funcionários Personalizado", emoji: "👥", desc: "Monte lista manual de colaboradores com campos configuráveis" },
+  { id: "equipamentos_personalizado", label: "Equipamentos Personalizado", emoji: "🚜", desc: "Monte lista manual de equipamentos com campos configuráveis" },
   { id: "equipamentos_rdo", label: "Localização de Equipamentos (RDO)", emoji: "🚜", desc: "Onde a frota estava por período (via RDO)" },
   { id: "notas_fiscais", label: "Notas Fiscais de Massa", emoji: "📄", desc: "Todas as NFs por OGS e período" },
   { id: "notas_fiscais_concreto", label: "Notas Fiscais de Concreto", emoji: "🏛️", desc: "NFs de concreto lançadas no RDO de Infra" },
@@ -385,6 +386,7 @@ export default function RelatoriosHome() {
                   if (t.id === "funcionario") { navigate(withReturnTo(`/relatorios/funcionario${origemQueryPrefix}`)); return; }
                   if (t.id === "mdo_periodo") { navigate(withReturnTo(`/relatorios/mdo-periodo${origemQueryPrefix}`)); return; }
                   if (t.id === "funcionarios_personalizado") { navigate(withReturnTo(`/relatorios/funcionarios-personalizado${origemQueryPrefix}`)); return; }
+                  if (t.id === "equipamentos_personalizado") { navigate(withReturnTo(`/relatorios/equipamentos-personalizado${origemQueryPrefix}`)); return; }
                   if (t.id === "equipamentos_rdo") { navigate(withReturnTo(`/relatorios/equipamentos-rdo${origemQueryPrefix}`)); return; }
                   if (t.id === "notas_fiscais") { navigate(withReturnTo(`/relatorios/notas-fiscais${origemQueryPrefix}`)); return; }
                   if (t.id === "notas_fiscais_concreto") { navigate(withReturnTo(`/relatorios/notas-fiscais-concreto${origemQueryPrefix}`)); return; }
