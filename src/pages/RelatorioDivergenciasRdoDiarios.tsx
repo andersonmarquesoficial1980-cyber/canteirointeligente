@@ -8,6 +8,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { toLocalISODate } from "@/lib/date-local";
 import { reconcileRdoDiaries, type DiaryDivergence } from "@/lib/rdoDiaryDivergences";
+import RdoEquipmentStandardsManager from "@/components/relatorios/RdoEquipmentStandardsManager";
 
 const TITLES: Record<DiaryDivergence["kind"], string> = {
   diario_sem_rdo: "Diário sem RDO correspondente",
@@ -101,6 +102,7 @@ export default function RelatorioDivergenciasRdoDiarios() {
       <div><h1 className="text-xl font-bold">Divergências RDO × Diários de Equipamento</h1>
         <p className="text-sm text-muted-foreground">Conferência operacional; divergências são indícios, não faltas comprovadas. Nenhum lançamento é alterado aqui.</p></div>
     </header>
+    {profile?.company_id && <RdoEquipmentStandardsManager companyId={profile.company_id} userId={profile.user_id} />}
     <section className="rounded-xl border p-4 space-y-3">
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm">Data inicial<Input aria-label="Data inicial" type="date" value={start} onChange={e => setStart(e.target.value)} /></label>

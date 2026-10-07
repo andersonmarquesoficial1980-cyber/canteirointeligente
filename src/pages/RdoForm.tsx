@@ -32,6 +32,7 @@ import { buildHtmlReport } from "@/lib/buildHtmlReport";
 import { sanitizeNotaFiscalNumero } from "@/lib/nf";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useDiaryUnlock } from "@/hooks/useDiaryUnlock";
+import { findMissingStandardTypes, findDiarySuggestions, type Exception as EquipmentException, type Diary as RelatedDiary } from "@/lib/rdoEquipmentReview";
 
 const fmtBR = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -133,6 +134,7 @@ export default function RdoForm() {
     data: today,
     obra_nome: "",
     ogs_id: "",
+    equipe: "",
     cliente: "",
     local: "",
     status_obra: "Trabalhou",
@@ -150,6 +152,7 @@ export default function RdoForm() {
   const shouldBlockByDeadline = !isEditMode && !isUnlockLoading && isDateBlocked;
 
   const handleHeaderChange = (field: string, value: string) => {
+    if (field === "equipe" || field === "obra_nome" || field === "data" || field === "turno") setNaoUtilizados([]);
     setHeader(prev => ({ ...prev, [field]: value }));
   };
 
@@ -161,6 +164,12 @@ export default function RdoForm() {
   const [semNota, setSemNota] = useState(false);
   const [semProducao, setSemProducao] = useState(false);
   const [semEquipamentos, setSemEquipamentos] = useState(false);
+  const [equipesDisponiveis, setEquipesDisponiveis] = useState<string[]>([]);
+  const [padroesEquipe, setPadroesEquipe] = useState<{ tipo: string; ativo: boolean }[]>([]);
+  const [naoUtilizados, setNaoUtilizados] = useState<EquipmentException[]>([]);
+  const [diariosRelacionados, setDiariosRelacionados] = useState<RelatedDiary[]>([]);
+  const [conferenciaLoading, setConferenciaLoading] = useState(false);
+  const [conferenciaAviso, setConferenciaAviso] = useState("");
   const [semEquipeCampo, setSemEquipeCampo] = useState(false);
 
   // Infraestrutura
@@ -238,6 +247,103 @@ export default function RdoForm() {
   const [efetivo, setEfetivo] = useState<EfetivoEntry[]>([{
     id: crypto.randomUUID(), matricula: "", nome: "", funcao: "", entrada: "", saida: "",
   }]);
+
+  useEffect(() => {
+    if (!profile?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any).from("employees")
+        .select("equipe").eq("company_id", profile.company_id).eq("status", "ativo")
+        .not("equipe", "is", null).order("equipe");
+      if (!cancelled && !error) setEquipesDisponiveis([...new Set((data || []).map((row: any) => String(row.equipe || "").trim()).filter(Boolean))].sort() as string[]);
+    })();
+    return () => { cancelled = true; };
+  }, [profile?.company_id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPadroesEquipe([]);
+    setDiariosRelacionados([]);
+    setConferenciaAviso("");
+    if (!profile?.company_id || !header.data || !header.obra_nome || !header.turno || statusSemOperacao || isPatioRdo || !isOnline) {
+      setConferenciaLoading(false);
+      return;
+    }
+    setConferenciaLoading(true);
+    (async () => {
+      const [padraoResult, diarioResult] = await Promise.all([
+        header.equipe
+          ? (supabase as any).from("rdo_equipamento_padroes").select("tipo,ativo")
+              .eq("company_id", profile.company_id).eq("equipe", header.equipe).eq("ativo", true)
+          : Promise.resolve({ data: [], error: null }),
+        (supabase as any).from("equipment_diaries")
+          .select("id,date,ogs_number,period,equipment_fleet,operator_name,operator_id,status,work_status,is_auto")
+          .eq("company_id", profile.company_id).eq("date", header.data)
+          .eq("ogs_number", header.obra_nome).eq("period", header.turno).eq("status", "enviado")
+          .or("is_auto.is.null,is_auto.eq.false"),
+      ]);
+      if (cancelled) return;
+      setPadroesEquipe(padraoResult.error ? [] : (padraoResult.data || []));
+      setDiariosRelacionados(diarioResult.error ? [] : (diarioResult.data || []));
+      if (padraoResult.error || diarioResult.error) setConferenciaAviso("Não foi possível conferir todos os padrões/diários; confira manualmente antes de enviar.");
+      setConferenciaLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [profile?.company_id, header.equipe, header.data, header.obra_nome, header.turno, statusSemOperacao, isPatioRdo, isOnline]);
+
+  const equipamentosAtuais = semEquipamentos ? [] : equipamentos;
+  const efetivoAtual = semEquipeCampo ? [] : efetivo;
+  const tiposPendentes = header.equipe && !statusSemOperacao
+    ? findMissingStandardTypes(padroesEquipe, equipamentosAtuais, naoUtilizados) : [];
+  const diariosSugeridos = findDiarySuggestions(diariosRelacionados, {
+    date: header.data, ogs: header.obra_nome, period: header.turno,
+  }, equipamentosAtuais, efetivoAtual);
+
+  const addFrotaDoDiario = async (diaryId: string) => {
+    const diary = diariosRelacionados.find(d => d.id === diaryId);
+    if (!diary?.equipment_fleet || !profile?.company_id) return;
+    const { data: master, error } = await (supabase as any).from("equipamentos")
+      .select("frota,tipo,nome,empresa_proprietaria,categoria_rdo")
+      .eq("company_id", profile.company_id).eq("frota", diary.equipment_fleet).limit(2);
+    if (error || master?.length !== 1 || !master[0].categoria_rdo) {
+      toast({ title: "Conferir frota no cadastro", description: `${diary.equipment_fleet}: não há vínculo único com categoria do RDO. Adicione manualmente para evitar classificação errada.`, variant: "destructive" });
+      return;
+    }
+    const equip = master[0];
+    const aliases: Record<string, string> = { "VEÍCULOS": "VEÍCULOS EM GERAL", "VEICULOS": "VEÍCULOS EM GERAL", "USINA MOVEL": "USINA MÓVEL" };
+    const categoria = aliases[equip.categoria_rdo] || equip.categoria_rdo;
+    if (!["FRESADORA", "BOBCAT", "VIBROACABADORA", "ROLO COMPACTADOR", "VEÍCULOS EM GERAL", "USINA MÓVEL", "LINHA AMARELA", "PEQUENO PORTE"].includes(categoria)) {
+      toast({ title: "Categoria não reconhecida no RDO", description: `Cadastre ${equip.frota} manualmente na seção Equipamentos.`, variant: "destructive" });
+      return;
+    }
+    if (equipamentos.some(e => e.frota.trim().toUpperCase() === equip.frota.trim().toUpperCase())) return;
+    setSemEquipamentos(false);
+    setEquipamentos(current => [...current.filter(e => e.frota || e.tipo || e.nome), {
+      id: crypto.randomUUID(), categoria, subTipo: ["ROLO COMPACTADOR", "VEÍCULOS EM GERAL", "LINHA AMARELA"].includes(categoria) ? equip.tipo || "" : "", frota: equip.frota,
+      tipo: equip.tipo || "", nome: equip.nome || "", patrimonio: "",
+      empresa_dona: equip.empresa_proprietaria || "", is_menor: false, fresadora_conica: "",
+    }]);
+  };
+
+  const addOperadorDoDiario = async (diaryId: string) => {
+    const diary = diariosRelacionados.find(d => d.id === diaryId) as (RelatedDiary & { operator_id?: string | null }) | undefined;
+    if (!diary?.operator_name || !profile?.company_id) return;
+    const query = (supabase as any).from("employees").select("id,name,matricula,role")
+      .eq("company_id", profile.company_id).limit(2);
+    const { data: matches, error } = await (diary.operator_id
+      ? query.eq("id", diary.operator_id) : query.eq("name", diary.operator_name));
+    if (error || matches?.length !== 1) {
+      toast({ title: "Identidade não confirmada", description: `Confira ${diary.operator_name} no cadastro e inclua manualmente no efetivo.`, variant: "destructive" });
+      return;
+    }
+    const person = matches[0];
+    if (efetivo.some(e => e.employee_id === person.id || e.nome.split("|||").some(n => n.trim().toUpperCase() === String(person.name).trim().toUpperCase()))) return;
+    setSemEquipeCampo(false);
+    setEfetivo(current => [...current.filter(e => e.nome || e.funcao), {
+      id: crypto.randomUUID(), employee_id: person.id, matricula: person.matricula || "",
+      nome: person.name, funcao: person.role || "MOTORISTA", entrada: "", saida: "",
+    }]);
+  };
 
   // Global hours for Efetivo
   const [globalEntrada, setGlobalEntrada] = useState("");
@@ -478,6 +584,7 @@ export default function RdoForm() {
         data: rdo.data || prev.data,
         obra_nome: rdo.obra_nome || "",
         ogs_id: (rdo as any).ogs_id || "",
+        equipe: (rdo as any).equipe || "",
         local: (rdo as any).local || "",
         status_obra: rdo.clima || "Trabalhou",
         turno: rdo.turno || "",
@@ -487,6 +594,7 @@ export default function RdoForm() {
         preenchido_por: (rdo as any).preenchido_por || rdo.responsavel || "",
       }));
       setObservacoesGerais((rdo as any).observacoes_gerais || "");
+      setNaoUtilizados(Array.isArray((rdo as any).equipamentos_nao_utilizados) ? (rdo as any).equipamentos_nao_utilizados : []);
       setEmpreiteiro((rdo as any).empreiteiro || "");
       if (rdo.tipo_rdo) setTipoRdo(rdo.tipo_rdo);
       setSemNota(Boolean((rdo as any).sem_nota));
@@ -1193,6 +1301,8 @@ export default function RdoForm() {
         data: header.data,
         obra_nome: header.obra_nome,
         ogs_id: header.ogs_id || null,
+        equipe: header.equipe || null,
+        equipamentos_nao_utilizados: naoUtilizados.filter(x => x.motivo.trim()),
         local: header.local?.trim() || null,
         turno: normalizedTurno || "diurno",
         clima: header.status_obra || null,
@@ -1516,6 +1626,19 @@ export default function RdoForm() {
         toast({ title: "Erro", description: "Selecione o Status da obra.", variant: "destructive" });
         return;
       }
+      if (tipoRdo === "CAUQ" && header.status_obra === "Trabalhou" && equipesDisponiveis.length > 0 && !header.equipe) {
+        toast({ title: "Selecione a equipe de pavimentação", description: "A equipe permite conferir os tipos previstos.", variant: "destructive" });
+        return;
+      }
+      if (conferenciaLoading && isOnline) {
+        toast({ title: "Aguarde a conferência", description: "Carregando padrões da equipe e diários do dia." });
+        return;
+      }
+      if (header.status_obra === "Trabalhou" && tiposPendentes.length) {
+        toast({ title: "Confira os equipamentos previstos", description: `Faltam ${tiposPendentes.join(", ")}. Lance ou justifique antes de enviar.`, variant: "destructive" });
+        document.getElementById("rdo-review-equipamentos")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
       const tipoSemResponsaveisObrigatorios = ["CANTEIRO", "PATIO"].includes(tipoRdo || "");
       if (!tipoSemResponsaveisObrigatorios && isBlank(header.encarregado)) {
         toast({ title: "Erro", description: "Preencha o Encarregado da obra.", variant: "destructive" });
@@ -1719,6 +1842,22 @@ export default function RdoForm() {
       }
     }
 
+    if (isOnline && profile?.company_id && header.equipe && header.status_obra === "Trabalhou") {
+      const { data: latestStandards, error: standardError } = await (supabase as any)
+        .from("rdo_equipamento_padroes").select("tipo,ativo")
+        .eq("company_id", profile.company_id).eq("equipe", header.equipe).eq("ativo", true);
+      if (standardError) {
+        toast({ title: "Conferência indisponível", description: "Não foi possível validar os padrões da equipe. Tente novamente antes de enviar.", variant: "destructive" });
+        return;
+      }
+      const remaining = findMissingStandardTypes(latestStandards || [], semEquipamentos ? [] : equipamentos, naoUtilizados);
+      if (remaining.length) {
+        toast({ title: "Equipamentos previstos não conferidos", description: `Lance ou justifique: ${remaining.join(", ")}`, variant: "destructive" });
+        document.getElementById("rdo-review-equipamentos")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       toast({ title: "Erro", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
@@ -1731,6 +1870,8 @@ export default function RdoForm() {
       data: header.data,
       obra_nome: header.obra_nome,
       ogs_id: header.ogs_id || null,
+      equipe: header.equipe || null,
+      equipamentos_nao_utilizados: naoUtilizados.filter(x => x.motivo.trim()),
       local: header.local?.trim() || null,
       turno: normalizedTurno,
       clima: header.status_obra || null,
@@ -1800,7 +1941,7 @@ export default function RdoForm() {
         if (updError) throw updError;
         rdoId = editId;
       } else {
-        const { data: rdo, error: rdoError } = await supabase
+        const { data: rdo, error: rdoError } = await (supabase as any)
           .from("rdo_diarios")
           .insert({ ...rdoPayload, user_id: user.id })
           .select("id")
@@ -2048,6 +2189,14 @@ export default function RdoForm() {
               encarregadoObrigatorio={!(["CANTEIRO", "PATIO"].includes(tipoRdo || ""))}
               engenheiroObrigatorio={!(["INFRAESTRUTURA", "INFRA", "CANTEIRO", "PATIO"].includes(tipoRdo || ""))}
             />
+            <div className="rdo-card mt-3 space-y-2">
+              <label htmlFor="rdo-equipe" className="text-sm font-semibold">Equipe deste RDO {tipoRdo === "CAUQ" && "(obrigatória quando trabalhou)"}</label>
+              <select id="rdo-equipe" value={header.equipe} onChange={e => handleHeaderChange("equipe", e.target.value)} className="w-full h-11 rounded-lg border border-border bg-card px-3">
+                <option value="">Selecione a equipe para conferir os equipamentos</option>
+                {header.equipe && !equipesDisponiveis.includes(header.equipe) && <option value={header.equipe}>{header.equipe} (histórico)</option>}
+                {equipesDisponiveis.map(team => <option key={team} value={team}>{team}</option>)}
+              </select>
+            </div>
           </div>
         )}
 
@@ -2163,6 +2312,34 @@ export default function RdoForm() {
                   !semEquipamentos && (
                     <SectionEquipamentos entries={equipamentos} onChange={setEquipamentos} tipoRdo={tipoRdo === "INFRAESTRUTURA" ? "INFRA" : tipoRdo} />
                   )
+                )}
+
+                {!isPatioRdo && header.status_obra === "Trabalhou" && (header.equipe || diariosSugeridos.length > 0) && (
+                  <section id="rdo-review-equipamentos" className="mx-4 rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3 text-sm">
+                    <h3 className="font-bold text-amber-950">Conferência de equipamentos e motoristas</h3>
+                    {conferenciaLoading && <p>Conferindo padrões e diários...</p>}
+                    {!isOnline && <p role="alert" className="text-amber-900">Sem conexão: padrões e diários de outros módulos não podem ser conferidos agora. Revise o RDO ao sincronizar.</p>}
+                    {conferenciaAviso && <p role="alert" className="text-amber-900">{conferenciaAviso}</p>}
+                    {!!header.equipe && isOnline && !conferenciaLoading && padroesEquipe.length === 0 && !conferenciaAviso && <p>Não há tipos padrão configurados para esta equipe. Confira os equipamentos manualmente.</p>}
+                    {padroesEquipe.map(p => {
+                      const missing = findMissingStandardTypes([p], equipamentosAtuais, []);
+                      if (!missing.length) return <p key={p.tipo} className="text-green-800">✓ {p.tipo} lançado</p>;
+                      const reason = naoUtilizados.find(x => x.tipo === p.tipo)?.motivo || "";
+                      return <div key={p.tipo} className="rounded-lg border bg-card p-3 space-y-2">
+                        <p className="font-semibold text-amber-900">{reason.trim() ? "✓" : "⚠️"} Falta lançamento de {p.tipo}</p>
+                        <p>Adicione na seção Equipamentos acima, ou informe por que não foi utilizado.</p>
+                        <input aria-label={`Motivo para não lançar ${p.tipo}`} value={reason} placeholder="Motivo: não utilizado, indisponível..." className="w-full h-10 rounded-md border px-3"
+                          onChange={event => setNaoUtilizados(current => [...current.filter(x => x.tipo !== p.tipo), { tipo: p.tipo, motivo: event.target.value }])} />
+                      </div>;
+                    })}
+                    {diariosSugeridos.map(s => <div key={s.diaryId} className="rounded-lg border bg-card p-3 space-y-2">
+                      <p className="font-semibold">Diário encontrado: {s.frota} — {s.operador || "Operador não informado"}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {s.faltaFrota && <Button type="button" size="sm" variant="outline" onClick={() => void addFrotaDoDiario(s.diaryId)}>Incluir frota no RDO</Button>}
+                        {s.faltaOperador && <Button type="button" size="sm" variant="outline" onClick={() => void addOperadorDoDiario(s.diaryId)}>Incluir motorista no efetivo</Button>}
+                      </div>
+                    </div>)}
+                  </section>
                 )}
 
                 {!isPatioRdo && (
