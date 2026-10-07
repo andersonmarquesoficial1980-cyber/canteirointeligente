@@ -108,6 +108,7 @@ import RelatorioProducaoInfra from "./pages/RelatorioProducaoInfra";
 import RelatorioProducaoPavimentacao from "./pages/RelatorioProducaoPavimentacao";
 import RelatorioChecklist from "./pages/RelatorioChecklist";
 import RelatorioControleLancamentos from "./pages/RelatorioControleLancamentos";
+import RelatorioDivergenciasRdoDiarios from "./pages/RelatorioDivergenciasRdoDiarios";
 import RelatorioRdoTecnicoDashboard from "./pages/RelatorioRdoTecnicoDashboard";
 import TrajetoVT from "./pages/TrajetoVT";
 import TruckerHome from "./pages/TruckerHome";
@@ -552,6 +553,7 @@ function AppRoutes() {
         <Route path="/relatorios/producao-pavimentacao" element={<RequireModule moduleId="relatorios"><RelatorioProducaoPavimentacao /></RequireModule>} />
         <Route path="/relatorios/checklist" element={<RequireModule moduleId="relatorios"><RelatorioChecklist /></RequireModule>} />
         <Route path="/relatorios/controle-lancamentos" element={<RequireModule moduleId="relatorios"><RelatorioControleLancamentos /></RequireModule>} />
+        <Route path="/relatorios/divergencias-rdo-diarios" element={<RequireModule moduleId="relatorios"><RelatorioDivergenciasRdoDiarios /></RequireModule>} />
         <Route path="/relatorios/rdo-tecnico-dashboard" element={<RequireModule moduleId="relatorios"><RelatorioRdoTecnicoDashboard /></RequireModule>} />
 
         <Route path="*" element={<NotFound />} />
