@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { toLocalISODate } from "@/lib/date-local";
-import { assessMeter, eligibleFleetCoverage, type MeterDiary } from "@/lib/equipmentDiaryAudit";
+import { findMeterGaps, eligibleFleetCoverage, type MeterDiary } from "@/lib/equipmentDiaryAudit";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -160,6 +160,7 @@ export default function RelatorioControleLancamentos() {
   const [loading, setLoading]   = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [diarios, setDiarios]   = useState<DiarioRow[]>([]);
+  const [meterBaselines, setMeterBaselines] = useState<MeterDiary[]>([]);
   const [todosUsuarios, setTodosUsuarios] = useState<{ id: string; nome: string; email: string }[]>([]);
   const [todasFrotas, setTodasFrotas]     = useState<{ frota: string; tipo: string; centro_custo?: string; status?: string; created_at?: string }[]>([]);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
@@ -194,6 +195,29 @@ export default function RelatorioControleLancamentos() {
       }
 
       if (error) { console.error("[ControleLancamentos]", error); setFetchError("Não foi possível carregar todos os diários. Tente novamente."); setLoading(false); return; }
+
+      // Uma medição no primeiro dia do filtro também precisa ser comparada com o mês anterior.
+      // Janela limitada: sem leitura nos 90 dias anteriores, o painel declara a referência desconhecida.
+      const baselineStart = new Date(`${dataIni}T12:00:00Z`);
+      baselineStart.setUTCDate(baselineStart.getUTCDate() - 90);
+      const baselineRaw: MeterDiary[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const page = await (supabase as any).from("equipment_diaries")
+          .select("id,equipment_fleet,date,period,created_at,status,is_auto,meter_initial,meter_final,odometer_initial,odometer_final")
+          .eq("company_id", companyId).eq("status", "enviado")
+          .or("is_auto.is.null,is_auto.eq.false")
+          .gte("date", baselineStart.toISOString().slice(0, 10)).lt("date", dataIni)
+          .order("date", { ascending: true }).order("id", { ascending: true })
+          .range(offset, offset + 999);
+        if (page.error) throw page.error;
+        baselineRaw.push(...(page.data || []));
+        if (!page.data || page.data.length < 1000) break;
+      }
+      const latestByFleet = new Map<string, MeterDiary>();
+      baselineRaw.sort((a, b) => a.date.localeCompare(b.date) ||
+        Number(a.period === "noturno") - Number(b.period === "noturno") ||
+        String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.id.localeCompare(b.id))
+        .forEach(row => latestByFleet.set(row.equipment_fleet, row));
 
       // 2 — profiles dos user_ids únicos
       const userIds = [...new Set(((raw as any[]) || []).map((d: any) => d.user_id).filter(Boolean))];
@@ -258,6 +282,7 @@ export default function RelatorioControleLancamentos() {
         created_at: e.created_at || null,
       })));
       setDiarios(rows);
+      setMeterBaselines([...latestByFleet.values()]);
       setLoadedRange({ start: dataIni, end: dataFim });
 
     } catch (err) {
@@ -357,17 +382,7 @@ export default function RelatorioControleLancamentos() {
   const frotaPendencias = todasFrotas.filter(f => f.status?.toLowerCase() !== "devolvido").map(f => {
     const rows = diarios.filter(r => r.equipment_fleet === f.frota);
     const coverage = eligibleFleetCoverage(loadedRange.start, loadedRange.end, rows as MeterDiary[], hojeISO, f.created_at);
-    const breaks = rows.filter(r => r.status === "enviado" && !r.is_auto).flatMap(r => {
-      const odometer = r.odometer_initial != null || r.odometer_final != null;
-      const assessment = assessMeter(rows as MeterDiary[], {
-        fleet: f.frota, date: r.date, period: r.period || "diurno", excludeId: r.id,
-        kind: odometer ? "odometer" : "hourmeter",
-        initial: odometer ? r.odometer_initial : r.meter_initial,
-        final: odometer ? r.odometer_final : r.meter_final,
-        created_at: r.created_at,
-      });
-      return assessment.issue ? [{ diary: r, issue: assessment.issue }] : [];
-    });
+    const breaks = findMeterGaps(rows as MeterDiary[], meterBaselines.filter(r => r.equipment_fleet === f.frota));
     return { ...f, coverage, breaks, missing: coverage.filter(d => d.state === "missing") };
   }).filter(f => f.missing.length || f.breaks.length);
 
@@ -462,14 +477,16 @@ export default function RelatorioControleLancamentos() {
           <div className="bg-white rounded-xl border border-gray-200 p-4 mb-5">
             <h2 className="font-semibold text-slate-800">Pendências diárias por frota</h2>
             {fetchError && <p className="text-destructive font-semibold" role="alert">{fetchError}</p>}
-            <p className="text-sm text-slate-600 mb-3">Período carregado: {fmtDate(loadedRange.start)} a {fmtDate(loadedRange.end)} ({allDays.length} dias). Todos os dias desde o cadastro contam, inclusive fins de semana, manutenção e dias parados; hoje ainda não está atrasado. Devolvidos não geram cobrança atual (sem data histórica de devolução). Diários automáticos não quitam a obrigação. Mais de um uso ou turno deve gerar mais de um lançamento; sem escala independente, o painel só confirma os turnos efetivamente enviados.</p>
+            <p className="text-sm text-slate-600 mb-3">Período carregado: {fmtDate(loadedRange.start)} a {fmtDate(loadedRange.end)} ({allDays.length} dias). Todos os dias desde o cadastro contam, inclusive fins de semana, manutenção e dias parados; hoje ainda não está atrasado. A medição inicial é comparada com até 90 dias anteriores; sem leitura nesse intervalo, não há referência confiável. Devolvidos não geram cobrança atual (sem data histórica de devolução). Diários automáticos não quitam a obrigação. Mais de um uso ou turno deve gerar mais de um lançamento; sem escala independente, o painel só confirma os turnos efetivamente enviados.</p>
             {!fetchError && frotaPendencias.length === 0 ? <p className="text-sm text-slate-500">Nenhuma pendência detectada no período carregado.</p> : !fetchError &&
               <div className="max-h-96 overflow-auto space-y-2">{frotaPendencias.map(f =>
                 <details key={f.frota} className="rounded-md border border-gray-200 p-2 text-sm">
                   <summary className="cursor-pointer font-semibold">{f.centro_custo || f.frota} ({f.frota}) — {f.coverage.filter(d => d.count > 0).length}/{f.coverage.length} dias · {f.coverage.reduce((sum, d) => sum + d.count, 0)} diários · {f.missing.length} dias sem diário · {f.breaks.length} divergências</summary>
                   <div className="mt-2 text-slate-700">
                     {f.missing.length > 0 && <p>Dias sem envio: {f.missing.map(d => fmtDate(d.date)).join(", ")}</p>}
-                    {f.breaks.map(({ diary, issue }) => <p key={diary.id} className="mt-1">{fmtDate(diary.date)} · {diary.period || "turno não informado"} · {diary.operator_name || "sem operador"}: {issue.type.includes("regression") ? "regressão" : "salto"} — esperado {issue.expected ?? "—"}, informado {issue.actual ?? "—"}</p>)}
+                    {f.breaks.map(({ previous, current, kind, difference }) => <p key={current.id} className="mt-1 border-t py-2">
+                      {difference < 0 ? "🔴 Regressão" : "⚠️ Intervalo sem medição"} de {Math.abs(difference)} {kind === "odometer" ? "km" : "h"}: {fmtDate(previous.date)} {previous.period || ""} final <strong>{kind === "odometer" ? previous.odometer_final : previous.meter_final}</strong> → {fmtDate(current.date)} {current.period || ""} inicial <strong>{kind === "odometer" ? current.odometer_initial : current.meter_initial}</strong>. Lançado por {current.operator_name || "operador não identificado"}. <button type="button" className="underline font-semibold" onClick={() => navigate(`/visualizar-lancamento/${previous.id}`)}>Ver anterior</button> · <button type="button" className="underline font-semibold" onClick={() => navigate(`/visualizar-lancamento/${current.id}`)}>Ver atual</button>. Confira a frota e os diários intermediários; não atribua os quilômetros/horas automaticamente.
+                    </p>)}
                   </div>
                 </details>
               )}</div>}

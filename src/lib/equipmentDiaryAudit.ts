@@ -1,6 +1,7 @@
 export interface MeterDiary {
   id: string;
   equipment_fleet: string;
+  operator_name?: string | null;
   date: string;
   period: string | null;
   created_at?: string | null;
@@ -33,6 +34,29 @@ const finite = (value: number | null | undefined): value is number =>
   typeof value === "number" && Number.isFinite(value) && value >= 0;
 export const validDiary = (d: MeterDiary) => d.status === "enviado" && !d.is_auto;
 const fields = (kind: MeterKind) => kind === "odometer" ? ["odometer_initial", "odometer_final"] as const : ["meter_initial", "meter_final"] as const;
+
+export interface MeterGap { previous: MeterDiary; current: MeterDiary; kind: MeterKind; difference: number }
+export function findMeterGaps(rows: MeterDiary[], baseline: MeterDiary[] = []): MeterGap[] {
+  const byFleet = new Map<string, MeterDiary[]>();
+  const currentIds = new Set(rows.map(row => row.id));
+  [...baseline, ...rows].filter(validDiary).forEach(row => byFleet.set(row.equipment_fleet, [...(byFleet.get(row.equipment_fleet) || []), row]));
+  const gaps: MeterGap[] = [];
+  byFleet.forEach(fleetRows => {
+    const ordered = fleetRows.sort((a, b) => key(a).localeCompare(key(b)) ||
+      String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.id.localeCompare(b.id));
+    for (let index = 1; index < ordered.length; index++) {
+      const previous = ordered[index - 1];
+      const current = ordered[index];
+      if (!currentIds.has(current.id)) continue;
+      const kind: MeterKind = current.odometer_initial != null || current.odometer_final != null ? "odometer" : "hourmeter";
+      const [initialField, finalField] = fields(kind);
+      if (!finite(previous[finalField]) || !finite(current[initialField])) continue;
+      const difference = (current[initialField] as number) - (previous[finalField] as number);
+      if (difference !== 0) gaps.push({ previous, current, kind, difference });
+    }
+  });
+  return gaps;
+}
 
 export function assessMeter(rows: MeterDiary[], candidate: MeterCandidate): {
   previous: { date: string; period: string | null; final: number } | null;

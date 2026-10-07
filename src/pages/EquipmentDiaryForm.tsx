@@ -312,6 +312,7 @@ export default function EquipmentDiaryForm() {
   const [meterInitial, setMeterInitial] = useState("");
   const [meterFinal, setMeterFinal] = useState("");
   const [meterReason, setMeterReason] = useState("");
+  const [fleetPhysicallyChecked, setFleetPhysicallyChecked] = useState(false);
   const [workStatus, setWorkStatus] = useState("");
   const [horimetroAlerta, setHorimetroAlerta] = useState<{ diff: number; ultimoValor: number; threshold: number } | null>(null);
   const [horimetroConfirmado, setHorimetroConfirmado] = useState(false);
@@ -1502,6 +1503,7 @@ export default function EquipmentDiaryForm() {
   const changeMeterInitial = (value: string) => {
     if (isModoSimples && (!meterFinal || meterFinal === meterInitial)) setMeterFinal(value);
     setMeterInitial(value);
+    setFleetPhysicallyChecked(false);
   };
   const { data: candidateRows = [] } = useQuery<MeterDiary[]>({
     queryKey: ["diary-meter-candidates", effectiveCompanyId, date, selectedFleet, meterInitial, usesOdometer],
@@ -1522,9 +1524,10 @@ export default function EquipmentDiaryForm() {
     fleet: selectedFleet, date, period: turno, kind: usesOdometer ? "odometer" : "hourmeter",
     initial: parseMeter(meterInitial),
   }, fleetOptionsStrict.map((e: any) => e.frota)) : [];
+  const selectedEquipment = (equipamentos as any[]).find(e => e.frota === selectedFleet && e.company_id === effectiveCompanyId);
   const meterNotice = selectedFleet && (
     <div className="rounded-lg border border-border bg-card p-3 text-sm space-y-2" role="status">
-      <p className="font-medium">Conferência de {usesOdometer ? "odômetro" : "horímetro"} — {selectedFleet}</p>
+      <p className="font-medium">Conferência de {usesOdometer ? "odômetro" : "horímetro"} — {selectedFleet}{selectedEquipment?.placa ? ` · Placa ${selectedEquipment.placa}` : " · confira o código físico da frota"}</p>
       {!isOnline ? <p>Offline: confira a frota e a leitura física. A sequência será conferida após a sincronização.</p> :
       loadingMeterHistory ? <p>Buscando a última leitura...</p> : meterHistoryError ?
         <p className="text-destructive">Não foi possível conferir a leitura. Tente novamente com conexão.</p> :
@@ -1532,8 +1535,9 @@ export default function EquipmentDiaryForm() {
       {meterAssessment?.issue && !loadingMeterHistory && isOnline && <>
         <p className="text-amber-700 font-medium">⚠️ Leitura divergente: esperado {meterAssessment.issue.expected ?? "—"}; informado {meterAssessment.issue.actual ?? "—"}. Confira frota, placa e leitura física.</p>
         {fleetSuggestions.length > 0 && <p>Frota(s) com leitura compatível (apenas sugestão): {fleetSuggestions.map(f =>
-          <button key={f} type="button" className="underline mr-2 font-semibold" onClick={() => { setSelectedFleet(f); setMeterReason(""); }}>{f}</button>
+          <button key={f} type="button" className="underline mr-2 font-semibold" onClick={() => { setSelectedFleet(f); setMeterReason(""); setFleetPhysicallyChecked(false); }}>{f}</button>
         )}</p>}
+        <label className="flex items-center gap-2"><Checkbox checked={fleetPhysicallyChecked} onCheckedChange={checked => setFleetPhysicallyChecked(checked === true)} />Conferi o código/placa no equipamento e a leitura no painel</label>
         <Field label="Justificativa para enviar com divergência *">
           <Textarea value={meterReason} onChange={e => setMeterReason(e.target.value)} placeholder="Confira o painel e explique o motivo da diferença" />
         </Field>
@@ -1832,6 +1836,10 @@ export default function EquipmentDiaryForm() {
       }
       if (check.issue && meterReason.trim().length < 10) {
         toast({ title: "Leitura divergente", description: "Confira a frota e informe uma justificativa de pelo menos 10 caracteres.", variant: "destructive" });
+        return cancelSave();
+      }
+      if (check.issue && !fleetPhysicallyChecked) {
+        toast({ title: "Confirme a frota", description: "Confira o código ou placa no equipamento antes de enviar uma leitura divergente.", variant: "destructive" });
         return cancelSave();
       }
     }
@@ -3073,7 +3081,7 @@ export default function EquipmentDiaryForm() {
                   <SelectContent />
                 </Select>
               ) : (
-                <Select value={selectedFleet} onValueChange={value => { setSelectedFleet(value); setMeterInitial(""); setMeterFinal(""); setMeterReason(""); }} disabled={loadingEquipamentos}>
+                <Select value={selectedFleet} onValueChange={value => { setSelectedFleet(value); setMeterInitial(""); setMeterFinal(""); setMeterReason(""); setFleetPhysicallyChecked(false); }} disabled={loadingEquipamentos}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder={loadingEquipamentos ? "Carregando frotas..." : fleetOptionsStrict.length === 0 ? "Nenhuma frota cadastrada" : "Selecione..."} />
                   </SelectTrigger>
@@ -3088,7 +3096,7 @@ export default function EquipmentDiaryForm() {
               )}
             </Field>
             <Field label="Data">
-              <Input type="date" value={date} onChange={(e) => { setDate(e.target.value); if (!isEditMode) { setMeterInitial(""); setMeterFinal(""); setMeterReason(""); } }} className="bg-secondary border-border" />
+              <Input type="date" value={date} onChange={(e) => { setDate(e.target.value); setFleetPhysicallyChecked(false); if (!isEditMode) { setMeterInitial(""); setMeterFinal(""); setMeterReason(""); } }} className="bg-secondary border-border" />
             </Field>
           </FieldRow>
           {meterNotice}

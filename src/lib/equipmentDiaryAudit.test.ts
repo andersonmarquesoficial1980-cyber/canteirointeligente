@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessMeter, dailyCoverage, eligibleFleetCoverage, suggestFleet, type MeterDiary } from "./equipmentDiaryAudit";
+import { assessMeter, dailyCoverage, eligibleFleetCoverage, findMeterGaps, suggestFleet, type MeterDiary } from "./equipmentDiaryAudit";
 
 const row = (overrides: Partial<MeterDiary> = {}): MeterDiary => ({
   id: "a", equipment_fleet: "CC02", date: "2026-10-01", period: "diurno", created_at: "2026-10-01T20:00:00Z",
@@ -8,6 +8,23 @@ const row = (overrides: Partial<MeterDiary> = {}): MeterDiary => ({
 });
 
 describe("equipment diary audit", () => {
+  it("detects the first day gap against the last earlier baseline and does not report the baseline itself", () => {
+    const baseline = row({ id: "old", date: "2026-09-30", odometer_final: 233 });
+    const october = row({ id: "new", date: "2026-10-01", odometer_initial: 240 });
+    expect(findMeterGaps([october], [baseline])).toEqual([{ previous: baseline, current: october, kind: "odometer", difference: 7 }]);
+  });
+  it("reports one event for each real break, without duplicating it on both neighbouring diaries", () => {
+    const rows = [row({ id: "first" }), row({ id: "second", date: "2026-10-02", odometer_initial: 240, odometer_final: 250 }), row({ id: "third", date: "2026-10-03", odometer_initial: 250, odometer_final: 260 })];
+    expect(findMeterGaps(rows)).toEqual([{ previous: rows[0], current: rows[1], kind: "odometer", difference: 7 }]);
+  });
+  it("does not bridge fleets, auto diaries, or drafts", () => {
+    const rows = [row(), row({ id: "auto", date: "2026-10-02", is_auto: true, odometer_initial: 233, odometer_final: 500 }), row({ id: "draft", date: "2026-10-02", status: "rascunho", odometer_initial: 500, odometer_final: 500 }), row({ id: "other", equipment_fleet: "CC21", date: "2026-10-03", odometer_initial: 600, odometer_final: 700 })];
+    expect(findMeterGaps(rows)).toEqual([]);
+  });
+  it("flags a regression and supports multiple uses during one turn by submission order", () => {
+    const rows = [row({ id: "a" }), row({ id: "b", created_at: "2026-10-01T22:00:00Z", odometer_initial: 220, odometer_final: 225 })];
+    expect(findMeterGaps(rows).map(g => g.difference)).toEqual([-13]);
+  });
   it("suggests the preceding final without inventing a gap on idle days", () => {
     const result = assessMeter([row()], { fleet: "CC02", date: "2026-10-05", period: "diurno", kind: "odometer", initial: 233, final: 233 });
     expect(result.previous?.final).toBe(233);
