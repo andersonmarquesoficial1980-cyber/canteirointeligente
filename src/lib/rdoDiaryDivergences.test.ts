@@ -31,6 +31,10 @@ describe("conciliação RDO × Diário", () => {
     const rows = reconcileRdoDiaries([rdo], [equip], [diary], ogs, [{ rdo_id: "r1", nome: "Joaquim Silva" }]);
     expect(rows.some(x => x.kind === "operador_fora_efetivo")).toBe(true);
   });
+  it("reconhece o mesmo operador pelo cadastro mesmo quando o nome é abreviado", () => {
+    const rows = reconcileRdoDiaries([rdo], [equip], [{ ...diary, operator_name: "Joaquim S.", operator_id: "person-1" }], ogs, [{ rdo_id: "r1", nome: "Joaquim Silva", employee_id: "person-1" }]);
+    expect(rows).toEqual([]);
+  });
   it("não duplica divergências com RDOs de mesma obra", () => {
     const rows = reconcileRdoDiaries([rdo, { ...rdo, id: "r2" }], [], [diary], ogs, []);
     expect(rows.filter(x => x.kind === "diario_sem_equipamento")).toHaveLength(1);

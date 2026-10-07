@@ -15,10 +15,11 @@ export interface EquipmentDiarySource {
   ogs_number: string | null;
   period: string | null;
   operator_name: string | null;
+  operator_id?: string | null;
   work_status: string | null;
   status: string | null;
 }
-export interface RdoPersonSource { rdo_id: string | null; nome: string | null }
+export interface RdoPersonSource { rdo_id: string | null; nome: string | null; employee_id?: string | null }
 export interface OgsSource { id: string; ogs_number: string | null }
 export type DivergenceKind = "diario_sem_rdo" | "diario_sem_equipamento" | "rdo_sem_diario" | "operador_fora_efetivo";
 export interface DiaryDivergence {
@@ -61,7 +62,9 @@ export function reconcileRdoDiaries(
     }
     if (!found) rows.push({ ...base, kind: "diario_sem_equipamento", detail: "Equipamento do diário não localizado neste RDO." });
     for (const e of equipments.filter(e => e.rdo_id === r.id && fleet(e.frota) === fleet(d.equipment_fleet))) matchedEquipment.add(e.id);
-    if (norm(d.operator_name) && !people.some(p => p.rdo_id === r.id && (p.nome || "").split("|||").some(name => norm(name) === norm(d.operator_name)))) {
+    if (norm(d.operator_name) && !people.some(p => p.rdo_id === r.id && (
+      (d.operator_id && p.employee_id === d.operator_id) || (p.nome || "").split("|||").some(name => norm(name) === norm(d.operator_name))
+    ))) {
       rows.push({ ...base, kind: "operador_fora_efetivo", detail: "Nome do operador do diário não localizado no efetivo; conferir a identidade antes de incluir." });
     }
   }

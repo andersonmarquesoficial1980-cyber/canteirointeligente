@@ -66,7 +66,7 @@ export default function RelatorioDivergenciasRdoDiarios() {
       const companyId = profile.company_id;
       const [rdos, diaries, ogsResult] = await Promise.all([
         readAll("rdo_diarios", "id,data,obra_nome,ogs_id,turno,encarregado,clima,status_validacao", companyId, start, end, "data"),
-        readAll("equipment_diaries", "id,date,equipment_fleet,ogs_number,period,operator_name,work_status,status", companyId, start, end, "date"),
+        readAll("equipment_diaries", "id,date,equipment_fleet,ogs_number,period,operator_name,operator_id,work_status,status,is_auto", companyId, start, end, "date"),
         (supabase as any).from("ogs_reference").select("id,ogs_number").eq("company_id", companyId),
       ]);
       if (ogsResult.error) throw ogsResult.error;
@@ -74,10 +74,11 @@ export default function RelatorioDivergenciasRdoDiarios() {
       const ids = submittedRdos.map(r => r.id);
       const [equipments, people] = await Promise.all([
         readChildren("rdo_equipamentos", "id,rdo_id,frota,tipo", ids),
-        readChildren("rdo_efetivo", "rdo_id,nome", ids),
+        readChildren("rdo_efetivo", "rdo_id,nome,employee_id", ids),
       ]);
-      setRows(reconcileRdoDiaries(submittedRdos, equipments, diaries, ogsResult.data || [], people));
-      setTotals({ rdos: submittedRdos.length, diarios: diaries.filter(d => d.status === "enviado").length });
+      const manualDiaries = diaries.filter(d => d.is_auto !== true);
+      setRows(reconcileRdoDiaries(submittedRdos, equipments, manualDiaries, ogsResult.data || [], people));
+      setTotals({ rdos: submittedRdos.length, diarios: manualDiaries.filter(d => d.status === "enviado").length });
       setLoaded({ start, end });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível consultar todos os lançamentos.");
