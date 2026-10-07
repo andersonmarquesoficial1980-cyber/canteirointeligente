@@ -2326,8 +2326,10 @@ export default function RdoForm() {
                       if (!missing.length) return <p key={p.tipo} className="text-green-800">✓ {p.tipo} lançado</p>;
                       const reason = naoUtilizados.find(x => x.tipo === p.tipo)?.motivo || "";
                       return <div key={p.tipo} className="rounded-lg border bg-card p-3 space-y-2">
-                        <p className="font-semibold text-amber-900">{reason.trim() ? "✓" : "⚠️"} Falta lançamento de {p.tipo}</p>
-                        <p>Adicione na seção Equipamentos acima, ou informe por que não foi utilizado.</p>
+                        <p className={reason.trim() ? "font-semibold text-green-800" : "font-semibold text-amber-900"}>
+                          {reason.trim() ? `✓ ${p.tipo} justificado como não utilizado` : `⚠️ Falta lançamento de ${p.tipo}`}
+                        </p>
+                        {!reason.trim() && <p>Adicione na seção Equipamentos acima, ou informe por que não foi utilizado.</p>}
                         <input aria-label={`Motivo para não lançar ${p.tipo}`} value={reason} placeholder="Motivo: não utilizado, indisponível..." className="w-full h-10 rounded-md border px-3"
                           onChange={event => setNaoUtilizados(current => [...current.filter(x => x.tipo !== p.tipo), { tipo: p.tipo, motivo: event.target.value }])} />
                       </div>;
