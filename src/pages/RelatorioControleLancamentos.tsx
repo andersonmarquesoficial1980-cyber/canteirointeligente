@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { toLocalISODate } from "@/lib/date-local";
-import { assessMeter, dailyCoverage, type MeterDiary } from "@/lib/equipmentDiaryAudit";
+import { assessMeter, eligibleFleetCoverage, type MeterDiary } from "@/lib/equipmentDiaryAudit";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -161,7 +161,7 @@ export default function RelatorioControleLancamentos() {
   const [fetchError, setFetchError] = useState("");
   const [diarios, setDiarios]   = useState<DiarioRow[]>([]);
   const [todosUsuarios, setTodosUsuarios] = useState<{ id: string; nome: string; email: string }[]>([]);
-  const [todasFrotas, setTodasFrotas]     = useState<{ frota: string; tipo: string; centro_custo?: string }[]>([]);
+  const [todasFrotas, setTodasFrotas]     = useState<{ frota: string; tipo: string; centro_custo?: string; status?: string; created_at?: string }[]>([]);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ titulo: string; rows: DiarioRow[] } | null>(null);
 
@@ -246,7 +246,7 @@ export default function RelatorioControleLancamentos() {
       // 4 — todos equipamentos da empresa (para filtro sem lançamento)
       const { data: allEquip, error: equipamentosError } = await (supabase as any)
         .from("equipamentos")
-        .select("frota, tipo, centro_custo")
+        .select("frota, tipo, centro_custo, status, created_at")
         .eq("company_id", companyId)
         .order("frota");
       if (equipamentosError) throw equipamentosError;
@@ -254,6 +254,8 @@ export default function RelatorioControleLancamentos() {
         frota: e.frota || "—",
         tipo: e.tipo || "",
         centro_custo: e.centro_custo || null,
+        status: e.status || "",
+        created_at: e.created_at || null,
       })));
       setDiarios(rows);
       setLoadedRange({ start: dataIni, end: dataFim });
@@ -329,6 +331,7 @@ export default function RelatorioControleLancamentos() {
   // ── Cards de frotas ───────────────────────────────────────────────────────
   const frotaCards: FrotaCard[] = apenasSemlancamento
     ? todasFrotas
+        .filter(f => f.status?.toLowerCase() !== "devolvido")
         .filter(f => !frotasComLancamento.has(f.frota))
         .filter(f => !tipoFiltro || f.tipo.trim().toUpperCase() === tipoFiltro)
         .filter(f => {
@@ -351,9 +354,9 @@ export default function RelatorioControleLancamentos() {
   const totalEnviados  = diarios.filter(d => d.status === "enviado").length;
   const totalRascunhos = diarios.filter(d => d.status === "rascunho").length;
   const hojeISO = toLocalISODate(new Date());
-  const frotaPendencias = todasFrotas.map(f => {
+  const frotaPendencias = todasFrotas.filter(f => f.status?.toLowerCase() !== "devolvido").map(f => {
     const rows = diarios.filter(r => r.equipment_fleet === f.frota);
-    const coverage = dailyCoverage(loadedRange.start, loadedRange.end, rows as MeterDiary[], hojeISO);
+    const coverage = eligibleFleetCoverage(loadedRange.start, loadedRange.end, rows as MeterDiary[], hojeISO, f.created_at);
     const breaks = rows.filter(r => r.status === "enviado" && !r.is_auto).flatMap(r => {
       const odometer = r.odometer_initial != null || r.odometer_final != null;
       const assessment = assessMeter(rows as MeterDiary[], {
@@ -459,7 +462,7 @@ export default function RelatorioControleLancamentos() {
           <div className="bg-white rounded-xl border border-gray-200 p-4 mb-5">
             <h2 className="font-semibold text-slate-800">Pendências diárias por frota</h2>
             {fetchError && <p className="text-destructive font-semibold" role="alert">{fetchError}</p>}
-            <p className="text-sm text-slate-600 mb-3">Período carregado: {fmtDate(loadedRange.start)} a {fmtDate(loadedRange.end)} ({allDays.length} dias). Todos os dias contam, inclusive fins de semana e dias parados. Hoje ainda não está atrasado; diários automáticos não quitam a obrigação. Mais de um uso ou turno deve gerar mais de um lançamento; sem escala independente, o painel só confirma os turnos efetivamente enviados.</p>
+            <p className="text-sm text-slate-600 mb-3">Período carregado: {fmtDate(loadedRange.start)} a {fmtDate(loadedRange.end)} ({allDays.length} dias). Todos os dias desde o cadastro contam, inclusive fins de semana, manutenção e dias parados; hoje ainda não está atrasado. Devolvidos não geram cobrança atual (sem data histórica de devolução). Diários automáticos não quitam a obrigação. Mais de um uso ou turno deve gerar mais de um lançamento; sem escala independente, o painel só confirma os turnos efetivamente enviados.</p>
             {!fetchError && frotaPendencias.length === 0 ? <p className="text-sm text-slate-500">Nenhuma pendência detectada no período carregado.</p> : !fetchError &&
               <div className="max-h-96 overflow-auto space-y-2">{frotaPendencias.map(f =>
                 <details key={f.frota} className="rounded-md border border-gray-200 p-2 text-sm">

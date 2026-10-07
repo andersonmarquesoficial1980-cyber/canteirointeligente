@@ -68,6 +68,11 @@ export function suggestFleet(rows: MeterDiary[], candidate: MeterCandidate, allo
 }
 
 export interface CoverageDay { date: string; count: number; state: "complete" | "missing" | "pending" | "future" }
+export function eligibleFleetCoverage(start: string, end: string, rows: MeterDiary[], today: string, registeredAt?: string | null): CoverageDay[] {
+  const firstManual = rows.filter(validDiary).map(d => d.date).sort()[0];
+  const knownStart = [registeredAt?.slice(0, 10), firstManual].filter((date): date is string => Boolean(date)).sort()[0];
+  return dailyCoverage(knownStart && knownStart > start ? knownStart : start, end, rows, today);
+}
 export function dailyCoverage(start: string, end: string, rows: MeterDiary[], today: string): CoverageDay[] {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end) return [];
   const counts = new Map<string, number>();

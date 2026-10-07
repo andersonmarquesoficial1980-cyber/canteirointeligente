@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessMeter, dailyCoverage, suggestFleet, type MeterDiary } from "./equipmentDiaryAudit";
+import { assessMeter, dailyCoverage, eligibleFleetCoverage, suggestFleet, type MeterDiary } from "./equipmentDiaryAudit";
 
 const row = (overrides: Partial<MeterDiary> = {}): MeterDiary => ({
   id: "a", equipment_fleet: "CC02", date: "2026-10-01", period: "diurno", created_at: "2026-10-01T20:00:00Z",
@@ -41,6 +41,11 @@ describe("equipment diary audit", () => {
     expect(coverage[0].count).toBe(2);
     expect(coverage[1].count).toBe(0);
     expect(coverage[28].count).toBe(0);
+  });
+  it("starts the daily obligation on registration, but preserves an earlier manual diary as evidence of prior use", () => {
+    expect(eligibleFleetCoverage("2026-09-01", "2026-09-30", [], "2026-10-01", "2026-09-11T10:00:00Z").length).toBe(20);
+    const coverage = eligibleFleetCoverage("2026-09-01", "2026-09-30", [row({ date: "2026-09-05" })], "2026-10-01", "2026-09-11T10:00:00Z");
+    expect(coverage[0].date).toBe("2026-09-05");
   });
   it("does not mark today or future dates overdue and never counts automatic entries", () => {
     const coverage = dailyCoverage("2026-10-05", "2026-10-07", [row({ date: "2026-10-05", is_auto: true })], "2026-10-06");
