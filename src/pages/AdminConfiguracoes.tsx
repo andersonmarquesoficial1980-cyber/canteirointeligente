@@ -5223,6 +5223,7 @@ export default function AdminConfiguracoes() {
   const [transitioning, setTransitioning] = useState(false);
   const [allowedSections, setAllowedSections] = useState<Set<string> | null>(null);
   const [loadingAdminSections, setLoadingAdminSections] = useState(true);
+  const [canManagePermissions, setCanManagePermissions] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState("");
   const isOwnerAdmin = OWNER_ONLY_ADMIN_EMAILS.has(currentUserEmail.toLowerCase());
 
@@ -5264,6 +5265,7 @@ export default function AdminConfiguracoes() {
 
       if (!hasAccess) {
         if (mounted) {
+          setCanManagePermissions(false);
           setAllowedSections(new Set());
           setLoadingAdminSections(false);
         }
@@ -5272,7 +5274,36 @@ export default function AdminConfiguracoes() {
 
       // SuperAdmin e admin global seguem com acesso total ao Painel
       if (isSuperAdmin || permissions?.is_admin) {
+        // A aba Permissões é sensível: exige autorização individual explícita
+        // (ou o owner), além do acesso geral ao Painel.
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id;
+        let granted = false;
+        if (userId) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("company_id")
+            .eq("user_id", userId)
+            .maybeSingle();
+          if (profileData?.company_id) {
+            const [{ data: panelAccess }, { data: permission, error: permissionError }] = await Promise.all([
+              (supabase as any).from("user_admin_panel_access")
+                .select("can_access_panel, allowed_sections")
+                .eq("company_id", profileData.company_id).eq("user_id", userId).maybeSingle(),
+              (supabase as any).from("user_admin_permissions")
+                .select("id")
+                .eq("company_id", profileData.company_id).eq("user_id", userId)
+                .eq("resource", "admin_section.permissoes").eq("action", "manage")
+                .maybeSingle(),
+            ]);
+            if (permissionError) console.error("[AdminConfiguracoes] erro ao verificar permissão da aba:", permissionError.message);
+            const sections = panelAccess?.allowed_sections;
+            granted = !permissionError && !!permission && panelAccess?.can_access_panel === true
+              && Array.isArray(sections) && sections.includes("permissoes");
+          }
+        }
         if (mounted) {
+          setCanManagePermissions(granted);
           setAllowedSections(null);
           setLoadingAdminSections(false);
         }
@@ -5413,10 +5444,11 @@ export default function AdminConfiguracoes() {
       ? MENU_SECTIONS
       : MENU_SECTIONS.filter((item) => allowedSections?.has(item.key));
 
-    if (isOwnerAdmin) return baseSections;
-
-    return baseSections.filter((item) => item.key !== "permissoes" && item.key !== "roles");
-  }, [isSuperAdmin, permissions?.is_admin, allowedSections, isOwnerAdmin]);
+    return baseSections.filter((item) =>
+      (item.key !== "permissoes" || isOwnerAdmin || canManagePermissions)
+      && (item.key !== "roles" || isOwnerAdmin)
+    );
+  }, [isSuperAdmin, permissions?.is_admin, allowedSections, isOwnerAdmin, canManagePermissions]);
 
   useEffect(() => {
     if (loadingBase || loadingAdminSections) return;
@@ -5463,7 +5495,7 @@ export default function AdminConfiguracoes() {
         );
       case "usuarios": return <UsersManagerExternal />;
       case "permissoes":
-        return isOwnerAdmin ? <PermissoesManager /> : null;
+        return isOwnerAdmin || canManagePermissions ? <PermissoesManager /> : null;
       case "ogs": return <OgsManager />;
       case "materiais": return <MateriaisUnificadoManager />;
       case "maquinas": return <MaquinasManager />;
