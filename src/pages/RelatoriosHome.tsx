@@ -10,6 +10,8 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { toLocalISODate } from "@/lib/date-local";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
+import { ReportsWorkspace } from "@/components/workspace/WorkspaceShell";
 
 const TIPOS_RELATORIO = [
   { id: "equipamento", label: "Equipamentos", icon: Tractor, desc: "Diário, consumo, manutenção, produção" },
@@ -51,7 +53,14 @@ function normTxt(v: string) {
 export default function RelatoriosHome() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isDesktop = useDesktopWorkspace();
+  const reportSearch = searchParams.get("buscar") || "";
+  const setReportSearch = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set("buscar", value); else next.delete("buscar");
+    setSearchParams(next, { replace: true });
+  };
   const origem = searchParams.get("origem") || "";
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `&origem=${encodeURIComponent(origem)}` : "";
@@ -295,9 +304,12 @@ export default function RelatoriosHome() {
     return Array.from(setFrotas).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [categorias, frotasPorTipo]);
 
-  return (
-    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
-      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient">
+  const visibleReports = TIPOS_RELATORIO.filter(t => isAdmin || !relatoriosPermitidos || relatoriosPermitidos.includes(t.id))
+    .filter(t => !isDesktop || normTxt(`${t.label} ${t.desc}`).includes(normTxt(reportSearch)));
+
+  const page = (
+    <div className="min-h-screen bg-page">
+      <header className="flex items-center gap-3 px-4 py-3 lg:px-8 lg:py-5 bg-header-gradient">
         <button
           onClick={step === "tipo" ? goBack : voltar}
           aria-label="Voltar"
@@ -306,7 +318,7 @@ export default function RelatoriosHome() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <span className="block font-display font-semibold text-base text-primary-foreground">WF Relatórios</span>
+          <h1 className="block font-display font-semibold text-base lg:text-2xl text-primary-foreground">{isDesktop ? "Central de relatórios" : "WF Relatórios"}</h1>
           <span className="block text-sm text-primary-foreground/90">
             {step === "tipo" && "Selecione o tipo"}
             {step === "subtipo" && (tipoRel === "equipamento" ? "Tipo de Equipamento" : "Selecione a OGS")}
@@ -316,12 +328,12 @@ export default function RelatoriosHome() {
         </div>
       </header>
 
-      <div className="px-4 pb-2 bg-header-gradient">
+      <div className="px-4 lg:px-8 pb-3 bg-header-gradient">
         <NavigationTrail trail={trail} onSelect={goTo} />
       </div>
 
       {/* Indicador de progresso */}
-      <div className="flex px-4 pt-3 gap-1.5">
+      <div className="flex px-4 pt-3 gap-1.5 lg:hidden">
         {["tipo", "subtipo", "frota_ogs", "periodo"].map((s, i) => (
           <div key={s} className={`h-1 flex-1 rounded-full transition-colors ${
             ["tipo", "subtipo", "frota_ogs", "periodo"].indexOf(step) >= i ? "bg-primary" : "bg-border"
@@ -329,7 +341,11 @@ export default function RelatoriosHome() {
         ))}
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-4 space-y-2">
+      {isDesktop && step !== "tipo" && <ol aria-label="Etapas do relatório" className="flex gap-6 px-8 pt-6 text-sm text-muted-foreground">
+        {[{id:"tipo",label:"Relatório"},{id:"subtipo",label:tipoRel === "equipamento" ? "Tipo de equipamento" : "OGS ou frota"},...(tipoRel === "equipamento" ? [{id:"frota_ogs",label:"Frota"}] : []),{id:"periodo",label:"Período"}].map((item,index)=><li key={item.id} aria-current={step===item.id ? "step" : undefined} className={step===item.id ? "font-semibold text-primary" : ""}>{index+1}. {item.label}</li>)}
+      </ol>}
+      <div className={`mx-auto px-4 py-4 space-y-2 lg:px-8 lg:py-8 ${isDesktop && step === "tipo" ? "max-w-[1680px]" : "max-w-2xl lg:max-w-4xl"}`}>
+
         {/* Busca avançada contextual */}
         {step === "subtipo" && tipoRel === "rdo" && (
           <button
@@ -374,11 +390,12 @@ export default function RelatoriosHome() {
                 {/* PASSO 1: Tipo de Relatório */}
         {step === "tipo" && (
           <>
-            <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Que tipo de relatório você precisa?</p>
-            {TIPOS_RELATORIO.filter(t => {
-              if (isAdmin || !relatoriosPermitidos) return true;
-              return relatoriosPermitidos.includes(t.id);
-            }).map(t => (
+            {isDesktop ? <div className="mb-6 space-y-5">
+              <div><h2 className="text-xl font-semibold">Encontre o relatório que precisa</h2><p className="mt-2 text-sm text-muted-foreground">Consulte a operação por obra, equipamento ou equipe. Os filtros e períodos continuam disponíveis em cada relatório.</p></div>
+              <div className="flex gap-4 items-center"><label className="relative flex-1 max-w-xl"><span className="sr-only">Buscar relatório</span><Search aria-hidden="true" className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" /><input type="search" value={reportSearch} onChange={e=>setReportSearch(e.target.value)} placeholder="Ex.: pavimentação, diesel, funcionários…" className="w-full h-12 pl-12 pr-4 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></label>{reportSearch && <button type="button" onClick={()=>setReportSearch("")} className="min-h-11 px-3 text-sm text-primary rounded-md hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">Limpar busca</button>}<span role="status" className="text-sm text-muted-foreground">{visibleReports.length} relatórios</span></div>
+            </div> : <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Que tipo de relatório você precisa?</p>}
+            <div className={isDesktop ? "grid grid-cols-2 xl:grid-cols-3 gap-4" : "space-y-2"} data-report-grid>
+            {visibleReports.map(t => (
               <button
                 key={t.id}
                 onClick={() => {
@@ -418,6 +435,8 @@ export default function RelatoriosHome() {
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
               </button>
             ))}
+            </div>
+            {isDesktop && !visibleReports.length && <p className="p-6 rounded-lg border border-border bg-card text-muted-foreground">Nenhum relatório encontrado para esta busca.</p>}
           </>
         )}
 
@@ -626,4 +645,5 @@ export default function RelatoriosHome() {
       </div>
     </div>
   );
+  return isDesktop ? <ReportsWorkspace>{page}</ReportsWorkspace> : page;
 }

@@ -12,11 +12,35 @@ vi.mock('@/hooks/useCompanyModules', () => ({ useCompanyModules: () => ({ hasMod
 vi.mock('@/hooks/usePushNotifications', () => ({ usePushNotifications: () => ({ requestPermission: vi.fn(), isSupported: false, isSubscribed: false }) }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: { getUser: async () => ({ data: { user: null } }) } } }));
 vi.mock('@/components/Spotlight', () => ({ Spotlight: () => <button type="button" className="w-full rounded-lg border border-input bg-card px-4 py-3 text-left text-sm text-muted-foreground">Buscar frota, funcionário, OGS…</button> }));
-afterEach(() => {cleanup(); session.admin=false; session.superAdmin=false; session.permissions={}; session.allowed=true;});
+afterEach(() => {cleanup(); vi.unstubAllGlobals(); session.admin=false; session.superAdmin=false; session.permissions={}; session.allowed=true;});
 function RouteProbe() { return <output data-testid="route">{useLocation().pathname}</output>; }
 function mount() {return render(<MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><Home/><RouteProbe/></MemoryRouter>);}
 
 describe('Home — primeiro lote visual preserva o acesso', () => {
+ it('oferece navegação lateral no desktop sem expor módulos não autorizados', async () => {
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  session.permissions={modulo_obras:true}; mount();
+  await screen.findByRole('link',{name:'WF Obras'});
+  const menu=screen.getByRole('navigation',{name:'Módulos'});
+  expect(menu).toHaveTextContent('WF Obras');
+  expect(menu).not.toHaveTextContent('WF Abastecimento');
+  expect(screen.getByRole('heading',{name:'Sua área de trabalho'})).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('link',{name:'WF Obras'}));
+  expect(screen.getByTestId('route')).toHaveTextContent('/obras');
+ });
+ it('filtra módulos por nome sem acentos sem esconder a navegação lateral', async () => {
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  session.permissions={is_admin:true}; mount();
+  await screen.findByRole('link',{name:'WF Manutenção'});
+  fireEvent.change(screen.getByRole('searchbox',{name:'Buscar módulo'}),{target:{value:'manutencao'}});
+  expect(screen.getByRole('button',{name:/WF Manutenção/})).toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:/WF Obras/})).toBeNull();
+  expect(screen.getByRole('link',{name:'WF Obras'})).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('searchbox',{name:'Buscar módulo'}),{target:{value:'inexistente'}});
+  expect(screen.getByText('Nenhum módulo encontrado para esta busca.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'Limpar busca'}));
+  expect(screen.getByRole('button',{name:/WF Obras/})).toBeInTheDocument();
+ });
  it('usa cards neutros sem escala, glow ou sombra pesada', async () => {
   session.permissions={is_admin:true}; const {container}=mount();
   await screen.findByRole('button',{name:/WF Obras/});
