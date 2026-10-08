@@ -223,7 +223,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   const rdoIds = rdos.map((r: any) => r.id);
 
   const obraIds = [...new Set(medicoes.map((m: any) => m.obra_id).filter(Boolean))];
-  const obraNumbersFromRdo = [...new Set(rdos.map((r: any) => r.obra_nome).filter(Boolean))];
+  const obraNumbersFromRdo = [...new Set(rdos.map((r: any) => normalizeString(r.obra_nome)).filter(Boolean))];
   const empresaIds = [...new Set(medicoes.map((m: any) => m.empresa_id).filter(Boolean))];
   const funcionarioIds = [...new Set(medicoes.map((m: any) => m.funcionario_id).filter(Boolean))];
   const servicoIds = [...new Set(medicoes.map((m: any) => m.servico_id).filter(Boolean))];
@@ -301,6 +301,23 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
 
   const obrasMap = new Map<string, any>((obrasResp.data || []).map((o: any) => [o.id, o]));
   const obrasByNumberMap = new Map<string, any>((obrasByNumberResp.data || []).map((o: any) => [o.ogs_number, o]));
+  // Cadastro pode ter vários locais na mesma OGS. Só inferir quando houver um único endereço distinto.
+  const addressSets = new Map<string, Set<string>>();
+  for (const obra of obrasByNumberResp.data || []) {
+    const addresses = addressSets.get(obra.ogs_number) || new Set<string>();
+    for (const part of normalizeString(obra.location_address).split(";")) {
+      if (part.trim()) addresses.add(part.trim());
+    }
+    addressSets.set(obra.ogs_number, addresses);
+  }
+  const localDoRdo = (rdo: any): string | null => {
+    const escolhido = normalizeString(rdo?.local);
+    if (escolhido) return escolhido;
+    const ogsNumber = normalizeString(rdo?.obra_nome);
+    if (ogsNumber === "2509") return null; // local livre: cadastro genérico não identifica a rua executada
+    const addresses = addressSets.get(ogsNumber);
+    return addresses?.size === 1 ? [...addresses][0] : null;
+  };
   const empresasMap = new Map<string, any>((empresasResp.data || []).map((e: any) => [e.id, e]));
   const funcionariosMap = new Map<string, any>((funcionariosResp.data || []).map((f: any) => [f.id, f]));
   const servicosMap = new Map<string, any>((servicosResp.data || []).map((s: any) => [s.id, s]));
@@ -346,7 +363,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       encarregado: rdo?.encarregado || null,
       obra_nome: rdo?.obra_nome || null,
       contratante: ogs?.client_name || null,
-      local: rdo?.local || null,
+      local: localDoRdo(rdo),
       tipo_rdo: rdo?.tipo_rdo || null,
       nf_numero: n.nf,
       nf: nfComPrefixo(n.nf, n.usina),
@@ -369,7 +386,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     const equipamentoRaw = normalizeString(n.equipamento) || null;
     const placaBetoneira = isValidPlateLike(equipamentoRaw) ? equipamentoRaw : null;
     const obraOgs = rdo?.obra_nome || null;
-    const localAplicacao = rdo?.local || null;
+    const localAplicacao = localDoRdo(rdo);
 
     return {
       id: n.id,
@@ -426,7 +443,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       obra_nome: rdo?.obra_nome || null,
       ogs: rdo?.obra_nome || null,
       contratante: ogs?.client_name || null,
-      local: rdo?.local || null,
+      local: localDoRdo(rdo),
       tipo_rdo: rdo?.tipo_rdo || null,
       empreiteiro_id: null,
       empreiteiro_nome: rdo?.empreiteiro || null,
@@ -513,7 +530,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       data_rdo: rdo?.data || null,
       ogs: rdo?.obra_nome || null,
       contratante: ogs?.client_name || null,
-      local: rdo?.local || null,
+      local: localDoRdo(rdo),
       equipamento_id: row.id,
       frota: row.frota || null,
       equipamento: equipamentoNome,
