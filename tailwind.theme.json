@@ -11,7 +11,8 @@
         "selected": "#eaf1ff",
         "selected-text": "#1649ad",
         "success": "#176247",
-        "danger": "#b42318"
+        "danger": "#b42318",
+        "legacy-accent-text": "#8a4b00"
       },
       "fontFamily": {
         "h1": [

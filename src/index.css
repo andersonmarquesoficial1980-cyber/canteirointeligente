@@ -26,6 +26,8 @@
 
     --accent: 220 100% 95.88%;
     --accent-foreground: 219.74 77.44% 38.24%;
+    /* Formulários existentes usam text-accent para rótulos e alertas. */
+    --accent-text: 32.61 100% 27.06%;
 
     --destructive: 4.23 76.47% 40%;
     --destructive-foreground: 0 0% 100%;

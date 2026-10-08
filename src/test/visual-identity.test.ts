@@ -28,6 +28,12 @@ describe('Identidade visual conservadora — legibilidade dos tokens', () => {
     const headerRule = css.match(/\.bg-header-gradient\s*\{([^}]+)\}/)?.[1];
     expect(headerRule).not.toContain('linear-gradient');
   });
+  it('mantém textos de destaque legíveis nos formulários existentes', () => {
+    const config = readFileSync(path.resolve(process.cwd(), 'tailwind.config.ts'), 'utf8');
+    expect(contrast('accent-text', 'background')).toBeGreaterThanOrEqual(4.5);
+    expect(config).toContain('textColor:');
+    expect(config).toContain('hsl(var(--accent-text))');
+  });
   it.each([
     ['primary','primary-foreground'], ['destructive','destructive-foreground'],
     ['success','success-foreground'], ['background','foreground'],

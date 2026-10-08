@@ -13,6 +13,7 @@ colors:
   selected-text: "#1649AD"
   success: "#176247"
   danger: "#B42318"
+  legacy-accent-text: "#8A4B00"
 typography:
   h1:
     fontFamily: Inter
@@ -69,6 +70,9 @@ components:
   danger:
     backgroundColor: "{colors.danger}"
     textColor: "{colors.white}"
+  legacy-highlight:
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.legacy-accent-text}"
 ---
 
 ## Overview
@@ -81,6 +85,7 @@ Lote 1 implementado em branch isolada: tokens compartilhados, fonte Inter, redu�
 
 Azul de ação #155EEF; azul profundo #102A43 para estrutura. Superfícies claras. Verde para confirmação e vermelho para erro; alertas âmbar sempre com texto. O token accent é seleção/hover azul-claro, não alerta.
 Contrastes devem ser medidos por par efetivamente renderizado. Transparência, imagens e cores locais precisam de auditoria específica. A validação dos tokens não certifica todas as telas.
+O texto `text-accent` dos formulários legados usa âmbar escuro (#8A4B00), separado do fundo `bg-accent` azul-claro. Não aplicar a cor de fundo aos rótulos de equipamentos, avarias e manutenção.
 
 ## Typography
 

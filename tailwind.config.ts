@@ -62,6 +62,12 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      textColor: {
+        accent: {
+          DEFAULT: "hsl(var(--accent-text))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
