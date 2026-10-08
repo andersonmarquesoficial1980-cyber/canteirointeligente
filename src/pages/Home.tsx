@@ -93,42 +93,38 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-5 py-12 bg-background relative overflow-hidden">
-      {/* Ambient glow blobs */}
-      <div className="absolute top-[-120px] left-[-80px] w-[320px] h-[320px] rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-100px] right-[-60px] w-[280px] h-[280px] rounded-full bg-accent/10 blur-[100px] pointer-events-none" />
+    <div className="min-h-screen flex flex-col items-center px-4 pt-24 pb-12 bg-page relative">
 
       {/* Spotlight — Busca Global */}
-      <div className="w-full max-w-lg relative z-10 mb-6">
+      <div className="w-full max-w-2xl relative z-10 mb-6">
         <Spotlight />
       </div>
 
       {/* Brand */}
       <div className="mb-8 text-center space-y-3 relative z-10 flex flex-col items-center">
-        {/* Logo Workflux — centralizado e flutuante */}
+        {/* Marca preservada neste lote; sem efeitos decorativos */}
         <div className="relative inline-block">
           <img
             src={logoCi}
             alt="Workflux"
-            className="h-32 mx-auto object-contain drop-shadow-2xl animate-float"
+            className="h-14 w-14 mx-auto object-contain rounded-lg"
           />
-          <div className="absolute inset-0 rounded-full bg-primary/10 blur-2xl -z-10 scale-125" />
         </div>
 
         {/* Se tiver logo do cliente, substitui o título pelo logo do cliente */}
         {companyLogo ? (
           <div className="flex flex-col items-center gap-1">
             <img src={companyLogo} alt="Cliente" className="h-28 object-contain" />
-            <p className="text-xs text-muted-foreground/60 tracking-wide">
+            <p className="text-sm text-muted-foreground">
               Powered by Workflux
             </p>
           </div>
         ) : (
           <div>
-            <h1 className="text-gradient text-2xl font-display font-extrabold tracking-tight">
+            <h1 className="text-foreground text-3xl font-display font-semibold tracking-tight">
               Workflux
             </h1>
-            <p className="text-sm text-muted-foreground tracking-wide">
+            <p className="text-base text-muted-foreground">
               Plataforma de Gestão e Integração de Campo
             </p>
           </div>
@@ -139,7 +135,7 @@ export default function Home() {
       <button
         type="button"
         onClick={() => navigate("/perfil")}
-        className="absolute top-5 left-5 z-20 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-foreground bg-background hover:bg-muted text-sm font-medium transition-colors"
+        className="absolute top-5 left-5 z-20 inline-flex items-center gap-2 min-h-12 px-4 py-2 rounded-lg border border-border text-foreground bg-background hover:bg-muted text-sm font-medium transition-colors"
       >
         <User className="w-4 h-4" /> Perfil
       </button>
@@ -148,13 +144,13 @@ export default function Home() {
         type="button"
         disabled={loggingOut}
         onClick={handleLogout}
-        className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-destructive/30 text-destructive bg-background hover:bg-destructive/10 text-sm font-medium cursor-pointer disabled:opacity-50 transition-colors"
+        className="absolute top-5 right-5 z-20 inline-flex items-center gap-2 min-h-12 px-4 py-2 rounded-lg border border-border text-destructive bg-background hover:bg-destructive/10 text-sm font-medium cursor-pointer disabled:opacity-50 transition-colors"
       >
         <LogOut className="w-4 h-4" /> {loggingOut ? "Saindo..." : "Sair"}
       </button>
 
       {/* @LOCK-UI: Single-column vertical layout — DO NOT change to grid-cols-2 */}
-      <div className="flex flex-col gap-3 w-full max-w-lg relative z-10">
+      <div className="flex flex-col gap-3 w-full max-w-2xl relative z-10">
         {/* Aviso: usuário logado mas sem perfil cadastrado no sistema */}
         {semPerfil && !loadingPerms && (
           <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 px-5 py-4 text-sm text-yellow-300 space-y-1">
@@ -166,7 +162,7 @@ export default function Home() {
         {(loadingPerms || loadingModules || loadingPanelAccess) && (
           <div className="space-y-3">
             {[1,2,3,4,5].map(i => (
-              <div key={i} className="h-20 rounded-2xl bg-header-gradient/30 animate-pulse" />
+              <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
         )}
@@ -221,18 +217,16 @@ export default function Home() {
               <button
                 key={mod.id}
                 onClick={() => navigate(mod.route)}
-                className={`group relative flex items-center gap-4 rounded-2xl text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer ${
-                  mod.id === "admin" ? "bg-[hsl(220,60%,20%)]" : "bg-header-gradient"
-                }`}
+                className="group relative flex items-center gap-4 rounded-xl border border-border bg-card text-card-foreground p-4 min-h-20 transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
               >
-                <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-                  <Icon className="w-6 h-6 text-primary-foreground" />
+                <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-accent shrink-0">
+                  <Icon className="w-6 h-6 text-primary" />
                 </div>
                 <div className="text-left">
-                  <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">{mod.label}</span>
-                  <span className="block text-[10px] text-primary-foreground/70 mt-0.5">{mod.subtitle}</span>
+                  <span className="block text-base leading-snug font-display font-semibold tracking-tight">{mod.label}</span>
+                  <span className="block text-sm text-muted-foreground mt-1">{mod.subtitle}</span>
                 </div>
-                <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
+                <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto shrink-0" />
               </button>
             );
           })}
@@ -240,16 +234,16 @@ export default function Home() {
         {isSuperAdmin && (
           <button
             onClick={() => navigate("/super-admin")}
-            className="group relative flex items-center gap-4 rounded-2xl text-primary-foreground p-5 h-20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl hover:shadow-2xl cursor-pointer bg-[hsl(220,65%,24%)]"
+            className="group relative flex items-center gap-4 rounded-xl border border-border bg-card text-card-foreground p-4 min-h-20 transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
           >
-            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 glass shrink-0">
-              <Crown className="w-6 h-6 text-primary-foreground" />
+            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-accent shrink-0">
+              <Crown className="w-6 h-6 text-primary" />
             </div>
             <div className="text-left">
-              <span className="block text-sm leading-tight font-display font-extrabold tracking-tight">Super Admin</span>
-              <span className="block text-[10px] text-primary-foreground/70 mt-0.5">Gestão de Empresas Clientes</span>
+              <span className="block text-base leading-snug font-display font-semibold tracking-tight">Super Admin</span>
+              <span className="block text-sm text-muted-foreground mt-1">Gestão de Empresas Clientes</span>
             </div>
-            <ChevronRight className="w-5 h-5 text-primary-foreground/50 ml-auto" />
+            <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto shrink-0" />
           </button>
         )}
       </div>

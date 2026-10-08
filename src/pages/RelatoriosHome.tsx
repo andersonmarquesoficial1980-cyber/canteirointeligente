@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, Search } from "lucide-react";
+import { ArrowLeft, BarChart3, ChevronRight, ChevronLeft, Search, Tractor, ClipboardList, Fuel, Wrench, Truck, ClipboardCheck, MapPin, Users, Receipt, Building2, Route, ListChecks, ScanSearch, LayoutDashboard, Monitor, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import AdvancedReports from "@/components/dashboard/AdvancedReports";
@@ -12,26 +12,26 @@ import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { toLocalISODate } from "@/lib/date-local";
 
 const TIPOS_RELATORIO = [
-  { id: "equipamento", label: "Equipamentos", emoji: "🚜", desc: "Diário, consumo, manutenção, produção" },
-  { id: "rdo", label: "Diários de Obra (RDO)", emoji: "🏗️", desc: "Produção, efetivo, equipamentos na obra" },
-  { id: "abastecimento", label: "Abastecimento", emoji: "⛽", desc: "Consumo de diesel por equipamento" },
-  { id: "manutencao", label: "Manutenção", emoji: "🔧", desc: "Ordens de serviço e peças trocadas" },
-  { id: "transportes", label: "Transportes (Carreta)", emoji: "🚛", desc: "Relatório de transporte de equipamentos" },
-  { id: "carreteiros", label: "Carreteiros (Fechamento)", emoji: "📋", desc: "Fechamento mensal de viagens por placa" },
-  { id: "checklist", label: "Checklist Pré-Operação", emoji: "✔️", desc: "Histórico de checklists enviados pelos operadores" },
-  { id: "funcionario", label: "Localização de Funcionário", emoji: "👷", desc: "Onde esteve em determinado período (via RDO)" },
-  { id: "mdo_periodo", label: "MDO por Período", emoji: "🧾", desc: "Cruza RDO x Gestão de Pessoas com presença e divergências" },
-  { id: "funcionarios_personalizado", label: "Funcionários Personalizado", emoji: "👥", desc: "Monte lista manual de colaboradores com campos configuráveis" },
-  { id: "equipamentos_personalizado", label: "Equipamentos Personalizado", emoji: "🚜", desc: "Monte lista manual de equipamentos com campos configuráveis" },
-  { id: "equipamentos_rdo", label: "Localização de Equipamentos (RDO)", emoji: "🚜", desc: "Onde a frota estava por período (via RDO)" },
-  { id: "notas_fiscais", label: "Notas Fiscais de Massa", emoji: "📄", desc: "Todas as NFs por OGS e período" },
-  { id: "notas_fiscais_concreto", label: "Notas Fiscais de Concreto", emoji: "🏛️", desc: "NFs de concreto lançadas no RDO de Infra" },
-  { id: "producao_infra", label: "Produção de Infra (RDO)", emoji: "🏗️", desc: "Produção de infraestrutura por período, OGS e apontador" },
-  { id: "producao_pavimentacao", label: "Produção de Pavimentação (RDO)", emoji: "🛣️", desc: "Produção de pavimentação por período, OGS e apontador" },
-  { id: "controle_lancamentos", label: "Controle de Lançamentos", emoji: "📊", desc: "Visão gerencial dos diários por usuário e por equipamento" },
-  { id: "divergencias_rdo_diarios", label: "Divergências RDO × Diários", emoji: "🔎", desc: "Conferir equipamentos e operadores por data ou período" },
-  { id: "rdo_tecnico_dashboard", label: "Dashboard RDO Técnico", emoji: "🧠", desc: "Visão executiva do RDO Técnico com botões por assunto" },
-  { id: "dashboards_obras", label: "Dashboards Obras", emoji: "📺", desc: "Hub único com todos os dashboards operacionais de Obras" },
+  { id: "equipamento", label: "Equipamentos", icon: Tractor, desc: "Diário, consumo, manutenção, produção" },
+  { id: "rdo", label: "Diários de Obra (RDO)", icon: ClipboardList, desc: "Produção, efetivo, equipamentos na obra" },
+  { id: "abastecimento", label: "Abastecimento", icon: Fuel, desc: "Consumo de diesel por equipamento" },
+  { id: "manutencao", label: "Manutenção", icon: Wrench, desc: "Ordens de serviço e peças trocadas" },
+  { id: "transportes", label: "Transportes (Carreta)", icon: Truck, desc: "Relatório de transporte de equipamentos" },
+  { id: "carreteiros", label: "Carreteiros (Fechamento)", icon: ClipboardList, desc: "Fechamento mensal de viagens por placa" },
+  { id: "checklist", label: "Checklist Pré-Operação", icon: ClipboardCheck, desc: "Histórico de checklists enviados pelos operadores" },
+  { id: "funcionario", label: "Localização de Funcionário", icon: MapPin, desc: "Onde esteve em determinado período (via RDO)" },
+  { id: "mdo_periodo", label: "MDO por Período", icon: Users, desc: "Cruza RDO x Gestão de Pessoas com presença e divergências" },
+  { id: "funcionarios_personalizado", label: "Funcionários Personalizado", icon: Users, desc: "Monte lista manual de colaboradores com campos configuráveis" },
+  { id: "equipamentos_personalizado", label: "Equipamentos Personalizado", icon: Tractor, desc: "Monte lista manual de equipamentos com campos configuráveis" },
+  { id: "equipamentos_rdo", label: "Localização de Equipamentos (RDO)", icon: MapPin, desc: "Onde a frota estava por período (via RDO)" },
+  { id: "notas_fiscais", label: "Notas Fiscais de Massa", icon: Receipt, desc: "Todas as NFs por OGS e período" },
+  { id: "notas_fiscais_concreto", label: "Notas Fiscais de Concreto", icon: Receipt, desc: "NFs de concreto lançadas no RDO de Infra" },
+  { id: "producao_infra", label: "Produção de Infra (RDO)", icon: Building2, desc: "Produção de infraestrutura por período, OGS e apontador" },
+  { id: "producao_pavimentacao", label: "Produção de Pavimentação (RDO)", icon: Route, desc: "Produção de pavimentação por período, OGS e apontador" },
+  { id: "controle_lancamentos", label: "Controle de Lançamentos", icon: ListChecks, desc: "Visão gerencial dos diários por usuário e por equipamento" },
+  { id: "divergencias_rdo_diarios", label: "Divergências RDO × Diários", icon: ScanSearch, desc: "Conferir equipamentos e operadores por data ou período" },
+  { id: "rdo_tecnico_dashboard", label: "Dashboard RDO Técnico", icon: LayoutDashboard, desc: "Visão executiva do RDO Técnico com botões por assunto" },
+  { id: "dashboards_obras", label: "Dashboards Obras", icon: Monitor, desc: "Hub único com todos os dashboards operacionais de Obras" },
 ];
 
 function fmtDate(d: string) {
@@ -297,16 +297,17 @@ export default function RelatoriosHome() {
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)]">
-      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
+      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient">
         <button
           onClick={step === "tipo" ? goBack : voltar}
-          className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg"
+          aria-label="Voltar"
+          className="text-primary-foreground hover:bg-white/15 min-h-12 min-w-12 flex items-center justify-center p-2 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <span className="block font-display font-extrabold text-sm text-primary-foreground">WF Relatórios</span>
-          <span className="block text-[11px] text-primary-foreground/80">
+          <span className="block font-display font-semibold text-base text-primary-foreground">WF Relatórios</span>
+          <span className="block text-sm text-primary-foreground/90">
             {step === "tipo" && "Selecione o tipo"}
             {step === "subtipo" && (tipoRel === "equipamento" ? "Tipo de Equipamento" : "Selecione a OGS")}
             {step === "frota_ogs" && (tipoRel === "equipamento" ? `${tipoEquip} — Selecione a frota` : "Selecione a OGS")}
@@ -349,7 +350,7 @@ export default function RelatoriosHome() {
               onClick={() => navigate(withReturnTo(`/equipamentos/exportar-protheus${origemQueryPrefix}`))}
               className="w-full flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 hover:bg-blue-100 transition-colors text-left"
             >
-              <span className="text-xl">📊</span>
+              <FileSpreadsheet className="w-6 h-6 text-primary shrink-0" aria-hidden="true" />
               <div className="flex-1">
                 <p className="text-sm font-bold text-blue-700">Exportar para Protheus</p>
                 <p className="text-xs text-muted-foreground">Exportação de diários para o ERP</p>
@@ -405,12 +406,14 @@ export default function RelatoriosHome() {
                   }
                   selecionarTipo(t.id);
                 }}
-                className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
+                className="w-full text-left rdo-card hover:border-primary/50 transition-colors flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className="text-2xl">{t.emoji}</span>
+                <span className="w-12 h-12 rounded-lg bg-accent text-primary flex items-center justify-center shrink-0">
+                  <t.icon className="w-6 h-6" aria-hidden="true" />
+                </span>
                 <div className="flex-1">
-                  <p className="font-display font-bold text-sm">{t.label}</p>
-                  <p className="text-xs text-muted-foreground">{t.desc}</p>
+                  <p className="font-display font-semibold text-base">{t.label}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{t.desc}</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
               </button>
@@ -426,7 +429,7 @@ export default function RelatoriosHome() {
               <button
                 key={t}
                 onClick={() => { selecionarTipoEquip(t); }}
-                className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
+                className="w-full text-left rdo-card hover:border-primary/50 transition-colors flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <BarChart3 className="w-5 h-5 text-primary" />
@@ -446,9 +449,9 @@ export default function RelatoriosHome() {
             <p className="text-sm font-semibold text-muted-foreground px-1 mb-3">Selecione a Carreta (ou todas)</p>
             <button
               onClick={() => { selecionarFrotaOgs("TODAS"); }}
-              className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
+              className="w-full text-left rdo-card hover:border-primary/50 transition-colors flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <span className="text-2xl">🚛</span>
+              <Truck className="w-6 h-6 text-primary shrink-0" aria-hidden="true" />
               <div className="flex-1">
                 <p className="font-display font-bold text-sm">Todas as Carretas</p>
                 <p className="text-xs text-muted-foreground">Ver transportes de todas as carretas no período</p>
@@ -456,8 +459,8 @@ export default function RelatoriosHome() {
             </button>
             {frotasCarretas.map((f: string) => (
               <button key={f} onClick={() => { selecionarFrotaOgs(f); }}
-                className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3">
-                <span className="text-2xl">🚛</span>
+                className="w-full text-left rdo-card hover:border-primary/50 transition-colors flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Truck className="w-6 h-6 text-primary shrink-0" aria-hidden="true" />
                 <div className="flex-1">
                   <p className="font-display font-bold text-sm">{f}</p>
                 </div>
@@ -517,7 +520,7 @@ export default function RelatoriosHome() {
                 {/* Opção: Todos os equipamentos — descrição varia conforme tipo */}
                 <button
                   onClick={() => { selecionarFrotaOgs("TODAS"); }}
-                  className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3 border-primary/30 bg-primary/5"
+                  className="w-full text-left rdo-card hover:border-primary/50 transition-colors flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary/30 bg-primary/5"
                 >
                   <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0 text-lg">
                     {tipoRel === "abastecimento" ? "⛽" : "🔧"}
@@ -535,7 +538,7 @@ export default function RelatoriosHome() {
                   <button
                     key={f}
                     onClick={() => { selecionarFrotaOgs(f); }}
-                    className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
+                    className="w-full text-left rdo-card hover:border-primary/50 transition-colors flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <BarChart3 className="w-5 h-5 text-primary" />
@@ -557,7 +560,7 @@ export default function RelatoriosHome() {
               <button
                 key={f}
                 onClick={() => { selecionarFrotaOgs(f); }}
-                className="w-full text-left rdo-card hover:shadow-md transition-all flex items-center gap-3"
+                className="w-full text-left rdo-card hover:border-primary/50 transition-colors flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 font-display font-bold text-primary text-sm">
                   {f.slice(0, 2)}

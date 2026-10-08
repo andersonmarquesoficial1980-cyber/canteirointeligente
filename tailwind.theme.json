@@ -1,0 +1,61 @@
+{
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": "#155eef",
+        "structure": "#102a43",
+        "text": "#172b3a",
+        "secondary": "#526477",
+        "surface": "#f4f6f8",
+        "white": "#ffffff",
+        "selected": "#eaf1ff",
+        "selected-text": "#1649ad",
+        "success": "#176247",
+        "danger": "#b42318"
+      },
+      "fontFamily": {
+        "h1": [
+          "Inter"
+        ],
+        "body-md": [
+          "Inter"
+        ],
+        "label": [
+          "Inter"
+        ]
+      },
+      "fontSize": {
+        "h1": [
+          "2rem",
+          {
+            "letterSpacing": "-0.02em",
+            "fontWeight": "600"
+          }
+        ],
+        "body-md": [
+          "1rem",
+          {
+            "fontWeight": "400"
+          }
+        ],
+        "label": [
+          "0.875rem",
+          {
+            "fontWeight": "500"
+          }
+        ]
+      },
+      "borderRadius": {
+        "sm": "6px",
+        "md": "10px",
+        "lg": "12px"
+      },
+      "spacing": {
+        "sm": "8px",
+        "md": "16px",
+        "lg": "24px",
+        "xl": "32px"
+      }
+    }
+  }
+}

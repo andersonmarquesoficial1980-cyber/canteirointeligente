@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,59 +7,59 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 20%;
+    --foreground: 205.71 43.21% 15.88%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 20%;
+    --card-foreground: 205.71 43.21% 15.88%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 20%;
+    --popover-foreground: 205.71 43.21% 15.88%;
 
-    --primary: 197 100% 50%;
+    --primary: 219.91 87.20% 50.98%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 25% 96%;
     --secondary-foreground: 0 0% 30%;
 
-    --muted: 210 15% 94%;
-    --muted-foreground: 215 10% 45%;
+    --muted: 210 28.57% 94.51%;
+    --muted-foreground: 210.81 18.41% 39.41%;
 
-    --accent: 42 100% 50%;
-    --accent-foreground: 0 0% 10%;
+    --accent: 220 100% 95.88%;
+    --accent-foreground: 219.74 77.44% 38.24%;
 
-    --destructive: 0 85% 55%;
+    --destructive: 4.23 76.47% 40%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 210 20% 90%;
     --input: 210 20% 90%;
-    --ring: 215 100% 50%;
+    --ring: 219.91 87.20% 50.98%;
 
-  --radius: 1rem;
+  --radius: 0.625rem;
 
     /* RDO page background */
-    --page-bg: 210 20% 98%;
+    --page-bg: 210 22.22% 96.47%;
 
     --sidebar-background: 225 50% 97%;
     --sidebar-foreground: 225 30% 25%;
-    --sidebar-primary: 197 100% 50%;
+    --sidebar-primary: 219.91 87.20% 50.98%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 197 40% 92%;
     --sidebar-accent-foreground: 225 30% 20%;
     --sidebar-border: 225 20% 90%;
-    --sidebar-ring: 197 100% 50%;
+    --sidebar-ring: 219.91 87.20% 50.98%;
 
-    --success: 145 80% 42%;
+    --success: 158.40 61.98% 23.73%;
     --success-foreground: 0 0% 100%;
 
-    /* Workflux header gradient: navy → electric blue */
-    --header-gradient-from: 225 70% 15%;
-    --header-gradient-to: 197 100% 50%;
+    /* Alias preservado: cabeçalho sólido da identidade industrial. */
+    --header-gradient-from: 209.41 61.45% 16.27%;
+    --header-gradient-to: 209.41 61.45% 16.27%;
 
     /* Glow & depth */
-    --card-shadow: 0 8px 32px -8px hsl(197 80% 50% / 0.15);
-    --card-shadow-hover: 0 12px 40px -8px hsl(197 80% 50% / 0.25);
-    --glow-primary: 0 0 24px 4px hsl(197 100% 55% / 0.35);
-    --glow-accent: 0 0 24px 4px hsl(42 100% 50% / 0.3);
+    --card-shadow: 0 1px 2px hsl(209 61% 16% / 0.06);
+    --card-shadow-hover: 0 2px 4px hsl(209 61% 16% / 0.08);
+    --glow-primary: none;
+    --glow-accent: none;
   }
 }
 
@@ -79,10 +79,7 @@
 
 @layer utilities {
   .text-gradient {
-    background: linear-gradient(135deg, hsl(220 90% 50%), hsl(195 100% 50%));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: hsl(var(--foreground));
   }
 
   .bg-success {
@@ -94,7 +91,7 @@
   }
 
   .bg-header-gradient {
-    background: linear-gradient(135deg, hsl(var(--header-gradient-from)), hsl(var(--header-gradient-to)));
+    background: hsl(var(--header-gradient-from));
   }
 
   .shadow-card {
@@ -123,17 +120,17 @@
   }
 
   .rdo-card {
-    @apply bg-white rounded-2xl p-5 border border-transparent;
-    box-shadow: 0 2px 12px -2px hsl(215 60% 50% / 0.08), 0 1px 3px hsl(215 60% 50% / 0.06);
+    @apply bg-white rounded-xl p-5 border border-border;
+    box-shadow: var(--card-shadow);
   }
 
   .rdo-card:hover {
-    box-shadow: 0 4px 20px -4px hsl(215 60% 50% / 0.14), 0 2px 6px hsl(215 60% 50% / 0.08);
+    box-shadow: var(--card-shadow-hover);
   }
 
   .rdo-label {
-    @apply text-xs font-semibold tracking-wide uppercase mb-1.5 block;
-    color: hsl(220 50% 35%);
+    @apply text-sm font-medium mb-1.5 block;
+    color: hsl(var(--foreground));
   }
 
   .glass {
