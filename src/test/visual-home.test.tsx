@@ -28,18 +28,13 @@ describe('Home — primeiro lote visual preserva o acesso', () => {
   fireEvent.click(screen.getByRole('link',{name:'WF Obras'}));
   expect(screen.getByTestId('route')).toHaveTextContent('/obras');
  });
- it('filtra módulos por nome sem acentos sem esconder a navegação lateral', async () => {
+ it('não repete todos os módulos na área central do desktop', async () => {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   session.permissions={is_admin:true}; mount();
-  await screen.findByRole('link',{name:'WF Manutenção'});
-  fireEvent.change(screen.getByRole('searchbox',{name:'Buscar módulo'}),{target:{value:'manutencao'}});
-  expect(screen.getByRole('button',{name:/WF Manutenção/})).toBeInTheDocument();
+  await screen.findByRole('link',{name:'WF Obras'});
+  expect(screen.getByRole('heading',{name:'Meus atalhos'})).toBeInTheDocument();
   expect(screen.queryByRole('button',{name:/WF Obras/})).toBeNull();
-  expect(screen.getByRole('link',{name:'WF Obras'})).toBeInTheDocument();
-  fireEvent.change(screen.getByRole('searchbox',{name:'Buscar módulo'}),{target:{value:'inexistente'}});
-  expect(screen.getByText('Nenhum módulo encontrado para esta busca.')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button',{name:'Limpar busca'}));
-  expect(screen.getByRole('button',{name:/WF Obras/})).toBeInTheDocument();
+  expect(screen.queryByRole('heading',{name:'Módulos disponíveis'})).toBeNull();
  });
  it('usa cards neutros sem escala, glow ou sombra pesada', async () => {
   session.permissions={is_admin:true}; const {container}=mount();
