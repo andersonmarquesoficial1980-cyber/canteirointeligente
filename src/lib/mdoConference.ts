@@ -4,6 +4,7 @@ export type ConferenceRow = {
   funcao:string|null; status_dia:string|null; ogs_rdo:string|null; ogs_custos:string|null;
   rdo_ids:string|null; motivo:string; disposicao:string; situacao:string; incluido:boolean;
   historico_equipe:boolean; historico_status:boolean;
+  equipe_original?:string|null; equipe_corrigida?:boolean;
 };
 export const columns = {
   nome:'FUNCIONÁRIO', matricula:'MATRÍCULA', equipe:'EQUIPE', funcao:'FUNÇÃO',

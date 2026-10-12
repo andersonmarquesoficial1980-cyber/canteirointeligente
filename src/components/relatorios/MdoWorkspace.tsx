@@ -49,6 +49,8 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
   const [filters,setFilters]=useState<Filters>({}),[visibility,setVisibility]=useState('incluidos');
   const [sort,setSort]=useState<Column>('nome'),[descending,setDescending]=useState(false),[page,setPage]=useState(0);
   const [selected,setSelected]=useState<Set<string>>(new Set());
+  const [teamEditor,setTeamEditor]=useState(false),[teamScope,setTeamScope]=useState<'selecionados'|'filtro'>('selecionados');
+  const [teamChoice,setTeamChoice]=useState(''),[teamReason,setTeamReason]=useState('');
   const [bulk,setBulk]=useState(false),[bulkScope,setBulkScope]=useState('selecionados'),[ogsId,setOgsId]=useState('');
   const [action,setAction]=useState('ogs'),[reason,setReason]=useState(''),[replace,setReplace]=useState(false);
   const [start,setStart]=useState(inicio),[end,setEnd]=useState(fim),[progress,setProgress]=useState('');
@@ -114,6 +116,28 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
     const source=bulkScope==='filtro'?visible:rows.filter(r=>selected.has(cellKey(r)));
     return source.filter(r=>r.incluido&&r.dia>=start&&r.dia<=end && (action!=='ogs'||r.situacao==='PENDENTE'||(replace&&r.situacao==='ALOCADO')));
   },[bulkScope,visible,rows,selected,start,end,action,replace]);
+  const teamTargets=useMemo(()=>{
+    const source=teamScope==='filtro'?visible:rows.filter(r=>selected.has(cellKey(r)));
+    return source.filter(r=>r.incluido&&r.dia>=start&&r.dia<=end);
+  },[teamScope,visible,rows,selected,start,end]);
+  const teamOptions=useMemo(()=>unique((payload?.grade||[]).flatMap(r=>[r.equipe,r.equipe_original||null])).filter(t=>t!=='—'&&t!=='SEM EQUIPE'),[payload]);
+  const saveTeam=()=>run(async()=>{
+    if(dirty)throw Error('Salve a composição antes de corrigir a equipe');
+    if(!teamTargets.length||start<inicio||end>fim||start>end)throw Error('Selecione funcionário/dia dentro do período');
+    if(teamChoice!=='__restore__'&&(!teamOptions.includes(teamChoice)||teamReason.trim().length<3))throw Error('Escolha uma equipe e informe o motivo');
+    if(!window.confirm(`${teamChoice==='__restore__'?'Restaurar a equipe de origem':'Corrigir para '+teamChoice} em ${teamTargets.length} funcionário/dia (${new Set(teamTargets.map(r=>r.employee_id)).size} pessoas)?\nNão altera cadastro, RDO nem OGS.`))return;
+    let p=await ensureDraft();
+    try{
+      for(let offset=0;offset<teamTargets.length;offset+=200){
+        setProgress(`Salvando equipes: ${Math.min(offset+200,teamTargets.length)} de ${teamTargets.length} dias…`);
+        const revision=await call<number>('mdo_custos_alterar_equipe',{p_periodo:p.id,p_revisao:p.revisao,
+          p_celulas:teamTargets.slice(offset,offset+200).map(r=>({employee_id:r.employee_id,dia:r.dia})),
+          p_equipe:teamChoice==='__restore__'?null:teamChoice,p_motivo:teamChoice==='__restore__'?'Restaurar equipe de origem':teamReason.trim()});
+        p={...p,revisao:revision};
+      }
+      await load();setTeamEditor(false);toast.success('Equipes dos dias salvas. Cadastro, RDO e OGS preservados.');
+    }catch(e){await load();throw Error(`Lote interrompido: ${message(e)}. Confira os dias já salvos na grade recarregada.`);}
+  });
   const apply=()=>run(async()=>{
     if(dirty)throw Error('Salve a composição e colunas antes de ajustar OGS');
     if(!targets.length||start<inicio||end>fim||start>end)throw Error('Escolha dias válidos dentro do período');
@@ -160,6 +184,7 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
           <Button size="sm" variant="outline" disabled={busy||loading} onClick={editConfig}>Composição do relatório</Button>
           <Button size="sm" variant="outline" disabled={busy||loading} onClick={()=>setColumnPanel(v=>!v)}>Colunas</Button>
           <Button size="sm" variant="outline" disabled={busy||loading||dirty||!visible.length} onClick={()=>{setBulk(true);setBulkScope(selected.size?'selecionados':'filtro');}}>Ajustar OGS / exceções</Button>
+          <Button size="sm" variant="outline" disabled={busy||loading||dirty||!visible.length} onClick={()=>{setStart(inicio);setEnd(fim);setTeamEditor(true);setTeamScope(selected.size?'selecionados':'filtro');setTeamChoice('');}}>Corrigir equipe por dia</Button>
           {access.approve&&<Button size="sm" disabled={busy||loading||dirty||!draft||draft.funcionarios_incluidos===null||pending>0||!includedRows.length} onClick={()=>setValidation(true)}>Validar e liberar</Button>}
         </>}
       </div>
@@ -205,15 +230,15 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
             <select aria-label="Participação no relatório" className="border rounded p-2 text-sm bg-background" value={visibility} onChange={e=>{setVisibility(e.target.value);setPage(0);setSelected(new Set());}}><option value="incluidos">Incluídos para Custos</option><option value="fora">Fora de Custos</option><option value="todos">Todos os cadastros</option></select>
             <select aria-label="Situação da conferência" className="border rounded p-2 text-sm bg-background" value={filters.situation||'todos'} onChange={e=>changeFilter('situation',e.target.value)}>{['todos','PENDENTE','ALOCADO','JUSTIFICADO','FORA DE CUSTOS','FORA DO RELATÓRIO'].map(s=><option key={s} value={s}>{s==='todos'?'Todas as situações':s}</option>)}</select>
           </div>
-          <p className="text-xs text-muted-foreground">{visible.length} linhas nesta visualização · {selected.size} selecionadas. OGS é a decisão para Custos; sem RDO não significa falta. Equipe/status sem histórico usam o cadastro atual (ver detalhes).</p>
+          <p className="text-xs text-muted-foreground">{visible.length} linhas nesta visualização · {selected.size} selecionadas. OGS é a decisão para Custos; sem RDO não significa falta. Equipe/status sem histórico usam o cadastro atual, salvo correção de equipe por dia (ver detalhes).</p>
           {!readOnly&&<div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={locked||dirty} onClick={()=>setSelected(new Set(shown.filter(r=>r.incluido).map(cellKey)))}>Selecionar página</Button><Button size="sm" variant="outline" disabled={locked||dirty} onClick={()=>setSelected(new Set(visible.filter(r=>r.incluido).map(cellKey)))}>Selecionar resultados filtrados</Button><Button size="sm" variant="ghost" onClick={()=>setSelected(new Set())}>Limpar seleção</Button></div>}
           <div className="border rounded-lg overflow-auto max-h-[65vh]">
             <table aria-label="Grade de conferência MDO" className="w-full text-xs whitespace-nowrap"><thead className="sticky top-0 bg-card z-10 border-b"><tr>
               {!readOnly&&<th className="p-2">Sel.</th>}{chosen.map(c=><th key={c} className="text-left px-3 py-3"><button onClick={()=>{setSort(c);setDescending(sort===c?!descending:false);}}>{columns[c]}{sort===c?(descending?' ↓':' ↑'):''}</button></th>)}<th className="p-2">Ações</th>
             </tr></thead><tbody>{shown.map(r=><tr key={cellKey(r)} className={`border-b ${r.situacao==='PENDENTE'?'bg-amber-50/40':!r.incluido||r.disposicao==='excluir'?'bg-muted text-muted-foreground':'hover:bg-muted/30'}`}>
               {!readOnly&&<td className="p-2"><input type="checkbox" aria-label={`Selecionar ${r.nome} ${r.dia}`} disabled={locked||dirty||!r.incluido} checked={selected.has(cellKey(r))} onChange={e=>setSelected(prev=>{const next=new Set(prev);e.target.checked?next.add(cellKey(r)):next.delete(cellKey(r));return next;})}/></td>}
-              {chosen.map(c=><td key={c} className={`px-3 py-2 ${c==='nome'?'font-medium':''}`}>{c==='dia'?dateLabel(r.dia):c==='ogs_custos'?<span className={r.situacao==='PENDENTE'?'text-amber-700 font-semibold':''}>{r.ogs_custos||(r.situacao==='PENDENTE'?'PENDENTE':'—')}</span>:r[c]||'—'}</td>)}
-              <td className="p-1"><button className="underline px-2" onClick={()=>setDetails(r)}>Detalhes</button>{!readOnly&&<button className="underline px-2 disabled:opacity-40" disabled={locked||dirty||!r.incluido} onClick={()=>{setSelected(new Set([cellKey(r)]));setBulkScope('selecionados');setStart(r.dia);setEnd(r.dia);setReplace(true);setBulk(true);}}>Editar</button>}</td>
+              {chosen.map(c=><td key={c} className={`px-3 py-2 ${c==='nome'?'font-medium':''}`}>{c==='dia'?dateLabel(r.dia):c==='ogs_custos'?<span className={r.situacao==='PENDENTE'?'text-amber-700 font-semibold':''}>{r.ogs_custos||(r.situacao==='PENDENTE'?'PENDENTE':'—')}</span>:c==='equipe'&&r.equipe_corrigida?<span title={`Equipe de origem: ${r.equipe_original||'—'}`} className="font-semibold">{r.equipe} <span className="text-primary">· corrigida</span></span>:r[c]||'—'}</td>)}
+              <td className="p-1"><button className="underline px-2" onClick={()=>setDetails(r)}>Detalhes</button>{!readOnly&&<><button className="underline px-2 disabled:opacity-40" disabled={locked||dirty||!r.incluido} onClick={()=>{setSelected(new Set([cellKey(r)]));setBulkScope('selecionados');setStart(r.dia);setEnd(r.dia);setReplace(true);setBulk(true);}}>Editar</button><button className="underline px-2 disabled:opacity-40" aria-label={`Corrigir equipe de ${r.nome} em ${dateLabel(r.dia)}`} disabled={locked||dirty||!r.incluido} onClick={()=>{setSelected(new Set([cellKey(r)]));setTeamScope('selecionados');setStart(r.dia);setEnd(r.dia);setTeamChoice('');setTeamEditor(true);}}>Equipe</button></>}</td>
             </tr>)}</tbody></table>
             {!shown.length&&<p className="p-6 text-sm">Nenhuma linha neste filtro. Limpe as segmentações ou reveja a composição.</p>}
           </div>
@@ -221,6 +246,15 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
         </section>
       </div>
     </>}
+    {teamEditor&&!readOnly&&<div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4"><section role="dialog" aria-modal="true" aria-label="Corrigir equipe por dia" className="bg-card rounded-xl border p-5 max-w-2xl w-full space-y-3 max-h-[90vh] overflow-auto">
+      <h3 className="font-semibold">Corrigir equipe nos dias escolhidos</h3><p className="text-sm">A equipe fixa do cadastro, os RDOs e as OGS não mudam. A equipe corrigida será usada nesta conferência e no fechamento para Custos.</p>
+      <select aria-label="Dias para correção de equipe" className="border rounded p-2 bg-background w-full" value={teamScope} disabled={busy} onChange={e=>setTeamScope(e.target.value as 'selecionados'|'filtro')}><option value="selecionados">Linhas marcadas ({selected.size})</option><option value="filtro">Resultados filtrados ({visible.length})</option></select>
+      <div className="grid grid-cols-2 gap-3"><label className="text-xs">De<Input aria-label="Início da correção de equipe" type="date" disabled={busy} min={inicio} max={fim} value={start} onChange={e=>setStart(e.target.value)}/></label><label className="text-xs">Até<Input aria-label="Fim da correção de equipe" type="date" disabled={busy} min={inicio} max={fim} value={end} onChange={e=>setEnd(e.target.value)}/></label></div>
+      <label className="block text-sm">Equipe para os dias<select aria-label="Equipe para os dias" className="border rounded p-2 bg-background w-full" value={teamChoice} disabled={busy} onChange={e=>setTeamChoice(e.target.value)}><option value="">Escolha a equipe</option>{teamOptions.map(t=><option key={t} value={t}>{t}</option>)}<option value="__restore__">Restaurar equipe de origem (retirar correção)</option></select></label>
+      {teamChoice!=='__restore__'&&<Input aria-label="Motivo da correção de equipe" placeholder="Motivo da correção (obrigatório)" disabled={busy} value={teamReason} onChange={e=>setTeamReason(e.target.value)}/>}
+      <p className="text-sm font-semibold">Impacto: {teamTargets.length} funcionário/dia · {new Set(teamTargets.map(r=>r.employee_id)).size} pessoa(s)</p>
+      {progress&&<p role="status">{progress}</p>}<div className="flex gap-2"><Button disabled={busy||!teamTargets.length||!teamChoice||start<inicio||end>fim||start>end||(teamChoice!=='__restore__'&&teamReason.trim().length<3)} onClick={saveTeam}>Salvar equipe dos dias</Button><Button variant="outline" disabled={busy} onClick={()=>setTeamEditor(false)}>Cancelar</Button></div>
+    </section></div>}
     {bulk&&!readOnly&&<div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4"><section role="dialog" aria-modal="true" aria-label="Ajustar conferência" className="bg-card rounded-xl border p-5 max-w-2xl w-full space-y-3 max-h-[90vh] overflow-auto">
       <h3 className="font-semibold">Ajustar OGS / exceções</h3><p className="text-sm">Equipe ou funcionário: use as segmentações da tabela para definir o grupo. Nenhum cadastro ou RDO será alterado.</p>
       <select aria-label="Alvo do ajuste" className="border rounded p-2 bg-background w-full" disabled={busy} value={bulkScope} onChange={e=>setBulkScope(e.target.value)}><option value="selecionados">Linhas marcadas ({selected.size})</option><option value="filtro">Todos os resultados filtrados ({visible.length})</option></select>
@@ -233,7 +267,7 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
     </section></div>}
     {details&&<div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4"><section role="dialog" aria-modal="true" aria-label="Origem e decisão" className="bg-card rounded-xl border p-5 max-w-xl w-full space-y-3 max-h-[90vh] overflow-auto">
       <h3 className="font-semibold">{details.nome} · {dateLabel(details.dia)}</h3>
-      <dl className="text-sm space-y-2">{[['Matrícula',details.matricula],['Equipe',details.equipe],['Origem da equipe',details.historico_equipe?'Histórico registrado':'Cadastro na consulta / valor congelado se aprovado'],['Status',details.status_dia],['Origem do status',details.historico_status?'Histórico registrado':'Cadastro/datas de vínculo / valor congelado se aprovado'],['OGS original do RDO',details.ogs_rdo],['OGS para Custos',details.ogs_custos],['Conferência',details.situacao],['Motivo',details.motivo],['RDOs de origem',details.rdo_ids]].map(([label,value])=><div key={label}><dt className="text-muted-foreground text-xs">{label}</dt><dd className="break-words whitespace-normal">{value||'—'}</dd></div>)}</dl>
+      <dl className="text-sm space-y-2">{[['Matrícula',details.matricula],['Equipe para Custos',details.equipe],['Equipe de origem',details.equipe_original||details.equipe],['Origem da equipe',details.equipe_corrigida?'Corrigida nesta conferência (ver auditoria)':details.historico_equipe?'Histórico registrado':'Cadastro na consulta / valor congelado se aprovado'],['Status',details.status_dia],['Origem do status',details.historico_status?'Histórico registrado':'Cadastro/datas de vínculo / valor congelado se aprovado'],['OGS original do RDO',details.ogs_rdo],['OGS para Custos',details.ogs_custos],['Conferência',details.situacao],['Motivo',details.motivo],['RDOs de origem',details.rdo_ids]].map(([label,value])=><div key={label}><dt className="text-muted-foreground text-xs">{label}</dt><dd className="break-words whitespace-normal">{value||'—'}</dd></div>)}</dl>
       {!readOnly&&details.incluido&&['excluir','excecao'].includes(details.disposicao)&&<label className="block text-sm">Restaurar para OGS<select aria-label="Restaurar para OGS" className="border rounded p-2 bg-background w-full" defaultValue="" disabled={busy||dirty} onChange={e=>{const ogs=e.target.value;if(!ogs||!window.confirm('Restaurar este dia para a OGS escolhida? A decisão anterior permanece na auditoria.'))return;void run(async()=>{const p=await ensureDraft();await call('mdo_custos_alterar',{p_periodo:p.id,p_revisao:p.revisao,p_celulas:[{employee_id:details.employee_id,data:details.dia,disposition:'ogs',ogs_id:ogs,reason:''}]});await load();});}}><option value="">Selecione a OGS</option>{payload.ogs.map(o=><option key={o.id} value={o.id}>{o.ogs_number}</option>)}</select></label>}
       <Button variant="outline" disabled={busy} onClick={()=>setDetails(null)}>Fechar detalhes</Button>
     </section></div>}

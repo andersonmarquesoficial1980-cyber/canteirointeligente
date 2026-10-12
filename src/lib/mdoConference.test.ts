@@ -22,4 +22,11 @@ describe('MDO conferência unificada',()=>{
  it('bloqueia arquivo incompleto em vez de exportar parte',()=>{
   expect(()=>makeWorkbook(rows,defaultColumns,{inicio:'2026-09-01',fim:'2026-09-02',versao:1,total:4})).toThrow(/incompleto/);
  });
+ it('exporta equipes distintas em dias diferentes da mesma pessoa',()=>{
+   const wb=makeWorkbook([{...rows[0],equipe:'A',equipe_original:'A'},{...rows[1],equipe:'B',equipe_original:'A',equipe_corrigida:true}],
+     ['nome','dia','equipe','ogs_custos'],{inicio:'2026-09-01',fim:'2026-09-02',versao:2,total:2});
+   const data=XLSX.utils.sheet_to_json<any[]>(wb.Sheets.MDO_CUSTOS,{header:1});
+   expect(data[1][2]).toBe('A');expect(data[2][2]).toBe('B');
+   expect(data[1][3]).toBe('2529');expect(data[2][3]).toBe('2530');
+ });
 });
