@@ -49,7 +49,9 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
   const [filters,setFilters]=useState<Filters>({}),[visibility,setVisibility]=useState('incluidos');
   const [sort,setSort]=useState<Column>('nome'),[descending,setDescending]=useState(false),[page,setPage]=useState(0);
   const [selected,setSelected]=useState<Set<string>>(new Set());
-  const [teamEditor,setTeamEditor]=useState(false),[teamScope,setTeamScope]=useState<'selecionados'|'filtro'>('selecionados');
+  const [teamEditor,setTeamEditor]=useState(false),[teamScope,setTeamScope]=useState<'pessoas_dias'|'selecionados'|'filtro'>('pessoas_dias');
+  const [teamPeople,setTeamPeople]=useState<Set<string>>(new Set()),[teamDays,setTeamDays]=useState<Set<string>>(new Set());
+  const [teamSearch,setTeamSearch]=useState('');
   const [teamChoice,setTeamChoice]=useState(''),[teamReason,setTeamReason]=useState('');
   const [bulk,setBulk]=useState(false),[bulkScope,setBulkScope]=useState('selecionados'),[ogsId,setOgsId]=useState('');
   const [action,setAction]=useState('ogs'),[reason,setReason]=useState(''),[replace,setReplace]=useState(false);
@@ -117,9 +119,16 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
     return source.filter(r=>r.incluido&&r.dia>=start&&r.dia<=end && (action!=='ogs'||r.situacao==='PENDENTE'||(replace&&r.situacao==='ALOCADO')));
   },[bulkScope,visible,rows,selected,start,end,action,replace]);
   const teamTargets=useMemo(()=>{
+    if(teamScope==='pessoas_dias')return rows.filter(r=>r.incluido&&teamPeople.has(r.employee_id)&&teamDays.has(r.dia));
     const source=teamScope==='filtro'?visible:rows.filter(r=>selected.has(cellKey(r)));
     return source.filter(r=>r.incluido&&r.dia>=start&&r.dia<=end);
-  },[teamScope,visible,rows,selected,start,end]);
+  },[teamScope,visible,rows,selected,start,end,teamPeople,teamDays]);
+  const teamCandidates=useMemo(()=>{
+    const eligible=new Set(rows.filter(r=>r.incluido).map(r=>r.employee_id));
+    return people.filter(p=>eligible.has(p.id));
+  },[rows,people]);
+  const teamSearchResults=useMemo(()=>teamCandidates.filter(p=>fold(`${p.name} ${p.matricula}`).includes(fold(teamSearch))),[teamCandidates,teamSearch]);
+  const teamAvailableDays=useMemo(()=>unique(rows.filter(r=>r.incluido).map(r=>r.dia)),[rows]);
   const teamOptions=useMemo(()=>unique((payload?.grade||[]).flatMap(r=>[r.equipe,r.equipe_original||null])).filter(t=>t!=='—'&&t!=='SEM EQUIPE'),[payload]);
   const saveTeam=()=>run(async()=>{
     if(dirty)throw Error('Salve a composição antes de corrigir a equipe');
@@ -184,7 +193,7 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
           <Button size="sm" variant="outline" disabled={busy||loading} onClick={editConfig}>Composição do relatório</Button>
           <Button size="sm" variant="outline" disabled={busy||loading} onClick={()=>setColumnPanel(v=>!v)}>Colunas</Button>
           <Button size="sm" variant="outline" disabled={busy||loading||dirty||!visible.length} onClick={()=>{setBulk(true);setBulkScope(selected.size?'selecionados':'filtro');}}>Ajustar OGS / exceções</Button>
-          <Button size="sm" variant="outline" disabled={busy||loading||dirty||!visible.length} onClick={()=>{setStart(inicio);setEnd(fim);setTeamEditor(true);setTeamScope(selected.size?'selecionados':'filtro');setTeamChoice('');}}>Corrigir equipe por dia</Button>
+          <Button size="sm" variant="outline" disabled={busy||loading||dirty||!visible.length} onClick={()=>{setStart(inicio);setEnd(fim);setTeamPeople(new Set());setTeamDays(new Set());setTeamSearch('');setTeamEditor(true);setTeamScope(selected.size?'selecionados':'pessoas_dias');setTeamChoice('');}}>Corrigir equipe por dia</Button>
           {access.approve&&<Button size="sm" disabled={busy||loading||dirty||!draft||draft.funcionarios_incluidos===null||pending>0||!includedRows.length} onClick={()=>setValidation(true)}>Validar e liberar</Button>}
         </>}
       </div>
@@ -238,7 +247,7 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
             </tr></thead><tbody>{shown.map(r=><tr key={cellKey(r)} className={`border-b ${r.situacao==='PENDENTE'?'bg-amber-50/40':!r.incluido||r.disposicao==='excluir'?'bg-muted text-muted-foreground':'hover:bg-muted/30'}`}>
               {!readOnly&&<td className="p-2"><input type="checkbox" aria-label={`Selecionar ${r.nome} ${r.dia}`} disabled={locked||dirty||!r.incluido} checked={selected.has(cellKey(r))} onChange={e=>setSelected(prev=>{const next=new Set(prev);e.target.checked?next.add(cellKey(r)):next.delete(cellKey(r));return next;})}/></td>}
               {chosen.map(c=><td key={c} className={`px-3 py-2 ${c==='nome'?'font-medium':''}`}>{c==='dia'?dateLabel(r.dia):c==='ogs_custos'?<span className={r.situacao==='PENDENTE'?'text-amber-700 font-semibold':''}>{r.ogs_custos||(r.situacao==='PENDENTE'?'PENDENTE':'—')}</span>:c==='equipe'&&r.equipe_corrigida?<span title={`Equipe de origem: ${r.equipe_original||'—'}`} className="font-semibold">{r.equipe} <span className="text-primary">· corrigida</span></span>:r[c]||'—'}</td>)}
-              <td className="p-1"><button className="underline px-2" onClick={()=>setDetails(r)}>Detalhes</button>{!readOnly&&<><button className="underline px-2 disabled:opacity-40" disabled={locked||dirty||!r.incluido} onClick={()=>{setSelected(new Set([cellKey(r)]));setBulkScope('selecionados');setStart(r.dia);setEnd(r.dia);setReplace(true);setBulk(true);}}>Editar</button><button className="underline px-2 disabled:opacity-40" aria-label={`Corrigir equipe de ${r.nome} em ${dateLabel(r.dia)}`} disabled={locked||dirty||!r.incluido} onClick={()=>{setSelected(new Set([cellKey(r)]));setTeamScope('selecionados');setStart(r.dia);setEnd(r.dia);setTeamChoice('');setTeamEditor(true);}}>Equipe</button></>}</td>
+              <td className="p-1"><button className="underline px-2" onClick={()=>setDetails(r)}>Detalhes</button>{!readOnly&&<><button className="underline px-2 disabled:opacity-40" disabled={locked||dirty||!r.incluido} onClick={()=>{setSelected(new Set([cellKey(r)]));setBulkScope('selecionados');setStart(r.dia);setEnd(r.dia);setReplace(true);setBulk(true);}}>Editar</button><button className="underline px-2 disabled:opacity-40" aria-label={`Corrigir equipe de ${r.nome} em ${dateLabel(r.dia)}`} disabled={locked||dirty||!r.incluido} onClick={()=>{setTeamPeople(new Set([r.employee_id]));setTeamDays(new Set([r.dia]));setTeamSearch('');setTeamScope('pessoas_dias');setStart(inicio);setEnd(fim);setTeamChoice('');setTeamEditor(true);}}>Equipe</button></>}</td>
             </tr>)}</tbody></table>
             {!shown.length&&<p className="p-6 text-sm">Nenhuma linha neste filtro. Limpe as segmentações ou reveja a composição.</p>}
           </div>
@@ -248,11 +257,24 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
     </>}
     {teamEditor&&!readOnly&&<div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4"><section role="dialog" aria-modal="true" aria-label="Corrigir equipe por dia" className="bg-card rounded-xl border p-5 max-w-2xl w-full space-y-3 max-h-[90vh] overflow-auto">
       <h3 className="font-semibold">Corrigir equipe nos dias escolhidos</h3><p className="text-sm">A equipe fixa do cadastro, os RDOs e as OGS não mudam. A equipe corrigida será usada nesta conferência e no fechamento para Custos.</p>
-      <select aria-label="Dias para correção de equipe" className="border rounded p-2 bg-background w-full" value={teamScope} disabled={busy} onChange={e=>setTeamScope(e.target.value as 'selecionados'|'filtro')}><option value="selecionados">Linhas marcadas ({selected.size})</option><option value="filtro">Resultados filtrados ({visible.length})</option></select>
-      <div className="grid grid-cols-2 gap-3"><label className="text-xs">De<Input aria-label="Início da correção de equipe" type="date" disabled={busy} min={inicio} max={fim} value={start} onChange={e=>setStart(e.target.value)}/></label><label className="text-xs">Até<Input aria-label="Fim da correção de equipe" type="date" disabled={busy} min={inicio} max={fim} value={end} onChange={e=>setEnd(e.target.value)}/></label></div>
+      <select aria-label="Como escolher funcionário e dia" className="border rounded p-2 bg-background w-full" value={teamScope} disabled={busy} onChange={e=>setTeamScope(e.target.value as 'pessoas_dias'|'selecionados'|'filtro')}><option value="pessoas_dias">Escolher pessoas e dias aqui</option><option value="selecionados">Linhas marcadas na tabela ({selected.size})</option><option value="filtro">Resultados filtrados na tabela ({visible.length})</option></select>
+      {teamScope==='pessoas_dias'&&<div className="grid sm:grid-cols-2 gap-4">
+        <div className="space-y-2"><strong className="text-sm">Pessoas · {teamPeople.size} selecionada(s)</strong>
+          <Input aria-label="Buscar pessoas para correção" placeholder="Nome ou matrícula" value={teamSearch} disabled={busy} onChange={e=>setTeamSearch(e.target.value)}/>
+          <div className="flex gap-2"><Button size="sm" variant="outline" disabled={busy||!teamSearch.trim()||!teamSearchResults.length} onClick={()=>setTeamPeople(prev=>new Set([...prev,...teamSearchResults.map(p=>p.id)]))}>Marcar pessoas encontradas</Button><Button size="sm" variant="ghost" disabled={busy||!teamPeople.size} onClick={()=>setTeamPeople(new Set())}>Limpar pessoas</Button></div>
+          <div className="max-h-44 overflow-y-auto border rounded p-2 space-y-1">{teamSearchResults.map(p=><label key={p.id} className="flex gap-2 items-start text-xs cursor-pointer"><input type="checkbox" aria-label={`${p.name} · ${p.matricula}`} checked={teamPeople.has(p.id)} disabled={busy} onChange={e=>setTeamPeople(prev=>{const next=new Set(prev);e.target.checked?next.add(p.id):next.delete(p.id);return next;})}/><span>{p.name} · {p.matricula}</span></label>)}</div>
+        </div>
+        <div className="space-y-2"><strong className="text-sm">Dias · {teamDays.size} selecionado(s)</strong>
+          <div className="grid grid-cols-2 gap-2"><Input aria-label="Início da correção de equipe" type="date" disabled={busy} min={inicio} max={fim} value={start} onChange={e=>setStart(e.target.value)}/><Input aria-label="Fim da correção de equipe" type="date" disabled={busy} min={inicio} max={fim} value={end} onChange={e=>setEnd(e.target.value)}/></div>
+          <div className="flex gap-2"><Button size="sm" variant="outline" disabled={busy||start<inicio||end>fim||start>end} onClick={()=>setTeamDays(prev=>new Set([...prev,...teamAvailableDays.filter(d=>d>=start&&d<=end)]))}>Marcar dias do intervalo</Button><Button size="sm" variant="ghost" disabled={busy||!teamDays.size} onClick={()=>setTeamDays(new Set())}>Limpar dias</Button></div>
+          <div className="max-h-44 overflow-y-auto border rounded p-2 grid grid-cols-2 gap-1">{teamAvailableDays.map(d=><label key={d} className="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" aria-label={`Dia ${dateLabel(d)}`} checked={teamDays.has(d)} disabled={busy} onChange={e=>setTeamDays(prev=>{const next=new Set(prev);e.target.checked?next.add(d):next.delete(d);return next;})}/>{dateLabel(d)}</label>)}</div>
+        </div>
+      </div>}
+      {teamScope!=='pessoas_dias'&&<div className="grid grid-cols-2 gap-3"><label className="text-xs">De<Input aria-label="Início da correção de equipe" type="date" disabled={busy} min={inicio} max={fim} value={start} onChange={e=>setStart(e.target.value)}/></label><label className="text-xs">Até<Input aria-label="Fim da correção de equipe" type="date" disabled={busy} min={inicio} max={fim} value={end} onChange={e=>setEnd(e.target.value)}/></label></div>}
       <label className="block text-sm">Equipe para os dias<select aria-label="Equipe para os dias" className="border rounded p-2 bg-background w-full" value={teamChoice} disabled={busy} onChange={e=>setTeamChoice(e.target.value)}><option value="">Escolha a equipe</option>{teamOptions.map(t=><option key={t} value={t}>{t}</option>)}<option value="__restore__">Restaurar equipe de origem (retirar correção)</option></select></label>
       {teamChoice!=='__restore__'&&<Input aria-label="Motivo da correção de equipe" placeholder="Motivo da correção (obrigatório)" disabled={busy} value={teamReason} onChange={e=>setTeamReason(e.target.value)}/>}
       <p className="text-sm font-semibold">Impacto: {teamTargets.length} funcionário/dia · {new Set(teamTargets.map(r=>r.employee_id)).size} pessoa(s)</p>
+      {teamScope==='pessoas_dias'&&teamTargets.length>0&&<p className="text-xs text-muted-foreground">Prévia: {teamTargets.slice(0,6).map(r=>`${r.nome} (${r.matricula||'—'}) · ${dateLabel(r.dia)}`).join('; ')}{teamTargets.length>6?` e mais ${teamTargets.length-6} linhas`:''}.</p>}
       {progress&&<p role="status">{progress}</p>}<div className="flex gap-2"><Button disabled={busy||!teamTargets.length||!teamChoice||start<inicio||end>fim||start>end||(teamChoice!=='__restore__'&&teamReason.trim().length<3)} onClick={saveTeam}>Salvar equipe dos dias</Button><Button variant="outline" disabled={busy} onClick={()=>setTeamEditor(false)}>Cancelar</Button></div>
     </section></div>}
     {bulk&&!readOnly&&<div className="fixed inset-0 bg-black/40 z-50 grid place-items-center p-4"><section role="dialog" aria-modal="true" aria-label="Ajustar conferência" className="bg-card rounded-xl border p-5 max-w-2xl w-full space-y-3 max-h-[90vh] overflow-auto">

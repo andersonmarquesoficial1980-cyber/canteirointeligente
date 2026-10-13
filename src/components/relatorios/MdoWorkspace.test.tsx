@@ -73,4 +73,31 @@ describe('MDO fluxo de conferência',()=>{
    fireEvent.click(screen.getByRole('button',{name:'Salvar equipe dos dias'}));
    await waitFor(()=>expect(rpc).toHaveBeenCalledWith('mdo_custos_alterar_equipe',expect.objectContaining({p_celulas:[{employee_id:'p1',dia:'2026-09-01'},{employee_id:'p2',dia:'2026-09-01'}]})));
  });
+ it('seleciona várias pessoas e dias diretamente na janela e envia apenas as combinações existentes',async()=>{
+   render(<MdoWorkspace {...props}/>);await screen.findByText('3 funcionário/dia incluídos');
+   fireEvent.click(screen.getByRole('button',{name:'Corrigir equipe por dia'}));
+   const dialog=screen.getByRole('dialog',{name:'Corrigir equipe por dia'});
+   expect(within(dialog).getByRole('button',{name:'Salvar equipe dos dias'})).toBeDisabled();
+   fireEvent.click(within(dialog).getByRole('checkbox',{name:/José Silva · p1/}));
+   fireEvent.click(within(dialog).getByRole('checkbox',{name:/Maria · p2/}));
+   fireEvent.click(within(dialog).getByRole('checkbox',{name:'Dia 01/09/2026'}));
+   fireEvent.click(within(dialog).getByRole('checkbox',{name:'Dia 02/09/2026'}));
+   expect(within(dialog).getByText(/3 funcionário\/dia.*2 pessoa\(s\)/)).toBeTruthy();
+   fireEvent.change(within(dialog).getByRole('combobox',{name:'Equipe para os dias'}),{target:{value:'Equipe B'}});
+   fireEvent.change(within(dialog).getByRole('textbox',{name:'Motivo da correção de equipe'}),{target:{value:'Alocação temporária'}});
+   fireEvent.click(within(dialog).getByRole('button',{name:'Salvar equipe dos dias'}));
+   await waitFor(()=>expect(rpc).toHaveBeenCalledWith('mdo_custos_alterar_equipe',expect.objectContaining({p_celulas:[
+     {employee_id:'p1',dia:'2026-09-01'},{employee_id:'p1',dia:'2026-09-02'},{employee_id:'p2',dia:'2026-09-01'}
+   ]})));
+ });
+ it('ao abrir pela linha permite acrescentar pessoas e dias sem escolher resultados globais',async()=>{
+   render(<MdoWorkspace {...props}/>);await screen.findByText('3 funcionário/dia incluídos');
+   fireEvent.click(screen.getByRole('button',{name:'Corrigir equipe de José Silva em 02/09/2026'}));
+   const dialog=screen.getByRole('dialog',{name:'Corrigir equipe por dia'});
+   expect(within(dialog).getByRole('checkbox',{name:/José Silva · p1/})).toBeChecked();
+   expect(within(dialog).getByRole('checkbox',{name:'Dia 02/09/2026'})).toBeChecked();
+   fireEvent.click(within(dialog).getByRole('checkbox',{name:/Maria · p2/}));
+   fireEvent.click(within(dialog).getByRole('checkbox',{name:'Dia 01/09/2026'}));
+   expect(within(dialog).getByText(/3 funcionário\/dia.*2 pessoa\(s\)/)).toBeTruthy();
+ });
 });
