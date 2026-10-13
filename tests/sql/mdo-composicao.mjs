@@ -28,6 +28,8 @@ await db.exec(readFileSync('supabase/migrations/20261001143000_mdo_conferencia_c
 await db.exec(`INSERT INTO mdo_custos_acl VALUES ('${company}','${editor}','edit'),('${company}','${costs}','export');`);
 const migration='supabase/migrations/20261008170000_mdo_composicao_conferencia.sql';
 if(existsSync(migration)){ await db.exec(readFileSync(migration,'utf8')); await db.exec(readFileSync(migration,'utf8')); }
+const teamMigration='supabase/migrations/20261012180000_mdo_equipe_por_dia.sql';
+if(existsSync(teamMigration)) await db.exec(readFileSync(teamMigration,'utf8'));
 async function login(id){await db.exec(`RESET ROLE; SELECT set_config('test.uid','${id}',false); SET ROLE authenticated;`);}
 async function value(sql,args=[]){const r=await db.query(sql,args);return Object.values(r.rows[0])[0];}
 await login(admin);
@@ -74,5 +76,40 @@ assert.notEqual(id,next);
 const copy=(await db.query('SELECT * FROM mdo_custos_periodos WHERE id=$1',[next])).rows[0];
 assert.deepEqual(copy.funcionarios_incluidos,[a]);assert.equal(copy.versao,2);
 assert.equal(await value('SELECT count(*)::int FROM mdo_custos_decisoes WHERE periodo_id=$1',[next]),2);
-console.log('PASS: composição, histórico, OGS, pendências, concorrência, assinatura, snapshot, nova versão, RBAC/RLS, isolamento e idempotência');
+if(existsSync(teamMigration)){
+  const before=await value('SELECT public.mdo_custos_carregar($1,$2,$3)',[company,'2026-09-01','2026-09-02']);
+  await login(editor);
+  await assert.rejects(()=>value('SELECT public.mdo_custos_alterar_equipe($1,$2,$3,$4,$5)',[next,0,JSON.stringify([{employee_id:foreign,dia:'2026-09-01'}]),'C','Equipe no dia']),/empresa/i);
+  await assert.rejects(()=>value('SELECT public.mdo_custos_alterar_equipe($1,$2,$3,$4,$5)',[next,0,JSON.stringify([{employee_id:a,dia:'2026-09-01'}]),'C','']),/motivo/i);
+  let teamRevision=await value('SELECT public.mdo_custos_alterar_equipe($1,$2,$3,$4,$5)',[next,0,JSON.stringify([{employee_id:a,dia:'2026-09-02'}]),'C','Escalado na equipe C']);
+  assert.equal(teamRevision,1);
+  await assert.rejects(()=>value('SELECT public.mdo_custos_alterar_equipe($1,$2,$3,$4,$5)',[next,0,JSON.stringify([{employee_id:a,dia:'2026-09-01'}]),'C','Escalado']),/alterou|mudou|atualize/i);
+  let after=await value('SELECT public.mdo_custos_carregar($1,$2,$3)',[company,'2026-09-01','2026-09-02']);
+  assert.notEqual(before.assinatura,after.assinatura);
+  assert.equal(after.grade.find(r=>r.employee_id===a&&r.dia==='2026-09-01').equipe,'A');
+  const switched=after.grade.find(r=>r.employee_id===a&&r.dia==='2026-09-02');
+  assert.equal(switched.equipe,'C');assert.equal(switched.equipe_corrigida,true);
+  assert.equal(switched.ogs_custos,'2529');
+  teamRevision=await value('SELECT public.mdo_custos_alterar_equipe($1,$2,$3,$4,$5)',[next,teamRevision,JSON.stringify([{employee_id:a,dia:'2026-09-01'}]),'C','Escalado na equipe C']);
+  assert.equal(await value('SELECT count(*)::int FROM mdo_custos_equipes_dia WHERE periodo_id=$1',[next]),2);
+  teamRevision=await value('SELECT public.mdo_custos_alterar_equipe($1,$2,$3,$4,$5)',[next,teamRevision,JSON.stringify([{employee_id:a,dia:'2026-09-01'}]),null,'Restaurar equipe original']);
+  assert.equal(await value('SELECT count(*)::int FROM mdo_custos_equipes_dia WHERE periodo_id=$1',[next]),1);
+  assert.equal(await value("SELECT count(*)::int FROM mdo_custos_auditoria WHERE periodo_id=$1 AND acao='equipe_dia'",[next]),3);
+  await login(stranger);
+  await assert.rejects(()=>value('SELECT public.mdo_custos_alterar_equipe($1,$2,$3,$4,$5)',[next,teamRevision,JSON.stringify([{employee_id:a,dia:'2026-09-01'}]),'C','Escalado']),/indisponível/i);
+  await login(costs);
+  assert.equal(await value('SELECT count(*)::int FROM mdo_custos_equipes_dia'),0);
+  await assert.rejects(()=>value('SELECT public.mdo_custos_alterar_equipe($1,$2,$3,$4,$5)',[next,teamRevision,JSON.stringify([{employee_id:a,dia:'2026-09-01'}]),'C','Escalado']),/indisponível/i);
+  await login(admin);
+  after=await value('SELECT public.mdo_custos_carregar($1,$2,$3)',[company,'2026-09-01','2026-09-02']);
+  await assert.rejects(()=>value('SELECT public.mdo_custos_publicar($1,$2,$3)',[next,teamRevision,before.assinatura]),/fonte/i);
+  assert.equal(await value('SELECT public.mdo_custos_publicar($1,$2,$3)',[next,teamRevision,after.assinatura]),2);
+  const approved=(await db.query('SELECT dia,equipe,equipe_original,equipe_corrigida,ogs_custos FROM mdo_custos_fechado WHERE periodo_id=$1 ORDER BY dia',[next])).rows;
+  assert.equal(approved[0].equipe,'A');assert.equal(approved[1].equipe,'C');
+  assert.equal(approved[1].equipe_corrigida,true);assert.equal(approved[1].ogs_custos,'2529');
+  assert.equal(await value('SELECT equipe FROM mdo_custos_fechado WHERE periodo_id=$1 AND dia=$2',[id,'2026-09-02']),'B');
+  const version3=await value('SELECT public.mdo_custos_abrir($1,$2,$3)',[company,'2026-09-01','2026-09-02']);
+  assert.equal(await value('SELECT equipe FROM mdo_custos_equipes_dia WHERE periodo_id=$1',[version3]),'C');
+}
+console.log('PASS: composição, equipe/dia, OGS preservada, versões congeladas, RBAC/RLS, isolamento, revisão e assinatura');
 await db.close();
