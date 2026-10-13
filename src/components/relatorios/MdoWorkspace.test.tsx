@@ -107,6 +107,9 @@ describe('MDO fluxo de conferência',()=>{
    fireEvent.click(screen.getByRole('button',{name:'Corrigir equipe por dia'}));
    const dialog=screen.getByRole('dialog',{name:'Corrigir equipe por dia'});
    expect(within(dialog).getAllByRole('checkbox').length).toBeLessThan(50);
+   fireEvent.change(within(dialog).getByRole('textbox',{name:'Buscar pessoas para correção'}),{target:{value:'Pessoa'}});
+   fireEvent.click(within(dialog).getByRole('button',{name:'Marcar pessoas exibidas'}));
+   expect(within(dialog).getByText('Pessoas · 30 selecionada(s)')).toBeTruthy();
    fireEvent.change(within(dialog).getByRole('textbox',{name:'Buscar pessoas para correção'}),{target:{value:'extra-79'}});
    expect(within(dialog).getByRole('checkbox',{name:/Pessoa 79 · extra-79/})).toBeTruthy();
  });
