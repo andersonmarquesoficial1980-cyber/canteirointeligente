@@ -100,4 +100,14 @@ describe('MDO fluxo de conferência',()=>{
    fireEvent.click(within(dialog).getByRole('checkbox',{name:'Dia 01/09/2026'}));
    expect(within(dialog).getByText(/3 funcionário\/dia.*2 pessoa\(s\)/)).toBeTruthy();
  });
+ it('limita a lista grande de pessoas sem perder a busca por matrícula',async()=>{
+   workingGrade=[...workingGrade,...Array.from({length:80},(_,i)=>day(`extra-${i}`,`Pessoa ${i}`, 'Equipe A','2026-09-01'))];
+   period.funcionarios_incluidos=workingGrade.map(r=>r.employee_id);
+   render(<MdoWorkspace {...props}/>);await screen.findByText('83 funcionário/dia incluídos');
+   fireEvent.click(screen.getByRole('button',{name:'Corrigir equipe por dia'}));
+   const dialog=screen.getByRole('dialog',{name:'Corrigir equipe por dia'});
+   expect(within(dialog).getAllByRole('checkbox').length).toBeLessThan(50);
+   fireEvent.change(within(dialog).getByRole('textbox',{name:'Buscar pessoas para correção'}),{target:{value:'extra-79'}});
+   expect(within(dialog).getByRole('checkbox',{name:/Pessoa 79 · extra-79/})).toBeTruthy();
+ });
 });
