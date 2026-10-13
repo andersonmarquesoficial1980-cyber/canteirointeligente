@@ -46,6 +46,56 @@ describe('MDO fluxo de conferência',()=>{
   expect(await screen.findByRole('alert')).toHaveTextContent('Falha de conexão');
   expect(screen.queryByRole('button',{name:'Validar e liberar'})).toBeNull();
  });
+ it('preserva dois dias marcados ao abrir Editar OGS pela linha e envia ambos',async()=>{
+   render(<MdoWorkspace {...props}/>);await screen.findByText('3 funcionário/dia incluídos');
+   fireEvent.click(screen.getByRole('checkbox',{name:'Selecionar José Silva 2026-09-01'}));
+   fireEvent.click(screen.getByRole('checkbox',{name:'Selecionar José Silva 2026-09-02'}));
+   fireEvent.click(screen.getAllByRole('button',{name:'Editar'})[1]);
+   const dialog=screen.getByRole('dialog',{name:'Ajustar conferência'});
+   expect(within(dialog).getByText('Impacto: 2 funcionário/dia · 1 pessoas')).toBeTruthy();
+   fireEvent.change(within(dialog).getByRole('combobox',{name:'OGS para Custos'}),{target:{value:'ogs'}});
+   fireEvent.click(within(dialog).getByRole('button',{name:'Confirmar ajuste'}));
+   await waitFor(()=>expect(rpc).toHaveBeenCalledWith('mdo_custos_alterar',expect.objectContaining({p_celulas:[
+     {employee_id:'p1',data:'2026-09-01',disposition:'ogs',ogs_id:'ogs',reason:''},
+     {employee_id:'p1',data:'2026-09-02',disposition:'ogs',ogs_id:'ogs',reason:''}
+   ]})));
+ });
+ it('ao filtrar dois dias e clicar Editar, usa os dois dias daquele funcionário',async()=>{
+   render(<MdoWorkspace {...props}/>);await screen.findByText('3 funcionário/dia incluídos');
+   const dateSlicer=screen.getByText('Data',{selector:'summary'}).closest('details')!;
+   fireEvent.click(within(dateSlicer).getByRole('checkbox',{name:'01/09/2026'}));
+   fireEvent.click(within(dateSlicer).getByRole('checkbox',{name:'02/09/2026'}));
+   fireEvent.click(screen.getAllByRole('button',{name:'Editar'})[1]);
+   const dialog=screen.getByRole('dialog',{name:'Ajustar conferência'});
+   expect(within(dialog).getByText('Impacto: 2 funcionário/dia · 1 pessoas')).toBeTruthy();
+   expect(within(dialog).getByRole('combobox',{name:'Alvo do ajuste'})).toHaveValue('selecionados');
+ });
+ it('não mantém o intervalo de um Editar anterior ao abrir o lote pela barra',async()=>{
+   render(<MdoWorkspace {...props}/>);await screen.findByText('3 funcionário/dia incluídos');
+   fireEvent.click(screen.getAllByRole('button',{name:'Editar'})[1]);
+   fireEvent.click(within(screen.getByRole('dialog',{name:'Ajustar conferência'})).getByRole('button',{name:'Cancelar'}));
+   fireEvent.click(screen.getByRole('checkbox',{name:'Selecionar José Silva 2026-09-01'}));
+   fireEvent.click(screen.getByRole('button',{name:'Ajustar OGS / exceções'}));
+   const dialog=screen.getByRole('dialog',{name:'Ajustar conferência'});
+   expect(within(dialog).getByLabelText('Início do ajuste')).toHaveValue('2026-09-01');
+   expect(within(dialog).getByLabelText('Fim do ajuste')).toHaveValue('2026-09-02');
+   expect(within(dialog).getByRole('checkbox',{name:/Substituir também OGS alocadas/})).not.toBeChecked();
+   fireEvent.click(within(dialog).getByRole('checkbox',{name:/Substituir também OGS alocadas/}));
+   expect(within(dialog).getByText('Impacto: 2 funcionário/dia · 1 pessoas')).toBeTruthy();
+ });
+ it('explica quando dias marcados já têm OGS e serão preservados',async()=>{
+   render(<MdoWorkspace {...props}/>);await screen.findByText('3 funcionário/dia incluídos');
+   fireEvent.click(screen.getByRole('checkbox',{name:'Selecionar José Silva 2026-09-01'}));
+   fireEvent.click(screen.getByRole('checkbox',{name:'Selecionar José Silva 2026-09-02'}));
+   fireEvent.click(screen.getByRole('button',{name:'Ajustar OGS / exceções'}));
+   const dialog=screen.getByRole('dialog',{name:'Ajustar conferência'});
+   expect(within(dialog).getByText(/2 dias marcados já têm OGS e não serão alterados/)).toBeTruthy();
+   fireEvent.change(within(dialog).getByRole('combobox',{name:'OGS para Custos'}),{target:{value:'ogs'}});
+   expect(within(dialog).getByRole('button',{name:'Confirmar ajuste'})).toBeDisabled();
+   fireEvent.click(within(dialog).getByRole('checkbox',{name:/Substituir também OGS alocadas/}));
+   expect(within(dialog).queryByText(/não serão alterados/)).toBeNull();
+   expect(within(dialog).getByText('Impacto: 2 funcionário/dia · 1 pessoas')).toBeTruthy();
+ });
  it('corrige apenas um dia do funcionário, preserva os outros dias e a OGS e permite restaurar',async()=>{
    render(<MdoWorkspace {...props}/>);await screen.findByText('3 funcionário/dia incluídos');
    fireEvent.click(screen.getByRole('button',{name:'Corrigir equipe de José Silva em 02/09/2026'}));
