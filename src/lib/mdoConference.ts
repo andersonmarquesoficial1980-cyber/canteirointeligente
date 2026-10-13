@@ -40,3 +40,29 @@ export function makeWorkbook(rows:ConferenceRow[], chosen:Column[], meta:{inicio
   ]),'RESUMO');
   return wb;
 }
+
+/** Planilha operacional da conferência; nunca equivale ao fechamento aprovado de Custos. */
+export function makeTeamConferenceWorkbook(rows:ConferenceRow[], chosen:Column[], meta:{inicio:string;fim:string;equipes:string[]}) {
+  if(!meta.equipes.length||!rows.length)throw Error('Selecione equipes com linhas incluídas para exportar');
+  if(rows.some(r=>!r.incluido||r.disposicao==='excluir'||!meta.equipes.includes(r.equipe||'—')))
+    throw Error('Há linhas fora das equipes selecionadas ou da composição; exportação cancelada');
+  if(!chosen.length||chosen.some(c=>!(c in columns)))throw Error('Configuração de colunas inválida');
+  const exportedColumns=[...chosen];
+  for(const mandatory of ['equipe','situacao'] as Column[])if(!exportedColumns.includes(mandatory))exportedColumns.push(mandatory);
+  const sorted=[...rows].sort((a,b)=>(a.equipe||'').localeCompare(b.equipe||'','pt-BR')||a.nome.localeCompare(b.nome,'pt-BR')||a.employee_id.localeCompare(b.employee_id)||a.dia.localeCompare(b.dia));
+  const data=[exportedColumns.map(c=>columns[c]),...sorted.map(r=>exportedColumns.map(c=>c==='dia'?new Date(`${r.dia}T12:00:00`):c==='ogs_custos'&&r.situacao==='PENDENTE'?'PENDENTE':r[c]||'—'))];
+  const sheet=XLSX.utils.aoa_to_sheet(data,{cellDates:true,dateNF:'dd/mm/yyyy'});
+  sheet['!autofilter']={ref:sheet['!ref']!};
+  sheet['!cols']=exportedColumns.map(c=>({wch:c==='nome'?38:c==='equipe'?30:c==='funcao'?28:18}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,sheet,'CONFERENCIA_MDO');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([
+    ['STATUS','CONFERÊNCIA EM ANDAMENTO — NÃO APROVADA'],
+    ['PERÍODO',`${dateLabel(meta.inicio)} a ${dateLabel(meta.fim)}`],
+    ['EQUIPES SELECIONADAS',meta.equipes.join(' | ')],
+    ['LINHAS EXPORTADAS',rows.length],
+    ['FUNCIONÁRIOS',new Set(rows.map(r=>r.employee_id)).size],
+    ['DIAS PENDENTES',rows.filter(r=>r.situacao==='PENDENTE').length],
+  ]),'RESUMO');
+  return wb;
+}

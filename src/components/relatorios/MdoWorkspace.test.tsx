@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MdoWorkspace } from './MdoWorkspace';
+import * as XLSX from 'xlsx';
 const {rpc,from}=vi.hoisted(()=>({rpc:vi.fn(),from:vi.fn()}));
 vi.mock('@/integrations/supabase/client',()=>({supabase:{rpc,from}}));
 vi.mock('sonner',()=>({toast:{success:vi.fn(),error:vi.fn()}}));
+vi.mock('xlsx',async(importOriginal)=>({...await importOriginal<typeof import('xlsx')>(),writeFile:vi.fn()}));
 const day=(employee_id:string,nome:string,equipe:string,dia:string)=>({employee_id,nome,equipe,dia,matricula:employee_id,funcao:'Auxiliar',status_dia:'ativo',ogs_rdo:'2529',ogs_custos:'2529',disposicao:'ogs',motivo:'',incluido:true,situacao:'ALOCADO',rdo_ids:'rdo-1'});
 let period:any;
 const grade=[day('p1','José Silva','Equipe A','2026-09-01'),day('p1','José Silva','Equipe A','2026-09-02'),day('p2','Maria','Equipe B','2026-09-01')];
@@ -20,6 +22,31 @@ beforeEach(()=>{period={id:'draft',versao:1,status:'rascunho',revisao:60,funcion
  if(name==='mdo_custos_listar_acessos')return {data:[],error:null};
  return {data:null,error:null};});});
 describe('MDO fluxo de conferência',()=>{
+ it('exporta todas as páginas das equipes marcadas sem confundir com Excel aprovado',async()=>{
+   workingGrade=[...workingGrade,...Array.from({length:105},(_,i)=>day(`extra-${i}`,`Pessoa ${i}`,'Equipe A','2026-09-01')),day('outro','Outra pessoa','Equipe C','2026-09-01')];
+   period.funcionarios_incluidos=workingGrade.map(r=>r.employee_id);
+   const download=vi.mocked(XLSX.writeFile);download.mockClear();
+   try{
+     render(<MdoWorkspace {...props}/>);await screen.findByText('109 funcionário/dia incluídos');
+     const btn=screen.getByRole('button',{name:'Exportar Excel das equipes selecionadas'});
+     expect(btn).toBeDisabled();
+     const teamSlicer=screen.getByText('Equipe',{selector:'summary'}).closest('details')!;
+     fireEvent.click(within(teamSlicer).getByRole('checkbox',{name:'Equipe A'}));
+     fireEvent.click(within(teamSlicer).getByRole('checkbox',{name:'Equipe B'}));
+     fireEvent.change(screen.getByRole('textbox',{name:'Buscar na conferência'}),{target:{value:'Maria'}});
+     expect(screen.getByText(/108 linhas das equipes selecionadas/)).toBeTruthy();
+     fireEvent.click(btn);
+     await waitFor(()=>expect(download).toHaveBeenCalledTimes(1));
+     await waitFor(()=>expect(btn).not.toBeDisabled());
+     const [wb,filename]=download.mock.calls[0];
+     expect(filename).toContain('CONFERENCIA_EQUIPES');
+     const data=XLSX.utils.sheet_to_json<any[]>(wb.Sheets.CONFERENCIA_MDO,{header:1});
+     expect(data).toHaveLength(109);
+     expect(data.slice(1).every(r=>['Equipe A','Equipe B'].includes(r[2]))).toBe(true);
+     expect(data.some(r=>r.includes('Outra pessoa'))).toBe(false);
+     expect(rpc).not.toHaveBeenCalledWith('mdo_custos_publicar',expect.anything());
+   } finally{download.mockClear();}
+ });
  it('segmenta por nome sem mudar o universo e salva exclusão por pessoa sem apagar ajustes',async()=>{
   render(<MdoWorkspace {...props}/>);
   await screen.findByText('3 funcionário/dia incluídos');

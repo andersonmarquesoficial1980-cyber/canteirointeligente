@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { columns, defaultColumns, dateLabel, filterConference, fold, makeWorkbook, type Column, type ConferenceRow, type Filters } from '@/lib/mdoConference';
+import { columns, defaultColumns, dateLabel, filterConference, fold, makeWorkbook, makeTeamConferenceWorkbook, type Column, type ConferenceRow, type Filters } from '@/lib/mdoConference';
 
 type Period = {id:string;versao:number;status:'rascunho'|'aprovado';revisao:number;funcionarios_incluidos:string[]|null;colunas:Column[];total_linhas:number|null;aprovado_em:string|null};
 type Payload = {grade:ConferenceRow[];periodos:Period[];ogs:{id:string;ogs_number:string}[];assinatura:string};
@@ -102,6 +102,7 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
   const teams=useMemo(()=>unique((payload?.grade||[]).map(r=>r.equipe)),[payload]);
   const visible=useMemo(()=>filterConference(rows,filters).filter(r=>visibility==='todos'||(visibility==='incluidos'?r.incluido&&r.disposicao!=='excluir':!r.incluido||r.disposicao==='excluir'))
     .sort((a,b)=>((String(a[sort]||'').localeCompare(String(b[sort]||''),'pt-BR')||a.employee_id.localeCompare(b.employee_id)||a.dia.localeCompare(b.dia))*(descending?-1:1))),[rows,filters,visibility,sort,descending]);
+  const teamExportRows=useMemo(()=>filters.teams?.length?rows.filter(r=>r.incluido&&r.disposicao!=='excluir'&&filters.teams!.includes(r.equipe||'—')):[],[rows,filters.teams]);
   const pageSize=100,maxPage=Math.max(0,Math.ceil(visible.length/pageSize)-1),actualPage=Math.min(page,maxPage);
   const shown=visible.slice(actualPage*pageSize,(actualPage+1)*pageSize);
   const includedRows=rows.filter(r=>r.incluido&&r.disposicao!=='excluir');
@@ -171,6 +172,12 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
     XLSX.writeFile(wb,`WF_MDO_CUSTOS_${inicio}_${fim}_v${p.versao}.xlsx`,{cellDates:true});
     toast.success(`Versão ${p.versao}: ${snapshot.length} linhas exportadas.`);
   });
+  const exportTeams=()=>run(async()=>{
+    if(readOnly||loading||dirty||!filters.teams?.length||!teamExportRows.length)throw Error('Selecione equipes com linhas incluídas e salve alterações de composição antes de exportar');
+    const wb=makeTeamConferenceWorkbook(teamExportRows,chosen,{inicio,fim,equipes:filters.teams});
+    XLSX.writeFile(wb,`WF_MDO_CONFERENCIA_EQUIPES_${inicio}_${fim}.xlsx`,{cellDates:true});
+    toast.success(`Conferência: ${teamExportRows.length} linhas das ${filters.teams.length} equipes exportadas (não aprovado).`);
+  });
   const previewApproved=()=>run(async()=>{
     const p=approved.find(p=>p.id===approvedId);if(!p)return;
     setApprovedRows(await frozen(companyId,p));setChosen(p.colunas||defaultColumns);setFilters({});setVisibility('incluidos');setPage(0);
@@ -228,6 +235,7 @@ export function MdoWorkspace({companyId,inicio,fim,access,onBusyChange}:{company
         <aside className="border rounded-lg p-3 self-start lg:sticky lg:top-20">
           <h3 className="text-sm font-semibold">Segmentações</h3><p className="text-xs text-muted-foreground mb-2">Filtram a tela, não quem entra no relatório.</p>
           <Slicer title="Equipe" options={unique(rows.map(r=>r.equipe))} value={filters.teams||[]} onChange={v=>changeFilter('teams',v)}/>
+          {!readOnly&&<div className="border-b py-3 space-y-1"><Button size="sm" variant="outline" className="w-full h-auto whitespace-normal py-2" disabled={busy||loading||dirty||!filters.teams?.length||!teamExportRows.length} onClick={exportTeams}>Exportar Excel das equipes selecionadas</Button><p className="text-xs text-muted-foreground">{teamExportRows.length} linhas das equipes selecionadas · todo o período, todas as páginas. Outros filtros da tabela não reduzem este Excel. Conferência não aprovada.{dirty?' Salve a composição/colunas antes de exportar.':''}</p></div>}
           <Slicer title="Funcionário" options={unique(rows.map(r=>r.employee_id))} value={filters.people||[]} onChange={v=>changeFilter('people',v)} label={id=>{const p=rows.find(r=>r.employee_id===id);return `${p?.nome} · ${p?.matricula||'—'}`;}}/>
           <Slicer title="Data" options={unique(rows.map(r=>r.dia))} value={filters.days||[]} onChange={v=>changeFilter('days',v)} label={dateLabel}/>
           <Slicer title="OGS" options={unique(rows.map(r=>r.ogs_custos))} value={filters.ogs||[]} onChange={v=>changeFilter('ogs',v)}/>
