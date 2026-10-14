@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineDb } from "@/lib/offlineDb";
+import type { ChecklistResult } from "@/components/equipment/ChecklistSection";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 type SyncState = {
@@ -38,6 +39,22 @@ function setGlobalState(patch: Partial<SyncState>) {
 function isRemoteUrl(value: string | null | undefined): boolean {
   return !!value && /^https?:\/\//i.test(value);
 }
+
+// A mesma pendência deve usar os mesmos IDs a cada tentativa, inclusive após reiniciar o navegador.
+// UUID versão 8 (hash SHA-256 truncado), distinto por tabela/seção/posição.
+async function offlineRowId(localId: string, section: string, index: number): Promise<string> {
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${localId}:${section}:${index}`)));
+  bytes[6] = (bytes[6] & 0x0f) | 0x80;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes.slice(0, 16), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function withOfflineIds<T extends object>(item: { localId: string }, section: string, rows: T[]): Promise<Array<T & { id: string }>> {
+  return Promise.all(rows.map(async (row, index) => ({ ...row, id: await offlineRowId(item.localId, section, index) })));
+}
+
+const ignoreDuplicateId = { onConflict: "id", ignoreDuplicates: true } as const;
 
 async function refreshPendingCount() {
   const [pendingDiaries, pendingRdos] = await Promise.all([
@@ -101,15 +118,13 @@ async function syncPendingDiary(item: any) {
     throw new Error("Payload de diário offline inválido.");
   }
 
-  const { data: diary, error: diaryError } = await supabase
+  // O ID da fila é um UUID estável. Repetir após falha parcial não cria um segundo diário.
+  const diaryId = item.localId as string;
+  const { error: diaryError } = await supabase
     .from("equipment_diaries")
-    .insert(diaryPayload)
-    .select("id")
-    .single();
+    .upsert({ ...diaryPayload, id: diaryId }, ignoreDuplicateId);
 
   if (diaryError) throw diaryError;
-
-  const diaryId = diary.id;
   const companyId = diaryPayload.company_id || null;
   const timeEntries = (payload.timeEntries || []) as any[];
   const validTimeEntries = timeEntries.filter((t) => t.startTime && t.activity);
@@ -163,7 +178,7 @@ async function syncPendingDiary(item: any) {
       };
     });
 
-    const { error } = await supabase.from("equipment_time_entries").insert(rows);
+    const { error } = await supabase.from("equipment_time_entries").upsert(await withOfflineIds(item, "equipment_time_entries", rows), ignoreDuplicateId);
     if (error) throw error;
   }
 
@@ -180,7 +195,7 @@ async function syncPendingDiary(item: any) {
         adjustment_factor: entry.fator ? Number(entry.fator) : null,
         ticket_photo_url: isRemoteUrl(entry.ticketPhotoPreview) ? entry.ticketPhotoPreview : null,
       }));
-      const { error } = await supabase.from("kma_calibration_entries").insert(rows);
+      const { error } = await supabase.from("kma_calibration_entries").upsert(await withOfflineIds(item, "kma_calibration_entries", rows), ignoreDuplicateId);
       if (error) throw error;
     }
 
@@ -204,7 +219,7 @@ async function syncPendingDiary(item: any) {
       kmaOperation?.totalVolumeMachinedTon
     );
     if (hasKmaOperationData) {
-      const { error } = await supabase.from("kma_operations").insert({
+      const [operation] = await withOfflineIds(item, "kma_operations", [{
         company_id: companyId,
         diary_id: diaryId,
         operation_type: kmaOperation.operationType,
@@ -225,7 +240,8 @@ async function syncPendingDiary(item: any) {
         total_volume_machined_ton: kmaOperation.totalVolumeMachinedTon
           ? Number(kmaOperation.totalVolumeMachinedTon)
           : null,
-      });
+      }]);
+      const { error } = await supabase.from("kma_operations").upsert(operation, ignoreDuplicateId);
       if (error) throw error;
     }
   }
@@ -239,7 +255,7 @@ async function syncPendingDiary(item: any) {
         width_m: a.larg ? Number(a.larg) : null,
         thickness_cm: a.esp ? Number(a.esp) : null,
       }));
-      const { error } = await supabase.from("equipment_production_areas").insert(rows);
+      const { error } = await supabase.from("equipment_production_areas").upsert(await withOfflineIds(item, "equipment_production_areas", rows), ignoreDuplicateId);
       if (error) throw error;
     }
 
@@ -252,7 +268,7 @@ async function syncPendingDiary(item: any) {
         status: b.status,
         horimeter: b.horimeter || null,
       }));
-      const { error } = await supabase.from("bit_entries").insert(rows);
+      const { error } = await supabase.from("bit_entries").upsert(await withOfflineIds(item, "bit_entries", rows), ignoreDuplicateId);
       if (error) throw error;
     }
   }
@@ -263,14 +279,16 @@ async function syncPendingDiary(item: any) {
         ? `${payload.attachmentType} — ${payload.attachmentId}`
         : payload.attachmentType;
 
-    await supabase.from("equipment_attachments" as any).insert({
+    const [attachment] = await withOfflineIds(item, "equipment_attachments", [{
       fleet_id: payload.selectedFleet,
       type: attachValue,
-    });
+    }]);
+    const { error } = await supabase.from("equipment_attachments" as any).upsert(attachment, ignoreDuplicateId);
+    if (error) throw error;
   }
 
   if (payload.meta?.hasChecklist && Array.isArray(payload.checklistResults) && payload.checklistResults.length > 0) {
-    const checklistRows = payload.checklistResults.map((cr: any) => ({
+    const checklistRows = (payload.checklistResults as ChecklistResult[]).map((cr) => ({
       diary_id: diaryId,
       item_id: cr.itemId,
       status: cr.status,
@@ -278,7 +296,7 @@ async function syncPendingDiary(item: any) {
       photo_url: isRemoteUrl(cr.photoPreview) ? cr.photoPreview : null,
     }));
 
-    const { error } = await supabase.from("checklist_entries").insert(checklistRows);
+    const { error } = await supabase.from("checklist_entries").upsert(await withOfflineIds(item, "checklist_entries", checklistRows), ignoreDuplicateId);
     if (error) throw error;
   }
 
@@ -293,19 +311,20 @@ async function syncPendingDiary(item: any) {
         material_type: payload.meta?.isPipa ? "Água" : "Emulsão",
       }));
 
-      const { error } = await supabase.from("truck_tank_supplies").insert(rows);
+      const { error } = await supabase.from("truck_tank_supplies").upsert(await withOfflineIds(item, "truck_tank_supplies", rows), ignoreDuplicateId);
       if (error) throw error;
     }
   }
 
   if (payload.meta?.isComboio) {
     if (payload.comboioSaldoInicial || payload.comboioFornecedor) {
-      const { error } = await supabase.from("truck_tank_supplies").insert({
+      const [supply] = await withOfflineIds(item, "comboio_saldo_inicial", [{
         diary_id: diaryId,
         quantity: payload.comboioSaldoInicial ? Number(payload.comboioSaldoInicial) : null,
         supplier: payload.comboioFornecedor || null,
         material_type: "Diesel",
-      });
+      }]);
+      const { error } = await supabase.from("truck_tank_supplies").upsert(supply, ignoreDuplicateId);
       if (error) throw error;
     }
 
@@ -329,7 +348,7 @@ async function syncPendingDiary(item: any) {
         }));
 
       if (abastRows.length > 0) {
-        const { error: abastError } = await supabase.from("abastecimentos").insert(abastRows as any);
+        const { error: abastError } = await supabase.from("abastecimentos").upsert(await withOfflineIds(item, "abastecimentos", abastRows), ignoreDuplicateId);
         if (abastError) throw abastError;
       }
     }
@@ -343,15 +362,12 @@ async function syncPendingRdo(item: any) {
     throw new Error("Payload de RDO offline inválido.");
   }
 
-  const { data: rdo, error: rdoError } = await supabase
+  const rdoId = item.localId as string;
+  const { error: rdoError } = await supabase
     .from("rdo_diarios")
-    .insert(rdoPayload)
-    .select("id")
-    .single();
+    .upsert({ ...rdoPayload, id: rdoId }, ignoreDuplicateId);
 
   if (rdoError) throw rdoError;
-
-  const rdoId = rdo.id;
 
   if (payload.tipoRdo === "INFRAESTRUTURA") {
     const entries = ((payload.infraProducao || []) as any[])
@@ -373,7 +389,7 @@ async function syncPendingRdo(item: any) {
       }));
 
     if (entries.length > 0) {
-      const { error } = await supabase.from("rdo_producao").insert(entries);
+      const { error } = await supabase.from("rdo_producao").upsert(await withOfflineIds(item, "rdo_producao", entries), ignoreDuplicateId);
       if (error) throw error;
     }
 
@@ -390,7 +406,7 @@ async function syncPendingRdo(item: any) {
       }));
 
     if (nfConcretoEntries.length > 0) {
-      const { error } = await (supabase as any).from("rdo_nf_concreto").insert(nfConcretoEntries);
+      const { error } = await (supabase as any).from("rdo_nf_concreto").upsert(await withOfflineIds(item, "rdo_nf_concreto", nfConcretoEntries), ignoreDuplicateId);
       if (error) throw error;
     }
   }
@@ -417,7 +433,7 @@ async function syncPendingRdo(item: any) {
       }));
 
     if (entries.length > 0) {
-      const { error } = await supabase.from("rdo_producao").insert(entries);
+      const { error } = await supabase.from("rdo_producao").upsert(await withOfflineIds(item, "rdo_producao", entries), ignoreDuplicateId);
       if (error) throw error;
     }
 
@@ -448,19 +464,20 @@ async function syncPendingRdo(item: any) {
       }));
 
     if (sinalizacoesRows.length > 0) {
-      const { error } = await (supabase as any).from("rdo_sinalizacao_horizontal").insert(sinalizacoesRows);
+      const { error } = await (supabase as any).from("rdo_sinalizacao_horizontal").upsert(await withOfflineIds(item, "rdo_sinalizacao_horizontal", sinalizacoesRows), ignoreDuplicateId);
       if (error) throw error;
     }
 
     const dmt = payload.informacoesDmt || {};
     const hasDmt = Object.values(dmt).some((v) => String(v || "").trim() !== "");
     if (hasDmt) {
-      const { error } = await (supabase as any).from("rdo_informacoes_dmt").insert({
+      const [dmtRow] = await withOfflineIds(item, "rdo_informacoes_dmt", [{
         rdo_id: rdoId,
         company_id: payload.rdoPayload?.company_id || null,
         dmt_usina_km: dmt.dmt_usina_km ? parseFloat(String(dmt.dmt_usina_km).replace(",", ".")) : null,
         dmt_canteiro_km: dmt.dmt_canteiro_km ? parseFloat(String(dmt.dmt_canteiro_km).replace(",", ".")) : null,
-      });
+      }]);
+      const { error } = await (supabase as any).from("rdo_informacoes_dmt").upsert(dmtRow, ignoreDuplicateId);
       if (error) throw error;
     }
   }
@@ -480,7 +497,7 @@ async function syncPendingRdo(item: any) {
     }));
 
   if (efetivoEntries.length > 0) {
-    const { error } = await supabase.from("rdo_efetivo").insert(efetivoEntries);
+    const { error } = await supabase.from("rdo_efetivo").upsert(await withOfflineIds(item, "rdo_efetivo", efetivoEntries), ignoreDuplicateId);
     if (error) throw error;
   }
 }
