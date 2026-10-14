@@ -43,14 +43,35 @@ export default function SSTInspecoes() {
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
   const [inspecoes, setInspecoes] = useState<Inspecao[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    (supabase as any).from("sst_inspections")
-      .select("id,nome_obra,cliente,tecnico_responsavel,data_inspecao,status,created_at")
-      .eq("company_id", COMPANY_ID)
-      .order("data_inspecao", { ascending: false })
-      .limit(100)
-      .then(({ data }: any) => { if (data) setInspecoes(data); setLoading(false); });
+    let active = true;
+    const loadInspecoes = async () => {
+      const pageSize = 500;
+      const rows: Inspecao[] = [];
+      try {
+        for (let offset = 0; ; offset += pageSize) {
+          const { data, error } = await supabase.from("sst_inspections")
+            .select("id,nome_obra,cliente,tecnico_responsavel,data_inspecao,status,created_at")
+            .eq("company_id", COMPANY_ID)
+            .order("data_inspecao", { ascending: false })
+            .order("id", { ascending: false })
+            .range(offset, offset + pageSize - 1);
+          if (error) throw error;
+          rows.push(...(data ?? []));
+          if ((data?.length ?? 0) < pageSize) break;
+        }
+        if (active) setInspecoes(rows);
+      } catch (error) {
+        console.error("Falha ao carregar inspeções SST", error);
+        if (active) setLoadError(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadInspecoes();
+    return () => { active = false; };
   }, []);
 
   const total = inspecoes.length;
@@ -66,7 +87,7 @@ export default function SSTInspecoes() {
         <LogoHomeButton className="h-7 object-contain" />
         <div className="flex-1">
           <span className="block font-display font-bold text-sm">Inspeções SST</span>
-          <span className="block text-[10px] text-primary-foreground/70">{total} inspeções</span>
+          <span className="block text-[10px] text-primary-foreground/70">{!loading && !loadError ? `${total} inspeções` : ""}</span>
         </div>
         <button onClick={() => navigate(`/sst/nova${origemQuery}`)}
           className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 transition rounded-lg px-3 py-1.5 text-xs font-bold">
@@ -75,7 +96,7 @@ export default function SSTInspecoes() {
       </header>
 
       {/* Resumo */}
-      <div style={{ background: "linear-gradient(135deg,#0A0F2C,#0D1B4B)", padding: "16px" }}>
+      {!loading && !loadError && <div style={{ background: "linear-gradient(135deg,#0A0F2C,#0D1B4B)", padding: "16px" }}>
         <div style={{ display: "flex", gap: 10, maxWidth: 760, margin: "0 auto" }}>
           {[
             { label: "Total",      value: total,      cor: "#00C6FF" },
@@ -88,11 +109,13 @@ export default function SSTInspecoes() {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       <div style={{ maxWidth: 760, margin: "0 auto", padding: 16 }}>
         {loading ? (
           <p style={{ textAlign: "center", color: "#9ca3af", padding: "40px 0" }}>Carregando...</p>
+        ) : loadError ? (
+          <p role="alert" style={{ textAlign: "center", color: "#b91c1c", padding: "40px 0" }}>Não foi possível carregar as inspeções. Tente atualizar a página.</p>
         ) : inspecoes.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 16px" }}>
             <ClipboardCheck size={48} color="#d1d5db" style={{ margin: "0 auto 12px" }} />
