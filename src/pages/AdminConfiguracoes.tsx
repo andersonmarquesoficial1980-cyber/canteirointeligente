@@ -28,6 +28,9 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { startImpersonation } from "@/hooks/useImpersonation";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 import UsersManagerExternal from "@/components/admin/UsersManager";
@@ -5212,9 +5215,28 @@ function EmpresasParceirasManager() {
   );
 }
 
+function DesktopAdminHeader({ goBack, onSignOut }: { goBack: () => void; onSignOut: () => void }) {
+  const { trail, goTo } = useNavigationTrail({ label: "Painel de Controle" });
+  return <header className="bg-header-gradient text-primary-foreground">
+    <div className="flex items-center gap-4 px-8 py-5">
+      <button type="button" aria-label="Voltar" onClick={goBack} className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+      <div className="min-w-0 flex-1"><h1 className="text-2xl font-semibold">Painel de Controle</h1><p className="text-sm text-primary-foreground/90">Administração Centralizada</p></div>
+      <button type="button" aria-label="Sair" onClick={onSignOut} className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><LogOut className="h-5 w-5" /></button>
+    </div>
+    <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+  </header>;
+}
+
 export default function AdminConfiguracoes() {
   const navigate = useNavigate();
+  const isDesktop = useDesktopWorkspace();
   const goBack = useSmartBack("/");
+  const handleSignOut = async () => {
+    try { await supabase.auth.signOut(); } catch {}
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.replace("/");
+  };
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAdmin, loading: loadingAdmin } = useIsAdmin();
   const { permissions, loading: loadingPerms } = usePermissions();
@@ -5536,7 +5558,7 @@ export default function AdminConfiguracoes() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
+      {isDesktop ? <DesktopAdminHeader goBack={goBack} onSignOut={handleSignOut} /> : (
       <header className="sticky top-0 z-50 bg-header-gradient text-primary-foreground px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
           <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
@@ -5550,13 +5572,14 @@ export default function AdminConfiguracoes() {
             <p className="text-[10px] text-primary-foreground/70">Administração Centralizada</p>
           </div>
           <button
-            onClick={async () => { try { await supabase.auth.signOut(); } catch {} localStorage.clear(); sessionStorage.clear(); window.location.replace("/"); }}
+            onClick={handleSignOut}
             className="p-1.5 rounded-lg hover:bg-white/10 transition"
           >
             <LogOut className="h-5 w-5" />
           </button>
         </div>
       </header>
+      )}
 
       {/* Mobile tabs (horizontal scroll) */}
       <div className="md:hidden sticky top-[52px] z-40 bg-card border-b border-border overflow-x-auto">
@@ -5584,7 +5607,7 @@ export default function AdminConfiguracoes() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar navigation — desktop only */}
-        <nav className="w-56 shrink-0 border-r border-border bg-card overflow-y-auto hidden md:block">
+        <nav aria-label="Seções do Painel de Controle" className="w-56 shrink-0 border-r border-border bg-card overflow-y-auto hidden md:block">
           <div className="py-2">
             {menuSectionsVisiveis.map((item) => {
               const Icon = item.icon;
@@ -5609,7 +5632,7 @@ export default function AdminConfiguracoes() {
 
         {/* Content area */}
         <main className="flex-1 overflow-y-auto">
-          <div className="p-4 md:p-6 max-w-5xl">
+          <div className={isDesktop ? "p-8 max-w-[1680px]" : "p-4 md:p-6 max-w-5xl"}>
             {currentItem && activeSection !== "dashboard" && (
               <div className="mb-6">
                 <h2 className="text-lg font-display font-extrabold text-foreground flex items-center gap-2">
