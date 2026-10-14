@@ -7,6 +7,9 @@ import { ArrowLeft, Search, FileText, Plus, Loader2, Check, X, ChevronRight } fr
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 function fmtDate(d: string) {
   if (!d) return "—";
@@ -16,8 +19,33 @@ function fmtBRL(v: number) {
   return v?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) || "R$ 0,00";
 }
 
+function DesktopMedicoesTerceirosHeader({ goBack, step, setStep, historyCount }: {
+  goBack: () => void;
+  step: "busca" | "config" | "resultado" | "historico";
+  setStep: (step: "busca" | "historico") => void;
+  historyCount: number;
+}) {
+  const { trail, goTo } = useNavigationTrail({ label: "Medições de Terceiros" });
+  return <header className="bg-header-gradient text-primary-foreground">
+    <div className="flex items-center gap-4 px-8 py-5">
+      <button type="button" onClick={goBack} aria-label="Voltar" className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+      <div><h1 className="text-2xl font-semibold">WF Medições</h1><p className="text-sm text-primary-foreground/90">Medições de Terceiros</p></div>
+    </div>
+    <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+    <div className="flex gap-2 px-8 pb-5">
+      {(["busca", "historico"] as const).map(s => (
+        <button type="button" key={s} onClick={() => setStep(s)}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${step === s || (step === "config" && s === "busca") || (step === "resultado" && s === "historico") ? "bg-white text-primary" : "bg-white/20 text-white hover:bg-white/30"}`}>
+          {s === "busca" ? "Nova Medição" : `Histórico (${historyCount})`}
+        </button>
+      ))}
+    </div>
+  </header>;
+}
+
 export default function MedicoesTerceiros() {
   const navigate = useNavigate();
+  const isDesktop = useDesktopWorkspace();
   const goBack = useSmartBack("/medicoes");
   const { toast } = useToast();
 
@@ -212,7 +240,7 @@ export default function MedicoesTerceiros() {
 
   return (
     <div className="min-h-screen bg-background pb-10">
-      {/* Header */}
+      {isDesktop ? <DesktopMedicoesTerceirosHeader goBack={goBack} step={step} setStep={setStep} historyCount={historico.length} /> : (
       <div className="bg-gradient-to-r from-violet-600 to-violet-500 text-white px-4 pt-12 pb-5">
         <div className="flex items-center gap-3 mb-3">
           <button onClick={goBack} className="hover:bg-white/15 p-2 rounded-lg">
@@ -233,8 +261,10 @@ export default function MedicoesTerceiros() {
           ))}
         </div>
       </div>
+      )}
 
-      <div className="px-4 pt-4 space-y-4">
+      <div data-testid="medicoes-terceiros-content" className={isDesktop ? "mx-auto max-w-[1680px] px-8 py-8 space-y-4" : "px-4 pt-4 space-y-4"}>
+        <div className={isDesktop ? "max-w-4xl space-y-4" : ""}>
 
         {/* ===== BUSCA ===== */}
         {(step === "busca") && (
@@ -482,6 +512,7 @@ export default function MedicoesTerceiros() {
             })}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
