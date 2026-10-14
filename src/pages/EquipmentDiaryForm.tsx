@@ -16,6 +16,7 @@ import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 import { formatDiaryFleetLabel } from "@/lib/diaryFleetLabel";
+import { loadComboioFuel } from "@/lib/diaryFuelSync";
 import { assessMeter, suggestFleet, type MeterDiary } from "@/lib/equipmentDiaryAudit";
 import { toSaoPauloISODate } from "@/lib/date-local";
 import { Button } from "@/components/ui/button";
@@ -772,9 +773,9 @@ export default function EquipmentDiaryForm() {
     return options.includes(currentValue) ? options : [currentValue, ...options];
   };
 
-  // ── SINCRONIZAÇÃO AUTOMÁTICA DE COMBUSTÍVEL (Comboio → Equipamento) ──
+  // ── SINCRONIZAÇÃO AUTOMÁTICA DE COMBUSTÍVEL (WF Abastecimento → Diário) ──
   useEffect(() => {
-    if (isEditMode || isComboio || !selectedFleet || !date) {
+    if (isEditMode || isComboio || !selectedFleet || !date || !effectiveCompanyId) {
       setFuelSyncedFromComboio(false);
       return;
     }
@@ -782,63 +783,29 @@ export default function EquipmentDiaryForm() {
     let cancelled = false;
     const fetchComboioFuel = async () => {
       try {
-        // Find diaries from Comboio for the same date
-        const { data: comboioDiaries } = await supabase
-          .from("equipment_diaries")
-          .select("id")
-          .eq("equipment_type", "Comboio")
-          .eq("date", date);
-
-        if (!comboioDiaries || comboioDiaries.length === 0) {
-          if (!cancelled) setFuelSyncedFromComboio(false);
-          return;
-        }
-
-        const diaryIds = comboioDiaries.map((d) => d.id);
-
-        // Fonte única de abastecimento: registros vinculados aos diários de comboio.
-        const { data: refuelLogs, error: refuelError } = await supabase
-          .from("abastecimentos")
-          .select("litros, horimetro")
-          .in("diary_id", diaryIds)
-          .eq("equipment_fleet", selectedFleet);
-        if (refuelError) throw refuelError;
-
+        // O módulo de Abastecimento não preenche diary_id; usa a frota abastecida e o dia.
+        const result = await loadComboioFuel(effectiveCompanyId, selectedFleet, date, usesOdometer);
         if (cancelled) return;
-
-        if (refuelLogs && refuelLogs.length > 0) {
-          const totalLiters = refuelLogs.reduce(
-            (sum, r) => sum + (Number(r.litros) || 0),
-            0
-          );
-          if (totalLiters > 0) {
-            const lastMeter = refuelLogs.reduce((best, r) => {
-              const m = Number(r.horimetro) || 0;
-              return m > best ? m : best;
-            }, 0);
-            setFueling((prev) => ({
-              ...prev,
-              fuelType: prev.fuelType || "Diesel S10",
-              liters: String(totalLiters),
-              fuelMeter: lastMeter > 0 ? String(lastMeter) : prev.fuelMeter,
-            }));
-            setFuelSyncedFromComboio(true);
-            // FuelSync complete
-            return;
-          }
+        if (result) {
+          setFueling((prev) => ({
+            ...prev,
+            fuelType: prev.fuelType || "Diesel S10",
+            liters: String(result.liters),
+            fuelMeter: result.meter !== null ? String(result.meter) : prev.fuelMeter,
+          }));
+          setFuelSyncedFromComboio(true);
+        } else {
+          setFuelSyncedFromComboio(false);
         }
-
-        // A tabela legada não existe no esquema: abastecimentos é a fonte vigente.
-        if (!cancelled) setFuelSyncedFromComboio(false);
       } catch (err) {
         console.error("[FuelSync] Erro ao buscar combustível do Comboio:", err);
         if (!cancelled) setFuelSyncedFromComboio(false);
       }
     };
 
-    fetchComboioFuel();
+    void fetchComboioFuel();
     return () => { cancelled = true; };
-  }, [selectedFleet, date, isComboio, isEditMode]);
+  }, [selectedFleet, date, isComboio, isEditMode, effectiveCompanyId, usesOdometer]);
 
   // Helpers para checar arrays com fallback legado
   const hasVinculo = (f: any, v: string) =>
