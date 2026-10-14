@@ -17,6 +17,9 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { getLegacyModeState, isLegacyFallbackEnabled } from "@/lib/materialsFeatureFlags";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { resolveTruckEquipment } from "@/lib/truckEquipmentLink";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 // Materials are now loaded dynamically from insumos_materiais
 
@@ -537,12 +540,47 @@ function ArrivalList() {
   );
 }
 
+function DesktopTruckerHeader({ goBack, onQr, onLogout }: { goBack: () => void; onQr: () => void; onLogout: () => void }) {
+  const { trail, goTo } = useNavigationTrail({ label: "WF Carreteiros" });
+  return (
+    <header className="bg-header-gradient text-primary-foreground">
+      <div className="flex flex-wrap items-center gap-4 px-8 py-5">
+        <button type="button" onClick={goBack} aria-label="Voltar" className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+        <div className="min-w-0 flex-1"><h1 className="text-2xl font-semibold">WF Carreteiros</h1><p className="text-sm text-primary-foreground/90">Logística de Materiais</p></div>
+        <button type="button" onClick={onQr} className="rounded-lg px-3 py-2 text-sm hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><QrCode className="mr-2 inline h-4 w-4" />Gerar QR Codes</button>
+        <button type="button" onClick={onLogout} className="rounded-lg px-3 py-2 text-sm hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><LogOut className="mr-2 inline h-4 w-4" />Sair</button>
+      </div>
+      <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+    </header>
+  );
+}
+
 export default function TruckerHome() {
   const navigate = useNavigate();
+  const isDesktop = useDesktopWorkspace();
   const [searchParams] = useSearchParams();
   const origem = searchParams.get("origem") || "";
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
   const origemQuery = origem ? `?origem=${encodeURIComponent(origem)}` : "";
+  const handleLogout = async () => { try { await supabase.auth.signOut(); } catch {} localStorage.clear(); sessionStorage.clear(); window.location.replace("/"); };
+
+  if (isDesktop) return (
+    <div className="min-h-screen bg-page">
+      <DesktopTruckerHeader goBack={goBack} onQr={() => navigate(`/carreteiros/qrcodes${origemQuery}`)} onLogout={handleLogout} />
+      <main data-testid="carreteiros-content" className="mx-auto max-w-[1680px] px-8 py-8">
+        <h2 className="text-lg font-semibold">Operação de Carreteiros</h2>
+        <p className="mt-1 mb-6 text-sm text-muted-foreground">Registre a saída ou acompanhe a chegada dos caminhões.</p>
+        <Tabs defaultValue="saida" className="w-full max-w-5xl">
+          <TabsList className="grid w-full grid-cols-2 h-12">
+            <TabsTrigger value="saida" className="text-sm font-semibold"><Truck className="mr-2 h-4 w-4" />Saída (Obra)</TabsTrigger>
+            <TabsTrigger value="chegada" className="text-sm font-semibold"><MapPin className="mr-2 h-4 w-4" />Chegada (Canteiro)</TabsTrigger>
+          </TabsList>
+          <TabsContent value="saida"><DepartureForm /></TabsContent>
+          <TabsContent value="chegada"><ArrivalList /></TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -560,7 +598,7 @@ export default function TruckerHome() {
           <QrCode className="h-5 w-5" />
         </button>
         <button
-          onClick={async () => { try { await supabase.auth.signOut(); } catch {} localStorage.clear(); sessionStorage.clear(); window.location.replace("/"); }}
+          onClick={handleLogout}
           className="p-1.5 rounded-lg hover:bg-white/10 transition"
         >
           <LogOut className="h-5 w-5" />
