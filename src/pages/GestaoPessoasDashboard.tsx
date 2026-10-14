@@ -12,6 +12,9 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 interface Funcionario {
   id: string;
@@ -354,7 +357,19 @@ function BuscaFuncionario({ todos, onSelect }: { todos: Funcionario[]; onSelect:
 // ─── Página principal ─────────────────────────────────────────────────────────
 type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "centro_custo" | "aniversariantes";
 
+function DesktopPessoasHeader({ goBack, subtitle }: { goBack: () => void; subtitle: string }) {
+  const { trail, goTo } = useNavigationTrail({ label: "WF Gestão de Pessoas" });
+  return <header className="bg-header-gradient text-primary-foreground">
+    <div className="flex items-center gap-4 px-8 py-5">
+      <button type="button" aria-label="Voltar" onClick={goBack} className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+      <div><h1 className="text-2xl font-semibold">WF Gestão de Pessoas</h1><p className="text-sm text-primary-foreground/90">{subtitle}</p></div>
+    </div>
+    <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+  </header>;
+}
+
 export default function GestaoPessoasDashboard() {
+  const isDesktop = useDesktopWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -579,7 +594,7 @@ export default function GestaoPessoasDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {isDesktop ? <DesktopPessoasHeader goBack={goBack} subtitle={loading ? "Carregando..." : `${todos.length} funcionários`} /> : (
       <header className="sticky top-0 z-30 bg-header-gradient text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md">
         <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-white/10 transition">
           <ArrowLeft className="h-5 w-5" />
@@ -592,16 +607,17 @@ export default function GestaoPessoasDashboard() {
           </span>
         </div>
       </header>
+      )}
 
       {/* Programações do dia */}
       <div style={{ background: "linear-gradient(135deg,#0A0F2C,#0D1B4B)", padding: "16px" }}>
-        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+        <div style={{ maxWidth: isDesktop ? 1152 : 760, margin: "0 auto" }}>
           <ProgramacoesDoDia />
         </div>
       </div>
 
       {/* Hub de cards */}
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div data-testid="pessoas-hub" className={isDesktop ? "max-w-[1680px] mx-auto p-8 space-y-5" : undefined} style={isDesktop ? undefined : { maxWidth: 760, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 14 }}>
         <section className="rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div>
@@ -664,6 +680,7 @@ export default function GestaoPessoasDashboard() {
           </div>
         </section>
 
+        <div data-testid="pessoas-grupos" className={isDesktop ? "grid grid-cols-1 xl:grid-cols-2 gap-6 items-start" : "contents"}>
         {HUB_GROUPS.map(group => (
           <section key={group.titulo} className="space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground px-1">
@@ -698,6 +715,7 @@ export default function GestaoPessoasDashboard() {
             })}
           </section>
         ))}
+        </div>
 
         {/* Card Integrações por Obra */}
         <IntegracaoObrasCard />
