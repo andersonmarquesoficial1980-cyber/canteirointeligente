@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
 import * as XLSX from "xlsx";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 
 function fmtDate(d: string) {
   const [y, m, day] = d.split("-");
@@ -47,8 +50,23 @@ const STATUS_COR: Record<string, string> = {
   "D": "bg-orange-100 text-orange-600",
 };
 
+function DesktopMedicoesHeader({ goBack, onExport, canExport }: { goBack: () => void; onExport: () => void; canExport: boolean }) {
+  const { trail, goTo } = useNavigationTrail({ label: "WF Medições" });
+  return (
+    <header className="bg-header-gradient text-primary-foreground print:hidden">
+      <div className="flex items-center gap-4 px-8 py-5">
+        <button type="button" onClick={goBack} aria-label="Voltar" className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+        <div className="min-w-0 flex-1"><h1 className="text-2xl font-semibold">WF Medições</h1><p className="text-sm text-primary-foreground/90">Fechamento de equipamentos terceirizados</p></div>
+        {canExport && <ExportButton size="sm" onClick={onExport} className="bg-green-600 hover:bg-green-700 text-white border-0 gap-1"><FileSpreadsheet className="w-4 h-4" /> Excel</ExportButton>}
+      </div>
+      <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+    </header>
+  );
+}
+
 export default function MedicoesHome() {
   const navigate = useNavigate();
+  const isDesktop = useDesktopWorkspace();
   const goBack = useSmartBack("/medicoes");
 
   // Período padrão: mês atual
@@ -268,7 +286,10 @@ export default function MedicoesHome() {
   }, [equipamentos, diariosPorFrota, days]);
 
   return (
-    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
+    <div className={`min-h-screen ${isDesktop ? "bg-page" : "bg-[hsl(210_20%_98%)]"}`}>
+      {isDesktop ? (
+        <DesktopMedicoesHeader goBack={goBack} onExport={exportarExcel} canExport={buscou && equipamentos.length > 0} />
+      ) : (
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg print:hidden">
         <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
@@ -284,8 +305,9 @@ export default function MedicoesHome() {
           </ExportButton>
         )}
       </header>
+      )}
 
-      <main className="max-w-7xl mx-auto p-4 space-y-4">
+      <main className={isDesktop ? "mx-auto max-w-[1680px] px-8 py-8 space-y-4 print:max-w-7xl print:p-4" : "max-w-7xl mx-auto p-4 space-y-4"}>
         {/* Card de acesso: Medições de Terceiros */}
         <button onClick={() => navigate("/medicoes/terceiros")} className="w-full rdo-card border-l-4 border-l-violet-400 hover:shadow-md transition-all flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
