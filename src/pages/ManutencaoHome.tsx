@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Wrench, ChevronRight, AlertTriangle, Clock, CheckCircl
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
 import NovaOSModal from "@/components/manutencao/NovaOSModal";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
@@ -63,6 +64,7 @@ function fmtDate(d: string) {
 
 export default function ManutencaoHome() {
   const navigate = useNavigate();
+  const isDesktop = useDesktopWorkspace();
   const [searchParams] = useSearchParams();
   const origem = searchParams.get("origem") || "";
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
@@ -72,6 +74,7 @@ export default function ManutencaoHome() {
   const [progsPendentes, setProgsPendentes] = useState<ProgPendente[]>([]);
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingProgramacoes, setLoadingProgramacoes] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState("todas");
   const [modalNovaOS, setModalNovaOS] = useState(false);
 
@@ -82,19 +85,29 @@ export default function ManutencaoHome() {
     const hoje = new Date().toISOString().split("T")[0];
     const amanha = new Date(Date.now() + 86400000).toISOString().split("T")[0];
 
-    const [{ data: os }, { data: progs }] = await Promise.all([
-      supabase.from("manutencao_os").select("*").order("created_at", { ascending: false }),
-      // Programações de hoje e amanhã aguardando confirmação da manutenção
-      (supabase as any)
+    const osQuery = supabase.from("manutencao_os").select("*").order("created_at", { ascending: false });
+    const programacoesQuery = (supabase as any)
         .from("ci_programacoes")
         .select("id,data,equipe,responsavel,ogs,cliente,local,periodo,tipo_servico,equipamentos_designados,engenheiro_responsavel,obs,confirmado_manutencao")
         .in("data", [hoje, amanha])
         .eq("status_programacao", "AGUARDANDO_MANUTENCAO")
         .eq("confirmado_manutencao", false)
         .order("data")
-        .order("equipe"),
-    ]);
+        .order("equipe");
 
+    if (isDesktop) {
+      // A lista de OS não deve aguardar uma consulta independente de programações.
+      setLoadingProgramacoes(true);
+      await Promise.allSettled([
+        Promise.resolve(osQuery).then(({ data: os }) => { if (os) setOsList(os); }).finally(() => setLoading(false)),
+        Promise.resolve(programacoesQuery)
+          .then(({ data: progs }: { data: ProgPendente[] | null }) => { if (progs) setProgsPendentes(progs); })
+          .finally(() => setLoadingProgramacoes(false)),
+      ]);
+      return;
+    }
+
+    const [{ data: os }, { data: progs }] = await Promise.all([osQuery, programacoesQuery]);
     if (os) setOsList(os);
     if (progs) setProgsPendentes(progs);
     setLoading(false);
@@ -131,14 +144,14 @@ export default function ManutencaoHome() {
   }
 
   return (
-    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
-      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
-        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
+    <div className={`min-h-screen ${isDesktop ? "bg-page" : "bg-[hsl(210_20%_98%)]"}`}>
+      <header className={`flex items-center gap-3 bg-header-gradient shadow-lg ${isDesktop ? "flex-wrap px-8 py-5" : "px-4 py-3"}`}>
+        <button onClick={goBack} aria-label="Voltar" className={`text-primary-foreground hover:bg-white/15 rounded-lg ${isDesktop ? "flex h-12 w-12 items-center justify-center" : "p-2"}`}>
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="flex-1">
-          <span className="block font-display font-extrabold text-sm text-primary-foreground leading-tight">WF Manutenção</span>
-          <span className="block text-[11px] text-primary-foreground/80">Ordens de Serviço</span>
+        <div className="flex-1 min-w-0">
+          <h1 className={`block font-display text-primary-foreground leading-tight ${isDesktop ? "text-2xl font-semibold" : "text-sm font-extrabold"}`}>WF Manutenção</h1>
+          <span className={`block text-primary-foreground/80 ${isDesktop ? "text-sm" : "text-[11px]"}`}>Ordens de Serviço</span>
         </div>
         <Button size="sm" variant="outline" onClick={() => navigate(`/manutencao/ocorrencias${origemQuery}`)} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
           <AlertTriangle className="w-4 h-4" /> Ocorrências
@@ -151,7 +164,8 @@ export default function ManutencaoHome() {
         </Button>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+      <div className={`mx-auto space-y-3 ${isDesktop ? "max-w-[1680px] px-8 py-8" : "max-w-2xl px-4 py-4"}`}>
+        {isDesktop && loadingProgramacoes && <p role="status" className="text-sm text-muted-foreground">Consultando programações…</p>}
 
         {/* ── PROGRAMAÇÕES PENDENTES (aparece sempre que houver) ── */}
         {progsPendentes.length > 0 && (
@@ -275,7 +289,8 @@ export default function ManutencaoHome() {
             <Button onClick={() => setModalNovaOS(true)} className="mt-4 gap-2"><Plus className="w-4 h-4" /> Abrir OS</Button>
           </div>
         ) : (
-          osFiltradas.map(os => {
+          <div className={isDesktop ? "grid grid-cols-1 xl:grid-cols-2 gap-4" : "space-y-3"}>
+          {osFiltradas.map(os => {
             const cfg = STATUS_CONFIG[os.status] || STATUS_CONFIG.aberta;
             const Icon = cfg.icon;
             return (
@@ -306,7 +321,8 @@ export default function ManutencaoHome() {
                 </div>
               </button>
             );
-          })
+          })}
+          </div>
         )}
       </div>
 
