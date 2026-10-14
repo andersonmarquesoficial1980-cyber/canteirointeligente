@@ -12,6 +12,9 @@ import { supabase } from "@/integrations/supabase/client";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { loadFuelEquipment, loadFuelOperatorNames } from "@/lib/abastecimentoCatalog";
 import { toast } from "sonner";
 
@@ -217,8 +220,22 @@ function buildOgsOptions(ogsData: any[]) {
   return options;
 }
 
+function DesktopAbastecimentoHeader({ goBack }: { goBack: () => void }) {
+  const { trail, goTo } = useNavigationTrail({ label: "WF Abastecimento" });
+  return (
+    <header className="bg-header-gradient text-primary-foreground">
+      <div className="flex items-center gap-4 px-8 py-5">
+        <button type="button" onClick={goBack} aria-label="Voltar" className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+        <div><h1 className="text-2xl font-semibold">WF Abastecimento</h1><p className="text-sm text-primary-foreground/90">Comboio, Posto e Shelbox</p></div>
+      </div>
+      <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+    </header>
+  );
+}
+
 export default function AbastecimentoHome() {
   const navigate = useNavigate();
+  const isDesktop = useDesktopWorkspace();
   const [searchParams] = useSearchParams();
   const origem = searchParams.get("origem") || "";
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/");
@@ -960,7 +977,8 @@ export default function AbastecimentoHome() {
   });
 
   return (
-    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
+    <div className={`min-h-screen ${isDesktop ? "bg-page" : "bg-[hsl(210_20%_98%)]"}`}>
+      {isDesktop ? <DesktopAbastecimentoHeader goBack={goBack} /> : (
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
         <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
@@ -970,8 +988,9 @@ export default function AbastecimentoHome() {
           <span className="block text-[11px] text-primary-foreground/80">Comboio, Posto e Shelbox</span>
         </div>
       </header>
+      )}
 
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+      <div data-testid="abastecimento-content" className={isDesktop ? "mx-auto max-w-[1680px] px-8 py-8 space-y-4" : "max-w-4xl mx-auto px-4 py-6 space-y-4"}>
 
         {/* Programações do dia */}
         <ProgramacoesDoDia />
