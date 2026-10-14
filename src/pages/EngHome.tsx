@@ -5,6 +5,9 @@ import { ClipboardCheck, ClipboardList, AlertTriangle, CheckCircle2, Clock, Chev
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 import IntegracaoObrasCard from "@/components/IntegracaoObrasCard";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
+import { useNavigationTrail } from "@/hooks/useNavigationTrail";
+import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { namesLikelyMatch } from "@/lib/nameMatch";
 
 const VALIDATION_START_DATE = "2026-07-17";
@@ -26,7 +29,19 @@ interface MinhaOgs {
   client_name: string;
 }
 
+function DesktopEngHeader({ goBack }: { goBack: () => void }) {
+  const { trail, goTo } = useNavigationTrail({ label: "WF Engenharia" });
+  return <header className="bg-header-gradient text-primary-foreground">
+    <div className="flex items-center gap-4 px-8 py-5">
+      <button type="button" aria-label="Voltar" onClick={goBack} className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+      <div><h1 className="text-2xl font-semibold">WF Engenharia</h1><p className="text-sm text-primary-foreground/90">Validação e lançamento técnico</p></div>
+    </div>
+    <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+  </header>;
+}
+
 export default function EngHome() {
+  const isDesktop = useDesktopWorkspace();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const origem = searchParams.get("origem") || "";
@@ -138,12 +153,13 @@ export default function EngHome() {
 
   return (
     <>
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6 pb-24">
+      {isDesktop && <DesktopEngHeader goBack={goBack} />}
+      <main data-testid="engenharia-conteudo" className={isDesktop ? "max-w-6xl mx-auto px-8 py-8 space-y-6 pb-24" : "max-w-lg mx-auto px-4 py-6 space-y-6 pb-24"}>
 
         {/* Programações do dia */}
         <ProgramacoesDoDia />
-        {/* Header */}
-        <div className="flex items-center gap-3">
+        {/* Header mobile */}
+        {!isDesktop && <div className="flex items-center gap-3">
           <button onClick={goBack} className="p-2 rounded-lg hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -154,8 +170,10 @@ export default function EngHome() {
             <h1 className="text-lg font-bold text-foreground">RDO Engenharia</h1>
             <p className="text-xs text-muted-foreground">Validação e lançamento técnico</p>
           </div>
-        </div>
+        </div>}
 
+        <div data-testid="engenharia-paineis" className={isDesktop ? "grid grid-cols-1 lg:grid-cols-2 gap-6 items-start" : "space-y-6"}>
+          <div className={isDesktop ? "space-y-4" : "space-y-6"}>
         {/* Ações rápidas */}
         <div className={`grid gap-3 ${canViewValidacoes ? "grid-cols-2" : "grid-cols-1"}`}>
           <button
@@ -195,6 +213,8 @@ export default function EngHome() {
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
         </button>
+          </div>
+          <div className={isDesktop ? "space-y-5" : "space-y-6"}>
 
         {/* RDOs pendentes de validação */}
         {rdosPendentes.length > 0 && (
@@ -250,7 +270,9 @@ export default function EngHome() {
           )}
         </div>
         <IntegracaoObrasCard />
-      </div>
+          </div>
+        </div>
+      </main>
     </>
   );
 }
