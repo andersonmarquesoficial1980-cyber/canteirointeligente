@@ -69,11 +69,21 @@ export function useAdminRoles() {
       if (!profile?.company_id) return [];
       const { data, error } = await supabase
         .from("user_admin_roles")
-        .select("*, admin_roles(name, description), employees(name, matricula)")
+        .select("*, admin_roles(name, description)")
         .eq("company_id", profile.company_id)
         .eq("is_active", true);
       if (error) throw error;
-      return data || [];
+      const roleRows = data || [];
+      const ids = [...new Set(roleRows.map((row) => row.employee_id))];
+      if (ids.length === 0) return [];
+      const { data: employees, error: employeesError } = await supabase
+        .from("employees")
+        .select("id, name, matricula")
+        .eq("company_id", profile.company_id)
+        .in("id", ids);
+      if (employeesError) throw employeesError;
+      const employeesById = new Map((employees || []).map((row) => [row.id, row]));
+      return roleRows.map((row) => ({ ...row, employees: employeesById.get(row.employee_id) || null }));
     },
     enabled: !!profile?.company_id,
   });

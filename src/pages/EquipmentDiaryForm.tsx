@@ -711,7 +711,7 @@ export default function EquipmentDiaryForm() {
         .order("nome");
 
       if (error) throw error;
-      return (data || []) as any[];
+      return data || [];
     },
   });
 
@@ -739,7 +739,7 @@ export default function EquipmentDiaryForm() {
       TODOS: ["cap", "filer", "silo", "agua"],
     };
 
-    for (const row of materiaisKmaDb as any[]) {
+    for (const row of materiaisKmaDb) {
       const nome = String(row?.nome || "").trim();
       if (!nome) continue;
 
@@ -794,26 +794,26 @@ export default function EquipmentDiaryForm() {
           return;
         }
 
-        const diaryIds = comboioDiaries.map((d: any) => d.id);
+        const diaryIds = comboioDiaries.map((d) => d.id);
 
-        // Search refueling logs for this fleet on this date (fonte única: abastecimentos)
-        const { data: refuelLogs } = await (supabase as any)
+        // Fonte única de abastecimento: registros vinculados aos diários de comboio.
+        const { data: refuelLogs, error: refuelError } = await supabase
           .from("abastecimentos")
           .select("litros, horimetro")
           .in("diary_id", diaryIds)
-          .eq("equipment_fleet", selectedFleet)
-          .then(({ data }: any) => ({ data: (data || []).map((r: any) => ({ liters_fueled: r.litros, equipment_meter: r.horimetro })) }));
+          .eq("equipment_fleet", selectedFleet);
+        if (refuelError) throw refuelError;
 
         if (cancelled) return;
 
         if (refuelLogs && refuelLogs.length > 0) {
           const totalLiters = refuelLogs.reduce(
-            (sum: number, r: any) => sum + (Number(r.liters_fueled) || 0),
+            (sum, r) => sum + (Number(r.litros) || 0),
             0
           );
           if (totalLiters > 0) {
-            const lastMeter = refuelLogs.reduce((best: number, r: any) => {
-              const m = Number(r.equipment_meter) || 0;
+            const lastMeter = refuelLogs.reduce((best, r) => {
+              const m = Number(r.horimetro) || 0;
               return m > best ? m : best;
             }, 0);
             setFueling((prev) => ({
@@ -828,38 +828,8 @@ export default function EquipmentDiaryForm() {
           }
         }
 
-        // Also check fleet_refueling_logs
-        const { data: fleetLogs } = await supabase
-          .from("fleet_refueling_logs")
-          .select("liters_refueled, meter_reading")
-          .in("diary_id", diaryIds)
-          .eq("target_equipment_fleet", selectedFleet);
-
-        if (cancelled) return;
-
-        if (fleetLogs && fleetLogs.length > 0) {
-          const totalLiters = fleetLogs.reduce(
-            (sum: number, r: any) => sum + (Number(r.liters_refueled) || 0),
-            0
-          );
-          if (totalLiters > 0) {
-            const lastMeter = fleetLogs.reduce((best: number, r: any) => {
-              const m = Number(r.meter_reading) || 0;
-              return m > best ? m : best;
-            }, 0);
-            setFueling((prev) => ({
-              ...prev,
-              fuelType: prev.fuelType || "Diesel S10",
-              liters: String(totalLiters),
-              fuelMeter: lastMeter > 0 ? String(lastMeter) : prev.fuelMeter,
-            }));
-            setFuelSyncedFromComboio(true);
-            // FuelSync from fleet_refueling_logs complete
-            return;
-          }
-        }
-
-        setFuelSyncedFromComboio(false);
+        // A tabela legada não existe no esquema: abastecimentos é a fonte vigente.
+        if (!cancelled) setFuelSyncedFromComboio(false);
       } catch (err) {
         console.error("[FuelSync] Erro ao buscar combustível do Comboio:", err);
         if (!cancelled) setFuelSyncedFromComboio(false);
@@ -1005,18 +975,6 @@ export default function EquipmentDiaryForm() {
 
         if (diaryError) throw diaryError;
         if (!diary) throw new Error("Lançamento não encontrado.");
-        // Verificar permissão via profile local + fallback no banco
-        let isAdminEdit = profile?.role === "superadmin" || profile?.role === "admin" || profile?.role === "gerente" ||
-          (profile as any)?.perfil === "Administrador" || (profile as any)?.perfil === "Gerente";
-        if (!isAdminEdit && session?.user?.id) {
-          // Fallback: consultar user_roles diretamente
-          const { data: roleData } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "admin" });
-          if (roleData) isAdminEdit = true;
-          if (!isAdminEdit) {
-            const { data: roleGerente } = await supabase.rpc("has_role", { _user_id: session.user.id, _role: "gerente" });
-            if (roleGerente) isAdminEdit = true;
-          }
-        }
         // Permissão de edição é governada pela RLS no backend.
         // Não bloquear no frontend por user_id para evitar falsos negativos
         // em registros legados e em cenários de apontador/encarregado.
@@ -2791,7 +2749,7 @@ export default function EquipmentDiaryForm() {
         status: "ABERTA",
         origem: "diario",
         solicitante_nome: profile?.nome_completo || profile?.email || "",
-        solicitante_perfil: (profile as any)?.perfil || profile?.role || "",
+        solicitante_perfil: profile?.perfil || "",
         foto_url: fotoUrl,
         created_by: profile?.user_id,
       });

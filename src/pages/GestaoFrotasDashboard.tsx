@@ -1725,7 +1725,7 @@ export default function GestaoFrotasDashboard() {
     });
 
     const csv = [header, ...body]
-      .map((line) => line.map((v) => `"${String(v ?? "").replaceAll("\"", "\"\"")}"`).join(";"))
+      .map((line) => line.map((v) => `"${String(v ?? "").replace(/"/g, "\"\"")}"`).join(";"))
       .join("\n");
 
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });

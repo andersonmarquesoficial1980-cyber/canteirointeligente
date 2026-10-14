@@ -5,20 +5,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Plus, Brain, Loader2, CheckCircle, AlertTriangle, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import NovoDocumentoModal from "@/components/documentos/NovoDocumentoModal";
 import { useSmartBack } from "@/hooks/useSmartBack";
 
-interface Documento {
-  id: string;
-  funcionario_nome: string;
-  funcionario_matricula: string;
-  tipo_documento: string;
-  arquivo_url: string;
-  status: "pendente" | "aprovado" | "atencao" | "reprovado";
-  ia_nome_detectado: string;
-  ia_validade: string;
-  ia_observacao: string;
-}
+type Documento = Database["public"]["Tables"]["ci_documentos"]["Row"];
 
 interface Integracao {
   id: string;
@@ -63,6 +54,7 @@ export default function DocumentosIntegracao() {
   async function analisarDocumento(doc: Documento) {
     // Chama a Edge Function analisar-documento (OpenAI key fica segura no servidor)
     const { data: { session } } = await supabase.auth.getSession();
+    if (!doc.arquivo_url) return;
     const res = await supabase.functions.invoke("analisar-documento", {
       body: { documento_id: doc.id, arquivo_url: await resolveStorageUrl(doc.arquivo_url), tipo_documento: doc.tipo_documento },
     });
@@ -99,8 +91,9 @@ export default function DocumentosIntegracao() {
 
   // Agrupar por funcionário
   const porFuncionario = documentos.reduce<Record<string, Documento[]>>((acc, doc) => {
-    if (!acc[doc.funcionario_nome]) acc[doc.funcionario_nome] = [];
-    acc[doc.funcionario_nome].push(doc);
+    const nome = doc.funcionario_nome ?? "Sem nome";
+    if (!acc[nome]) acc[nome] = [];
+    acc[nome].push(doc);
     return acc;
   }, {});
 
@@ -190,7 +183,8 @@ export default function DocumentosIntegracao() {
                 <p className="font-display font-bold text-sm mb-2">{nome}</p>
                 <div className="flex flex-wrap gap-2">
                   {docs.map(doc => {
-                    const cfg = STATUS_CONFIG[doc.status];
+                    const cfg = doc.status === "aprovado" || doc.status === "atencao" || doc.status === "reprovado"
+                      ? STATUS_CONFIG[doc.status] : STATUS_CONFIG.pendente;
                     const expandido = docExpandido === doc.id;
                     return (
                       <div key={doc.id}>

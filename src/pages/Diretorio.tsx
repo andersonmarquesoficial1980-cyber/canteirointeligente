@@ -86,7 +86,7 @@ export default function Diretorio() {
       setLoading(true);
       const [staffRes, equipRes] = await Promise.all([
         supabase.from("aero_pav_gru_staff").select("*").eq("ativo", true).order("nome"),
-        supabase.from("equipamentos").select("id, frota, centro_custo, tipo, marca, modelo_completo, tipo_veiculo, nome, status").eq("ativo", true).order("frota"),
+        supabase.from("equipamentos").select("id, frota, centro_custo, tipo, marca, modelo_completo, tipo_veiculo, nome, status").eq("status", "ativo").order("frota"),
       ]);
       if (staffRes.data) setStaff(staffRes.data as StaffMember[]);
       if (equipRes.data) setEquipment(equipRes.data as EquipmentFleet[]);

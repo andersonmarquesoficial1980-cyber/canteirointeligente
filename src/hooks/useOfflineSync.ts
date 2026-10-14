@@ -41,8 +41,8 @@ function isRemoteUrl(value: string | null | undefined): boolean {
 
 async function refreshPendingCount() {
   const [pendingDiaries, pendingRdos] = await Promise.all([
-    offlineDb.pendingDiaries.where("synced").equals(false).count(),
-    offlineDb.pendingRdos.where("synced").equals(false).count(),
+    offlineDb.pendingDiaries.filter((row) => !row.synced).count(),
+    offlineDb.pendingRdos.filter((row) => !row.synced).count(),
   ]);
 
   setGlobalState({ pendingCount: pendingDiaries + pendingRdos });
@@ -492,7 +492,7 @@ async function runSync(isOnline: boolean) {
   setGlobalState({ syncing: true });
 
   try {
-    const pendingDiaries = await offlineDb.pendingDiaries.where("synced").equals(false).sortBy("createdAt");
+    const pendingDiaries = await offlineDb.pendingDiaries.filter((row) => !row.synced).sortBy("createdAt");
     for (const pendingDiary of pendingDiaries) {
       try {
         await syncPendingDiary(pendingDiary);
@@ -518,7 +518,7 @@ async function runSync(isOnline: boolean) {
       }
     }
 
-    const pendingRdos = await offlineDb.pendingRdos.where("synced").equals(false).sortBy("createdAt");
+    const pendingRdos = await offlineDb.pendingRdos.filter((row) => !row.synced).sortBy("createdAt");
     for (const pendingRdo of pendingRdos) {
       try {
         await syncPendingRdo(pendingRdo);

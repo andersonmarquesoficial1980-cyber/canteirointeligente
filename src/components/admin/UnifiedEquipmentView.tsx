@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CalendarIcon, AlertTriangle, Fuel, Ruler, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -35,12 +35,6 @@ interface ComboioRefueling {
   diary_id: string | null;
 }
 
-interface FleetRefueling {
-  target_equipment_fleet: string | null;
-  liters_refueled: number | null;
-  diary_id: string | null;
-}
-
 // Equipment type mapping for tabs
 const EQUIPMENT_TABS = [
   { key: "fresadora", label: "Fresadoras", types: ["fresadora"] },
@@ -55,7 +49,7 @@ interface ConsolidatedRow {
   totalM2: number;
   totalM3: number;
   dieselComboio: number;
-  dieselFleet: number;
+  dieselFleet: null; // fonte legada indisponível no schema atual
   dieselTotal: number;
   meterMismatch: boolean; // horimeter audit
   previousFinal: number | null;
@@ -65,7 +59,6 @@ export default function UnifiedEquipmentView() {
   const [diaries, setDiaries] = useState<DiaryRow[]>([]);
   const [productions, setProductions] = useState<ProductionArea[]>([]);
   const [comboioRefuelings, setComboioRefuelings] = useState<ComboioRefueling[]>([]);
-  const [fleetRefuelings, setFleetRefuelings] = useState<FleetRefueling[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("fresadora");
   const [dateFrom, setDateFrom] = useState(() => {
@@ -80,7 +73,7 @@ export default function UnifiedEquipmentView() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const [dRes, pRes, cRes, fRes] = await Promise.all([
+      const [dRes, pRes, cRes] = await Promise.all([
         supabase
           .from("equipment_diaries")
           .select("id, date, equipment_fleet, equipment_type, operator_name, ogs_number, meter_initial, meter_final, fuel_liters")
@@ -94,15 +87,11 @@ export default function UnifiedEquipmentView() {
           .from("abastecimentos")
           .select("equipment_fleet, litros, diary_id")
           .eq("fonte", "comboio"),
-        supabase
-          .from("fleet_refueling_logs")
-          .select("target_equipment_fleet, liters_refueled, diary_id"),
       ]);
 
       if (dRes.data) setDiaries(dRes.data);
       if (pRes.data) setProductions(pRes.data);
       if (cRes.data) setComboioRefuelings(cRes.data);
-      if (fRes.data) setFleetRefuelings(fRes.data);
       setLoading(false);
     };
     load();
@@ -144,15 +133,8 @@ export default function UnifiedEquipmentView() {
       comboioDieselMap.set(key, (comboioDieselMap.get(key) || 0) + (c.litros || 0));
     });
 
-    // Fleet refueling lookup
-    const fleetDieselMap = new Map<string, number>();
-    fleetRefuelings.forEach(f => {
-      if (!f.target_equipment_fleet || !f.diary_id) return;
-      const date = diaryDateMap.get(f.diary_id);
-      if (!date) return;
-      const key = `${f.target_equipment_fleet}|${date}`;
-      fleetDieselMap.set(key, (fleetDieselMap.get(key) || 0) + (f.liters_refueled || 0));
-    });
+    // A antiga fonte "fleet_refueling_logs" não existe no banco vinculado.
+    // Não apresentar um valor numérico para a frota sem fonte de dados válida.
 
     // Sort by fleet + date for horimeter audit
     const sorted = [...filtered].sort((a, b) => {
@@ -180,7 +162,6 @@ export default function UnifiedEquipmentView() {
         const fleet = d.equipment_fleet || "?";
         const dateKey = `${fleet}|${d.date}`;
         const dieselComboio = comboioDieselMap.get(dateKey) || 0;
-        const dieselFleet = fleetDieselMap.get(dateKey) || 0;
         const previousFinal = idx > 0 ? fleetDiaries[idx - 1].meter_final : null;
         const meterMismatch = previousFinal !== null && d.meter_initial !== null && Math.abs(d.meter_initial - previousFinal) > 0.5;
 
@@ -189,8 +170,8 @@ export default function UnifiedEquipmentView() {
           totalM2: prod.m2,
           totalM3: prod.m3,
           dieselComboio,
-          dieselFleet,
-          dieselTotal: dieselComboio + dieselFleet + (d.fuel_liters || 0),
+          dieselFleet: null,
+          dieselTotal: dieselComboio + (d.fuel_liters || 0),
           meterMismatch,
           previousFinal,
         });
@@ -200,7 +181,7 @@ export default function UnifiedEquipmentView() {
     // Re-sort by date descending for display
     rows.sort((a, b) => (b.diary.date || "").localeCompare(a.diary.date || ""));
     return rows;
-  }, [diaries, productions, comboioRefuelings, fleetRefuelings, diaryDateMap, activeTab]);
+  }, [diaries, productions, comboioRefuelings, diaryDateMap, activeTab]);
 
   const exportToExcel = useCallback(() => {
     const tab = EQUIPMENT_TABS.find(t => t.key === activeTab);
@@ -375,6 +356,9 @@ export default function UnifiedEquipmentView() {
                 </Badge>
               )}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Dados do diário {selectedDiary?.diary.equipment_fleet}, incluindo combustível conhecido e horímetro.
+            </DialogDescription>
           </DialogHeader>
           {selectedDiary && (
             <div className="space-y-4">
@@ -418,9 +402,9 @@ export default function UnifiedEquipmentView() {
                 <p className="text-xs font-bold text-primary uppercase flex items-center gap-1"><Fuel className="w-3.5 h-3.5" /> Abastecimento</p>
                 <div className="grid grid-cols-1 gap-1 text-xs">
                   <div className="flex justify-between"><span className="text-muted-foreground">Comboio:</span> <strong>{selectedDiary.dieselComboio > 0 ? `${selectedDiary.dieselComboio.toFixed(0)} L` : "—"}</strong></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Abastecimento Frota:</span> <strong>{selectedDiary.dieselFleet > 0 ? `${selectedDiary.dieselFleet.toFixed(0)} L` : "—"}</strong></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Abastecimento Frota:</span> <strong>Indisponível</strong></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Lançado pelo Operador:</span> <strong>{selectedDiary.diary.fuel_liters ? `${selectedDiary.diary.fuel_liters} L` : "—"}</strong></div>
-                  <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-semibold">Total:</span> <strong className="text-primary">{selectedDiary.dieselTotal.toFixed(0)} L</strong></div>
+                  <div className="flex justify-between border-t border-border pt-1 mt-1"><span className="font-semibold">Total conhecido:</span> <strong className="text-primary">{selectedDiary.dieselTotal.toFixed(0)} L</strong></div>
                 </div>
               </div>
             </div>

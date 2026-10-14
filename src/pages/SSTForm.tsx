@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Save, Camera, Trash2, ChevronDown, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { sortOgsData } from "@/hooks/useOgsReference";
 import jsPDF from "jspdf";
@@ -149,15 +150,13 @@ function ResponsavelSelect({ value, onChange, placeholder, cargo }: { value: str
 
   useEffect(() => {
     supabase
-      .from("employees" as any)
+      .from("employees")
       .select("id,name,role,is_engenheiro,is_encarregado,status")
       .eq("company_id", COMPANY_ID)
       .eq("status", "ativo")
       .order("name")
       .then(({ data }) => {
-        const all = (data || []) as Array<{ id: string; name: string; role: string | null; is_engenheiro?: boolean | null; is_encarregado?: boolean | null }>;
-
-        const filtered = all.filter((e) => {
+        const filtered = (data || []).filter((e) => {
           const roleNorm = normalize(e.role || "");
           if (cargo === "engenheiro") return Boolean(e.is_engenheiro) || roleNorm.includes("ENGENHEIR");
           if (cargo === "encarregado") return Boolean(e.is_encarregado) || roleNorm.includes("ENCARREG");
@@ -344,9 +343,29 @@ export default function SSTForm() {
   async function salvar(status: "rascunho" | "concluido") {
     if (!form.nome_obra.trim()) { alert("Informe o nome da obra."); return; }
     setSaving(true);
-    const payload = { ...form, company_id: COMPANY_ID, status, updated_at: new Date().toISOString() };
-    delete payload.id;
-    delete payload.created_at;
+    const payload: Database["public"]["Tables"]["sst_inspections"]["Insert"] = {
+      company_id: COMPANY_ID, status, updated_at: new Date().toISOString(),
+      nome_obra: form.nome_obra.trim(), data_inspecao: form.data_inspecao,
+      cliente: form.cliente, endereco: form.endereco, local_obra: form.local_obra,
+      horario: form.horario, qtd_colaboradores: form.qtd_colaboradores, qtd_terceiros: form.qtd_terceiros,
+      engenheiro_obra: form.engenheiro_obra, engenheiro_employee_id: form.engenheiro_employee_id,
+      encarregado_obra: form.encarregado_obra, encarregado_employee_id: form.encarregado_employee_id,
+      tecnico_responsavel: form.tecnico_responsavel, tecnico_responsavel_employee_id: form.tecnico_responsavel_employee_id,
+      administrativo: form.administrativo, administrativo_employee_id: form.administrativo_employee_id,
+      responsavel_obra: form.responsavel_obra, criado_por: form.criado_por,
+      epi_capacete: form.epi_capacete, epi_oculos: form.epi_oculos,
+      epi_protetor_auricular: form.epi_protetor_auricular, epi_luvas: form.epi_luvas,
+      epi_bota: form.epi_bota, epi_colete: form.epi_colete, epi_cinto: form.epi_cinto,
+      epi_mascara: form.epi_mascara, epi_obs: form.epi_obs,
+      seg_sinalizacao: form.seg_sinalizacao, seg_isolamento: form.seg_isolamento,
+      seg_extintores: form.seg_extintores, seg_maquinas: form.seg_maquinas,
+      seg_apr: form.seg_apr, seg_dds: form.seg_dds,
+      seg_primeiros_socorros: form.seg_primeiros_socorros, seg_obs: form.seg_obs,
+      nao_conformidades: form.nao_conformidades, fotos: form.fotos,
+      ass_cliente: form.ass_cliente, ass_responsavel_obra: form.ass_responsavel_obra,
+      ass_tecnico: form.ass_tecnico, ass_tecnico_img: form.ass_tecnico_img,
+      ass_engenheiro_img: form.ass_engenheiro_img,
+    };
 
     let error;
     if (isNew) {

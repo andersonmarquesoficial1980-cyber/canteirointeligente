@@ -1287,7 +1287,7 @@ export default function GestaoPessoasEquipe() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Funcionarios");
 
-    const dataArquivo = isoParaBR(dataExportacao).replaceAll("/", "-");
+    const dataArquivo = isoParaBR(dataExportacao).replace(/\//g, "-");
     const sufixo = tipo === "geral"
       ? "GERAL"
       : (equipeExportSelecionada || "SEM_EQUIPE").replace(/\s+/g, "_").replace(/[^A-Z0-9_\-]/gi, "").toUpperCase();
@@ -1337,7 +1337,7 @@ export default function GestaoPessoasEquipe() {
       },
     });
 
-    const dataArquivo = isoParaBR(dataExportacao).replaceAll("/", "-");
+    const dataArquivo = isoParaBR(dataExportacao).replace(/\//g, "-");
     const sufixo = tipo === "geral"
       ? "GERAL"
       : (equipeExportSelecionada || "SEM_EQUIPE").replace(/\s+/g, "_").replace(/[^A-Z0-9_\-]/gi, "").toUpperCase();

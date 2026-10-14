@@ -1,6 +1,7 @@
 export type TipoDemanda =
   | "manutencao"
   | "transporte"
+  | "transporte_equipamento" // valor legado ainda aceito na edição de demandas antigas
   | "rh"
   | "material"
   | "tarefa"

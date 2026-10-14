@@ -240,7 +240,7 @@ export default function RdoForm() {
     id: crypto.randomUUID(), categoria: "", subTipo: "", frota: "", tipo: "", nome: "", patrimonio: "", empresa_dona: "", is_menor: false, fresadora_conica: "",
   }]);
   const [equipamentosPatio, setEquipamentosPatio] = useState<EquipamentoPatioEntry[]>([{
-    id: crypto.randomUUID(), frota: "", nome: "", tipo: "", status_patio: "Disposição", observacao: "",
+    id: crypto.randomUUID(), categoria: "", frota: "", nome: "", tipo: "", status_patio: "Disposição", observacao: "",
   }]);
 
 

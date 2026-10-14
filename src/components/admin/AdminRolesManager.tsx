@@ -63,10 +63,10 @@ interface UserAdminRole {
   id: string;
   employee_id: string;
   role_id: string;
-  employees?: { name: string; matricula: string };
-  admin_roles?: { name: string; description: string };
+  employees?: { name: string; matricula: string | null } | null;
+  admin_roles?: { name: string; description: string | null } | null;
   scope_sector: string | null;
-  assigned_at: string;
+  assigned_at: string | null;
 }
 
 interface AuditLogEntry {
@@ -530,7 +530,7 @@ export function AdminRolesManager() {
                           )}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {new Date(ur.assigned_at).toLocaleDateString("pt-BR")}
+                          {ur.assigned_at ? new Date(ur.assigned_at).toLocaleDateString("pt-BR") : "—"}
                         </TableCell>
                         <TableCell>
                           <AlertDialog>

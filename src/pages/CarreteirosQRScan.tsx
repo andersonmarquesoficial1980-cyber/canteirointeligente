@@ -277,7 +277,7 @@ export default function CarreteirosQRScan() {
           </p>
         </div>
       )}
-      <button onClick={() => window.close() || window.history.back()}
+      <button onClick={() => { window.close(); if (!window.closed) window.history.back(); }}
         style={{ marginTop: 24, padding: "12px 32px", borderRadius: 12, background: done === "saida" ? "#0055AA" : "#16a34a", color: "white", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer" }}>
         Fechar
       </button>

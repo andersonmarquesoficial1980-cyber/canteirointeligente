@@ -27,7 +27,7 @@ function labelModelo(m: any): string {
 
 export default function StepDadosGerais({ data, onChange }: StepDadosGeraisProps) {
   const { data: obras, isLoading: loadingObras } = useOgsReference();
-  const { data: maquinas, isLoading: loadingMaquinas } = useMaquinasFrota();
+  const { equipamentos: maquinas, loading: loadingMaquinas } = useMaquinasFrota();
 
   const selectedObra = obras?.find(o => o.ogs_number === data.obra_nome);
   const isLocalLivre = OGS_LOCAL_LIVRE.includes(data.obra_nome || "");

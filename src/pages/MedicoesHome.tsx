@@ -87,14 +87,14 @@ export default function MedicoesHome() {
 
   // Carregar fornecedores terceiros disponíveis
   useEffect(() => {
-    ;(supabase as any)
+    supabase
       .from("equipamentos")
       .select("empresa_proprietaria")
       .eq("condicao", "TERCEIRO")
       .not("empresa_proprietaria", "is", null)
-      .then(({ data }: any) => {
+      .then(({ data }) => {
         if (data) {
-          const uniq = [...new Set(data.map((r: any) => r.empresa_proprietaria).filter(Boolean))].sort();
+          const uniq = [...new Set(data.map(r => r.empresa_proprietaria).filter((v): v is string => !!v))].sort();
           setFornecedores(uniq);
         }
       });

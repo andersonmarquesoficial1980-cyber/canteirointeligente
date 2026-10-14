@@ -246,7 +246,7 @@ export default function GestaoFrotasRastreamento() {
 
     // 2. Último diário de cada equipamento (qualquer data, manual ou auto)
     //    Buscamos os últimos 10 dias de diários para pegar o mais recente de cada frota
-    const { data: diarios } = await (supabase as any)
+    const { data: diarios } = await supabase
       .from("equipment_diaries")
       .select("equipment_fleet, date, work_status, location_address, ogs_number, operator_name, is_auto, status")
       .eq("company_id", COMPANY_ID)
@@ -272,12 +272,12 @@ export default function GestaoFrotasRastreamento() {
       .not("equipment_fleet", "is", null);
 
     // Montar mapa: último diário manual por frota, e se tem diário hoje
-    const ultimoDiarioMap = new Map<string, typeof diarios extends (infer T)[] | null ? T : never>();
+    const ultimoDiarioMap = new Map<string, NonNullable<typeof diarios>[number]>();
     const diarioHojeMap = new Map<string, boolean>();  // frota → tem diário hoje?
     const diarioHojeAutoMap = new Map<string, boolean>(); // frota → diário de hoje é auto?
 
-    for (const d of (diarios || []) as any[]) {
-      const frota = d.equipment_fleet as string;
+    for (const d of diarios || []) {
+      const frota = d.equipment_fleet;
       // Marcar se tem diário hoje
       if (d.date === hoje) {
         diarioHojeMap.set(frota, true);
