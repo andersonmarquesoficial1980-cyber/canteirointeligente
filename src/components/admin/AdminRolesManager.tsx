@@ -63,7 +63,7 @@ interface UserAdminRole {
   id: string;
   employee_id: string;
   role_id: string;
-  employees?: { name: string; matricula: string | null } | null;
+  accounts?: { name: string } | null;
   admin_roles?: { name: string; description: string | null } | null;
   scope_sector: string | null;
   assigned_at: string | null;
@@ -508,7 +508,7 @@ export function AdminRolesManager() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Funcionário</TableHead>
+                      <TableHead>Usuário</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Setor</TableHead>
                       <TableHead>Atribuído em</TableHead>
@@ -519,7 +519,7 @@ export function AdminRolesManager() {
                     {userRoles.map((ur: UserAdminRole) => (
                       <TableRow key={ur.id}>
                         <TableCell className="font-medium">
-                          {ur.employees?.name || "N/A"}
+                          {ur.accounts?.name || "N/A"}
                         </TableCell>
                         <TableCell>{ur.admin_roles?.name || "N/A"}</TableCell>
                         <TableCell>
@@ -550,7 +550,7 @@ export function AdminRolesManager() {
                                 <AlertDialogDescription>
                                   Tem certeza que deseja revogar o role{" "}
                                   <strong>{ur.admin_roles?.name}</strong> de{" "}
-                                  <strong>{ur.employees?.name}</strong>?
+                                  <strong>{ur.accounts?.name}</strong>?
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogAction

@@ -74,16 +74,16 @@ export function useAdminRoles() {
         .eq("is_active", true);
       if (error) throw error;
       const roleRows = data || [];
-      const ids = [...new Set(roleRows.map((row) => row.employee_id))];
+      const ids = [...new Set(roleRows.map((row) => row.user_id || row.employee_id))];
       if (ids.length === 0) return [];
-      const { data: employees, error: employeesError } = await supabase
-        .from("employees")
-        .select("id, name, matricula")
+      const { data: accounts, error: accountsError } = await supabase
+        .from("profiles")
+        .select("user_id, nome_completo")
         .eq("company_id", profile.company_id)
-        .in("id", ids);
-      if (employeesError) throw employeesError;
-      const employeesById = new Map((employees || []).map((row) => [row.id, row]));
-      return roleRows.map((row) => ({ ...row, employees: employeesById.get(row.employee_id) || null }));
+        .in("user_id", ids);
+      if (accountsError) throw accountsError;
+      const accountsById = new Map((accounts || []).map((row) => [row.user_id, { name: row.nome_completo }]));
+      return roleRows.map((row) => ({ ...row, accounts: accountsById.get(row.user_id || row.employee_id) || null }));
     },
     enabled: !!profile?.company_id,
   });
