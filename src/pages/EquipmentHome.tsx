@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { LogOut, ChevronRight, FileSpreadsheet, ClipboardList, Truck, MapPin, ExternalLink, Clock } from "lucide-react";
+import { LogOut, ChevronRight, FileSpreadsheet, ClipboardList, Truck, MapPin, ExternalLink, Clock, ArrowLeft, Cog } from "lucide-react";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
@@ -119,6 +120,7 @@ function OrdemTransporteCard({ ordem }: { ordem: OrdemTransporte }) {
 
 export default function EquipmentHome() {
   const navigate = useNavigate();
+  const isDesktop = useDesktopWorkspace();
   const goBackToHub = useSmartBack("/");
   const [loggingOut, setLoggingOut] = useState(false);
   const { isAdmin } = useIsAdmin();
@@ -200,6 +202,35 @@ export default function EquipmentHome() {
     const permitidos = equipamentosPermitidos.filter(p => p !== "ordens_transporte");
     return permitidos.length === 0 || permitidos.includes(eq.id);
   });
+
+  if (isDesktop) return (
+    <div className="min-h-screen bg-page">
+      <header className="bg-header-gradient text-primary-foreground">
+        <div className="flex items-center gap-4 px-8 py-5">
+          <button type="button" onClick={goBackToHub} aria-label="Voltar" className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+          <div className="flex-1 min-w-0"><h1 className="text-2xl font-semibold">WF Equipamentos</h1><p className="text-sm text-primary-foreground/90">Diários, frotas e transporte</p></div>
+          <button type="button" onClick={handleLogout} disabled={loggingOut} className="rounded-lg px-3 py-2 text-sm hover:bg-white/15 disabled:opacity-50"><LogOut className="inline h-4 w-4 mr-2" />{loggingOut ? "Saindo..." : "Sair"}</button>
+        </div>
+        <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+      </header>
+      <main className="mx-auto max-w-[1680px] px-8 py-8 space-y-8">
+        {temOrdens && <section aria-label="Ordens de Transporte">
+          <h2 className="text-lg font-semibold mb-4">Ordens de Transporte {ordens.length > 0 && <span className="text-sm text-muted-foreground">({ordens.length})</span>}</h2>
+          {ordens.length === 0 ? <p className="rounded-xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">Nenhuma ordem de transporte pendente para você.</p> : <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">{ordens.map(o => <OrdemTransporteCard key={o.id} ordem={o} />)}</div>}
+        </section>}
+        <section aria-label="Tipos de equipamento">
+          <h2 className="text-lg font-semibold">Selecione o equipamento</h2>
+          <p className="mt-1 mb-6 text-sm text-muted-foreground">Abra o diário do tipo desejado. Os acessos continuam sujeitos às permissões existentes.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {tiposFiltrados.map(eq => <button key={eq.id} type="button" onClick={() => handleSelect(eq.id)} className="flex min-h-24 items-center gap-4 rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <span className="rounded-lg bg-primary/10 p-3"><Cog className="h-6 w-6 text-primary" aria-hidden="true" /></span><span className="flex-1 font-semibold">{eq.label}</span><ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            </button>)}
+          </div>
+        </section>
+        <button type="button" onClick={() => navigate("/meus-lancamentos")} className="flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-4 text-sm font-semibold hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ClipboardList className="h-5 w-5 text-primary" />Meus Lançamentos<ChevronRight className="h-4 w-4 text-muted-foreground" /></button>
+      </main>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[hsl(210_20%_98%)] flex flex-col">
