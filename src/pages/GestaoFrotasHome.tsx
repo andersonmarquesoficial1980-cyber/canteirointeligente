@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -97,6 +98,7 @@ function carregarFiltrosIniciais(): FiltrosGF {
 
 export default function GestaoFrotasHome() {
   const navigate = useNavigate();
+  const isDesktop = useDesktopWorkspace();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const goBack = useSmartBack("/");
@@ -887,7 +889,17 @@ export default function GestaoFrotasHome() {
 
 
   return (
-    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
+    <div className={`min-h-screen ${isDesktop ? "bg-page" : "bg-[hsl(210_20%_98%)]"}`}>
+      {isDesktop ? (
+        <header className="bg-header-gradient text-primary-foreground">
+          <div className="flex items-center gap-4 px-8 py-5">
+            <button type="button" onClick={goBack} aria-label="Voltar" className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+            <div><h1 className="text-2xl font-semibold">WF Gestão de Frotas</h1><p className="text-sm text-primary-foreground/90">{todos.length} equipamentos cadastrados • {listaFiltrada.length} no filtro</p></div>
+          </div>
+          <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+        </header>
+      ) : (
+        <>
       <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg">
         <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
           <ArrowLeft className="w-5 h-5" />
@@ -903,6 +915,8 @@ export default function GestaoFrotasHome() {
       <div className="px-4 pb-2 bg-header-gradient">
         <NavigationTrail trail={trail} onSelect={goTo} />
       </div>
+        </>
+      )}
 
       {/* Abas */}
       <div className="flex border-b border-border bg-white">
@@ -926,7 +940,7 @@ export default function GestaoFrotasHome() {
       </div>
 
       {aba === "frotas" && (
-        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+        <div data-testid="frotas-content" className={isDesktop ? "max-w-6xl mx-auto px-8 py-8 space-y-3" : "max-w-2xl mx-auto px-4 py-4 space-y-3"}>
           <div className="sticky top-2 z-20 space-y-2">
             <div className="rdo-card space-y-2 border border-primary/10 bg-white/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90">
               <div className="flex items-center justify-between gap-2">
@@ -1235,6 +1249,7 @@ export default function GestaoFrotasHome() {
             </div>
           )}
 
+          <div data-testid="frotas-cards" className={isDesktop ? "grid grid-cols-1 lg:grid-cols-2 gap-3 items-start" : "space-y-3"}>
           {(loading || loadingTipos) ? (
             <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></div>
           ) : listaFiltrada.map(v => {
@@ -1311,12 +1326,13 @@ export default function GestaoFrotasHome() {
               </div>
             );
           })}
+          </div>
         </div>
       )}
 
       {/* ABA DOCUMENTOS */}
       {aba === "documentos" && (
-        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+        <div data-testid="frotas-content" className={isDesktop ? "max-w-6xl mx-auto px-8 py-8 space-y-3" : "max-w-2xl mx-auto px-4 py-4 space-y-3"}>
           {docsVencendo.length > 0 && (
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
               <p className="text-sm font-bold text-orange-700 mb-2">⚠️ {docsVencendo.length} documento{docsVencendo.length !== 1 ? "s" : ""} vencendo em breve</p>
