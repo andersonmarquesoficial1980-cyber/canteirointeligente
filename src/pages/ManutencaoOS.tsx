@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ export default function ManutencaoOS() {
   const [pecas, setPecas] = useState<Peca[]>([]);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState("");
   const [status, setStatus] = useState("");
   const [servicoRealizado, setServicoRealizado] = useState("");
   const [horimetroConclusao, setHorimetroConclusao] = useState("");
@@ -69,44 +70,48 @@ export default function ManutencaoOS() {
       setOs(osData);
       setStatus(osData.status);
       setServicoRealizado(osData.servico_realizado || "");
-      setHorimetroConclusao(osData.horimetro_conclusao ? String(osData.horimetro_conclusao) : "");
+      setHorimetroConclusao(osData["horímetro_conclusao"] != null ? String(osData["horímetro_conclusao"]) : "");
       setObservacoes(osData.observacoes || "");
     }
-    if (pecasData) setPecas(pecasData.map(p => ({ ...p, quantidade: String(p.quantidade), horimetro_troca: p.horimetro_troca ? String(p.horimetro_troca) : "" })));
+    if (pecasData) setPecas(pecasData.map(p => ({ ...p, quantidade: String(p.quantidade), horimetro_troca: p["horímetro_troca"] != null ? String(p["horímetro_troca"]) : "" })));
     setLoading(false);
   }
 
   async function salvar() {
+    setErroSalvar("");
     setSalvando(true);
     try {
       // Atualizar OS
-      await supabase.from("manutencao_os").update({
+      const { error: osError } = await supabase.from("manutencao_os").update({
         status,
         servico_realizado: servicoRealizado || null,
-        horimetro_conclusao: horimetroConclusao ? parseFloat(String(horimetroConclusao).replace(",", ".")) : null,
+        "horímetro_conclusao": horimetroConclusao ? parseFloat(String(horimetroConclusao).replace(",", ".")) : null,
         observacoes: observacoes || null,
         data_conclusao: status === "concluida" ? new Date().toISOString().split("T")[0] : null,
         updated_at: new Date().toISOString(),
       }).eq("id", id);
+      if (osError) throw osError;
 
       // Salvar peças novas
       const novas = pecas.filter(p => p.isNew && p.nome_peca);
       if (novas.length > 0) {
-        await supabase.from("manutencao_pecas").insert(novas.map(p => ({
+        const { error: pecasError } = await supabase.from("manutencao_pecas").insert(novas.map(p => ({
           os_id: id,
           equipment_fleet: os?.equipment_fleet,
           nome_peca: p.nome_peca,
           categoria: p.categoria || null,
           quantidade: parseFloat(String(p.quantidade).replace(",", ".")) || 1,
           unidade: p.unidade || "un",
-          horimetro_troca: p.horimetro_troca ? parseFloat(String(p.horimetro_troca).replace(",", ".")) : null,
+          "horímetro_troca": p.horimetro_troca ? parseFloat(String(p.horimetro_troca).replace(",", ".")) : null,
           observacao: p.observacao || null,
         })));
+        if (pecasError) throw pecasError;
       }
 
       await buscarOS();
     } catch (e: any) {
       console.error(e);
+      setErroSalvar("Não foi possível salvar a OS. Confira sua conexão ou suas permissões e tente novamente.");
     } finally {
       setSalvando(false);
     }
@@ -236,6 +241,7 @@ export default function ManutencaoOS() {
           <Textarea value={observacoes} onChange={e => setObservacoes(e.target.value)} placeholder="Observações adicionais..." className="min-h-[70px] rounded-xl" />
         </div>
 
+        {erroSalvar && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{erroSalvar}</p>}
         <Button onClick={salvar} disabled={salvando} className="w-full h-12 rounded-xl font-display font-bold gap-2">
           {salvando ? <><Loader2 className="w-4 h-4 animate-spin" /> Salvando...</> : <><CheckCircle className="w-4 h-4" /> Salvar Atualização</>}
         </Button>

@@ -35,6 +35,7 @@ import {
   AlertDialogDescription,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -304,12 +305,12 @@ export function AdminRolesManager() {
 
                 <div>
                   <Label>Setor (opcional)</Label>
-                  <Select value={selectedSector} onValueChange={setSelectedSector}>
+                  <Select value={selectedSector || "__todos__"} onValueChange={v => setSelectedSector(v === "__todos__" ? "" : v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Todos os setores" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
+                      <SelectItem value="__todos__">Todos</SelectItem>
                       {SECTORS.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
@@ -416,12 +417,12 @@ export function AdminRolesManager() {
 
                 <div>
                   <Label>Setor (opcional - para limitar escopo)</Label>
-                  <Select value={selectedSector} onValueChange={setSelectedSector}>
+                  <Select value={selectedSector || "__todos__"} onValueChange={v => setSelectedSector(v === "__todos__" ? "" : v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Acesso a todos setores" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos os setores</SelectItem>
+                      <SelectItem value="__todos__">Todos os setores</SelectItem>
                       {SECTORS.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
@@ -533,23 +534,10 @@ export function AdminRolesManager() {
                         </TableCell>
                         <TableCell>
                           <AlertDialog>
-                            <AlertDialogAction className="hidden" />
-                            <AlertDialogCancel asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => revokeRole(ur.id)}
-                                disabled={revokeRoleLoading}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Revogar
-                              </Button>
-                            </AlertDialogCancel>
                             <AlertDialogTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => revokeRole(ur.id)}
                                 disabled={revokeRoleLoading}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />

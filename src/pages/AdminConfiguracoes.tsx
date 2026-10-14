@@ -22,7 +22,7 @@ import { useFuncoes } from "@/hooks/useFuncoes";
 import { useEmpresasParceiras } from "@/hooks/useEmpresasParceiras";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -4282,10 +4282,6 @@ const MENU_SECTIONS = [
 // ═══════════════════════════════════════════════════════════════
 // LIXEIRA MANAGER
 // ═══════════════════════════════════════════════════════════════
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-
 // ═══════════════════════════════════════════════════════════════
 // ASSINATURA E FATURAS MANAGER
 // ═══════════════════════════════════════════════════════════════

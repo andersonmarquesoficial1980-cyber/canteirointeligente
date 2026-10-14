@@ -106,7 +106,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
   const [origemMaps, setOrigemMaps] = useState("");
   const [destino, setDestino] = useState("");
   const [destinoMaps, setDestinoMaps] = useState("");
-  const [horarioTransporte, setHorarioTransporte] = useState(TRANSPORTE_HORARIOS[0]);
+  const [horarioTransporte, setHorarioTransporte] = useState<(typeof TRANSPORTE_HORARIOS)[number]>(TRANSPORTE_HORARIOS[0]);
   const [horarioLivre, setHorarioLivre] = useState("");
   const [obsTransporte, setObsTransporte] = useState("");
 
@@ -126,7 +126,7 @@ export default function NovaDemandaModal({ open, onClose, onCreate }: Props) {
   const [tarefaTitulo, setTarefaTitulo] = useState("");
   const [tarefaDescricao, setTarefaDescricao] = useState("");
   const [tarefaData, setTarefaData] = useState("");
-  const [tarefaHorario, setTarefaHorario] = useState(TRANSPORTE_HORARIOS[0]);
+  const [tarefaHorario, setTarefaHorario] = useState<(typeof TRANSPORTE_HORARIOS)[number]>(TRANSPORTE_HORARIOS[0]);
   const [tarefaHorarioLivre, setTarefaHorarioLivre] = useState("");
 
   const canCreateTarefa = useMemo(() => {

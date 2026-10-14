@@ -36,17 +36,6 @@ interface EquipamentoCadastro {
   categoria_rdo?: string | null;
 }
 
-function fmtNumLib(value: number | null | undefined, decimals = 1): string {
-  if (value == null) return "-";
-  return value.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-}
-
-// Para CSV: ponto decimal → vírgula (padrão Excel Brasil)
-function fmtNumCsvLib(value: number | null | undefined, decimals = 1): string {
-  if (value == null) return "-";
-  return value.toFixed(decimals).replace(".", ",");
-}
-
 function splitOgs(ogs: string | null): { num: string; local: string } {
   if (!ogs) return { num: "-", local: "-" };
   const parts = ogs.split("|").map(s => s.trim());
