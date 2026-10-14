@@ -4245,6 +4245,7 @@ function AbastecimentoConfigManager() {
 const MENU_SECTIONS = [
   { key: "assinatura", label: "Assinatura", icon: Receipt },
   { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+  { key: "visao_equipamentos", label: "Visão Unificada (Equipamentos)", icon: Wrench },
   { key: "usuarios", label: "Usuários", icon: Users },
   { key: "permissoes", label: "Permissões", icon: Users },
   { key: "ogs", label: "OGS / Obras", icon: MapPin },
@@ -5465,8 +5466,9 @@ export default function AdminConfiguracoes() {
     return baseSections.filter((item) =>
       (item.key !== "permissoes" || isOwnerAdmin || canManagePermissions)
       && (item.key !== "roles" || isOwnerAdmin)
+      && (item.key !== "visao_equipamentos" || isDesktop)
     );
-  }, [isSuperAdmin, permissions?.is_admin, allowedSections, isOwnerAdmin, canManagePermissions]);
+  }, [isSuperAdmin, permissions?.is_admin, allowedSections, isOwnerAdmin, canManagePermissions, isDesktop]);
 
   useEffect(() => {
     if (loadingBase || loadingAdminSections) return;

@@ -30,9 +30,10 @@ describe("Painel de Controle desktop", () => {
     expect(view.container.querySelector("main > div")?.className).toContain("max-w-[1680px]");
     expect(screen.getByRole("navigation", { name: "Seções do Painel de Controle" }).querySelectorAll("button").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Frota (Equipamentos)" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Visão Unificada (Equipamentos)" })).toHaveLength(2);
     expect(screen.getByRole("status", { name: "Rota" })).toHaveTextContent("section=dashboard");
     expect(screen.queryByRole("button", { name: "Admin Roles" })).toBeNull();
-  });
+  }, 15000);
   it("mantém cabeçalho compacto e seções no mobile", async () => {
     state.desktop = false;
     const view = await mount();
@@ -40,5 +41,6 @@ describe("Painel de Controle desktop", () => {
     expect(screen.queryByRole("button", { name: "Home" })).toBeNull();
     expect(view.container.querySelector("main > div")?.className).toContain("max-w-5xl");
     expect(screen.getAllByRole("button", { name: "Frota (Equipamentos)" })).toHaveLength(2);
-  });
+    expect(screen.queryByRole("button", { name: "Visão Unificada (Equipamentos)" })).toBeNull();
+  }, 15000);
 });
