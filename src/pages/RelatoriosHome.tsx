@@ -11,7 +11,6 @@ import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { toLocalISODate } from "@/lib/date-local";
 import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
-import { ReportsWorkspace } from "@/components/workspace/WorkspaceShell";
 
 const TIPOS_RELATORIO = [
   { id: "equipamento", label: "Equipamentos", icon: Tractor, desc: "Diário, consumo, manutenção, produção" },
@@ -645,5 +644,5 @@ export default function RelatoriosHome() {
       </div>
     </div>
   );
-  return isDesktop ? <ReportsWorkspace>{page}</ReportsWorkspace> : page;
+  return page;
 }

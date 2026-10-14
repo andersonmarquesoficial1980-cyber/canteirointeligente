@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useWorkspaceShortcuts } from "@/hooks/useWorkspaceShortcuts";
 import { ArrowUpRight, LogOut, Search, Star, Settings2 } from "lucide-react";
 import type { HubAccess } from "@/hooks/useHubAccess";
-import { WorkspaceShell } from "./WorkspaceShell";
+
 import { Spotlight } from "@/components/Spotlight";
 
 export function DesktopHome({ access, onLogout, loggingOut }: { access: HubAccess; onLogout: () => void; loggingOut: boolean }) {
@@ -17,7 +17,7 @@ export function DesktopHome({ access, onLogout, loggingOut }: { access: HubAcces
   const options = access.modules.filter(mod => normalize(`${mod.label} ${mod.subtitle}`).includes(normalize(query)));
   const openEditor = () => { setDraft(chosen.map(mod=>mod.id)); setQuery(''); setEditing(true); };
   const save = () => { if(shortcuts.save(draft.filter(id=>access.modules.some(mod=>mod.id===id)).slice(0,6))) setEditing(false); };
-  return <WorkspaceShell access={access}>
+  return <>
     <header className="flex items-center justify-between gap-6 border-b border-border bg-background px-8 py-4">
       <span className="text-sm font-medium text-muted-foreground">Início / Área de trabalho</span>
       <div className="flex items-center gap-5 min-w-0">
@@ -55,5 +55,5 @@ export function DesktopHome({ access, onLogout, loggingOut }: { access: HubAcces
         </>}
       </section>
     </main>
-  </WorkspaceShell>;
+  </>;
 }

@@ -15,4 +15,9 @@ describe('Menu lateral — contexto atual',()=>{
   fireEvent.click(screen.getByRole('link',{name:'Início'}));
   expect(screen.getByRole('status')).toHaveTextContent(/^\/$/);
  });
+ it('mantém WF Obras selecionado nas páginas internas do módulo',()=>{
+  const access={modules:HUB_MODULES.filter(m=>m.id==='obras'),loading:false,semPerfil:false,isSuperAdmin:false,companyLogo:null};
+  render(<MemoryRouter initialEntries={['/obras/rdo']} future={{v7_startTransition:true,v7_relativeSplatPath:true}}><WorkspaceShell access={access}><Current/></WorkspaceShell></MemoryRouter>);
+  expect(screen.getByRole('link',{name:'WF Obras'})).toHaveAttribute('aria-current','page');
+ });
 });

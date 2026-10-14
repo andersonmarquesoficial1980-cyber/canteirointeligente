@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, Truck, HardHat, ClipboardList, LogOut } from "lucide-react";
+import { FileText, Truck, HardHat, ClipboardList, LogOut, ArrowLeft, ChevronRight } from "lucide-react";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
 import logoCi from "@/assets/logo-workflux.png";
@@ -11,6 +12,7 @@ import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 export default function Index() {
   const navigate = useNavigate();
   const { profile } = useUserProfile();
+  const isDesktop = useDesktopWorkspace();
   const [loggingOut, setLoggingOut] = useState(false);
   const { trail, goTo } = useNavigationTrail({ label: "WF Obras", resetToHome: true });
 
@@ -40,6 +42,34 @@ export default function Index() {
     try { sessionStorage.setItem("meusLancamentos_aba", "rdos"); } catch {}
     navigate("/meus-lancamentos");
   };
+
+  if (isDesktop) return (
+    <div className="min-h-screen bg-page">
+      <header className="bg-header-gradient text-primary-foreground">
+        <div className="flex items-center gap-4 px-8 py-5">
+          <button type="button" onClick={() => navigate("/")} aria-label="Voltar ao Início" className="flex h-12 w-12 items-center justify-center rounded-lg hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><ArrowLeft className="h-5 w-5" /></button>
+          <div className="flex-1 min-w-0"><h1 className="text-2xl font-semibold">WF Obras</h1><p className="text-sm text-primary-foreground/90">Apontamento, efetivo e produção</p></div>
+          <span className="hidden xl:block truncate text-sm text-primary-foreground/80">{profile?.nome_completo || "Usuário"}</span>
+          <button type="button" onClick={handleLogout} disabled={loggingOut} className="rounded-lg px-3 py-2 text-sm hover:bg-white/15 disabled:opacity-50"><LogOut className="inline h-4 w-4 mr-2" />{loggingOut ? "Saindo..." : "Sair"}</button>
+        </div>
+        <div className="px-8 pb-3"><NavigationTrail trail={trail} onSelect={goTo} /></div>
+      </header>
+      <main className="mx-auto max-w-[1680px] px-8 py-8">
+        <h2 className="text-lg font-semibold">O que você precisa fazer?</h2>
+        <p className="mt-1 mb-6 text-sm text-muted-foreground">Acesse os lançamentos de obra sem sair do menu lateral.</p>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <button type="button" onClick={() => navigate("/obras/rdo")} className="flex min-h-28 items-center gap-4 rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="rounded-lg bg-primary/10 p-3"><FileText className="h-6 w-6 text-primary" /></span>
+            <span className="flex-1"><strong className="block">Novo RDO</strong><span className="text-sm text-muted-foreground">Registrar o diário de obra</span></span><ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <button type="button" onClick={irParaMeusLancamentos} className="flex min-h-28 items-center gap-4 rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="rounded-lg bg-primary/10 p-3"><ClipboardList className="h-6 w-6 text-primary" /></span>
+            <span className="flex-1"><strong className="block">Meus Lançamentos (RDOs)</strong><span className="text-sm text-muted-foreground">Consultar e continuar seus registros</span></span><ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
+      </main>
+    </div>
+  );
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-8 max-w-4xl mx-auto">

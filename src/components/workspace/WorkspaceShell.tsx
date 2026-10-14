@@ -11,7 +11,7 @@ export function WorkspaceShell({ access, children }: { access: HubAccess; childr
     if (location.pathname === path && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) event.preventDefault();
   };
   const linkStyle = ({ isActive }: { isActive: boolean }) => `flex items-center gap-3 rounded-md px-3 py-2.5 min-h-11 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${isActive ? 'bg-white/15 text-white font-semibold' : 'text-slate-200 hover:bg-white/10 hover:text-white'}`;
-  return <div className="min-h-screen bg-page lg:pl-64" data-workspace="desktop">
+  return <div className="min-h-screen bg-page lg:pl-64 print:pl-0" data-workspace="desktop">
     <a href="#workspace-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-72 focus:z-50 focus:bg-background focus:p-3">Ir para o conteúdo</a>
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-[#102A43] text-white border-r border-white/10 print:hidden" aria-label="Navegação do Workflux">
       <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10 shrink-0">

@@ -4,6 +4,7 @@ import {MemoryRouter,useLocation} from 'react-router-dom';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
 import RelatoriosHome from '@/pages/RelatoriosHome';
+import { DesktopRouteFrame } from '@/components/workspace/DesktopRouteFrame';
 type MockQuery = { select: () => MockQuery; order: () => MockQuery; then: (fn: (result: { data: unknown[] }) => unknown) => Promise<unknown> };
 vi.mock('@/integrations/supabase/client',()=>({supabase:{auth:{getUser:async()=>({data:{user:null}})},from:()=>{const q:MockQuery={select:()=>q,order:()=>q,then:(fn)=>Promise.resolve(fn({data:[]}))};return q;}}}));
 vi.mock('@/hooks/useEquipamentoTipos',()=>{const categorias:unknown[]=[];return {useEquipamentoTipos:()=>({categorias})};});
@@ -17,7 +18,7 @@ function RouteProbe(){return <output data-testid="route">{useLocation().pathname
 describe('Relatórios — ícones e navegação',()=>{
  it('busca relatórios no desktop e preserva a busca no retorno contextual',async()=>{
   vi.stubGlobal('matchMedia',vi.fn(()=>({matches:true,addEventListener:vi.fn(),removeEventListener:vi.fn()})));
-  render(<MemoryRouter initialEntries={['/relatorios?origem=gestao-frotas']} future={{v7_startTransition:true,v7_relativeSplatPath:true}}><RelatoriosHome/><RouteProbe/></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/relatorios?origem=gestao-frotas']} future={{v7_startTransition:true,v7_relativeSplatPath:true}}><DesktopRouteFrame><RelatoriosHome/></DesktopRouteFrame><RouteProbe/></MemoryRouter>);
   const input=await screen.findByRole('searchbox',{name:'Buscar relatório'});
   fireEvent.change(input,{target:{value:'pavimentacao'}});
   expect(screen.getByRole('button',{name:/Produção de Pavimentação/})).toBeInTheDocument();
@@ -32,7 +33,7 @@ describe('Relatórios — ícones e navegação',()=>{
   expect(back.searchParams.get('origem')).toBe('gestao-frotas');
  });
  it('mantém os relatórios, com ícones vetoriais em vez de emojis',async()=>{
- const {container}=render(<MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><RelatoriosHome/><RouteProbe/></MemoryRouter>);
+ const {container}=render(<MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><DesktopRouteFrame><RelatoriosHome/></DesktopRouteFrame><RouteProbe/></MemoryRouter>);
  const equipamentos=await screen.findByRole('button',{name:/Equipamentos.*Diário/});
  expect(equipamentos.querySelector('svg')).not.toBeNull();
  expect(equipamentos.textContent).not.toMatch(/\p{Extended_Pictographic}/u);

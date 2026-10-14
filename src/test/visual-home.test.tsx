@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import Home from '@/pages/Home';
+import { DesktopRouteFrame } from '@/components/workspace/DesktopRouteFrame';
 
 const session = vi.hoisted(() => ({ admin: false, superAdmin: false, permissions: {} as Record<string, boolean>, allowed: true }));
 vi.mock('@/hooks/useIsAdmin', () => ({ useIsAdmin: () => ({ isAdmin: session.admin }) }));
@@ -14,7 +15,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: { getUser: 
 vi.mock('@/components/Spotlight', () => ({ Spotlight: () => <button type="button" className="w-full rounded-lg border border-input bg-card px-4 py-3 text-left text-sm text-muted-foreground">Buscar frota, funcionário, OGS…</button> }));
 afterEach(() => {cleanup(); vi.unstubAllGlobals(); session.admin=false; session.superAdmin=false; session.permissions={}; session.allowed=true;});
 function RouteProbe() { return <output data-testid="route">{useLocation().pathname}</output>; }
-function mount() {return render(<MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><Home/><RouteProbe/></MemoryRouter>);}
+function mount() {return render(<MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><DesktopRouteFrame><Home/></DesktopRouteFrame><RouteProbe/></MemoryRouter>);}
 
 describe('Home — primeiro lote visual preserva o acesso', () => {
  it('oferece navegação lateral no desktop sem expor módulos não autorizados', async () => {

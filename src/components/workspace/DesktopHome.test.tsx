@@ -2,6 +2,7 @@ import {afterEach,describe,it,expect,vi} from 'vitest';
 import {cleanup,render,screen,fireEvent,waitFor,within} from '@testing-library/react';
 import {MemoryRouter,useLocation} from 'react-router-dom';
 import {DesktopHome} from './DesktopHome';
+import {WorkspaceShell} from './WorkspaceShell';
 import {HUB_MODULES} from '@/config/navigation';
 const identity=vi.hoisted(()=>({user:'user-a',company:'company-a'}));
 vi.mock('@/integrations/supabase/client',()=>({supabase:{auth:{getUser:async()=>({data:{user:{id:identity.user}}})},from:()=>{const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:{company_id:identity.company}})};return q;}}}));
@@ -9,9 +10,13 @@ vi.mock('@/hooks/useHubAccess',()=>({useHubAccess:()=>({})}));
 vi.mock('@/components/Spotlight',()=>({Spotlight:()=> <button>Busca global</button>}));
 const access={modules:[...HUB_MODULES],loading:false,semPerfil:false,isSuperAdmin:false,companyLogo:null};
 function Location(){return <output data-testid="route">{useLocation().pathname}</output>}
-function mount(modules=access.modules){return render(<MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><DesktopHome access={{...access,modules}} onLogout={()=>{}} loggingOut={false}/><Location/></MemoryRouter>)}
+function mount(modules=access.modules){return render(<MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><WorkspaceShell access={{...access,modules}}><DesktopHome access={{...access,modules}} onLogout={()=>{}} loggingOut={false}/></WorkspaceShell><Location/></MemoryRouter>)}
 afterEach(()=>{cleanup();localStorage.clear();identity.user='user-a';identity.company='company-a';vi.restoreAllMocks();});
 describe('Meus atalhos — Home desktop',()=>{
+ it('renderiza somente uma barra lateral compartilhada',()=>{
+  mount();
+  expect(screen.getAllByRole('complementary',{name:'Navegação do Workflux'})).toHaveLength(1);
+ });
  it('limita a seis atalhos para não recriar o catálogo central',async()=>{
   mount();await waitFor(()=>expect(screen.getByRole('button',{name:'Personalizar atalhos'})).toBeEnabled());
   fireEvent.click(screen.getByRole('button',{name:'Personalizar atalhos'}));

@@ -7,6 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { DesktopRouteFrame } from "@/components/workspace/DesktopRouteFrame";
+import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
@@ -259,6 +261,11 @@ function RequireAdminOrSuperAdmin({ children }: { children: JSX.Element }) {
   return children;
 }
 
+function MobileLegacyLayout({ children }: { children: JSX.Element }) {
+  const desktop = useDesktopWorkspace();
+  return desktop ? children : <AppLayout>{children}</AppLayout>;
+}
+
 function AppRoutes() {
   const { session, loading, signOut } = useAuth();
   const [blocked, setBlocked] = useState(false);
@@ -369,6 +376,7 @@ function AppRoutes() {
 
   return (
     <ErrorBoundary fallbackMessage="Erro ao carregar a página. Tente recarregar.">
+      <DesktopRouteFrame>
       <Routes>
         <Route path="/trocar-senha" element={<TrocarSenha />} />
         <Route path="/desbloqueio" element={<DesbloqueioLogin />} />
@@ -385,7 +393,7 @@ function AppRoutes() {
 
         {/* Equipamentos module */}
         <Route path="/equipamentos" element={<RequireModule moduleId="equipamentos"><EquipmentHome /></RequireModule>} />
-        <Route path="/equipamentos/frota" element={<RequireModule moduleId="equipamentos"><AppLayout><FrotaNovo /></AppLayout></RequireModule>} />
+        <Route path="/equipamentos/frota" element={<RequireModule moduleId="equipamentos"><MobileLegacyLayout><FrotaNovo /></MobileLegacyLayout></RequireModule>} />
         <Route path="/equipamentos/diario" element={<RequireModule moduleId="equipamentos"><EquipmentDiaryForm /></RequireModule>} />
         <Route path="/meus-lancamentos" element={<MeusLancamentos />} />
         <Route path="/visualizar-lancamento/:id" element={<VisualizarLancamento />} />
@@ -488,7 +496,7 @@ function AppRoutes() {
         <Route path="/carreteiros/qrcodes" element={<RequireModule moduleId="carreteiros"><CarreteirosQRPrint /></RequireModule>} />
 
         {/* Diretório — busca global */}
-        <Route path="/diretorio" element={<AppLayout><Diretorio /></AppLayout>} />
+        <Route path="/diretorio" element={<MobileLegacyLayout><Diretorio /></MobileLegacyLayout>} />
 
         {/* WF RH — redirecionado para Gestão de Pessoas */}
         <Route path="/rh" element={<Navigate to="/gestao-pessoas" replace />} />
@@ -560,6 +568,7 @@ function AppRoutes() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </DesktopRouteFrame>
     </ErrorBoundary>
   );
 }
