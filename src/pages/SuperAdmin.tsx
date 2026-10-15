@@ -58,6 +58,7 @@ const ALL_MODULES = [
   { key: "encarregado",   label: "WF Encarregado",       emoji: "👷" },
   { key: "orcamentos",    label: "WF Orçamentos",        emoji: "🧮" },
   { key: "planejamento",  label: "WF Planejamento",      emoji: "📈" },
+  { key: "refeicoes",     label: "WF Refeições",         emoji: "🍽️" },
   { key: "admin",         label: "Painel de Controle",   emoji: "⚙️" },
 ];
 

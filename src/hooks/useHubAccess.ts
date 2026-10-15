@@ -79,7 +79,7 @@ export function useHubAccess() {
             // Admin da empresa vê módulos contratados pela empresa
             if (!hasModule(mod.id)) return false;
             // Admin legado da empresa: não depende de flags individuais modulo_* no Home
-            if (permissions?.is_admin === true) return true;
+            if (permissions?.is_admin === true && mod.id !== "refeicoes") return true;
             // Usuário comum: filtrar por permissão individual
             const permMap: Record<string, keyof Permissions> = {
               obras: "modulo_obras",
@@ -102,6 +102,7 @@ export function useHubAccess() {
               medicoes: "modulo_medicoes",
               orcamentos: "modulo_orcamentos",
               planejamento: "modulo_planejamento",
+              refeicoes: "modulo_refeicoes",
             };
             if (!permissions) return false;
             const permKey = permMap[mod.id];

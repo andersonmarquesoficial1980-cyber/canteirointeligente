@@ -28,6 +28,7 @@ import NotFound from "./pages/NotFound";
 import Perfil from "./pages/Perfil";
 import Index from "./pages/Index";
 import AbastecimentoHome from "./pages/AbastecimentoHome";
+import RefeicoesHome from "./pages/RefeicoesHome";
 import AdminConfiguracoes from "./pages/AdminConfiguracoes";
 import AdminLancamentos from "./pages/AdminLancamentos";
 import BuscaEquipamentos from "./pages/BuscaEquipamentos";
@@ -194,6 +195,7 @@ const MODULE_PERM_MAP: Record<string, string> = {
   "encarregado": "modulo_encarregado",
   "orcamentos": "modulo_orcamentos",
   "planejamento": "modulo_planejamento",
+  "refeicoes": "modulo_refeicoes",
 };
 
 function RequireModule({ moduleId, children }: { moduleId: string; children: JSX.Element }) {
@@ -215,7 +217,7 @@ function RequireModule({ moduleId, children }: { moduleId: string; children: JSX
   if (!hasModule(moduleId)) return <Navigate to="/" replace />;
 
   // 2. Admin da empresa vê todos os módulos da empresa
-  if (permissions?.is_admin) return children;
+  if (permissions?.is_admin && moduleId !== "refeicoes") return children;
 
   // 3. Usuário comum: verificar permissão individual
   const permKey = MODULE_PERM_MAP[moduleId];
@@ -418,6 +420,7 @@ function AppRoutes() {
         <Route path="/abastecimento" element={<RequireModule moduleId="abastecimento"><AbastecimentoHome /></RequireModule>} />
         <Route path="/orcamentos" element={<RequireModule moduleId="orcamentos"><OrcamentosHome /></RequireModule>} />
         <Route path="/planejamento" element={<RequireModule moduleId="planejamento"><PlanejamentoHome /></RequireModule>} />
+        <Route path="/refeicoes" element={<RequireModule moduleId="refeicoes"><RefeicoesHome /></RequireModule>} />
         <Route path="/relatorios" element={<RequireModule moduleId="relatorios"><RelatoriosHome /></RequireModule>} />
         <Route path="/relatorios/rdo/:ogs" element={<RequireModule moduleId="relatorios"><RelatorioRdo /></RequireModule>} />
         <Route path="/relatorios/abastecimento/:fleet" element={<RequireModule moduleId="relatorios"><RelatorioAbastecimento /></RequireModule>} />

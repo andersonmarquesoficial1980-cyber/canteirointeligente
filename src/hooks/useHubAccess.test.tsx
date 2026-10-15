@@ -13,4 +13,6 @@ describe('Navegação compartilhada — mesmas concessões do Home',()=>{
  it('admin por role não libera automaticamente todos os módulos',async()=>{state.admin=true;state.permissions={modulo_relatorios:true};expect(await modules()).toEqual(['relatorios','admin']);});
  it('bloqueio explícito do painel prevalece no menu',async()=>{state.admin=true;state.panel=false;state.permissions={modulo_relatorios:true};expect(await modules()).toEqual(['relatorios']);});
  it('admin legado não ignora módulos contratados',async()=>{state.permissions={is_admin:true};state.contracted=false;state.panel=false;expect(await modules()).toEqual([]);});
+ it('admin legado não recebe refeições sem permissão individual',async()=>{state.permissions={is_admin:true};expect(await modules()).not.toContain('refeicoes');});
+ it('usuário com permissão granular vê refeições',async()=>{state.permissions={modulo_refeicoes:true};expect(await modules()).toEqual(['refeicoes']);});
 });
