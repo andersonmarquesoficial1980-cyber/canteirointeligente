@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import RefeicoesHome from './RefeicoesHome';
 
 const state = vi.hoisted(() => ({
-  manager: true, permission: true,
+  manager: true, permission: true, superAdmin: false, companyId: 'company-1' as string | null,
   order: null as null | Record<string, unknown>,
   people: [] as Array<{employee_id:string;employee_name:string;team_name:string;active:boolean}>,
   calls: [] as Array<{name:string;args:Record<string,unknown>}>,
@@ -14,14 +14,15 @@ const state = vi.hoisted(() => ({
   ],
 }));
 const toast = vi.fn();
-vi.mock('@/hooks/useUserProfile', () => ({ useUserProfile: () => ({profile:{company_id:'company-1'},loading:false}) }));
+vi.mock('@/hooks/useUserProfile', () => ({ useUserProfile: () => ({profile:{company_id:state.companyId},loading:false}) }));
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({permissions:{modulo_refeicoes:state.permission,refeicoes_gestor:state.manager},loading:false}) }));
+vi.mock('@/hooks/useCompanyModules', () => ({ useCompanyModules: () => ({isSuperAdmin:state.superAdmin,loading:false}) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({toast}) }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {
   from: (table:string) => {
     const query = {select:()=>query,eq:()=>query,order:()=>query,range:()=>query,
       maybeSingle:async()=>({data:table==='meal_orders'?state.order:null,error:null}),
-      then: (resolve:(x:unknown)=>void)=>resolve({data:state.people.filter(p=>p.active),error:null})};
+      then: (resolve:(x:unknown)=>void)=>resolve({data:table==='companies'?[{id:'company-1',name:'Fremix Pavimentação'}]:state.people.filter(p=>p.active),error:null})};
     return query;
   },
   rpc: async (name:string,args:Record<string,unknown>) => {
@@ -36,7 +37,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {
     return {data:null,error:null};
   }
 } }));
-afterEach(()=>{cleanup();state.manager=true;state.permission=true;state.order=null;state.people=[];state.calls=[];toast.mockClear();});
+afterEach(()=>{cleanup();state.manager=true;state.permission=true;state.superAdmin=false;state.companyId='company-1';state.order=null;state.people=[];state.calls=[];toast.mockClear();});
 const open = () => render(<MemoryRouter><RefeicoesHome /></MemoryRouter>);
 
 describe('WF Refeições',()=>{
@@ -67,5 +68,13 @@ describe('WF Refeições',()=>{
     await screen.findByText('Ana');
     await screen.findByText('O gestor de refeições fecha o pedido após conferir as equipes.');
     expect(screen.queryByText('Fechar pedido')).toBeNull();
+  });
+  it('superadmin sem empresa no perfil seleciona explicitamente a Fremix',async()=>{
+    state.superAdmin=true; state.companyId=null; state.permission=false; state.manager=false;
+    open();
+    await screen.findByText('Fremix Pavimentação');
+    fireEvent.change(screen.getByLabelText('Empresa'),{target:{value:'company-1'}});
+    await screen.findByText('Ana');
+    expect(state.calls.find(c=>c.name==='meals_list_employees')?.args.p_company_id).toBe('company-1');
   });
 });

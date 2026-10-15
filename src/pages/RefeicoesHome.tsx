@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { useToast } from "@/hooks/use-toast";
 
 // Tipos locais até a migração ser aplicada e os tipos do Supabase regenerados.
@@ -22,7 +23,10 @@ export default function RefeicoesHome() {
   const navigate = useNavigate();
   const { profile, loading: loadingProfile } = useUserProfile();
   const { permissions, loading: loadingPermissions } = usePermissions();
+  const { isSuperAdmin, loading: loadingModules } = useCompanyModules();
   const { toast } = useToast();
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState("");
   const [date, setDate] = useState(todaySP);
   const [shift, setShift] = useState<"diurno" | "noturno">("diurno");
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -37,9 +41,20 @@ export default function RefeicoesHome() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const requestId = useRef(0);
-  const companyId = profile?.company_id;
-  const permitted = permissions?.modulo_refeicoes === true;
-  const manager = permissions?.refeicoes_gestor === true;
+  const companyId = profile?.company_id || (isSuperAdmin ? selectedCompany : null);
+  const permitted = isSuperAdmin || permissions?.modulo_refeicoes === true;
+  const manager = isSuperAdmin || permissions?.refeicoes_gestor === true;
+
+  useEffect(() => {
+    if (!isSuperAdmin || profile?.company_id) return;
+    let cancelled = false;
+    supabase.from("companies").select("id,name").order("name").then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) toast({ title: "Falha ao listar empresas", description: error.message, variant: "destructive" });
+      else setCompanies(data || []);
+    });
+    return () => { cancelled = true; };
+  }, [isSuperAdmin, profile?.company_id, toast]);
 
   const reload = useCallback(async () => {
     if (!companyId || !date) return;
@@ -130,7 +145,8 @@ export default function RefeicoesHome() {
     catch { toast({ title: "Não foi possível copiar", variant: "destructive" }); }
   }
 
-  if (loadingProfile || loadingPermissions) return <div className="p-6">Carregando...</div>;
+  if (loadingProfile || loadingPermissions || loadingModules) return <div className="p-6">Carregando...</div>;
+  if (isSuperAdmin && !companyId) return <main className="mx-auto max-w-xl space-y-4 p-6"><h1 className="text-2xl font-bold">Controle de Refeições</h1><p>Selecione a empresa para consultar seus pedidos.</p><select aria-label="Empresa" className="h-10 w-full rounded-md border bg-background px-3" value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)}><option value="">Selecionar empresa</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></main>;
   if (!companyId || !permitted) return <div className="p-6">Sem acesso ao Controle de Refeições. Solicite a permissão no Painel de Controle.</div>;
   return <main className="mx-auto max-w-6xl space-y-5 p-4 md:p-8">
     <header className="flex flex-wrap items-center gap-3">
@@ -138,6 +154,7 @@ export default function RefeicoesHome() {
       <div><h1 className="text-2xl font-bold">Controle de Refeições</h1><p className="text-sm text-muted-foreground">Solicitação diária por funcionário, equipe e turno</p></div>
     </header>
     <Card><CardContent className="flex flex-wrap items-end gap-4 pt-6">
+      {isSuperAdmin && <label className="space-y-1 text-sm font-medium">Empresa<select className="block h-10 rounded-md border bg-background px-3" value={selectedCompany} disabled={saving} onChange={e => { if (!dirty || window.confirm("Descartar seleção não salva?")) { setLoading(true); setSelectedCompany(e.target.value); } }}>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
       <label className="space-y-1 text-sm font-medium">Data da refeição<Input type="date" disabled={saving} value={date} onChange={e => { if (!dirty || window.confirm("Descartar seleção não salva?")) { setLoading(true); setDate(e.target.value); } }} /></label>
       <label className="space-y-1 text-sm font-medium">Turno<select disabled={saving} className="block h-10 rounded-md border bg-background px-3" value={shift} onChange={e => { if (!dirty || window.confirm("Descartar seleção não salva?")) { setLoading(true); setShift(e.target.value as "diurno" | "noturno"); } }}><option value="diurno">Diurno</option><option value="noturno">Noturno</option></select></label>
       <span className="text-sm">Fornecedor: <strong>{order?.supplier || "Luana – Sabor Delícia"}</strong></span>
