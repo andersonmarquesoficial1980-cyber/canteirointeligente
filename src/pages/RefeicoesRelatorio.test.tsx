@@ -102,7 +102,7 @@ describe("Relatório de refeições", () => {
     expect(nominal.map(row => row[3])).toContain("Ana");
     expect(nominal.map(row => row[3])).not.toContain("Beto");
   });
-  it("gera PDF com pedidos e quadro por equipe", async () => {
+  it("gera PDF com pedidos, quadro por equipe e relação nominal", async () => {
     render(<RefeicoesRelatorio companyId="company-1" />);
     fireEvent.change(screen.getByLabelText("De"), {target:{value:"2026-10-15"}});
     fireEvent.change(screen.getByLabelText("Até"), {target:{value:"2026-10-16"}});
@@ -114,5 +114,25 @@ describe("Relatório de refeições", () => {
     const pdf = await readFile(pdfFile);
     expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
     expect(pdf.byteLength).toBeGreaterThan(1000);
+    const content = pdf.toString("latin1");
+    expect(content).toContain("(Ana)");
+    expect(content).toContain("(Beto)");
+    expect(content).toContain("(Caio)");
+    expect(content).toContain("(Dora)");
+  });
+  it("PDF nominal respeita o filtro de equipe", async () => {
+    render(<RefeicoesRelatorio companyId="company-1" />);
+    fireEvent.change(screen.getByLabelText("De"), {target:{value:"2026-10-15"}});
+    fireEvent.change(screen.getByLabelText("Até"), {target:{value:"2026-10-16"}});
+    fireEvent.click(screen.getByText("Buscar"));
+    await screen.findByText("Pedidos (3)");
+    fireEvent.change(screen.getByLabelText("Equipe do relatório"), {target:{value:"Manutenção"}});
+    fireEvent.click(screen.getByText("PDF"));
+    await waitFor(() => expect((screen.getByText("PDF") as HTMLButtonElement).disabled).toBe(false));
+    const content = (await readFile(pdfFile)).toString("latin1");
+    expect(content).toContain("(Ana)");
+    expect(content).toContain("(Caio)");
+    expect(content).not.toContain("(Beto)");
+    expect(content).not.toContain("(Dora)");
   });
 });

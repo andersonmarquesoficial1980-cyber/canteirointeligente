@@ -158,6 +158,20 @@ export default function RefeicoesRelatorio({ companyId }: { companyId: string })
         body: report.entries.flatMap(e => e.groups.map(g => [brMealDate(e.order.meal_date), e.order.shift, g.team, e.order.status, String(g.people.length)])),
         styles: { fontSize: 9 }, headStyles: { fillColor: [36, 61, 85] },
       });
+      const nominalRows = report.entries.flatMap(e => e.groups.flatMap(g => g.people.map(p => [
+        brMealDate(e.order.meal_date), e.order.shift, g.team, p.employee_name, e.order.status,
+      ])));
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.text("Relação nominal por equipe", 14, 16);
+      doc.setFontSize(9);
+      doc.text(`${nominalRows.length} pessoas selecionadas no período. Equipe conforme o pedido registrado.`, 14, 23);
+      autoTable(doc, {
+        startY: 29,
+        head: [["Data", "Turno", "Equipe no pedido", "Funcionário", "Status do pedido"]],
+        body: nominalRows,
+        styles: { fontSize: 9 }, headStyles: { fillColor: [36, 61, 85] },
+      });
       doc.save(`refeicoes-${data.from}-a-${data.to}.pdf`);
     } catch (error) {
       toast({ title: "Falha ao exportar PDF", description: String(error), variant: "destructive" });
