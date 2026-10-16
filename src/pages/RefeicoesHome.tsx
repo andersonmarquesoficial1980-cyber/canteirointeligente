@@ -10,6 +10,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { useToast } from "@/hooks/use-toast";
+import RefeicoesRelatorio from "./RefeicoesRelatorio";
 
 // Tipos locais até a migração ser aplicada e os tipos do Supabase regenerados.
 const db = supabase as SupabaseClient;
@@ -28,6 +29,7 @@ export default function RefeicoesHome() {
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [selectedCompany, setSelectedCompany] = useState("");
   const [date, setDate] = useState(todaySP);
+  const [view, setView] = useState<"pedido" | "relatorio">("pedido");
   const [shift, setShift] = useState<"diurno" | "noturno">("diurno");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [order, setOrder] = useState<Order | null>(null);
@@ -153,6 +155,8 @@ export default function RefeicoesHome() {
       <Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button>
       <div><h1 className="text-2xl font-bold">Controle de Refeições</h1><p className="text-sm text-muted-foreground">Solicitação diária por funcionário, equipe e turno</p></div>
     </header>
+    <nav aria-label="Seções de refeições" className="flex gap-2"><Button variant={view === "pedido" ? "default" : "outline"} onClick={() => setView("pedido")}>Pedido do dia</Button><Button variant={view === "relatorio" ? "default" : "outline"} onClick={() => { if (!dirty || window.confirm("Descartar seleção não salva?")) setView("relatorio"); }}>Relatórios</Button></nav>
+    {view === "relatorio" ? <RefeicoesRelatorio companyId={companyId} /> : <>
     <Card><CardContent className="flex flex-wrap items-end gap-4 pt-6">
       {isSuperAdmin && <label className="space-y-1 text-sm font-medium">Empresa<select className="block h-10 rounded-md border bg-background px-3" value={selectedCompany} disabled={saving} onChange={e => { if (!dirty || window.confirm("Descartar seleção não salva?")) { setLoading(true); setSelectedCompany(e.target.value); } }}>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
       <label className="space-y-1 text-sm font-medium">Data da refeição<Input type="date" disabled={saving} value={date} onChange={e => { if (!dirty || window.confirm("Descartar seleção não salva?")) { setLoading(true); setDate(e.target.value); } }} /></label>
@@ -184,6 +188,7 @@ export default function RefeicoesHome() {
         <Button disabled={saving || !/^\d+$/.test(delivered) || (Number(delivered) !== people.length && !note.trim())} onClick={() => void run(() => db.rpc("meals_deliver", { p_order_id: order.id, p_quantity: Number(delivered), p_note: note }), "Entrega registrada")}>Registrar entrega</Button>
       </CardContent></Card>}
       {order?.status === "entregue" && <Card><CardContent className="pt-6">Solicitadas: <strong>{people.length}</strong> · Entregues: <strong>{order.delivered_quantity}</strong> · Diferença: <strong>{(order.delivered_quantity || 0) - people.length}</strong>{order.delivery_note && <p>Observação: {order.delivery_note}</p>}</CardContent></Card>}
+    </>}
     </>}
   </main>;
 }
