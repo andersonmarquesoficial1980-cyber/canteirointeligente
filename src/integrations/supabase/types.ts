@@ -1023,6 +1023,8 @@ export type Database = {
         Row: {
           carretas_designadas: string[] | null
           cliente: string | null
+          company_id: string | null
+          comunicado_id: string | null
           confirmado_em: string | null
           confirmado_manutencao: boolean
           confirmado_por: string | null
@@ -1049,6 +1051,8 @@ export type Database = {
         Insert: {
           carretas_designadas?: string[] | null
           cliente?: string | null
+          company_id?: string | null
+          comunicado_id?: string | null
           confirmado_em?: string | null
           confirmado_manutencao?: boolean
           confirmado_por?: string | null
@@ -1075,6 +1079,8 @@ export type Database = {
         Update: {
           carretas_designadas?: string[] | null
           cliente?: string | null
+          company_id?: string | null
+          comunicado_id?: string | null
           confirmado_em?: string | null
           confirmado_manutencao?: boolean
           confirmado_por?: string | null
@@ -5226,6 +5232,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      programacao_comunicados: {
+        Row: {
+          id: string
+          company_id: string
+          data: string
+          itens: Json
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          data: string
+          itens: Json
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          data?: string
+          itens?: Json
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programacao_comunicados_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       programador_observacoes: {
         Row: {
@@ -10390,6 +10431,10 @@ export type Database = {
           p_valor_mensal: number
         }
         Returns: Json
+      }
+      programador_criar_comunicado: {
+        Args: { p_company_id: string; p_data: string; p_itens: Json }
+        Returns: string
       }
       programador_observacoes_autorizado: {
         Args: { p_company_id: string }

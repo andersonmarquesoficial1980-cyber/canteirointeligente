@@ -30,6 +30,7 @@ interface Programacao {
   local: string | null;
   periodo: string | null;
   status_programacao: string;
+  status_equipe: string | null;
   tipo_servico: string | null;
   equipamentos_designados: string[] | null;
   engenheiro_responsavel: string | null;
@@ -226,7 +227,7 @@ export default function RelatorioProgramacoes() {
     const aguardando = progsFiltradas.filter(p => p.status_programacao === "AGUARDANDO_MANUTENCAO").length;
     const comDiario = progsFiltradas.filter(p => getDiarios(p).length > 0).length;
     const semDiario = progsFiltradas.filter(p =>
-      p.status_programacao === "CONFIRMADO" && getDiarios(p).length === 0
+      p.status_programacao === "CONFIRMADO" && p.status_equipe !== "FOLGA" && getDiarios(p).length === 0
     ).length;
 
     // por equipe
@@ -249,12 +250,13 @@ export default function RelatorioProgramacoes() {
 
   // ── exportar CSV ─────────────────────────────────────────────────────────
   function exportarCSV() {
-    const header = "Data;Equipe;OGS;Cliente;Local;Tipo Serviço;Período;Status;Confirmado Manutenção;Diários Executados;Equipamentos";
+    const header = "Data;Equipe;Situação da equipe;OGS;Cliente;Local;Tipo Serviço;Período;Status;Confirmado Manutenção;Diários Executados;Equipamentos";
     const rows = progsFiltradas.map(p => {
       const diarsP = getDiarios(p);
       return [
         fmtDate(p.data),
         p.equipe,
+        p.status_equipe === "FOLGA" ? "Folga programada" : "Trabalho programado",
         p.ogs || "",
         p.cliente || "",
         p.local || "",

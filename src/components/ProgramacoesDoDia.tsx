@@ -19,6 +19,7 @@ interface Prog {
   engenheiro_responsavel: string | null;
   obs: string | null;
   status_programacao: string;
+  status_equipe: string | null;
   confirmado_manutencao: boolean;
 }
 
@@ -26,6 +27,9 @@ function montarTextoWA(prog: Prog): string {
   const data = prog.data ? prog.data.split("-").reverse().join("/") : "?";
   const equips = (prog.equipamentos_designados || []).join(", ") || "—";
   const confirmado = prog.confirmado_manutencao ? "✅ Confirmado pela Manutenção" : "⏳ Aguardando Manutenção";
+  if (prog.status_equipe === "FOLGA") {
+    return `🏗️ *PROGRAMAÇÃO DE OBRAS — Workflux*\n\n📅 *Data:* ${data}\n👷 *Equipe:* ${prog.equipe}\n🏖️ *Situação:* FOLGA${prog.obs ? `\n📝 *Obs:* ${prog.obs}` : ""}\n\n_Programado no Workflux_`;
+  }
 
   let msg = "🏗️ *PROGRAMAÇÃO DE OBRAS — Workflux*\n\n";
   msg += "📅 *Data:* " + data + "\n";
@@ -55,7 +59,7 @@ export default function ProgramacoesDoDia() {
 
     (supabase as any)
       .from("ci_programacoes")
-      .select("id,data,equipe,responsavel,ogs,cliente,local,periodo,tipo_servico,equipamentos_designados,engenheiro_responsavel,obs,status_programacao,confirmado_manutencao")
+      .select("id,data,equipe,responsavel,ogs,cliente,local,periodo,tipo_servico,equipamentos_designados,engenheiro_responsavel,obs,status_programacao,status_equipe,confirmado_manutencao")
       .in("data", [hoje, amanha])
       .neq("status_programacao", "CANCELADO")
       .order("data")
@@ -128,6 +132,7 @@ export default function ProgramacoesDoDia() {
                       {prog.tipo_servico}
                     </span>
                   )}
+                  {prog.status_equipe === "FOLGA" && <span className="text-xs bg-amber-100 text-amber-800 rounded px-1.5 py-0.5">FOLGA</span>}
                   {prog.confirmado_manutencao && (
                     <span className="text-xs bg-green-100 text-green-700 rounded px-1.5 py-0.5">
                       ✅ Manutenção OK
@@ -168,10 +173,10 @@ export default function ProgramacoesDoDia() {
                       <span className="text-xs text-foreground">{prog.local}</span>
                     </div>
                   )}
-                  <div className="flex gap-2">
+                  {prog.status_equipe !== "FOLGA" && <div className="flex gap-2">
                     <span className="text-xs text-muted-foreground w-16 shrink-0">Período</span>
                     <span className="text-xs font-medium text-foreground">{prog.periodo}</span>
-                  </div>
+                  </div>}
                 </div>
 
                 {equips.length > 0 && (
