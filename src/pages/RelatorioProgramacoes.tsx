@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { toLocalISODate } from "@/lib/date-local";
+import { rotuloSituacao } from "@/lib/programacaoComunicado";
 
 // ───── types ─────────────────────────────────────────────────────────────────
 interface Programacao {
@@ -31,6 +32,7 @@ interface Programacao {
   periodo: string | null;
   status_programacao: string;
   status_equipe: string | null;
+  motivo_cancelamento: string | null;
   tipo_servico: string | null;
   equipamentos_designados: string[] | null;
   engenheiro_responsavel: string | null;
@@ -250,13 +252,14 @@ export default function RelatorioProgramacoes() {
 
   // ── exportar CSV ─────────────────────────────────────────────────────────
   function exportarCSV() {
-    const header = "Data;Equipe;Situação da equipe;OGS;Cliente;Local;Tipo Serviço;Período;Status;Confirmado Manutenção;Diários Executados;Equipamentos";
+    const header = "Data;Equipe;Situação da equipe;Motivo cancelamento;OGS;Cliente;Local;Tipo Serviço;Período;Status;Confirmado Manutenção;Diários Executados;Equipamentos";
     const rows = progsFiltradas.map(p => {
       const diarsP = getDiarios(p);
       return [
         fmtDate(p.data),
         p.equipe,
-        p.status_equipe === "FOLGA" ? "Folga programada" : "Trabalho programado",
+        rotuloSituacao(p.status_equipe),
+        (p.motivo_cancelamento || "").replace(/;/g, ","),
         p.ogs || "",
         p.cliente || "",
         p.local || "",
@@ -539,6 +542,7 @@ export default function RelatorioProgramacoes() {
                 {prog.engenheiro_responsavel && (
                   <div className="truncate"><span className="text-muted-foreground">Eng.: </span>{prog.engenheiro_responsavel}</div>
                 )}
+                {prog.status_equipe === "CANCELADO" && <div className="col-span-2 text-destructive"><span>Motivo do cancelamento: </span>{prog.motivo_cancelamento || "Não registrado"}</div>}
               </div>
 
               {/* equipamentos */}

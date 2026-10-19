@@ -11,6 +11,7 @@ type Programacao = {
   data: string;
   equipe: string;
   status_equipe: string | null;
+  motivo_cancelamento: string | null;
   local: string | null;
   periodo: string | null;
   ogs: string | null;
@@ -28,7 +29,8 @@ function amanhaLocal(hoje: string) {
 
 function itemDoComunicado(p: Programacao): DestinoEquipe {
   return {
-    equipe: p.equipe, situacao: p.status_equipe === "FOLGA" ? "FOLGA" : "TRABALHO",
+    equipe: p.equipe, situacao: p.status_equipe === "CANCELADO" ? "CANCELADO" : p.status_equipe === "FOLGA" ? "FOLGA" : "TRABALHO",
+    motivo_cancelamento: p.motivo_cancelamento || "",
     local: p.local || "", periodo: p.periodo || "", ogs: p.ogs || "",
     cliente: p.cliente || "", observacao: p.obs || "",
     encarregado_nome: p.responsavel || "", engenheiro_nome: p.engenheiro_responsavel || "",
@@ -50,9 +52,8 @@ export default function ProgramacoesDoDia({ companyId: companyIdOverride }: { co
     let active = true;
     (async () => {
       const { data, error: loadError, count } = await supabase.from("ci_programacoes")
-        .select("id,comunicado_id,data,equipe,status_equipe,local,periodo,ogs,cliente,responsavel,engenheiro_responsavel,obs", { count: "exact" })
+        .select("id,comunicado_id,data,equipe,status_equipe,motivo_cancelamento,local,periodo,ogs,cliente,responsavel,engenheiro_responsavel,obs", { count: "exact" })
         .eq("company_id", companyId).in("data", [hoje, amanha])
-        .neq("status_programacao", "CANCELADO")
         .order("data").order("equipe").limit(500);
       if (!active) return;
       if (loadError || (count ?? 0) > (data?.length ?? 0)) {
@@ -80,7 +81,7 @@ export default function ProgramacoesDoDia({ companyId: companyIdOverride }: { co
       <ul className="divide-y divide-border">
         {group.rows.map(p => <li key={p.id} className="py-1.5 leading-snug">
           <span className="font-medium text-foreground">{p.equipe}</span>
-          <span className="text-muted-foreground"> · {p.status_equipe === "FOLGA" ? "Folga" : `${p.local || "Local não informado"}${p.periodo ? ` (${p.periodo})` : ""}${p.ogs ? ` · OGS ${p.ogs}` : ""}`}</span>
+          <span className="text-muted-foreground"> · {p.status_equipe === "CANCELADO" ? `Cancelado · ${p.motivo_cancelamento || "Motivo não informado"}` : p.status_equipe === "FOLGA" ? "Folga" : `${p.local || "Local não informado"}${p.periodo ? ` (${p.periodo})` : ""}${p.ogs ? ` · OGS ${p.ogs}` : ""}`}</span>
           {(p.responsavel || p.engenheiro_responsavel) && <span className="block text-xs text-muted-foreground">{[p.responsavel && `Enc.: ${p.responsavel}`, p.engenheiro_responsavel && `Eng.: ${p.engenheiro_responsavel}`].filter(Boolean).join(" · ")}</span>}
         </li>)}
       </ul>

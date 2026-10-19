@@ -42,4 +42,14 @@ describe("Programação de Obras nos módulos", () => {
     await waitFor(() => expect(screen.queryByRole("region", { name: "Programação de Obras" })).toBeNull());
     state.company = "company-1";
   });
+  it("mantém cancelamento e motivo visíveis nos módulos e na mensagem atualizada", async () => {
+    const date = new Date();
+    const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    state.rows = [{ id: "c1", data: today, equipe: "CBUQ01", status_equipe: "CANCELADO", motivo_cancelamento: "Chuva forte", local: null, periodo: "CANCELADO", ogs: null, cliente: null, responsavel: null, engenheiro_responsavel: null, obs: null, comunicado_id: "com-1" }];
+    render(<ProgramacoesDoDia />);
+    const panel = await screen.findByRole("region", { name: "Programação de Obras" });
+    fireEvent.click(within(panel).getByRole("button", { name: /Programação de Obras/ }));
+    expect(within(panel).getByText(/Cancelado · Chuva forte/)).toBeTruthy();
+    expect(decodeURIComponent(within(panel).getByRole("link", { name: "Compartilhar programação do dia" }).getAttribute("href") || "")).toContain("Motivo: Chuva forte");
+  });
 });

@@ -1038,6 +1038,7 @@ export type Database = {
           id: string
           local: string | null
           notificado_em: string | null
+          motivo_cancelamento: string | null
           obs: string | null
           obs_manutencao: string | null
           ogs: string | null
@@ -1066,6 +1067,7 @@ export type Database = {
           id?: string
           local?: string | null
           notificado_em?: string | null
+          motivo_cancelamento?: string | null
           obs?: string | null
           obs_manutencao?: string | null
           ogs?: string | null
@@ -1094,6 +1096,7 @@ export type Database = {
           id?: string
           local?: string | null
           notificado_em?: string | null
+          motivo_cancelamento?: string | null
           obs?: string | null
           obs_manutencao?: string | null
           ogs?: string | null
@@ -5239,6 +5242,7 @@ export type Database = {
           company_id: string
           data: string
           itens: Json
+          revisao: number
           created_by: string
           created_at: string
         }
@@ -5247,6 +5251,7 @@ export type Database = {
           company_id: string
           data: string
           itens: Json
+          revisao?: number
           created_by: string
           created_at?: string
         }
@@ -5255,6 +5260,7 @@ export type Database = {
           company_id?: string
           data?: string
           itens?: Json
+          revisao?: number
           created_by?: string
           created_at?: string
         }
@@ -5264,6 +5270,60 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      programacao_comunicado_revisoes: {
+        Row: {
+          id: string
+          company_id: string
+          comunicado_id: string
+          revisao_anterior: number
+          revisao_nova: number
+          itens_antes: Json
+          itens_depois: Json
+          alterado_por: string
+          alterado_por_nome: string | null
+          alterado_em: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          comunicado_id: string
+          revisao_anterior: number
+          revisao_nova: number
+          itens_antes: Json
+          itens_depois: Json
+          alterado_por: string
+          alterado_por_nome?: string | null
+          alterado_em?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          comunicado_id?: string
+          revisao_anterior?: number
+          revisao_nova?: number
+          itens_antes?: Json
+          itens_depois?: Json
+          alterado_por?: string
+          alterado_por_nome?: string | null
+          alterado_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programacao_comunicado_revisoes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "programacao_comunicado_revisoes_comunicado_id_fkey"
+            columns: ["comunicado_id"]
+            isOneToOne: false
+            referencedRelation: "programacao_comunicados"
             referencedColumns: ["id"]
           },
         ]
@@ -10435,6 +10495,10 @@ export type Database = {
       programador_criar_comunicado: {
         Args: { p_company_id: string; p_data: string; p_itens: Json }
         Returns: string
+      }
+      programador_editar_comunicado: {
+        Args: { p_company_id: string; p_comunicado_id: string; p_revisao: number; p_itens: Json }
+        Returns: number
       }
       programador_observacoes_autorizado: {
         Args: { p_company_id: string }
