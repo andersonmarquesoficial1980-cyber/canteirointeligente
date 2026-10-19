@@ -16,6 +16,13 @@ export type Comunicado = {
   itens: DestinoEquipe[];
 };
 
+export function intervaloMes(mes: string): { inicio: string; fim: string } {
+  const [ano, numero] = mes.split("-").map(Number);
+  if (!ano || numero < 1 || numero > 12) throw new Error("Mês inválido");
+  const ultimo = new Date(ano, numero, 0).getDate();
+  return { inicio: `${mes}-01`, fim: `${mes}-${String(ultimo).padStart(2, "0")}` };
+}
+
 export function validarComunicado(itens: DestinoEquipe[]): string | null {
   if (!itens.length) return "Inclua pelo menos uma equipe.";
   const nomes = new Set<string>();
@@ -36,10 +43,20 @@ export function textoComunicado(comunicado: Comunicado): string {
       corpo.push(`📍 ${item.local}`);
       if (item.periodo) corpo.push(`🕒 ${item.periodo}`);
       if (item.ogs) corpo.push(`📋 OGS ${item.ogs}${item.cliente ? ` — ${item.cliente}` : ""}`);
-      if (item.equipamentos?.length) corpo.push(`🚜 ${item.equipamentos.join(", ")}`);
+
     }
     if (item.observacao) corpo.push(`📝 ${item.observacao}`);
     return corpo.join("\n");
   });
-  return [`🏗️ *PROGRAMAÇÃO DE OBRAS — ${data}*`, ...linhas, "_Programado no Workflux. Confira atualizações no aplicativo._"].join("\n\n");
+  return [
+    "🏗️ *PROGRAMAÇÃO DE OBRAS*",
+    `📅 *Data: ${data}*\n👷 *Equipes programadas: ${comunicado.itens.length}*`,
+    "━━━━━━━━━━━━━━━━",
+    ...linhas,
+    "━━━━━━━━━━━━━━━━\n_Programado no Workflux. Confira atualizações no aplicativo._",
+  ].join("\n\n");
+}
+
+export function urlWhatsAppComunicado(comunicado: Comunicado): string {
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(textoComunicado(comunicado))}`;
 }
