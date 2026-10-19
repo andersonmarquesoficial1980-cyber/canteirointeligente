@@ -20,6 +20,7 @@ import { resolveTruckEquipment } from "@/lib/truckEquipmentLink";
 import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
+import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
 // Materials are now loaded dynamically from insumos_materiais
 
@@ -568,6 +569,7 @@ export default function TruckerHome() {
     <div className="min-h-screen bg-page">
       <DesktopTruckerHeader goBack={goBack} onQr={() => navigate(`/carreteiros/qrcodes${origemQuery}`)} onLogout={handleLogout} />
       <main data-testid="carreteiros-content" className="mx-auto max-w-[1680px] px-8 py-8">
+        <div className="mb-4 max-w-5xl"><ProgramacoesDoDia /></div>
         <h2 className="text-lg font-semibold">Operação de Carreteiros</h2>
         <p className="mt-1 mb-6 text-sm text-muted-foreground">Registre a saída ou acompanhe a chegada dos caminhões.</p>
         <Tabs defaultValue="saida" className="w-full max-w-5xl">
@@ -606,6 +608,7 @@ export default function TruckerHome() {
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-5">
+        <div className="mb-4"><ProgramacoesDoDia /></div>
 
         <Tabs defaultValue="saida" className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-11">

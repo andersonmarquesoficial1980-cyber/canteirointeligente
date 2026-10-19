@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { intervaloMes, textoComunicado, urlWhatsAppComunicado, validarComunicado, type DestinoEquipe } from "./programacaoComunicado";
+import { intervaloMes, sortOgsDecrescente, textoComunicado, urlWhatsAppComunicado, validarComunicado, type DestinoEquipe } from "./programacaoComunicado";
 const trabalho: DestinoEquipe = { equipe: "CBUQ 01", situacao: "TRABALHO", local: "Obra Centro", ogs: "123", cliente: "Cliente", periodo: "NOTURNO", observacao: "" };
 const folga: DestinoEquipe = { equipe: "CBUQ 02", situacao: "FOLGA", local: "", ogs: "", cliente: "", periodo: "", observacao: "" };
 describe("comunicado de obras", () => {
@@ -27,5 +27,13 @@ describe("comunicado de obras", () => {
   });
   it("calcula todo o mês civil inclusive fevereiro bissexto", () => {
     expect(intervaloMes("2024-02")).toEqual({ inicio: "2024-02-01", fim: "2024-02-29" });
+  });
+  it("ordena OGS numéricas da maior para a menor, inclusive a 000 no fim", () => {
+    expect(sortOgsDecrescente([{ ogs_number: "000" }, { ogs_number: "2529" }, { ogs_number: "999" }]).map(x => x.ogs_number)).toEqual(["2529", "999", "000"]);
+  });
+  it("mostra os responsáveis selecionados na mensagem da equipe", () => {
+    const texto = textoComunicado({ id: "id", data: "2026-10-19", created_at: "", itens: [{ ...trabalho, encarregado_nome: "Aelson", engenheiro_nome: "Joana" }] });
+    expect(texto).toContain("Encarregado: Aelson");
+    expect(texto).toContain("Engenheiro: Joana");
   });
 });

@@ -101,7 +101,7 @@ export default function ManutencaoHome() {
       await Promise.allSettled([
         Promise.resolve(osQuery).then(({ data: os }) => { if (os) setOsList(os); }).finally(() => setLoading(false)),
         Promise.resolve(programacoesQuery)
-          .then(({ data: progs }: { data: ProgPendente[] | null }) => { if (progs) setProgsPendentes(progs); })
+          .then(({ data: progs }: { data: ProgPendente[] | null }) => { if (progs) setProgsPendentes(progs.filter(p => (p.equipamentos_designados || []).length > 0)); })
           .finally(() => setLoadingProgramacoes(false)),
       ]);
       return;
@@ -109,7 +109,7 @@ export default function ManutencaoHome() {
 
     const [{ data: os }, { data: progs }] = await Promise.all([osQuery, programacoesQuery]);
     if (os) setOsList(os);
-    if (progs) setProgsPendentes(progs);
+    if (progs) setProgsPendentes(progs.filter(p => (p.equipamentos_designados || []).length > 0));
     setLoading(false);
   }
 
@@ -165,6 +165,7 @@ export default function ManutencaoHome() {
       </header>
 
       <div className={`mx-auto space-y-3 ${isDesktop ? "max-w-[1680px] px-8 py-8" : "max-w-2xl px-4 py-4"}`}>
+        <ProgramacoesDoDia />
         {isDesktop && loadingProgramacoes && <p role="status" className="text-sm text-muted-foreground">Consultando programações…</p>}
 
         {/* ── PROGRAMAÇÕES PENDENTES (aparece sempre que houver) ── */}

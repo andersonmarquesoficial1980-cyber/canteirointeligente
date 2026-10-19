@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, BarChart3, Loader2, Plus, Share2, Trash2 } from "lucide-react";
 import { toLocalISODate } from "@/lib/date-local";
-import { Comunicado, DestinoEquipe, intervaloMes, textoComunicado, urlWhatsAppComunicado, validarComunicado } from "@/lib/programacaoComunicado";
+import { Comunicado, DestinoEquipe, intervaloMes, sortOgsDecrescente, textoComunicado, urlWhatsAppComunicado, validarComunicado } from "@/lib/programacaoComunicado";
 
 type Ogs = { ogs_number: string; client_name: string | null; location_address: string | null };
+type Responsavel = { id: string; name: string; equipe: string | null; is_encarregado: boolean | null; is_engenheiro: boolean | null };
 type Linha = DestinoEquipe & { id: string };
 const novaLinha = (): Linha => ({ id: crypto.randomUUID(), equipe: "", situacao: "TRABALHO", local: "", ogs: "", cliente: "", periodo: "DIURNO", observacao: "" });
 const mesAtual = () => toLocalISODate().slice(0, 7);
@@ -26,6 +27,7 @@ export default function ProgramacaoNoturna() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [equipes, setEquipes] = useState<string[]>([]);
   const [ogs, setOgs] = useState<Ogs[]>([]);
+  const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
   const [data, setData] = useState(toLocalISODate());
   const [mes, setMes] = useState(mesAtual());
   const [inicio, setInicio] = useState(() => intervaloMes(mesAtual()).inicio);
@@ -52,15 +54,17 @@ export default function ProgramacaoNoturna() {
       }
       const company = profile.data.company_id;
       setCompanyId(company);
-      const [people, works] = await Promise.all([
+      const [people, works, supervisors] = await Promise.all([
         supabase.from("employees").select("equipe", { count: "exact" }).eq("company_id", company).eq("origem", "PROPRIO").or("status.is.null,status.neq.demitido").not("equipe", "is", null).limit(1000),
-        supabase.from("ogs_reference").select("ogs_number,client_name,location_address").eq("company_id", company).limit(1000),
+        supabase.from("ogs_reference").select("ogs_number,client_name,location_address", { count: "exact" }).eq("company_id", company).limit(1000),
+        supabase.from("employees").select("id,name,equipe,is_encarregado,is_engenheiro", { count: "exact" }).eq("company_id", company).eq("origem", "PROPRIO").eq("status", "ativo").or("is_encarregado.eq.true,is_engenheiro.eq.true").limit(1000),
       ]);
       if (!active) return;
-      if (people.error || works.error || (people.count ?? 0) > (people.data?.length ?? 0)) toast({ title: "Falha ou catálogo incompleto", description: people.error?.message || works.error?.message || "A lista excede o limite de consulta.", variant: "destructive" });
+      if (people.error || works.error || supervisors.error || (people.count ?? 0) > (people.data?.length ?? 0) || (works.count ?? 0) > (works.data?.length ?? 0) || (supervisors.count ?? 0) > (supervisors.data?.length ?? 0)) toast({ title: "Falha ou catálogo incompleto", description: people.error?.message || works.error?.message || supervisors.error?.message || "A lista excede o limite de consulta.", variant: "destructive" });
       else {
         setEquipes([...new Set((people.data || []).map(p => p.equipe?.trim()).filter((v): v is string => !!v))].sort((a, b) => a.localeCompare(b, "pt-BR")));
-        setOgs((works.data || []) as Ogs[]);
+        setOgs(sortOgsDecrescente((works.data || []) as Ogs[]));
+        setResponsaveis((supervisors.data || []) as Responsavel[]);
       }
       setLoading(false);
     })();
@@ -165,6 +169,10 @@ export default function ProgramacaoNoturna() {
             <div className="space-y-1"><Label>Período</Label><select className="w-full h-10 rounded-md border bg-background px-3 text-sm" value={linha.periodo} onChange={e => edit(linha.id, { periodo: e.target.value })}><option>DIURNO</option><option>NOTURNO</option><option>INTEGRAL</option></select></div>
           </div>
           <div className="space-y-1"><Label>Onde vai trabalhar *</Label><Input value={linha.local} onChange={e => edit(linha.id, { local: e.target.value })} placeholder="Obra, endereço ou ponto de encontro" maxLength={500} /></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1"><Label>Encarregado responsável (opcional)</Label><select className="w-full h-10 rounded-md border bg-background px-3 text-sm" value={linha.encarregado_id || ""} onChange={e => { const p = responsaveis.find(p => p.id === e.target.value); edit(linha.id, { encarregado_id: p?.id || "", encarregado_nome: p?.name || "" }); }}><option value="">Não definido</option>{responsaveis.filter(p => p.is_encarregado).sort((a, b) => Number(b.equipe === linha.equipe) - Number(a.equipe === linha.equipe) || a.name.localeCompare(b.name, "pt-BR")).map(p => <option key={p.id} value={p.id}>{p.name}{p.equipe ? ` · ${p.equipe}` : ""}</option>)}</select></div>
+            <div className="space-y-1"><Label>Engenheiro responsável (opcional)</Label><select className="w-full h-10 rounded-md border bg-background px-3 text-sm" value={linha.engenheiro_id || ""} onChange={e => { const p = responsaveis.find(p => p.id === e.target.value); edit(linha.id, { engenheiro_id: p?.id || "", engenheiro_nome: p?.name || "" }); }}><option value="">Não definido</option>{responsaveis.filter(p => p.is_engenheiro).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+          </div>
 
         </>}
         <div className="space-y-1"><Label>Orientação para esta equipe (opcional)</Label><Textarea value={linha.observacao} onChange={e => edit(linha.id, { observacao: e.target.value })} maxLength={1000} rows={2} /></div>
@@ -198,6 +206,7 @@ export default function ProgramacaoNoturna() {
           {c.itens.filter(item => !equipeHistorico || item.equipe === equipeHistorico).map(item => <div key={item.equipe} className="text-sm">
             <p><strong>{item.equipe}</strong> — {item.situacao === "FOLGA" ? "FOLGA" : "VAI TRABALHAR"}</p>
             {item.situacao === "TRABALHO" && <p className="text-muted-foreground">Local: {item.local} · {item.periodo}{item.ogs ? ` · OGS ${item.ogs}` : ""}</p>}
+            {item.situacao === "TRABALHO" && (item.encarregado_nome || item.engenheiro_nome) && <p className="text-muted-foreground">{[item.encarregado_nome && `Encarregado: ${item.encarregado_nome}`, item.engenheiro_nome && `Engenheiro: ${item.engenheiro_nome}`].filter(Boolean).join(" · ")}</p>}
             {item.observacao && <p className="text-muted-foreground">Orientação: {item.observacao}</p>}
           </div>)}
         </div>

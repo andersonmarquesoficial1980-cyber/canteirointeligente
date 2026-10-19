@@ -1,214 +1,90 @@
-// ProgramacoesDoDia — componente reutilizável
-// Mostra programações de hoje e amanhã em qualquer tela do Workflux
-// Sem WhatsApp integrado: botão compartilha via wa.me nativo
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, HardHat, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { HardHat, ChevronDown, ChevronUp, Share2 } from "lucide-react";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { toLocalISODate } from "@/lib/date-local";
+import { textoComunicado, type DestinoEquipe } from "@/lib/programacaoComunicado";
 
-interface Prog {
+type Programacao = {
   id: string;
+  comunicado_id: string | null;
   data: string;
   equipe: string;
-  responsavel: string | null;
+  status_equipe: string | null;
+  local: string | null;
+  periodo: string | null;
   ogs: string | null;
   cliente: string | null;
-  local: string | null;
-  periodo: string;
-  tipo_servico: string | null;
-  equipamentos_designados: string[] | null;
+  responsavel: string | null;
   engenheiro_responsavel: string | null;
   obs: string | null;
-  status_programacao: string;
-  status_equipe: string | null;
-  confirmado_manutencao: boolean;
+};
+
+function amanhaLocal(hoje: string) {
+  const date = new Date(`${hoje}T12:00:00`);
+  date.setDate(date.getDate() + 1);
+  return toLocalISODate(date);
 }
 
-function montarTextoWA(prog: Prog): string {
-  const data = prog.data ? prog.data.split("-").reverse().join("/") : "?";
-  const equips = (prog.equipamentos_designados || []).join(", ") || "—";
-  const confirmado = prog.confirmado_manutencao ? "✅ Confirmado pela Manutenção" : "⏳ Aguardando Manutenção";
-  if (prog.status_equipe === "FOLGA") {
-    return `🏗️ *PROGRAMAÇÃO DE OBRAS — Workflux*\n\n📅 *Data:* ${data}\n👷 *Equipe:* ${prog.equipe}\n🏖️ *Situação:* FOLGA${prog.obs ? `\n📝 *Obs:* ${prog.obs}` : ""}\n\n_Programado no Workflux_`;
-  }
-
-  let msg = "🏗️ *PROGRAMAÇÃO DE OBRAS — Workflux*\n\n";
-  msg += "📅 *Data:* " + data + "\n";
-  msg += "👷 *Equipe:* " + prog.equipe + "\n";
-  if (prog.responsavel) msg += "🦺 *Encarregado:* " + prog.responsavel + "\n";
-  if (prog.engenheiro_responsavel) msg += "👨‍💼 *Engenheiro:* " + prog.engenheiro_responsavel + "\n";
-  msg += "🌙 *Período:* " + prog.periodo + "\n";
-  if (prog.tipo_servico) msg += "🔧 *Tipo:* " + prog.tipo_servico + "\n";
-  if (prog.ogs) msg += "📋 *OGS:* " + prog.ogs + "\n";
-  if (prog.cliente) msg += "🏢 *Cliente:* " + prog.cliente + "\n";
-  if (prog.local) msg += "📍 *Local:* " + prog.local + "\n";
-  msg += "\n🚧 *Equipamentos:* " + equips + "\n";
-  msg += "\n" + confirmado;
-  if (prog.obs) msg += "\n\n📝 *Obs:* " + prog.obs;
-  msg += "\n\n_Enviado via Workflux_";
-  return msg;
+function itemDoComunicado(p: Programacao): DestinoEquipe {
+  return {
+    equipe: p.equipe, situacao: p.status_equipe === "FOLGA" ? "FOLGA" : "TRABALHO",
+    local: p.local || "", periodo: p.periodo || "", ogs: p.ogs || "",
+    cliente: p.cliente || "", observacao: p.obs || "",
+    encarregado_nome: p.responsavel || "", engenheiro_nome: p.engenheiro_responsavel || "",
+  };
 }
 
-export default function ProgramacoesDoDia() {
-  const [progs, setProgs] = useState<Prog[]>([]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [aberto, setAberto] = useState(true);
+/** Um cartão por data, nunca um cartão por equipe. O comunicado original não é fragmentado. */
+export default function ProgramacoesDoDia({ companyId: companyIdOverride }: { companyId?: string }) {
+  const { profile } = useUserProfile();
+  const companyId = companyIdOverride || profile?.company_id;
+  const [progs, setProgs] = useState<Programacao[]>([]);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const hoje = toLocalISODate();
+  const amanha = amanhaLocal(hoje);
 
   useEffect(() => {
-    const hoje = new Date().toISOString().split("T")[0];
-    const amanha = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    if (!companyId) { setProgs([]); return; }
+    let active = true;
+    (async () => {
+      const { data, error: loadError, count } = await supabase.from("ci_programacoes")
+        .select("id,comunicado_id,data,equipe,status_equipe,local,periodo,ogs,cliente,responsavel,engenheiro_responsavel,obs", { count: "exact" })
+        .eq("company_id", companyId).in("data", [hoje, amanha])
+        .neq("status_programacao", "CANCELADO")
+        .order("data").order("equipe").limit(500);
+      if (!active) return;
+      if (loadError || (count ?? 0) > (data?.length ?? 0)) {
+        setError(loadError?.message || "Há mais equipes do que o limite de consulta."); setProgs([]);
+      } else { setError(""); setProgs((data || []) as Programacao[]); }
+    })();
+    return () => { active = false; };
+  }, [companyId, hoje, amanha]);
 
-    (supabase as any)
-      .from("ci_programacoes")
-      .select("id,data,equipe,responsavel,ogs,cliente,local,periodo,tipo_servico,equipamentos_designados,engenheiro_responsavel,obs,status_programacao,status_equipe,confirmado_manutencao")
-      .in("data", [hoje, amanha])
-      .neq("status_programacao", "CANCELADO")
-      .order("data")
-      .order("equipe")
-      .then(({ data }: any) => { if (data) setProgs(data); });
-  }, []);
+  const grupos = useMemo(() => [hoje, amanha].map(data => ({
+    data, rows: progs.filter(p => p.data === data),
+  })).filter(g => g.rows.length > 0), [progs, hoje, amanha]);
 
-  if (progs.length === 0) return null;
-
-  const hoje = new Date().toISOString().split("T")[0];
-
-  const toggleExpand = (id: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const compartilharWA = (prog: Prog) => {
-    const texto = montarTextoWA(prog);
-    window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
-  };
-
-  return (
-    <div className="space-y-2">
-      {/* Cabeçalho colapsável */}
-      <button
-        onClick={() => setAberto(v => !v)}
-        className="w-full flex items-center gap-2 text-left"
-      >
-        <HardHat className="w-4 h-4 text-primary shrink-0" />
-        <span className="text-sm font-bold text-foreground flex-1">
-          Programação de Obras
-        </span>
-        <span className="text-xs bg-primary/10 text-primary font-bold rounded-full px-2 py-0.5">
-          {progs.length}
-        </span>
-        {aberto
-          ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
-          : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-      </button>
-
-      {aberto && progs.map(prog => {
-        const isHoje = prog.data === hoje;
-        const equips = prog.equipamentos_designados || [];
-        const isExpanded = expanded.has(prog.id);
-
-        return (
-          <div
-            key={prog.id}
-            className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
-              isHoje ? "border-primary/30" : "border-border"
-            }`}
-          >
-            {/* Header do card — clicável para expandir */}
-            <button
-              onClick={() => toggleExpand(prog.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-xs font-bold rounded px-1.5 py-0.5 ${
-                    isHoje ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                  }`}>
-                    {isHoje ? "HOJE" : "AMANHÃ"}
-                  </span>
-                  {prog.tipo_servico && (
-                    <span className="text-xs bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">
-                      {prog.tipo_servico}
-                    </span>
-                  )}
-                  {prog.status_equipe === "FOLGA" && <span className="text-xs bg-amber-100 text-amber-800 rounded px-1.5 py-0.5">FOLGA</span>}
-                  {prog.confirmado_manutencao && (
-                    <span className="text-xs bg-green-100 text-green-700 rounded px-1.5 py-0.5">
-                      ✅ Manutenção OK
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm font-bold text-foreground mt-0.5 truncate">{prog.equipe}</p>
-                {prog.ogs && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    OGS {prog.ogs} · {prog.cliente}
-                  </p>
-                )}
-              </div>
-              {isExpanded
-                ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-                : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
-            </button>
-
-            {/* Detalhes expandidos */}
-            {isExpanded && (
-              <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
-                <div className="space-y-1.5">
-                  {prog.responsavel && (
-                    <div className="flex gap-2">
-                      <span className="text-xs text-muted-foreground w-16 shrink-0">Enc.</span>
-                      <span className="text-xs text-foreground">{prog.responsavel}</span>
-                    </div>
-                  )}
-                  {prog.engenheiro_responsavel && (
-                    <div className="flex gap-2">
-                      <span className="text-xs text-muted-foreground w-16 shrink-0">Eng.</span>
-                      <span className="text-xs text-foreground">{prog.engenheiro_responsavel}</span>
-                    </div>
-                  )}
-                  {prog.local && (
-                    <div className="flex gap-2">
-                      <span className="text-xs text-muted-foreground w-16 shrink-0">Local</span>
-                      <span className="text-xs text-foreground">{prog.local}</span>
-                    </div>
-                  )}
-                  {prog.status_equipe !== "FOLGA" && <div className="flex gap-2">
-                    <span className="text-xs text-muted-foreground w-16 shrink-0">Período</span>
-                    <span className="text-xs font-medium text-foreground">{prog.periodo}</span>
-                  </div>}
-                </div>
-
-                {equips.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground mb-1">Equipamentos</p>
-                    <div className="flex flex-wrap gap-1">
-                      {equips.map(f => (
-                        <span key={f} className="text-xs bg-blue-50 text-blue-800 border border-blue-200 rounded px-2 py-0.5">
-                          {f}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {prog.obs && (
-                  <p className="text-xs text-muted-foreground italic">{prog.obs}</p>
-                )}
-
-                {/* Botão compartilhar WA nativo */}
-                <button
-                  onClick={() => compartilharWA(prog)}
-                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs font-semibold active:scale-95 transition-transform"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  Compartilhar via WhatsApp
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+  if (!grupos.length && !error) return null;
+  return <section aria-label="Programação de Obras" className="rounded-xl border border-border bg-card text-foreground p-3 sm:p-4 shadow-sm space-y-2">
+    <button type="button" aria-expanded={open} onClick={() => setOpen(v => !v)} className="flex w-full items-center gap-2 text-left text-foreground">
+      <HardHat className="h-4 w-4 shrink-0 text-primary" />
+      <span className="min-w-0 flex-1 font-semibold text-sm">Programação de Obras</span>
+      {grupos.map(g => <span key={g.data} className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{g.data === hoje ? "Hoje" : "Amanhã"}: {g.rows.length}</span>)}
+      <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+    </button>
+    {error && <p role="alert" className="text-xs text-destructive">Não foi possível carregar a programação: {error}</p>}
+    {open && grupos.map(group => <div key={group.data} className="border-t border-border pt-2 text-sm">
+      <p className="font-semibold text-foreground mb-1">{group.data === hoje ? "Hoje" : "Amanhã"} · {group.data.split("-").reverse().join("/")} · {group.rows.length} equipe(s)</p>
+      <ul className="divide-y divide-border">
+        {group.rows.map(p => <li key={p.id} className="py-1.5 leading-snug">
+          <span className="font-medium text-foreground">{p.equipe}</span>
+          <span className="text-muted-foreground"> · {p.status_equipe === "FOLGA" ? "Folga" : `${p.local || "Local não informado"}${p.periodo ? ` (${p.periodo})` : ""}${p.ogs ? ` · OGS ${p.ogs}` : ""}`}</span>
+          {(p.responsavel || p.engenheiro_responsavel) && <span className="block text-xs text-muted-foreground">{[p.responsavel && `Enc.: ${p.responsavel}`, p.engenheiro_responsavel && `Eng.: ${p.engenheiro_responsavel}`].filter(Boolean).join(" · ")}</span>}
+        </li>)}
+      </ul>
+      <a className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" href={`https://api.whatsapp.com/send?text=${encodeURIComponent(textoComunicado({ id: group.data, data: group.data, created_at: "", itens: group.rows.map(itemDoComunicado) }))}`} target="_blank" rel="noopener noreferrer"><Share2 className="h-3.5 w-3.5" />Compartilhar programação do dia</a>
+    </div>)}
+  </section>;
 }

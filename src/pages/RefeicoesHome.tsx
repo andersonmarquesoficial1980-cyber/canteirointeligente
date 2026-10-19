@@ -11,6 +11,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useCompanyModules } from "@/hooks/useCompanyModules";
 import { useToast } from "@/hooks/use-toast";
 import RefeicoesRelatorio from "./RefeicoesRelatorio";
+import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
 
 // Tipos locais até a migração ser aplicada e os tipos do Supabase regenerados.
 const db = supabase as SupabaseClient;
@@ -151,6 +152,7 @@ export default function RefeicoesHome() {
   if (isSuperAdmin && !companyId) return <main className="mx-auto max-w-xl space-y-4 p-6"><h1 className="text-2xl font-bold">Controle de Refeições</h1><p>Selecione a empresa para consultar seus pedidos.</p><select aria-label="Empresa" className="h-10 w-full rounded-md border bg-background px-3" value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)}><option value="">Selecionar empresa</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></main>;
   if (!companyId || !permitted) return <div className="p-6">Sem acesso ao Controle de Refeições. Solicite a permissão no Painel de Controle.</div>;
   return <main className="mx-auto max-w-6xl space-y-5 p-4 md:p-8">
+    <ProgramacoesDoDia companyId={companyId} />
     <header className="flex flex-wrap items-center gap-3">
       <Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button>
       <div><h1 className="text-2xl font-bold">Controle de Refeições</h1><p className="text-sm text-muted-foreground">Solicitação diária por funcionário, equipe e turno</p></div>

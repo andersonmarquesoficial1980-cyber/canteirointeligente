@@ -18,6 +18,7 @@ vi.mock('@/hooks/useUserProfile', () => ({ useUserProfile: () => ({profile:{comp
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({permissions:{modulo_refeicoes:state.permission,refeicoes_gestor:state.manager},loading:false}) }));
 vi.mock('@/hooks/useCompanyModules', () => ({ useCompanyModules: () => ({isSuperAdmin:state.superAdmin,loading:false}) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({toast}) }));
+vi.mock('@/components/ProgramacoesDoDia', () => ({ default: () => null }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {
   from: (table:string) => {
     const query = {select:()=>query,eq:()=>query,order:()=>query,range:()=>query,

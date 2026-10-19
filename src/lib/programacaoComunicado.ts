@@ -7,6 +7,10 @@ export type DestinoEquipe = {
   periodo: string;
   observacao: string;
   equipamentos?: string[];
+  encarregado_id?: string;
+  encarregado_nome?: string;
+  engenheiro_id?: string;
+  engenheiro_nome?: string;
 };
 
 export type Comunicado = {
@@ -21,6 +25,11 @@ export function intervaloMes(mes: string): { inicio: string; fim: string } {
   if (!ano || numero < 1 || numero > 12) throw new Error("Mês inválido");
   const ultimo = new Date(ano, numero, 0).getDate();
   return { inicio: `${mes}-01`, fim: `${mes}-${String(ultimo).padStart(2, "0")}` };
+}
+
+export function sortOgsDecrescente<T extends { ogs_number: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => Number(b.ogs_number) - Number(a.ogs_number)
+    || b.ogs_number.localeCompare(a.ogs_number, "pt-BR", { numeric: true }));
 }
 
 export function validarComunicado(itens: DestinoEquipe[]): string | null {
@@ -43,7 +52,8 @@ export function textoComunicado(comunicado: Comunicado): string {
       corpo.push(`📍 ${item.local}`);
       if (item.periodo) corpo.push(`🕒 ${item.periodo}`);
       if (item.ogs) corpo.push(`📋 OGS ${item.ogs}${item.cliente ? ` — ${item.cliente}` : ""}`);
-
+      if (item.encarregado_nome) corpo.push(`🦺 Encarregado: ${item.encarregado_nome}`);
+      if (item.engenheiro_nome) corpo.push(`👷 Engenheiro: ${item.engenheiro_nome}`);
     }
     if (item.observacao) corpo.push(`📝 ${item.observacao}`);
     return corpo.join("\n");
