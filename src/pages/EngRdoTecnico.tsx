@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
+import { loadEngineeringPlants } from "@/lib/engineeringPlants";
 
 interface Ogs { id: string; ogs_number: string; client_name: string }
 
@@ -123,23 +124,11 @@ export default function EngRdoTecnico() {
         .order("nome");
       setEquipes((eqs || []).map((e: any) => e.nome));
 
-      // Usinas cadastradas: buscar fornecedores vinculados a CAUQ/PAVIMENTACAO com tipo_insumo Massa Asfáltica
-      const { data: fornecs } = await (supabase as any)
-        .from("fornecedores")
-        .select("nome, vinculo_rdo, tipo_insumos")
-        .or("vinculo_rdo.eq.CAUQ,vinculo_rdo.eq.PAVIMENTACAO")
-        .order("nome");
-      
-      const usinasList = (fornecs || [])
-        .filter((f: any) => {
-          // Filtrar apenas fornecedores com Massa Asfáltica
-          const tipos = f.tipo_insumos || [];
-          const tiposStr = f.tipo_insumo || "";
-          return tipos.includes("Massa Asfáltica") || tiposStr.includes("Massa Asfáltica");
-        })
-        .map((f: any) => f.nome);
-      
-      setUsinas(usinasList);
+      try {
+        setUsinas(await loadEngineeringPlants());
+      } catch (error) {
+        toast({ title: "Não foi possível carregar as usinas", description: error instanceof Error ? error.message : "Tente novamente.", variant: "destructive" });
+      }
     };
     load();
   }, []);

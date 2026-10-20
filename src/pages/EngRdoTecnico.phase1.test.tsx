@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-const state = vi.hoisted(() => ({ write: vi.fn(), toast: vi.fn() }));
+const state = vi.hoisted(() => ({ write: vi.fn(), toast: vi.fn(), returned: true, error: null as null | { message: string }, reject: false, selectWrite: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: state.toast }) }));
 vi.mock("@/hooks/useFilteredData", () => ({ useTiposServico: () => ({ data: [] }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
@@ -13,17 +13,20 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       : table === "engenheiro_ogs" ? [{ ogs_reference: ogs }]
       : table === "ogs_reference" ? { ...ogs, location_address: "Rua teste" }
       : table === "ci_equipes" ? [{ nome: "Equipe teste" }]
+      : table === "fornecedores" ? [{ nome: "Usina atual", tipo_insumos: ["Massa Asfáltica"] }, { nome: "Usina legada", tipo_insumo: "Massa Asfáltica" }, { nome: "Óleo", tipo_insumos: ["Óleo Diesel"] }]
       : table === "rdo_engenheiro" ? {
         id: "rdo-teste", ogs_id: ogs.id, ogs_number: ogs.ogs_number, data: "2026-10-20",
-        houve_producao: true, choveu: false, equipamentos_conforme: true, status: "enviado",
+        houve_producao: true, choveu: false, equipamentos_conforme: true, status: "enviado", usina_programada: "Usina histórica",
       } : [];
     const result = Promise.resolve({ data, error: null });
+    let updating = false;
+    const writeResult = () => state.reject ? Promise.reject(new Error("Conexão interrompida")) : Promise.resolve({ data: state.returned ? [{ id: "rdo-teste" }] : [], error: state.error });
     const q = {
-      select: () => q, eq: () => q, or: () => q, order: () => q,
+      select: (fields?: string) => { if (updating) state.selectWrite(fields); return q; }, eq: () => q, or: () => q, order: () => q,
       single: () => result,
       insert: (payload: unknown) => { state.write(payload); return Promise.resolve({ error: null }); },
-      update: (payload: unknown) => { state.write(payload); return q; },
-      then: result.then.bind(result),
+      update: (payload: unknown) => { state.write(payload); updating = true; return q; },
+      then: (resolve: any, reject: any) => (updating ? writeResult() : result).then(resolve, reject),
     };
     return q;
   },
@@ -47,7 +50,7 @@ function question(name: string) { return within(screen.getByText(name).parentEle
 function submit(mode: string, draft = false) {
   fireEvent.click(screen.getByRole("button", { name: draft ? (mode === "edição" ? "Rascunho" : "Salvar rascunho") : (mode === "edição" ? "Salvar e Enviar" : "Enviar RDO") }));
 }
-beforeEach(() => { state.write.mockClear(); state.toast.mockClear(); });
+beforeEach(() => { state.write.mockClear(); state.toast.mockClear(); state.selectWrite.mockClear(); state.returned = true; state.error = null; state.reject = false; });
 afterEach(() => { cleanup(); sessionStorage.clear(); });
 
 describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
@@ -118,5 +121,33 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
       equipe: "Equipe teste", localizacao: "Rua teste, 20", houve_ocorrencia: true, descricao_ocorrencia: "Acesso bloqueado",
       binder_ton: null, usina_programada: null, status: "enviado",
     });
+  });
+});
+
+describe("Alinhamento do catálogo e confirmação da edição", () => {
+  it.each(["criação", "edição"])("usa fornecedores de massa asfáltica na %s, incluindo classificação legada", async (mode) => {
+    await mount(mode);
+    const select = screen.getByText("Usina Programada").parentElement!.querySelector("select")!;
+    expect(within(select).getByRole("option", { name: "Usina atual" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "Usina legada" })).toBeInTheDocument();
+    expect(within(select).queryByRole("option", { name: "Óleo" })).not.toBeInTheDocument();
+  });
+  it("mantém selecionada a usina histórica ausente do catálogo", async () => {
+    await mount("edição");
+    expect(screen.getByText("Usina Programada").parentElement!.querySelector("select")).toHaveValue("Usina histórica");
+    await act(async () => submit("edição"));
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ usina_programada: "Usina histórica" }));
+    expect(state.selectWrite).toHaveBeenCalledWith("id");
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "RDO atualizado e enviado!" }));
+  });
+  it.each(["zero linhas", "erro do banco", "falha de conexão"])("não anuncia sucesso com %s", async (failure) => {
+    await mount("edição");
+    state.returned = false;
+    state.error = failure === "erro do banco" ? { message: "Acesso negado" } : null;
+    state.reject = failure === "falha de conexão";
+    await act(async () => submit("edição"));
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
+    expect(state.toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "RDO atualizado e enviado!" }));
+    expect(screen.getByRole("button", { name: "Salvar e Enviar" })).toBeEnabled();
   });
 });

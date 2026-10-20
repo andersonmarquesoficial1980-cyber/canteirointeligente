@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
+import { loadEngineeringPlants } from "@/lib/engineeringPlants";
 
 interface Ogs { id: string; ogs_number: string; client_name: string }
 
@@ -82,6 +83,9 @@ export default function EngRdoTecnicoEditar() {
     return [...new Set(lista)].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [equipes, form.equipe]);
 
+  const opcoesUsina = useMemo(() => [...new Set([...usinas, form.usina_programada].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "pt-BR")), [usinas, form.usina_programada]);
+
   useEffect(() => {
     if (!id) return;
     const load = async () => {
@@ -157,8 +161,11 @@ export default function EngRdoTecnicoEditar() {
         .eq("ativa", true)
         .order("nome");
       setEquipes((eqs || []).map((e: any) => e.nome));
-      const { data: us } = await (supabase as any).from("usinas").select("nome").order("nome");
-      setUsinas((us || []).map((u: any) => u.nome));
+      try {
+        setUsinas(await loadEngineeringPlants());
+      } catch (error) {
+        toast({ title: "Não foi possível carregar as usinas", description: error instanceof Error ? error.message : "Tente novamente.", variant: "destructive" });
+      }
 
       setCarregando(false);
     };
@@ -287,17 +294,22 @@ export default function EngRdoTecnicoEditar() {
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await (supabase as any).from("rdo_engenheiro").update(payload).eq("id", id);
-    setSalvando(false);
-
-    if (error) {
-      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
-      return;
+    try {
+      const { data: updatedRows, error } = await (supabase as any)
+        .from("rdo_engenheiro").update(payload).eq("id", id).select("id");
+      if (error) throw new Error(error.message);
+      if (!updatedRows || updatedRows.length !== 1 || updatedRows[0].id !== id) {
+        toast({ title: "Alteração não confirmada", description: "O banco não confirmou a atualização deste RDO. Verifique seu acesso e recarregue o registro antes de tentar novamente.", variant: "destructive" });
+        return;
+      }
+      setSalvo(true);
+      toast({ title: status === "enviado" ? "RDO atualizado e enviado!" : "Rascunho salvo" });
+      setTimeout(() => navigate(`/engenharia/rdo-tecnico/${id}`), 1200);
+    } catch (error) {
+      toast({ title: "Erro ao salvar", description: error instanceof Error ? error.message : "Não foi possível confirmar a gravação. Recarregue o registro antes de tentar novamente.", variant: "destructive" });
+    } finally {
+      setSalvando(false);
     }
-
-    setSalvo(true);
-    toast({ title: status === "enviado" ? "RDO atualizado e enviado!" : "Rascunho salvo" });
-    setTimeout(() => navigate(`/engenharia/rdo-tecnico/${id}`), 1200);
   };
 
   const inputCls = "w-full h-11 rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/40";
@@ -522,7 +534,7 @@ export default function EngRdoTecnicoEditar() {
                 <label className={labelCls}>Usina Programada</label>
                 <select value={form.usina_programada} onChange={e => set("usina_programada", e.target.value)} className={inputCls}>
                   <option value="">Selecione a usina...</option>
-                  {usinas.map(u => <option key={u} value={u}>{u}</option>)}
+                  {opcoesUsina.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
               <div>
