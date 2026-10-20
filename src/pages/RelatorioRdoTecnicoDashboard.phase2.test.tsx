@@ -1,7 +1,8 @@
+import { Blob as NodeBlob } from "node:buffer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-const state = vi.hoisted(() => ({ fail: false, queries: [] as { table: string; filters: [string, unknown][] }[] }));
+const state = vi.hoisted(() => ({ fail: false, technical: null as Record<string, unknown>[] | null, queries: [] as { table: string; filters: [string, unknown][] }[] }));
 vi.mock("@/hooks/useUserProfile", () => ({ useUserProfile: () => ({ profile: { company_id: "c1" } }) }));
 vi.mock("recharts", () => ({ ResponsiveContainer: () => null, BarChart: () => null, Bar: () => null, XAxis: () => null, YAxis: () => null, Tooltip: () => null, CartesianGrid: () => null }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
@@ -14,7 +15,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       validado_encarregado: true, encarregado_employee_id: "enc1", nao_aprovado_encarregado: false });
     const source = table === "rdo_diarios" ? [pending("p1", "2026-10-01", "ana"), pending("old", "2026-09-01", "ana"), pending("inactive", "2026-10-02", "bia", "OGS 2553"), pending("noid", "2026-10-03", null), { ...pending("done", "2026-10-01", "ana"), validado_por: "ana" }]
       : table === "profiles" ? [{ user_id: "ana", nome_completo: "Ana", email: null, status: "ativo", company_id: "c1" }, { user_id: "bia", nome_completo: "Bia histórica", email: null, status: "inativo", company_id: "c1" }]
-      : table === "rdo_engenheiro" ? [{ id: "t1", company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", ogs_number: "2539", houve_producao: true }, { id: "t2", company_id: "c1", engenheiro_id: "ana", status: "rascunho", data: "2026-10-02", ogs_number: "2539", houve_producao: true }] : [];
+      : table === "rdo_engenheiro" ? (state.technical || [{ id: "t1", company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", ogs_number: "2539", houve_producao: true }, { id: "t2", company_id: "c1", engenheiro_id: "ana", status: "rascunho", data: "2026-10-02", ogs_number: "2539", houve_producao: true }]) : [];
     const q = {
       select: () => q,
       eq: (key: string, value: unknown) => { query.filters.push([key, value]); predicates.push(r => r[key] === value); return q; },
@@ -29,10 +30,10 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   },
 } }));
 import Dashboard from "./RelatorioRdoTecnicoDashboard";
-const section = (name: string) => screen.getByRole("heading", { name }).closest("section")!;
+const section = (name: string | RegExp) => screen.getByRole("heading", { name }).closest("section")!;
 async function mount() { await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>); }); }
-beforeEach(() => { state.fail = false; state.queries = []; vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-20T15:00:00Z")); });
-afterEach(() => { cleanup(); vi.useRealTimers(); sessionStorage.clear(); vi.restoreAllMocks(); });
+beforeEach(() => { state.fail = false; state.technical = null; state.queries = []; vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-20T15:00:00Z")); });
+afterEach(() => { cleanup(); vi.useRealTimers(); sessionStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe("Dashboard Técnico — fase 2", () => {
   it("concilia total, responsáveis inclusive inativos e pendências sem ID sem atribuir pelo nome", async () => {
     await mount();
@@ -83,4 +84,105 @@ describe("Dashboard Técnico — fase 2", () => {
     expect(screen.queryByTestId("total-fila-validacao")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Resumo Exec/ })).toBeDisabled();
   });
+});
+
+
+describe("Dashboard Técnico — comparativos da fase 3", () => {
+  it("mantém a diferença absoluta e informa sem base percentual quando o anterior é zero", async () => {
+    await mount();
+    const comparison = section("Comparativo com período anterior");
+    expect(within(comparison).getAllByText(/Sem base percentual/).length).toBeGreaterThan(0);
+    expect(within(comparison).queryByText(/\(\+100%\)/)).not.toBeInTheDocument();
+    expect(within(comparison).getAllByText(/\+2.*Sem base percentual/).length).toBeGreaterThan(0);
+  });
+});
+
+
+describe("exportação executiva — fase 3", () => {
+  it("exporta Sem base percentual em vez de percentual inventado ou célula vazia", async () => {
+    const downloads: NodeBlob[] = [];
+    vi.stubGlobal("Blob", NodeBlob);
+    vi.stubGlobal("URL", class extends URL {
+      static createObjectURL(blob: NodeBlob) { downloads.push(blob); return "blob:teste"; }
+      static revokeObjectURL() {}
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await mount();
+    fireEvent.click(screen.getByRole("button", { name: /Resumo Exec/ }));
+    expect(downloads).toHaveLength(1);
+    const csv = await downloads[0].text();
+    expect(csv).toContain('"RDOs registrados (inclui rascunhos)";"2";"0";"2";"Sem base percentual"');
+  });
+});
+
+
+describe("classificação operacional — fase 3", () => {
+  const stopped = { company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", houve_producao: false,
+    motivo_sem_producao: "Folga / Feriado", equipamentos_conforme: null, usina_atendeu: null, houve_ocorrencia: false };
+  it("não trata folga como crítica, mas preserva ocorrências independentes no mesmo RDO", async () => {
+    state.technical = [
+      { ...stopped, id: "folga", ogs_number: "2539" },
+      { ...stopped, id: "chuva", ogs_number: "2553", motivo_sem_producao: "Chuva", choveu: true },
+      { ...stopped, id: "folga-ocorrencia", ogs_number: "2500", houve_ocorrencia: true, descricao_ocorrencia: "Ocorrência na folga" },
+    ];
+    await mount();
+    const alerts = section(/Pendências prioritárias para validação|Alertas operacionais dos RDOs Técnicos/);
+    expect(within(alerts).queryByText("2539")).not.toBeInTheDocument();
+    expect(within(alerts).getByText("2553")).toBeInTheDocument();
+    expect(within(alerts).getByText("Ocorrência na folga")).toBeInTheDocument();
+    expect(screen.getByTestId("resumo-sem-producao")).toHaveTextContent("2 folga/feriado");
+    expect(screen.getByTestId("resumo-sem-producao")).toHaveTextContent("1 outros motivos");
+  });
+});
+
+
+it("não transforma um rascunho em alerta operacional confirmado", async () => {
+  state.technical = [{ id: "draft", company_id: "c1", engenheiro_id: "ana", status: "rascunho", data: "2026-10-01", ogs_number: "RASCUNHO-2539", houve_producao: false, motivo_sem_producao: "Chuva", choveu: true }];
+  await mount();
+  const alerts = section("Alertas operacionais dos RDOs Técnicos");
+  expect(within(alerts).queryByText("RASCUNHO-2539")).not.toBeInTheDocument();
+  expect(within(alerts).getByText("Nenhum alerta operacional encontrado nos filtros atuais.")).toBeInTheDocument();
+});
+
+
+it("conta todos os alertas, limita somente a prévia e exporta a lista completa", async () => {
+  state.technical = Array.from({ length: 23 }, (_, i) => ({ id: `alerta-${i}`, company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", ogs_number: `ALERTA-${i}`, houve_producao: false, motivo_sem_producao: "Outro", outro_motivo_sem_producao: `Paralisação ${i}`, equipamentos_conforme: null, usina_atendeu: null }));
+  const downloads: NodeBlob[] = [];
+  vi.stubGlobal("Blob", NodeBlob);
+  vi.stubGlobal("URL", class extends URL {
+    static createObjectURL(blob: NodeBlob) { downloads.push(blob); return "blob:teste"; }
+    static revokeObjectURL() {}
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  await mount();
+  const alerts = section("Alertas operacionais dos RDOs Técnicos");
+  expect(within(alerts).getByText("Exibindo 20 de 23 alertas")).toBeInTheDocument();
+  expect(within(alerts).getAllByRole("row")).toHaveLength(21);
+  expect(within(alerts).queryByText("ALERTA-22")).not.toBeInTheDocument();
+  fireEvent.click(within(alerts).getByRole("button", { name: "Ver todos os alertas" }));
+  expect(within(alerts).getAllByRole("row")).toHaveLength(24);
+  expect(within(alerts).getByText("Exibindo 23 de 23 alertas")).toBeInTheDocument();
+  expect(within(alerts).getByText("ALERTA-22")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Resumo Exec/ }));
+  const csv = await downloads[0].text();
+  expect(csv).toContain('"ALERTA-22"');
+  expect(csv).toContain('"Alertas operacionais"');
+  expect(csv).not.toContain('"Pendências prioritárias"');
+});
+
+
+it.each([
+  [2, 1, "+1 (+100%)"],
+  [1, 2, "-1 (-50%)"],
+  [0, 2, "-2 (-100%)"],
+])("preserva comparativo real com atual=%s e anterior=%s", async (current, previous, expected) => {
+  const base = { company_id: "c1", engenheiro_id: "ana", status: "enviado", ogs_number: "2539", houve_producao: true, equipamentos_conforme: null };
+  state.technical = [
+    ...Array.from({ length: current }, (_, i) => ({ ...base, id: `atual-${i}`, data: "2026-10-01" })),
+    ...Array.from({ length: previous }, (_, i) => ({ ...base, id: `anterior-${i}`, data: "2026-09-20" })),
+  ];
+  await mount();
+  const comparison = section("Comparativo com período anterior");
+  const card = within(comparison).getByText("RDOs registrados (inclui rascunhos)").parentElement!;
+  expect(card).toHaveTextContent(expected);
 });

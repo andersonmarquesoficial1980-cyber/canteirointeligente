@@ -114,7 +114,7 @@ interface FiltroOption {
   label: string;
 }
 
-interface PendenciaItem {
+interface AlertaOperacional {
   id: string;
   prioridade: "Alta" | "Média";
   prioridadePeso: number;
@@ -142,6 +142,10 @@ const TAB_META: { id: AssuntoTab; label: string; icon: any }[] = [
   { id: "ocorrencias", label: "Ocorrências", icon: AlertTriangle },
   { id: "sem_producao", label: "Sem Produção", icon: FileText },
 ];
+
+function isFolgaFeriado(row: Pick<RdoTecnicoRow, "houve_producao" | "motivo_sem_producao">) {
+  return !row.houve_producao && row.motivo_sem_producao?.trim().toLocaleLowerCase("pt-BR") === "folga / feriado";
+}
 
 function fmtDate(d?: string | null) {
   if (!d) return "-";
@@ -210,6 +214,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [buscaFila, setBuscaFila] = useState("");
 
   const [tab, setTab] = useState<AssuntoTab>("geral");
+  const [exibirTodosAlertas, setExibirTodosAlertas] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<RdoTecnicoRow[]>([]);
   const [rowsPrev, setRowsPrev] = useState<RdoTecnicoRow[]>([]);
@@ -405,6 +410,7 @@ export default function RelatorioRdoTecnicoDashboard() {
     const rascunhos = linhasFiltradas.filter(r => r.status !== "enviado").length;
     const comProducao = linhasFiltradas.filter(r => r.houve_producao).length;
     const semProducao = total - comProducao;
+    const folgasFeriados = linhasFiltradas.filter(isFolgaFeriado).length;
     const comOcorrencia = linhasFiltradas.filter(r => r.houve_ocorrencia).length;
     const comChuva = linhasFiltradas.filter(r => r.choveu).length;
     const usinaNaoAtendeu = linhasFiltradas.filter(r => r.usina_atendeu === false).length;
@@ -442,6 +448,8 @@ export default function RelatorioRdoTecnicoDashboard() {
       rascunhos,
       comProducao,
       semProducao,
+      folgasFeriados,
+      outrosMotivosSemProducao: semProducao - folgasFeriados,
       comOcorrencia,
       comChuva,
       usinaNaoAtendeu,
@@ -509,7 +517,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const comparativo = useMemo(() => {
     const calc = (atual: number, anterior: number) => {
       const delta = atual - anterior;
-      const perc = anterior === 0 ? (atual === 0 ? 0 : 100) : (delta / anterior) * 100;
+      const perc = anterior === 0 ? null : (delta / anterior) * 100;
       return { atual, anterior, delta, perc };
     };
 
@@ -565,11 +573,12 @@ export default function RelatorioRdoTecnicoDashboard() {
     };
   }, [linhasFiltradas]);
 
-  const pendenciasPrioritarias = useMemo(() => {
-    const itens: PendenciaItem[] = [];
+  const alertasOperacionais = useMemo(() => {
+    const itens: AlertaOperacional[] = [];
 
     linhasFiltradas.forEach((r) => {
-      if (!r.houve_producao) {
+      if (r.status !== "enviado") return;
+      if (!r.houve_producao && !isFolgaFeriado(r)) {
         const motivo = r.motivo_sem_producao === "Outro"
           ? (r.outro_motivo_sem_producao || "Outro")
           : (r.motivo_sem_producao || "Sem motivo informado");
@@ -625,8 +634,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       .sort((a, b) => {
         if (a.prioridadePeso !== b.prioridadePeso) return a.prioridadePeso - b.prioridadePeso;
         return b.rdo.data.localeCompare(a.rdo.data);
-      })
-      .slice(0, 20);
+      });
   }, [linhasFiltradas]);
 
   const engenheiroOptions = useMemo(() => {
@@ -688,22 +696,22 @@ export default function RelatorioRdoTecnicoDashboard() {
   const exportarCsvExecutivo = () => {
     const linhasResumo = [
       ["Métrica", "Período Atual", "Período Anterior", "Variação Absoluta", "Variação %"],
-      ["RDOs registrados (inclui rascunhos)", kpis.total, kpisPrev.total, comparativo.total.delta, comparativo.total.perc],
-      ["RDOs com produção", kpis.comProducao, kpisPrev.comProducao, comparativo.comProducao.delta, comparativo.comProducao.perc],
-      ["RDOs sem produção", kpis.semProducao, kpisPrev.semProducao, comparativo.semProducao.delta, comparativo.semProducao.perc],
-      ["RDOs não conformes (equipamentos)", kpis.naoConformeEquip, kpisPrev.naoConformeEquip, comparativo.naoConforme.delta, comparativo.naoConforme.perc],
-      ["Produção (t)", kpis.toneladas, kpisPrev.toneladas, comparativo.toneladas.delta, comparativo.toneladas.perc],
-      ["Produção (m²)", kpis.areaM2, kpisPrev.areaM2, comparativo.areaM2.delta, comparativo.areaM2.perc],
-      ["Produção (m³)", kpis.volumeM3, kpisPrev.volumeM3, comparativo.volumeM3.delta, comparativo.volumeM3.perc],
-      ["RDOs com chuva", kpis.comChuva, kpisPrev.comChuva, comparativo.chuva.delta, comparativo.chuva.perc],
-      ["RDOs com ocorrência", kpis.comOcorrencia, kpisPrev.comOcorrencia, comparativo.ocorrencias.delta, comparativo.ocorrencias.perc],
-      ["Conformidade dos equipamentos (%)", kpis.percConformeEquip, kpisPrev.percConformeEquip, comparativo.conformidade.delta, comparativo.conformidade.perc],
+      ["RDOs registrados (inclui rascunhos)", kpis.total, kpisPrev.total, comparativo.total.delta, comparativo.total.perc ?? "Sem base percentual"],
+      ["RDOs com produção", kpis.comProducao, kpisPrev.comProducao, comparativo.comProducao.delta, comparativo.comProducao.perc ?? "Sem base percentual"],
+      ["RDOs sem produção", kpis.semProducao, kpisPrev.semProducao, comparativo.semProducao.delta, comparativo.semProducao.perc ?? "Sem base percentual"],
+      ["RDOs não conformes (equipamentos)", kpis.naoConformeEquip, kpisPrev.naoConformeEquip, comparativo.naoConforme.delta, comparativo.naoConforme.perc ?? "Sem base percentual"],
+      ["Produção (t)", kpis.toneladas, kpisPrev.toneladas, comparativo.toneladas.delta, comparativo.toneladas.perc ?? "Sem base percentual"],
+      ["Produção (m²)", kpis.areaM2, kpisPrev.areaM2, comparativo.areaM2.delta, comparativo.areaM2.perc ?? "Sem base percentual"],
+      ["Produção (m³)", kpis.volumeM3, kpisPrev.volumeM3, comparativo.volumeM3.delta, comparativo.volumeM3.perc ?? "Sem base percentual"],
+      ["RDOs com chuva", kpis.comChuva, kpisPrev.comChuva, comparativo.chuva.delta, comparativo.chuva.perc ?? "Sem base percentual"],
+      ["RDOs com ocorrência", kpis.comOcorrencia, kpisPrev.comOcorrencia, comparativo.ocorrencias.delta, comparativo.ocorrencias.perc ?? "Sem base percentual"],
+      ["Conformidade dos equipamentos (%)", kpis.percConformeEquip, kpisPrev.percConformeEquip, comparativo.conformidade.delta, comparativo.conformidade.perc ?? "Sem base percentual"],
     ];
 
-    const linhasPendencias = [
+    const linhasAlertas = [
       [],
-      ["Pendências prioritárias", "Prioridade", "Data", "OGS", "Engenheiro", "Equipe", "Assunto", "Detalhe"],
-      ...pendenciasPrioritarias.map((p) => [
+      ["Alertas operacionais", "Prioridade", "Data", "OGS", "Engenheiro", "Equipe", "Assunto", "Detalhe"],
+      ...alertasOperacionais.map((p) => [
         "",
         p.prioridade,
         fmtDate(p.rdo.data),
@@ -722,7 +730,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       ["Filtros", `Status=${filtroStatus || "Todos"}; OGS=${filtroOgs || "Todas"}; Engenheiro=${filtroEng ? (engMap[filtroEng] || filtroEng) : "Todos"}; Equipe=${filtroEquipe || "Todas"}; Busca=${busca || "-"}`],
       [],
       ...linhasResumo,
-      ...linhasPendencias,
+      ...linhasAlertas,
     ];
 
     const csv = "\uFEFF" + linhas.map((l) => l.map(csvEscape).join(";")).join("\n");
@@ -1005,11 +1013,12 @@ export default function RelatorioRdoTecnicoDashboard() {
 
             {(kpis.semNomeEng > 0 || kpis.usinaNaoAtendeu > 0 || kpis.naoConformeEquip > 0 || kpis.semProducao > 0) && (
               <section className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm">
-                <p className="font-semibold text-amber-900">Atenções do período</p>
+                <p className="font-semibold text-amber-900">Contexto operacional do período</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <button onClick={() => setTab("sem_producao")} className="rounded-lg border border-red-300 bg-red-50 px-2.5 py-1 text-red-700 font-semibold hover:bg-red-100">
+                  <button onClick={() => setTab("sem_producao")} className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-slate-700 font-semibold hover:bg-slate-100">
                     Sem produção: {kpis.semProducao}
                   </button>
+                  <span data-testid="resumo-sem-producao" className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-slate-700">{kpis.folgasFeriados} folga/feriado · {kpis.outrosMotivosSemProducao} outros motivos</span>
                   <button onClick={() => setTab("usina")} className="rounded-lg border border-orange-300 bg-orange-50 px-2.5 py-1 text-orange-700 font-semibold hover:bg-orange-100">
                     Usina não atendeu: {kpis.usinaNaoAtendeu}
                   </button>
@@ -1068,14 +1077,17 @@ export default function RelatorioRdoTecnicoDashboard() {
             </section>
 
             <section className="rounded-2xl border bg-white overflow-hidden">
+              <p className="px-4 py-3 text-xs text-muted-foreground">Somente RDOs Técnicos enviados; rascunhos não geram alertas. São sinais registrados, não a fila de aprovação dos apontadores nem comprovação de uma ação ainda em aberto. Folga/feriado, por si só, não gera alerta.</p>
               <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
-                <h3 className="text-sm font-bold">Pendências prioritárias para validação</h3>
-                <span className="text-xs text-muted-foreground">{pendenciasPrioritarias.length} item(ns)</span>
+                <h3 className="text-sm font-bold">Alertas operacionais dos RDOs Técnicos</h3>
+                <span className="text-xs text-muted-foreground">Exibindo {exibirTodosAlertas ? alertasOperacionais.length : Math.min(20, alertasOperacionais.length)} de {alertasOperacionais.length} alertas</span>
               </div>
 
-              {pendenciasPrioritarias.length === 0 ? (
+              {alertasOperacionais.length > 20 && <button onClick={() => setExibirTodosAlertas(atual => !atual)} className="mx-4 my-2 text-sm font-semibold text-primary underline">{exibirTodosAlertas ? "Mostrar apenas os 20 primeiros" : "Ver todos os alertas"}</button>}
+
+              {alertasOperacionais.length === 0 ? (
                 <div className="px-4 py-8 text-sm text-muted-foreground text-center">
-                  Nenhuma pendência crítica encontrada nos filtros atuais.
+                  Nenhum alerta operacional encontrado nos filtros atuais.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -1093,7 +1105,7 @@ export default function RelatorioRdoTecnicoDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pendenciasPrioritarias.map((p) => (
+                      {alertasOperacionais.slice(0, exibirTodosAlertas ? alertasOperacionais.length : 20).map((p) => (
                         <tr key={p.id} className="border-t align-top">
                           <td className="px-3 py-2 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.prioridade === "Alta" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
@@ -1163,7 +1175,7 @@ function KpiCard({
   valor: string;
   cor: string;
   delta?: number;
-  deltaPct?: number;
+  deltaPct?: number | null;
   invert?: boolean;
 }) {
   return (
@@ -1173,7 +1185,7 @@ function KpiCard({
         <Icon className={`w-4 h-4 ${cor}`} />
       </div>
       <p className="text-2xl font-black mt-1 text-foreground leading-none">{valor}</p>
-      {delta != null && deltaPct != null ? (
+      {delta != null && deltaPct !== undefined ? (
         <div className="mt-2">
           <DeltaPill delta={delta} perc={deltaPct} invert={invert} />
         </div>
@@ -1182,7 +1194,7 @@ function KpiCard({
   );
 }
 
-function DeltaPill({ delta, perc, invert }: { delta: number; perc: number; invert?: boolean }) {
+function DeltaPill({ delta, perc, invert }: { delta: number; perc: number | null; invert?: boolean }) {
   const isUp = delta > 0;
   const isNeutral = delta === 0;
   const shouldBeGood = invert ? !isUp : isUp;
@@ -1196,7 +1208,7 @@ function DeltaPill({ delta, perc, invert }: { delta: number; perc: number; inver
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
       {isNeutral ? <Minus className="w-3 h-3" /> : isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-      {delta > 0 ? "+" : ""}{fmtNum(delta, 1)} ({perc > 0 ? "+" : ""}{fmtNum(perc, 1)}%)
+      {delta > 0 ? "+" : ""}{fmtNum(delta, 1)} ({perc === null ? "Sem base percentual" : `${perc > 0 ? "+" : ""}${fmtNum(perc, 1)}%`})
     </span>
   );
 }
@@ -1214,7 +1226,7 @@ function ComparativoCard({
   atual: number;
   anterior: number;
   delta: number;
-  perc: number;
+  perc: number | null;
   frac?: number;
   invert?: boolean;
 }) {
