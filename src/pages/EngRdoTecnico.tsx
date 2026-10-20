@@ -186,7 +186,11 @@ export default function EngRdoTecnico() {
       toast({ title: "Descreva o motivo em 'Outro'", variant: "destructive" });
       return;
     }
-    if (form.houve_producao && form.choveu && !form.intensidade_chuva) {
+    if (!form.houve_producao && form.motivo_sem_producao === "Chuva" && !form.choveu) {
+      toast({ title: "Para o motivo Chuva, informe que choveu no período", variant: "destructive" });
+      return;
+    }
+    if (form.choveu && !form.intensidade_chuva) {
       toast({ title: "Selecione a intensidade da chuva", variant: "destructive" });
       return;
     }
@@ -194,7 +198,7 @@ export default function EngRdoTecnico() {
       toast({ title: "Selecione ao menos uma seção da obra", variant: "destructive" });
       return;
     }
-    if (form.tipos_servico.includes("INFRA") && !form.infra_descricao.trim()) {
+    if (form.houve_producao && form.tipos_servico.includes("INFRA") && !form.infra_descricao.trim()) {
       toast({ title: "Descreva o tipo de infra executada", variant: "destructive" });
       return;
     }
@@ -228,8 +232,8 @@ export default function EngRdoTecnico() {
       ogs_number: ogsSelecionada?.ogs_number,
       data: form.data,
       houve_producao: form.houve_producao,
-      choveu: semProducao ? false : form.choveu,
-      intensidade_chuva: semProducao ? null : (form.choveu ? form.intensidade_chuva || null : null),
+      choveu: form.choveu,
+      intensidade_chuva: form.choveu ? form.intensidade_chuva || null : null,
       tipo_secao: obraExigeSecao
         ? (form.tipo_secao.length > 0 ? form.tipo_secao.join(", ") : null)
         : null,
@@ -237,8 +241,8 @@ export default function EngRdoTecnico() {
       outro_motivo_sem_producao: semProducao && form.motivo_sem_producao === "Outro"
         ? form.outro_motivo_sem_producao.trim() || null
         : null,
-      equipe: semProducao ? null : form.equipe || null,
-      localizacao: semProducao ? null : form.localizacao || null,
+      equipe: form.equipe.trim() || null,
+      localizacao: form.localizacao.trim() || null,
       tipo_servico: semProducao ? null : form.tipos_servico.length > 0 ? form.tipos_servico.join(", ") : null,
       infra_descricao: semProducao ? null : form.tipos_servico.includes("INFRA") ? form.infra_descricao.trim() || null : null,
       solucao_empregada: semProducao ? null : form.solucao_empregada || null,
@@ -272,8 +276,8 @@ export default function EngRdoTecnico() {
         : form.equipamentos_conforme === "nao"
           ? form.equipamentos_nao_conformes.trim() || null
           : null,
-      houve_ocorrencia: semProducao ? false : form.houve_ocorrencia,
-      descricao_ocorrencia: semProducao ? null : form.houve_ocorrencia ? form.descricao_ocorrencia || null : null,
+      houve_ocorrencia: form.houve_ocorrencia,
+      descricao_ocorrencia: form.houve_ocorrencia ? form.descricao_ocorrencia.trim() || null : null,
       observacoes: form.observacoes || null,
       status,
     };
@@ -342,7 +346,7 @@ export default function EngRdoTecnico() {
                       houve_producao: houveProducao,
                       ...(houveProducao
                         ? { motivo_sem_producao: "", outro_motivo_sem_producao: "" }
-                        : { choveu: false, intensidade_chuva: "", usina_atendeu: "", usina_nao_atendeu_motivo: "" }),
+                        : { usina_atendeu: "", usina_nao_atendeu_motivo: "" }),
                     }));
                   }}
                   className={`flex-1 h-11 rounded-xl text-sm font-semibold border-2 transition-colors ${
@@ -393,8 +397,46 @@ export default function EngRdoTecnico() {
           )}
         </div>
 
+        <div className={sectionCls}>
+          <h2 className="text-sm font-bold text-foreground">Equipe e Localização</h2>
+              <div>
+                <label className={labelCls}>Equipe / Setor</label>
+                <select value={form.equipe} onChange={e => set("equipe", e.target.value)} className={inputCls}>
+                  <option value="">Selecione a equipe...</option>
+                  {opcoesEquipe.map(eq => <option key={eq} value={eq}>{eq}</option>)}
+                </select>
+              </div>
+              <div className="relative">
+                <label className={labelCls}>Localização / Rua</label>
+                <input
+                  value={form.localizacao}
+                  onChange={e => { set("localizacao", e.target.value); setShowSugestoes(true); }}
+                  onFocus={() => setShowSugestoes(true)}
+                  onBlur={() => setTimeout(() => setShowSugestoes(false), 150)}
+                  placeholder="Ex: Av. Paulista, 1000"
+                  className={inputCls}
+                  autoComplete="off"
+                />
+                {showSugestoes && localizacoesSugeridas.length > 0 && (() => {
+                  const filtradas = form.localizacao
+                    ? localizacoesSugeridas.filter(s => s.toLowerCase().includes(form.localizacao.toLowerCase()))
+                    : localizacoesSugeridas;
+                  return filtradas.length > 0 ? (
+                    <ul className="absolute z-50 w-full mt-1 bg-white border border-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {filtradas.map((s, i) => (
+                        <li
+                          key={i}
+                          onMouseDown={() => { set("localizacao", s); setShowSugestoes(false); }}
+                          className="px-4 py-2.5 text-sm cursor-pointer hover:bg-primary/10 hover:text-primary"
+                        >{s}</li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
+              </div>
+        </div>
+
         {/* Seção 1.5 — Meteorologia */}
-        {form.houve_producao && (
           <div className={sectionCls}>
             <h2 className="text-sm font-bold text-foreground">Meteorologia</h2>
 
@@ -445,7 +487,6 @@ export default function EngRdoTecnico() {
               </div>
             )}
           </div>
-        )}
 
         {obraExigeSecao && (
           <div className={sectionCls}>
@@ -488,41 +529,6 @@ export default function EngRdoTecnico() {
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Produção</h2>
 
-              <div>
-                <label className={labelCls}>Equipe / Setor</label>
-                <select value={form.equipe} onChange={e => set("equipe", e.target.value)} className={inputCls}>
-                  <option value="">Selecione a equipe...</option>
-                  {opcoesEquipe.map(eq => <option key={eq} value={eq}>{eq}</option>)}
-                </select>
-              </div>
-              <div className="relative">
-                <label className={labelCls}>Localização / Rua</label>
-                <input
-                  value={form.localizacao}
-                  onChange={e => { set("localizacao", e.target.value); setShowSugestoes(true); }}
-                  onFocus={() => setShowSugestoes(true)}
-                  onBlur={() => setTimeout(() => setShowSugestoes(false), 150)}
-                  placeholder="Ex: Av. Paulista, 1000"
-                  className={inputCls}
-                  autoComplete="off"
-                />
-                {showSugestoes && localizacoesSugeridas.length > 0 && (() => {
-                  const filtradas = form.localizacao
-                    ? localizacoesSugeridas.filter(s => s.toLowerCase().includes(form.localizacao.toLowerCase()))
-                    : localizacoesSugeridas;
-                  return filtradas.length > 0 ? (
-                    <ul className="absolute z-50 w-full mt-1 bg-white border border-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                      {filtradas.map((s, i) => (
-                        <li
-                          key={i}
-                          onMouseDown={() => { set("localizacao", s); setShowSugestoes(false); }}
-                          className="px-4 py-2.5 text-sm cursor-pointer hover:bg-primary/10 hover:text-primary"
-                        >{s}</li>
-                      ))}
-                    </ul>
-                  ) : null;
-                })()}
-              </div>
               <div>
                 <label className={labelCls}>Usina Programada</label>
                 <select value={form.usina_programada} onChange={e => set("usina_programada", e.target.value)} className={inputCls}>
@@ -737,6 +743,9 @@ export default function EngRdoTecnico() {
               )}
             </div>
 
+          </>
+        )}
+
             {/* Seção 4 — Ocorrências */}
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Ocorrências</h2>
@@ -778,8 +787,6 @@ export default function EngRdoTecnico() {
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 resize-none"
               />
             </div>
-          </>
-        )}
 
         {/* Botões fixos */}
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 flex gap-3 max-w-lg mx-auto">
