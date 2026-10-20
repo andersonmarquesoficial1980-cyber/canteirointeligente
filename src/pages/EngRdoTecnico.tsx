@@ -6,6 +6,7 @@ import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
 import { loadEngineeringPlants } from "@/lib/engineeringPlants";
+import { getTechnicalProductionError, TECHNICAL_QUANTITIES } from "@/lib/technicalProduction";
 
 interface Ogs { id: string; ogs_number: string; client_name: string }
 
@@ -187,10 +188,12 @@ export default function EngRdoTecnico() {
       toast({ title: "Selecione ao menos uma seção da obra", variant: "destructive" });
       return;
     }
-    if (form.houve_producao && form.tipos_servico.includes("INFRA") && !form.infra_descricao.trim()) {
-      toast({ title: "Descreva o tipo de infra executada", variant: "destructive" });
+    const erroProducao = getTechnicalProductionError(form, status);
+    if (erroProducao) {
+      toast({ title: erroProducao, variant: "destructive" });
       return;
     }
+
     if (form.houve_producao && form.usina_atendeu === "nao" && !form.usina_nao_atendeu_motivo.trim()) {
       toast({ title: "Descreva o motivo de a usina não ter atendido", variant: "destructive" });
       return;
@@ -606,6 +609,7 @@ export default function EngRdoTecnico() {
             {/* Seção 3 — Quantitativos */}
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Quantitativos de Produção</h2>
+              <p className="text-xs text-muted-foreground">Para enviar, selecione o serviço e informe as medições de produção exibidas com valor maior que zero. INFRA exige descrição, não tonelagem. Essas exigências não bloqueiam rascunhos.</p>
               
               {/* Mapeamento: Tipo de Serviço → Campo de Produção (100% CONDICIONAL)
                   - FRESAGEM → fresagem_m2
@@ -624,22 +628,7 @@ export default function EngRdoTecnico() {
                   - APLICAÇÃO DE RACHÃO → rachao_ton
               */}
               
-              {[
-                { label: "Fresagem (m²)", field: "fresagem_m2", requiredType: "FRESAGEM" },
-                { label: "RAP Espumado (m²)", field: "rap_espumado_m2", requiredType: "APLICAÇÃO DE RAP ESPUMADO" },
-                { label: "Binder (ton)", field: "binder_ton", requiredType: "APLICAÇÃO DE FX II - BINDER" },
-                { label: "CBUQ FX3 (ton)", field: "cbuq_fx3_ton", requiredType: "APLICAÇÃO DE FX III" },
-                { label: "GAP (ton)", field: "gap_ton", requiredType: "APLICAÇÃO DE GAP GRADED" },
-                { label: "BGS (ton)", field: "bgs_ton", requiredType: "APLICAÇÃO DE BGS" },
-                { label: "SMA (ton)", field: "sma_ton", requiredType: "APLICAÇÃO DE SMA" },
-                { label: "BGTC (m³)", field: "bgtc_m3", requiredType: "APLICAÇÃO DE BGTC" },
-                { label: "Macadame (m³)", field: "macadame_m3", requiredType: "APLICAÇÃO DE MACADAME" },
-                { label: "CAUQ-RIMA (ton)", field: "cauq_rima_ton", requiredType: "APLICAÇÃO DE CAUQ-RIMA" },
-                { label: "BN25 (ton)", field: "bm25_ton", requiredType: "APLICAÇÃO DE BN25" },
-                { label: "Geogrelha (m²)", field: "geogrelha_m2", requiredType: "GEOGRELHA" },
-                { label: "EGL (ton)", field: "egl_ton", requiredType: "APLICAÇÃO DE EGL" },
-                { label: "RACHÃO (ton)", field: "rachao_ton", requiredType: "APLICAÇÃO DE RACHÃO" },
-              ].map(({ label, field, requiredType }) => {
+              {TECHNICAL_QUANTITIES.map(({ label, field, requiredType }) => {
                 // Lógica: mostrar campo APENAS se tipo de serviço foi selecionado
                 const shouldShow = form.tipos_servico.includes(requiredType);
                 

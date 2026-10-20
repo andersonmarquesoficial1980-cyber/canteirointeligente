@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 const state = vi.hoisted(() => ({ write: vi.fn(), toast: vi.fn(), returned: true, error: null as null | { message: string }, reject: false, selectWrite: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: state.toast }) }));
-vi.mock("@/hooks/useFilteredData", () => ({ useTiposServico: () => ({ data: [] }) }));
+vi.mock("@/hooks/useFilteredData", () => ({ useTiposServico: () => ({ data: ["DEMOLIÇÃO", "INFRA", "FRESAGEM", "APLICAÇÃO DE FX II - BINDER"].map(nome => ({ nome })) }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   auth: { getUser: async () => ({ data: { user: { id: "eng-teste" } } }) },
   from: (table: string) => {
@@ -16,7 +16,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       : table === "fornecedores" ? [{ nome: "Usina atual", tipo_insumos: ["Massa Asfáltica"] }, { nome: "Usina legada", tipo_insumo: "Massa Asfáltica" }, { nome: "Óleo", tipo_insumos: ["Óleo Diesel"] }]
       : table === "rdo_engenheiro" ? {
         id: "rdo-teste", ogs_id: ogs.id, ogs_number: ogs.ogs_number, data: "2026-10-20",
-        houve_producao: true, choveu: false, equipamentos_conforme: true, status: "enviado", usina_programada: "Usina histórica",
+        houve_producao: true, choveu: false, equipamentos_conforme: true, status: "enviado", usina_programada: "Usina histórica", tipo_servico: "DEMOLIÇÃO",
       } : [];
     const result = Promise.resolve({ data, error: null });
     let updating = false;
@@ -44,6 +44,8 @@ async function mount(mode: string) {
   await screen.findByRole("heading", { name: edit ? "Editar RDO Técnico" : "RDO Técnico" });
   if (!edit) {
     await act(async () => { fireEvent.change(screen.getByText("OGS / Obra *").parentElement!.querySelector("select")!, { target: { value: "ogs-teste" } }); });
+    fireEvent.click(screen.getByRole("checkbox", { name: "DEMOLIÇÃO" }));
+    fireEvent.click(screen.getByRole("button", { name: "Conforme" }));
   }
 }
 function question(name: string) { return within(screen.getByText(name).parentElement!); }
@@ -54,6 +56,48 @@ beforeEach(() => { state.write.mockClear(); state.toast.mockClear(); state.selec
 afterEach(() => { cleanup(); sessionStorage.clear(); });
 
 describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
+  it("exige medição do Binder no envio, mas permite rascunho sem medição", async () => {
+    await mount(mode);
+    fireEvent.click(screen.getByRole("checkbox", { name: "APLICAÇÃO DE FX II - BINDER" }));
+    await act(async () => submit(mode));
+    expect(state.write).not.toHaveBeenCalled();
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Informe Binder (ton) com valor maior que zero" }));
+    await act(async () => submit(mode, true));
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ status: "rascunho", binder_ton: null }));
+  });
+  it("aceita medição decimal positiva no envio", async () => {
+    await mount(mode);
+    fireEvent.click(screen.getByRole("checkbox", { name: "APLICAÇÃO DE FX II - BINDER" }));
+    fireEvent.change(screen.getByText("Binder (ton)").parentElement!.querySelector("input")!, { target: { value: "12.5" } });
+    await act(async () => submit(mode));
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ status: "enviado", binder_ton: 12.5 }));
+  });
+  it("permite INFRA descritiva sem tonelagem e preserva a descrição", async () => {
+    await mount(mode);
+    fireEvent.click(screen.getByRole("checkbox", { name: "DEMOLIÇÃO" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "INFRA" }));
+    fireEvent.change(screen.getByPlaceholderText("Ex: execução de galeria, drenagem, guia/sarjeta..."), { target: { value: "Execução de drenagem" } });
+    await act(async () => submit(mode));
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ status: "enviado", tipo_servico: "INFRA", infra_descricao: "Execução de drenagem", binder_ton: null }));
+  });
+  it("exige descrição de INFRA no envio, mas não impede rascunho incompleto", async () => {
+    await mount(mode);
+    fireEvent.click(screen.getByRole("checkbox", { name: "INFRA" }));
+    await act(async () => submit(mode));
+    expect(state.write).not.toHaveBeenCalled();
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Descreva o tipo de infra executada" }));
+    await act(async () => submit(mode, true));
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ status: "rascunho", infra_descricao: null }));
+  });
+  it("bloqueia envio produtivo sem serviço e permite salvar esse caso como rascunho", async () => {
+    await mount(mode);
+    fireEvent.click(screen.getByRole("checkbox", { name: "DEMOLIÇÃO" }));
+    await act(async () => submit(mode));
+    expect(state.write).not.toHaveBeenCalled();
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Selecione ao menos um serviço executado" }));
+    await act(async () => submit(mode, true));
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ status: "rascunho", houve_producao: true, tipo_servico: null }));
+  });
   it("salva dia parado como rascunho com identificação e observações", async () => {
     await mount(mode);
     fireEvent.click(question("Houve produção?").getByRole("button", { name: "Não" }));
