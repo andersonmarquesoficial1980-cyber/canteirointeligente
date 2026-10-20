@@ -1,3 +1,5 @@
+import { ENGINEERING_VALIDATION_START, isEngineeringPending, type QueuePeriod } from "@/lib/engineeringQueue";
+
 export interface EngineerProfile {
   user_id: string;
   nome_completo: string | null;
@@ -36,7 +38,8 @@ export interface EngineerPending<P extends PointingEntry> {
 }
 
 export function buildEngineeringMonitoring<T extends TechnicalEntry, P extends PointingEntry>(
-  profiles: EngineerProfile[], technical: T[], pointing: P[], period: { from: string; to: string },
+  profiles: EngineerProfile[], technical: T[], pointing: P[], period: QueuePeriod,
+  pendingPeriod: QueuePeriod = { from: ENGINEERING_VALIDATION_START, to: period.to },
 ): { launchRows: EngineerLaunch<T>[]; pendingRows: EngineerPending<P>[]; unassigned: P[] } {
   const launchMap = new Map<string, EngineerLaunch<T>>();
   const pendingMap = new Map<string, EngineerPending<P>>();
@@ -59,8 +62,7 @@ export function buildEngineeringMonitoring<T extends TechnicalEntry, P extends P
 
   const unassigned: P[] = [];
   pointing.forEach(row => {
-    if (row.data < "2026-07-17" || row.data > period.to || row.validado_por
-      || !["enviado", "aguardando_validacao"].includes(row.status_validacao || "")) return;
+    if (!isEngineeringPending(row, pendingPeriod)) return;
     const pessoa = row.engenheiro_responsavel_user_id
       ? pendingMap.get(row.engenheiro_responsavel_user_id) : undefined;
     if (pessoa) pessoa.pendentes.push(row);

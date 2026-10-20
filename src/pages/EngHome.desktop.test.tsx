@@ -16,7 +16,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
         { id: "rdo2", data: "2026-09-02", obra_nome: "Obra de Outro Engenheiro", status_validacao: "enviado", engenheiro_responsavel_user_id: "outro" },
       ] : [];
     const result = Promise.resolve({ data, error: null });
-    const q = { select: () => q, eq: () => q, in: () => q, is: () => q, gte: () => q, order: () => q, limit: () => q, maybeSingle: () => result, then: result.then.bind(result) };
+    const q = { select: () => q, eq: () => q, in: () => q, is: () => q, gte: () => q, lte: () => q, range: () => q, order: () => q, limit: () => q, maybeSingle: () => result, then: result.then.bind(result) };
     return q;
   },
 } }));

@@ -3,9 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, ClipboardCheck, Clock, ChevronRight, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
-import { namesLikelyMatch } from "@/lib/nameMatch";
-
-const VALIDATION_START_DATE = "2026-07-17";
+import { loadEngineeringQueue, restrictEngineeringQueue, ENGINEERING_QUEUE_ERROR } from "@/lib/engineeringQueue";
 
 interface RdoPendente {
   id: string;
@@ -26,14 +24,15 @@ export default function EngValidacoes() {
   const goBack = useSmartBack("/engenharia");
   const [rdos, setRdos] = useState<RdoPendente[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erroFila, setErroFila] = useState("");
   const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) throw new Error("Sessão não identificada");
 
-      const [{ data: prof }, { data: perms }] = await Promise.all([
+      const [{ data: prof, error: erroPerfil }, { data: perms, error: erroPermissoes }] = await Promise.all([
         (supabase as any)
           .from("profiles")
           .select("company_id, nome_completo, perfil, role")
@@ -58,38 +57,17 @@ export default function EngValidacoes() {
         perfilNorm === "gerente" ||
         !!perms?.is_admin;
 
-      let query = (supabase as any)
-        .from("rdo_diarios")
-        .select("id, data, obra_nome, preenchido_por, encarregado, turno, tipo_rdo, status_validacao, engenheiro_responsavel, engenheiro_responsavel_user_id")
-        .eq("company_id", prof.company_id)
-        .in("status_validacao", ["enviado", "aguardando_validacao"])
-        .is("validado_por", null)
-        .gte("data", VALIDATION_START_DATE)
-        .order("data", { ascending: false })
-        .limit(500);
-
-      const { data } = await query;
-      const pendentes = (data || []) as any[];
-
-      if (!isAdmin) {
-        const nomeEng = String(prof?.nome_completo || "").trim();
-        if (!nomeEng) {
-          setRdos([]);
-          setLoading(false);
-          return;
-        }
-        setRdos(
-          pendentes.filter((rdo) => {
-            if (rdo?.engenheiro_responsavel_user_id) return rdo.engenheiro_responsavel_user_id === user.id;
-            return namesLikelyMatch(nomeEng, rdo?.engenheiro_responsavel);
-          }),
-        );
-      } else {
-        setRdos(pendentes);
-      }
+      const pendentes = await loadEngineeringQueue(supabase, prof.company_id);
+      const visiveis = restrictEngineeringQueue(pendentes, {
+        userId: user.id, name: String(prof.nome_completo || ""), isAdmin,
+      });
+      setRdos(visiveis as RdoPendente[]);
       setLoading(false);
     };
-    load();
+    load().catch(() => {
+      setRdos([]);
+      setErroFila(ENGINEERING_QUEUE_ERROR);
+    }).finally(() => setLoading(false));
   }, []);
 
   const statusBadge = (status: string) => {
@@ -126,10 +104,14 @@ export default function EngValidacoes() {
         </div>
       </div>
 
+      <p className="text-xs text-muted-foreground">Fila acumulada desde 17/07/2026 até hoje, conforme seu acesso. Não inclui RDOs já validados, rejeitados ou rascunhos.</p>
+
       {loading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="w-5 h-5 animate-spin text-primary" />
         </div>
+      ) : erroFila ? (
+        <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800">{erroFila}</p>
       ) : rdos.length === 0 ? (
         <div className="rounded-2xl bg-muted/40 border border-border p-8 text-center">
           <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />

@@ -37,3 +37,30 @@ describe("acompanhamento separado da engenharia", () => {
     expect(result.unassigned.map(r => r.id)).toEqual(["unassigned"]);
   });
 });
+
+
+describe("recortes explícitos da fila — fase 2", () => {
+  const people = [{ user_id: "a", nome_completo: "Ana", email: null }];
+  const technical = [];
+  const pointing = [
+    { id: "p1", data: "2026-09-20", obra_nome: "OGS A", engenheiro_responsavel_user_id: "a", status_validacao: "enviado", validado_por: null },
+    { id: "p2", data: "2026-08-20", obra_nome: "OGS A", engenheiro_responsavel_user_id: "a", status_validacao: "aguardando_validacao", validado_por: null },
+    { id: "p3", data: "2026-09-20", obra_nome: "OGS B", engenheiro_responsavel_user_id: null, status_validacao: "enviado", validado_por: null },
+  ];
+  it("permite comparar somente as pendências do período sem misturar agosto", () => {
+    const result = buildEngineeringMonitoring(people, technical, pointing,
+      { from: "2026-09-01", to: "2026-09-30" }, { from: "2026-09-01", to: "2026-09-30" });
+    expect(result.pendingRows.map(p => [p.id, p.pendentes.map(r => r.id)])).toEqual([["a", ["p1"]]]);
+    expect(result.unassigned.map(r => r.id)).toEqual(["p3"]);
+  });
+  it("mantém a fila acumulada por padrão e usa a mesma regra de status e validador", () => {
+    const entries = [...pointing,
+      { ...pointing[0], id: "val", validado_por: "validador" },
+      { ...pointing[0], id: "rejeitado", status_validacao: "rejeitado" },
+      { ...pointing[0], id: "rascunho", status_validacao: "rascunho" },
+      { ...pointing[0], id: "antes", data: "2026-07-16" },
+      { ...pointing[0], id: "futuro", data: "2026-10-01" }];
+    const result = buildEngineeringMonitoring(people, technical, entries, { from: "2026-09-01", to: "2026-09-30" });
+    expect(result.pendingRows.flatMap(r => r.pendentes).map(r => r.id).sort()).toEqual(["p1", "p2"]);
+  });
+});

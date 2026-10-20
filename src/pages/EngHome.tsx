@@ -8,9 +8,7 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { useDesktopWorkspace } from "@/hooks/useDesktopWorkspace";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
-import { namesLikelyMatch } from "@/lib/nameMatch";
-
-const VALIDATION_START_DATE = "2026-07-17";
+import { loadEngineeringQueue, restrictEngineeringQueue, ENGINEERING_QUEUE_ERROR } from "@/lib/engineeringQueue";
 
 interface RdoPendente {
   id: string;
@@ -50,14 +48,15 @@ export default function EngHome() {
   const [rdosPendentes, setRdosPendentes] = useState<RdoPendente[]>([]);
   const [minhasOgs, setMinhasOgs] = useState<MinhaOgs[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erroFila, setErroFila] = useState("");
   const [canViewValidacoes, setCanViewValidacoes] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) throw new Error("Sessão não identificada");
 
-      const [{ data: prof }, { data: perms }] = await Promise.all([
+      const [{ data: prof, error: erroPerfil }, { data: perms, error: erroPermissoes }] = await Promise.all([
         (supabase as any)
           .from("profiles")
           .select("company_id, nome_completo, perfil, role")
@@ -82,36 +81,12 @@ export default function EngHome() {
         perfilNorm === "gerente" ||
         !!perms?.is_admin;
 
-      let rdoQuery = (supabase as any)
-        .from("rdo_diarios")
-        .select("id, data, obra_nome, preenchido_por, status_validacao, ogs_id, engenheiro_responsavel, engenheiro_responsavel_user_id")
-        .eq("company_id", prof.company_id)
-        .in("status_validacao", ["enviado", "aguardando_validacao"])
-        .is("validado_por", null)
-        .gte("data", VALIDATION_START_DATE)
-        .order("data", { ascending: false })
-        .limit(500);
-
-      const { data: rdos } = await rdoQuery;
-      const pendentes = (rdos || []) as any[];
-
-      if (!isAdmin) {
-        const nomeEng = String(prof?.nome_completo || "").trim();
-        if (!nomeEng) {
-          setRdosPendentes([]);
-          setCanViewValidacoes(false);
-        } else {
-          const meusPendentes = pendentes.filter((rdo) => {
-            if (rdo?.engenheiro_responsavel_user_id) return rdo.engenheiro_responsavel_user_id === user.id;
-            return namesLikelyMatch(nomeEng, rdo?.engenheiro_responsavel);
-          });
-          setRdosPendentes(meusPendentes);
-          setCanViewValidacoes(meusPendentes.length > 0);
-        }
-      } else {
-        setRdosPendentes(pendentes.slice(0, 20));
-        setCanViewValidacoes(true);
-      }
+      const pendentes = await loadEngineeringQueue(supabase, prof.company_id);
+      const visiveis = restrictEngineeringQueue(pendentes, {
+        userId: user.id, name: String(prof.nome_completo || ""), isAdmin,
+      });
+      setRdosPendentes(visiveis as RdoPendente[]);
+      setCanViewValidacoes(isAdmin || visiveis.length > 0);
 
       // Buscar OGSs vinculadas (via engenheiro_ogs, se houver)
       const { data: vinculos } = await (supabase as any)
@@ -129,7 +104,11 @@ export default function EngHome() {
       setMinhasOgs(ogs);
       setLoading(false);
     };
-    load();
+    load().catch(() => {
+      setRdosPendentes([]);
+      setErroFila(ENGINEERING_QUEUE_ERROR);
+      setCanViewValidacoes(true);
+    }).finally(() => setLoading(false));
   }, []);
 
   const statusBadge = (status: string) => {
@@ -193,7 +172,7 @@ export default function EngHome() {
               <span className="text-sm font-semibold text-foreground">Validar RDOs</span>
               <span className="text-xs text-muted-foreground">Aprovar ou rejeitar</span>
               {rdosPendentes.length > 0 && (
-                <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                <span className="absolute top-3 right-3 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
                   {rdosPendentes.length}
                 </span>
               )}
@@ -216,6 +195,8 @@ export default function EngHome() {
           </div>
           <div className={isDesktop ? "space-y-5" : "space-y-6"}>
 
+        {erroFila && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800">{erroFila}</p>}
+
         {/* RDOs pendentes de validação */}
         {rdosPendentes.length > 0 && (
           <div>
@@ -223,8 +204,10 @@ export default function EngHome() {
               <Clock className="w-4 h-4 text-amber-500" />
               Aguardando sua validação ({rdosPendentes.length})
             </h2>
+            <p className="mb-2 text-xs text-muted-foreground">Fila acumulada desde 17/07/2026 até hoje, conforme seu acesso. Exibindo {Math.min(20, rdosPendentes.length)} de {rdosPendentes.length} pendências.</p>
+            {rdosPendentes.length > 20 && <button onClick={() => navigate(`/engenharia/validacoes${origemQuery}`)} className="mb-3 text-sm font-semibold text-primary underline">Ver todas as pendências</button>}
             <div className="space-y-2">
-              {rdosPendentes.map(rdo => (
+              {rdosPendentes.slice(0, 20).map(rdo => (
                 <button
                   key={rdo.id}
                   onClick={() => navigate(`/engenharia/validar/${rdo.id}${origemQuery}`)}
