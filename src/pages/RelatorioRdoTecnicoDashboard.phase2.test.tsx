@@ -2,8 +2,8 @@ import { Blob as NodeBlob } from "node:buffer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-const state = vi.hoisted(() => ({ fail: false, technical: null as Record<string, unknown>[] | null, queries: [] as { table: string; filters: [string, unknown][] }[] }));
-vi.mock("@/hooks/useUserProfile", () => ({ useUserProfile: () => ({ profile: { company_id: "c1" } }) }));
+const state = vi.hoisted(() => ({ companyId: "c1", extraProfiles: [] as Record<string, unknown>[], extraPending: [] as Record<string, unknown>[], fail: false, technical: null as Record<string, unknown>[] | null, queries: [] as { table: string; filters: [string, unknown][] }[] }));
+vi.mock("@/hooks/useUserProfile", () => ({ useUserProfile: () => ({ profile: { company_id: state.companyId } }) }));
 vi.mock("recharts", () => ({ ResponsiveContainer: () => null, BarChart: () => null, Bar: () => null, XAxis: () => null, YAxis: () => null, Tooltip: () => null, CartesianGrid: () => null }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   from: (table: string) => {
@@ -13,9 +13,10 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
     const pending = (id: string, date: string, engineer: string | null, obra = "OGS 2539") => ({ id, company_id: "c1", data: date, obra_nome: obra,
       status_validacao: "enviado", validado_por: null, engenheiro_responsavel_user_id: engineer, engenheiro_responsavel: engineer || "Ana",
       validado_encarregado: true, encarregado_employee_id: "enc1", nao_aprovado_encarregado: false });
-    const source = table === "rdo_diarios" ? [pending("p1", "2026-10-01", "ana"), pending("old", "2026-09-01", "ana"), pending("inactive", "2026-10-02", "bia", "OGS 2553"), pending("noid", "2026-10-03", null), { ...pending("done", "2026-10-01", "ana"), validado_por: "ana" }]
+    const baseSource = table === "rdo_diarios" ? [pending("p1", "2026-10-01", "ana"), pending("old", "2026-09-01", "ana"), pending("inactive", "2026-10-02", "bia", "OGS 2553"), pending("noid", "2026-10-03", null), { ...pending("done", "2026-10-01", "ana"), validado_por: "ana" }]
       : table === "profiles" ? [{ user_id: "ana", nome_completo: "Ana", email: null, status: "ativo", company_id: "c1" }, { user_id: "bia", nome_completo: "Bia histórica", email: null, status: "inativo", company_id: "c1" }]
       : table === "rdo_engenheiro" ? (state.technical || [{ id: "t1", company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", ogs_number: "2539", houve_producao: true }, { id: "t2", company_id: "c1", engenheiro_id: "ana", status: "rascunho", data: "2026-10-02", ogs_number: "2539", houve_producao: true }]) : [];
+    const source = [...baseSource, ...(table === "profiles" ? state.extraProfiles : table === "rdo_diarios" ? state.extraPending : [])].map(row => ({ ...row, company_id: row.company_id === "c1" ? state.companyId : row.company_id }));
     const q = {
       select: () => q,
       eq: (key: string, value: unknown) => { query.filters.push([key, value]); predicates.push(r => r[key] === value); return q; },
@@ -32,9 +33,42 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
 import Dashboard from "./RelatorioRdoTecnicoDashboard";
 const section = (name: string | RegExp) => screen.getByRole("heading", { name }).closest("section")!;
 async function mount() { await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>); }); }
-beforeEach(() => { state.fail = false; state.technical = null; state.queries = []; vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-20T15:00:00Z")); });
+beforeEach(() => { state.companyId = "c1"; state.extraProfiles = []; state.extraPending = []; state.fail = false; state.technical = null; state.queries = []; vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-20T15:00:00Z")); });
 afterEach(() => { cleanup(); vi.useRealTimers(); sessionStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe("Dashboard Técnico — fase 2", () => {
+  it("retira Igor somente do acompanhamento, preservando RDO, tonelagem, autoria e pendência vinculada", async () => {
+    state.companyId = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    const igor = "27c76763-85b9-4f95-82bc-ef20cc3cd471";
+    state.extraProfiles = [{ user_id: igor, nome_completo: "Igor Capucho", email: null, status: "ativo", company_id: state.companyId }];
+    state.technical = [{ id: "historico-igor", company_id: state.companyId, engenheiro_id: igor, status: "enviado", data: "2026-10-01", ogs_number: "2539", houve_producao: true, binder_ton: 12.5 }];
+    state.extraPending = [{ id: "pendente-igor", company_id: state.companyId, data: "2026-10-02", obra_nome: "OGS 2539", engenheiro_responsavel_user_id: igor, status_validacao: "enviado", validado_por: null, validado_encarregado: true, encarregado_employee_id: "enc1", nao_aprovado_encarregado: false }];
+    await mount();
+    const acompanhamento = section("1. Preenchimento de RDO Técnico pelos engenheiros");
+    expect(within(acompanhamento).queryByText("Igor Capucho")).not.toBeInTheDocument();
+    const fila = section("2. Validações pendentes dos RDOs dos apontadores");
+    expect(within(within(fila).getByRole("table")).getByText("Igor Capucho")).toBeInTheDocument();
+    expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("5 pendentes no total · 4 vinculados · 1 sem identificação por ID");
+    const comparison = section("Comparativo com período anterior");
+    expect(within(comparison).getByText("Produção (t)").parentElement).toHaveTextContent("12,5");
+    fireEvent.change(screen.getByPlaceholderText("OGS, equipe/setor, tipo, motivo..."), { target: { value: "Igor Capucho" } });
+    expect(within(comparison).getByText("Produção (t)").parentElement).toHaveTextContent("12,5");
+  });
+  it("inclui Adenilton, Leticia e Tiago mesmo sem RDO ou designação no período", async () => {
+    state.companyId = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    const pessoas = [
+      ["54900f26-da3b-4b0d-ac90-b2f4721de54a", "Adenilton Sousa"],
+      ["83e64f4c-5207-477b-926e-a2441f874243", "Leticia Reis"],
+      ["217afba8-3280-44fe-a218-f9d16a60bb42", "Tiago Rodrigues"],
+    ];
+    state.extraProfiles = pessoas.map(([user_id, nome_completo]) => ({ user_id, nome_completo, status: "ativo", email: null, company_id: state.companyId }));
+    await mount();
+    const acompanhamento = section("1. Preenchimento de RDO Técnico pelos engenheiros");
+    for (const [, nome] of pessoas) {
+      const row = within(acompanhamento).getByText(nome).closest("tr")!;
+      expect(within(row).getAllByRole("cell").map(cell => cell.textContent)).toEqual([expect.stringContaining(nome), "0", "0", "—"]);
+    }
+    expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("4 pendentes no total · 3 vinculados · 1 sem identificação por ID");
+  });
   it("concilia total, responsáveis inclusive inativos e pendências sem ID sem atribuir pelo nome", async () => {
     await mount();
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("4 pendentes no total · 3 vinculados · 1 sem identificação por ID");

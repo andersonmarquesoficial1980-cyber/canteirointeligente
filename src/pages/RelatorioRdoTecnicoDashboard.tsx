@@ -31,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { buildEngineeringMonitoring } from "@/lib/engineeringMonitoring";
+import { getEngineeringMonitoringRoster } from "@/lib/engineeringMonitoringRoster";
 import { ENGINEERING_VALIDATION_START, loadEngineeringQueue, filterEngineeringQueue } from "@/lib/engineeringQueue";
 import { toSaoPauloISODate } from "@/lib/date-local";
 import { classifyUnlinkedValidationRdos } from "@/lib/validationUnlinked";
@@ -230,6 +231,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const periodoAnterior = useMemo(() => getPeriodoAnterior(dataIni, dataFim), [dataIni, dataFim]);
 
   const companyId = profile?.company_id;
+  const acompanhamentoRoster = getEngineeringMonitoringRoster(companyId);
   const inicioFila = periodoFila === "periodo" && dataIni > ENGINEERING_VALIDATION_START ? dataIni : ENGINEERING_VALIDATION_START;
 
   const buscarDados = async () => {
@@ -292,6 +294,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       const ogsUniques = [...new Set(lista.map(r => r.ogs_number).filter(Boolean) as string[])];
 
       const engIds = [...new Set([
+        ...acompanhamentoRoster.includeUserIds,
         ...[...lista, ...listaPrev].map(r => r.engenheiro_id),
         ...diariosApontador.map(r => r.engenheiro_responsavel_user_id),
       ].filter(Boolean) as string[])];
@@ -546,7 +549,8 @@ export default function RelatorioRdoTecnicoDashboard() {
     { from: dataIni, to: dataFim }, { from: inicioFila, to: dataFim },
   ), [engenheirosIdentificados, linhasFiltradas, filaFiltrada, dataIni, dataFim, inicioFila]);
   const pendenciasSemVinculo = useMemo(() => classifyUnlinkedValidationRdos(filaFiltrada), [filaFiltrada]);
-  const lancamentosEngenheiros = monitoramento.launchRows.filter(p => !filtroEng || p.id === filtroEng);
+  const lancamentosEngenheiros = monitoramento.launchRows.filter(p =>
+    !acompanhamentoRoster.excludeLaunchUserIds.includes(p.id) && (!filtroEng || p.id === filtroEng));
   const validacoesPendentes = monitoramento.pendingRows;
 
   const serieEngenheiro = useMemo(() => {
@@ -913,7 +917,7 @@ export default function RelatorioRdoTecnicoDashboard() {
             <section className="rounded-2xl border bg-white p-4 space-y-3">
               <h2 className="text-lg font-bold">1. Preenchimento de RDO Técnico pelos engenheiros</h2>
               <p className="text-sm text-muted-foreground">{fmtDate(dataIni)} a {fmtDate(dataFim)} · {lancamentosEngenheiros.reduce((s, p) => s + p.enviados, 0)} enviados · {lancamentosEngenheiros.reduce((s, p) => s + p.rascunhos, 0)} rascunhos</p>
-              <p className="text-xs text-amber-800">Engenheiros identificados por autoria ou designação. Sem envio não comprova falta: não há escala por OGS/dia. Status, OGS, engenheiro, equipe e busca acima aplicam-se aos lançamentos técnicos. A fila de validação tem filtros próprios abaixo.</p>
+              <p className="text-xs text-amber-800">Autores e responsáveis do recorte, complementados pela lista de acompanhamento definida pela gestão. Exclusões dessa lista não retiram históricos dos indicadores nem alteram a fila de validação. Sem envio não comprova falta: não há escala por OGS/dia. Status, OGS, engenheiro, equipe e busca acima aplicam-se aos lançamentos técnicos. A fila de validação tem filtros próprios abaixo.</p>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[550px] text-sm">
                   <thead className="bg-muted/40 text-left"><tr><th className="p-2">Engenheiro</th><th className="p-2">Enviados</th><th className="p-2">Rascunhos</th><th className="p-2">Último RDO Técnico</th></tr></thead>
