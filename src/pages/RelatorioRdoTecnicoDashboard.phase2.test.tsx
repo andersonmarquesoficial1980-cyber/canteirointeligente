@@ -142,6 +142,69 @@ describe("Dashboard Técnico — fase 2", () => {
 });
 
 
+describe("Dashboard Técnico — clareza dos KPIs do topo", () => {
+  const base = { company_id: "c1", engenheiro_id: "ana", ogs_number: "2539", houve_producao: true, data: "2026-10-01" };
+  const kpi = (nome: string) => within(screen.getByTestId("faixa-kpis")).getByText(nome).closest("div.min-w-0")! as HTMLElement;
+  it("rotula Total de RDOs com enviados · rascunhos e Problemas em equipamentos contando RDOs com false", async () => {
+    state.technical = [
+      { ...base, id: "a", status: "enviado", equipamentos_conforme: false },
+      { ...base, id: "b", status: "enviado", equipamentos_conforme: true },
+      { ...base, id: "c", status: "rascunho", equipamentos_conforme: null },
+    ];
+    await mount();
+    const total = kpi("Total de RDOs");
+    expect(total).toHaveTextContent("3");
+    const enviados = within(total).getByText("2 enviados");
+    const rascunhos = within(total).getByText("1 rascunhos");
+    expect(enviados).not.toBe(rascunhos);
+    for (const el of [enviados, rascunhos]) {
+      expect(el.className).toContain("block");
+      const p = el.closest("p")!;
+      expect(p.className).not.toMatch(/truncate|line-clamp|overflow-hidden/);
+      expect(p.className).toContain("whitespace-normal");
+      expect(p.className).toContain("text-xs");
+      expect(p.className).not.toMatch(/text-\[\d+px\]/);
+    }
+    const prob = kpi("Problemas em equipamentos");
+    expect(prob).toHaveTextContent("Contagem de RDOs");
+    expect(prob).not.toHaveTextContent("problema informado");
+    expect(prob.querySelector("p")).toHaveTextContent("1");
+    expect(within(screen.getByTestId("faixa-kpis")).queryByText("Não conformes")).not.toBeInTheDocument();
+  });
+  it("usa os seis títulos claros na faixa de KPIs", async () => {
+    await mount();
+    const faixa = within(screen.getByTestId("faixa-kpis"));
+    for (const t of ["Total de RDOs", "RDOs com produção", "RDOs sem produção", "Problemas em equipamentos", "Produção em toneladas", "Área produzida (m²)"]) {
+      expect(faixa.getByText(t)).toBeInTheDocument();
+    }
+    for (const antigo of ["RDOs (inclui rascunhos)", "Com produção", "Sem produção", "Não conformes", "Produção (t)", "Produção (m²)"]) {
+      expect(faixa.queryByText(antigo)).not.toBeInTheDocument();
+    }
+  });
+  it("mostra zeros explícitos no detalhamento", async () => {
+    state.technical = [];
+    await mount();
+    const total = within(kpi("Total de RDOs"));
+    expect(total.getByText("0 enviados")).toBeInTheDocument();
+    expect(total.getByText("0 rascunhos")).toBeInTheDocument();
+  });
+  it("em erro ou carregamento mostra — sem contagem antiga ou zero", async () => {
+    state.fail = true; vi.spyOn(console, "error").mockImplementation(() => {});
+    await mount();
+    for (const nome of ["Total de RDOs", "Problemas em equipamentos"]) {
+      const c = kpi(nome);
+      expect(c).toHaveTextContent("—");
+      expect(c.textContent).not.toMatch(/\d/);
+    }
+  });
+  it("em carregamento inicial mostra — sem contagem", () => {
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>);
+    const c = kpi("Total de RDOs");
+    expect(c).toHaveTextContent("—");
+    expect(c.textContent).not.toMatch(/\d/);
+  });
+});
+
 describe("Dashboard Técnico — comparativos da fase 3", () => {
   it("mantém a diferença absoluta e informa sem base percentual quando o anterior é zero", async () => {
     await mount();
@@ -252,7 +315,7 @@ it.each([
   ];
   await mount();
   const comparison = section("Comparativo com período anterior");
-  const card = within(comparison).getByText("RDOs registrados (inclui rascunhos)").parentElement!;
+  const card = within(comparison).getByText("Total de RDOs").parentElement!;
   expect(card).toHaveTextContent(expected);
 });
 
@@ -356,7 +419,7 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
       { ...prod, id: "b4", data: "2026-09-21", tipo_servico: "INFRA", infra_descricao: "Diferente" },
     ];
     await mount();
-    const linha = () => within(section("Comparativo com período anterior")).getByText("RDOs registrados (inclui rascunhos)").closest("tr")!;
+    const linha = () => within(section("Comparativo com período anterior")).getByText("Total de RDOs").closest("tr")!;
     const celulas = () => within(linha()).getAllByRole("cell").map(c => c.textContent);
     expect(celulas().slice(1, 3)).toEqual(["2", "2"]);
     busca("bueiro");

@@ -970,7 +970,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   ];
 
   const linhasComparativo: { titulo: string; c: { atual: number; anterior: number; delta: number; perc: number | null }; frac: number; invert?: boolean }[] = [
-    { titulo: "RDOs registrados (inclui rascunhos)", c: comparativo.total, frac: 0 },
+    { titulo: "Total de RDOs", c: comparativo.total, frac: 0 },
     { titulo: "RDOs com produção", c: comparativo.comProducao, frac: 0 },
     { titulo: "RDOs sem produção", c: comparativo.semProducao, frac: 0, invert: true },
     { titulo: "Produção (t)", c: comparativo.toneladas, frac: 1 },
@@ -1228,12 +1228,12 @@ export default function RelatorioRdoTecnicoDashboard() {
       </div>
 
       <div data-testid="faixa-kpis" className="grid shrink-0 grid-cols-3 gap-1.5 px-3 py-1.5 lg:grid-cols-6 lg:gap-2 lg:py-2">
-        <KpiCard icon={ClipboardList} titulo="RDOs (inclui rascunhos)" valor={pronto ? fmtNum(kpis.total) : "—"} cor="text-slate-700" delta={pronto ? comparativo.total.delta : undefined} deltaPct={pronto ? comparativo.total.perc : undefined} />
-        <KpiCard icon={BarChart3} titulo="Com produção" valor={pronto ? fmtNum(kpis.comProducao) : "—"} cor="text-blue-700" delta={pronto ? comparativo.comProducao.delta : undefined} deltaPct={pronto ? comparativo.comProducao.perc : undefined} />
-        <KpiCard icon={AlertTriangle} titulo="Sem produção" valor={pronto ? fmtNum(kpis.semProducao) : "—"} cor="text-red-700" delta={pronto ? comparativo.semProducao.delta : undefined} deltaPct={pronto ? comparativo.semProducao.perc : undefined} invert />
-        <KpiCard icon={Gauge} titulo="Não conformes" valor={pronto ? fmtNum(kpis.naoConformeEquip) : "—"} cor="text-orange-700" delta={pronto ? comparativo.naoConforme.delta : undefined} deltaPct={pronto ? comparativo.naoConforme.perc : undefined} invert />
-        <KpiCard icon={Users} titulo="Produção (t)" valor={pronto ? fmtNum(kpis.toneladas, 1) : "—"} cor="text-emerald-700" delta={pronto ? comparativo.toneladas.delta : undefined} deltaPct={pronto ? comparativo.toneladas.perc : undefined} />
-        <KpiCard icon={Activity} titulo="Produção (m²)" valor={pronto ? fmtNum(kpis.areaM2, 1) : "—"} cor="text-indigo-700" delta={pronto ? comparativo.areaM2.delta : undefined} deltaPct={pronto ? comparativo.areaM2.perc : undefined} />
+        <KpiCard icon={ClipboardList} titulo="Total de RDOs" subtitulo={pronto ? <><span className="block">{fmtNum(kpis.enviados)} enviados</span><span className="block">{fmtNum(kpis.rascunhos)} rascunhos</span></> : "—"} valor={pronto ? fmtNum(kpis.total) : "—"} cor="text-slate-700"delta={pronto ? comparativo.total.delta : undefined} deltaPct={pronto ? comparativo.total.perc : undefined} />
+        <KpiCard icon={BarChart3} titulo="RDOs com produção" valor={pronto ? fmtNum(kpis.comProducao) : "—"} cor="text-blue-700" delta={pronto ? comparativo.comProducao.delta : undefined} deltaPct={pronto ? comparativo.comProducao.perc : undefined} />
+        <KpiCard icon={AlertTriangle} titulo="RDOs sem produção" valor={pronto ? fmtNum(kpis.semProducao) : "—"} cor="text-red-700" delta={pronto ? comparativo.semProducao.delta : undefined} deltaPct={pronto ? comparativo.semProducao.perc : undefined} invert />
+        <KpiCard icon={Gauge} titulo="Problemas em equipamentos" subtitulo={pronto ? "Contagem de RDOs" : "—"} valor={pronto ? fmtNum(kpis.naoConformeEquip) : "—"} cor="text-orange-700" delta={pronto ? comparativo.naoConforme.delta : undefined} deltaPct={pronto ? comparativo.naoConforme.perc : undefined} invert />
+        <KpiCard icon={Users} titulo="Produção em toneladas" valor={pronto ? fmtNum(kpis.toneladas, 1) : "—"} cor="text-emerald-700" delta={pronto ? comparativo.toneladas.delta : undefined} deltaPct={pronto ? comparativo.toneladas.perc : undefined} />
+        <KpiCard icon={Activity} titulo="Área produzida (m²)" valor={pronto ? fmtNum(kpis.areaM2, 1) : "—"} cor="text-indigo-700" delta={pronto ? comparativo.areaM2.delta : undefined} deltaPct={pronto ? comparativo.areaM2.perc : undefined} />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 lg:flex-row">
@@ -1392,6 +1392,7 @@ function SecaoShell({ titulo, subtitulo, children }: { titulo: string; subtitulo
 function KpiCard({
   icon: Icon,
   titulo,
+  subtitulo,
   valor,
   cor,
   delta,
@@ -1400,6 +1401,7 @@ function KpiCard({
 }: {
   icon: any;
   titulo: string;
+  subtitulo?: ReactNode;
   valor: string;
   cor: string;
   delta?: number;
@@ -1409,13 +1411,14 @@ function KpiCard({
   return (
     <div className="min-w-0 rounded-xl border bg-white px-2 py-1.5 lg:px-3 lg:py-2">
       <div className="flex items-center justify-between gap-1">
-        <span className="truncate text-xs font-bold text-muted-foreground" title={titulo}>{titulo}</span>
+        <span className="line-clamp-2 text-xs font-bold leading-tight text-muted-foreground" title={titulo}>{titulo}</span>
         <Icon className={`hidden h-4 w-4 shrink-0 sm:block ${cor}`} />
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <p className="text-xl font-black leading-tight text-foreground">{valor}</p>
         {delta != null && deltaPct !== undefined ? <span className="hidden sm:inline-flex"><DeltaPill delta={delta} perc={deltaPct} invert={invert} /></span> : null}
       </div>
+      {subtitulo != null ? <p className="whitespace-normal text-xs leading-tight text-muted-foreground">{subtitulo}</p> : null}
     </div>
   );
 }
