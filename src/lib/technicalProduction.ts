@@ -23,6 +23,15 @@ export const TECHNICAL_QUANTITIES = [
   { label: "RACHÃO (ton)", field: "rachao_ton", requiredType: "APLICAÇÃO DE RACHÃO" },
 ] as const;
 
+/** Serviços qualitativos aprovados; não geram quantidade numérica. */
+export const INFRA_SERVICE = "INFRA";
+export const ENSAIOS_SERVICE = "ENSAIOS E EXTRAÇÕES";
+
+/** Tokens exatos de `tipo_servico` (separado por vírgula, após trim); nunca por substring. */
+export function hasServiceToken(tipoServico: string | null | undefined, token: string): boolean {
+  return (tipoServico ?? "").split(",").some(part => part.trim() === token);
+}
+
 /** Novas exigências só no envio produtivo, sem exigir rascunho completo. */
 export function getTechnicalProductionError(form: TechnicalProductionForm, status: "enviado" | "rascunho"): string | null {
   if (status !== "enviado" || !form.houve_producao) return null;

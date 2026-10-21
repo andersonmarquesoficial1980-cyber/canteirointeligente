@@ -2,12 +2,13 @@ import { Blob as NodeBlob } from "node:buffer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-const state = vi.hoisted(() => ({ companyId: "c1", extraProfiles: [] as Record<string, unknown>[], extraPending: [] as Record<string, unknown>[], fail: false, technical: null as Record<string, unknown>[] | null, queries: [] as { table: string; filters: [string, unknown][] }[] }));
+import { TECHNICAL_QUANTITIES } from "@/lib/technicalProduction";
+const state = vi.hoisted(() => ({ companyId: "c1", extraProfiles: [] as Record<string, unknown>[], extraPending: [] as Record<string, unknown>[], fail: false, technical: null as Record<string, unknown>[] | null, queries: [] as { table: string; select?: string; filters: [string, unknown][] }[] }));
 vi.mock("@/hooks/useUserProfile", () => ({ useUserProfile: () => ({ profile: { company_id: state.companyId } }) }));
 vi.mock("recharts", () => ({ ResponsiveContainer: () => null, BarChart: () => null, Bar: () => null, XAxis: () => null, YAxis: () => null, Tooltip: () => null, CartesianGrid: () => null }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   from: (table: string) => {
-    const query = { table, filters: [] as [string, unknown][] }; state.queries.push(query);
+    const query: (typeof state.queries)[number] = { table, filters: [] }; state.queries.push(query);
     let start = 0, end = 499;
     const predicates: ((row: Record<string, unknown>) => boolean)[] = [];
     const pending = (id: string, date: string, engineer: string | null, obra = "OGS 2539") => ({ id, company_id: "c1", data: date, obra_nome: obra,
@@ -18,7 +19,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       : table === "rdo_engenheiro" ? (state.technical || [{ id: "t1", company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", ogs_number: "2539", houve_producao: true }, { id: "t2", company_id: "c1", engenheiro_id: "ana", status: "rascunho", data: "2026-10-02", ogs_number: "2539", houve_producao: true }]) : [];
     const source = [...baseSource, ...(table === "profiles" ? state.extraProfiles : table === "rdo_diarios" ? state.extraPending : [])].map(row => ({ ...row, company_id: row.company_id === "c1" ? state.companyId : row.company_id }));
     const q = {
-      select: () => q,
+      select: (columns?: string) => { query.select = columns; return q; },
       eq: (key: string, value: unknown) => { query.filters.push([key, value]); predicates.push(r => r[key] === value); return q; },
       in: (key: string, values: unknown[]) => { predicates.push(r => values.includes(r[key])); return q; },
       is: (key: string, value: unknown) => { predicates.push(r => r[key] === value); return q; },
@@ -219,4 +220,157 @@ it.each([
   const comparison = section("Comparativo com período anterior");
   const card = within(comparison).getByText("RDOs registrados (inclui rascunhos)").parentElement!;
   expect(card).toHaveTextContent(expected);
+});
+
+
+const prod = { company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", ogs_number: "2539", houve_producao: true };
+async function openProducao() { await mount(); fireEvent.click(screen.getByRole("button", { name: "Produção" })); }
+
+describe("Dashboard Técnico — descrição de INFRA", () => {
+  it("consulta infra_descricao nos períodos atual e anterior", async () => {
+    await mount();
+    const selects = state.queries.filter(q => q.table === "rdo_engenheiro").map(q => q.select || "");
+    expect(selects).toHaveLength(2);
+    selects.forEach(sel => expect(sel).toContain("infra_descricao"));
+  });
+  it("mostra a descrição exata de INFRA, inclusive em serviço misto, e avisa quando ausente", async () => {
+    state.technical = [
+      { ...prod, id: "i1", tipo_servico: "INFRA", infra_descricao: "  Drenagem\n  profunda  ", perc_conclusao_via: 40 },
+      { ...prod, id: "i2", tipo_servico: "FRESAGEM, INFRA", infra_descricao: "Meio-fio", fresagem_m2: 100, perc_conclusao_via: 10 },
+      { ...prod, id: "i3", tipo_servico: "INFRA", infra_descricao: "   " },
+      { ...prod, id: "i4", tipo_servico: "ENSAIOS E EXTRAÇÕES", infra_descricao: "Não exibir" },
+      { ...prod, id: "i5", tipo_servico: "INFRAESTRUTURA", infra_descricao: "Substring" },
+    ];
+    await openProducao();
+    const drenagem = screen.getByTestId("infra-descricao-i1");
+    expect(drenagem.textContent).toBe("  Drenagem\n  profunda  ");
+    expect(drenagem).toHaveClass("whitespace-pre-wrap");
+    expect(drenagem.closest("tr")).toHaveTextContent("INFRA • Conclusão: 40%");
+    expect(screen.getByTestId("infra-descricao-i2").closest("tr")).toHaveTextContent("FRESAGEM, INFRA • Conclusão: 10%");
+    expect(screen.getByTestId("infra-descricao-i2")).toHaveTextContent("Meio-fio");
+    expect(screen.getByTestId("infra-descricao-i3")).toHaveTextContent("Descrição de INFRA não informada");
+    expect(screen.getAllByText("Descrição de INFRA não informada")).toHaveLength(1);
+    expect(screen.queryByTestId("infra-descricao-i4")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("infra-descricao-i5")).not.toBeInTheDocument();
+    expect(screen.queryByText("Não exibir")).not.toBeInTheDocument();
+    expect(screen.queryByText("Substring")).not.toBeInTheDocument();
+  });
+});
+
+function parseCsv(text: string) {
+  const rows: string[][] = []; let row: string[] = [], field = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) { if (c === '"' && text[i + 1] === '"') { field += '"'; i++; } else if (c === '"') quoted = false; else field += c; }
+    else if (c === '"') quoted = true;
+    else if (c === ";") { row.push(field); field = ""; }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else field += c;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+function captureDownloads() {
+  const downloads: NodeBlob[] = [];
+  vi.stubGlobal("Blob", NodeBlob);
+  vi.stubGlobal("URL", class extends URL {
+    static createObjectURL(blob: NodeBlob) { downloads.push(blob); return "blob:teste"; }
+    static revokeObjectURL() {}
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  return downloads;
+}
+
+describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
+  it("anexa ID, descrição de INFRA e as 14 quantidades preservando null, zero, decimais e texto livre", async () => {
+    const downloads = captureDownloads();
+    state.technical = [
+      { ...prod, id: "csv-1", tipo_servico: "INFRA, BINDER", infra_descricao: 'Valeta "A";\n  trecho  ', binder_ton: 12.345678, bm25_ton: 0, fresagem_m2: null, observacoes: "linha 1\nlinha 2  " },
+      { ...prod, id: "csv-2", tipo_servico: null, houve_producao: false, motivo_sem_producao: "Chuva", choveu: true, observacoes: "x" },
+    ];
+    await mount();
+    fireEvent.click(screen.getByRole("button", { name: "Sem Produção" }));
+    expect(screen.getByText("CSV exporta todos os RDOs dos filtros gerais, independentemente da aba de assunto.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /CSV$/ }));
+    expect(downloads).toHaveLength(1);
+    expect([...new Uint8Array(await downloads[0].arrayBuffer()).slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    const [head, ...data] = parseCsv((await downloads[0].text()).replace(/^﻿/, ""));
+    expect(head.slice(0, 15)).toEqual(["Data", "OGS", "Status", "Engenheiro", "Equipe", "Localização", "Houve produção", "Tipo serviço", "Usina", "Usina atendeu", "Equipamentos conformes", "Houve ocorrência", "Motivo sem produção", "Descrição ocorrência", "Observações"]);
+    expect(head.slice(15)).toEqual(["ID do RDO", "Descrição de INFRA", ...TECHNICAL_QUANTITIES.map(q => q.label)]);
+    expect(head).toHaveLength(31);
+    expect(data).toHaveLength(2);
+    const byId = Object.fromEntries(data.map(r => [r[15], r]));
+    const a = byId["csv-1"];
+    expect(a[14]).toBe("linha 1\nlinha 2  ");
+    expect(a[16]).toBe('Valeta "A";\n  trecho  ');
+    const col = (r: string[], field: string) => r[17 + TECHNICAL_QUANTITIES.findIndex(q => q.field === field)];
+    expect(col(a, "binder_ton")).toBe("12,345678");
+    expect(col(a, "bm25_ton")).toBe("0");
+    expect(col(a, "fresagem_m2")).toBe("");
+    expect(col(a, "egl_ton")).toBe("");
+    expect(head[17 + TECHNICAL_QUANTITIES.findIndex(q => q.field === "bm25_ton")]).toBe("BN25 (ton)");
+    const b = byId["csv-2"];
+    expect(b[16]).toBe("");
+    TECHNICAL_QUANTITIES.forEach(q => expect(col(b, q.field)).toBe(""));
+  });
+  it("busca infra_descricao nos períodos atual e anterior, sem acoplar à validação", async () => {
+    state.technical = [
+      { ...prod, id: "b1", tipo_servico: "INFRA", infra_descricao: "Bueiro celular" },
+      { ...prod, id: "b2", tipo_servico: "INFRA", infra_descricao: "Outro" },
+      { ...prod, id: "b3", data: "2026-09-20", tipo_servico: "INFRA", infra_descricao: "Bueiro antigo" },
+      { ...prod, id: "b4", data: "2026-09-21", tipo_servico: "INFRA", infra_descricao: "Diferente" },
+    ];
+    await mount();
+    const total = () => within(section("Comparativo com período anterior")).getByText("RDOs registrados (inclui rascunhos)").parentElement!;
+    expect(total()).toHaveTextContent("2");
+    fireEvent.change(screen.getByPlaceholderText("OGS, equipe/setor, tipo, motivo..."), { target: { value: "bueiro" } });
+    expect(total()).toHaveTextContent("1");
+    expect(total()).toHaveTextContent("Anterior: 1");
+    expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("4 pendentes no total");
+  });
+});
+
+describe("Dashboard Técnico — Atividades qualitativas", () => {
+  const counts = () => [screen.getByTestId("qualitativa-infra").textContent, screen.getByTestId("qualitativa-ensaios").textContent];
+  const fixture = () => [
+    { ...prod, id: "q1", tipo_servico: "INFRA", infra_descricao: "Valeta" },
+    { ...prod, id: "q2", tipo_servico: "FRESAGEM,  INFRA , INFRA", infra_descricao: "Sarjeta", fresagem_m2: 100 },
+    { ...prod, id: "q3", tipo_servico: "ENSAIOS E EXTRAÇÕES" },
+    { ...prod, id: "q4", tipo_servico: "ENSAIOS E EXTRAÇÕES, BINDER", binder_ton: 5 },
+    { ...prod, id: "q5", tipo_servico: "INFRAESTRUTURA" },
+    { ...prod, id: "q6", tipo_servico: "ENSAIOS E EXTRAÇÕES EXTRA" },
+    { ...prod, id: "q7", tipo_servico: "INFRA", status: "rascunho" },
+    { ...prod, id: "q8", tipo_servico: "INFRA", houve_producao: false, motivo_sem_producao: "Chuva" },
+    { ...prod, id: "q9", tipo_servico: "FRESAGEM", fresagem_m2: 7 },
+  ];
+  it("conta RDOs por atividade, com tokens exatos, sem alterar somas quantitativas", async () => {
+    state.technical = fixture();
+    await openProducao();
+    const box = screen.getByTestId("atividades-qualitativas");
+    expect(box).toHaveTextContent("Atividades qualitativas");
+    expect(box).toHaveTextContent("RDOs por atividade");
+    expect(box).toHaveTextContent("podem se sobrepor");
+    expect(box).toHaveTextContent("não representam t, m² ou m³");
+    expect(counts()).toEqual(["3", "2"]);
+    expect(within(section("Comparativo com período anterior")).getByText("Produção (m²)").parentElement).toHaveTextContent("107");
+    expect(within(section("Comparativo com período anterior")).getByText("Produção (t)").parentElement).toHaveTextContent("5");
+  });
+  it("respeita os filtros gerais de status e mantém zeros sem linhas de produção", async () => {
+    state.technical = fixture();
+    await openProducao();
+    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "enviado" } });
+    expect(counts()).toEqual(["2", "2"]);
+    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "rascunho" } });
+    expect(counts()).toEqual(["1", "0"]);
+    fireEvent.change(screen.getByPlaceholderText("OGS, equipe/setor, tipo, motivo..."), { target: { value: "inexistente" } });
+    expect(counts()).toEqual(["0", "0"]);
+    expect(screen.getByText("Nenhum lançamento para este assunto com os filtros atuais.")).toBeInTheDocument();
+  });
+  it("conta ENSAIOS E EXTRAÇÕES sem produção numérica e não rotula outros serviços", async () => {
+    state.technical = [{ ...prod, id: "e1", tipo_servico: "ENSAIOS E EXTRAÇÕES" }, { ...prod, id: "e2", tipo_servico: "GEOGRELHA" }];
+    await openProducao();
+    expect(counts()).toEqual(["0", "1"]);
+    expect(screen.getByTestId("atividades-qualitativas")).not.toHaveTextContent("GEOGRELHA");
+    expect(within(section("Comparativo com período anterior")).getByText("Produção (t)").parentElement).toHaveTextContent("0");
+  });
 });

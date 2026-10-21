@@ -35,6 +35,7 @@ import { getEngineeringMonitoringRoster } from "@/lib/engineeringMonitoringRoste
 import { ENGINEERING_VALIDATION_START, loadEngineeringQueue, filterEngineeringQueue } from "@/lib/engineeringQueue";
 import { toSaoPauloISODate } from "@/lib/date-local";
 import { classifyUnlinkedValidationRdos } from "@/lib/validationUnlinked";
+import { ENSAIOS_SERVICE, INFRA_SERVICE, TECHNICAL_QUANTITIES, hasServiceToken } from "@/lib/technicalProduction";
 
 interface RdoTecnicoRow {
   id: string;
@@ -50,6 +51,7 @@ interface RdoTecnicoRow {
   choveu: boolean | null;
   intensidade_chuva: string | null;
   tipo_servico: string | null;
+  infra_descricao: string | null;
   usina_programada: string | null;
   usina_atendeu: boolean | null;
   usina_nao_atendeu_motivo: string | null;
@@ -247,7 +249,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           .select(`
           id, ogs_number, data, status, equipe, localizacao, engenheiro_id,
           houve_producao, motivo_sem_producao, outro_motivo_sem_producao,
-          choveu, intensidade_chuva, tipo_servico,
+          choveu, intensidade_chuva, tipo_servico, infra_descricao,
           usina_programada, usina_atendeu, usina_nao_atendeu_motivo,
           equipamentos_conforme, equipamentos_nao_conformes,
           houve_ocorrencia, descricao_ocorrencia, observacoes,
@@ -267,7 +269,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           .select(`
           id, ogs_number, data, status, equipe, localizacao, engenheiro_id,
           houve_producao, motivo_sem_producao, outro_motivo_sem_producao,
-          choveu, intensidade_chuva, tipo_servico,
+          choveu, intensidade_chuva, tipo_servico, infra_descricao,
           usina_programada, usina_atendeu, usina_nao_atendeu_motivo,
           equipamentos_conforme, equipamentos_nao_conformes,
           houve_ocorrencia, descricao_ocorrencia, observacoes,
@@ -364,6 +366,7 @@ export default function RelatorioRdoTecnicoDashboard() {
         r.equipe,
         r.localizacao,
         r.tipo_servico,
+        r.infra_descricao,
         r.status,
         nomeEng,
         r.motivo_sem_producao,
@@ -375,7 +378,7 @@ export default function RelatorioRdoTecnicoDashboard() {
 
       return texto.includes(q);
     });
-  }, [rows, filtroStatus, filtroOgs, filtroEng, filtroEquipe, busca, engMap]);
+  }, [rows,filtroStatus, filtroOgs, filtroEng, filtroEquipe, busca, engMap]);
 
   const linhasPrevFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -394,6 +397,7 @@ export default function RelatorioRdoTecnicoDashboard() {
         r.equipe,
         r.localizacao,
         r.tipo_servico,
+        r.infra_descricao,
         r.status,
         nomeEng,
         r.motivo_sem_producao,
@@ -405,7 +409,7 @@ export default function RelatorioRdoTecnicoDashboard() {
 
       return texto.includes(q);
     });
-  }, [rowsPrev, filtroStatus, filtroOgs, filtroEng, filtroEquipe, busca, engMap]);
+  }, [rowsPrev,filtroStatus, filtroOgs, filtroEng, filtroEquipe, busca, engMap]);
 
   const kpis = useMemo(() => {
     const total = linhasFiltradas.length;
@@ -577,6 +581,14 @@ export default function RelatorioRdoTecnicoDashboard() {
     };
   }, [linhasFiltradas]);
 
+  const atividadesQualitativas = useMemo(() => {
+    const produtivas = linhasFiltradas.filter(r => r.houve_producao);
+    return {
+      infra: produtivas.filter(r => hasServiceToken(r.tipo_servico, INFRA_SERVICE)).length,
+      ensaios: produtivas.filter(r => hasServiceToken(r.tipo_servico, ENSAIOS_SERVICE)).length,
+    };
+  }, [linhasFiltradas]);
+
   const alertasOperacionais = useMemo(() => {
     const itens: AlertaOperacional[] = [];
 
@@ -667,6 +679,9 @@ export default function RelatorioRdoTecnicoDashboard() {
       "Motivo sem produção",
       "Descrição ocorrência",
       "Observações",
+      "ID do RDO",
+      "Descrição de INFRA",
+      ...TECHNICAL_QUANTITIES.map(q => q.label),
     ];
 
     const linhas = linhasFiltradas.map((r) => [
@@ -685,6 +700,12 @@ export default function RelatorioRdoTecnicoDashboard() {
       !r.houve_producao ? (r.motivo_sem_producao === "Outro" ? (r.outro_motivo_sem_producao || "Outro") : (r.motivo_sem_producao || "")) : "",
       r.descricao_ocorrencia || "",
       r.observacoes || "",
+      r.id,
+      r.infra_descricao ?? "",
+      ...TECHNICAL_QUANTITIES.map(({ field }) => {
+        const valor = r[field as keyof RdoTecnicoRow] as number | null | undefined;
+        return valor == null ? "" : String(valor).replace(".", ",");
+      }),
     ]);
 
     const csv = "\uFEFF" + [head, ...linhas].map((l) => l.map(csvEscape).join(";")).join("\n");
@@ -820,7 +841,14 @@ export default function RelatorioRdoTecnicoDashboard() {
                           {r.status === "enviado" ? "Enviado" : "Rascunho"}
                         </span>
                       </td>
-                      <td className="px-3 py-2">{detalhe}</td>
+                      <td className="px-3 py-2">
+                        {detalhe}
+                        {tab === "producao" && hasServiceToken(r.tipo_servico, INFRA_SERVICE) && (
+                          <div data-testid={`infra-descricao-${r.id}`} className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                            {r.infra_descricao?.trim() ? r.infra_descricao : "Descrição de INFRA não informada"}
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -903,6 +931,7 @@ export default function RelatorioRdoTecnicoDashboard() {
               Atualizar relatório
             </Button>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">CSV exporta todos os RDOs dos filtros gerais, independentemente da aba de assunto.</p>
         </div>
 
         {loading || (!erroCarga && (periodoCarregado.inicio !== dataIni || periodoCarregado.fim !== dataFim || periodoCarregado.filaInicio !== inicioFila)) ? (
@@ -1156,6 +1185,19 @@ export default function RelatorioRdoTecnicoDashboard() {
                 ))}
               </div>
             </section>
+
+            {tab === "producao" && (
+              <section data-testid="atividades-qualitativas" className="rounded-2xl border bg-white p-4 space-y-2">
+                <h3 className="text-sm font-bold">Atividades qualitativas</h3>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <span className="rounded-lg border bg-slate-50 px-2.5 py-1">INFRA: <strong data-testid="qualitativa-infra">{atividadesQualitativas.infra}</strong></span>
+                  <span className="rounded-lg border bg-slate-50 px-2.5 py-1">ENSAIOS E EXTRAÇÕES: <strong data-testid="qualitativa-ensaios">{atividadesQualitativas.ensaios}</strong></span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Contagem de RDOs por atividade, nos filtros atuais. Um RDO pode aparecer em mais de uma atividade (os valores podem se sobrepor) e os números não representam t, m² ou m³, nem alteram as somas de medição.
+                </p>
+              </section>
+            )}
 
             {renderTabelaAssunto()}
           </>
