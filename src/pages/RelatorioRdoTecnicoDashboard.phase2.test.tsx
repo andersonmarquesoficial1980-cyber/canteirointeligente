@@ -33,6 +33,10 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
 } }));
 import Dashboard from "./RelatorioRdoTecnicoDashboard";
 const section = (name: string | RegExp) => screen.getByRole("heading", { name }).closest("section")!;
+const nav = () => screen.getByRole("navigation", { name: "Seções do Dashboard" });
+const irPara = (nome: string) => fireEvent.click(within(nav()).getByRole("button", { name: new RegExp(`^${nome}`) }));
+const abrirMaisFiltros = () => fireEvent.click(screen.getByRole("button", { name: /Mais filtros/ }));
+const busca = (valor: string) => fireEvent.change(screen.getByLabelText("Busca rápida"), { target: { value: valor } });
 async function mount() { await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>); }); }
 beforeEach(() => { state.companyId = "c1"; state.extraProfiles = []; state.extraPending = []; state.fail = false; state.technical = null; state.queries = []; vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-20T15:00:00Z")); });
 afterEach(() => { cleanup(); vi.useRealTimers(); sessionStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -44,14 +48,17 @@ describe("Dashboard Técnico — fase 2", () => {
     state.technical = [{ id: "historico-igor", company_id: state.companyId, engenheiro_id: igor, status: "enviado", data: "2026-10-01", ogs_number: "2539", houve_producao: true, binder_ton: 12.5 }];
     state.extraPending = [{ id: "pendente-igor", company_id: state.companyId, data: "2026-10-02", obra_nome: "OGS 2539", engenheiro_responsavel_user_id: igor, status_validacao: "enviado", validado_por: null, validado_encarregado: true, encarregado_employee_id: "enc1", nao_aprovado_encarregado: false }];
     await mount();
-    const acompanhamento = section("1. Preenchimento de RDO Técnico pelos engenheiros");
+    irPara("Preenchimento");
+    const acompanhamento = section("Preenchimento de RDO Técnico pelos engenheiros");
     expect(within(acompanhamento).queryByText("Igor Capucho")).not.toBeInTheDocument();
-    const fila = section("2. Validações pendentes dos RDOs dos apontadores");
+    irPara("Validações");
+    const fila = section("Validações pendentes dos RDOs dos apontadores");
     expect(within(within(fila).getByRole("table")).getByText("Igor Capucho")).toBeInTheDocument();
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("5 pendentes no total · 4 vinculados · 1 sem identificação por ID");
+    irPara("Visão geral");
     const comparison = section("Comparativo com período anterior");
     expect(within(comparison).getByText("Produção (t)").parentElement).toHaveTextContent("12,5");
-    fireEvent.change(screen.getByPlaceholderText("OGS, equipe/setor, tipo, motivo..."), { target: { value: "Igor Capucho" } });
+    busca("Igor Capucho");
     expect(within(comparison).getByText("Produção (t)").parentElement).toHaveTextContent("12,5");
   });
   it("inclui Adenilton, Leticia e Tiago mesmo sem RDO ou designação no período", async () => {
@@ -63,39 +70,48 @@ describe("Dashboard Técnico — fase 2", () => {
     ];
     state.extraProfiles = pessoas.map(([user_id, nome_completo]) => ({ user_id, nome_completo, status: "ativo", email: null, company_id: state.companyId }));
     await mount();
-    const acompanhamento = section("1. Preenchimento de RDO Técnico pelos engenheiros");
+    irPara("Preenchimento");
+    const acompanhamento = section("Preenchimento de RDO Técnico pelos engenheiros");
     for (const [, nome] of pessoas) {
       const row = within(acompanhamento).getByText(nome).closest("tr")!;
       expect(within(row).getAllByRole("cell").map(cell => cell.textContent)).toEqual([expect.stringContaining(nome), "0", "0", "—"]);
     }
+    irPara("Validações");
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("4 pendentes no total · 3 vinculados · 1 sem identificação por ID");
   });
   it("concilia total, responsáveis inclusive inativos e pendências sem ID sem atribuir pelo nome", async () => {
     await mount();
+    irPara("Validações");
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("4 pendentes no total · 3 vinculados · 1 sem identificação por ID");
-    const fila = section("2. Validações pendentes dos RDOs dos apontadores");
+    const fila = section("Validações pendentes dos RDOs dos apontadores");
     expect(within(fila).getAllByText("Bia histórica").length).toBeGreaterThan(0);
     expect(screen.getByText(/Conferência de vínculos pendentes/)).toBeInTheDocument();
     expect(state.queries.filter(q => q.table !== "ci_equipes").every(q => q.filters.some(([key, value]) => key === "company_id" && value === "c1"))).toBe(true);
   });
   it("troca explicitamente de acumulado para período sem contar setembro", async () => {
     await mount();
+    irPara("Validações");
     await act(async () => { fireEvent.change(screen.getByLabelText("Recorte da fila"), { target: { value: "periodo" } }); });
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("3 pendentes no total · 2 vinculados · 1 sem identificação por ID");
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("01/10/2026 até 20/10/2026");
   });
   it("filtros técnicos não contaminam a fila e Status altera também o preenchimento por autor", async () => {
     await mount();
-    fireEvent.change(screen.getByPlaceholderText("OGS, equipe/setor, tipo, motivo..."), { target: { value: "inexistente" } });
+    irPara("Validações");
+    busca("inexistente");
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("4 pendentes no total");
-    fireEvent.change(screen.getByPlaceholderText("OGS, equipe/setor, tipo, motivo..."), { target: { value: "" } });
-    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "rascunho" } });
-    const technical = section("1. Preenchimento de RDO Técnico pelos engenheiros");
+    busca("");
+    abrirMaisFiltros();
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "rascunho" } });
+    irPara("Preenchimento");
+    const technical = section("Preenchimento de RDO Técnico pelos engenheiros");
     expect(within(technical).getByText(/0 enviados · 1 rascunhos/)).toBeInTheDocument();
+    irPara("Validações");
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("4 pendentes no total");
   });
   it("aplica os filtros próprios de obra, responsável, busca e sem identificação", async () => {
     await mount();
+    irPara("Validações");
     fireEvent.change(screen.getByLabelText("Obra da fila"), { target: { value: "OGS 2553" } });
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("1 pendentes no total · 1 vinculados");
     fireEvent.change(screen.getByLabelText("Obra da fila"), { target: { value: "" } });
@@ -106,18 +122,22 @@ describe("Dashboard Técnico — fase 2", () => {
   });
   it("consulta técnica anterior ao marco mantém painel válido e fila vazia", async () => {
     await mount();
+    irPara("Validações");
     await act(async () => { fireEvent.change(screen.getByDisplayValue("2026-10-01"), { target: { value: "2026-06-01" } }); });
     await act(async () => { fireEvent.change(screen.getByDisplayValue("2026-10-20"), { target: { value: "2026-06-30" } }); });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("0 pendentes no total");
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("Não há fila de validação antes do marco de 17/07/2026");
   });
-  it("erro de consulta oculta indicadores e não anuncia fila zerada", async () => {
+  it("erro de consulta oculta indicadores e não anuncia fila zerada, mantendo todas as seções sem contagem falsa", async () => {
     state.fail = true; vi.spyOn(console, "error").mockImplementation(() => {});
     await mount();
     expect(screen.getByRole("alert")).toHaveTextContent("Nenhum total parcial foi exibido");
     expect(screen.queryByTestId("total-fila-validacao")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Resumo Exec/ })).toBeDisabled();
+    const botoes = within(nav()).getAllByRole("button");
+    expect(botoes).toHaveLength(10);
+    botoes.forEach(b => { expect(b).toHaveTextContent("—"); expect(b.textContent).not.toMatch(/\b0\b/); });
   });
 });
 
@@ -161,12 +181,13 @@ describe("classificação operacional — fase 3", () => {
       { ...stopped, id: "folga-ocorrencia", ogs_number: "2500", houve_ocorrencia: true, descricao_ocorrencia: "Ocorrência na folga" },
     ];
     await mount();
+    expect(screen.getByTestId("resumo-sem-producao")).toHaveTextContent("2 folga/feriado");
+    expect(screen.getByTestId("resumo-sem-producao")).toHaveTextContent("1 outros motivos");
+    irPara("Alertas");
     const alerts = section(/Pendências prioritárias para validação|Alertas operacionais dos RDOs Técnicos/);
     expect(within(alerts).queryByText("2539")).not.toBeInTheDocument();
     expect(within(alerts).getByText("2553")).toBeInTheDocument();
     expect(within(alerts).getByText("Ocorrência na folga")).toBeInTheDocument();
-    expect(screen.getByTestId("resumo-sem-producao")).toHaveTextContent("2 folga/feriado");
-    expect(screen.getByTestId("resumo-sem-producao")).toHaveTextContent("1 outros motivos");
   });
 });
 
@@ -174,14 +195,14 @@ describe("classificação operacional — fase 3", () => {
 it("não transforma um rascunho em alerta operacional confirmado", async () => {
   state.technical = [{ id: "draft", company_id: "c1", engenheiro_id: "ana", status: "rascunho", data: "2026-10-01", ogs_number: "RASCUNHO-2539", houve_producao: false, motivo_sem_producao: "Chuva", choveu: true }];
   await mount();
+  irPara("Alertas");
   const alerts = section("Alertas operacionais dos RDOs Técnicos");
   expect(within(alerts).queryByText("RASCUNHO-2539")).not.toBeInTheDocument();
   expect(within(alerts).getByText("Nenhum alerta operacional encontrado nos filtros atuais.")).toBeInTheDocument();
 });
 
 
-it("conta todos os alertas, limita somente a prévia e exporta a lista completa", async () => {
-  state.technical = Array.from({ length: 23 }, (_, i) => ({ id: `alerta-${i}`, company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", ogs_number: `ALERTA-${i}`, houve_producao: false, motivo_sem_producao: "Outro", outro_motivo_sem_producao: `Paralisação ${i}`, equipamentos_conforme: null, usina_atendeu: null }));
+function captureDownloads() {
   const downloads: NodeBlob[] = [];
   vi.stubGlobal("Blob", NodeBlob);
   vi.stubGlobal("URL", class extends URL {
@@ -189,15 +210,28 @@ it("conta todos os alertas, limita somente a prévia e exporta a lista completa"
     static revokeObjectURL() {}
   });
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  return downloads;
+}
+
+it("conta todos os alertas, pagina de 20 em 20, alcança o último alerta e exporta a lista completa", async () => {
+  state.technical = Array.from({ length: 23 }, (_, i) => ({ id: `alerta-${i}`, company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", ogs_number: `ALERTA-${i}`, houve_producao: false, motivo_sem_producao: "Outro", outro_motivo_sem_producao: `Paralisação ${i}`, equipamentos_conforme: null, usina_atendeu: null }));
+  const downloads = captureDownloads();
   await mount();
+  expect(within(nav()).getByRole("button", { name: /^Alertas/ })).toHaveTextContent("23");
+  irPara("Alertas");
   const alerts = section("Alertas operacionais dos RDOs Técnicos");
-  expect(within(alerts).getByText("Exibindo 20 de 23 alertas")).toBeInTheDocument();
+  expect(within(alerts).getByTestId("paginacao-intervalo")).toHaveTextContent("1–20 de 23 alertas");
+  expect(within(alerts).getByTestId("paginacao-status")).toHaveTextContent("Página 1 de 2");
   expect(within(alerts).getAllByRole("row")).toHaveLength(21);
   expect(within(alerts).queryByText("ALERTA-22")).not.toBeInTheDocument();
-  fireEvent.click(within(alerts).getByRole("button", { name: "Ver todos os alertas" }));
-  expect(within(alerts).getAllByRole("row")).toHaveLength(24);
-  expect(within(alerts).getByText("Exibindo 23 de 23 alertas")).toBeInTheDocument();
+  expect(within(alerts).queryByRole("button", { name: "Ver todos os alertas" })).not.toBeInTheDocument();
+  expect(within(alerts).getByRole("button", { name: "Página anterior" })).toBeDisabled();
+  fireEvent.click(within(alerts).getByRole("button", { name: "Próxima página" }));
+  expect(within(alerts).getByTestId("paginacao-intervalo")).toHaveTextContent("21–23 de 23 alertas");
+  expect(within(alerts).getByTestId("paginacao-status")).toHaveTextContent("Página 2 de 2");
+  expect(within(alerts).getAllByRole("row")).toHaveLength(4);
   expect(within(alerts).getByText("ALERTA-22")).toBeInTheDocument();
+  expect(within(alerts).getByRole("button", { name: "Próxima página" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: /Resumo Exec/ }));
   const csv = await downloads[0].text();
   expect(csv).toContain('"ALERTA-22"');
@@ -224,7 +258,7 @@ it.each([
 
 
 const prod = { company_id: "c1", engenheiro_id: "ana", status: "enviado", data: "2026-10-01", ogs_number: "2539", houve_producao: true };
-async function openProducao() { await mount(); fireEvent.click(screen.getByRole("button", { name: "Produção" })); }
+async function openProducao() { await mount(); irPara("Produção"); }
 
 describe("Dashboard Técnico — descrição de INFRA", () => {
   it("consulta infra_descricao nos períodos atual e anterior", async () => {
@@ -233,7 +267,7 @@ describe("Dashboard Técnico — descrição de INFRA", () => {
     expect(selects).toHaveLength(2);
     selects.forEach(sel => expect(sel).toContain("infra_descricao"));
   });
-  it("mostra a descrição exata de INFRA, inclusive em serviço misto, e avisa quando ausente", async () => {
+  it("mostra prévia de INFRA na linha e a descrição exata no diálogo, inclusive em serviço misto, e avisa quando ausente", async () => {
     state.technical = [
       { ...prod, id: "i1", tipo_servico: "INFRA", infra_descricao: "  Drenagem\n  profunda  ", perc_conclusao_via: 40 },
       { ...prod, id: "i2", tipo_servico: "FRESAGEM, INFRA", infra_descricao: "Meio-fio", fresagem_m2: 100, perc_conclusao_via: 10 },
@@ -242,18 +276,29 @@ describe("Dashboard Técnico — descrição de INFRA", () => {
       { ...prod, id: "i5", tipo_servico: "INFRAESTRUTURA", infra_descricao: "Substring" },
     ];
     await openProducao();
-    const drenagem = screen.getByTestId("infra-descricao-i1");
-    expect(drenagem.textContent).toBe("  Drenagem\n  profunda  ");
-    expect(drenagem).toHaveClass("whitespace-pre-wrap");
-    expect(drenagem.closest("tr")).toHaveTextContent("INFRA • Conclusão: 40%");
-    expect(screen.getByTestId("infra-descricao-i2").closest("tr")).toHaveTextContent("FRESAGEM, INFRA • Conclusão: 10%");
-    expect(screen.getByTestId("infra-descricao-i2")).toHaveTextContent("Meio-fio");
-    expect(screen.getByTestId("infra-descricao-i3")).toHaveTextContent("Descrição de INFRA não informada");
+    const previa = screen.getByTestId("infra-previa-i1");
+    expect(previa.textContent).toBe("  Drenagem\n  profunda  ");
+    expect(previa).toHaveClass("whitespace-pre-wrap");
+    expect(previa).toHaveClass("line-clamp-2");
+    expect(previa.closest("tr")).toHaveTextContent("INFRA • Conclusão: 40%");
+    expect(screen.getByTestId("infra-previa-i2").closest("tr")).toHaveTextContent("FRESAGEM, INFRA • Conclusão: 10%");
+    expect(screen.getByTestId("infra-previa-i2")).toHaveTextContent("Meio-fio");
+    expect(screen.getByTestId("infra-previa-i3")).toHaveTextContent("Descrição de INFRA não informada");
     expect(screen.getAllByText("Descrição de INFRA não informada")).toHaveLength(1);
-    expect(screen.queryByTestId("infra-descricao-i4")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("infra-descricao-i5")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("infra-previa-i4")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("infra-previa-i5")).not.toBeInTheDocument();
     expect(screen.queryByText("Não exibir")).not.toBeInTheDocument();
     expect(screen.queryByText("Substring")).not.toBeInTheDocument();
+    fireEvent.click(within(previa.closest("tr")!).getByRole("button", { name: /Ver detalhes/ }));
+    const dialogo = screen.getByRole("dialog");
+    const completo = within(dialogo).getByTestId("infra-descricao-i1");
+    expect(completo.textContent).toBe("  Drenagem\n  profunda  ");
+    expect(completo).toHaveClass("whitespace-pre-wrap");
+    expect(within(dialogo).getByText("i1")).toBeInTheDocument();
+    fireEvent.keyDown(dialogo, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(within(screen.getByTestId("infra-previa-i3").closest("tr")!).getByRole("button", { name: /Ver detalhes/ }));
+    expect(within(screen.getByRole("dialog")).getByTestId("infra-descricao-i3")).toHaveTextContent("Descrição de INFRA não informada");
   });
 });
 
@@ -270,16 +315,6 @@ function parseCsv(text: string) {
   if (field || row.length) { row.push(field); rows.push(row); }
   return rows;
 }
-function captureDownloads() {
-  const downloads: NodeBlob[] = [];
-  vi.stubGlobal("Blob", NodeBlob);
-  vi.stubGlobal("URL", class extends URL {
-    static createObjectURL(blob: NodeBlob) { downloads.push(blob); return "blob:teste"; }
-    static revokeObjectURL() {}
-  });
-  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-  return downloads;
-}
 
 describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
   it("anexa ID, descrição de INFRA e as 14 quantidades preservando null, zero, decimais e texto livre", async () => {
@@ -289,7 +324,7 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
       { ...prod, id: "csv-2", tipo_servico: null, houve_producao: false, motivo_sem_producao: "Chuva", choveu: true, observacoes: "x" },
     ];
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: "Sem Produção" }));
+    irPara("Sem produção");
     expect(screen.getByText("CSV exporta todos os RDOs dos filtros gerais, independentemente da aba de assunto.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /CSV$/ }));
     expect(downloads).toHaveLength(1);
@@ -321,12 +356,201 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
       { ...prod, id: "b4", data: "2026-09-21", tipo_servico: "INFRA", infra_descricao: "Diferente" },
     ];
     await mount();
-    const total = () => within(section("Comparativo com período anterior")).getByText("RDOs registrados (inclui rascunhos)").parentElement!;
-    expect(total()).toHaveTextContent("2");
-    fireEvent.change(screen.getByPlaceholderText("OGS, equipe/setor, tipo, motivo..."), { target: { value: "bueiro" } });
-    expect(total()).toHaveTextContent("1");
-    expect(total()).toHaveTextContent("Anterior: 1");
+    const linha = () => within(section("Comparativo com período anterior")).getByText("RDOs registrados (inclui rascunhos)").closest("tr")!;
+    const celulas = () => within(linha()).getAllByRole("cell").map(c => c.textContent);
+    expect(celulas().slice(1, 3)).toEqual(["2", "2"]);
+    busca("bueiro");
+    expect(celulas().slice(1, 3)).toEqual(["1", "1"]);
+    irPara("Validações");
     expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("4 pendentes no total");
+  });
+});
+
+describe("Dashboard Técnico — estrutura de uma seção por vez", () => {
+  it("abre na Visão geral, lista as 10 seções com contadores e mostra só a seção selecionada", async () => {
+    state.technical = [
+      { ...prod, id: "n1", tipo_servico: "FRESAGEM", fresagem_m2: 10 },
+      { ...prod, id: "n2", houve_producao: false, motivo_sem_producao: "Chuva", choveu: true },
+    ];
+    await mount();
+    const botoes = within(nav()).getAllByRole("button");
+    expect(botoes.map(b => b.textContent)).toEqual([
+      expect.stringContaining("Visão geral"), expect.stringContaining("Produção"), expect.stringContaining("Preenchimento"),
+      expect.stringContaining("Validações"), expect.stringContaining("Alertas"), expect.stringContaining("Clima"),
+      expect.stringContaining("Usina"), expect.stringContaining("Equipamentos"), expect.stringContaining("Ocorrências"), expect.stringContaining("Sem produção"),
+    ]);
+    expect(within(nav()).getByRole("button", { name: /^Visão geral/ })).toHaveAttribute("aria-current", "page");
+    expect(within(nav()).getByRole("button", { name: /^Produção/ })).toHaveTextContent("1");
+    expect(within(nav()).getByRole("button", { name: /^Usina/ })).toHaveTextContent("0");
+    expect(within(nav()).getByRole("button", { name: /^Validações/ })).toHaveTextContent("4");
+    expect(screen.getByRole("heading", { name: "Comparativo com período anterior" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Alertas operacionais dos RDOs Técnicos" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("total-fila-validacao")).not.toBeInTheDocument();
+    irPara("Alertas");
+    expect(within(nav()).getByRole("button", { name: /^Alertas/ })).toHaveAttribute("aria-current", "page");
+    expect(within(nav()).getByRole("button", { name: /^Visão geral/ })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("heading", { name: "Alertas operacionais dos RDOs Técnicos" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Comparativo com período anterior" })).not.toBeInTheDocument();
+  });
+  it("usa casca desktop de altura fixa com painel único limitado", async () => {
+    await mount();
+    const shell = nav().closest("[data-testid='dashboard-shell']")!;
+    expect(shell).toHaveClass("lg:h-[100dvh]", "lg:overflow-hidden");
+    const painel = screen.getByTestId("painel-secao");
+    expect(painel).toHaveClass("min-h-0", "overflow-y-auto");
+    expect(shell.querySelectorAll("[data-testid='painel-secao']")).toHaveLength(1);
+    expect(screen.getByTestId("faixa-kpis").className).toContain("shrink-0");
+  });
+  it("mantém filtros técnicos entre seções; contagem de Validações segue só a fila", async () => {
+    await mount();
+    busca("inexistente");
+    expect(within(nav()).getByRole("button", { name: /^Validações/ })).toHaveTextContent("4");
+    expect(within(nav()).getByRole("button", { name: /^Produção/ })).toHaveTextContent("0");
+    irPara("Produção");
+    irPara("Preenchimento");
+    expect(screen.getByLabelText("Busca rápida")).toHaveValue("inexistente");
+    irPara("Validações");
+    fireEvent.change(screen.getByLabelText("Busca na fila"), { target: { value: "inexistente" } });
+    expect(within(nav()).getByRole("button", { name: /^Validações/ })).toHaveTextContent("0");
+    irPara("Visão geral");
+    irPara("Validações");
+    expect(screen.getByLabelText("Busca na fila")).toHaveValue("inexistente");
+  });
+});
+
+describe("Dashboard Técnico — visão geral compacta e navegação móvel", () => {
+  it("visão geral usa linhas densas e chips, sem gráfico, mantendo comparativo de 7 linhas e m³", async () => {
+    state.technical = [{ ...prod, id: "v1", tipo_servico: "BGTC", bgtc_m3: 12.5, usina_atendeu: false }];
+    await mount();
+    expect(screen.queryByText("Top engenheiros por RDOs enviados")).not.toBeInTheDocument();
+    const resumo = screen.getByTestId("resumo-status");
+    expect(resumo).toHaveTextContent("Enviados");
+    expect(resumo).toHaveTextContent("Rascunhos");
+    expect(resumo).toHaveTextContent("Conformidade");
+    expect(resumo).toHaveTextContent("Base/Volume: 12,5 m³");
+    const chips = screen.getByTestId("chips-operacionais");
+    expect(within(chips).getByRole("button", { name: /Alertas operacionais: 1/ })).toBeInTheDocument();
+    expect(within(chips).getByRole("button", { name: /Validações pendentes.*: 4/ })).toBeInTheDocument();
+    expect(within(chips).getByRole("button", { name: /Usina não atendeu: 1/ })).toBeInTheDocument();
+    const comparison = section("Comparativo com período anterior");
+    expect(within(comparison).getAllByRole("row")).toHaveLength(8);
+    fireEvent.click(within(chips).getByRole("button", { name: /Alertas operacionais/ }));
+    expect(screen.getByRole("heading", { name: "Alertas operacionais dos RDOs Técnicos" })).toBeInTheDocument();
+  });
+  it("distribuição por engenheiro fica em diálogo aberto por ação explícita no Preenchimento", async () => {
+    await mount();
+    irPara("Preenchimento");
+    expect(screen.queryByText("Top engenheiros por RDOs enviados")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Distribuição por engenheiro" }));
+    const dialogo = screen.getByRole("dialog");
+    expect(within(dialogo).getByText("Top engenheiros por RDOs enviados")).toBeInTheDocument();
+    expect(within(dialogo).getByTestId("distribuicao-engenheiros")).toHaveTextContent("Ana");
+    expect(within(dialogo).getByTestId("distribuicao-engenheiros")).toHaveTextContent("1");
+    fireEvent.keyDown(dialogo, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(within(nav()).getByRole("button", { name: /^Preenchimento/ })).toHaveAttribute("aria-current", "page");
+  });
+  it("em telas pequenas a navegação é um seletor rotulado, sincronizado com a barra lateral", async () => {
+    await mount();
+    const seletor = screen.getByLabelText("Seção do Dashboard") as HTMLSelectElement;
+    expect(seletor.tagName).toBe("SELECT");
+    expect(seletor.options).toHaveLength(10);
+    expect(seletor.value).toBe("geral");
+    fireEvent.change(seletor, { target: { value: "alertas" } });
+    expect(screen.getByRole("heading", { name: "Alertas operacionais dos RDOs Técnicos" })).toBeInTheDocument();
+    expect(within(nav()).getByRole("button", { name: /^Alertas/ })).toHaveAttribute("aria-current", "page");
+    expect(seletor.options[4].textContent).toMatch(/Alertas \(\d+\)/);
+  });
+});
+
+describe("Dashboard Técnico — paginação e detalhes", () => {
+  const lote = (n: number, extra: (i: number) => Record<string, unknown> = () => ({})) =>
+    Array.from({ length: n }, (_, i) => ({ ...prod, id: `r-${i}`, ogs_number: `P-${i}`, tipo_servico: "FRESAGEM", fresagem_m2: 1, ...extra(i) }));
+  it("pagina a Produção em 20 linhas, alcança todos os registros e reinicia/ajusta ao mudar o filtro", async () => {
+    state.technical = lote(45);
+    await openProducao();
+    const intervalo = () => screen.getByTestId("paginacao-intervalo");
+    expect(intervalo()).toHaveTextContent("1–20 de 45 registros");
+    expect(screen.getByTestId("paginacao-status")).toHaveTextContent("Página 1 de 3");
+    expect(screen.getAllByRole("row")).toHaveLength(21);
+    expect(screen.getByRole("button", { name: "Página anterior" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Próxima página" }));
+    fireEvent.click(screen.getByRole("button", { name: "Próxima página" }));
+    expect(intervalo()).toHaveTextContent("41–45 de 45 registros");
+    expect(screen.getByText("P-44")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Próxima página" })).toBeDisabled();
+    busca("P-4");
+    expect(intervalo()).toHaveTextContent("1–6 de 6 registros");
+    expect(screen.getByTestId("paginacao-status")).toHaveTextContent("Página 1 de 1");
+    expect(screen.getAllByRole("row")).toHaveLength(7);
+    busca("inexistente");
+    expect(screen.queryByTestId("paginacao-intervalo")).not.toBeInTheDocument();
+    expect(screen.getByText("Nenhum lançamento para este assunto com os filtros atuais.")).toBeInTheDocument();
+  });
+  it("volta à primeira página ao trocar de seção e mantém a página ao fechar o diálogo", async () => {
+    state.technical = lote(45, i => ({ observacoes: `Obs\n  ${i}  `, houve_ocorrencia: true, descricao_ocorrencia: `Ocorrência longa ${i}` }));
+    await openProducao();
+    fireEvent.click(screen.getByRole("button", { name: "Próxima página" }));
+    expect(screen.getByTestId("paginacao-intervalo")).toHaveTextContent("21–40 de 45");
+    const linha = screen.getByText("P-25").closest("tr")!;
+    fireEvent.click(within(linha).getByRole("button", { name: /Ver detalhes/ }));
+    const dialogo = screen.getByRole("dialog");
+    expect(within(dialogo).getByText("r-25")).toBeInTheDocument();
+    expect(within(dialogo).getByTestId("detalhe-observacoes-r-25").textContent).toBe("Obs\n  25  ");
+    expect(within(dialogo).getByTestId("detalhe-observacoes-r-25")).toHaveClass("whitespace-pre-wrap");
+    fireEvent.keyDown(dialogo, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("paginacao-intervalo")).toHaveTextContent("21–40 de 45");
+    expect(screen.getByLabelText("Busca rápida")).toHaveValue("");
+    irPara("Ocorrências");
+    expect(screen.getByTestId("paginacao-intervalo")).toHaveTextContent("1–20 de 45");
+    fireEvent.click(within(screen.getByText("P-3").closest("tr")!).getByRole("button", { name: /Ver detalhes/ }));
+    expect(within(screen.getByRole("dialog")).getByText("Ocorrência longa 3")).toBeInTheDocument();
+  });
+  it("Ver assunto seleciona a seção correta e localiza o RDO alvo numa página posterior", async () => {
+    state.technical = Array.from({ length: 25 }, (_, i) => ({ ...prod, id: `s-${i}`, ogs_number: "9000", houve_producao: false, motivo_sem_producao: "Outro", outro_motivo_sem_producao: `Alvo-${i}` }));
+    await mount();
+    irPara("Alertas");
+    fireEvent.click(screen.getByRole("button", { name: "Próxima página" }));
+    expect(screen.getByTestId("paginacao-intervalo")).toHaveTextContent("21–25 de 25 alertas");
+    const alvo = screen.getByText("Alvo-24").closest("tr")!;
+    fireEvent.click(within(alvo).getByRole("button", { name: "Ver assunto" }));
+    expect(within(nav()).getByRole("button", { name: /^Sem produção/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByLabelText("Busca rápida")).toHaveValue("9000");
+    expect(screen.getByTestId("paginacao-intervalo")).toHaveTextContent("21–25 de 25 registros");
+    const foco = document.querySelector("[data-foco='true']")!;
+    expect(foco).toHaveTextContent("Alvo-24");
+  });
+  it("Preenchimento: ação por engenheiro abre lista paginada dos RDOs dele", async () => {
+    state.technical = Array.from({ length: 12 }, (_, i) => ({ ...prod, id: `e-${i}`, ogs_number: `E-${i}` }));
+    await mount();
+    irPara("Preenchimento");
+    fireEvent.click(screen.getByRole("button", { name: "Ver registros de Ana" }));
+    const dialogo = screen.getByRole("dialog");
+    expect(within(dialogo).getByTestId("paginacao-intervalo")).toHaveTextContent("1–10 de 12 registros");
+    expect(within(dialogo).getAllByRole("row")).toHaveLength(11);
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Próxima página" }));
+    expect(within(dialogo).getByTestId("paginacao-intervalo")).toHaveTextContent("11–12 de 12 registros");
+    fireEvent.keyDown(dialogo, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(within(nav()).getByRole("button", { name: /^Preenchimento/ })).toHaveAttribute("aria-current", "page");
+  });
+  it("Validações: pendências do responsável e listas sem vínculo abrem em diálogo paginado, com IDs exatos", async () => {
+    state.extraPending = Array.from({ length: 10 }, (_, i) => ({ id: `ext-${i}`, company_id: "c1", data: "2026-10-05", obra_nome: "OGS 2539", engenheiro_responsavel_user_id: "ana", engenheiro_responsavel: "Ana", status_validacao: "enviado", validado_por: null, validado_encarregado: true, encarregado_employee_id: "enc1", nao_aprovado_encarregado: false }));
+    await mount();
+    irPara("Validações");
+    expect(screen.getByTestId("total-fila-validacao")).toHaveTextContent("14 pendentes no total · 13 vinculados · 1 sem identificação por ID");
+    fireEvent.click(screen.getByRole("button", { name: "Ver pendências de Ana" }));
+    let dialogo = screen.getByRole("dialog");
+    expect(within(dialogo).getByTestId("paginacao-intervalo")).toHaveTextContent("1–10 de 12 pendências");
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Próxima página" }));
+    expect(within(dialogo).getByTestId("paginacao-intervalo")).toHaveTextContent("11–12 de 12 pendências");
+    fireEvent.keyDown(dialogo, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ver RDOs sem engenheiro vinculado" }));
+    dialogo = screen.getByRole("dialog");
+    expect(within(dialogo).getByText("ID noid")).toBeInTheDocument();
+    expect(within(dialogo).getByTestId("paginacao-intervalo")).toHaveTextContent("1–1 de 1 RDOs");
   });
 });
 
@@ -352,17 +576,19 @@ describe("Dashboard Técnico — Atividades qualitativas", () => {
     expect(box).toHaveTextContent("podem se sobrepor");
     expect(box).toHaveTextContent("não representam t, m² ou m³");
     expect(counts()).toEqual(["3", "2"]);
+    irPara("Visão geral");
     expect(within(section("Comparativo com período anterior")).getByText("Produção (m²)").parentElement).toHaveTextContent("107");
     expect(within(section("Comparativo com período anterior")).getByText("Produção (t)").parentElement).toHaveTextContent("5");
   });
   it("respeita os filtros gerais de status e mantém zeros sem linhas de produção", async () => {
     state.technical = fixture();
     await openProducao();
-    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "enviado" } });
+    abrirMaisFiltros();
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "enviado" } });
     expect(counts()).toEqual(["2", "2"]);
-    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "rascunho" } });
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "rascunho" } });
     expect(counts()).toEqual(["1", "0"]);
-    fireEvent.change(screen.getByPlaceholderText("OGS, equipe/setor, tipo, motivo..."), { target: { value: "inexistente" } });
+    busca("inexistente");
     expect(counts()).toEqual(["0", "0"]);
     expect(screen.getByText("Nenhum lançamento para este assunto com os filtros atuais.")).toBeInTheDocument();
   });
@@ -371,6 +597,7 @@ describe("Dashboard Técnico — Atividades qualitativas", () => {
     await openProducao();
     expect(counts()).toEqual(["0", "1"]);
     expect(screen.getByTestId("atividades-qualitativas")).not.toHaveTextContent("GEOGRELHA");
+    irPara("Visão geral");
     expect(within(section("Comparativo com período anterior")).getByText("Produção (t)").parentElement).toHaveTextContent("0");
   });
 });

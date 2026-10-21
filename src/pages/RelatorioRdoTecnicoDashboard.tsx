@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import {
@@ -17,6 +17,12 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  ChevronDown,
+  SlidersHorizontal,
+  RefreshCw,
+  ClipboardCheck,
+  ShieldCheck,
+  Bell,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -29,6 +35,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { buildEngineeringMonitoring } from "@/lib/engineeringMonitoring";
 import { getEngineeringMonitoringRoster } from "@/lib/engineeringMonitoringRoster";
@@ -36,6 +43,7 @@ import { ENGINEERING_VALIDATION_START, loadEngineeringQueue, filterEngineeringQu
 import { toSaoPauloISODate } from "@/lib/date-local";
 import { classifyUnlinkedValidationRdos } from "@/lib/validationUnlinked";
 import { ENSAIOS_SERVICE, INFRA_SERVICE, TECHNICAL_QUANTITIES, hasServiceToken } from "@/lib/technicalProduction";
+import { Interpretar, Previa, TabelaPaginada, type Coluna } from "./rdoTecnicoDashboard/Tabela";
 
 interface RdoTecnicoRow {
   id: string;
@@ -136,15 +144,38 @@ type AssuntoTab =
   | "ocorrencias"
   | "sem_producao";
 
-const TAB_META: { id: AssuntoTab; label: string; icon: any }[] = [
-  { id: "geral", label: "Visão Geral", icon: BarChart3 },
+type Secao = AssuntoTab | "preenchimento" | "validacoes" | "alertas";
+
+const SECOES_META: { id: Secao; label: string; icon: any }[] = [
+  { id: "geral", label: "Visão geral", icon: BarChart3 },
   { id: "producao", label: "Produção", icon: Activity },
+  { id: "preenchimento", label: "Preenchimento", icon: ClipboardCheck },
+  { id: "validacoes", label: "Validações", icon: ShieldCheck },
+  { id: "alertas", label: "Alertas", icon: Bell },
   { id: "meteo", label: "Clima", icon: CloudRain },
   { id: "usina", label: "Usina", icon: Building2 },
   { id: "equipamentos", label: "Equipamentos", icon: Gauge },
   { id: "ocorrencias", label: "Ocorrências", icon: AlertTriangle },
-  { id: "sem_producao", label: "Sem Produção", icon: FileText },
+  { id: "sem_producao", label: "Sem produção", icon: FileText },
 ];
+
+const TITULO_ASSUNTO: Record<string, string> = {
+  producao: "Produção",
+  meteo: "Clima",
+  usina: "Usina",
+  equipamentos: "Equipamentos",
+  ocorrencias: "Ocorrências",
+  sem_producao: "Sem produção",
+};
+
+const RESUMO_ASSUNTO: Record<string, string> = {
+  producao: "RDOs com produção lançada",
+  meteo: "RDOs com chuva registrada",
+  usina: "RDOs com informação de usina",
+  equipamentos: "RDOs com avaliação de conformidade",
+  ocorrencias: "RDOs com ocorrência reportada",
+  sem_producao: "RDOs sem produção no período",
+};
 
 function isFolgaFeriado(row: Pick<RdoTecnicoRow, "houve_producao" | "motivo_sem_producao">) {
   return !row.houve_producao && row.motivo_sem_producao?.trim().toLocaleLowerCase("pt-BR") === "folga / feriado";
@@ -196,6 +227,74 @@ function getPeriodoAnterior(dataIni: string, dataFim: string) {
   };
 }
 
+function motivoSemProducao(r: RdoTecnicoRow) {
+  return r.motivo_sem_producao === "Outro"
+    ? (r.outro_motivo_sem_producao || "Outro")
+    : (r.motivo_sem_producao || "Sem motivo");
+}
+
+function simNao(v: boolean | null | undefined) {
+  return v == null ? "Não avaliado" : v ? "Sim" : "Não";
+}
+
+interface CampoDetalhe { label: string; value: string; testId?: string; aviso?: boolean }
+
+function camposDetalhe(r: RdoTecnicoRow, assunto: AssuntoTab, engMap: Record<string, string>, alerta?: AlertaOperacional): CampoDetalhe[] {
+  const campos: CampoDetalhe[] = [
+    { label: "ID do RDO", value: r.id },
+    { label: "Data", value: fmtDate(r.data) },
+    { label: "OGS", value: r.ogs_number || "-" },
+    { label: "Autor (engenheiro)", value: r.engenheiro_id ? (engMap[r.engenheiro_id] || "-") : "-" },
+    { label: "Equipe / Setor", value: r.equipe || "-" },
+    { label: "Localização", value: r.localizacao || "-" },
+    { label: "Status", value: r.status === "enviado" ? "Enviado" : "Rascunho" },
+  ];
+  if (alerta) {
+    campos.push({ label: "Alerta", value: `${alerta.prioridade} · ${alerta.assunto}` }, { label: "Detalhe do alerta", value: alerta.detalhe });
+  }
+  if (assunto === "producao") {
+    campos.push({ label: "Tipo de serviço", value: r.tipo_servico || "Sem tipo" }, { label: "Conclusão da via", value: r.perc_conclusao_via != null ? `${r.perc_conclusao_via}%` : "-" });
+    if (hasServiceToken(r.tipo_servico, INFRA_SERVICE)) {
+      const informada = !!r.infra_descricao?.trim();
+      campos.push({ label: "Descrição de INFRA", value: informada ? r.infra_descricao! : "Descrição de INFRA não informada", testId: `infra-descricao-${r.id}`, aviso: !informada });
+    }
+    TECHNICAL_QUANTITIES.forEach(({ field, label }) => {
+      const v = r[field as keyof RdoTecnicoRow] as number | null | undefined;
+      if (v != null) campos.push({ label, value: String(v).replace(".", ",") });
+    });
+  } else if (assunto === "meteo") {
+    campos.push({ label: "Choveu", value: simNao(r.choveu) }, { label: "Intensidade da chuva", value: r.intensidade_chuva || "Não informada" });
+  } else if (assunto === "usina") {
+    campos.push({ label: "Usina programada", value: r.usina_programada || "Sem usina" }, { label: "Usina atendeu", value: simNao(r.usina_atendeu) }, { label: "Motivo de não atendimento", value: r.usina_nao_atendeu_motivo || "-" });
+  } else if (assunto === "equipamentos") {
+    campos.push({ label: "Equipamentos conformes", value: simNao(r.equipamentos_conforme) }, { label: "Não conformidades", value: r.equipamentos_nao_conformes || "-" });
+  } else if (assunto === "ocorrencias") {
+    campos.push({ label: "Houve ocorrência", value: simNao(r.houve_ocorrencia) }, { label: "Descrição da ocorrência", value: r.descricao_ocorrencia || "Sem descrição" });
+  } else if (assunto === "sem_producao") {
+    campos.push({ label: "Houve produção", value: simNao(r.houve_producao) }, { label: "Motivo", value: r.motivo_sem_producao || "Sem motivo" }, { label: "Outro motivo", value: r.outro_motivo_sem_producao || "-" });
+  }
+  campos.push({ label: "Observações", value: r.observacoes || "-", testId: `detalhe-observacoes-${r.id}` });
+  return campos;
+}
+
+function detalheAssunto(tab: AssuntoTab, r: RdoTecnicoRow) {
+  return tab === "producao"
+    ? `${r.tipo_servico || "Sem tipo"} • Conclusão: ${r.perc_conclusao_via != null ? `${r.perc_conclusao_via}%` : "-"}`
+    : tab === "meteo"
+      ? `Chuva ${r.intensidade_chuva || "não informada"}`
+      : tab === "usina"
+        ? `${r.usina_programada || "Sem usina"} • ${r.usina_atendeu === false ? `Não atendeu (${r.usina_nao_atendeu_motivo || "sem motivo"})` : "Atendeu/sem avaliação"}`
+        : tab === "equipamentos"
+          ? r.equipamentos_conforme
+            ? "Conforme"
+            : `Não conforme: ${r.equipamentos_nao_conformes || "sem descrição"}`
+          : tab === "ocorrencias"
+            ? r.descricao_ocorrencia || "Sem descrição"
+            : !r.houve_producao
+              ? motivoSemProducao(r)
+              : "-";
+}
+
 export default function RelatorioRdoTecnicoDashboard() {
   const navigate = useNavigate();
   const goBack = useSmartBack("/relatorios");
@@ -216,8 +315,13 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [engenheiroFila, setEngenheiroFila] = useState("");
   const [buscaFila, setBuscaFila] = useState("");
 
-  const [tab, setTab] = useState<AssuntoTab>("geral");
-  const [exibirTodosAlertas, setExibirTodosAlertas] = useState(false);
+  const [secao, setSecao] = useState<Secao>("geral");
+  const [maisFiltros, setMaisFiltros] = useState(false);
+  const [foco, setFoco] = useState<string | null>(null);
+  const [detalhe, setDetalhe] = useState<{ rdo: RdoTecnicoRow; assunto: AssuntoTab; alerta?: AlertaOperacional } | null>(null);
+  const [dialogoEng, setDialogoEng] = useState<{ tipo: "registros" | "pendentes"; id: string } | null>(null);
+  const [dialogoVinculo, setDialogoVinculo] = useState<"encarregado" | "engenharia" | null>(null);
+  const [distribuicaoAberta, setDistribuicaoAberta] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<RdoTecnicoRow[]>([]);
   const [rowsPrev, setRowsPrev] = useState<RdoTecnicoRow[]>([]);
@@ -229,6 +333,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [erroCarga, setErroCarga] = useState("");
   const [periodoCarregado, setPeriodoCarregado] = useState({ inicio: "", fim: "", filaInicio: "" });
   const requisicaoAtual = useRef(0);
+  const painelRef = useRef<HTMLElement>(null);
 
   const periodoAnterior = useMemo(() => getPeriodoAnterior(dataIni, dataFim), [dataIni, dataFim]);
 
@@ -337,6 +442,16 @@ export default function RelatorioRdoTecnicoDashboard() {
   useEffect(() => {
     if (companyId) buscarDados();
   }, [companyId, dataIni, dataFim, inicioFila]);
+
+  // Trocar de seção sempre começa pelo topo do painel único.
+  useEffect(() => {
+    if (painelRef.current) painelRef.current.scrollTop = 0;
+  }, [secao]);
+
+  const irSecao = (destino: Secao, focoId: string | null = null) => {
+    setSecao(destino);
+    setFoco(focoId);
+  };
 
   const equipesFiltro = useMemo(() => {
     const doHistorico = rows.map((r) => (r.equipe || "").trim()).filter(Boolean);
@@ -708,7 +823,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       }),
     ]);
 
-    const csv = "\uFEFF" + [head, ...linhas].map((l) => l.map(csvEscape).join(";")).join("\n");
+    const csv = "﻿" + [head, ...linhas].map((l) => l.map(csvEscape).join(";")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -758,7 +873,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       ...linhasAlertas,
     ];
 
-    const csv = "\uFEFF" + linhas.map((l) => l.map(csvEscape).join(";")).join("\n");
+    const csv = "﻿" + linhas.map((l) => l.map(csvEscape).join(";")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -768,442 +883,509 @@ export default function RelatorioRdoTecnicoDashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const renderTabelaAssunto = () => {
-    if (tab === "geral") {
-      return (
-        <div className="rounded-2xl border bg-white p-4 space-y-4">
-          <h3 className="text-sm font-bold">Resumo executivo por assunto</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            <AssuntoResumoCard titulo="Produção" total={cardsAssunto.producao.length} texto="RDOs com produção lançada" />
-            <AssuntoResumoCard titulo="Clima/Chuva" total={cardsAssunto.meteo.length} texto="RDOs com chuva registrada" />
-            <AssuntoResumoCard titulo="Usina" total={cardsAssunto.usina.length} texto="RDOs com informação de usina" />
-            <AssuntoResumoCard titulo="Equipamentos" total={cardsAssunto.equipamentos.length} texto="RDOs com avaliação de conformidade" />
-            <AssuntoResumoCard titulo="Ocorrências" total={cardsAssunto.ocorrencias.length} texto="RDOs com ocorrência reportada" />
-            <AssuntoResumoCard titulo="Sem produção" total={cardsAssunto.sem_producao.length} texto="RDOs sem produção no período" />
+  const carregando = loading || (!erroCarga && (periodoCarregado.inicio !== dataIni || periodoCarregado.fim !== dataFim || periodoCarregado.filaInicio !== inicioFila));
+  const pronto = !carregando && !erroCarga;
+  const chaveTecnica = `${dataIni}|${dataFim}|${filtroStatus}|${filtroOgs}|${filtroEng}|${filtroEquipe}|${busca}`;
+  const chaveFila = `${periodoFila}|${obraFila}|${engenheiroFila}|${buscaFila}|${dataIni}|${dataFim}`;
+  const maisFiltrosAtivos = [filtroStatus, filtroEng, filtroEquipe].filter(Boolean).length;
+  const rotuloFila = periodoFila === "acumulado" ? `acumulada desde ${fmtDate(ENGINEERING_VALIDATION_START)}` : `somente ${fmtDate(inicioFila)} a ${fmtDate(dataFim)}`;
+
+  const contadores: Record<Secao, string> = {
+    geral: pronto ? fmtNum(kpis.total) : "—",
+    producao: pronto ? String(cardsAssunto.producao.length) : "—",
+    preenchimento: pronto ? String(lancamentosEngenheiros.length) : "—",
+    validacoes: pronto ? String(filaFiltrada.length) : "—",
+    alertas: pronto ? String(alertasOperacionais.length) : "—",
+    meteo: pronto ? String(cardsAssunto.meteo.length) : "—",
+    usina: pronto ? String(cardsAssunto.usina.length) : "—",
+    equipamentos: pronto ? String(cardsAssunto.equipamentos.length) : "—",
+    ocorrencias: pronto ? String(cardsAssunto.ocorrencias.length) : "—",
+    sem_producao: pronto ? String(cardsAssunto.sem_producao.length) : "—",
+  };
+
+  const nomeEng = (id: string | null) => (id ? (engMap[id] || "-") : "-");
+  const abrirDetalhe = (rdo: RdoTecnicoRow, assunto: AssuntoTab, alerta?: AlertaOperacional) => setDetalhe({ rdo, assunto, alerta });
+
+  const botaoDetalhes = (r: RdoTecnicoRow, assunto: AssuntoTab, alerta?: AlertaOperacional) => (
+    <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" aria-label={`Ver detalhes do RDO de ${fmtDate(r.data)}, OGS ${r.ogs_number || "sem OGS"}`}
+      onClick={() => abrirDetalhe(r, assunto, alerta)}>Ver detalhes</Button>
+  );
+
+  const badgeStatus = (r: RdoTecnicoRow) => (
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${r.status === "enviado" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+      {r.status === "enviado" ? "Enviado" : "Rascunho"}
+    </span>
+  );
+
+  const colunasAssunto = (tab: AssuntoTab): Coluna<RdoTecnicoRow>[] => [
+    { titulo: "Data", className: "whitespace-nowrap", render: r => fmtDate(r.data) },
+    { titulo: "OGS", className: "whitespace-nowrap", render: r => r.ogs_number || "-" },
+    { titulo: "Engenheiro", className: "whitespace-nowrap", render: r => nomeEng(r.engenheiro_id) },
+    { titulo: "Equipe / Setor", className: "whitespace-nowrap", render: r => r.equipe || "-" },
+    { titulo: "Status", className: "whitespace-nowrap", render: badgeStatus },
+    {
+      titulo: "Detalhes do assunto",
+      render: r => (
+        <>
+          <Previa>{detalheAssunto(tab, r)}</Previa>
+          {tab === "producao" && hasServiceToken(r.tipo_servico, INFRA_SERVICE) && (
+            <Previa testId={`infra-previa-${r.id}`} className={`mt-1 text-xs ${r.infra_descricao?.trim() ? "text-muted-foreground" : "font-semibold text-amber-700"}`}>
+              {r.infra_descricao?.trim() ? r.infra_descricao : "Descrição de INFRA não informada"}
+            </Previa>
+          )}
+        </>
+      ),
+    },
+    { titulo: "Ação", className: "whitespace-nowrap", render: r => botaoDetalhes(r, tab) },
+  ];
+
+  const colunasAlertas: Coluna<AlertaOperacional>[] = [
+    {
+      titulo: "Prioridade", className: "whitespace-nowrap",
+      render: p => (
+        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.prioridade === "Alta" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{p.prioridade}</span>
+      ),
+    },
+    { titulo: "Data", className: "whitespace-nowrap", render: p => fmtDate(p.rdo.data) },
+    { titulo: "OGS", className: "whitespace-nowrap", render: p => p.rdo.ogs_number || "-" },
+    { titulo: "Engenheiro", className: "whitespace-nowrap", render: p => nomeEng(p.rdo.engenheiro_id) },
+    { titulo: "Equipe", className: "whitespace-nowrap", render: p => p.rdo.equipe || "-" },
+    { titulo: "Assunto", className: "whitespace-nowrap", render: p => p.assunto },
+    { titulo: "Detalhe", render: p => <Previa>{p.detalhe}</Previa> },
+    {
+      titulo: "Ação", className: "whitespace-nowrap",
+      render: p => (
+        <div className="flex gap-1">
+          {botaoDetalhes(p.rdo, p.tabDestino, p)}
+          <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs"
+            onClick={() => {
+              setBusca((p.rdo.ogs_number || p.rdo.equipe || "").trim());
+              irSecao(p.tabDestino, p.rdo.id);
+            }}>
+            Ver assunto
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  const linhasComparativo: { titulo: string; c: { atual: number; anterior: number; delta: number; perc: number | null }; frac: number; invert?: boolean }[] = [
+    { titulo: "RDOs registrados (inclui rascunhos)", c: comparativo.total, frac: 0 },
+    { titulo: "RDOs com produção", c: comparativo.comProducao, frac: 0 },
+    { titulo: "RDOs sem produção", c: comparativo.semProducao, frac: 0, invert: true },
+    { titulo: "Produção (t)", c: comparativo.toneladas, frac: 1 },
+    { titulo: "Produção (m²)", c: comparativo.areaM2, frac: 1 },
+    { titulo: "Produção (m³)", c: comparativo.volumeM3, frac: 1 },
+    { titulo: "Conformidade de equipamentos (%)", c: comparativo.conformidade, frac: 1 },
+  ];
+
+  const renderGeral = () => (
+    <section aria-label="Resumo executivo" className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        Lançamentos técnicos de {fmtDate(dataIni)} a {fmtDate(dataFim)} · Fila de validação dos apontadores: {rotuloFila}
+      </p>
+      <div data-testid="resumo-status" className="divide-y rounded-lg border text-sm">
+        <p className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 px-3 py-1.5">
+          <span className="w-28 shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">Lançamento</span>
+          <span>Enviados <strong>{fmtNum(kpis.enviados)}</strong></span>
+          <span>Rascunhos <strong>{fmtNum(kpis.rascunhos)}</strong></span>
+          <span>Com chuva <strong>{fmtNum(kpis.comChuva)}</strong></span>
+          <span>Conformidade dos equipamentos <strong>{fmtNum(kpis.percConformeEquip, 1)}%</strong></span>
+        </p>
+        <p className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 px-3 py-1.5">
+          <span className="w-28 shrink-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">Sem produção</span>
+          <span><strong>{fmtNum(kpis.semProducao)}</strong> RDOs</span>
+          <span data-testid="resumo-sem-producao" className="text-muted-foreground">{kpis.folgasFeriados} folga/feriado · {kpis.outrosMotivosSemProducao} outros motivos</span>
+          <span>Base/Volume: <strong>{fmtNum(kpis.volumeM3, 1)} m³</strong></span>
+        </p>
+      </div>
+      <div data-testid="chips-operacionais" className="flex flex-wrap gap-1.5">
+        <button type="button" onClick={() => irSecao("alertas")} className="rounded-lg border border-red-300 bg-white px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">Alertas operacionais: {alertasOperacionais.length}</button>
+        <button type="button" onClick={() => irSecao("validacoes")} className="rounded-lg border border-orange-300 bg-white px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-50">Validações pendentes ({rotuloFila}): {filaFiltrada.length}</button>
+        <button type="button" onClick={() => irSecao("usina")} className="rounded-lg border border-orange-300 bg-white px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-50">Usina não atendeu: {kpis.usinaNaoAtendeu}</button>
+        <button type="button" onClick={() => irSecao("equipamentos")} className="rounded-lg border border-yellow-300 bg-white px-2 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-50">Não conformidade de equipamentos: {kpis.naoConformeEquip}</button>
+        <button type="button" onClick={() => irSecao("ocorrencias")} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Ocorrências: {kpis.comOcorrencia}</button>
+        <span className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">Engenheiro sem identificação: {kpis.semNomeEng}</span>
+      </div>
+      <div>
+        <section className="rounded-lg border px-3 py-2">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-bold">Comparativo com período anterior</h3>
+            <p className="text-xs text-muted-foreground">
+              Atual: <span className="font-semibold text-foreground">{fmtDate(dataIni)} a {fmtDate(dataFim)}</span> ·
+              Anterior: <span className="font-semibold text-foreground"> {fmtDate(periodoAnterior.anteriorIni)} a {fmtDate(periodoAnterior.anteriorFim)}</span>
+            </p>
           </div>
-        </div>
-      );
-    }
-
-    const lista = cardsAssunto[tab] || [];
-
-    return (
-      <div className="rounded-2xl border bg-white overflow-hidden">
-        <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
-          <h3 className="text-sm font-bold">{TAB_META.find(t => t.id === tab)?.label}</h3>
-          <span className="text-xs text-muted-foreground">{lista.length} registro(s)</span>
-        </div>
-
-        {lista.length === 0 ? (
-          <div className="px-4 py-10 text-sm text-muted-foreground text-center">Nenhum lançamento para este assunto com os filtros atuais.</div>
-        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[920px] text-sm">
-              <thead className="bg-muted/40 sticky top-0 z-10">
+            <table className="w-full min-w-[460px] text-sm">
+              <thead>
                 <tr className="text-left text-xs text-muted-foreground">
-                  <th className="px-3 py-2">Data</th>
-                  <th className="px-3 py-2">OGS</th>
-                  <th className="px-3 py-2">Engenheiro</th>
-                  <th className="px-3 py-2">Equipe / Setor</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Detalhes do assunto</th>
+                  <th className="pb-0.5 pr-2 font-semibold">Métrica</th><th className="pb-0.5 pr-2 font-semibold">Atual</th><th className="pb-0.5 pr-2 font-semibold">Anterior</th><th className="pb-0.5 font-semibold">Variação</th>
                 </tr>
               </thead>
               <tbody>
-                {lista.map((r) => {
-                  const detalhe =
-                    tab === "producao"
-                      ? `${r.tipo_servico || "Sem tipo"} • Conclusão: ${r.perc_conclusao_via != null ? `${r.perc_conclusao_via}%` : "-"}`
-                      : tab === "meteo"
-                        ? `Chuva ${r.intensidade_chuva || "não informada"}`
-                        : tab === "usina"
-                          ? `${r.usina_programada || "Sem usina"} • ${r.usina_atendeu === false ? `Não atendeu (${r.usina_nao_atendeu_motivo || "sem motivo"})` : "Atendeu/sem avaliação"}`
-                          : tab === "equipamentos"
-                            ? r.equipamentos_conforme
-                              ? "Conforme"
-                              : `Não conforme: ${r.equipamentos_nao_conformes || "sem descrição"}`
-                            : tab === "ocorrencias"
-                              ? r.descricao_ocorrencia || "Sem descrição"
-                              : !r.houve_producao
-                                ? (r.motivo_sem_producao === "Outro"
-                                    ? (r.outro_motivo_sem_producao || "Outro")
-                                    : (r.motivo_sem_producao || "Sem motivo"))
-                                : "-";
-
-                  return (
-                    <tr key={r.id} className="border-t align-top">
-                      <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.data)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.ogs_number || "-"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.engenheiro_id ? (engMap[r.engenheiro_id] || "-" ) : "-"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{r.equipe || "-"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${r.status === "enviado" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                          {r.status === "enviado" ? "Enviado" : "Rascunho"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        {detalhe}
-                        {tab === "producao" && hasServiceToken(r.tipo_servico, INFRA_SERVICE) && (
-                          <div data-testid={`infra-descricao-${r.id}`} className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-                            {r.infra_descricao?.trim() ? r.infra_descricao : "Descrição de INFRA não informada"}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {linhasComparativo.map(l => (
+                  <tr key={l.titulo} className="border-t">
+                    <td className="py-0.5 pr-2">{l.titulo}</td>
+                    <td className="py-0.5 pr-2 font-bold">{fmtNum(l.c.atual, l.frac)}</td>
+                    <td className="py-0.5 pr-2 text-muted-foreground">{fmtNum(l.c.anterior, l.frac)}</td>
+                    <td className="py-0.5"><DeltaPill delta={l.c.delta} perc={l.c.perc} invert={l.invert} /></td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        )}
+        </section>
       </div>
+    </section>
+  );
+
+  const renderAssunto = (tab: AssuntoTab) => {
+    const lista = cardsAssunto[tab as keyof typeof cardsAssunto] || [];
+    return (
+      <SecaoShell titulo={TITULO_ASSUNTO[tab]} subtitulo={`${lista.length} registro(s) · ${RESUMO_ASSUNTO[tab]}`}>
+        {tab === "producao" && (
+          <div data-testid="atividades-qualitativas" className="shrink-0 flex flex-wrap items-center gap-2 rounded-lg border bg-slate-50 px-3 py-1.5 text-sm">
+            <span className="font-semibold">Atividades qualitativas</span>
+            <span className="text-muted-foreground">RDOs por atividade:</span>
+            <span className="rounded-lg border bg-white px-2 py-0.5">INFRA: <strong data-testid="qualitativa-infra">{atividadesQualitativas.infra}</strong></span>
+            <span className="rounded-lg border bg-white px-2 py-0.5">ENSAIOS E EXTRAÇÕES: <strong data-testid="qualitativa-ensaios">{atividadesQualitativas.ensaios}</strong></span>
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer font-semibold">Como interpretar</summary>
+              Contagem de RDOs por atividade, nos filtros atuais. Um RDO pode aparecer em mais de uma atividade (os valores podem se sobrepor) e os números não representam t, m² ou m³, nem alteram as somas de medição.
+            </details>
+          </div>
+        )}
+        <TabelaPaginada className="lg:flex-1" itens={lista} colunas={colunasAssunto(tab)} getKey={r => r.id}
+          resetKey={`${tab}|${chaveTecnica}`} focusKey={foco} vazio="Nenhum lançamento para este assunto com os filtros atuais." rotulo="registros" minWidth={860} />
+      </SecaoShell>
     );
   };
 
+  const renderPreenchimento = () => (
+    <SecaoShell titulo="Preenchimento de RDO Técnico pelos engenheiros"
+      subtitulo={<>{fmtDate(dataIni)} a {fmtDate(dataFim)} · {lancamentosEngenheiros.reduce((s, p) => s + p.enviados, 0)} enviados · {lancamentosEngenheiros.reduce((s, p) => s + p.rascunhos, 0)} rascunhos</>}>
+      <div className="shrink-0">
+        <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setDistribuicaoAberta(true)}>Distribuição por engenheiro</Button>
+      </div>
+      <Interpretar>
+        <p>Autores e responsáveis do recorte, complementados pela lista de acompanhamento definida pela gestão. Exclusões dessa lista não retiram históricos dos indicadores nem alteram a fila de validação. Sem envio não comprova falta: não há escala por OGS/dia. Status, OGS, engenheiro, equipe e busca acima aplicam-se aos lançamentos técnicos. A fila de validação tem filtros próprios na seção Validações.</p>
+      </Interpretar>
+      <TabelaPaginada className="lg:flex-1" itens={lancamentosEngenheiros} getKey={p => p.id} resetKey={`prc|${chaveTecnica}`}
+        vazio="Nenhum engenheiro identificado." rotulo="engenheiros" minWidth={560}
+        colunas={[
+          { titulo: "Engenheiro", className: "font-semibold", render: p => (
+            <div className="flex flex-wrap items-center gap-2">
+              <span>{p.nome}</span>
+              <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs font-normal" aria-label={`Ver registros de ${p.nome}`} onClick={() => setDialogoEng({ tipo: "registros", id: p.id })}>Ver registros</Button>
+            </div>
+          ) },
+          { titulo: "Enviados", className: "font-semibold", render: p => p.enviados },
+          { titulo: "Rascunhos", render: p => p.rascunhos },
+          { titulo: "Último RDO Técnico", render: p => p.registros.length ? fmtDate(p.registros[0].data) : "—" },
+        ]} />
+    </SecaoShell>
+  );
+
+  const renderValidacoes = () => (
+    <SecaoShell titulo="Validações pendentes dos RDOs dos apontadores">
+      <div className="shrink-0 grid grid-cols-1 gap-2 md:grid-cols-4">
+        <label className="text-xs font-semibold text-muted-foreground">Recorte da fila
+          <select aria-label="Recorte da fila" value={periodoFila} onChange={e => setPeriodoFila(e.target.value)} className="mt-0.5 h-9 w-full rounded-lg border bg-white px-2 text-sm text-foreground">
+            <option value="acumulado">Acumulada desde 17/07/2026</option><option value="periodo">Somente o período selecionado</option>
+          </select>
+        </label>
+        <label className="text-xs font-semibold text-muted-foreground">Obra da fila
+          <select aria-label="Obra da fila" value={obraFila} onChange={e => setObraFila(e.target.value)} className="mt-0.5 h-9 w-full rounded-lg border bg-white px-2 text-sm text-foreground">
+            <option value="">Todas as obras</option>{obrasFila.map(obra => <option key={obra} value={obra!}>{obra}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-semibold text-muted-foreground">Responsável pela validação
+          <select aria-label="Responsável pela validação" value={engenheiroFila} onChange={e => setEngenheiroFila(e.target.value)} className="mt-0.5 h-9 w-full rounded-lg border bg-white px-2 text-sm text-foreground">
+            <option value="">Todos os responsáveis</option><option value="__sem_identificacao">Sem identificação por ID</option>
+            {engenheiroOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-semibold text-muted-foreground">Busca na fila
+          <input aria-label="Busca na fila" value={buscaFila} onChange={e => setBuscaFila(e.target.value)} placeholder="Obra ou responsável" className="mt-0.5 h-9 w-full rounded-lg border px-2 text-sm text-foreground" />
+        </label>
+      </div>
+      <p className="shrink-0 text-sm text-muted-foreground" data-testid="total-fila-validacao">{filaFiltrada.length} pendentes no total · {validacoesPendentes.reduce((s, p) => s + p.pendentes.length, 0)} vinculados · {monitoramento.unassigned.length} sem identificação por ID. {dataFim < ENGINEERING_VALIDATION_START ? "Não há fila de validação antes do marco de 17/07/2026." : `RDOs de ${fmtDate(inicioFila)} até ${fmtDate(dataFim)}.`}</p>
+      <Interpretar>
+        <p>Somente RDOs visíveis ao seu acesso; "mais antigo" indica a data do RDO, não a data do envio para validação. Esta tabela não avalia validações já concluídas.</p>
+        {monitoramento.unassigned.length > 0 && <p>{monitoramento.unassigned.length} pendentes sem engenheiro identificado por perfil de usuário — conferir vínculo antes de cobrar alguém.</p>}
+      </Interpretar>
+      <TabelaPaginada className="lg:flex-1" itens={validacoesPendentes} getKey={p => p.id} resetKey={`val|${chaveFila}`}
+        vazio="Nenhum RDO pendente vinculado nos filtros atuais." rotulo="responsáveis" minWidth={560}
+        colunas={[
+          { titulo: "Engenheiro responsável", className: "font-semibold", render: p => (
+            <div className="flex flex-wrap items-center gap-2">
+              <span>{p.nome}</span>
+              <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs font-normal" aria-label={`Ver pendências de ${p.nome}`} onClick={() => setDialogoEng({ tipo: "pendentes", id: p.id })}>Ver pendências</Button>
+            </div>
+          ) },
+          { titulo: "Aguardando validação", className: "font-bold text-orange-700", render: p => p.pendentes.length },
+          { titulo: "Data do RDO mais antigo", render: p => fmtDate(p.pendentes[p.pendentes.length - 1].data) },
+        ]} />
+      {(pendenciasSemVinculo.encarregado.length > 0 || pendenciasSemVinculo.engenharia.length > 0) && (
+        <div className="shrink-0 flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+          <p className="font-semibold">Conferência de vínculos pendentes — não atribuir por semelhança de nome</p>
+          <p>Encarregado: {pendenciasSemVinculo.encarregado.length} sem ID · Engenharia: {pendenciasSemVinculo.engenharia.length} sem ID. RDOs pendentes de {fmtDate(inicioFila)} até {fmtDate(dataFim)}.</p>
+          <Button type="button" variant="outline" size="sm" className="h-7 bg-white px-2 text-xs" onClick={() => setDialogoVinculo("encarregado")}>Ver RDOs sem encarregado vinculado</Button>
+          <Button type="button" variant="outline" size="sm" className="h-7 bg-white px-2 text-xs" onClick={() => setDialogoVinculo("engenharia")}>Ver RDOs sem engenheiro vinculado</Button>
+        </div>
+      )}
+    </SecaoShell>
+  );
+
+  const renderAlertas = () => (
+    <SecaoShell titulo="Alertas operacionais dos RDOs Técnicos" subtitulo={`${alertasOperacionais.length} alertas nos filtros atuais`}>
+      <Interpretar>
+        <p>Somente RDOs Técnicos enviados; rascunhos não geram alertas. São sinais registrados, não a fila de aprovação dos apontadores nem comprovação de uma ação ainda em aberto. Folga/feriado, por si só, não gera alerta.</p>
+      </Interpretar>
+      <TabelaPaginada className="lg:flex-1" itens={alertasOperacionais} colunas={colunasAlertas} getKey={p => p.id} resetKey={`alt|${chaveTecnica}`}
+        vazio="Nenhum alerta operacional encontrado nos filtros atuais." rotulo="alertas" minWidth={980} />
+    </SecaoShell>
+  );
+
+  const renderSecao = () => {
+    if (secao === "geral") return renderGeral();
+    if (secao === "preenchimento") return renderPreenchimento();
+    if (secao === "validacoes") return renderValidacoes();
+    if (secao === "alertas") return renderAlertas();
+    return renderAssunto(secao);
+  };
+
+  const engDialogo = dialogoEng
+    ? (dialogoEng.tipo === "registros" ? lancamentosEngenheiros.find(p => p.id === dialogoEng.id) : validacoesPendentes.find(p => p.id === dialogoEng.id))
+    : undefined;
+  const listaVinculo = dialogoVinculo ? pendenciasSemVinculo[dialogoVinculo] : [];
+
   return (
-    <div className="min-h-screen bg-[hsl(210_20%_98%)]">
-      <header className="flex items-center gap-3 px-4 py-3 bg-header-gradient shadow-lg sticky top-0 z-20">
-        <button onClick={goBack} className="text-primary-foreground hover:bg-white/15 p-2 rounded-lg">
-          <ArrowLeft className="w-5 h-5" />
+    <div data-testid="dashboard-shell" className="flex min-h-screen flex-col bg-[hsl(210_20%_98%)] lg:h-[100dvh] lg:min-h-0 lg:overflow-hidden">
+      <header className="flex shrink-0 items-center gap-3 bg-header-gradient px-4 py-2 shadow-lg">
+        <button onClick={goBack} aria-label="Voltar" className="rounded-lg p-2 text-primary-foreground hover:bg-white/15">
+          <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex-1">
-          <span className="block font-display font-extrabold text-sm text-primary-foreground">Dashboard RDO Técnico</span>
-          <span className="block text-[11px] text-primary-foreground/80">Acompanhamento executivo de Engenharia</span>
+        <div className="min-w-0 flex-1">
+          <span className="block font-display text-sm font-extrabold text-primary-foreground">Dashboard RDO Técnico</span>
+          <span className="sr-only">CSV exporta todos os RDOs dos filtros gerais, independentemente da aba de assunto.</span>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={exportarCsvExecutivo} disabled={loading || !!erroCarga || linhasFiltradas.length === 0} variant="outline" className="h-9 rounded-xl bg-white/10 border-white/30 text-white hover:bg-white/20">
-            <Download className="w-4 h-4 mr-1" /> Resumo Exec.
+          <Button onClick={exportarCsvExecutivo} disabled={loading || !!erroCarga || linhasFiltradas.length === 0} variant="outline" className="h-9 rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20">
+            <Download className="mr-1 h-4 w-4" /> Resumo Exec.
           </Button>
-          <Button onClick={exportarCsv} disabled={loading || !!erroCarga || linhasFiltradas.length === 0} className="h-9 rounded-xl bg-white text-primary hover:bg-white/90">
-            <Download className="w-4 h-4 mr-1" /> CSV
+          <Button onClick={exportarCsv} title="CSV exporta todos os RDOs dos filtros gerais, independentemente da aba de assunto." disabled={loading || !!erroCarga || linhasFiltradas.length === 0} className="h-9 rounded-xl bg-white text-primary hover:bg-white/90">
+            <Download className="mr-1 h-4 w-4" /> CSV
           </Button>
         </div>
       </header>
 
-      <main className="max-w-[1500px] mx-auto p-4 space-y-4 pb-10">
-        <div className="rounded-2xl border bg-white p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground font-semibold">De</label>
-              <input type="date" value={dataIni} onChange={(e) => setDataIni(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground font-semibold">Até</label>
-              <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground font-semibold">Status</label>
-              <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm bg-white">
+      <div className="shrink-0 space-y-2 border-b bg-white px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">De
+            <input type="date" aria-label="De" value={dataIni} onChange={(e) => setDataIni(e.target.value)} className="h-9 rounded-lg border px-2 text-sm text-foreground" />
+          </label>
+          <label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">Até
+            <input type="date" aria-label="Até" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-9 rounded-lg border px-2 text-sm text-foreground" />
+          </label>
+          <select aria-label="OGS" value={filtroOgs} onChange={(e) => setFiltroOgs(e.target.value)} className="h-9 rounded-lg border bg-white px-2 text-sm">
+            <option value="">Todas as OGS</option>
+            {ogsOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <input aria-label="Busca rápida" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar OGS, equipe, tipo, motivo..." className="h-9 min-w-[140px] flex-1 rounded-lg border px-3 text-sm" />
+          <Button variant="outline" onClick={buscarDados} aria-label="Atualizar relatório" title="Atualizar relatório" className="h-9 rounded-lg px-3">
+            <RefreshCw className="mr-1 h-4 w-4" /> Atualizar
+          </Button>
+          <Button variant="outline" aria-expanded={maisFiltros} onClick={() => setMaisFiltros(v => !v)} className="h-9 rounded-lg">
+            <SlidersHorizontal className="mr-1 h-4 w-4" /> Mais filtros{maisFiltrosAtivos > 0 ? ` (${maisFiltrosAtivos})` : ""}
+            <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${maisFiltros ? "rotate-180" : ""}`} />
+          </Button>
+        </div>
+        {maisFiltros && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">Status
+              <select aria-label="Status" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} className="h-9 rounded-lg border bg-white px-2 text-sm text-foreground">
                 <option value="">Todos</option>
                 <option value="enviado">Enviado</option>
                 <option value="rascunho">Rascunho</option>
               </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground font-semibold">OGS</label>
-              <select value={filtroOgs} onChange={(e) => setFiltroOgs(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm bg-white">
-                <option value="">Todas</option>
-                {ogsOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground font-semibold">Engenheiro</label>
-              <select value={filtroEng} onChange={(e) => setFiltroEng(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm bg-white">
+            </label>
+            <label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">Engenheiro
+              <select aria-label="Engenheiro" value={filtroEng} onChange={(e) => setFiltroEng(e.target.value)} className="h-9 rounded-lg border bg-white px-2 text-sm text-foreground">
                 <option value="">Todos</option>
                 {engenheiroOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground font-semibold">Equipe / Setor</label>
-              <select value={filtroEquipe} onChange={(e) => setFiltroEquipe(e.target.value)} className="w-full h-10 rounded-xl border px-3 text-sm bg-white">
+            </label>
+            <label className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">Equipe / Setor
+              <select aria-label="Equipe / Setor" value={filtroEquipe} onChange={(e) => setFiltroEquipe(e.target.value)} className="h-9 rounded-lg border bg-white px-2 text-sm text-foreground">
                 <option value="">Todas</option>
                 {equipesFiltro.map((eq) => <option key={eq} value={eq}>{eq}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground font-semibold">Busca rápida</label>
-              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="OGS, equipe/setor, tipo, motivo..." className="w-full h-10 rounded-xl border px-3 text-sm" />
-            </div>
+            </label>
           </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={buscarDados} className="h-9 rounded-xl">
-              Atualizar relatório
-            </Button>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">CSV exporta todos os RDOs dos filtros gerais, independentemente da aba de assunto.</p>
-        </div>
-
-        {loading || (!erroCarga && (periodoCarregado.inicio !== dataIni || periodoCarregado.fim !== dataFim || periodoCarregado.filaInicio !== inicioFila)) ? (
-          <div className="rounded-2xl border bg-white p-12 text-center">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
-            <p className="text-sm text-muted-foreground mt-3">Carregando dados do RDO Técnico...</p>
-          </div>
-        ) : erroCarga ? (
-          <div role="alert" className="rounded-2xl border border-red-300 bg-red-50 p-5 text-red-800">{erroCarga}</div>
-        ) : (
-          <>
-            <section className="rounded-2xl border bg-white p-4 space-y-3">
-              <h2 className="text-lg font-bold">1. Preenchimento de RDO Técnico pelos engenheiros</h2>
-              <p className="text-sm text-muted-foreground">{fmtDate(dataIni)} a {fmtDate(dataFim)} · {lancamentosEngenheiros.reduce((s, p) => s + p.enviados, 0)} enviados · {lancamentosEngenheiros.reduce((s, p) => s + p.rascunhos, 0)} rascunhos</p>
-              <p className="text-xs text-amber-800">Autores e responsáveis do recorte, complementados pela lista de acompanhamento definida pela gestão. Exclusões dessa lista não retiram históricos dos indicadores nem alteram a fila de validação. Sem envio não comprova falta: não há escala por OGS/dia. Status, OGS, engenheiro, equipe e busca acima aplicam-se aos lançamentos técnicos. A fila de validação tem filtros próprios abaixo.</p>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[550px] text-sm">
-                  <thead className="bg-muted/40 text-left"><tr><th className="p-2">Engenheiro</th><th className="p-2">Enviados</th><th className="p-2">Rascunhos</th><th className="p-2">Último RDO Técnico</th></tr></thead>
-                  <tbody>{lancamentosEngenheiros.map(p => <tr key={p.id} className="border-t align-top">
-                    <td className="p-2 font-semibold"><details><summary className="cursor-pointer text-blue-700">{p.nome}</summary>
-                      <ul className="font-normal mt-2 space-y-1">{p.registros.length ? p.registros.map(r => <li key={r.id}>{fmtDate(r.data)} · OGS {r.ogs_number || "—"} · {r.status === "enviado" ? "Enviado" : "Rascunho"}</li>) : <li>Nenhum RDO Técnico nos filtros.</li>}</ul>
-                    </details></td>
-                    <td className="p-2 font-semibold">{p.enviados}</td><td className="p-2">{p.rascunhos}</td>
-                    <td className="p-2">{p.registros.length ? fmtDate(p.registros[0].data) : "—"}</td>
-                  </tr>)}</tbody>
-                </table>
-                {!lancamentosEngenheiros.length && <p className="p-3 text-sm text-muted-foreground">Nenhum engenheiro identificado.</p>}
-              </div>
-            </section>
-            <section className="rounded-2xl border bg-white p-4 space-y-3">
-              <h2 className="text-lg font-bold">2. Validações pendentes dos RDOs dos apontadores</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <label className="text-xs text-muted-foreground font-semibold">Recorte da fila
-                  <select aria-label="Recorte da fila" value={periodoFila} onChange={e => setPeriodoFila(e.target.value)} className="mt-1 w-full h-10 rounded-xl border px-2 text-sm bg-white">
-                    <option value="acumulado">Acumulada desde 17/07/2026</option><option value="periodo">Somente o período selecionado</option>
-                  </select>
-                </label>
-                <label className="text-xs text-muted-foreground font-semibold">Obra da fila
-                  <select aria-label="Obra da fila" value={obraFila} onChange={e => setObraFila(e.target.value)} className="mt-1 w-full h-10 rounded-xl border px-2 text-sm bg-white">
-                    <option value="">Todas as obras</option>{obrasFila.map(obra => <option key={obra} value={obra!}>{obra}</option>)}
-                  </select>
-                </label>
-                <label className="text-xs text-muted-foreground font-semibold">Responsável pela validação
-                  <select aria-label="Responsável pela validação" value={engenheiroFila} onChange={e => setEngenheiroFila(e.target.value)} className="mt-1 w-full h-10 rounded-xl border px-2 text-sm bg-white">
-                    <option value="">Todos os responsáveis</option><option value="__sem_identificacao">Sem identificação por ID</option>
-                    {engenheiroOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </label>
-                <label className="text-xs text-muted-foreground font-semibold">Busca na fila
-                  <input aria-label="Busca na fila" value={buscaFila} onChange={e => setBuscaFila(e.target.value)} placeholder="Obra ou responsável" className="mt-1 w-full h-10 rounded-xl border px-2 text-sm" />
-                </label>
-              </div>
-              <p className="text-sm text-muted-foreground" data-testid="total-fila-validacao">{filaFiltrada.length} pendentes no total · {validacoesPendentes.reduce((s, p) => s + p.pendentes.length, 0)} vinculados · {monitoramento.unassigned.length} sem identificação por ID. {dataFim < ENGINEERING_VALIDATION_START ? "Não há fila de validação antes do marco de 17/07/2026." : `RDOs de ${fmtDate(inicioFila)} até ${fmtDate(dataFim)}.`}</p>
-              <p className="text-xs text-amber-800">Somente RDOs visíveis ao seu acesso; "mais antigo" indica a data do RDO, não a data do envio para validação. Esta tabela não avalia validações já concluídas.</p>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[550px] text-sm">
-                  <thead className="bg-muted/40 text-left"><tr><th className="p-2">Engenheiro responsável</th><th className="p-2">Aguardando validação</th><th className="p-2">Data do RDO mais antigo</th></tr></thead>
-                  <tbody>{validacoesPendentes.map(p => <tr key={p.id} className="border-t align-top">
-                    <td className="p-2 font-semibold"><details><summary className="cursor-pointer text-blue-700">{p.nome}</summary>
-                      <ul className="font-normal mt-2 space-y-1">{p.pendentes.map(r => <li key={r.id}>{fmtDate(r.data)} · {r.obra_nome || "Obra não identificada"}</li>)}</ul>
-                    </details></td>
-                    <td className="p-2 font-bold text-orange-700">{p.pendentes.length}</td>
-                    <td className="p-2">{fmtDate(p.pendentes[p.pendentes.length - 1].data)}</td>
-                  </tr>)}</tbody>
-                </table>
-                {!validacoesPendentes.length && <p className="p-3 text-sm text-muted-foreground">Nenhum RDO pendente vinculado nos filtros atuais.</p>}
-              </div>
-              {monitoramento.unassigned.length > 0 && <p className="text-sm text-amber-800">{monitoramento.unassigned.length} pendentes sem engenheiro identificado por perfil de usuário — conferir vínculo antes de cobrar alguém.</p>}
-              {(pendenciasSemVinculo.encarregado.length > 0 || pendenciasSemVinculo.engenharia.length > 0) && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 space-y-2">
-                  <p className="font-semibold">Conferência de vínculos pendentes — não atribuir por semelhança de nome</p>
-                  <p>Encarregado: {pendenciasSemVinculo.encarregado.length} sem ID · Engenharia: {pendenciasSemVinculo.engenharia.length} sem ID. RDOs pendentes de {fmtDate(inicioFila)} até {fmtDate(dataFim)}.</p>
-                  <details><summary className="cursor-pointer font-semibold">Ver RDOs sem encarregado vinculado</summary>
-                    <ul className="mt-2 max-h-56 overflow-y-auto space-y-1">
-                      {pendenciasSemVinculo.encarregado.map(r => <li key={r.id}>{fmtDate(r.data)} · OGS {r.obra_nome || "—"} · {r.encarregado || "Sem encarregado informado"} · ID {r.id}</li>)}
-                    </ul>
-                  </details>
-                  <details><summary className="cursor-pointer font-semibold">Ver RDOs sem engenheiro vinculado</summary>
-                    <ul className="mt-2 max-h-56 overflow-y-auto space-y-1">
-                      {pendenciasSemVinculo.engenharia.map(r => <li key={r.id}>{fmtDate(r.data)} · OGS {r.obra_nome || "—"} · {r.engenheiro_responsavel || "Sem engenheiro informado"} · ID {r.id}</li>)}
-                    </ul>
-                  </details>
-                </div>
-              )}
-            </section>
-            <section className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              <KpiCard icon={ClipboardList} titulo="RDOs registrados (inclui rascunhos)" valor={fmtNum(kpis.total)} cor="text-slate-700" delta={comparativo.total.delta} deltaPct={comparativo.total.perc} />
-              <KpiCard icon={BarChart3} titulo="RDOs com produção" valor={fmtNum(kpis.comProducao)} cor="text-blue-700" delta={comparativo.comProducao.delta} deltaPct={comparativo.comProducao.perc} />
-              <KpiCard icon={AlertTriangle} titulo="RDOs sem produção" valor={fmtNum(kpis.semProducao)} cor="text-red-700" delta={comparativo.semProducao.delta} deltaPct={comparativo.semProducao.perc} invert />
-              <KpiCard icon={Gauge} titulo="RDOs não conformes" valor={fmtNum(kpis.naoConformeEquip)} cor="text-orange-700" delta={comparativo.naoConforme.delta} deltaPct={comparativo.naoConforme.perc} invert />
-              <KpiCard icon={Users} titulo="Produção (t)" valor={fmtNum(kpis.toneladas, 1)} cor="text-emerald-700" delta={comparativo.toneladas.delta} deltaPct={comparativo.toneladas.perc} />
-              <KpiCard icon={Activity} titulo="Produção (m²)" valor={fmtNum(kpis.areaM2, 1)} cor="text-indigo-700" delta={comparativo.areaM2.delta} deltaPct={comparativo.areaM2.perc} />
-            </section>
-
-            <section className="rounded-2xl border bg-white p-4">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <h3 className="text-sm font-bold">Comparativo com período anterior</h3>
-                <p className="text-xs text-muted-foreground">
-                  Atual: <span className="font-semibold text-foreground">{fmtDate(dataIni)} a {fmtDate(dataFim)}</span> ·
-                  Anterior: <span className="font-semibold text-foreground"> {fmtDate(periodoAnterior.anteriorIni)} a {fmtDate(periodoAnterior.anteriorFim)}</span>
-                </p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
-                <ComparativoCard titulo="RDOs registrados (inclui rascunhos)" atual={comparativo.total.atual} anterior={comparativo.total.anterior} delta={comparativo.total.delta} perc={comparativo.total.perc} />
-                <ComparativoCard titulo="RDOs com produção" atual={comparativo.comProducao.atual} anterior={comparativo.comProducao.anterior} delta={comparativo.comProducao.delta} perc={comparativo.comProducao.perc} />
-                <ComparativoCard titulo="RDOs sem produção" atual={comparativo.semProducao.atual} anterior={comparativo.semProducao.anterior} delta={comparativo.semProducao.delta} perc={comparativo.semProducao.perc} invert />
-                <ComparativoCard titulo="Produção (t)" atual={comparativo.toneladas.atual} anterior={comparativo.toneladas.anterior} delta={comparativo.toneladas.delta} perc={comparativo.toneladas.perc} frac={1} />
-                <ComparativoCard titulo="Produção (m²)" atual={comparativo.areaM2.atual} anterior={comparativo.areaM2.anterior} delta={comparativo.areaM2.delta} perc={comparativo.areaM2.perc} frac={1} />
-                <ComparativoCard titulo="Conformidade de equipamentos (%)" atual={comparativo.conformidade.atual} anterior={comparativo.conformidade.anterior} delta={comparativo.conformidade.delta} perc={comparativo.conformidade.perc} frac={1} />
-              </div>
-            </section>
-
-            {(kpis.semNomeEng > 0 || kpis.usinaNaoAtendeu > 0 || kpis.naoConformeEquip > 0 || kpis.semProducao > 0) && (
-              <section className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm">
-                <p className="font-semibold text-amber-900">Contexto operacional do período</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button onClick={() => setTab("sem_producao")} className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-slate-700 font-semibold hover:bg-slate-100">
-                    Sem produção: {kpis.semProducao}
-                  </button>
-                  <span data-testid="resumo-sem-producao" className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-slate-700">{kpis.folgasFeriados} folga/feriado · {kpis.outrosMotivosSemProducao} outros motivos</span>
-                  <button onClick={() => setTab("usina")} className="rounded-lg border border-orange-300 bg-orange-50 px-2.5 py-1 text-orange-700 font-semibold hover:bg-orange-100">
-                    Usina não atendeu: {kpis.usinaNaoAtendeu}
-                  </button>
-                  <button onClick={() => setTab("equipamentos")} className="rounded-lg border border-yellow-300 bg-yellow-50 px-2.5 py-1 text-yellow-700 font-semibold hover:bg-yellow-100">
-                    Não conformidade de equipamentos: {kpis.naoConformeEquip}
-                  </button>
-                  <span className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-slate-700 font-semibold">
-                    Engenheiro sem identificação: {kpis.semNomeEng}
-                  </span>
-                </div>
-              </section>
-            )}
-
-            <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <div className="rounded-2xl border bg-white p-4">
-                <h3 className="text-sm font-bold mb-2">Status de lançamento e qualidade operacional</h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl border p-3 bg-green-50 border-green-200">
-                    <p className="text-xs text-green-700 font-semibold uppercase">Enviados</p>
-                    <p className="text-2xl font-black text-green-800">{fmtNum(kpis.enviados)}</p>
-                  </div>
-                  <div className="rounded-xl border p-3 bg-amber-50 border-amber-200">
-                    <p className="text-xs text-amber-700 font-semibold uppercase">Rascunhos</p>
-                    <p className="text-2xl font-black text-amber-800">{fmtNum(kpis.rascunhos)}</p>
-                  </div>
-                  <div className="rounded-xl border p-3 bg-cyan-50 border-cyan-200">
-                    <p className="text-xs text-cyan-700 font-semibold uppercase">Com chuva</p>
-                    <p className="text-2xl font-black text-cyan-800">{fmtNum(kpis.comChuva)}</p>
-                  </div>
-                  <div className="rounded-xl border p-3 bg-violet-50 border-violet-200">
-                    <p className="text-xs text-violet-700 font-semibold uppercase">Conformidade dos equipamentos</p>
-                    <p className="text-2xl font-black text-violet-800">{fmtNum(kpis.percConformeEquip, 1)}%</p>
-                  </div>
-                </div>
-                <div className="mt-3 text-xs text-muted-foreground">
-                  Volume técnico: <span className="font-semibold text-foreground">{fmtNum(kpis.toneladas, 1)} t</span> ·
-                  Área: <span className="font-semibold text-foreground"> {fmtNum(kpis.areaM2, 1)} m²</span> ·
-                  Base/Volume: <span className="font-semibold text-foreground"> {fmtNum(kpis.volumeM3, 1)} m³</span>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border bg-white p-4">
-                <h3 className="text-sm font-bold mb-2">Top engenheiros por RDOs enviados</h3>
-                <div className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={serieEngenheiro} layout="vertical" margin={{ left: 10, right: 10, top: 4, bottom: 4 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis type="number" allowDecimals={false} />
-                      <YAxis type="category" dataKey="name" width={220} tick={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#2563eb" radius={[0, 6, 6, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border bg-white overflow-hidden">
-              <p className="px-4 py-3 text-xs text-muted-foreground">Somente RDOs Técnicos enviados; rascunhos não geram alertas. São sinais registrados, não a fila de aprovação dos apontadores nem comprovação de uma ação ainda em aberto. Folga/feriado, por si só, não gera alerta.</p>
-              <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
-                <h3 className="text-sm font-bold">Alertas operacionais dos RDOs Técnicos</h3>
-                <span className="text-xs text-muted-foreground">Exibindo {exibirTodosAlertas ? alertasOperacionais.length : Math.min(20, alertasOperacionais.length)} de {alertasOperacionais.length} alertas</span>
-              </div>
-
-              {alertasOperacionais.length > 20 && <button onClick={() => setExibirTodosAlertas(atual => !atual)} className="mx-4 my-2 text-sm font-semibold text-primary underline">{exibirTodosAlertas ? "Mostrar apenas os 20 primeiros" : "Ver todos os alertas"}</button>}
-
-              {alertasOperacionais.length === 0 ? (
-                <div className="px-4 py-8 text-sm text-muted-foreground text-center">
-                  Nenhum alerta operacional encontrado nos filtros atuais.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[980px] text-sm">
-                    <thead className="bg-muted/40 sticky top-0 z-10">
-                      <tr className="text-left text-xs text-muted-foreground">
-                        <th className="px-3 py-2">Prioridade</th>
-                        <th className="px-3 py-2">Data</th>
-                        <th className="px-3 py-2">OGS</th>
-                        <th className="px-3 py-2">Engenheiro</th>
-                        <th className="px-3 py-2">Equipe</th>
-                        <th className="px-3 py-2">Assunto</th>
-                        <th className="px-3 py-2">Detalhe</th>
-                        <th className="px-3 py-2">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {alertasOperacionais.slice(0, exibirTodosAlertas ? alertasOperacionais.length : 20).map((p) => (
-                        <tr key={p.id} className="border-t align-top">
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${p.prioridade === "Alta" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                              {p.prioridade}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap">{fmtDate(p.rdo.data)}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{p.rdo.ogs_number || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{p.rdo.engenheiro_id ? (engMap[p.rdo.engenheiro_id] || "-") : "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{p.rdo.equipe || "-"}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{p.assunto}</td>
-                          <td className="px-3 py-2 max-w-[360px]">{p.detalhe}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            <button
-                              onClick={() => {
-                                setTab(p.tabDestino);
-                                setBusca((p.rdo.ogs_number || p.rdo.equipe || "").trim());
-                              }}
-                              className="rounded-lg border px-2.5 py-1 text-xs font-semibold hover:bg-muted"
-                            >
-                              Ver assunto
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-2xl border bg-white p-3">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">Botões de acompanhamento por assunto do RDO Técnico</p>
-              <div className="flex flex-wrap gap-2">
-                {TAB_META.map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    onClick={() => setTab(id)}
-                    className={`inline-flex items-center gap-2 h-9 px-3 rounded-xl border text-sm font-semibold transition-colors ${tab === id ? "bg-primary text-white border-primary" : "bg-white border-border hover:bg-muted"}`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {tab === "producao" && (
-              <section data-testid="atividades-qualitativas" className="rounded-2xl border bg-white p-4 space-y-2">
-                <h3 className="text-sm font-bold">Atividades qualitativas</h3>
-                <div className="flex flex-wrap gap-2 text-sm">
-                  <span className="rounded-lg border bg-slate-50 px-2.5 py-1">INFRA: <strong data-testid="qualitativa-infra">{atividadesQualitativas.infra}</strong></span>
-                  <span className="rounded-lg border bg-slate-50 px-2.5 py-1">ENSAIOS E EXTRAÇÕES: <strong data-testid="qualitativa-ensaios">{atividadesQualitativas.ensaios}</strong></span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Contagem de RDOs por atividade, nos filtros atuais. Um RDO pode aparecer em mais de uma atividade (os valores podem se sobrepor) e os números não representam t, m² ou m³, nem alteram as somas de medição.
-                </p>
-              </section>
-            )}
-
-            {renderTabelaAssunto()}
-          </>
         )}
-      </main>
+      </div>
+
+      <div data-testid="faixa-kpis" className="grid shrink-0 grid-cols-3 gap-1.5 px-3 py-1.5 lg:grid-cols-6 lg:gap-2 lg:py-2">
+        <KpiCard icon={ClipboardList} titulo="RDOs (inclui rascunhos)" valor={pronto ? fmtNum(kpis.total) : "—"} cor="text-slate-700" delta={pronto ? comparativo.total.delta : undefined} deltaPct={pronto ? comparativo.total.perc : undefined} />
+        <KpiCard icon={BarChart3} titulo="Com produção" valor={pronto ? fmtNum(kpis.comProducao) : "—"} cor="text-blue-700" delta={pronto ? comparativo.comProducao.delta : undefined} deltaPct={pronto ? comparativo.comProducao.perc : undefined} />
+        <KpiCard icon={AlertTriangle} titulo="Sem produção" valor={pronto ? fmtNum(kpis.semProducao) : "—"} cor="text-red-700" delta={pronto ? comparativo.semProducao.delta : undefined} deltaPct={pronto ? comparativo.semProducao.perc : undefined} invert />
+        <KpiCard icon={Gauge} titulo="Não conformes" valor={pronto ? fmtNum(kpis.naoConformeEquip) : "—"} cor="text-orange-700" delta={pronto ? comparativo.naoConforme.delta : undefined} deltaPct={pronto ? comparativo.naoConforme.perc : undefined} invert />
+        <KpiCard icon={Users} titulo="Produção (t)" valor={pronto ? fmtNum(kpis.toneladas, 1) : "—"} cor="text-emerald-700" delta={pronto ? comparativo.toneladas.delta : undefined} deltaPct={pronto ? comparativo.toneladas.perc : undefined} />
+        <KpiCard icon={Activity} titulo="Produção (m²)" valor={pronto ? fmtNum(kpis.areaM2, 1) : "—"} cor="text-indigo-700" delta={pronto ? comparativo.areaM2.delta : undefined} deltaPct={pronto ? comparativo.areaM2.perc : undefined} />
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 lg:flex-row">
+        <label className="shrink-0 text-xs font-semibold text-muted-foreground lg:hidden">Seção
+          <select aria-label="Seção do Dashboard" value={secao} onChange={(e) => irSecao(e.target.value as Secao)} className="mt-0.5 h-10 w-full rounded-lg border bg-white px-2 text-sm font-semibold text-foreground">
+            {SECOES_META.map(({ id, label }) => <option key={id} value={id}>{`${label} (${contadores[id]})`}</option>)}
+          </select>
+        </label>
+        <nav aria-label="Seções do Dashboard" className="hidden shrink-0 gap-1.5 rounded-xl border bg-white p-2 lg:flex lg:w-56 lg:flex-col lg:flex-nowrap lg:overflow-y-auto">
+          {SECOES_META.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => irSecao(id)}
+              aria-current={secao === id ? "page" : undefined}
+              className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors lg:w-full ${secao === id ? "border-primary bg-primary text-white" : "border-transparent bg-white hover:bg-muted"}`}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="truncate">{label}</span>
+              <span className={`ml-auto rounded-full px-2 text-xs ${secao === id ? "bg-white/25" : "bg-muted text-muted-foreground"}`}>{contadores[id]}</span>
+            </button>
+          ))}
+        </nav>
+
+        <main ref={painelRef} data-testid="painel-secao" className="min-h-0 min-w-0 flex-1 overflow-y-auto rounded-xl border bg-white p-3">
+          {carregando ? (
+            <div className="p-12 text-center">
+              <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+              <p className="mt-3 text-sm text-muted-foreground">Carregando dados do RDO Técnico...</p>
+            </div>
+          ) : erroCarga ? (
+            <div role="alert" className="rounded-2xl border border-red-300 bg-red-50 p-5 text-red-800">{erroCarga}</div>
+          ) : renderSecao()}
+        </main>
+      </div>
+
+      <Dialog open={!!detalhe} onOpenChange={(aberto) => { if (!aberto) setDetalhe(null); }}>
+        <DialogContent className="max-h-[85dvh] max-w-2xl overflow-y-auto">
+          {detalhe && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Detalhes do RDO Técnico</DialogTitle>
+                <DialogDescription>{fmtDate(detalhe.rdo.data)} · OGS {detalhe.rdo.ogs_number || "-"} · somente leitura</DialogDescription>
+              </DialogHeader>
+              <dl className="grid grid-cols-[150px_1fr] gap-x-3 gap-y-1.5 text-sm">
+                {camposDetalhe(detalhe.rdo, detalhe.assunto, engMap, detalhe.alerta).map(c => (
+                  <Fragment key={c.label}>
+                    <dt className="text-xs font-semibold text-muted-foreground">{c.label}</dt>
+                    <dd data-testid={c.testId} className={`whitespace-pre-wrap break-words ${c.aviso ? "font-semibold text-amber-700" : ""}`}>{c.value}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!engDialogo} onOpenChange={(aberto) => { if (!aberto) setDialogoEng(null); }}>
+        <DialogContent className="max-h-[85dvh] max-w-2xl overflow-hidden">
+          {engDialogo && dialogoEng?.tipo === "registros" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>RDOs Técnicos — {(engDialogo as { nome: string }).nome}</DialogTitle>
+                <DialogDescription>Registros do engenheiro nos filtros técnicos atuais, somente leitura.</DialogDescription>
+              </DialogHeader>
+              <TabelaPaginada className="max-h-[50dvh]" tamanho={10} itens={(engDialogo as (typeof lancamentosEngenheiros)[number]).registros} getKey={r => r.id}
+                resetKey={`reg|${dialogoEng.id}|${chaveTecnica}`} vazio="Nenhum RDO Técnico nos filtros." rotulo="registros" minWidth={420}
+                colunas={[
+                  { titulo: "Data", render: r => fmtDate(r.data) },
+                  { titulo: "OGS", render: r => r.ogs_number || "—" },
+                  { titulo: "Status", render: r => (r.status === "enviado" ? "Enviado" : "Rascunho") },
+                  { titulo: "ID do RDO", className: "break-all text-xs", render: r => r.id },
+                ]} />
+            </>
+          )}
+          {engDialogo && dialogoEng?.tipo === "pendentes" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Pendências de validação — {(engDialogo as { nome: string }).nome}</DialogTitle>
+                <DialogDescription>RDOs dos apontadores aguardando validação, no recorte da fila ({rotuloFila}). Somente leitura.</DialogDescription>
+              </DialogHeader>
+              <TabelaPaginada className="max-h-[50dvh]" tamanho={10} itens={(engDialogo as (typeof validacoesPendentes)[number]).pendentes} getKey={r => r.id}
+                resetKey={`pen|${dialogoEng.id}|${chaveFila}`} vazio="Nenhum RDO pendente." rotulo="pendências" minWidth={420}
+                colunas={[
+                  { titulo: "Data", render: r => fmtDate(r.data) },
+                  { titulo: "Obra", render: r => r.obra_nome || "Obra não identificada" },
+                  { titulo: "ID do RDO", className: "break-all text-xs", render: r => r.id },
+                ]} />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={distribuicaoAberta} onOpenChange={setDistribuicaoAberta}>
+        <DialogContent className="max-h-[85dvh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Top engenheiros por RDOs enviados</DialogTitle>
+            <DialogDescription>RDOs Técnicos enviados nos filtros técnicos atuais (rascunhos não entram). Somente leitura.</DialogDescription>
+          </DialogHeader>
+          <div className="h-[260px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={serieEngenheiro} layout="vertical" margin={{ left: 10, right: 10, top: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis type="number" allowDecimals={false} />
+                <YAxis type="category" dataKey="name" width={170} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#2563eb" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <ol data-testid="distribuicao-engenheiros" className="space-y-0.5 text-sm">
+            {serieEngenheiro.map(s => <li key={s.name} className="flex justify-between gap-3"><span>{s.name}</span><strong>{s.value}</strong></li>)}
+          </ol>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!dialogoVinculo}onOpenChange={(aberto) => { if (!aberto) setDialogoVinculo(null); }}>
+        <DialogContent className="max-h-[85dvh] max-w-3xl overflow-hidden">
+          {dialogoVinculo && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{dialogoVinculo === "encarregado" ? "RDOs sem encarregado vinculado" : "RDOs sem engenheiro vinculado"}</DialogTitle>
+                <DialogDescription>{listaVinculo.length} RDOs pendentes de {fmtDate(inicioFila)} até {fmtDate(dataFim)}. Não atribuir por semelhança de nome; somente leitura.</DialogDescription>
+              </DialogHeader>
+              <TabelaPaginada className="max-h-[50dvh]" tamanho={10} itens={listaVinculo} getKey={r => r.id}
+                resetKey={`vin|${dialogoVinculo}|${chaveFila}`} vazio="Nenhum RDO nesta conferência." rotulo="RDOs" minWidth={560}
+                colunas={[
+                  { titulo: "Data", render: r => fmtDate(r.data) },
+                  { titulo: "OGS", render: r => r.obra_nome || "—" },
+                  dialogoVinculo === "encarregado"
+                    ? { titulo: "Encarregado", render: r => r.encarregado || "Sem encarregado informado" }
+                    : { titulo: "Engenheiro", render: r => r.engenheiro_responsavel || "Sem engenheiro informado" },
+                  { titulo: "ID do RDO", className: "break-all text-xs", render: r => `ID ${r.id}` },
+                ]} />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+// Nível de módulo: definido dentro do componente remontaria a seção (e zeraria a paginação) a cada render.
+function SecaoShell({ titulo, subtitulo, children }: { titulo: string; subtitulo?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="flex min-h-0 flex-col gap-2 lg:h-full">
+      <div className="shrink-0">
+        <h2 className="text-base font-bold leading-tight">{titulo}</h2>
+        {subtitulo && <p className="text-sm text-muted-foreground">{subtitulo}</p>}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -1225,17 +1407,15 @@ function KpiCard({
   invert?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border bg-white p-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-bold">{titulo}</span>
-        <Icon className={`w-4 h-4 ${cor}`} />
+    <div className="min-w-0 rounded-xl border bg-white px-2 py-1.5 lg:px-3 lg:py-2">
+      <div className="flex items-center justify-between gap-1">
+        <span className="truncate text-xs font-bold text-muted-foreground" title={titulo}>{titulo}</span>
+        <Icon className={`hidden h-4 w-4 shrink-0 sm:block ${cor}`} />
       </div>
-      <p className="text-2xl font-black mt-1 text-foreground leading-none">{valor}</p>
-      {delta != null && deltaPct !== undefined ? (
-        <div className="mt-2">
-          <DeltaPill delta={delta} perc={deltaPct} invert={invert} />
-        </div>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <p className="text-xl font-black leading-tight text-foreground">{valor}</p>
+        {delta != null && deltaPct !== undefined ? <span className="hidden sm:inline-flex"><DeltaPill delta={delta} perc={deltaPct} invert={invert} /></span> : null}
+      </div>
     </div>
   );
 }
@@ -1252,50 +1432,9 @@ function DeltaPill({ delta, perc, invert }: { delta: number; perc: number | null
       : "bg-rose-100 text-rose-700";
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>
       {isNeutral ? <Minus className="w-3 h-3" /> : isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
       {delta > 0 ? "+" : ""}{fmtNum(delta, 1)} ({perc === null ? "Sem base percentual" : `${perc > 0 ? "+" : ""}${fmtNum(perc, 1)}%`})
     </span>
-  );
-}
-
-function ComparativoCard({
-  titulo,
-  atual,
-  anterior,
-  delta,
-  perc,
-  frac,
-  invert,
-}: {
-  titulo: string;
-  atual: number;
-  anterior: number;
-  delta: number;
-  perc: number | null;
-  frac?: number;
-  invert?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border p-3 bg-muted/10">
-      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{titulo}</p>
-      <div className="mt-1 flex items-end justify-between gap-2">
-        <div>
-          <p className="text-2xl font-black leading-none">{fmtNum(atual, frac ?? 0)}</p>
-          <p className="text-[11px] text-muted-foreground mt-1">Anterior: {fmtNum(anterior, frac ?? 0)}</p>
-        </div>
-        <DeltaPill delta={delta} perc={perc} invert={invert} />
-      </div>
-    </div>
-  );
-}
-
-function AssuntoResumoCard({ titulo, total, texto }: { titulo: string; total: number; texto: string }) {
-  return (
-    <div className="rounded-xl border p-3 bg-muted/20">
-      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{titulo}</p>
-      <p className="text-2xl font-black mt-1">{total}</p>
-      <p className="text-xs text-muted-foreground mt-1">{texto}</p>
-    </div>
   );
 }
