@@ -10,6 +10,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 import { assessVacationPlan, activeVacation, summarizeVacation } from "@/lib/vacationPlanning";
+import { ManualVacationHistory, type ManualHistoryPayload } from "@/components/ManualVacationHistory";
 
 const COMPANY_ID = DEFAULT_COMPANY_ID;
 
@@ -52,9 +53,22 @@ interface VacationRecord {
   confirmacao_observacao?: string | null;
 }
 
+interface ManualHistoryRecord {
+  id: string;
+  employee_id: string;
+  data_inicio: string;
+  data_fim: string;
+  dias: number;
+  tipo: "individual" | "coletiva";
+  fonte: string;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+}
+
 interface EmployeeWithVacation extends Employee {
   periodos: VacationPeriod[];
   records: VacationRecord[];
+  manualHistory: ManualHistoryRecord[];
 }
 
 function fmtDate(d?: string | null) {
@@ -311,21 +325,25 @@ function ModalFerias({
 function CardFuncionario({
   emp,
   onRegistrar,
+  onRegistrarHistorico,
   onToggle,
   onAbrirFicha,
   onConfirmarProgramacao,
   onMarcarNaoConfirmada,
   expanded,
   canManageWorkflow,
+  canManageHistory,
 }: {
   emp: EmployeeWithVacation;
   onRegistrar: () => void;
+  onRegistrarHistorico: () => void;
   onToggle: () => void;
   onAbrirFicha: () => void;
   onConfirmarProgramacao: (recordId: string) => void;
   onMarcarNaoConfirmada: (recordId: string) => void;
   expanded: boolean;
   canManageWorkflow: boolean;
+  canManageHistory: boolean;
 }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const periodoAtual = emp.periodos.find(p => p.status !== "gozado") || emp.periodos[0];
@@ -463,6 +481,19 @@ function CardFuncionario({
             </div>
           )}
 
+          {emp.manualHistory.length > 0 && (
+            <div style={{ marginBottom: 12, padding: 10, borderRadius: 10, background: "#f0f9ff" }}>
+              <p style={{ fontSize: 11, fontWeight: 800, color: "#075985", marginBottom: 6 }}>FÉRIAS JÁ GOZADAS · HISTÓRICO INFORMADO PELO RH</p>
+              <p style={{ fontSize: 11, color: "#475569", marginBottom: 6 }}>Registros históricos não homologam o saldo automaticamente.</p>
+              {emp.manualHistory.map((h) => (
+                <p key={h.id} style={{ fontSize: 12, marginBottom: 6 }}>
+                  {fmtDate(h.data_inicio)} → {fmtDate(h.data_fim)} · {h.dias} dias · {h.tipo === "coletiva" ? "Coletiva" : "Individual"} · Fonte: {h.fonte}
+                  <span style={{ color: "#64748b" }}> · {h.periodo_inicio ? `Aquisitivo ${fmtDate(h.periodo_inicio)}–${fmtDate(h.periodo_fim)}` : "Período aquisitivo a conferir"}</span>
+                </p>
+              ))}
+            </div>
+          )}
+
           {/* Histórico de registros */}
           {emp.records.length > 0 && (
             <div style={{ marginBottom: 12 }}>
@@ -504,6 +535,11 @@ function CardFuncionario({
             {proxPeriodo && ` · Próximo período: ${fmtDate(proxPeriodo)}`}
           </p>
 
+          {canManageHistory && (
+            <button type="button" onClick={onRegistrarHistorico} style={{ width: "100%", height: 40, marginBottom: 8, borderRadius: 10, border: "1px solid #0369a1", background: "#f0f9ff", color: "#075985", fontWeight: 700, fontSize: 12 }}>
+              Registrar férias já gozadas
+            </button>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <button onClick={onAbrirFicha} style={{
               height: 40, borderRadius: 10, background: "#eef2ff",
@@ -548,6 +584,9 @@ export default function ProgramacaoFerias() {
   const [busca, setBusca] = useState(buscaInicial);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalEmp, setModalEmp] = useState<Employee | null>(null);
+  const [manualEmp, setManualEmp] = useState<EmployeeWithVacation | null>(null);
+  const [manualHistoryError, setManualHistoryError] = useState("");
+  const [canManageHistory, setCanManageHistory] = useState(false);
   const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar">(filtroInicial);
   const [focoAplicado, setFocoAplicado] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
@@ -571,6 +610,11 @@ export default function ProgramacaoFerias() {
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData?.user?.id || "";
     setCurrentUserId(userId);
+    if (userId) {
+      const { data: rhPerm } = await supabase.from("user_permissions").select("modulo_rh")
+        .eq("company_id", COMPANY_ID).eq("user_id", userId).maybeSingle();
+      setCanManageHistory(rhPerm?.modulo_rh === true);
+    } else setCanManageHistory(false);
 
     const { data: emps } = await supabase
       .from("employees")
@@ -591,6 +635,17 @@ export default function ProgramacaoFerias() {
       .select("*")
       .eq("company_id", COMPANY_ID)
       .order("data_inicio", { ascending: false });
+
+    const manualHistory: ManualHistoryRecord[] = [];
+    setManualHistoryError("");
+    for (let offset = 0; ; offset += 500) {
+      const { data: page, error } = await (supabase as any).from("vacation_manual_history")
+        .select("id,employee_id,data_inicio,data_fim,dias,tipo,fonte,periodo_inicio,periodo_fim")
+        .eq("company_id", COMPANY_ID).order("id").range(offset, offset + 499);
+      if (error) { setManualHistoryError(`Histórico manual indisponível: ${error.message}`); break; }
+      manualHistory.push(...((page || []) as ManualHistoryRecord[]));
+      if (!page || page.length < 500) break;
+    }
 
     if (isAdmin && userId) {
       try {
@@ -656,6 +711,7 @@ export default function ProgramacaoFerias() {
         ...e,
         periodos: ((periods || []) as VacationPeriod[]).filter((p) => p.employee_id === e.id),
         records: recordsTyped.filter((r) => r.employee_id === e.id),
+        manualHistory: manualHistory.filter((r) => r.employee_id === e.id),
       };
     });
 
@@ -679,6 +735,23 @@ export default function ProgramacaoFerias() {
     }
     setFocoAplicado(true);
   }, [loading, focoAplicado, focoFuncionarioId, employees, buscaInicial]);
+
+  const salvarHistoricoManual = async (emp: EmployeeWithVacation, entry: ManualHistoryPayload) => {
+    const { data: id, error } = await (supabase as any).rpc("rh_ferias_registrar_gozo_passado", {
+      p_company_id: COMPANY_ID, p_employee_id: emp.id,
+      p_inicio: entry.start, p_fim: entry.end, p_tipo: entry.kind,
+      p_fonte: entry.source, p_observacao: entry.note || null,
+      p_periodo_inicio: entry.acquisitionStart, p_periodo_fim: entry.acquisitionEnd,
+    });
+    if (error) throw error;
+    if (!id) throw new Error("O RH não recebeu o identificador do histórico. Confira antes de tentar novamente.");
+    const { data: saved, error: readError } = await (supabase as any).from("vacation_manual_history")
+      .select("id,employee_id,data_inicio,data_fim").eq("id", id).eq("company_id", COMPANY_ID).single();
+    if (readError || saved?.employee_id !== emp.id || saved?.data_inicio !== entry.start || saved?.data_fim !== entry.end) {
+      throw new Error("Registro gravado, mas não foi possível confirmar a leitura. Não envie novamente antes de conferir o histórico.");
+    }
+    await load();
+  };
 
   const abrirFichaFuncionario = (emp: EmployeeWithVacation) => {
     const retParams = new URLSearchParams();
@@ -857,6 +930,7 @@ export default function ProgramacaoFerias() {
       </div>
 
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px" }}>
+        {manualHistoryError && <p role="alert" style={{ padding: 10, color: "#b91c1c" }}>{manualHistoryError}</p>}
         {totalAConfirmar > 0 && (
           <div style={{
             marginBottom: 12,
@@ -910,15 +984,29 @@ export default function ProgramacaoFerias() {
               expanded={expandedId === emp.id}
               onToggle={() => setExpandedId(expandedId === emp.id ? null : emp.id)}
               onRegistrar={() => { setModalEmp(emp); setExpandedId(null); }}
+              onRegistrarHistorico={() => setManualEmp(emp)}
               onAbrirFicha={() => abrirFichaFuncionario(emp)}
               onConfirmarProgramacao={(recordId) => atualizarWorkflowFerias(recordId, "confirmada")}
               onMarcarNaoConfirmada={(recordId) => abrirModalNaoConfirmada(recordId)}
               canManageWorkflow={isAdmin}
+              canManageHistory={canManageHistory}
             />
           ))
         )}
       </div>
 
+      {manualEmp && (
+        <ManualVacationHistory
+          employee={manualEmp}
+          today={new Date().toISOString().slice(0, 10)}
+          existing={[
+            ...manualEmp.manualHistory.map((h) => ({ start: h.data_inicio, end: h.data_fim })),
+            ...manualEmp.records.filter((r) => r.workflow_status !== "nao_confirmada").map((r) => ({ start: r.data_inicio, end: r.data_fim })),
+          ]}
+          onClose={() => setManualEmp(null)}
+          onSave={(entry) => salvarHistoricoManual(manualEmp, entry)}
+        />
+      )}
       {/* Modal */}
       {modalEmp && (
         <ModalFerias
