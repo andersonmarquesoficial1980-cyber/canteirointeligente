@@ -37,20 +37,27 @@ export function activeVacation(records: VacationRecordInput[], today: string): b
   return records.some((r) => r.workflow_status === "confirmada" && r.data_inicio <= today && r.data_fim >= today);
 }
 
-export function assessVacationPlan({ start, end, period, records, today }: {
-  start: string;
-  end: string;
-  period: VacationPeriodInput | null;
-  records: VacationRecordInput[];
-  today: string;
-}): { errors: string[]; warnings: string[]; days: number; available: number | null; deadline: string | null } {
+export function assessVacationPlan({ start, end, period, records, today, admission, kind = "individual",
+ }: {
+ start: string;
+ end: string;
+ period: VacationPeriodInput | null;
+ records: VacationRecordInput[];
+ today: string;
+ admission?: string | null;
+ kind?: "individual" | "coletiva";
+ }): { errors: string[]; warnings: string[]; days: number; available: number | null; deadline: string | null } {
   const errors: string[] = [];
   const warnings: string[] = [];
   const from = parseDate(start);
   const to = parseDate(end);
   if (!from || !to || to < from) errors.push("Informe datas válidas, com fim igual ou posterior ao início.");
   const days = from && to && to >= from ? Math.round((to.getTime() - from.getTime()) / 86400000) + 1 : 0;
-  if (!period) errors.push("Período aquisitivo não cadastrado: solicite conferência ao RH antes de programar.");
+  if (!period) warnings.push("Período aquisitivo e saldo não conferidos: esta programação depende de validação do RH.");
+  const admissionDate = admission ? parseDate(admission) : null;
+  if (!period && kind === "individual" && admissionDate && from && start < concessionDeadline(admission!)) {
+    errors.push("Férias individuais antes de completar 12 meses de admissão: encaminhe ao RH.");
+  }
   const deadline = period ? concessionDeadline(period.periodo_fim) : null;
   const futureRecords = period ? records.filter((r) => r.vacation_period_id === period.id && r.data_inicio > today && r.workflow_status !== "nao_confirmada") : [];
   // O legado pode ter debitado a programação futura diretamente dos contadores.

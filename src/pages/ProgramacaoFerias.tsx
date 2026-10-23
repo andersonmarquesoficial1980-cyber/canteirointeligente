@@ -164,6 +164,7 @@ function ModalFerias({
   const diagnostico = dataInicio && dataFim ? assessVacationPlan({
     start: dataInicio, end: dataFim, period: periodoSelecionado,
     records, today: new Date().toISOString().slice(0, 10),
+    admission: emp.data_admissao, kind: tipo,
   }) : null;
 
   async function salvar() {
@@ -179,7 +180,7 @@ function ModalFerias({
       const record = {
         employee_id: emp.id,
         company_id: COMPANY_ID,
-        vacation_period_id: periodId,
+        vacation_period_id: periodId || null,
         tipo,
         data_inicio: dataInicio,
         data_fim: dataFim,
@@ -243,16 +244,21 @@ function ModalFerias({
             <label style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 }}>PERÍODO AQUISITIVO</label>
             <select value={periodId} onChange={e => setPeriodId(e.target.value)}
               style={{ width: "100%", height: 40, borderRadius: 10, border: "1.5px solid #e5e7eb", fontSize: 13, padding: "0 12px" }}>
-              <option value="">— Selecione um período validado —</option>
+              <option value="">— Sem período conferido pelo RH —</option>
               {periodos.map(p => (
                 <option key={p.id} value={p.id}>
-                  {fmtDate(p.periodo_inicio)} → {fmtDate(p.periodo_fim)} · Saldo: {p.dias_direito - p.dias_gozados - p.dias_coletiva}d
+                  {fmtDate(p.periodo_inicio)} → {fmtDate(p.periodo_fim)} · Saldo contábil: {p.dias_direito - p.dias_gozados - p.dias_coletiva}d (sujeito à revisão)
                 </option>
               ))}
             </select>
           </div>
         )}
 
+        {!periodos.length && (
+          <p style={{ background: "#fffbeb", padding: 10, borderRadius: 8, fontSize: 12, color: "#92400e", marginBottom: 12 }}>
+            RH ainda não cadastrou o período aquisitivo. É possível pré-programar, mas o direito e o saldo não estão validados.
+          </p>
+        )}
         {/* Datas */}
         <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
           <div style={{ flex: 1 }}>
@@ -275,7 +281,7 @@ function ModalFerias({
 
         {diagnostico && (
           <div role="status" style={{ padding: "10px 12px", marginBottom: 12, borderRadius: 10, background: diagnostico.errors.length ? "#fef2f2" : "#eff6ff", fontSize: 12 }}>
-            <strong>{diagnostico.errors.length ? "Conferência necessária antes de salvar" : "Prévia do período"}</strong>
+            <strong>{diagnostico.errors.length ? "Conferência necessária antes de salvar" : diagnostico.warnings.length ? "Pré-programação: atenção do RH" : "Prévia do período"}</strong>
             <p>Prazo concessivo: {fmtDate(diagnostico.deadline)} · Saldo estimado: {diagnostico.errors.some((e) => e.includes("inconciliado")) ? "sob revisão" : diagnostico.available === null ? "não cadastrado" : `${diagnostico.available} dias`}</p>
             {diagnostico.errors.map((message) => <p key={message} style={{ color: "#b91c1c" }}>• {message}</p>)}
             {diagnostico.warnings.map((message) => <p key={message} style={{ color: "#92400e" }}>• {message}</p>)}

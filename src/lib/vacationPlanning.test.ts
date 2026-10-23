@@ -9,8 +9,15 @@ function check(start: string, end: string, records: typeof planned[] = [], selec
 }
 
 describe("programação de férias", () => {
-  it("exige conferência do RH quando não há período aquisitivo validado", () => {
-    expect(assessVacationPlan({ start: "2026-05-01", end: "2026-05-30", period: null, records: [], today: "2026-02-01" }).errors).toContain("Período aquisitivo não cadastrado: solicite conferência ao RH antes de programar.");
+  it("permite pré-programação sem saldo homologado, mas exige conferência do RH", () => {
+    const result = assessVacationPlan({ start: "2026-05-01", end: "2026-05-30", period: null, records: [], today: "2026-02-01" });
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toContain("Período aquisitivo e saldo não conferidos: esta programação depende de validação do RH.");
+  });
+  it("avisa quando não há vínculo e impede férias individuais antes de 12 meses da admissão", () => {
+    const result = assessVacationPlan({ start: "2026-11-01", end: "2026-11-15", period: null, records: [], today: "2026-02-01", admission: "2026-01-15", kind: "individual" });
+    expect(result.errors).toContain("Férias individuais antes de completar 12 meses de admissão: encaminhe ao RH.");
+    expect(assessVacationPlan({ start: "2026-11-01", end: "2026-11-15", period: null, records: [], today: "2026-02-01", admission: "2026-01-15", kind: "coletiva" }).errors).toEqual([]);
   });
   it("permite programar antes dos 12 meses se o gozo começar depois da aquisição", () => {
     expect(check("2026-02-10", "2026-03-11").errors).toEqual([]);
