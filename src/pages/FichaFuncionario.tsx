@@ -18,6 +18,7 @@ import { useFuncoes } from "@/hooks/useFuncoes";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { toast } from "@/hooks/use-toast";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
+import { EmployeeVacationTimeline } from "@/components/EmployeeVacationTimeline";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Funcionario {
@@ -419,6 +420,7 @@ export default function FichaFuncionario() {
     if (origem) params.set("origem", origem);
     const returnToParams = new URLSearchParams(location.search);
     returnToParams.delete("returnTo");
+    if (aba === "ferias") returnToParams.set("aba", "ferias");
     const returnToBase = `${location.pathname}${returnToParams.toString() ? `?${returnToParams.toString()}` : ""}`;
     params.set("returnTo", returnToBase);
     return `${pathname}?${params.toString()}`;
@@ -433,7 +435,7 @@ export default function FichaFuncionario() {
   const [historico, setHistorico] = useState<HistoricoItem[]>([]);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aba, setAba] = useState<"cadastro" | "documentos" | "ponto" | "vt" | "custos" | "historico" | "pendencias">("cadastro");
+  const [aba, setAba] = useState<"cadastro" | "documentos" | "ponto" | "vt" | "custos" | "historico" | "ferias" | "pendencias">(searchParams.get("aba") === "ferias" ? "ferias" : "cadastro");
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState<Partial<Funcionario>>({});
   const [salvando, setSalvando] = useState(false);
@@ -847,6 +849,7 @@ export default function FichaFuncionario() {
     { id: "vt",         label: "VT",         icon: Bus },
     { id: "custos",     label: "Custos",     icon: Briefcase },
     { id: "historico",  label: "Histórico",  icon: FileText },
+    { id: "ferias",     label: "Férias",     icon: Calendar },
     { id: "pendencias", label: "Pendências", icon: ListChecks, badge: pendenciasAbertas > 0 ? pendenciasAbertas : undefined },
   ] as const;
 
@@ -1382,6 +1385,20 @@ export default function FichaFuncionario() {
                 </div>
               </div>
             )}
+          </>
+        )}
+
+        {aba === "ferias" && (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">Ficha individual de férias</h2>
+              <button type="button" onClick={() => navigate(withContext(`/programacao-ferias?funcionario_id=${encodeURIComponent(func.id)}`))}
+                className="text-xs rounded-lg bg-primary text-primary-foreground px-3 py-2">
+                Abrir programação e registrar histórico
+              </button>
+            </div>
+            <EmployeeVacationTimeline key={func.id} employeeId={func.id} companyId={func.company_id || null}
+              viewerCompanyId={profile?.company_id || null} admission={func.data_admissao} />
           </>
         )}
 
