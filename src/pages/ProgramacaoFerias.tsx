@@ -10,6 +10,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
 import { assessVacationPlan, activeVacation, summarizeVacation } from "@/lib/vacationPlanning";
+import { vacationReadiness } from "@/lib/vacationReadiness";
 import { ManualVacationHistory, type ManualHistoryPayload } from "@/components/ManualVacationHistory";
 
 const COMPANY_ID = DEFAULT_COMPANY_ID;
@@ -248,7 +249,7 @@ function ModalFerias({
 
         {tipo === "coletiva" && (
           <div style={{ background: "#fef3c7", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#92400e" }}>
-            Férias coletivas serão descontadas quando o funcionário tirar férias individuais.
+            Férias coletivas têm regras próprias. O RH deve conferir os dias e o período aquisitivo; este formulário não homologa saldo.
           </div>
         )}
 
@@ -296,7 +297,7 @@ function ModalFerias({
         {diagnostico && (
           <div role="status" style={{ padding: "10px 12px", marginBottom: 12, borderRadius: 10, background: diagnostico.errors.length ? "#fef2f2" : "#eff6ff", fontSize: 12 }}>
             <strong>{diagnostico.errors.length ? "Conferência necessária antes de salvar" : diagnostico.warnings.length ? "Pré-programação: atenção do RH" : "Prévia do período"}</strong>
-            <p>Prazo concessivo: {fmtDate(diagnostico.deadline)} · Saldo estimado: {diagnostico.errors.some((e) => e.includes("inconciliado")) ? "sob revisão" : diagnostico.available === null ? "não cadastrado" : `${diagnostico.available} dias`}</p>
+            <p>Prazo concessivo do período informado: {fmtDate(diagnostico.deadline)} · Contador ainda não homologado: {diagnostico.errors.some((e) => e.includes("inconciliado")) ? "sob revisão" : diagnostico.available === null ? "não cadastrado" : `${diagnostico.available} dias (sujeito a conferência)`}</p>
             {diagnostico.errors.map((message) => <p key={message} style={{ color: "#b91c1c" }}>• {message}</p>)}
             {diagnostico.warnings.map((message) => <p key={message} style={{ color: "#92400e" }}>• {message}</p>)}
           </div>
@@ -348,10 +349,10 @@ function CardFuncionario({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const periodoAtual = emp.periodos.find(p => p.status !== "gozado") || emp.periodos[0];
   const saldo = periodoAtual ? periodoAtual.dias_direito - periodoAtual.dias_gozados - periodoAtual.dias_coletiva : null;
+  const conferencia = vacationReadiness({ admission: emp.data_admissao, periods: emp.periodos, history: emp.manualHistory, records: emp.records });
   const temColetiva = periodoAtual && periodoAtual.dias_coletiva > 0;
   const alerta = saldo !== null && saldo < 0;
 
-  const proxPeriodo = periodoAtual ? addYears(periodoAtual.periodo_fim, 1) : null;
   const hoje = new Date().toISOString().split("T")[0];
   const podeGozan = periodoAtual ? periodoAtual.periodo_fim <= hoje : false;
   const registroPendenteConfirmacao = emp.records.find((r) => {
@@ -371,14 +372,7 @@ function CardFuncionario({
           <p style={{ fontSize: 11, color: "#9ca3af" }}>Mat. {emp.matricula ?? "—"} · {emp.role}</p>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          {saldo !== null ? (
-            <p style={{ fontSize: 18, fontWeight: 900, color: alerta ? "#ef4444" : saldo === 0 ? "#22c55e" : "#0055AA", fontFamily: "Montserrat" }}>
-              {saldo}d
-            </p>
-          ) : (
-            <p style={{ fontSize: 11, color: "#9ca3af" }}>sem período</p>
-          )}
-          <p style={{ fontSize: 10, color: "#9ca3af" }}>saldo</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "#92400e" }}>{conferencia.label}</p>
         </div>
         {expanded ? <ChevronUp size={16} color="#9ca3af" /> : <ChevronDown size={16} color="#9ca3af" />}
       </div>
@@ -386,6 +380,10 @@ function CardFuncionario({
       {/* Detalhes expandidos */}
       {expanded && (
         <div style={{ borderTop: "1px solid #f1f5f9", padding: "12px 14px 14px" }}>
+          <div style={{ background: "#fffbeb", padding: "10px 12px", borderRadius: 10, marginBottom: 12, fontSize: 12, color: "#92400e" }}>
+            <strong>Conferência necessária · Não há saldo homologado no sistema</strong>
+            {conferencia.reasons.map(reason => <p key={reason}>• {reason}</p>)}
+          </div>
           {periodoAtual && (
             <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>PERÍODO AQUISITIVO ATUAL</p>
@@ -413,8 +411,8 @@ function CardFuncionario({
                   </div>
                 )}
                 <div style={{ flex: 1, minWidth: 60 }}>
-                  <p style={{ fontSize: 10, color: "#9ca3af" }}>Saldo</p>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: alerta ? "#ef4444" : "#0055AA" }}>{saldo}d</p>
+                  <p style={{ fontSize: 10, color: "#9ca3af" }}>Contador legado (não homologado)</p>
+                                      <p style={{ fontSize: 12, fontWeight: 700, color: alerta ? "#ef4444" : "#0055AA" }}>{saldo}d</p>
                 </div>
               </div>
               <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
@@ -423,7 +421,7 @@ function CardFuncionario({
                 </span>
                 {podeGozan && periodoAtual.status !== "gozado" && (
                   <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, background: "#fef3c7", color: "#92400e", fontWeight: 700 }}>
-                    ⚠️ Pode sair de férias
+                    ⚠️ Aquisição encerrada — RH deve conferir saldo
                   </span>
                 )}
               </div>
@@ -497,7 +495,7 @@ function CardFuncionario({
           {/* Histórico de registros */}
           {emp.records.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>HISTÓRICO</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>PROGRAMAÇÕES / CONFIRMAÇÕES (não são comprovantes de gozo)</p>
               {emp.records.map(r => (
                 <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -532,7 +530,6 @@ function CardFuncionario({
           {/* Admissão */}
           <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 12 }}>
             Admissão: {fmtDate(emp.data_admissao)}
-            {proxPeriodo && ` · Próximo período: ${fmtDate(proxPeriodo)}`}
           </p>
 
           {canManageHistory && (
@@ -573,8 +570,8 @@ export default function ProgramacaoFerias() {
   const buscaInicial = searchParams.get("q") || "";
   const focoFuncionarioId = searchParams.get("funcionario_id") || "";
   const filtroParam = searchParams.get("filtro");
-  const filtroInicial: "todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar" =
-    filtroParam === "pendente" || filtroParam === "vencido" || filtroParam === "coletiva" || filtroParam === "em_ferias" || filtroParam === "a_confirmar"
+  const filtroInicial: "todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar" | "sem_periodo" =
+    filtroParam === "pendente" || filtroParam === "vencido" || filtroParam === "coletiva" || filtroParam === "em_ferias" || filtroParam === "a_confirmar" || filtroParam === "sem_periodo"
       ? filtroParam
       : "todos";
 
@@ -587,7 +584,7 @@ export default function ProgramacaoFerias() {
   const [manualEmp, setManualEmp] = useState<EmployeeWithVacation | null>(null);
   const [manualHistoryError, setManualHistoryError] = useState("");
   const [canManageHistory, setCanManageHistory] = useState(false);
-  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar">(filtroInicial);
+  const [filtro, setFiltro] = useState<"todos" | "pendente" | "vencido" | "coletiva" | "em_ferias" | "a_confirmar" | "sem_periodo">(filtroInicial);
   const [focoAplicado, setFocoAplicado] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [naoConfirmarRecordId, setNaoConfirmarRecordId] = useState<string | null>(null);
@@ -854,6 +851,7 @@ export default function ProgramacaoFerias() {
     if (!matchBusca) return false;
 
     const p = e.periodos.find(p => p.status !== "gozado");
+    if (filtro === "sem_periodo") return e.periodos.length === 0;
     if (filtro === "pendente") return p && p.periodo_fim <= hoje && p.status !== "gozado";
     if (filtro === "vencido") return p && p.status === "vencido";
     if (filtro === "coletiva") return e.records.some(r => r.tipo === "coletiva");
@@ -865,6 +863,7 @@ export default function ProgramacaoFerias() {
     return true;
   });
 
+  const totalSemPeriodo = employees.filter(e => e.periodos.length === 0).length;
   const totalPendente = employees.filter(e => {
     const p = e.periodos.find(p => p.status !== "gozado");
     return p && p.periodo_fim <= hoje && p.status !== "gozado";
@@ -917,6 +916,7 @@ export default function ProgramacaoFerias() {
       <div className="flex overflow-x-auto border-b border-border bg-background sticky top-[60px] z-20">
         {([
           { id: "todos", label: "Todos" },
+          { id: "sem_periodo", label: `🗂️ Sem período (${totalSemPeriodo})` },
           { id: "pendente", label: `⚠️ Pendentes (${totalPendente})` },
           { id: "a_confirmar", label: `🔔 A confirmar (${totalAConfirmar})` },
           { id: "coletiva", label: `🏢 C. Coletiva (${totalColetiva})` },
@@ -931,6 +931,9 @@ export default function ProgramacaoFerias() {
 
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px" }}>
         {manualHistoryError && <p role="alert" style={{ padding: 10, color: "#b91c1c" }}>{manualHistoryError}</p>}
+        <p style={{ padding: "10px 12px", marginBottom: 12, borderRadius: 10, background: "#f0f9ff", color: "#075985", fontSize: 12 }}>
+          <strong>Conferência do RH:</strong> {totalSemPeriodo} funcionário(s) sem período aquisitivo cadastrado. Admissão, última saída ou contador antigo não comprovam saldo; use a ficha individual antes de confirmar direitos.
+        </p>
         {totalAConfirmar > 0 && (
           <div style={{
             marginBottom: 12,

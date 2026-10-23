@@ -17,6 +17,15 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
 import ProgramacaoFerias from "./ProgramacaoFerias";
 
 describe("férias — histórico manual no cadastro único", () => {
+  it("indica a fila de conferência sem exibir saldo legal inventado", async () => {
+    await act(async () => { render(<MemoryRouter><ProgramacaoFerias /></MemoryRouter>); });
+    await waitFor(() => expect(screen.getByText("Operador A")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /Sem período/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Sem período/ }));
+    fireEvent.click(screen.getByText("Operador A"));
+    expect(screen.getByText(/Última saída informada sem período aquisitivo identificado/)).toBeInTheDocument();
+    expect(screen.queryByText(/^saldo$/i)).not.toBeInTheDocument();
+  });
   it("mostra último gozo conhecido separadamente da programação e abre o registro manual", async () => {
     await act(async () => { render(<MemoryRouter><ProgramacaoFerias /></MemoryRouter>); });
     await waitFor(() => expect(screen.getByText("Operador A")).toBeInTheDocument());
