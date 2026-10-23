@@ -9,6 +9,7 @@ import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { DEFAULT_COMPANY_ID } from "@/config/company";
+import { assessVacationPlan, activeVacation, summarizeVacation } from "@/lib/vacationPlanning";
 
 const COMPANY_ID = DEFAULT_COMPANY_ID;
 
@@ -77,7 +78,7 @@ function isDateInRange(ref: string, inicio: string, fim: string) {
 }
 
 function employeeOnVacationNow(records: VacationRecord[], refDate: string) {
-  return records.some((r) => isDateInRange(refDate, r.data_inicio, r.data_fim));
+  return activeVacation(records, refDate);
 }
 
 function statusColor(status: string) {
@@ -140,11 +141,13 @@ function calcPeriodosEsperados(admissao: string): { inicio: string; fim: string 
 function ModalFerias({
   emp,
   periodos,
+  records,
   onClose,
   onSaved,
 }: {
   emp: Employee;
   periodos: VacationPeriod[];
+  records: VacationRecord[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -157,9 +160,15 @@ function ModalFerias({
   const [erro, setErro] = useState("");
 
   const dias = dataInicio && dataFim ? diffDays(dataInicio, dataFim) + 1 : 0;
+  const periodoSelecionado = periodos.find((p) => p.id === periodId) || null;
+  const diagnostico = dataInicio && dataFim ? assessVacationPlan({
+    start: dataInicio, end: dataFim, period: periodoSelecionado,
+    records, today: new Date().toISOString().slice(0, 10),
+  }) : null;
 
   async function salvar() {
     if (!dataInicio || !dataFim || dias <= 0) { setErro("Datas inválidas."); return; }
+    if (diagnostico?.errors.length) { setErro(diagnostico.errors[0]); return; }
     setSaving(true); setErro("");
     try {
       const hoje = new Date().toISOString().split("T")[0];
@@ -170,7 +179,7 @@ function ModalFerias({
       const record = {
         employee_id: emp.id,
         company_id: COMPANY_ID,
-        vacation_period_id: periodId || null,
+        vacation_period_id: periodId,
         tipo,
         data_inicio: dataInicio,
         data_fim: dataFim,
@@ -182,26 +191,7 @@ function ModalFerias({
       const { error: errRec } = await supabase.from("vacation_records").insert(record);
       if (errRec) throw errRec;
 
-      // Atualizar período
-      if (periodId) {
-        const period = periodos.find(p => p.id === periodId);
-        if (period) {
-          const novoGozados = period.dias_gozados + (tipo === "individual" ? dias : 0);
-          const novoColetiva = period.dias_coletiva + (tipo === "coletiva" ? dias : 0);
-          const saldo = period.dias_direito - novoGozados - novoColetiva;
-          const novoStatus = saldo <= 0 ? "gozado" : novoGozados > 0 || novoColetiva > 0 ? "parcial" : "aberto";
-          await supabase.from("vacation_periods").update({
-            dias_gozados: novoGozados,
-            dias_coletiva: novoColetiva,
-            status: novoStatus,
-            updated_at: new Date().toISOString(),
-          }).eq("id", periodId);
-        }
-      }
-
-      // Sincronização mínima fase 2: histórico + status quando férias estão vigentes hoje
-      const emFeriasAgora = isDateInRange(hoje, dataInicio, dataFim);
-
+      // Programação reserva dias na leitura; não contabilizar como férias já gozadas.
       await (supabase as any).from("employee_historico").insert({
         employee_id: emp.id,
         company_id: COMPANY_ID,
@@ -210,13 +200,6 @@ function ModalFerias({
         data: dataInicio,
       });
 
-      if (emFeriasAgora) {
-        await supabase
-          .from("employees")
-          .update({ status: "ferias" })
-          .eq("id", emp.id)
-          .eq("company_id", COMPANY_ID);
-      }
       onSaved();
     } catch (e: any) {
       setErro(e.message || "Erro ao salvar.");
@@ -260,7 +243,7 @@ function ModalFerias({
             <label style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 }}>PERÍODO AQUISITIVO</label>
             <select value={periodId} onChange={e => setPeriodId(e.target.value)}
               style={{ width: "100%", height: 40, borderRadius: 10, border: "1.5px solid #e5e7eb", fontSize: 13, padding: "0 12px" }}>
-              <option value="">— Nenhum (registro avulso) —</option>
+              <option value="">— Selecione um período validado —</option>
               {periodos.map(p => (
                 <option key={p.id} value={p.id}>
                   {fmtDate(p.periodo_inicio)} → {fmtDate(p.periodo_fim)} · Saldo: {p.dias_direito - p.dias_gozados - p.dias_coletiva}d
@@ -290,6 +273,15 @@ function ModalFerias({
           </div>
         )}
 
+        {diagnostico && (
+          <div role="status" style={{ padding: "10px 12px", marginBottom: 12, borderRadius: 10, background: diagnostico.errors.length ? "#fef2f2" : "#eff6ff", fontSize: 12 }}>
+            <strong>{diagnostico.errors.length ? "Conferência necessária antes de salvar" : "Prévia do período"}</strong>
+            <p>Prazo concessivo: {fmtDate(diagnostico.deadline)} · Saldo estimado: {diagnostico.errors.some((e) => e.includes("inconciliado")) ? "sob revisão" : diagnostico.available === null ? "não cadastrado" : `${diagnostico.available} dias`}</p>
+            {diagnostico.errors.map((message) => <p key={message} style={{ color: "#b91c1c" }}>• {message}</p>)}
+            {diagnostico.warnings.map((message) => <p key={message} style={{ color: "#92400e" }}>• {message}</p>)}
+          </div>
+        )}
+
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", display: "block", marginBottom: 4 }}>OBSERVAÇÃO (opcional)</label>
           <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2}
@@ -298,8 +290,8 @@ function ModalFerias({
 
         {erro && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 10 }}>{erro}</p>}
 
-        <button onClick={salvar} disabled={saving || dias <= 0} style={{
-          width: "100%", height: 46, borderRadius: 12, background: saving || dias <= 0 ? "#e5e7eb" : "#0055AA",
+        <button onClick={salvar} disabled={saving || dias <= 0 || Boolean(diagnostico?.errors.length)} style={{
+          width: "100%", height: 46, borderRadius: 12, background: saving || dias <= 0 || diagnostico?.errors.length ? "#e5e7eb" : "#0055AA",
           color: "white", fontWeight: 700, fontSize: 14, border: "none", cursor: saving ? "wait" : "pointer"
         }}>
           {saving ? "Salvando..." : "Programar Férias"}
@@ -329,6 +321,7 @@ function CardFuncionario({
   expanded: boolean;
   canManageWorkflow: boolean;
 }) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const periodoAtual = emp.periodos.find(p => p.status !== "gozado") || emp.periodos[0];
   const saldo = periodoAtual ? periodoAtual.dias_direito - periodoAtual.dias_gozados - periodoAtual.dias_coletiva : null;
   const temColetiva = periodoAtual && periodoAtual.dias_coletiva > 0;
@@ -468,7 +461,7 @@ function CardFuncionario({
           {emp.records.length > 0 && (
             <div style={{ marginBottom: 12 }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>HISTÓRICO</p>
-              {emp.records.slice(0, 5).map(r => (
+              {emp.records.map(r => (
                 <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, background: r.tipo === "coletiva" ? "#fef3c7" : "#e8f0ff", color: r.tipo === "coletiva" ? "#92400e" : "#0055AA", fontWeight: 700, flexShrink: 0 }}>
@@ -480,6 +473,15 @@ function CardFuncionario({
                     <p style={{ flex: 1, fontSize: 12, color: "#374151" }}>{fmtDate(r.data_inicio)} → {fmtDate(r.data_fim)}</p>
                     <p style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{r.dias}d</p>
                   </div>
+                  <button type="button" onClick={async () => {
+                    const periodo = emp.periodos.find((p) => p.id === r.vacation_period_id) || null;
+                    try {
+                      await navigator.clipboard.writeText(summarizeVacation({ name: emp.name, matricula: emp.matricula, start: r.data_inicio, end: r.data_fim, period: periodo, replacement: null }));
+                      setCopiedId(r.id);
+                    } catch { setCopiedId(null); }
+                  }} style={{ alignSelf: "flex-start", color: "#0055AA", fontSize: 11, fontWeight: 700 }}>
+                    {copiedId === r.id ? "Resumo copiado" : "Copiar resumo para RH (WhatsApp)"}
+                  </button>
                   {r.confirmacao_observacao && (
                     <p style={{ fontSize: 11, color: "#6b7280" }}>
                       {r.workflow_status === "nao_confirmada" ? "Motivo:" : "Confirmação:"} {r.confirmacao_observacao}
@@ -643,41 +645,9 @@ export default function ProgramacaoFerias() {
 
     const recordsTyped = (records || []) as VacationRecord[];
 
-    const idsEmFeriasPorPeriodo = new Set(
-      recordsTyped
-        .filter((r) => isDateInRange(hoje, r.data_inicio, r.data_fim))
-        .map((r) => r.employee_id)
-    );
-
-    const idsAtivoParaFerias = (emps || [])
-      .filter((e) => (e.status || "").toLowerCase() === "ativo" && idsEmFeriasPorPeriodo.has(e.id))
-      .map((e) => e.id);
-
-    const idsFeriasParaAtivo = (emps || [])
-      .filter((e) => (e.status || "").toLowerCase() === "ferias" && !idsEmFeriasPorPeriodo.has(e.id))
-      .map((e) => e.id);
-
-    if (idsAtivoParaFerias.length > 0) {
-      await supabase
-        .from("employees")
-        .update({ status: "ferias" })
-        .eq("company_id", COMPANY_ID)
-        .in("id", idsAtivoParaFerias);
-    }
-
-    if (idsFeriasParaAtivo.length > 0) {
-      await supabase
-        .from("employees")
-        .update({ status: "ativo" })
-        .eq("company_id", COMPANY_ID)
-        .in("id", idsFeriasParaAtivo);
-    }
-
     const result: EmployeeWithVacation[] = (emps || []).map((e) => {
-      const statusSincronizado = idsEmFeriasPorPeriodo.has(e.id) ? "ferias" : ((e.status || "ativo").toLowerCase() === "ferias" ? "ativo" : e.status || "ativo");
       return {
         ...e,
-        status: statusSincronizado,
         periodos: ((periods || []) as VacationPeriod[]).filter((p) => p.employee_id === e.id),
         records: recordsTyped.filter((r) => r.employee_id === e.id),
       };
@@ -948,6 +918,7 @@ export default function ProgramacaoFerias() {
         <ModalFerias
           emp={modalEmp}
           periodos={employees.find(e => e.id === modalEmp.id)?.periodos || []}
+          records={employees.find(e => e.id === modalEmp.id)?.records || []}
           onClose={() => setModalEmp(null)}
           onSaved={() => { setModalEmp(null); load(); }}
         />
