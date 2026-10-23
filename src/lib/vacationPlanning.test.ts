@@ -44,6 +44,8 @@ describe("programação de férias", () => {
     expect(activeVacation([{ ...planned, workflow_status: "nao_confirmada" }], "2026-07-04")).toBe(false);
     expect(activeVacation([planned], "2026-07-04")).toBe(false);
     expect(activeVacation([{ ...planned, workflow_status: "confirmada" }], "2026-07-04")).toBe(true);
+    expect(activeVacation([planned], "2026-07-04", "ferias")).toBe(true);
+    expect(activeVacation([{ ...planned, workflow_status: "nao_confirmada" }], "2026-07-04", "ferias")).toBe(false);
   });
   it("gera resumo sem afirmar que WhatsApp foi enviado", () => {
     expect(summarizeVacation({ name: "Operador A", matricula: "123", start: "2026-07-01", end: "2026-07-15", period, replacement: "Operador B" })).toContain("Cobertura: Operador B");

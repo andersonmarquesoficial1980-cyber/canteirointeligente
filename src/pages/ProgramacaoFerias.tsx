@@ -91,8 +91,8 @@ function isDateInRange(ref: string, inicio: string, fim: string) {
   return ref >= inicio && ref <= fim;
 }
 
-function employeeOnVacationNow(records: VacationRecord[], refDate: string) {
-  return activeVacation(records, refDate);
+function employeeOnVacationNow(records: VacationRecord[], refDate: string, employeeStatus?: string | null) {
+  return activeVacation(records, refDate, employeeStatus);
 }
 
 function statusColor(status: string) {
@@ -857,7 +857,7 @@ export default function ProgramacaoFerias() {
     if (filtro === "pendente") return p && p.periodo_fim <= hoje && p.status !== "gozado";
     if (filtro === "vencido") return p && p.status === "vencido";
     if (filtro === "coletiva") return e.records.some(r => r.tipo === "coletiva");
-    if (filtro === "em_ferias") return employeeOnVacationNow(e.records, hoje);
+    if (filtro === "em_ferias") return employeeOnVacationNow(e.records, hoje, e.status);
     if (filtro === "a_confirmar") return e.records.some((r) => {
       const status = r.workflow_status || "programada";
       return (status === "programada" || status === "aguardando_confirmacao") && r.data_inicio >= hoje;
@@ -871,7 +871,7 @@ export default function ProgramacaoFerias() {
   }).length;
 
   const totalColetiva = employees.filter(e => e.records.some(r => r.tipo === "coletiva")).length;
-  const totalEmFerias = employees.filter(e => employeeOnVacationNow(e.records, hoje)).length;
+  const totalEmFerias = employees.filter(e => employeeOnVacationNow(e.records, hoje, e.status)).length;
   const totalAConfirmar = employees.filter((e) => e.records.some((r) => {
     const status = r.workflow_status || "programada";
     return (status === "programada" || status === "aguardando_confirmacao") && r.data_inicio >= hoje;

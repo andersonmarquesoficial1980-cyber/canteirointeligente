@@ -32,9 +32,12 @@ export function concessionDeadline(acquisitionEnd: string): string {
   return iso(date);
 }
 
-export function activeVacation(records: VacationRecordInput[], today: string): boolean {
-  // Uma programação ainda não confirmada não equivale a gozo efetivo.
-  return records.some((r) => r.workflow_status === "confirmada" && r.data_inicio <= today && r.data_fim >= today);
+export function activeVacation(records: VacationRecordInput[], today: string, employeeStatus?: string | null): boolean {
+  // Registros não confirmados antigos coexistem com o status operacional já marcado como férias.
+  // Uma programação cancelada/não confirmada jamais confirma gozo por si só.
+  return records.some((r) => r.workflow_status !== "nao_confirmada"
+    && r.data_inicio <= today && r.data_fim >= today
+    && (r.workflow_status === "confirmada" || employeeStatus?.toLowerCase() === "ferias"));
 }
 
 export function assessVacationPlan({ start, end, period, records, today, admission, kind = "individual",
