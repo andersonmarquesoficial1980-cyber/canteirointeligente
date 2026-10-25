@@ -14,6 +14,11 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { usePermissions } from "@/hooks/usePermissions";
+import QuadroEquipes, { type PessoaCard } from "@/components/gestaoPessoas/QuadroEquipes";
+import { applyProgramadorBatch } from "@/lib/programadorBatch";
+import { chaveEquipe, prepararMovimento, rotuloEquipe, SEM_EQUIPE } from "@/lib/quadroEquipes";
+import { toLocalISODate } from "@/lib/date-local";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -564,7 +569,7 @@ function GrupoColapsavel({
   );
 }
 
-type Aba = "lista" | "funcao" | "equipe" | "responsavel" | "centro_custo" | "aniversariantes";
+type Aba = "lista" | "funcao" | "equipe" | "quadro" | "responsavel" | "centro_custo" | "aniversariantes";
 
 export default function GestaoPessoasEquipe() {
   const navigate = useNavigate();
@@ -575,13 +580,19 @@ export default function GestaoPessoasEquipe() {
   const goBack = useSmartBack(origem === "gestao-frotas" ? "/gestao-frotas" : "/gestao-pessoas");
   const abaParam = searchParams.get("aba") as Aba | null;
   const buscaParam = searchParams.get("q") || "";
-  const abaInicial: Aba = abaParam && ["lista", "funcao", "equipe", "responsavel", "centro_custo", "aniversariantes"].includes(abaParam)
+  const abaInicial: Aba = abaParam && ["lista", "funcao", "equipe", "quadro", "responsavel", "centro_custo", "aniversariantes"].includes(abaParam)
     ? abaParam
     : "lista";
   const { isAdmin } = useIsAdmin();
+  const { permissions } = usePermissions();
+  // Somente WF Programador move funcionários no quadro; o RPC revalida no banco.
+  const podeMoverQuadro = permissions?.modulo_programador === true;
+  const [movendoQuadroId, setMovendoQuadroId] = useState<string | null>(null);
+  const [ultimoMovimento, setUltimoMovimento] = useState<{ pessoa: PessoaCard; de: string | null; para: string | null } | null>(null);
   const [todos, setTodos] = useState<Funcionario[]>([]);
   const [vacationRecords, setVacationRecords] = useState<VacationRecordResumo[]>([]);
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
+  const [catalogoEquipesGlobal, setCatalogoEquipesGlobal] = useState<{ nome: string; responsavel_employee_id: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [aba, setAba] = useState<Aba>(abaInicial);
   const [busca, setBusca] = useState(buscaParam);
@@ -613,7 +624,7 @@ export default function GestaoPessoasEquipe() {
         .select("*")
         .or("origem.is.null,origem.neq.TERCEIRO")
         .order("name"),
-      (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"),
+      (supabase as any).from("ci_equipes").select("nome,responsavel_employee_id").eq("ativa", true).order("nome"),
       (supabase as any).from("vacation_records").select("id,employee_id,data_inicio,data_fim").order("data_inicio", { ascending: false }),
     ]).then(([employeesResp, equipesResp, feriasResp]) => {
       if (employeesResp.data) {
@@ -628,6 +639,9 @@ export default function GestaoPessoasEquipe() {
           .map((e) => (e?.nome || "").trim())
           .filter(Boolean);
         setEquipesCadastro(equipes);
+        setCatalogoEquipesGlobal((equipesResp.data as any[])
+          .map((e) => ({ nome: String(e?.nome || "").trim(), responsavel_employee_id: e?.responsavel_employee_id ?? null }))
+          .filter((e) => e.nome));
       }
       if (feriasResp?.data) {
         setVacationRecords(feriasResp.data as VacationRecordResumo[]);
@@ -763,6 +777,54 @@ export default function GestaoPessoasEquipe() {
       });
     } finally {
       setUpdatingEquipeId(null);
+    }
+  }
+
+  // Catálogo ci_equipes é global (sem company_id): só vira coluna vazia se a equipe é liderada por alguém desta empresa.
+  const catalogoQuadro = useMemo(() => {
+    const ids = new Set(todos.map((f) => f.id));
+    return catalogoEquipesGlobal
+      .filter((e) => e.responsavel_employee_id && ids.has(e.responsavel_employee_id))
+      .map((e) => e.nome);
+  }, [todos, catalogoEquipesGlobal]);
+
+  async function moverPeloQuadro(pessoa: PessoaCard, destino: string, desfazer = false) {
+    if (!podeMoverQuadro) return;
+    const atual = todos.find((f) => f.id === pessoa.id);
+    if (!atual) return;
+    const de = (atual.equipe || "").trim() || null;
+    if (chaveEquipe(de) === chaveEquipe(destino === SEM_EQUIPE ? null : destino)) return; // soltou na mesma coluna
+    setMovendoQuadroId(pessoa.id);
+    try {
+      const mov = prepararMovimento(atual, destino, atual.company_id || null);
+      const para = mov.equipe;
+      await applyProgramadorBatch(supabase as any, {
+        companyId: atual.company_id || null,
+        date: toLocalISODate(),
+        team: para || "-",
+        overrideReason: "",
+        employees: [mov],
+        equipments: [],
+      });
+      setTodos((prev) => prev.map((f) => (f.id === atual.id ? { ...f, equipe: para } : f)));
+      // Mantém o histórico lido pela Conferência MDO (mesmo formato da troca rápida).
+      const { error: histErr } = await (supabase as any).from("employee_historico").insert({
+        employee_id: atual.id,
+        company_id: atual.company_id || null,
+        tipo: "mudanca_equipe",
+        descricao: `Mudança rápida de equipe: ${rotuloEquipe(de)} → ${rotuloEquipe(para)}`,
+        data: toLocalISODate(),
+      });
+      setUltimoMovimento(desfazer ? null : { pessoa: atual, de, para });
+      toast({
+        title: desfazer ? "Movimento desfeito" : "Equipe atualizada",
+        description: `${atual.name}: ${rotuloEquipe(de)} → ${rotuloEquipe(para)}${histErr ? " (histórico da ficha não gravado)" : ""}`,
+        variant: histErr ? "destructive" : undefined,
+      });
+    } catch (err: any) {
+      toast({ title: "Não foi possível mover", description: err?.message || "Erro inesperado ao mover o funcionário.", variant: "destructive" });
+    } finally {
+      setMovendoQuadroId(null);
     }
   }
 
@@ -1348,6 +1410,7 @@ export default function GestaoPessoasEquipe() {
     { id: "lista",           label: "Todos",           emoji: "👤", count: todos.length },
     { id: "funcao",          label: "Por Função",      emoji: "🔧", count: Object.keys(porFuncao).length },
     { id: "equipe",          label: "Por Equipe",      emoji: "👷", count: Object.keys(porEquipe).length },
+    { id: "quadro",          label: "Quadro de Equipes", emoji: "🗂️", count: Object.keys(porEquipe).filter(k => k !== "SEM EQUIPE").length },
     { id: "responsavel",     label: "Por Responsável", emoji: "🧑‍💼", count: Object.keys(porResp).filter(k => k !== "SEM RESPONSÁVEL").length },
     { id: "centro_custo",    label: "Centro de Custo", emoji: "🏢", count: Object.keys(porCentro).filter(k => k !== "SEM CENTRO DE CUSTO").length },
     { id: "aniversariantes", label: "Aniversariantes", emoji: "🎂", count: aniversariantes.length },
@@ -1595,6 +1658,43 @@ export default function GestaoPessoasEquipe() {
                         : undefined}
                     />
                   ))}
+              </>
+            )}
+
+            {/* ABA QUADRO (KANBAN) */}
+            {aba === "quadro" && (
+              <>
+                {ultimoMovimento && podeMoverQuadro && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, padding: "6px 10px", marginBottom: 10, fontSize: 12 }}>
+                    <span style={{ flex: 1 }}>
+                      <b>{ultimoMovimento.pessoa.name}</b>: {rotuloEquipe(ultimoMovimento.de)} → {rotuloEquipe(ultimoMovimento.para)}
+                    </span>
+                    <button
+                      disabled={movendoQuadroId !== null}
+                      onClick={() => moverPeloQuadro(ultimoMovimento.pessoa, ultimoMovimento.de || SEM_EQUIPE, true)}
+                      className="px-2 py-1 rounded-md border border-emerald-400 text-emerald-700 font-semibold hover:bg-emerald-100 disabled:opacity-50"
+                    >
+                      Desfazer
+                    </button>
+                    <button onClick={() => setUltimoMovimento(null)} className="p-1 rounded hover:bg-emerald-100" aria-label="Fechar"><X size={14} /></button>
+                  </div>
+                )}
+                <QuadroEquipes
+                  pessoas={todos as PessoaCard[]}
+                  catalogo={catalogoQuadro}
+                  busca={busca}
+                  podeMover={podeMoverQuadro}
+                  movendoId={movendoQuadroId}
+                  custoDe={(p) => Object.prototype.hasOwnProperty.call(custoFuncionarioMap, p.id) ? Number(custoFuncionarioMap[p.id] || 0) : Number((todos.find((f) => f.id === p.id)?.salario) || 0)}
+                  statusVisual={(p) => {
+                    const st = normalizeEmployeeStatus(p.status);
+                    const emFerias = statusResumoPorFuncionario[p.id]?.emFeriasAgora || st === "ferias";
+                    const ui = emFerias ? STATUS_UI.ferias : st === "afastado" ? STATUS_UI.afastado : null;
+                    return ui ? { label: ui.label, bg: ui.bg, text: ui.text } : null;
+                  }}
+                  onMover={(pessoa, destino) => moverPeloQuadro(pessoa, destino)}
+                  onAbrir={irFuncionario}
+                />
               </>
             )}
 
