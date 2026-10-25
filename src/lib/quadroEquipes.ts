@@ -91,3 +91,9 @@ export function prepararMovimento(
 }
 
 export const rotuloEquipe = (equipe: string | null | undefined) => (equipe?.trim() ? equipe.trim() : "Sem equipe");
+
+/** Identificador estável de uma coluna para preferências (ignora caixa/acento do nome). */
+export const chaveColuna = (c: { chave: string; nome: string }) => (c.chave === SEM_EQUIPE ? SEM_EQUIPE : chaveEquipe(c.nome));
+
+export const colunasVisiveis = <T extends { chave: string; nome: string }>(colunas: readonly T[], ocultas: ReadonlySet<string>) =>
+  colunas.filter((c) => !ocultas.has(chaveColuna(c)));

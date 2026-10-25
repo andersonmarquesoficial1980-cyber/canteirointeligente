@@ -18,6 +18,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import QuadroEquipes, { type PessoaCard } from "@/components/gestaoPessoas/QuadroEquipes";
 import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { chaveEquipe, prepararMovimento, rotuloEquipe, SEM_EQUIPE } from "@/lib/quadroEquipes";
+import { useQuadroEquipesOcultas } from "@/hooks/useQuadroEquipesOcultas";
 import { toLocalISODate } from "@/lib/date-local";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useToast } from "@/hooks/use-toast";
@@ -587,6 +588,8 @@ export default function GestaoPessoasEquipe() {
   const { permissions } = usePermissions();
   // Somente WF Programador move funcionários no quadro; o RPC revalida no banco.
   const podeMoverQuadro = permissions?.modulo_programador === true;
+  const [userIdQuadro, setUserIdQuadro] = useState<string | null>(null);
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setUserIdQuadro(data.user?.id ?? null)); }, []);
   const [movendoQuadroId, setMovendoQuadroId] = useState<string | null>(null);
   const [ultimoMovimento, setUltimoMovimento] = useState<{ pessoa: PessoaCard; de: string | null; para: string | null } | null>(null);
   const [todos, setTodos] = useState<Funcionario[]>([]);
@@ -781,6 +784,7 @@ export default function GestaoPessoasEquipe() {
   }
 
   // Catálogo ci_equipes é global (sem company_id): só vira coluna vazia se a equipe é liderada por alguém desta empresa.
+  const quadroOcultas = useQuadroEquipesOcultas(todos[0]?.company_id ?? null, userIdQuadro);
   const catalogoQuadro = useMemo(() => {
     const ids = new Set(todos.map((f) => f.id));
     return catalogoEquipesGlobal
@@ -1694,6 +1698,10 @@ export default function GestaoPessoasEquipe() {
                   }}
                   onMover={(pessoa, destino) => moverPeloQuadro(pessoa, destino)}
                   onAbrir={irFuncionario}
+                  ocultas={quadroOcultas.ocultas}
+                  onAlternarColuna={quadroOcultas.alternar}
+                  onMostrarTodas={quadroOcultas.mostrarTodas}
+                  avisoPreferencia={quadroOcultas.erro}
                 />
               </>
             )}

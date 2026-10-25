@@ -3,8 +3,9 @@ import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
-import { Loader2, GripVertical } from "lucide-react";
-import { montarColunas, SEM_EQUIPE, type ColunaQuadro, type PessoaQuadro } from "@/lib/quadroEquipes";
+import { Loader2, GripVertical, Eye, EyeOff, SlidersHorizontal } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { chaveColuna, colunasVisiveis, montarColunas, SEM_EQUIPE, type ColunaQuadro, type PessoaQuadro } from "@/lib/quadroEquipes";
 
 export type PessoaCard = PessoaQuadro & { foto_url?: string | null };
 
@@ -19,6 +20,10 @@ type Props = {
   statusVisual: (p: PessoaCard) => { label: string; bg: string; text: string } | null;
   onMover: (pessoa: PessoaCard, destino: string) => void;
   onAbrir: (id: string) => void;
+  ocultas: ReadonlySet<string>;
+  onAlternarColuna: (chave: string) => void;
+  onMostrarTodas: () => void;
+  avisoPreferencia?: string;
 };
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -60,8 +65,8 @@ function Card({ p, podeMover, movendo, badge, onAbrir, sobreposto }: {
   );
 }
 
-function Coluna({ coluna, custo, destaqueAtivo, children }: {
-  coluna: ColunaQuadro<PessoaCard>; custo?: number; destaqueAtivo: boolean; children: React.ReactNode;
+function Coluna({ coluna, custo, destaqueAtivo, onOcultar, children }: {
+  coluna: ColunaQuadro<PessoaCard>; custo?: number; destaqueAtivo: boolean; onOcultar: () => void; children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave });
   return (
@@ -76,7 +81,12 @@ function Coluna({ coluna, custo, destaqueAtivo, children }: {
       <header style={{ marginBottom: 8, padding: "0 2px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
           <h3 style={{ fontSize: 12, fontWeight: 800, color: coluna.chave === SEM_EQUIPE ? "#b45309" : "#065f46", textTransform: "uppercase" }}>{coluna.nome}</h3>
-          <span style={{ fontSize: 11, fontWeight: 800, background: "white", borderRadius: 999, padding: "1px 8px", color: "#334155" }}>{coluna.pessoas.length}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, background: "white", borderRadius: 999, padding: "1px 8px", color: "#334155" }}>{coluna.pessoas.length}</span>
+            <button onClick={onOcultar} title="Ocultar esta equipe do quadro" aria-label={`Ocultar ${coluna.nome}`} style={{ padding: 3, borderRadius: 6, color: "#94a3b8" }}>
+              <EyeOff size={13} />
+            </button>
+          </span>
         </div>
         {custo !== undefined && <p style={{ fontSize: 10, color: "#0f766e", fontWeight: 700 }}>Custo mensal: {brl(custo)}</p>}
       </header>
@@ -85,8 +95,10 @@ function Coluna({ coluna, custo, destaqueAtivo, children }: {
   );
 }
 
-export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir }: Props) {
-  const colunas = useMemo(() => montarColunas(pessoas, catalogo, busca), [pessoas, catalogo, busca]);
+export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia }: Props) {
+  const todasColunas = useMemo(() => montarColunas(pessoas, catalogo, busca), [pessoas, catalogo, busca]);
+  const colunas = useMemo(() => colunasVisiveis(todasColunas, ocultas), [todasColunas, ocultas]);
+  const totalOcultas = todasColunas.length - colunas.length;
   const [arrastando, setArrastando] = useState<PessoaCard | null>(null);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -108,10 +120,44 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
           Modo visualização: somente usuários com acesso ao WF Programador podem mover funcionários entre equipes.
         </p>
       )}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="h-8 px-3 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
+              <SlidersHorizontal size={13} /> Equipes visíveis ({colunas.length}/{todasColunas.length})
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72 p-2">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 6px 6px" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>Escolha o que aparece no quadro</span>
+              <button onClick={onMostrarTodas} disabled={totalOcultas === 0} className="text-[11px] font-semibold text-emerald-700 disabled:opacity-40">Mostrar todas</button>
+            </div>
+            <div style={{ maxHeight: 320, overflowY: "auto" }}>
+              {todasColunas.map((c) => {
+                const k = chaveColuna(c);
+                const oculta = ocultas.has(k);
+                return (
+                  <label key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 6, cursor: "pointer", fontSize: 12, color: oculta ? "#94a3b8" : "#1e293b" }}>
+                    <input type="checkbox" checked={!oculta} onChange={() => onAlternarColuna(k)} style={{ accentColor: "#059669" }} />
+                    <span style={{ flex: 1, textTransform: "uppercase", fontWeight: 600 }}>{c.nome}</span>
+                    <span style={{ fontSize: 11, color: "#64748b" }}>{c.pessoas.length}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
+        {totalOcultas > 0 && (
+          <button onClick={onMostrarTodas} className="text-xs text-slate-600 inline-flex items-center gap-1 hover:text-slate-900">
+            <Eye size={13} /> {totalOcultas} oculta{totalOcultas > 1 ? "s" : ""} · mostrar todas
+          </button>
+        )}
+        {avisoPreferencia && <span style={{ fontSize: 11, color: "#b45309" }}>{avisoPreferencia}</span>}
+      </div>
       <DndContext sensors={sensors} onDragStart={aoIniciar} onDragEnd={aoSoltar} onDragCancel={() => setArrastando(null)}>
         <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 12, alignItems: "flex-start" }}>
           {colunas.map((c) => (
-            <Coluna key={c.chave} coluna={c} destaqueAtivo={!!arrastando} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
+            <Coluna key={c.chave} coluna={c} destaqueAtivo={!!arrastando} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
               {c.pessoas.length === 0 && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", padding: "10px 0" }}>Nenhum funcionário</p>}
               {c.pessoas.map((p) => (
                 <Card key={p.id} p={p} podeMover={podeMover} movendo={movendoId === p.id} badge={statusVisual(p)} onAbrir={onAbrir} />

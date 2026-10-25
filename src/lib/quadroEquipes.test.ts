@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SEM_EQUIPE, montarColunas, prepararMovimento, type PessoaQuadro } from "./quadroEquipes";
+import { SEM_EQUIPE, chaveColuna, colunasVisiveis, montarColunas, prepararMovimento, type PessoaQuadro } from "./quadroEquipes";
 
 const p = (id: string, name: string, equipe: string | null, status: string | null = "ativo", company_id = "c1"): PessoaQuadro =>
   ({ id, name, matricula: id, role: "AJUDANTE GERAL", equipe, status, company_id });
@@ -44,5 +44,15 @@ describe("prepararMovimento", () => {
     expect(() => prepararMovimento(p("1", "A", "X", null), "Y", "c1")).toThrow(/fora do padrão/);
     expect(() => prepararMovimento(p("1", "A", "cbuq01"), "CBUQ01", "c1")).toThrow(/já está/);
     expect(() => prepararMovimento(p("1", "A", "X"), "Y", null)).toThrow(/fora da empresa/);
+  });
+});
+
+describe("colunasVisiveis", () => {
+  it("oculta por chave estável (ignora caixa/acento) e inclui 'Sem equipe'", () => {
+    const cols = montarColunas([p("1", "Ana", "Administrativo"), p("2", "Bia", "CBUQ01"), p("3", "Caio", null)], []);
+    expect(colunasVisiveis(cols, new Set(["administrativo"])).map((c) => c.nome)).toEqual(["Sem equipe", "CBUQ01"]);
+    expect(colunasVisiveis(cols, new Set([SEM_EQUIPE])).map((c) => c.nome)).toEqual(["Administrativo", "CBUQ01"]);
+    expect(colunasVisiveis(cols, new Set()).length).toBe(3);
+    expect(chaveColuna(cols[1])).toBe("administrativo");
   });
 });
