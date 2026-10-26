@@ -169,6 +169,12 @@ export default function ProgramadorHome() {
   const [presentationTeam, setPresentationTeam] = useState("");
   const [presentationZoom, setPresentationZoom] = useState(100);
   const [rosterFocusVersion, setRosterFocusVersion] = useState(0);
+  // Apresentação em tela cheia: esconde a navegação lateral do workspace enquanto ativa.
+  useEffect(() => {
+    if (!modoReuniao) return;
+    document.body.setAttribute("data-presentation", "true");
+    return () => document.body.removeAttribute("data-presentation");
+  }, [modoReuniao]);
   const [rosterDirty, setRosterDirty] = useState(false);
   const [showAdmission, setShowAdmission] = useState(false);
   const [cadastrosLoading, setCadastrosLoading] = useState(false);

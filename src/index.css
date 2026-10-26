@@ -188,3 +188,7 @@
     border: 1px solid #e2e8f0 !important;
   }
 }
+
+/* Modo apresentação (WF Programador): sem barra lateral, conteúdo ocupa a tela toda. */
+body[data-presentation="true"] [data-workspace="desktop"] { padding-left: 0; }
+body[data-presentation="true"] [data-workspace="desktop"] > aside { display: none; }
