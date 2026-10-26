@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-export const quadroOcultasKey = (companyId: string, userId: string) =>
-  `workflux:gestao-pessoas:quadro-equipes-ocultas:v1:${companyId}:${userId}`;
+export const quadroOcultasKey = (companyId: string, userId: string, escopo = "gestao-pessoas") =>
+  `workflux:${escopo}:quadro-equipes-ocultas:v1:${companyId}:${userId}`;
 
 function ler(key: string): string[] {
   try {
@@ -11,8 +11,8 @@ function ler(key: string): string[] {
 }
 
 /** Preferência local por usuário + empresa: quais colunas do quadro ficam ocultas. Não altera nenhum cadastro. */
-export function useQuadroEquipesOcultas(companyId: string | null, userId: string | null) {
-  const key = companyId && userId ? quadroOcultasKey(companyId, userId) : "";
+export function useQuadroEquipesOcultas(companyId: string | null, userId: string | null, escopo = "gestao-pessoas") {
+  const key = companyId && userId ? quadroOcultasKey(companyId, userId, escopo) : "";
   const [ocultas, setOcultas] = useState<Set<string>>(new Set());
   const [erro, setErro] = useState("");
 

@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProgramacoesDoDia from "@/components/ProgramacoesDoDia";
-import { ArrowLeft, Plus, Car, Wrench, FileText, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio, History, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Car, Wrench, FileText, Columns3, Fuel, Search, ChevronRight, BarChart3, Loader2, MapPin, Radio, History, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipamentoTipos } from "@/hooks/useEquipamentoTipos";
 import { useToast } from "@/hooks/use-toast";
+import QuadroFrotas from "@/components/gestaoFrotas/QuadroFrotas";
 import { useNavigationTrail } from "@/hooks/useNavigationTrail";
 import { NavigationTrail } from "@/components/navigation/NavigationTrail";
 import { useSmartBack } from "@/hooks/useSmartBack";
@@ -108,7 +109,7 @@ export default function GestaoFrotasHome() {
   const [todos, setTodos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [medidoresMap, setMedidoresMap] = useState<Record<string, any>>({});
-  const [aba, setAba] = useState<"frotas" | "documentos">("frotas");
+  const [aba, setAba] = useState<"frotas" | "documentos" | "quadro">("frotas");
   const [docsVencendo, setDocsVencendo] = useState<any[]>([]);
   const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
   const [historicoTrocaEquipe, setHistoricoTrocaEquipe] = useState<any[]>([]);
@@ -927,6 +928,12 @@ export default function GestaoFrotasHome() {
           <Wrench className="w-4 h-4" /> Frotas
         </button>
         <button
+          onClick={() => setAba("quadro")}
+          className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${aba === "quadro" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}
+        >
+          <Columns3 className="w-4 h-4" /> Quadro de Equipes
+        </button>
+        <button
           onClick={() => setAba("documentos")}
           className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${aba === "documentos" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}
         >
@@ -938,6 +945,14 @@ export default function GestaoFrotasHome() {
           )}
         </button>
       </div>
+
+      {aba === "quadro" && (
+        <QuadroFrotas
+          equipamentos={todos}
+          catalogo={equipesCadastro}
+          onAtualizarSetor={(id, setor) => setTodos((prev) => prev.map((e) => (e.id === id ? { ...e, setor } : e)))}
+        />
+      )}
 
       {aba === "frotas" && (
         <div data-testid="frotas-content" className={isDesktop ? "max-w-6xl mx-auto px-8 py-8 space-y-3" : "max-w-2xl mx-auto px-4 py-4 space-y-3"}>

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { LARGURA_PADRAO, limitarLargura, type ModoCards } from "@/lib/quadroEquipes";
 
-export const quadroLayoutKey = (companyId: string, userId: string) =>
-  `workflux:gestao-pessoas:quadro-equipes-layout:v1:${companyId}:${userId}`;
+export const quadroLayoutKey = (companyId: string, userId: string, escopo = "gestao-pessoas") =>
+  `workflux:${escopo}:quadro-equipes-layout:v1:${companyId}:${userId}`;
 
 type Layout = { ordem: string[]; larguras: Record<string, number>; modoCards: ModoCards; ordemCards: Record<string, string[]> };
 const VAZIO: Layout = { ordem: [], larguras: {}, modoCards: "nome", ordemCards: {} };
@@ -28,8 +28,8 @@ function ler(key: string): Layout {
 }
 
 /** Ordem das colunas e largura de cada uma: preferência local por usuário + empresa; não altera cadastros. */
-export function useQuadroEquipesLayout(companyId: string | null, userId: string | null) {
-  const key = companyId && userId ? quadroLayoutKey(companyId, userId) : "";
+export function useQuadroEquipesLayout(companyId: string | null, userId: string | null, escopo = "gestao-pessoas") {
+  const key = companyId && userId ? quadroLayoutKey(companyId, userId, escopo) : "";
   const [layout, setLayout] = useState<Layout>(VAZIO);
   const [erro, setErro] = useState("");
 

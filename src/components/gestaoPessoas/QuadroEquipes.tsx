@@ -44,8 +44,19 @@ type Props = {
   onModoCards: (modo: ModoCards) => void;
   onOrdemCards: (coluna: string, ids: string[]) => void;
   /** Pendências abertas por funcionário (mesma fila de Pendências RH). */
-  pendencias: Record<string, PendenciaQuadro[]>;
-  onPendencia: (pessoa: PessoaCard) => void;
+  pendencias?: Record<string, PendenciaQuadro[]>;
+  onPendencia?: (pessoa: PessoaCard) => void;
+  /** Textos do domínio. Padrão = funcionários (Gestão de Pessoas); Frotas passa os de equipamentos. */
+  rotulos?: Partial<Rotulos>;
+};
+
+export type Rotulos = {
+  item: string; itens: string; nenhum: string; agrupar: string; custo: string; programador: string;
+  iniciais: (p: PessoaCard) => string;
+};
+const ROTULOS_PESSOAS: Rotulos = {
+  item: "funcionário", itens: "funcionários", nenhum: "Nenhum funcionário", agrupar: "Função",
+  custo: "Custo mensal", programador: "WF Programador", iniciais: (p) => iniciais(p.name),
 };
 
 const PREFIXO_CARD = "p:";
@@ -68,7 +79,8 @@ const colisao: CollisionDetection = (args) => {
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const iniciais = (nome: string) => nome.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]).join("").toUpperCase();
 
-function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto, pendencias = [], semDestino = false, onPendencia }: {
+function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto, pendencias = [], semDestino = false, onPendencia, inicial }: {
+  inicial: string;
   p: PessoaCard; podeArrastar: boolean; podeMover: boolean; movendo: boolean; sobreposto?: boolean;
   pendencias?: PendenciaQuadro[]; semDestino?: boolean; onPendencia?: (p: PessoaCard) => void;
   badge: { label: string; bg: string; text: string } | null; onAbrir: (id: string) => void;
@@ -92,7 +104,7 @@ function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto,
     >
       {podeArrastar && <GripVertical size={14} color="#cbd5e1" style={{ flexShrink: 0 }} />}
       <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e2e8f0", color: "#475569", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        {iniciais(p.name)}
+        {inicial}
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</p>
@@ -143,8 +155,8 @@ function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto,
   );
 }
 
-function Coluna({ coluna, custo, semDestinoQtd = 0, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
-  coluna: ColunaQuadro<PessoaCard>; custo?: number; semDestinoQtd?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
+function Coluna({ coluna, custo, custoRotulo, semDestinoQtd = 0, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
+  coluna: ColunaQuadro<PessoaCard>; custo?: number; custoRotulo: string; semDestinoQtd?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
   largura: number; onLargura: (px: number | null) => void; onOcultar: () => void; children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave });
@@ -205,7 +217,7 @@ function Coluna({ coluna, custo, semDestinoQtd = 0, destaqueAtivo, arrastandoCol
             </button>
           </span>
         </div>
-        {custo !== undefined && <p style={{ fontSize: 10, color: "#0f766e", fontWeight: 700 }}>Custo mensal: {brl(custo)}</p>}
+        {custo !== undefined && <p style={{ fontSize: 10, color: "#0f766e", fontWeight: 700 }}>{custoRotulo}: {brl(custo)}</p>}
         {semDestinoQtd > 0 && <p style={{ fontSize: 10, color: "#b45309", fontWeight: 800 }}>{semDestinoQtd} sem destino definido</p>}
       </header>
       <div data-quadro-lista style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 40 }}>{children}</div>
@@ -224,7 +236,9 @@ function Coluna({ coluna, custo, semDestinoQtd = 0, destaqueAtivo, arrastandoCol
   );
 }
 
-export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards, pendencias, onPendencia }: Props) {
+export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards, pendencias: pendenciasProp, onPendencia, rotulos: rotulosProp }: Props) {
+  const R: Rotulos = { ...ROTULOS_PESSOAS, ...rotulosProp };
+  const pendencias = useMemo(() => pendenciasProp ?? {}, [pendenciasProp]);
   const [soPendencia, setSoPendencia] = useState(false);
   const colunasBase = useMemo(
     () => montarColunas(pessoas, catalogo, busca, soPendencia ? (p) => (pendencias[p.id]?.length ?? 0) > 0 : undefined),
@@ -337,7 +351,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
     <>
       {!podeMover && (
         <p style={{ fontSize: 11, color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", marginBottom: 10 }}>
-          Modo visualização: somente usuários com acesso ao WF Programador podem mover funcionários entre equipes.
+          Modo visualização: somente usuários com acesso ao {R.programador} podem mover {R.itens} entre equipes.
         </p>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
@@ -372,18 +386,20 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
             <Eye size={13} /> {totalOcultas} oculta{totalOcultas > 1 ? "s" : ""} · mostrar todas
           </button>
         )}
+        {onPendencia && (
         <button
           onClick={() => setSoPendencia((v) => !v)}
           aria-pressed={soPendencia}
           disabled={totalComPendencia === 0 && !soPendencia}
           className={`h-7 px-2 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1 disabled:opacity-50 ${soPendencia ? "border-amber-500 bg-amber-50 text-amber-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
-          title="Mostrar só funcionários com pendência aberta"
+          title={`Mostrar só ${R.itens} com pendência aberta`}
         >
           <ClipboardPlus size={13} /> Só com pendência ({totalComPendencia})
         </button>
+        )}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#475569" }}>
           <span style={{ fontWeight: 700 }}>Ordenar cards:</span>
-          {([["nome", "Nome"], ["funcao", "Função"], ["manual", "Manual"]] as const).map(([modo, rotulo]) => (
+          {([["nome", "Nome"], ["funcao", R.agrupar], ["manual", "Manual"]] as const).map(([modo, rotulo]) => (
             <button
               key={modo}
               onClick={() => onModoCards(modo)}
@@ -428,8 +444,8 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
         ))}
         <div ref={quadroRef} style={{ display: "flex", gap: 12, overflowX: "scroll", overflowY: "hidden", paddingBottom: 12, alignItems: "flex-start", width: "100%" }}>
           {colunas.map((c) => (
-            <Coluna key={c.chave} coluna={c} semDestinoQtd={c.chave === SEM_EQUIPE ? c.pessoas.filter((p) => calcSemDestino(p.equipe, pendencias[p.id])).length : 0} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
-              {c.pessoas.length === 0 && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", padding: "10px 0" }}>Nenhum funcionário</p>}
+            <Coluna key={c.chave} coluna={c} custoRotulo={R.custo} semDestinoQtd={c.chave === SEM_EQUIPE ? c.pessoas.filter((p) => calcSemDestino(p.equipe, pendencias[p.id])).length : 0} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
+              {c.pessoas.length === 0 && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", padding: "10px 0" }}>{R.nenhum}</p>}
               {c.pessoas.map((p, i) => (
                 <Fragment key={p.id}>
                   {modoCards === "funcao" && (i === 0 || funcaoDe(c.pessoas[i - 1]) !== funcaoDe(p)) && (
@@ -438,8 +454,8 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
                       <span>{c.pessoas.filter((x) => funcaoDe(x) === funcaoDe(p)).length}</span>
                     </p>
                   )}
-                  <Card p={p} podeArrastar={podeArrastarCard} podeMover={podeMover} movendo={movendoId === p.id} badge={statusVisual(p)} onAbrir={onAbrir}
-                    pendencias={pendencias[p.id]} semDestino={c.chave === SEM_EQUIPE && calcSemDestino(p.equipe, pendencias[p.id])} onPendencia={onPendencia} />
+                  <Card inicial={R.iniciais(p)} p={p} podeArrastar={podeArrastarCard} podeMover={podeMover} movendo={movendoId === p.id} badge={statusVisual(p)} onAbrir={onAbrir}
+                    pendencias={pendencias[p.id]} semDestino={!!onPendencia && c.chave === SEM_EQUIPE && calcSemDestino(p.equipe, pendencias[p.id])} onPendencia={onPendencia} />
                 </Fragment>
               ))}
             </Coluna>
@@ -452,7 +468,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
               {colunaArrastada.nome} · {colunaArrastada.pessoas.length}
             </div>
           )}
-          {arrastando && <Card p={arrastando} podeArrastar={false} podeMover={false} movendo={false} sobreposto badge={statusVisual(arrastando)} onAbrir={() => undefined} />}
+          {arrastando && <Card inicial={R.iniciais(arrastando)} p={arrastando} podeArrastar={false} podeMover={false} movendo={false} sobreposto badge={statusVisual(arrastando)} onAbrir={() => undefined} />}
         </DragOverlay>
       </DndContext>
     </>
