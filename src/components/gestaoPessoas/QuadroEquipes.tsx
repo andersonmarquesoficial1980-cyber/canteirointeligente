@@ -3,7 +3,7 @@ import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
-import { Loader2, GripVertical, Eye, EyeOff, SlidersHorizontal } from "lucide-react";
+import { Loader2, GripVertical, Eye, EyeOff, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { chaveColuna, colunasVisiveis, montarColunas, SEM_EQUIPE, type ColunaQuadro, type PessoaQuadro } from "@/lib/quadroEquipes";
 
@@ -100,6 +100,24 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
   const colunas = useMemo(() => colunasVisiveis(todasColunas, ocultas), [todasColunas, ocultas]);
   const totalOcultas = todasColunas.length - colunas.length;
   const quadroRef = useRef<HTMLDivElement>(null);
+  const [rolagem, setRolagem] = useState({ esquerda: false, direita: false });
+
+  // Setas só aparecem quando há conteúdo escondido naquele lado.
+  useEffect(() => {
+    const el = quadroRef.current;
+    if (!el) return;
+    const atualizar = () => setRolagem({
+      esquerda: el.scrollLeft > 1,
+      direita: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+    });
+    atualizar();
+    el.addEventListener("scroll", atualizar, { passive: true });
+    const ro = new ResizeObserver(atualizar);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", atualizar); ro.disconnect(); };
+  }, [colunas.length]);
+  const rolarLado = (sentido: -1 | 1) =>
+    quadroRef.current?.scrollBy({ left: sentido * 560, behavior: "smooth" });
 
   // Roda vertical comum do mouse rola o quadro para o lado (mouse sem roda horizontal).
   // Dentro da lista de cards de uma coluna que ainda rola na vertical, a roda continua rolando a lista.
@@ -107,16 +125,19 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
     const el = quadroRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+      if (e.ctrlKey) return;
+      const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      const delta = horizontal ? e.deltaX : e.deltaY;
+      if (delta === 0) return;
       const lista = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-quadro-lista]");
-      if (lista && lista.scrollHeight > lista.clientHeight) {
-        const noTopo = lista.scrollTop <= 0 && e.deltaY < 0;
-        const noFim = lista.scrollTop + lista.clientHeight >= lista.scrollHeight - 1 && e.deltaY > 0;
+      if (!horizontal && lista && lista.scrollHeight > lista.clientHeight) {
+        const noTopo = lista.scrollTop <= 0 && delta < 0;
+        const noFim = lista.scrollTop + lista.clientHeight >= lista.scrollHeight - 1 && delta > 0;
         if (!noTopo && !noFim) return;
       }
       const max = el.scrollWidth - el.clientWidth;
       if (max <= 0) return;
-      const proximo = Math.min(max, Math.max(0, el.scrollLeft + e.deltaY));
+      const proximo = Math.min(max, Math.max(0, el.scrollLeft + delta));
       if (proximo === el.scrollLeft) return;
       e.preventDefault();
       el.scrollLeft = proximo;
@@ -180,6 +201,18 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
         {avisoPreferencia && <span style={{ fontSize: 11, color: "#b45309" }}>{avisoPreferencia}</span>}
       </div>
       <DndContext sensors={sensors} onDragStart={aoIniciar} onDragEnd={aoSoltar} onDragCancel={() => setArrastando(null)}>
+        <div style={{ position: "relative" }}>
+        {(["esquerda", "direita"] as const).map((lado) => rolagem[lado] && (
+          <button
+            key={lado}
+            onClick={() => rolarLado(lado === "esquerda" ? -1 : 1)}
+            aria-label={lado === "esquerda" ? "Ver equipes à esquerda" : "Ver equipes à direita"}
+            title={lado === "esquerda" ? "Equipes à esquerda" : "Equipes à direita"}
+            style={{ position: "absolute", top: 120, [lado === "esquerda" ? "left" : "right"]: 4, zIndex: 20, width: 36, height: 36, borderRadius: 999, background: "white", border: "1px solid #cbd5e1", boxShadow: "0 2px 8px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#334155" }}
+          >
+            {lado === "esquerda" ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+          </button>
+        ))}
         <div ref={quadroRef} style={{ display: "flex", gap: 12, overflowX: "scroll", overflowY: "hidden", paddingBottom: 12, alignItems: "flex-start", width: "100%" }}>
           {colunas.map((c) => (
             <Coluna key={c.chave} coluna={c} destaqueAtivo={!!arrastando} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
@@ -189,6 +222,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
               ))}
             </Coluna>
           ))}
+        </div>
         </div>
         <DragOverlay>
           {arrastando && <Card p={arrastando} podeMover={false} movendo={false} sobreposto badge={statusVisual(arrastando)} onAbrir={() => undefined} />}
