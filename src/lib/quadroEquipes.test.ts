@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LARGURA_MAX, LARGURA_MIN, LARGURA_PADRAO, SEM_EQUIPE, chaveColuna, colunasVisiveis, limitarLargura, montarColunas, moverChave, ordenarColunas, prepararMovimento, type PessoaQuadro } from "./quadroEquipes";
+import { inserirAntes, ordenarPessoas, LARGURA_MAX, LARGURA_MIN, LARGURA_PADRAO, SEM_EQUIPE, chaveColuna, colunasVisiveis, limitarLargura, montarColunas, moverChave, ordenarColunas, prepararMovimento, type PessoaQuadro } from "./quadroEquipes";
 
 const p = (id: string, name: string, equipe: string | null, status: string | null = "ativo", company_id = "c1"): PessoaQuadro =>
   ({ id, name, matricula: id, role: "AJUDANTE GERAL", equipe, status, company_id });
@@ -80,5 +80,37 @@ describe("ordem e largura das colunas", () => {
     expect(limitarLargura(5000)).toBe(LARGURA_MAX);
     expect(limitarLargura(333.4)).toBe(333);
     expect(limitarLargura(NaN)).toBe(LARGURA_PADRAO);
+  });
+});
+
+describe("ordem dos cards dentro da equipe", () => {
+  const r = (id: string, name: string, role: string | null) => ({ id, name, role, matricula: id, equipe: "X", status: "ativo", company_id: "c1" });
+  const gente = [r("1", "Zeca", "RASTELEIRO"), r("2", "Ana", "AJUDANTE GERAL"), r("3", "Bia", null), r("4", "Caio", "AJUDANTE GERAL"), r("5", "Davi", "rasteleiro")];
+
+  it("nome: A–Z", () => {
+    expect(ordenarPessoas(gente, "nome").map((x) => x.name)).toEqual(["Ana", "Bia", "Caio", "Davi", "Zeca"]);
+  });
+
+  it("função: agrupa (ignora caixa), A–Z dentro do grupo e 'sem função' por último", () => {
+    expect(ordenarPessoas(gente, "funcao").map((x) => x.name)).toEqual(["Ana", "Caio", "Davi", "Zeca", "Bia"]);
+  });
+
+  it("manual: respeita a ordem salva, ignora ids de fora e põe novos ao final em A–Z", () => {
+    const r2 = ordenarPessoas(gente, "manual", ["5", "fantasma", "2", "5"]).map((x) => x.id);
+    expect(r2).toEqual(["5", "2", "1", "3", "4"].filter((id) => id !== "1" && id !== "3" && id !== "4").concat(["3", "4", "1"]));
+    expect(ordenarPessoas(gente, "manual", []).map((x) => x.name)).toEqual(["Ana", "Bia", "Caio", "Davi", "Zeca"]);
+  });
+
+  it("não altera o array original", () => {
+    const copia = gente.map((x) => x.id);
+    ordenarPessoas(gente, "funcao"); ordenarPessoas(gente, "manual", ["5"]);
+    expect(gente.map((x) => x.id)).toEqual(copia);
+  });
+
+  it("inserirAntes posiciona antes do alvo, vai ao fim se o alvo não existe e não duplica", () => {
+    expect(inserirAntes(["a", "b", "c"], "c", "a")).toEqual(["c", "a", "b"]);
+    expect(inserirAntes(["a", "b", "c"], "a", "c")).toEqual(["b", "a", "c"]);
+    expect(inserirAntes(["a", "b"], "z", "b")).toEqual(["a", "z", "b"]);
+    expect(inserirAntes(["a", "b"], "a", "x")).toEqual(["b", "a"]);
   });
 });

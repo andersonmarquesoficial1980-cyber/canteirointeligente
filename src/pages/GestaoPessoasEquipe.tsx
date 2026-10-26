@@ -1711,6 +1711,10 @@ export default function GestaoPessoasEquipe() {
                   onLarguraTodas={quadroLayout.definirTodas}
                   onRestaurarLayout={quadroLayout.restaurar}
                   layoutPersonalizado={quadroLayout.personalizado}
+                  modoCards={quadroLayout.modoCards}
+                  ordemCards={quadroLayout.ordemCards}
+                  onModoCards={quadroLayout.definirModoCards}
+                  onOrdemCards={quadroLayout.definirOrdemCards}
                 />
               </>
             )}

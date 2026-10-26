@@ -127,3 +127,51 @@ export function moverChave(chaves: readonly string[], de: string, para: string):
   proximo.splice(j, 0, de);
   return proximo;
 }
+
+export type ModoCards = "nome" | "funcao" | "manual";
+export const SEM_FUNCAO = "SEM FUNÇÃO";
+
+export const funcaoDe = (p: { role?: string | null }) => (p.role?.trim() ? p.role.trim().toUpperCase() : SEM_FUNCAO);
+
+const porNome = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+
+/**
+ * nome: A–Z. funcao: agrupa por função (A–Z, "SEM FUNÇÃO" por último) e dentro dela por nome.
+ * manual: ids salvos primeiro, na ordem salva; quem não está salvo (pessoa nova na equipe) vem depois, A–Z.
+ * Ids salvos que não pertencem mais à coluna são ignorados.
+ */
+export function ordenarPessoas<T extends { id: string; name: string; role?: string | null }>(
+  pessoas: readonly T[], modo: ModoCards, ordemSalva: readonly string[] = [],
+): T[] {
+  if (modo === "manual") {
+    const porId = new Map(pessoas.map((p) => [p.id, p]));
+    const vistos = new Set<string>();
+    const salvos: T[] = [];
+    for (const id of ordemSalva) {
+      const p = porId.get(id);
+      if (p && !vistos.has(id)) { salvos.push(p); vistos.add(id); }
+    }
+    return [...salvos, ...pessoas.filter((p) => !vistos.has(p.id)).sort(porNome)];
+  }
+  if (modo === "funcao") {
+    return [...pessoas].sort((a, b) => {
+      const fa = funcaoDe(a), fb = funcaoDe(b);
+      if (fa !== fb) {
+        if (fa === SEM_FUNCAO) return 1;
+        if (fb === SEM_FUNCAO) return -1;
+        return fa.localeCompare(fb, "pt-BR", { sensitivity: "base" });
+      }
+      return porNome(a, b);
+    });
+  }
+  return [...pessoas].sort(porNome);
+}
+
+/** Tira `id` da lista e o coloca imediatamente antes de `antesDe` (ou no fim, se antesDe não existir). */
+export function inserirAntes(ids: readonly string[], id: string, antesDe: string): string[] {
+  const resto = ids.filter((x) => x !== id);
+  const i = resto.indexOf(antesDe);
+  if (i < 0) return [...resto, id];
+  resto.splice(i, 0, id);
+  return resto;
+}

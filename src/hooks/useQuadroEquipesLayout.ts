@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { LARGURA_PADRAO, limitarLargura } from "@/lib/quadroEquipes";
+import { LARGURA_PADRAO, limitarLargura, type ModoCards } from "@/lib/quadroEquipes";
 
 export const quadroLayoutKey = (companyId: string, userId: string) =>
   `workflux:gestao-pessoas:quadro-equipes-layout:v1:${companyId}:${userId}`;
 
-type Layout = { ordem: string[]; larguras: Record<string, number> };
-const VAZIO: Layout = { ordem: [], larguras: {} };
+type Layout = { ordem: string[]; larguras: Record<string, number>; modoCards: ModoCards; ordemCards: Record<string, string[]> };
+const VAZIO: Layout = { ordem: [], larguras: {}, modoCards: "nome", ordemCards: {} };
 
 function ler(key: string): Layout {
   try {
@@ -16,7 +16,14 @@ function ler(key: string): Layout {
     if (bruto.larguras && typeof bruto.larguras === "object") {
       for (const [k, v] of Object.entries(bruto.larguras)) if (typeof v === "number") larguras[k] = limitarLargura(v);
     }
-    return { ordem, larguras };
+    const modoCards: ModoCards = ["nome", "funcao", "manual"].includes(bruto.modoCards) ? bruto.modoCards : "nome";
+    const ordemCards: Record<string, string[]> = {};
+    if (bruto.ordemCards && typeof bruto.ordemCards === "object") {
+      for (const [k, v] of Object.entries(bruto.ordemCards)) {
+        if (Array.isArray(v)) ordemCards[k] = v.filter((id): id is string => typeof id === "string");
+      }
+    }
+    return { ordem, larguras, modoCards, ordemCards };
   } catch { return VAZIO; }
 }
 
@@ -46,8 +53,12 @@ export function useQuadroEquipesLayout(companyId: string | null, userId: string 
     for (const k of chaves) larguras[k] = limitarLargura(px);
     salvar({ ...layout, larguras });
   }, [layout, salvar]);
+  const definirModoCards = useCallback((modoCards: ModoCards) => salvar({ ...layout, modoCards }), [layout, salvar]);
+  // Reordenar à mão sempre liga o modo Manual; só a equipe mexida ganha ordem salva.
+  const definirOrdemCards = useCallback((coluna: string, ids: string[]) =>
+    salvar({ ...layout, modoCards: "manual", ordemCards: { ...layout.ordemCards, [coluna]: ids } }), [layout, salvar]);
   const restaurar = useCallback(() => salvar(VAZIO), [salvar]);
 
-  const personalizado = layout.ordem.length > 0 || Object.keys(layout.larguras).length > 0;
-  return { ordem: layout.ordem, larguras: layout.larguras, definirOrdem, definirLargura, definirTodas, restaurar, personalizado, erro, LARGURA_PADRAO };
+  const personalizado = layout.ordem.length > 0 || Object.keys(layout.larguras).length > 0 || layout.modoCards !== "nome" || Object.keys(layout.ordemCards).length > 0;
+  return { ordem: layout.ordem, larguras: layout.larguras, modoCards: layout.modoCards, ordemCards: layout.ordemCards, definirModoCards, definirOrdemCards, definirOrdem, definirLargura, definirTodas, restaurar, personalizado, erro, LARGURA_PADRAO };
 }
