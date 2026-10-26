@@ -1,7 +1,9 @@
 // WF Programador — Gestão de equipes, funcionários e equipamentos
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Users, Wrench, Calendar, CalendarDays, Save, Users2, Truck, Building2 } from "lucide-react";
+import { ArrowLeft, Users, Wrench, Calendar, CalendarDays, Save, Users2, Truck, Building2, Columns3 } from "lucide-react";
+import QuadroPessoas from "@/components/gestaoPessoas/QuadroPessoas";
+import QuadroFrotas from "@/components/gestaoFrotas/QuadroFrotas";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -93,7 +95,7 @@ interface Funcionario { id: string; name: string; matricula: string | null; role
 interface Frota { id: string; frota: string; tipo: string; categoria_rdo?: string | null; setor: string | null; status?: string | null; company_id?: string | null; condicao: string | null; valor_mensal: number | null; empresa_proprietaria: string | null; locadora?: string | null; centro_custo?: string | null; placa?: string | null; }
 interface Ogs { ogs_number: string; client_name: string; location_address: string; }
 
-type Aba = "equipes" | "funcionarios" | "equipamentos";
+type Aba = "equipes" | "funcionarios" | "equipamentos" | "quadro_pessoas" | "quadro_frotas";
 type ModoFunc = "status" | "transferencia" | "admissao" | "demissao";
 type ModoEquip = "status" | "transferencia";
 
@@ -165,7 +167,7 @@ export default function ProgramadorHome() {
   const [filterEquipStatus, setFilterEquipStatus] = useState("TODOS");
   const [modoOperacaoNoturna, setModoOperacaoNoturna] = useState(false);
   const [modoReuniao, setModoReuniao] = useState(false);
-  const [presentationKind, setPresentationKind] = useState<Aba>("equipes");
+  const [presentationKind, setPresentationKind] = useState<"equipes" | "funcionarios" | "equipamentos">("equipes");
   const [presentationTeam, setPresentationTeam] = useState("");
   const [presentationZoom, setPresentationZoom] = useState(100);
   const [rosterFocusVersion, setRosterFocusVersion] = useState(0);
@@ -1089,6 +1091,8 @@ export default function ProgramadorHome() {
           { id: "equipes", label: "Equipes", icon: Calendar },
           { id: "funcionarios", label: "Funcionários", icon: Users },
           { id: "equipamentos", label: "Equipamentos", icon: Wrench },
+          { id: "quadro_pessoas", label: "Quadro Pessoas", icon: Columns3 },
+          { id: "quadro_frotas", label: "Quadro Frotas", icon: Columns3 },
         ] as const).map(t => (
           <button key={t.id} onClick={() => {
             if (t.id !== aba && rosterDirty && !window.confirm("Descartar alterações não salvas neste registro?")) return;
@@ -1135,6 +1139,23 @@ export default function ProgramadorHome() {
           </p>
         )}
         {!modoReuniao && notesError && <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">Observações indisponíveis: {notesError}. Atualize os dados antes de editar.</p>}
+
+        {/* ── QUADROS (espelho dos quadros de Gestão de Pessoas e Gestão de Frotas; mesma fonte de dados) ── */}
+        {!modoReuniao && aba === "quadro_pessoas" && (
+          <QuadroPessoas
+            funcionarios={funcionarios as any}
+            catalogo={equipes.map((e) => e.nome)}
+            onAtualizarEquipe={(id, equipe) => setFuncionarios((prev) => prev.map((f) => (f.id === id ? { ...f, equipe } : f)))}
+            onAbrir={(id) => navigate(`/gestao-pessoas/${id}`)}
+          />
+        )}
+        {!modoReuniao && aba === "quadro_frotas" && (
+          <QuadroFrotas
+            equipamentos={frota as any}
+            catalogo={equipes.map((e) => e.nome)}
+            onAtualizarSetor={(id, setor) => setFrota((prev) => prev.map((f) => (f.id === id ? { ...f, setor } : f)))}
+          />
+        )}
 
         {/* ── ABA EQUIPES ── */}
         {!modoReuniao && aba === "equipes" && (
