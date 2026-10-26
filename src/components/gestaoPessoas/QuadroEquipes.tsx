@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
@@ -90,7 +90,7 @@ function Coluna({ coluna, custo, destaqueAtivo, onOcultar, children }: {
         </div>
         {custo !== undefined && <p style={{ fontSize: 10, color: "#0f766e", fontWeight: 700 }}>Custo mensal: {brl(custo)}</p>}
       </header>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 40 }}>{children}</div>
+      <div data-quadro-lista style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 40 }}>{children}</div>
     </section>
   );
 }
@@ -99,6 +99,31 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
   const todasColunas = useMemo(() => montarColunas(pessoas, catalogo, busca), [pessoas, catalogo, busca]);
   const colunas = useMemo(() => colunasVisiveis(todasColunas, ocultas), [todasColunas, ocultas]);
   const totalOcultas = todasColunas.length - colunas.length;
+  const quadroRef = useRef<HTMLDivElement>(null);
+
+  // Roda vertical comum do mouse rola o quadro para o lado (mouse sem roda horizontal).
+  // Dentro da lista de cards de uma coluna que ainda rola na vertical, a roda continua rolando a lista.
+  useEffect(() => {
+    const el = quadroRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+      const lista = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-quadro-lista]");
+      if (lista && lista.scrollHeight > lista.clientHeight) {
+        const noTopo = lista.scrollTop <= 0 && e.deltaY < 0;
+        const noFim = lista.scrollTop + lista.clientHeight >= lista.scrollHeight - 1 && e.deltaY > 0;
+        if (!noTopo && !noFim) return;
+      }
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 0) return;
+      const proximo = Math.min(max, Math.max(0, el.scrollLeft + e.deltaY));
+      if (proximo === el.scrollLeft) return;
+      e.preventDefault();
+      el.scrollLeft = proximo;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
   const [arrastando, setArrastando] = useState<PessoaCard | null>(null);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -155,7 +180,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
         {avisoPreferencia && <span style={{ fontSize: 11, color: "#b45309" }}>{avisoPreferencia}</span>}
       </div>
       <DndContext sensors={sensors} onDragStart={aoIniciar} onDragEnd={aoSoltar} onDragCancel={() => setArrastando(null)}>
-        <div style={{ display: "flex", gap: 12, overflowX: "scroll", overflowY: "hidden", paddingBottom: 12, alignItems: "flex-start", width: "100%" }}>
+        <div ref={quadroRef} style={{ display: "flex", gap: 12, overflowX: "scroll", overflowY: "hidden", paddingBottom: 12, alignItems: "flex-start", width: "100%" }}>
           {colunas.map((c) => (
             <Coluna key={c.chave} coluna={c} destaqueAtivo={!!arrastando} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
               {c.pessoas.length === 0 && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", padding: "10px 0" }}>Nenhum funcionário</p>}
