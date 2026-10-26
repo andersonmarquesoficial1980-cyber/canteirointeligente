@@ -3,9 +3,16 @@ import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDraggable, useDroppable, useSensor, useSensors,
   type CollisionDetection, type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
-import { Loader2, GripVertical, Eye, EyeOff, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, GripVertical, Eye, EyeOff, SlidersHorizontal, ChevronLeft, ChevronRight, ClipboardPlus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { LARGURA_PADRAO, chaveColuna, colunasVisiveis, funcaoDe, inserirAntes, limitarLargura, montarColunas, moverChave, ordenarColunas, ordenarPessoas, SEM_EQUIPE, type ModoCards, type ColunaQuadro, type PessoaQuadro } from "@/lib/quadroEquipes";
+import { rotuloPendencia, semDestino as calcSemDestino, tomPendencia, type PendenciaQuadro, type TomPendencia } from "@/lib/quadroPendencias";
+
+const TOM: Record<TomPendencia, { bg: string; text: string; borda: string }> = {
+  critico: { bg: "#fee2e2", text: "#991b1b", borda: "#fca5a5" },
+  atencao: { bg: "#ffedd5", text: "#9a3412", borda: "#fdba74" },
+  info: { bg: "#fef9c3", text: "#854d0e", borda: "#fde047" },
+};
 
 export type PessoaCard = PessoaQuadro & { foto_url?: string | null };
 
@@ -36,6 +43,9 @@ type Props = {
   ordemCards: Record<string, string[]>;
   onModoCards: (modo: ModoCards) => void;
   onOrdemCards: (coluna: string, ids: string[]) => void;
+  /** Pendências abertas por funcionário (mesma fila de Pendências RH). */
+  pendencias: Record<string, PendenciaQuadro[]>;
+  onPendencia: (pessoa: PessoaCard) => void;
 };
 
 const PREFIXO_CARD = "p:";
@@ -58,8 +68,9 @@ const colisao: CollisionDetection = (args) => {
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const iniciais = (nome: string) => nome.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]).join("").toUpperCase();
 
-function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto }: {
+function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto, pendencias = [], semDestino = false, onPendencia }: {
   p: PessoaCard; podeArrastar: boolean; podeMover: boolean; movendo: boolean; sobreposto?: boolean;
+  pendencias?: PendenciaQuadro[]; semDestino?: boolean; onPendencia?: (p: PessoaCard) => void;
   badge: { label: string; bg: string; text: string } | null; onAbrir: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({ id: p.id, disabled: !podeArrastar || movendo });
@@ -88,17 +99,52 @@ function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto 
         <p style={{ fontSize: 10, color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {p.role || "Sem função"}{p.matricula ? ` · Mat. ${p.matricula}` : ""}
         </p>
+        {(pendencias.length > 0 || semDestino) && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+            {pendencias.slice(0, 2).map((pd) => {
+              const t = TOM[tomPendencia(pd)];
+              return (
+                <span
+                  key={pd.id}
+                  title={`${rotuloPendencia(pd)} · ${pd.status === "em_analise" ? "em análise" : "aberta"} · prioridade ${pd.prioridade}${pd.data_efetiva ? ` · previsto ${pd.data_efetiva.split("-").reverse().join("/")}` : ""}\n${pd.justificativa}${pd.solicitado_por_nome ? `\nSolicitado por ${pd.solicitado_por_nome}` : ""}`}
+                  style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 999, background: t.bg, color: t.text, border: `1px solid ${t.borda}`, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {tomPendencia(pd) === "critico" ? "⚠ " : ""}{rotuloPendencia(pd)}
+                </span>
+              );
+            })}
+            {pendencias.length > 2 && <span style={{ fontSize: 9, fontWeight: 800, color: "#854d0e" }} title={pendencias.slice(2).map(rotuloPendencia).join(", ")}>+{pendencias.length - 2}</span>}
+            {semDestino && (
+              <span title="Sem equipe e sem nenhuma pendência: o destino deste funcionário ainda não foi definido" style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 999, border: "1px dashed #d97706", color: "#b45309", background: "#fffbeb" }}>
+                Sem destino definido
+              </span>
+            )}
+          </div>
+        )}
       </div>
       {badge && (
         <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 999, background: badge.bg, color: badge.text, flexShrink: 0 }}>{badge.label}</span>
+      )}
+      {onPendencia && !sobreposto && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onPendencia(p); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          title="Registrar pendência (demitir, alocar, férias...)"
+          aria-label={`Registrar pendência de ${p.name}`}
+          style={{ padding: 4, borderRadius: 6, color: pendencias.length ? "#b45309" : "#94a3b8", flexShrink: 0, cursor: "pointer" }}
+        >
+          <ClipboardPlus size={15} />
+        </button>
       )}
       {movendo && <Loader2 size={14} className="animate-spin" color="#64748b" />}
     </div>
   );
 }
 
-function Coluna({ coluna, custo, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
-  coluna: ColunaQuadro<PessoaCard>; custo?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
+function Coluna({ coluna, custo, semDestinoQtd = 0, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
+  coluna: ColunaQuadro<PessoaCard>; custo?: number; semDestinoQtd?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
   largura: number; onLargura: (px: number | null) => void; onOcultar: () => void; children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave });
@@ -160,6 +206,7 @@ function Coluna({ coluna, custo, destaqueAtivo, arrastandoColuna, largura, onLar
           </span>
         </div>
         {custo !== undefined && <p style={{ fontSize: 10, color: "#0f766e", fontWeight: 700 }}>Custo mensal: {brl(custo)}</p>}
+        {semDestinoQtd > 0 && <p style={{ fontSize: 10, color: "#b45309", fontWeight: 800 }}>{semDestinoQtd} sem destino definido</p>}
       </header>
       <div data-quadro-lista style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 40 }}>{children}</div>
       <div
@@ -177,8 +224,13 @@ function Coluna({ coluna, custo, destaqueAtivo, arrastandoColuna, largura, onLar
   );
 }
 
-export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards }: Props) {
-  const colunasBase = useMemo(() => montarColunas(pessoas, catalogo, busca), [pessoas, catalogo, busca]);
+export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado, modoCards, ordemCards, onModoCards, onOrdemCards, pendencias, onPendencia }: Props) {
+  const [soPendencia, setSoPendencia] = useState(false);
+  const colunasBase = useMemo(
+    () => montarColunas(pessoas, catalogo, busca, soPendencia ? (p) => (pendencias[p.id]?.length ?? 0) > 0 : undefined),
+    [pessoas, catalogo, busca, soPendencia, pendencias],
+  );
+  const totalComPendencia = useMemo(() => pessoas.filter((p) => (pendencias[p.id]?.length ?? 0) > 0).length, [pessoas, pendencias]);
   const todasColunas = useMemo(
     () => ordenarColunas(colunasBase, ordem).map((c) => ({ ...c, pessoas: ordenarPessoas(c.pessoas, modoCards, ordemCards[chaveColuna(c)]) })),
     [colunasBase, ordem, modoCards, ordemCards],
@@ -320,6 +372,15 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
             <Eye size={13} /> {totalOcultas} oculta{totalOcultas > 1 ? "s" : ""} · mostrar todas
           </button>
         )}
+        <button
+          onClick={() => setSoPendencia((v) => !v)}
+          aria-pressed={soPendencia}
+          disabled={totalComPendencia === 0 && !soPendencia}
+          className={`h-7 px-2 rounded-md border text-[11px] font-semibold inline-flex items-center gap-1 disabled:opacity-50 ${soPendencia ? "border-amber-500 bg-amber-50 text-amber-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+          title="Mostrar só funcionários com pendência aberta"
+        >
+          <ClipboardPlus size={13} /> Só com pendência ({totalComPendencia})
+        </button>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#475569" }}>
           <span style={{ fontWeight: 700 }}>Ordenar cards:</span>
           {([["nome", "Nome"], ["funcao", "Função"], ["manual", "Manual"]] as const).map(([modo, rotulo]) => (
@@ -367,7 +428,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
         ))}
         <div ref={quadroRef} style={{ display: "flex", gap: 12, overflowX: "scroll", overflowY: "hidden", paddingBottom: 12, alignItems: "flex-start", width: "100%" }}>
           {colunas.map((c) => (
-            <Coluna key={c.chave} coluna={c} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
+            <Coluna key={c.chave} coluna={c} semDestinoQtd={c.chave === SEM_EQUIPE ? c.pessoas.filter((p) => calcSemDestino(p.equipe, pendencias[p.id])).length : 0} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
               {c.pessoas.length === 0 && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", padding: "10px 0" }}>Nenhum funcionário</p>}
               {c.pessoas.map((p, i) => (
                 <Fragment key={p.id}>
@@ -377,7 +438,8 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
                       <span>{c.pessoas.filter((x) => funcaoDe(x) === funcaoDe(p)).length}</span>
                     </p>
                   )}
-                  <Card p={p} podeArrastar={podeArrastarCard} podeMover={podeMover} movendo={movendoId === p.id} badge={statusVisual(p)} onAbrir={onAbrir} />
+                  <Card p={p} podeArrastar={podeArrastarCard} podeMover={podeMover} movendo={movendoId === p.id} badge={statusVisual(p)} onAbrir={onAbrir}
+                    pendencias={pendencias[p.id]} semDestino={c.chave === SEM_EQUIPE && calcSemDestino(p.equipe, pendencias[p.id])} onPendencia={onPendencia} />
                 </Fragment>
               ))}
             </Coluna>

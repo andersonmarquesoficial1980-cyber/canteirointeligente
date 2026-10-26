@@ -39,6 +39,7 @@ export function montarColunas<T extends PessoaQuadro>(
   pessoas: readonly T[],
   catalogo: readonly string[],
   busca = "",
+  filtro?: (p: T) => boolean,
 ): ColunaQuadro<T>[] {
   const termo = chaveEquipe(busca);
   const mapa = new Map<string, ColunaQuadro<T>>();
@@ -54,6 +55,7 @@ export function montarColunas<T extends PessoaQuadro>(
 
   for (const p of pessoas) {
     if (estaDemitido(p.status)) continue;
+    if (filtro && !filtro(p)) continue;
     if (termo) {
       const alvo = [p.name, p.matricula, p.role].map(chaveEquipe).join(" ");
       if (!alvo.includes(termo)) continue;

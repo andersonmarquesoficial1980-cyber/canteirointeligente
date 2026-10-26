@@ -20,6 +20,9 @@ import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { chaveEquipe, prepararMovimento, rotuloEquipe, SEM_EQUIPE } from "@/lib/quadroEquipes";
 import { useQuadroEquipesOcultas } from "@/hooks/useQuadroEquipesOcultas";
 import { useQuadroEquipesLayout } from "@/hooks/useQuadroEquipesLayout";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import PendenciaRapidaDialog from "@/components/gestaoPessoas/PendenciaRapidaDialog";
+import { agruparAbertasPorFuncionario, montarNovaPendencia, rotuloPendencia, STATUS_ABERTOS, type FormPendenciaRapida, type PendenciaQuadro } from "@/lib/quadroPendencias";
 import { toLocalISODate } from "@/lib/date-local";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useToast } from "@/hooks/use-toast";
@@ -591,6 +594,10 @@ export default function GestaoPessoasEquipe() {
   const podeMoverQuadro = permissions?.modulo_programador === true;
   const [userIdQuadro, setUserIdQuadro] = useState<string | null>(null);
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setUserIdQuadro(data.user?.id ?? null)); }, []);
+  const { profile: perfilQuadro } = useUserProfile();
+  const [pendenciasQuadro, setPendenciasQuadro] = useState<PendenciaQuadro[]>([]);
+  const [pessoaPendencia, setPessoaPendencia] = useState<PessoaCard | null>(null);
+  const [salvandoPendencia, setSalvandoPendencia] = useState(false);
   const [movendoQuadroId, setMovendoQuadroId] = useState<string | null>(null);
   const [ultimoMovimento, setUltimoMovimento] = useState<{ pessoa: PessoaCard; de: string | null; para: string | null } | null>(null);
   const [todos, setTodos] = useState<Funcionario[]>([]);
@@ -793,6 +800,56 @@ export default function GestaoPessoasEquipe() {
       .filter((e) => e.responsavel_employee_id && ids.has(e.responsavel_employee_id))
       .map((e) => e.nome);
   }, [todos, catalogoEquipesGlobal]);
+
+  const companyQuadro = todos[0]?.company_id ?? null;
+  async function carregarPendenciasQuadro() {
+    if (!companyQuadro) return;
+    const { data, error } = await (supabase as any)
+      .from("rh_pendencias_funcionario")
+      .select("id, employee_id, tipo, status, prioridade, justificativa, data_efetiva, payload, solicitado_por_nome, created_at")
+      .eq("company_id", companyQuadro)
+      .in("status", [...STATUS_ABERTOS])
+      .order("created_at", { ascending: true })
+      .limit(2000);
+    if (error) {
+      toast({ title: "Não foi possível carregar as pendências", description: error.message, variant: "destructive" });
+      return;
+    }
+    setPendenciasQuadro((data || []) as PendenciaQuadro[]);
+  }
+  useEffect(() => { carregarPendenciasQuadro(); }, [companyQuadro]);
+  const pendenciasPorFuncionario = useMemo(() => agruparAbertasPorFuncionario(pendenciasQuadro), [pendenciasQuadro]);
+
+  async function registrarPendenciaQuadro(form: FormPendenciaRapida) {
+    const pessoa = pessoaPendencia && todos.find((f) => f.id === pessoaPendencia.id);
+    if (!pessoa?.company_id) return;
+    let nova;
+    try { nova = montarNovaPendencia(form); }
+    catch (err: any) { toast({ title: err?.message || "Dados inválidos", variant: "destructive" }); return; }
+    setSalvandoPendencia(true);
+    try {
+      const { error } = await (supabase as any).from("rh_pendencias_funcionario").insert({
+        company_id: pessoa.company_id,
+        employee_id: pessoa.id,
+        tipo: nova.tipo,
+        status: "aberta",
+        prioridade: nova.prioridade,
+        justificativa: nova.justificativa,
+        data_efetiva: nova.data_efetiva,
+        payload: nova.payload,
+        solicitado_por_user_id: perfilQuadro?.user_id || null,
+        solicitado_por_nome: perfilQuadro?.nome_completo || perfilQuadro?.email || null,
+      });
+      if (error) throw error;
+      toast({ title: "Pendência registrada", description: `${pessoa.name}: ${rotuloPendencia({ tipo: nova.tipo, payload: nova.payload })}` });
+      setPessoaPendencia(null);
+      await carregarPendenciasQuadro();
+    } catch (err: any) {
+      toast({ title: "Erro ao registrar pendência", description: err?.message || "Tente novamente", variant: "destructive" });
+    } finally {
+      setSalvandoPendencia(false);
+    }
+  }
 
   async function moverPeloQuadro(pessoa: PessoaCard, destino: string, desfazer = false) {
     if (!podeMoverQuadro) return;
@@ -1713,8 +1770,18 @@ export default function GestaoPessoasEquipe() {
                   layoutPersonalizado={quadroLayout.personalizado}
                   modoCards={quadroLayout.modoCards}
                   ordemCards={quadroLayout.ordemCards}
+                  pendencias={pendenciasPorFuncionario}
+                  onPendencia={setPessoaPendencia}
                   onModoCards={quadroLayout.definirModoCards}
                   onOrdemCards={quadroLayout.definirOrdemCards}
+                />
+                <PendenciaRapidaDialog
+                  pessoa={pessoaPendencia}
+                  abertas={pessoaPendencia ? pendenciasPorFuncionario[pessoaPendencia.id] || [] : []}
+                  equipes={equipesDisponiveis}
+                  salvando={salvandoPendencia}
+                  onFechar={() => setPessoaPendencia(null)}
+                  onSalvar={registrarPendenciaQuadro}
                 />
               </>
             )}
