@@ -1478,9 +1478,9 @@ export default function GestaoPessoasEquipe() {
         ))}
       </div>
 
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "16px" }}>
+      <div style={{ maxWidth: aba === "quadro" ? "none" : 960, margin: "0 auto", padding: "16px" }}>
         {/* Busca */}
-        <div className="relative mb-4">
+        <div className="relative mb-4" style={aba === "quadro" ? { maxWidth: 560 } : undefined}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <input
             type="text"
