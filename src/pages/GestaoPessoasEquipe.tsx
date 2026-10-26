@@ -19,6 +19,7 @@ import QuadroEquipes, { type PessoaCard } from "@/components/gestaoPessoas/Quadr
 import { applyProgramadorBatch } from "@/lib/programadorBatch";
 import { chaveEquipe, prepararMovimento, rotuloEquipe, SEM_EQUIPE } from "@/lib/quadroEquipes";
 import { useQuadroEquipesOcultas } from "@/hooks/useQuadroEquipesOcultas";
+import { useQuadroEquipesLayout } from "@/hooks/useQuadroEquipesLayout";
 import { toLocalISODate } from "@/lib/date-local";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { useToast } from "@/hooks/use-toast";
@@ -785,6 +786,7 @@ export default function GestaoPessoasEquipe() {
 
   // Catálogo ci_equipes é global (sem company_id): só vira coluna vazia se a equipe é liderada por alguém desta empresa.
   const quadroOcultas = useQuadroEquipesOcultas(todos[0]?.company_id ?? null, userIdQuadro);
+  const quadroLayout = useQuadroEquipesLayout(todos[0]?.company_id ?? null, userIdQuadro);
   const catalogoQuadro = useMemo(() => {
     const ids = new Set(todos.map((f) => f.id));
     return catalogoEquipesGlobal
@@ -1701,7 +1703,14 @@ export default function GestaoPessoasEquipe() {
                   ocultas={quadroOcultas.ocultas}
                   onAlternarColuna={quadroOcultas.alternar}
                   onMostrarTodas={quadroOcultas.mostrarTodas}
-                  avisoPreferencia={quadroOcultas.erro}
+                  avisoPreferencia={quadroOcultas.erro || quadroLayout.erro}
+                  ordem={quadroLayout.ordem}
+                  larguras={quadroLayout.larguras}
+                  onOrdem={quadroLayout.definirOrdem}
+                  onLargura={quadroLayout.definirLargura}
+                  onLarguraTodas={quadroLayout.definirTodas}
+                  onRestaurarLayout={quadroLayout.restaurar}
+                  layoutPersonalizado={quadroLayout.personalizado}
                 />
               </>
             )}

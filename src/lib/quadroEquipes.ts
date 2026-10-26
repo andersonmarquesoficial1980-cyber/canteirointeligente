@@ -97,3 +97,33 @@ export const chaveColuna = (c: { chave: string; nome: string }) => (c.chave === 
 
 export const colunasVisiveis = <T extends { chave: string; nome: string }>(colunas: readonly T[], ocultas: ReadonlySet<string>) =>
   colunas.filter((c) => !ocultas.has(chaveColuna(c)));
+
+export const LARGURA_PADRAO = 270;
+export const LARGURA_MIN = 200;
+export const LARGURA_MAX = 640;
+
+export const limitarLargura = (px: number) =>
+  Number.isFinite(px) ? Math.min(LARGURA_MAX, Math.max(LARGURA_MIN, Math.round(px))) : LARGURA_PADRAO;
+
+/** Colunas na ordem salva; o que não está salvo (equipe nova) vai ao final, na ordem original. Chaves salvas inexistentes são ignoradas. */
+export function ordenarColunas<T extends { chave: string; nome: string }>(colunas: readonly T[], ordem: readonly string[]): T[] {
+  const porChave = new Map(colunas.map((c) => [chaveColuna(c), c]));
+  const usadas = new Set<string>();
+  const salvas: T[] = [];
+  for (const k of ordem) {
+    const c = porChave.get(k);
+    if (c && !usadas.has(k)) { salvas.push(c); usadas.add(k); }
+  }
+  return [...salvas, ...colunas.filter((c) => !usadas.has(chaveColuna(c)))];
+}
+
+/** Move `de` para a posição de `para` (como arrayMove). Chave desconhecida ou igual: nada muda. */
+export function moverChave(chaves: readonly string[], de: string, para: string): string[] {
+  const i = chaves.indexOf(de);
+  const j = chaves.indexOf(para);
+  if (i < 0 || j < 0 || i === j) return [...chaves];
+  const proximo = [...chaves];
+  proximo.splice(i, 1);
+  proximo.splice(j, 0, de);
+  return proximo;
+}

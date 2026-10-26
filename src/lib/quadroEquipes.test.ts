@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SEM_EQUIPE, chaveColuna, colunasVisiveis, montarColunas, prepararMovimento, type PessoaQuadro } from "./quadroEquipes";
+import { LARGURA_MAX, LARGURA_MIN, LARGURA_PADRAO, SEM_EQUIPE, chaveColuna, colunasVisiveis, limitarLargura, montarColunas, moverChave, ordenarColunas, prepararMovimento, type PessoaQuadro } from "./quadroEquipes";
 
 const p = (id: string, name: string, equipe: string | null, status: string | null = "ativo", company_id = "c1"): PessoaQuadro =>
   ({ id, name, matricula: id, role: "AJUDANTE GERAL", equipe, status, company_id });
@@ -54,5 +54,31 @@ describe("colunasVisiveis", () => {
     expect(colunasVisiveis(cols, new Set([SEM_EQUIPE])).map((c) => c.nome)).toEqual(["Administrativo", "CBUQ01"]);
     expect(colunasVisiveis(cols, new Set()).length).toBe(3);
     expect(chaveColuna(cols[1])).toBe("administrativo");
+  });
+});
+
+describe("ordem e largura das colunas", () => {
+  const cols = montarColunas([p("1", "A", "CBUQ01"), p("2", "B", "CBUQ02"), p("3", "C", "Administrativo"), p("4", "D", null)], []);
+
+  it("aplica a ordem salva, manda equipes novas ao fim e ignora chaves que não existem mais", () => {
+    const r = ordenarColunas(cols, ["cbuq02", "fantasma", SEM_EQUIPE, "cbuq02"]).map((c) => c.nome);
+    expect(r).toEqual(["CBUQ02", "Sem equipe", "Administrativo", "CBUQ01"]);
+    expect(ordenarColunas(cols, []).map((c) => c.nome)).toEqual(cols.map((c) => c.nome));
+  });
+
+  it("moverChave age como arrayMove e é seguro com chaves inválidas", () => {
+    const base = ["a", "b", "c", "d"];
+    expect(moverChave(base, "d", "a")).toEqual(["d", "a", "b", "c"]);
+    expect(moverChave(base, "a", "c")).toEqual(["b", "c", "a", "d"]);
+    expect(moverChave(base, "a", "a")).toEqual(base);
+    expect(moverChave(base, "x", "a")).toEqual(base);
+    expect(base).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("limita a largura entre mínimo e máximo e cai no padrão com valor inválido", () => {
+    expect(limitarLargura(50)).toBe(LARGURA_MIN);
+    expect(limitarLargura(5000)).toBe(LARGURA_MAX);
+    expect(limitarLargura(333.4)).toBe(333);
+    expect(limitarLargura(NaN)).toBe(LARGURA_PADRAO);
   });
 });

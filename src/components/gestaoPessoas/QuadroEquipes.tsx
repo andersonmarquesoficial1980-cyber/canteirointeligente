@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
-  type DragEndEvent, type DragStartEvent,
+  DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDraggable, useDroppable, useSensor, useSensors,
+  type CollisionDetection, type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
 import { Loader2, GripVertical, Eye, EyeOff, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { chaveColuna, colunasVisiveis, montarColunas, SEM_EQUIPE, type ColunaQuadro, type PessoaQuadro } from "@/lib/quadroEquipes";
+import { LARGURA_PADRAO, chaveColuna, colunasVisiveis, limitarLargura, montarColunas, moverChave, ordenarColunas, SEM_EQUIPE, type ColunaQuadro, type PessoaQuadro } from "@/lib/quadroEquipes";
 
 export type PessoaCard = PessoaQuadro & { foto_url?: string | null };
 
@@ -24,6 +24,21 @@ type Props = {
   onAlternarColuna: (chave: string) => void;
   onMostrarTodas: () => void;
   avisoPreferencia?: string;
+  /** Ordem salva (chaves), largura por coluna e ações — preferência de visualização, vale para qualquer usuário. */
+  ordem: string[];
+  larguras: Record<string, number>;
+  onOrdem: (ordem: string[]) => void;
+  onLargura: (chave: string, px: number | null) => void;
+  onLarguraTodas: (chaves: string[], px: number) => void;
+  onRestaurarLayout: () => void;
+  layoutPersonalizado: boolean;
+};
+
+const PREFIXO_COLUNA = "col:";
+// Cursor sobre uma coluna decide o destino; se não houver, cai na maior sobreposição.
+const colisao: CollisionDetection = (args) => {
+  const dentro = pointerWithin(args);
+  return dentro.length ? dentro : rectIntersection(args);
 };
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -65,23 +80,62 @@ function Card({ p, podeMover, movendo, badge, onAbrir, sobreposto }: {
   );
 }
 
-function Coluna({ coluna, custo, destaqueAtivo, onOcultar, children }: {
-  coluna: ColunaQuadro<PessoaCard>; custo?: number; destaqueAtivo: boolean; onOcultar: () => void; children: React.ReactNode;
+function Coluna({ coluna, custo, destaqueAtivo, arrastandoColuna, largura, onLargura, onOcultar, children }: {
+  coluna: ColunaQuadro<PessoaCard>; custo?: number; destaqueAtivo: boolean; arrastandoColuna: boolean;
+  largura: number; onLargura: (px: number | null) => void; onOcultar: () => void; children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave });
+  const { attributes, listeners, setNodeRef: setHandleRef, isDragging } = useDraggable({ id: PREFIXO_COLUNA + coluna.chave });
+  const [ao_vivo, setAoVivo] = useState<number | null>(null);
+  const largAtual = ao_vivo ?? largura;
+  const corDestino = arrastandoColuna ? { bg: "#eff6ff", borda: "#3b82f6" } : { bg: "#ecfdf5", borda: "#10b981" };
+
+  const iniciarRedimensao = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const alvo = e.currentTarget;
+    alvo.setPointerCapture(e.pointerId);
+    const x0 = e.clientX;
+    const l0 = largAtual;
+    let ultimo = l0;
+    const mover = (ev: PointerEvent) => { ultimo = limitarLargura(l0 + ev.clientX - x0); setAoVivo(ultimo); };
+    const soltar = () => {
+      alvo.removeEventListener("pointermove", mover);
+      alvo.removeEventListener("pointerup", soltar);
+      alvo.removeEventListener("pointercancel", soltar);
+      if (ultimo !== l0) onLargura(ultimo);
+      setAoVivo(null);
+    };
+    alvo.addEventListener("pointermove", mover);
+    alvo.addEventListener("pointerup", soltar);
+    alvo.addEventListener("pointercancel", soltar);
+  };
+
   return (
     <section
       ref={setNodeRef}
       style={{
-        width: 270, flexShrink: 0, background: isOver ? "#ecfdf5" : "#f1f5f9", borderRadius: 14, padding: 10,
-        border: isOver ? "2px dashed #10b981" : destaqueAtivo ? "2px dashed #cbd5e1" : "2px solid transparent",
-        display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 230px)",
+        position: "relative", width: largAtual, flexShrink: 0, background: isOver ? corDestino.bg : "#f1f5f9", borderRadius: 14, padding: 10,
+        border: isOver ? `2px dashed ${corDestino.borda}` : destaqueAtivo ? "2px dashed #cbd5e1" : "2px solid transparent",
+        display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 230px)", opacity: isDragging ? 0.45 : 1,
       }}
     >
       <header style={{ marginBottom: 8, padding: "0 2px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-          <h3 style={{ fontSize: 12, fontWeight: 800, color: coluna.chave === SEM_EQUIPE ? "#b45309" : "#065f46", textTransform: "uppercase" }}>{coluna.nome}</h3>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+            <button
+              ref={setHandleRef}
+              {...attributes}
+              {...listeners}
+              title="Arraste para mudar a posição desta equipe"
+              aria-label={`Mover coluna ${coluna.nome}`}
+              style={{ padding: 2, borderRadius: 6, color: "#94a3b8", cursor: "grab", touchAction: "none", flexShrink: 0 }}
+            >
+              <GripVertical size={14} />
+            </button>
+            <h3 style={{ fontSize: 12, fontWeight: 800, color: coluna.chave === SEM_EQUIPE ? "#b45309" : "#065f46", textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={coluna.nome}>{coluna.nome}</h3>
+          </div>
+          <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <span style={{ fontSize: 11, fontWeight: 800, background: "white", borderRadius: 999, padding: "1px 8px", color: "#334155" }}>{coluna.pessoas.length}</span>
             <button onClick={onOcultar} title="Ocultar esta equipe do quadro" aria-label={`Ocultar ${coluna.nome}`} style={{ padding: 3, borderRadius: 6, color: "#94a3b8" }}>
               <EyeOff size={13} />
@@ -91,12 +145,24 @@ function Coluna({ coluna, custo, destaqueAtivo, onOcultar, children }: {
         {custo !== undefined && <p style={{ fontSize: 10, color: "#0f766e", fontWeight: 700 }}>Custo mensal: {brl(custo)}</p>}
       </header>
       <div data-quadro-lista style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 40 }}>{children}</div>
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={`Largura da coluna ${coluna.nome}`}
+        title="Arraste para ajustar a largura · duplo clique restaura"
+        onPointerDown={iniciarRedimensao}
+        onDoubleClick={() => onLargura(null)}
+        style={{ position: "absolute", top: 0, right: -2, width: 10, height: "100%", cursor: "col-resize", touchAction: "none", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 5 }}
+      >
+        <span style={{ width: 3, height: 36, borderRadius: 3, background: ao_vivo !== null ? "#10b981" : "#cbd5e1" }} />
+      </div>
     </section>
   );
 }
 
-export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia }: Props) {
-  const todasColunas = useMemo(() => montarColunas(pessoas, catalogo, busca), [pessoas, catalogo, busca]);
+export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, movendoId, custoDe, statusVisual, onMover, onAbrir, ocultas, onAlternarColuna, onMostrarTodas, avisoPreferencia, ordem, larguras, onOrdem, onLargura, onLarguraTodas, onRestaurarLayout, layoutPersonalizado }: Props) {
+  const colunasBase = useMemo(() => montarColunas(pessoas, catalogo, busca), [pessoas, catalogo, busca]);
+  const todasColunas = useMemo(() => ordenarColunas(colunasBase, ordem), [colunasBase, ordem]);
   const colunas = useMemo(() => colunasVisiveis(todasColunas, ocultas), [todasColunas, ocultas]);
   const totalOcultas = todasColunas.length - colunas.length;
   const quadroRef = useRef<HTMLDivElement>(null);
@@ -146,16 +212,37 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
   const [arrastando, setArrastando] = useState<PessoaCard | null>(null);
+  const [colunaArrastada, setColunaArrastada] = useState<ColunaQuadro<PessoaCard> | null>(null);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
   );
 
-  const aoIniciar = (e: DragStartEvent) => setArrastando(pessoas.find((p) => p.id === e.active.id) || null);
+  const aoIniciar = (e: DragStartEvent) => {
+    const id = String(e.active.id);
+    if (id.startsWith(PREFIXO_COLUNA)) {
+      setColunaArrastada(todasColunas.find((c) => c.chave === id.slice(PREFIXO_COLUNA.length)) || null);
+      return;
+    }
+    setArrastando(pessoas.find((p) => p.id === id) || null);
+  };
+  const cancelar = () => { setArrastando(null); setColunaArrastada(null); };
   const aoSoltar = (e: DragEndEvent) => {
-    const pessoa = pessoas.find((p) => p.id === e.active.id);
-    setArrastando(null);
-    if (!pessoa || !e.over || !podeMover) return;
+    const id = String(e.active.id);
+    cancelar();
+    if (!e.over) return;
+    if (id.startsWith(PREFIXO_COLUNA)) {
+      // Reordenar é só preferência de visualização: vale para qualquer usuário, não mexe em cadastro.
+      const origem = todasColunas.find((c) => c.chave === id.slice(PREFIXO_COLUNA.length));
+      const destino = todasColunas.find((c) => c.chave === String(e.over!.id));
+      if (!origem || !destino) return;
+      const chaves = todasColunas.map(chaveColuna);
+      const proximo = moverChave(chaves, chaveColuna(origem), chaveColuna(destino));
+      if (proximo.join("|") !== chaves.join("|")) onOrdem(proximo);
+      return;
+    }
+    const pessoa = pessoas.find((p) => p.id === id);
+    if (!pessoa || !podeMover) return;
     onMover(pessoa, String(e.over.id));
   };
 
@@ -198,9 +285,25 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
             <Eye size={13} /> {totalOcultas} oculta{totalOcultas > 1 ? "s" : ""} · mostrar todas
           </button>
         )}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "#475569" }}>
+          <span style={{ fontWeight: 700 }}>Largura:</span>
+          {([["Estreita", 220], ["Padrão", LARGURA_PADRAO], ["Larga", 380], ["Nome completo", 460]] as const).map(([rotulo, px]) => (
+            <button
+              key={rotulo}
+              onClick={() => onLarguraTodas(colunas.map(chaveColuna), px)}
+              className="h-7 px-2 rounded-md border border-slate-300 bg-white font-semibold hover:bg-slate-50"
+              title={`Aplicar largura ${px}px em todas as equipes visíveis`}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+        {layoutPersonalizado && (
+          <button onClick={onRestaurarLayout} className="text-xs text-slate-600 hover:text-slate-900 underline underline-offset-2">Restaurar ordem e largura</button>
+        )}
         {avisoPreferencia && <span style={{ fontSize: 11, color: "#b45309" }}>{avisoPreferencia}</span>}
       </div>
-      <DndContext sensors={sensors} onDragStart={aoIniciar} onDragEnd={aoSoltar} onDragCancel={() => setArrastando(null)}>
+      <DndContext sensors={sensors} collisionDetection={colisao} onDragStart={aoIniciar} onDragEnd={aoSoltar} onDragCancel={cancelar}>
         <div style={{ position: "relative" }}>
         {(["esquerda", "direita"] as const).map((lado) => rolagem[lado] && (
           <button
@@ -215,7 +318,7 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
         ))}
         <div ref={quadroRef} style={{ display: "flex", gap: 12, overflowX: "scroll", overflowY: "hidden", paddingBottom: 12, alignItems: "flex-start", width: "100%" }}>
           {colunas.map((c) => (
-            <Coluna key={c.chave} coluna={c} destaqueAtivo={!!arrastando} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
+            <Coluna key={c.chave} coluna={c} destaqueAtivo={!!arrastando || !!colunaArrastada} arrastandoColuna={!!colunaArrastada} largura={larguras[chaveColuna(c)] ?? LARGURA_PADRAO} onLargura={(px) => onLargura(chaveColuna(c), px)} onOcultar={() => onAlternarColuna(chaveColuna(c))} custo={busca.trim() ? undefined : c.pessoas.reduce((acc, p) => acc + custoDe(p), 0)}>
               {c.pessoas.length === 0 && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", padding: "10px 0" }}>Nenhum funcionário</p>}
               {c.pessoas.map((p) => (
                 <Card key={p.id} p={p} podeMover={podeMover} movendo={movendoId === p.id} badge={statusVisual(p)} onAbrir={onAbrir} />
@@ -225,6 +328,11 @@ export default function QuadroEquipes({ pessoas, catalogo, busca, podeMover, mov
         </div>
         </div>
         <DragOverlay>
+          {colunaArrastada && (
+            <div style={{ background: "white", border: "2px solid #3b82f6", borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 800, color: "#1e3a8a", textTransform: "uppercase", boxShadow: "0 8px 24px rgba(0,0,0,0.22)" }}>
+              {colunaArrastada.nome} · {colunaArrastada.pessoas.length}
+            </div>
+          )}
           {arrastando && <Card p={arrastando} podeMover={false} movendo={false} sobreposto badge={statusVisual(arrastando)} onAbrir={() => undefined} />}
         </DragOverlay>
       </DndContext>
