@@ -102,18 +102,16 @@ export function rotuloPendencia(p: Pick<PendenciaQuadro, "tipo" | "payload">): s
 }
 
 export type TomPendencia = "critico" | "atencao" | "info";
-const PESO_PRIORIDADE: Record<PrioridadePendencia, number> = { baixa: 0, normal: 1, alta: 2, urgente: 3 };
 
 export const tomPendencia = (p: Pick<PendenciaQuadro, "tipo" | "prioridade">): TomPendencia =>
   p.tipo === "demissao" || p.prioridade === "urgente" ? "critico" : p.prioridade === "alta" ? "atencao" : "info";
 
-/** Abertas de cada funcionário, mais urgentes primeiro e depois as mais antigas. Ignora aprovadas/reprovadas/canceladas. */
+/** Abertas de cada funcionário, da mais recente (data de registro) para a mais antiga; [0] é a pendência atual. Ignora aprovadas/reprovadas/canceladas. */
 export function agruparAbertasPorFuncionario(lista: readonly PendenciaQuadro[]): Record<string, PendenciaQuadro[]> {
   const mapa: Record<string, PendenciaQuadro[]> = {};
   for (const p of lista) if (estaAberta(p)) (mapa[p.employee_id] ||= []).push(p);
   for (const itens of Object.values(mapa)) {
-    itens.sort((a, b) =>
-      (PESO_PRIORIDADE[b.prioridade] - PESO_PRIORIDADE[a.prioridade]) || String(a.created_at || "").localeCompare(String(b.created_at || "")));
+    itens.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
   }
   return mapa;
 }

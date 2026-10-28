@@ -1531,7 +1531,7 @@ export default function FichaFuncionario() {
                       <div>
                         <p className="text-sm font-semibold text-foreground">{PENDENCIA_TIPO_LABEL[p.tipo]}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          Aberta em {new Date(p.created_at).toLocaleDateString("pt-BR")} por {p.solicitado_por_nome || "—"}
+                          Registrada em {new Date(p.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} por {p.solicitado_por_nome || "—"}
                         </p>
                       </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${PENDENCIA_STATUS_BADGE[p.status]}`}>

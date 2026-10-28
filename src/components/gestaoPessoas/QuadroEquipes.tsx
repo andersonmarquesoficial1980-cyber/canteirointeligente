@@ -113,7 +113,7 @@ function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto,
         </p>
         {(pendencias.length > 0 || semDestino) && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-            {pendencias.slice(0, 2).map((pd) => {
+            {pendencias.slice(0, 1).map((pd) => {
               const t = TOM[tomPendencia(pd)];
               return (
                 <span
@@ -125,7 +125,7 @@ function Card({ p, podeArrastar, podeMover, movendo, badge, onAbrir, sobreposto,
                 </span>
               );
             })}
-            {pendencias.length > 2 && <span style={{ fontSize: 9, fontWeight: 800, color: "#854d0e" }} title={pendencias.slice(2).map(rotuloPendencia).join(", ")}>+{pendencias.length - 2}</span>}
+            {pendencias.length > 1 && <span style={{ fontSize: 9, fontWeight: 800, color: "#854d0e" }} title={`Outras abertas (histórico completo na ficha):\n${pendencias.slice(1).map(rotuloPendencia).join("\n")}`}>+{pendencias.length - 1}</span>}
             {semDestino && (
               <span title="Sem equipe e sem nenhuma pendência: o destino deste funcionário ainda não foi definido" style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 999, border: "1px dashed #d97706", color: "#b45309", background: "#fffbeb" }}>
                 Sem destino definido

@@ -62,7 +62,7 @@ describe("exibição no card", () => {
       pend({ id: "e", status: "cancelada" }),
       pend({ id: "f", employee_id: "e2", status: "em_analise" }),
     ]);
-    expect(m.e1.map((x) => x.id)).toEqual(["b", "c", "a"]);
+    expect(m.e1.map((x) => x.id)).toEqual(["b", "a", "c"]); // mais recente primeiro
     expect(m.e2.map((x) => x.id)).toEqual(["f"]);
   });
 
