@@ -24,6 +24,15 @@ describe("montarNovaPendencia · classificar/aumento/subtipo", () => {
   });
 });
 
+describe("realocar", () => {
+  it("grava equipe atual e nova, rótulo próprio, e recusa mesma equipe", () => {
+    const r = montarNovaPendencia(form({ destino: "realocar", equipeSugerida: "EQ B", equipeAtual: "EQ A" }));
+    expect(r).toMatchObject({ tipo: "outros", payload: { subtipo: "realocar", equipe_sugerida: "EQ B", equipe_atual: "EQ A" } });
+    expect(rotuloPendencia(r)).toBe("Realocar → EQ B");
+    expect(() => montarNovaPendencia(form({ destino: "realocar", equipeSugerida: "eq a", equipeAtual: "EQ A" }))).toThrow();
+  });
+});
+
 describe("montarNovaPendencia", () => {
   it("demitir usa o tipo estruturado 'demissao' e guarda o tipo de demissão", () => {
     const r = montarNovaPendencia(form({ tipoDemissao: "com_justa_causa", dataEfetiva: "2026-11-05" }));

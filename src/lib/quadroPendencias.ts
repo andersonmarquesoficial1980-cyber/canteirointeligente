@@ -23,11 +23,12 @@ export const STATUS_ABERTOS = ["aberta", "em_analise"] as const;
 export const estaAberta = (p: Pick<PendenciaQuadro, "status">) => (STATUS_ABERTOS as readonly string[]).includes(p.status);
 
 /** O que o gestor escolhe no quadro → como é gravado na tabela existente (sem migration). */
-export type DestinoRapido = "demitir" | "alocar" | "ferias" | "afastar" | "substituir" | "classificar" | "aumento" | "outro";
+export type DestinoRapido = "demitir" | "alocar" | "realocar" | "ferias" | "afastar" | "substituir" | "classificar" | "aumento" | "outro";
 
 export const DESTINOS_RAPIDOS: { id: DestinoRapido; rotulo: string; dica: string }[] = [
   { id: "demitir", rotulo: "Demitir", dica: "Desligamento do funcionário" },
-  { id: "alocar", rotulo: "Alocar em equipe", dica: "Definir em qual equipe vai trabalhar" },
+  { id: "alocar", rotulo: "Alocar em equipe", dica: "Para quem ainda não tem equipe" },
+  { id: "realocar", rotulo: "Realocar", dica: "Mudar de equipe" },
   { id: "ferias", rotulo: "Dar férias", dica: "Programar férias" },
   { id: "afastar", rotulo: "Afastar", dica: "Afastamento (atestado, INSS, licença...)" },
   { id: "substituir", rotulo: "Substituir", dica: "Substituição por outro funcionário" },
@@ -45,6 +46,7 @@ export type FormPendenciaRapida = {
   equipeSugerida?: string;
   substitutoSugerido?: string;
   outroTexto?: string;
+  equipeAtual?: string;
   classificacaoNova?: string;
   novoSalario?: string;
   observacaoExtra?: string;
@@ -59,14 +61,14 @@ export type NovaPendencia = {
   payload: Record<string, unknown>;
 };
 
-const ROTULO_OUTROS: Record<string, string> = { alocar: "Alocar em equipe", ferias: "Dar férias", afastar: "Afastamento" };
+const ROTULO_OUTROS: Record<string, string> = { alocar: "Alocar em equipe", realocar: "Realocar para outra equipe", ferias: "Dar férias", afastar: "Afastamento" };
 
 /** Valida e converte o formulário rápido no registro a inserir. Lança Error com mensagem em português. */
 export function montarNovaPendencia(f: FormPendenciaRapida): NovaPendencia {
   const r = montarBase(f);
   const obs = f.observacaoExtra?.trim();
   if (obs) r.payload.observacao_extra = obs;
-  if (f.destino === "alocar" || f.destino === "ferias" || f.destino === "afastar") r.payload.subtipo = f.destino;
+  if (f.destino === "alocar" || f.destino === "realocar" || f.destino === "ferias" || f.destino === "afastar") r.payload.subtipo = f.destino;
   return r;
 }
 
@@ -103,10 +105,15 @@ function montarBase(f: FormPendenciaRapida): NovaPendencia {
       payload: { origem: base.origem, outro_tipo_solicitacao: texto } };
   }
   const payload: Record<string, unknown> = { origem: base.origem, outro_tipo_solicitacao: ROTULO_OUTROS[f.destino] };
-  if (f.destino === "alocar") {
+  if (f.destino === "alocar" || f.destino === "realocar") {
     const equipe = f.equipeSugerida?.trim();
-    if (!equipe) throw new Error("Escolha a equipe sugerida");
+    if (!equipe) throw new Error(f.destino === "realocar" ? "Escolha a nova equipe" : "Escolha a equipe sugerida");
     payload.equipe_sugerida = equipe;
+    if (f.destino === "realocar") {
+      const atual = f.equipeAtual?.trim();
+      if (atual && atual.toLowerCase() === equipe.toLowerCase()) throw new Error("A nova equipe é igual à equipe atual");
+      if (atual) payload.equipe_atual = atual;
+    }
   }
   return { tipo: "outros", prioridade: f.prioridade, justificativa, data_efetiva: base.data_efetiva, payload };
 }
@@ -122,6 +129,7 @@ export function rotuloPendencia(p: Pick<PendenciaQuadro, "tipo" | "payload">): s
       const livre = String(p.payload?.outro_tipo_solicitacao ?? "").trim();
       const equipe = String(p.payload?.equipe_sugerida ?? "").trim();
       if (livre === ROTULO_OUTROS.alocar && equipe) return `Alocar → ${equipe}`;
+      if (livre === ROTULO_OUTROS.realocar && equipe) return `Realocar → ${equipe}`;
       return livre || "Pendência";
     }
   }

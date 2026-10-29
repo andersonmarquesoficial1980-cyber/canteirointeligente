@@ -583,7 +583,7 @@ export default function FichaFuncionario() {
       nova = montarNovaPendencia({
         destino: tipoPendencia, justificativa: justificativaPendencia, prioridade: prioridadePendencia, dataEfetiva: dataEfetivaPendencia,
         tipoDemissao, equipeSugerida: equipeSugeridaPend, substitutoSugerido, outroTexto: outroTipoSolicitacao,
-        classificacaoNova, novoSalario, observacaoExtra, origem: "ficha",
+        classificacaoNova, novoSalario, observacaoExtra, origem: "ficha", equipeAtual: func.equipe || "",
       });
     } catch (e: any) {
       toast({ title: e?.message || "Dados inválidos", variant: "destructive" });
@@ -1472,9 +1472,9 @@ export default function FichaFuncionario() {
                   </div>
                 )}
 
-                {tipoPendencia === "alocar" && (
+                {(tipoPendencia === "alocar" || tipoPendencia === "realocar") && (
                   <div>
-                    <label className="text-[10px] text-muted-foreground uppercase">Equipe sugerida *</label>
+                    <label className="text-[10px] text-muted-foreground uppercase">{tipoPendencia === "realocar" ? "Nova equipe *" : "Equipe sugerida *"}</label>
                     <select value={equipeSugeridaPend} onChange={(e) => setEquipeSugeridaPend(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm">
                       <option value="">Selecione…</option>
                       {equipesPend.map((eq) => <option key={eq} value={eq}>{eq}</option>)}

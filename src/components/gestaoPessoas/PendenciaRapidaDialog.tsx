@@ -32,7 +32,7 @@ export default function PendenciaRapidaDialog({ pessoa, abertas, equipes, salvan
 
   useEffect(() => {
     if (!pessoa) return;
-    setDestino(pessoa.equipe?.trim() ? "outro" : "alocar");
+    setDestino(pessoa.equipe?.trim() ? "realocar" : "alocar");
     setPrioridade("normal"); setDataEfetiva(""); setJustificativa(""); setTipoDemissao("sem_justa_causa");
     setEquipeSugerida(""); setSubstituto(""); setOutroTexto(""); setClassificacaoNova(""); setNovoSalario("");
   }, [pessoa?.id]);
@@ -67,12 +67,12 @@ export default function PendenciaRapidaDialog({ pessoa, abertas, equipes, salvan
             </select>
           </div>
 
-          {destino === "alocar" && (
+          {(destino === "alocar" || destino === "realocar") && (
             <div>
-              <label className={rotulo}>Equipe sugerida *</label>
+              <label className={rotulo}>{destino === "realocar" ? "Nova equipe *" : "Equipe sugerida *"}</label>
               <select value={equipeSugerida} onChange={(e) => setEquipeSugerida(e.target.value)} className={campo}>
                 <option value="">Selecione…</option>
-                {equipes.map((eq) => <option key={eq} value={eq}>{eq}</option>)}
+                {equipes.filter((eq) => destino !== "realocar" || eq.toLowerCase() !== (pessoa?.equipe || "").trim().toLowerCase()).map((eq) => <option key={eq} value={eq}>{eq}</option>)}
               </select>
             </div>
           )}
@@ -138,7 +138,7 @@ export default function PendenciaRapidaDialog({ pessoa, abertas, equipes, salvan
           <button onClick={onFechar} disabled={salvando} className="h-9 px-3 rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50">Cancelar</button>
           <button
             disabled={salvando}
-            onClick={() => onSalvar({ destino, justificativa, prioridade, dataEfetiva, tipoDemissao, equipeSugerida, substitutoSugerido: substituto, outroTexto, classificacaoNova, novoSalario })}
+            onClick={() => onSalvar({ destino, justificativa, prioridade, dataEfetiva, tipoDemissao, equipeSugerida, substitutoSugerido: substituto, outroTexto, classificacaoNova, novoSalario, equipeAtual: pessoa?.equipe || "" })}
             className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50"
           >
             {salvando && <Loader2 size={14} className="animate-spin" />} Registrar pendência
