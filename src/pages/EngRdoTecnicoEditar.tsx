@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
+import { ApoioObraSection, CaminhoesBasculanteField, RetrabalhoFields } from "@/components/rdo/RdoTecnicoExtras";
+import { TECHNICAL_EXTRAS_DEFAULTS, boolToSimNao, getTechnicalExtrasError, simNaoToBool, toIntOrNull } from "@/lib/rdoTecnicoExtras";
 import { loadRdoTecnicoTeams } from "@/lib/rdoTecnicoTeams";
 import { loadEngineeringPlants } from "@/lib/engineeringPlants";
 import { getTechnicalProductionError, TECHNICAL_QUANTITIES } from "@/lib/technicalProduction";
@@ -66,6 +68,7 @@ export default function EngRdoTecnicoEditar() {
     fx_c_ton: "",
     demolicao_m: "",
     nivelamento_pv_un: "",
+    ...TECHNICAL_EXTRAS_DEFAULTS,
     qtd_caminhoes_fresa: "",
     perc_conclusao_via: "",
     equipamentos_conforme: "",
@@ -137,6 +140,15 @@ export default function EngRdoTecnicoEditar() {
           fx_c_ton: numToStr((rdo as any).fx_c_ton),
           demolicao_m: numToStr((rdo as any).demolicao_m),
           nivelamento_pv_un: numToStr((rdo as any).nivelamento_pv_un),
+          retrabalho: !!(rdo as any).retrabalho,
+          retrabalho_oficio: (rdo as any).retrabalho_oficio || "",
+          qtd_caminhoes_basculante: numToStr((rdo as any).qtd_caminhoes_basculante),
+          autorizacao_no_horario: boolToSimNao((rdo as any).autorizacao_no_horario),
+          autorizacao_atraso_detalhe: (rdo as any).autorizacao_atraso_detalhe || "",
+          sinalizacao_presente: boolToSimNao((rdo as any).sinalizacao_presente),
+          sinalizacao_nota: Number((rdo as any).sinalizacao_nota) || 0,
+          controle_tecnologico_presente: boolToSimNao((rdo as any).controle_tecnologico_presente),
+          sinalizacao_vertical_nota: Number((rdo as any).sinalizacao_vertical_nota) || 0,
           qtd_caminhoes_fresa: numToStr(rdo.qtd_caminhoes_fresa),
           perc_conclusao_via: numToStr(rdo.perc_conclusao_via),
           equipamentos_conforme: rdo.equipamentos_conforme == null ? "" : rdo.equipamentos_conforme ? "sim" : "nao",
@@ -223,6 +235,11 @@ export default function EngRdoTecnicoEditar() {
       return;
     }
 
+    const erroExtras = getTechnicalExtrasError(form, status);
+    if (erroExtras) {
+      toast({ title: erroExtras, variant: "destructive" });
+      return;
+    }
     if (form.houve_producao && form.usina_atendeu === "nao" && !form.usina_nao_atendeu_motivo.trim()) {
       toast({ title: "Descreva o motivo de a usina não ter atendido", variant: "destructive" });
       return;
@@ -283,6 +300,15 @@ export default function EngRdoTecnicoEditar() {
       fx_c_ton: semProducao ? null : toNum(form.fx_c_ton),
       demolicao_m: semProducao ? null : toNum(form.demolicao_m),
       nivelamento_pv_un: semProducao ? null : toNum(form.nivelamento_pv_un),
+      retrabalho: semProducao ? false : form.retrabalho,
+      retrabalho_oficio: !semProducao && form.retrabalho ? form.retrabalho_oficio.trim() || null : null,
+      qtd_caminhoes_basculante: semProducao ? null : toIntOrNull(form.qtd_caminhoes_basculante),
+      autorizacao_no_horario: semProducao ? null : simNaoToBool(form.autorizacao_no_horario),
+      autorizacao_atraso_detalhe: !semProducao && form.autorizacao_no_horario === "nao" ? form.autorizacao_atraso_detalhe.trim() || null : null,
+      sinalizacao_presente: semProducao ? null : simNaoToBool(form.sinalizacao_presente),
+      sinalizacao_nota: !semProducao && form.sinalizacao_presente === "sim" ? form.sinalizacao_nota || null : null,
+      controle_tecnologico_presente: semProducao ? null : simNaoToBool(form.controle_tecnologico_presente),
+      sinalizacao_vertical_nota: semProducao ? null : form.sinalizacao_vertical_nota || null,
       qtd_caminhoes_fresa: null,
       perc_conclusao_via: semProducao ? null : toNum(form.perc_conclusao_via),
       equipamentos_conforme: semProducao ? null : form.equipamentos_conforme === "" ? null : form.equipamentos_conforme === "sim",
@@ -575,6 +601,9 @@ export default function EngRdoTecnicoEditar() {
                   />
                 </div>
               )}
+              <RetrabalhoFields form={form} set={set} />
+              <CaminhoesBasculanteField value={form.qtd_caminhoes_basculante} set={set} />
+
               <div>
                 <label className={labelCls}>Tipo de Serviço</label>
                 <div className="rounded-xl border border-border bg-background p-2 space-y-1 max-h-52 overflow-y-auto">
@@ -642,17 +671,11 @@ export default function EngRdoTecnicoEditar() {
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Informações Adicionais</h2>
 
-              {form.tipos_servico.length > 0 && (
-                <div>
+                              <div>
                   <label className={labelCls}>% conclusão da via</label>
                   <input type="number" value={form.perc_conclusao_via} onChange={e => set("perc_conclusao_via", e.target.value)}
                     placeholder="0" min={0} max={100} className={inputCls} />
                 </div>
-              )}
-
-              {form.tipos_servico.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">Selecione um tipo de serviço para exibir os quantitativos adicionais</p>
-              )}
             </div>
 
             {/* Seção 3c — Equipamentos na Obra */}
@@ -699,6 +722,8 @@ export default function EngRdoTecnicoEditar() {
                 </div>
               )}
             </div>
+
+            <ApoioObraSection form={form} set={set} />
 
           </>
         )}

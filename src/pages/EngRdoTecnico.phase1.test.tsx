@@ -16,7 +16,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       : table === "fornecedores" ? [{ nome: "Usina atual", tipo_insumos: ["Massa Asfáltica"] }, { nome: "Usina legada", tipo_insumo: "Massa Asfáltica" }, { nome: "Óleo", tipo_insumos: ["Óleo Diesel"] }]
       : table === "rdo_engenheiro" ? {
         id: "rdo-teste", ogs_id: ogs.id, ogs_number: ogs.ogs_number, data: "2026-10-20",
-        houve_producao: true, choveu: false, equipamentos_conforme: true, status: "enviado", usina_programada: "Usina histórica", tipo_servico: "ENSAIOS E EXTRAÇÕES",
+        houve_producao: true, choveu: false, equipamentos_conforme: true, autorizacao_no_horario: true, sinalizacao_presente: true, sinalizacao_nota: 4, controle_tecnologico_presente: true, sinalizacao_vertical_nota: 5, status: "enviado", usina_programada: "Usina histórica", tipo_servico: "ENSAIOS E EXTRAÇÕES",
       } : [];
     const result = Promise.resolve({ data, error: null });
     let updating = false;
@@ -46,7 +46,17 @@ async function mount(mode: string) {
     await act(async () => { fireEvent.change(screen.getByText("OGS / Obra *").parentElement!.querySelector("select")!, { target: { value: "ogs-teste" } }); });
     fireEvent.click(screen.getByRole("checkbox", { name: "ENSAIOS E EXTRAÇÕES" }));
     fireEvent.click(screen.getByRole("button", { name: "Conforme" }));
+    preencherApoio();
   }
+}
+const NOTA_SINALIZACAO = "Nível de qualidade, planejamento e disponibilidade da equipe de sinalização *";
+const NOTA_VERTICAL = "Qualidade da sinalização vertical (balizadores e placas) hoje *";
+function preencherApoio() {
+  fireEvent.click(question("A autorização para iniciar os trabalhos ocorreu dentro do horário previsto?").getByRole("button", { name: "Sim" }));
+  fireEvent.click(question("Equipe de sinalização presente na obra no horário programado?").getByRole("button", { name: "Sim" }));
+  fireEvent.click(question(NOTA_SINALIZACAO).getByRole("button", { name: "4 estrelas" }));
+  fireEvent.click(question("Equipe de controle tecnológico esteve presente e no horário na obra hoje?").getByRole("button", { name: "Sim" }));
+  fireEvent.click(question(NOTA_VERTICAL).getByRole("button", { name: "5 estrelas" }));
 }
 function question(name: string) { return within(screen.getByText(name).parentElement!); }
 function submit(mode: string, draft = false) {
@@ -127,6 +137,65 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
     fireEvent.change(campo, { target: { value: "12.5" } });
     await act(async () => { submit(mode); });
     expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ [coluna]: 12.5 }));
+  });
+
+  it("mantém Informações Adicionais (% conclusão da via) sempre visível, mesmo sem tipo de serviço", async () => {
+    await mount(mode);
+    fireEvent.click(screen.getByRole("checkbox", { name: "ENSAIOS E EXTRAÇÕES" }));
+    expect(screen.getByRole("checkbox", { name: "ENSAIOS E EXTRAÇÕES" })).not.toBeChecked();
+    expect(screen.getByRole("heading", { name: "Informações Adicionais" })).toBeInTheDocument();
+    expect(screen.getByText("% conclusão da via")).toBeInTheDocument();
+  });
+
+  it("retrabalho exige o número do ofício no envio e só grava o ofício quando marcado", async () => {
+    await mount(mode);
+    expect(screen.queryByText("Número do ofício *")).not.toBeInTheDocument();
+    fireEvent.click(question("Este serviço é retrabalho?").getByRole("button", { name: "Sim" }));
+    await act(async () => { submit(mode); });
+    expect(state.write).not.toHaveBeenCalled();
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Informe o número do ofício do retrabalho" }));
+    fireEvent.change(screen.getByText("Número do ofício *").parentElement!.querySelector("input")!, { target: { value: " 123/2026 " } });
+    await act(async () => { submit(mode); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ retrabalho: true, retrabalho_oficio: "123/2026" }));
+  });
+
+  it("grava caminhão basculante (exceto massa) como inteiro", async () => {
+    await mount(mode);
+    fireEvent.change(screen.getByText("Caminhão Basculante (Exceto Massa) — quantidade").parentElement!.querySelector("input")!, { target: { value: "7" } });
+    await act(async () => { submit(mode); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ qtd_caminhoes_basculante: 7, retrabalho: false, retrabalho_oficio: null }));
+  });
+
+  it("apoio e qualidade: autorização fora do horário exige detalhe; sinalização ausente dispensa nota", async () => {
+    await mount(mode);
+    fireEvent.click(question("A autorização para iniciar os trabalhos ocorreu dentro do horário previsto?").getByRole("button", { name: "Não" }));
+    await act(async () => { submit(mode); });
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Descreva os detalhes do atraso na autorização" }));
+    fireEvent.change(screen.getByPlaceholderText("Informe o horário previsto, o horário real e o motivo..."), { target: { value: "Liberação às 9h" } });
+    fireEvent.click(question("Equipe de sinalização presente na obra no horário programado?").getByRole("button", { name: "Não" }));
+    expect(screen.queryByText(NOTA_SINALIZACAO)).not.toBeInTheDocument();
+    await act(async () => { submit(mode); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ autorizacao_no_horario: false, autorizacao_atraso_detalhe: "Liberação às 9h",
+      sinalizacao_presente: false, sinalizacao_nota: null, controle_tecnologico_presente: true, sinalizacao_vertical_nota: 5 }));
+  });
+
+  it("exige as respostas de apoio no envio, mas não no rascunho nem em dia sem produção", async () => {
+    await mount(mode);
+    fireEvent.click(question("Equipe de controle tecnológico esteve presente e no horário na obra hoje?").getByRole("button", { name: "Não" }));
+    fireEvent.click(question(NOTA_VERTICAL).getByRole("button", { name: "5 estrelas" })); // desmarca
+    await act(async () => { submit(mode); });
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Avalie a sinalização vertical (1 a 5)" }));
+    await act(async () => { submit(mode, true); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ status: "rascunho", sinalizacao_vertical_nota: null }));
+  });
+
+  it("dia sem produção oculta Apoio e Qualidade e não grava retrabalho, caminhões nem notas", async () => {
+    await mount(mode);
+    fireEvent.click(question("Houve produção?").getByRole("button", { name: "Não" }));
+    expect(screen.queryByText("Apoio e Qualidade na Obra")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sem Atividade" }));
+    await act(async () => { submit(mode, true); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ houve_producao: false, retrabalho: false, autorizacao_no_horario: null, sinalizacao_nota: null, qtd_caminhoes_basculante: null }));
   });
 
   it("oculta Meteorologia e Ocorrências quando não houve produção", async () => {

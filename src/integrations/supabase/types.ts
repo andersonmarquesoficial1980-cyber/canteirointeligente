@@ -6136,6 +6136,15 @@ export type Database = {
           fx_c_ton: number | null
           demolicao_m: number | null
           nivelamento_pv_un: number | null
+          retrabalho: boolean | null
+          retrabalho_oficio: string | null
+          qtd_caminhoes_basculante: number | null
+          autorizacao_no_horario: boolean | null
+          autorizacao_atraso_detalhe: string | null
+          sinalizacao_presente: boolean | null
+          sinalizacao_nota: number | null
+          controle_tecnologico_presente: boolean | null
+          sinalizacao_vertical_nota: number | null
           rap_espumado_m2: number | null
           rdo_apontador_id: string | null
           sma_ton: number | null
@@ -6194,6 +6203,15 @@ export type Database = {
           fx_c_ton?: number | null
           demolicao_m?: number | null
           nivelamento_pv_un?: number | null
+          retrabalho?: boolean | null
+          retrabalho_oficio?: string | null
+          qtd_caminhoes_basculante?: number | null
+          autorizacao_no_horario?: boolean | null
+          autorizacao_atraso_detalhe?: string | null
+          sinalizacao_presente?: boolean | null
+          sinalizacao_nota?: number | null
+          controle_tecnologico_presente?: boolean | null
+          sinalizacao_vertical_nota?: number | null
           rap_espumado_m2?: number | null
           rdo_apontador_id?: string | null
           sma_ton?: number | null
@@ -6252,6 +6270,15 @@ export type Database = {
           fx_c_ton?: number | null
           demolicao_m?: number | null
           nivelamento_pv_un?: number | null
+          retrabalho?: boolean | null
+          retrabalho_oficio?: string | null
+          qtd_caminhoes_basculante?: number | null
+          autorizacao_no_horario?: boolean | null
+          autorizacao_atraso_detalhe?: string | null
+          sinalizacao_presente?: boolean | null
+          sinalizacao_nota?: number | null
+          controle_tecnologico_presente?: boolean | null
+          sinalizacao_vertical_nota?: number | null
           rap_espumado_m2?: number | null
           rdo_apontador_id?: string | null
           sma_ton?: number | null
