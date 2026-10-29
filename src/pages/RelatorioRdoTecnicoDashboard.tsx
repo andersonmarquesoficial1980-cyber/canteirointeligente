@@ -82,6 +82,9 @@ interface RdoTecnicoRow {
   bm25_ton: number | null;
   egl_ton: number | null;
   rachao_ton: number | null;
+  fx_c_ton: number | null;
+  demolicao_m: number | null;
+  nivelamento_pv_un: number | null;
   perc_conclusao_via: number | null;
 }
 
@@ -360,6 +363,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           houve_ocorrencia, descricao_ocorrencia, observacoes,
           fresagem_m2, rap_espumado_m2, binder_ton, cbuq_fx3_ton,
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
+          fx_c_ton, demolicao_m, nivelamento_pv_un,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
@@ -380,6 +384,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           houve_ocorrencia, descricao_ocorrencia, observacoes,
           fresagem_m2, rap_espumado_m2, binder_ton, cbuq_fx3_ton,
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
+          fx_c_ton, demolicao_m, nivelamento_pv_un,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
@@ -551,7 +556,8 @@ export default function RelatorioRdoTecnicoDashboard() {
       + (r.cauq_rima_ton || 0)
       + (r.bm25_ton || 0)
       + (r.egl_ton || 0)
-      + (r.rachao_ton || 0), 0);
+      + (r.rachao_ton || 0)
+      + (r.fx_c_ton || 0), 0);
 
     const areaM2 = linhasFiltradas.reduce((acc, r) => acc
       + (r.fresagem_m2 || 0)
@@ -608,7 +614,8 @@ export default function RelatorioRdoTecnicoDashboard() {
       + (r.cauq_rima_ton || 0)
       + (r.bm25_ton || 0)
       + (r.egl_ton || 0)
-      + (r.rachao_ton || 0), 0);
+      + (r.rachao_ton || 0)
+      + (r.fx_c_ton || 0), 0);
 
     const areaM2 = linhasPrevFiltradas.reduce((acc, r) => acc
       + (r.fresagem_m2 || 0)

@@ -380,7 +380,7 @@ function parseCsv(text: string) {
 }
 
 describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
-  it("anexa ID, descrição de INFRA e as 14 quantidades preservando null, zero, decimais e texto livre", async () => {
+  it("anexa ID, descrição de INFRA e as quantidades preservando null, zero, decimais e texto livre", async () => {
     const downloads = captureDownloads();
     state.technical = [
       { ...prod, id: "csv-1", tipo_servico: "INFRA, BINDER", infra_descricao: 'Valeta "A";\n  trecho  ', binder_ton: 12.345678, bm25_ton: 0, fresagem_m2: null, observacoes: "linha 1\nlinha 2  " },
@@ -395,7 +395,7 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
     const [head, ...data] = parseCsv((await downloads[0].text()).replace(/^﻿/, ""));
     expect(head.slice(0, 15)).toEqual(["Data", "OGS", "Status", "Engenheiro", "Equipe", "Localização", "Houve produção", "Tipo serviço", "Usina", "Usina atendeu", "Equipamentos conformes", "Houve ocorrência", "Motivo sem produção", "Descrição ocorrência", "Observações"]);
     expect(head.slice(15)).toEqual(["ID do RDO", "Descrição de INFRA", ...TECHNICAL_QUANTITIES.map(q => q.label)]);
-    expect(head).toHaveLength(31);
+    expect(head).toHaveLength(17 + TECHNICAL_QUANTITIES.length);
     expect(data).toHaveLength(2);
     const byId = Object.fromEntries(data.map(r => [r[15], r]));
     const a = byId["csv-1"];

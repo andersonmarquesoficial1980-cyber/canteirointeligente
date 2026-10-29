@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 const state = vi.hoisted(() => ({ write: vi.fn(), toast: vi.fn(), returned: true, error: null as null | { message: string }, reject: false, selectWrite: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: state.toast }) }));
-vi.mock("@/hooks/useFilteredData", () => ({ useTiposServico: () => ({ data: ["DEMOLIÇÃO", "INFRA", "FRESAGEM", "APLICAÇÃO DE FX II - BINDER"].map(nome => ({ nome })) }) }));
+vi.mock("@/hooks/useFilteredData", () => ({ useTiposServico: () => ({ data: ["DEMOLIÇÃO", "ENSAIOS E EXTRAÇÕES", "INFRA", "FRESAGEM", "APLICAÇÃO DE FX II - BINDER", "APLICAÇÃO DE FX C", "APLICAÇÃO DE CAUQ-HIMA", "NIVELAMENTO DE PV"].map(nome => ({ nome })) }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   auth: { getUser: async () => ({ data: { user: { id: "eng-teste" } } }) },
   from: (table: string) => {
@@ -16,7 +16,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       : table === "fornecedores" ? [{ nome: "Usina atual", tipo_insumos: ["Massa Asfáltica"] }, { nome: "Usina legada", tipo_insumo: "Massa Asfáltica" }, { nome: "Óleo", tipo_insumos: ["Óleo Diesel"] }]
       : table === "rdo_engenheiro" ? {
         id: "rdo-teste", ogs_id: ogs.id, ogs_number: ogs.ogs_number, data: "2026-10-20",
-        houve_producao: true, choveu: false, equipamentos_conforme: true, status: "enviado", usina_programada: "Usina histórica", tipo_servico: "DEMOLIÇÃO",
+        houve_producao: true, choveu: false, equipamentos_conforme: true, status: "enviado", usina_programada: "Usina histórica", tipo_servico: "ENSAIOS E EXTRAÇÕES",
       } : [];
     const result = Promise.resolve({ data, error: null });
     let updating = false;
@@ -44,7 +44,7 @@ async function mount(mode: string) {
   await screen.findByRole("heading", { name: edit ? "Editar RDO Técnico" : "RDO Técnico" });
   if (!edit) {
     await act(async () => { fireEvent.change(screen.getByText("OGS / Obra *").parentElement!.querySelector("select")!, { target: { value: "ogs-teste" } }); });
-    fireEvent.click(screen.getByRole("checkbox", { name: "DEMOLIÇÃO" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "ENSAIOS E EXTRAÇÕES" }));
     fireEvent.click(screen.getByRole("button", { name: "Conforme" }));
   }
 }
@@ -74,7 +74,7 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
   });
   it("permite INFRA descritiva sem tonelagem e preserva a descrição", async () => {
     await mount(mode);
-    fireEvent.click(screen.getByRole("checkbox", { name: "DEMOLIÇÃO" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "ENSAIOS E EXTRAÇÕES" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "INFRA" }));
     fireEvent.change(screen.getByPlaceholderText("Ex: execução de galeria, drenagem, guia/sarjeta..."), { target: { value: "Execução de drenagem" } });
     await act(async () => submit(mode));
@@ -91,7 +91,7 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
   });
   it("bloqueia envio produtivo sem serviço e permite salvar esse caso como rascunho", async () => {
     await mount(mode);
-    fireEvent.click(screen.getByRole("checkbox", { name: "DEMOLIÇÃO" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "ENSAIOS E EXTRAÇÕES" }));
     await act(async () => submit(mode));
     expect(state.write).not.toHaveBeenCalled();
     expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Selecione ao menos um serviço executado" }));
@@ -110,6 +110,23 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
       equipe: "Equipe teste", localizacao: "Rua teste", choveu: false, intensidade_chuva: null,
       houve_ocorrencia: false, descricao_ocorrencia: null, observacoes: "Folga programada" }));
     expect(screen.queryByRole("heading", { name: "Quantitativos de Produção" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["APLICAÇÃO DE FX C", "FX C (ton)", "fx_c_ton"],
+    ["APLICAÇÃO DE CAUQ-HIMA", "CAUQ-HIMA (ton)", "cauq_rima_ton"],
+    ["DEMOLIÇÃO", "Demolição (m)", "demolicao_m"],
+    ["NIVELAMENTO DE PV", "Nivelamento de PV (un)", "nivelamento_pv_un"],
+  ])("serviço %s abre o campo %s, exige valor no envio e grava em %s", async (servico, rotulo, coluna) => {
+    await mount(mode);
+    fireEvent.click(screen.getByRole("checkbox", { name: servico }));
+    const campo = screen.getByText(rotulo).parentElement!.querySelector("input")!;
+    await act(async () => { submit(mode); });
+    expect(state.write).not.toHaveBeenCalled();
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: `Informe ${rotulo} com valor maior que zero` }));
+    fireEvent.change(campo, { target: { value: "12.5" } });
+    await act(async () => { submit(mode); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ [coluna]: 12.5 }));
   });
 
   it("oculta Meteorologia e Ocorrências quando não houve produção", async () => {

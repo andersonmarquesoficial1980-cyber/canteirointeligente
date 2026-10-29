@@ -16,11 +16,14 @@ export const TECHNICAL_QUANTITIES = [
   { label: "SMA (ton)", field: "sma_ton", requiredType: "APLICAÇÃO DE SMA" },
   { label: "BGTC (m³)", field: "bgtc_m3", requiredType: "APLICAÇÃO DE BGTC" },
   { label: "Macadame (m³)", field: "macadame_m3", requiredType: "APLICAÇÃO DE MACADAME" },
-  { label: "CAUQ-RIMA (ton)", field: "cauq_rima_ton", requiredType: "APLICAÇÃO DE CAUQ-RIMA" },
+  { label: "CAUQ-HIMA (ton)", field: "cauq_rima_ton", requiredType: "APLICAÇÃO DE CAUQ-HIMA" },
   { label: "BN25 (ton)", field: "bm25_ton", requiredType: "APLICAÇÃO DE BN25" },
   { label: "Geogrelha (m²)", field: "geogrelha_m2", requiredType: "GEOGRELHA" },
   { label: "EGL (ton)", field: "egl_ton", requiredType: "APLICAÇÃO DE EGL" },
   { label: "RACHÃO (ton)", field: "rachao_ton", requiredType: "APLICAÇÃO DE RACHÃO" },
+  { label: "FX C (ton)", field: "fx_c_ton", requiredType: "APLICAÇÃO DE FX C" },
+  { label: "Demolição (m)", field: "demolicao_m", requiredType: "DEMOLIÇÃO" },
+  { label: "Nivelamento de PV (un)", field: "nivelamento_pv_un", requiredType: "NIVELAMENTO DE PV" },
 ] as const;
 
 /** Serviços qualitativos aprovados; não geram quantidade numérica. */

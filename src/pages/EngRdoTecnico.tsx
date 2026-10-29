@@ -63,6 +63,9 @@ export default function EngRdoTecnico() {
     geogrelha_m2: "",
     egl_ton: "",
     rachao_ton: "",
+    fx_c_ton: "",
+    demolicao_m: "",
+    nivelamento_pv_un: "",
     qtd_caminhoes_fresa: "",
     perc_conclusao_via: "",
     equipamentos_conforme: "",
@@ -252,6 +255,9 @@ export default function EngRdoTecnico() {
       geogrelha_m2: semProducao ? null : toNum(form.geogrelha_m2),
       egl_ton: semProducao ? null : toNum(form.egl_ton),
       rachao_ton: semProducao ? null : toNum(form.rachao_ton),
+      fx_c_ton: semProducao ? null : toNum(form.fx_c_ton),
+      demolicao_m: semProducao ? null : toNum(form.demolicao_m),
+      nivelamento_pv_un: semProducao ? null : toNum(form.nivelamento_pv_un),
       qtd_caminhoes_fresa: null,
       perc_conclusao_via: semProducao ? null : toNum(form.perc_conclusao_via),
       equipamentos_conforme: semProducao ? null : form.equipamentos_conforme === "" ? null : form.equipamentos_conforme === "sim",
@@ -616,7 +622,7 @@ export default function EngRdoTecnico() {
                   - APLICAÇÃO DE SMA → sma_ton
                   - APLICAÇÃO DE BGTC → bgtc_m3
                   - APLICAÇÃO DE MACADAME → macadame_m3
-                  - APLICAÇÃO DE CAUQ-RIMA → cauq_rima_ton
+                  - APLICAÇÃO DE CAUQ-HIMA → cauq_rima_ton (coluna legada)
                   - APLICAÇÃO DE BN25 → bm25_ton
                   - GEOGRELHA → geogrelha_m2
                   - APLICAÇÃO DE EGL → egl_ton

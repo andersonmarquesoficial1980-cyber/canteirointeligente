@@ -40,6 +40,9 @@ interface Rdo {
   geogrelha_m2: number | null;
   egl_ton: number | null;
   rachao_ton: number | null;
+  fx_c_ton: number | null;
+  demolicao_m: number | null;
+  nivelamento_pv_un: number | null;
   qtd_caminhoes_fresa: number | null;
   perc_conclusao_via: number | null;
   equipamentos_conforme: boolean | null;
@@ -169,11 +172,14 @@ export default function EngRdoTecnicoDetalhe() {
         ["SMA (ton)", fmtNum(rdo.sma_ton)],
         ["BGTC (m³)", fmtNum(rdo.bgtc_m3)],
         ["Macadame (m³)", fmtNum(rdo.macadame_m3)],
-        ["CAUQ-RIMA (ton)", fmtNum(rdo.cauq_rima_ton)],
+        ["CAUQ-HIMA (ton)", fmtNum(rdo.cauq_rima_ton)],
         ["BN25 (ton)", fmtNum(rdo.bm25_ton)],
         ["Geogrelha (m²)", fmtNum(rdo.geogrelha_m2)],
         ["EGL (ton)", fmtNum(rdo.egl_ton)],
         ["RACHÃO (ton)", fmtNum(rdo.rachao_ton)],
+        ["FX C (ton)", fmtNum(rdo.fx_c_ton)],
+        ["Demolição (m)", fmtNum(rdo.demolicao_m)],
+        ["Nivelamento de PV (un)", fmtNum(rdo.nivelamento_pv_un)],
         ["% Conclusão Via", rdo.perc_conclusao_via != null ? `${rdo.perc_conclusao_via}%` : "—"],
         ["Equipamentos na Obra", rdo.equipamentos_conforme == null ? "—" : rdo.equipamentos_conforme ? "Conforme" : "Não Conforme"],
         ["Equipamentos não conformes", rdo.equipamentos_nao_conformes || "—"],
@@ -227,11 +233,14 @@ export default function EngRdoTecnicoDetalhe() {
     { label: "SMA", value: rdo.sma_ton != null ? `${fmtNum(rdo.sma_ton)} ton` : null },
     { label: "BGTC", value: rdo.bgtc_m3 != null ? `${fmtNum(rdo.bgtc_m3)} m³` : null },
     { label: "Macadame", value: rdo.macadame_m3 != null ? `${fmtNum(rdo.macadame_m3)} m³` : null },
-    { label: "CAUQ-RIMA", value: rdo.cauq_rima_ton != null ? `${fmtNum(rdo.cauq_rima_ton)} ton` : null },
+    { label: "CAUQ-HIMA", value: rdo.cauq_rima_ton != null ? `${fmtNum(rdo.cauq_rima_ton)} ton` : null },
     { label: "BN25", value: rdo.bm25_ton != null ? `${fmtNum(rdo.bm25_ton)} ton` : null },
     { label: "Geogrelha", value: rdo.geogrelha_m2 != null ? `${fmtNum(rdo.geogrelha_m2)} m²` : null },
     { label: "EGL", value: rdo.egl_ton != null ? `${fmtNum(rdo.egl_ton)} ton` : null },
     { label: "RACHÃO", value: rdo.rachao_ton != null ? `${fmtNum(rdo.rachao_ton)} ton` : null },
+    { label: "FX C", value: rdo.fx_c_ton != null ? `${fmtNum(rdo.fx_c_ton)} ton` : null },
+    { label: "Demolição", value: rdo.demolicao_m != null ? `${fmtNum(rdo.demolicao_m)} m` : null },
+    { label: "Nivelamento de PV", value: rdo.nivelamento_pv_un != null ? `${fmtNum(rdo.nivelamento_pv_un)} un` : null },
     { label: "% Conclusão Via", value: rdo.perc_conclusao_via != null ? `${rdo.perc_conclusao_via}%` : null },
   ].filter(q => q.value);
 

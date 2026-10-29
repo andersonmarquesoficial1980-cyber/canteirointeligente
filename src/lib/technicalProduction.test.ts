@@ -20,7 +20,8 @@ describe("Validação de produção no envio técnico", () => {
     ["APLICAÇÃO DE FX II - BINDER", "binder_ton"], ["APLICAÇÃO DE FX III", "cbuq_fx3_ton"],
     ["APLICAÇÃO DE GAP GRADED", "gap_ton"], ["APLICAÇÃO DE BGS", "bgs_ton"],
     ["APLICAÇÃO DE SMA", "sma_ton"], ["APLICAÇÃO DE BGTC", "bgtc_m3"],
-    ["APLICAÇÃO DE MACADAME", "macadame_m3"], ["APLICAÇÃO DE CAUQ-RIMA", "cauq_rima_ton"],
+    ["APLICAÇÃO DE MACADAME", "macadame_m3"], ["APLICAÇÃO DE CAUQ-HIMA", "cauq_rima_ton"],
+    ["APLICAÇÃO DE FX C", "fx_c_ton"], ["DEMOLIÇÃO", "demolicao_m"], ["NIVELAMENTO DE PV", "nivelamento_pv_un"],
     ["APLICAÇÃO DE BN25", "bm25_ton"], ["GEOGRELHA", "geogrelha_m2"],
     ["APLICAÇÃO DE EGL", "egl_ton"], ["APLICAÇÃO DE RACHÃO", "rachao_ton"],
   ])("valida a unidade e o campo específico de %s", (service, field) => {
@@ -29,8 +30,8 @@ describe("Validação de produção no envio técnico", () => {
     expect(getTechnicalProductionError({ ...form, [field]: "2.5" }, "enviado")).toBeNull();
   });
   it("não obriga tonelagem para INFRA descritiva ou serviço sem medição definida", () => {
+    expect(getTechnicalProductionError({ ...base, tipos_servico: ["ENSAIOS E EXTRAÇÕES"] }, "enviado")).toBeNull();
     expect(getTechnicalProductionError({ ...base, tipos_servico: ["INFRA"], infra_descricao: "Drenagem" }, "enviado")).toBeNull();
-    expect(getTechnicalProductionError({ ...base, tipos_servico: ["DEMOLIÇÃO"] }, "enviado")).toBeNull();
   });
   it("preserva rascunho incompleto e não aplica medição a dia sem produção", () => {
     expect(getTechnicalProductionError({ ...base, tipos_servico: [] }, "rascunho")).toBeNull();

@@ -6133,6 +6133,9 @@ export type Database = {
           perc_conclusao_via: number | null
           qtd_caminhoes_fresa: number | null
           rachao_ton: number | null
+          fx_c_ton: number | null
+          demolicao_m: number | null
+          nivelamento_pv_un: number | null
           rap_espumado_m2: number | null
           rdo_apontador_id: string | null
           sma_ton: number | null
@@ -6188,6 +6191,9 @@ export type Database = {
           perc_conclusao_via?: number | null
           qtd_caminhoes_fresa?: number | null
           rachao_ton?: number | null
+          fx_c_ton?: number | null
+          demolicao_m?: number | null
+          nivelamento_pv_un?: number | null
           rap_espumado_m2?: number | null
           rdo_apontador_id?: string | null
           sma_ton?: number | null
@@ -6243,6 +6249,9 @@ export type Database = {
           perc_conclusao_via?: number | null
           qtd_caminhoes_fresa?: number | null
           rachao_ton?: number | null
+          fx_c_ton?: number | null
+          demolicao_m?: number | null
+          nivelamento_pv_un?: number | null
           rap_espumado_m2?: number | null
           rdo_apontador_id?: string | null
           sma_ton?: number | null
