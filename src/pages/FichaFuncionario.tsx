@@ -17,6 +17,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useFuncoes } from "@/hooks/useFuncoes";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { toast } from "@/hooks/use-toast";
+import { DESTINOS_RAPIDOS, montarNovaPendencia, rotuloPendencia, type DestinoRapido } from "@/lib/quadroPendencias";
 import { LogoHomeButton } from "@/components/LogoHomeButton";
 import { EmployeeVacationTimeline } from "@/components/EmployeeVacationTimeline";
 
@@ -135,7 +136,7 @@ const STATUS_CONFIG: Record<string, { label: string; cor: string }> = {
 };
 
 const PENDENCIA_TIPO_LABEL: Record<RhPendencia["tipo"], string> = {
-  classificacao: "Classificação",
+  classificacao: "Classificar",
   aumento_salarial: "Aumento Salarial",
   demissao: "Demissão",
   substituicao: "Substituição",
@@ -445,7 +446,9 @@ export default function FichaFuncionario() {
   const [carregandoPendencias, setCarregandoPendencias] = useState(false);
   const [abrirNovaPendencia, setAbrirNovaPendencia] = useState(false);
   const [salvandoPendencia, setSalvandoPendencia] = useState(false);
-  const [tipoPendencia, setTipoPendencia] = useState<RhPendencia["tipo"]>("classificacao");
+  const [tipoPendencia, setTipoPendencia] = useState<DestinoRapido>("classificar");
+  const [equipeSugeridaPend, setEquipeSugeridaPend] = useState("");
+  const [equipesPend, setEquipesPend] = useState<string[]>([]);
   const [prioridadePendencia, setPrioridadePendencia] = useState<RhPendencia["prioridade"]>("normal");
   const [dataEfetivaPendencia, setDataEfetivaPendencia] = useState("");
   const [justificativaPendencia, setJustificativaPendencia] = useState("");
@@ -528,6 +531,8 @@ export default function FichaFuncionario() {
       setCustoMdo((custoRow || null) as CustoFuncionarioMensal | null);
 
       await carregarPendencias();
+      const { data: eqs } = await (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome");
+      setEquipesPend(((eqs || []) as { nome: string }[]).map((e) => e.nome));
     } catch {}
     setLoading(false);
   }
@@ -553,7 +558,8 @@ export default function FichaFuncionario() {
   }
 
   function resetFormPendencia() {
-    setTipoPendencia("classificacao");
+    setTipoPendencia("classificar");
+    setEquipeSugeridaPend("");
     setPrioridadePendencia("normal");
     setDataEfetivaPendencia("");
     setJustificativaPendencia("");
@@ -572,27 +578,17 @@ export default function FichaFuncionario() {
       toast({ title: "Informe a justificativa", variant: "destructive" });
       return;
     }
-    if (tipoPendencia === "classificacao" && !classificacaoNova.trim()) {
-      toast({ title: "Informe a nova classificação", variant: "destructive" });
+    let nova;
+    try {
+      nova = montarNovaPendencia({
+        destino: tipoPendencia, justificativa: justificativaPendencia, prioridade: prioridadePendencia, dataEfetiva: dataEfetivaPendencia,
+        tipoDemissao, equipeSugerida: equipeSugeridaPend, substitutoSugerido, outroTexto: outroTipoSolicitacao,
+        classificacaoNova, novoSalario, observacaoExtra, origem: "ficha",
+      });
+    } catch (e: any) {
+      toast({ title: e?.message || "Dados inválidos", variant: "destructive" });
       return;
     }
-    if (tipoPendencia === "aumento_salarial" && !novoSalario.trim()) {
-      toast({ title: "Informe o novo salário", variant: "destructive" });
-      return;
-    }
-    if (tipoPendencia === "outros" && !outroTipoSolicitacao.trim()) {
-      toast({ title: "Informe qual é o outro tipo de solicitação", variant: "destructive" });
-      return;
-    }
-
-    const payload: Record<string, any> = {
-      observacao_extra: observacaoExtra || null,
-    };
-    if (tipoPendencia === "classificacao") payload.classificacao_nova = classificacaoNova.trim().toUpperCase();
-    if (tipoPendencia === "aumento_salarial") payload.novo_salario = Number(novoSalario.replace(",", ".")) || null;
-    if (tipoPendencia === "demissao") payload.tipo_demissao = tipoDemissao;
-    if (tipoPendencia === "substituicao") payload.substituto_sugerido = substitutoSugerido.trim().toUpperCase() || null;
-    if (tipoPendencia === "outros") payload.outro_tipo_solicitacao = outroTipoSolicitacao.trim();
 
     setSalvandoPendencia(true);
     try {
@@ -601,17 +597,17 @@ export default function FichaFuncionario() {
         .insert({
           company_id: func.company_id,
           employee_id: func.id,
-          tipo: tipoPendencia,
+          tipo: nova.tipo,
           status: "aberta",
-          prioridade: prioridadePendencia,
-          justificativa: justificativaPendencia.trim(),
-          data_efetiva: dataEfetivaPendencia || null,
-          payload,
+          prioridade: nova.prioridade,
+          justificativa: nova.justificativa,
+          data_efetiva: nova.data_efetiva,
+          payload: nova.payload,
           solicitado_por_user_id: profile?.user_id || null,
           solicitado_por_nome: profile?.nome_completo || profile?.email || null,
         });
       if (error) throw error;
-      toast({ title: "✅ Solicitação registrada" });
+      toast({ title: "✅ Pendência registrada" });
       resetFormPendencia();
       await carregarPendencias();
     } catch (err: any) {
@@ -1418,23 +1414,19 @@ export default function FichaFuncionario() {
                   onClick={() => setAbrirNovaPendencia((v) => !v)}
                   className="text-xs bg-primary text-primary-foreground rounded-lg px-3 py-1.5 hover:opacity-90"
                 >
-                  {abrirNovaPendencia ? "Fechar" : "Nova Solicitação"}
+                  {abrirNovaPendencia ? "Fechar" : "Nova pendência"}
                 </button>
               </div>
             </div>
 
             {abrirNovaPendencia && (
               <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                <h3 className="text-sm font-semibold">Abrir solicitação</h3>
+                <h3 className="text-sm font-semibold">Registrar pendência</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] text-muted-foreground uppercase">Tipo *</label>
-                    <select value={tipoPendencia} onChange={(e) => setTipoPendencia(e.target.value as RhPendencia["tipo"])} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm">
-                      <option value="classificacao">Classificação</option>
-                      <option value="aumento_salarial">Aumento Salarial</option>
-                      <option value="demissao">Demissão</option>
-                      <option value="substituicao">Substituição</option>
-                      <option value="outros">Outros</option>
+                    <select value={tipoPendencia} onChange={(e) => setTipoPendencia(e.target.value as DestinoRapido)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm">
+                      {DESTINOS_RAPIDOS.map((d) => <option key={d.id} value={d.id}>{d.rotulo}</option>)}
                     </select>
                   </div>
                   <div>
@@ -1448,21 +1440,21 @@ export default function FichaFuncionario() {
                   </div>
                 </div>
 
-                {tipoPendencia === "classificacao" && (
+                {tipoPendencia === "classificar" && (
                   <div>
                     <label className="text-[10px] text-muted-foreground uppercase">Nova classificação *</label>
                     <input value={classificacaoNova} onChange={(e) => setClassificacaoNova(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm" placeholder="Ex: OPERADOR DE ROLO SR" />
                   </div>
                 )}
 
-                {tipoPendencia === "aumento_salarial" && (
+                {tipoPendencia === "aumento" && (
                   <div>
                     <label className="text-[10px] text-muted-foreground uppercase">Novo salário (R$) *</label>
                     <input type="number" step="0.01" value={novoSalario} onChange={(e) => setNovoSalario(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm" placeholder="Ex: 4200.00" />
                   </div>
                 )}
 
-                {tipoPendencia === "demissao" && (
+                {tipoPendencia === "demitir" && (
                   <div>
                     <label className="text-[10px] text-muted-foreground uppercase">Tipo de demissão</label>
                     <select value={tipoDemissao} onChange={(e) => setTipoDemissao(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm">
@@ -1473,14 +1465,24 @@ export default function FichaFuncionario() {
                   </div>
                 )}
 
-                {tipoPendencia === "substituicao" && (
+                {tipoPendencia === "substituir" && (
                   <div>
                     <label className="text-[10px] text-muted-foreground uppercase">Substituto sugerido</label>
                     <input value={substitutoSugerido} onChange={(e) => setSubstitutoSugerido(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm" placeholder="Nome do substituto" />
                   </div>
                 )}
 
-                {tipoPendencia === "outros" && (
+                {tipoPendencia === "alocar" && (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase">Equipe sugerida *</label>
+                    <select value={equipeSugeridaPend} onChange={(e) => setEquipeSugeridaPend(e.target.value)} className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-2 text-sm">
+                      <option value="">Selecione…</option>
+                      {equipesPend.map((eq) => <option key={eq} value={eq}>{eq}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {tipoPendencia === "outro" && (
                   <div>
                     <label className="text-[10px] text-muted-foreground uppercase">Especifique o tipo *</label>
                     <input
@@ -1499,7 +1501,7 @@ export default function FichaFuncionario() {
 
                 <div>
                   <label className="text-[10px] text-muted-foreground uppercase">Justificativa *</label>
-                  <textarea value={justificativaPendencia} onChange={(e) => setJustificativaPendencia(e.target.value)} rows={3} className="w-full mt-1 rounded-lg border border-border bg-background px-2 py-2 text-sm" placeholder="Descreva o motivo da solicitação" />
+                  <textarea value={justificativaPendencia} onChange={(e) => setJustificativaPendencia(e.target.value)} rows={3} className="w-full mt-1 rounded-lg border border-border bg-background px-2 py-2 text-sm" placeholder="Descreva o motivo" />
                 </div>
 
                 <div>
@@ -1510,7 +1512,7 @@ export default function FichaFuncionario() {
                 <div className="flex justify-end gap-2">
                   <button onClick={resetFormPendencia} className="h-9 px-3 rounded-lg border border-border text-xs hover:bg-muted">Cancelar</button>
                   <button onClick={criarPendencia} disabled={salvandoPendencia} className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-60">
-                    {salvandoPendencia ? "Salvando..." : "Abrir solicitação"}
+                    {salvandoPendencia ? "Salvando..." : "Registrar pendência"}
                   </button>
                 </div>
               </div>
@@ -1529,7 +1531,7 @@ export default function FichaFuncionario() {
                   <div key={p.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-sm font-semibold text-foreground">{PENDENCIA_TIPO_LABEL[p.tipo]}</p>
+                        <p className="text-sm font-semibold text-foreground">{rotuloPendencia(p)}</p>
                         <p className="text-[11px] text-muted-foreground">
                           Registrada em {new Date(p.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} por {p.solicitado_por_nome || "—"}
                         </p>
@@ -1555,7 +1557,7 @@ export default function FichaFuncionario() {
                       <p className="text-xs">Substituto sugerido: <strong>{String(p.payload.substituto_sugerido)}</strong></p>
                     )}
                     {p.tipo === "outros" && p.payload?.outro_tipo_solicitacao && (
-                      <p className="text-xs">Tipo informado: <strong>{String(p.payload.outro_tipo_solicitacao)}</strong></p>
+                      <p className="text-xs">Tipo informado: <strong>{String(p.payload.outro_tipo_solicitacao)}</strong>{p.payload?.equipe_sugerida ? ` → ${String(p.payload.equipe_sugerida)}` : ""}</p>
                     )}
 
                     {p.parecer_gp && <p className="text-xs text-muted-foreground">Parecer GP: {p.parecer_gp}</p>}

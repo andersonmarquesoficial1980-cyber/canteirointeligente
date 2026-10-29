@@ -23,7 +23,7 @@ export const STATUS_ABERTOS = ["aberta", "em_analise"] as const;
 export const estaAberta = (p: Pick<PendenciaQuadro, "status">) => (STATUS_ABERTOS as readonly string[]).includes(p.status);
 
 /** O que o gestor escolhe no quadro → como é gravado na tabela existente (sem migration). */
-export type DestinoRapido = "demitir" | "alocar" | "ferias" | "afastar" | "substituir" | "outro";
+export type DestinoRapido = "demitir" | "alocar" | "ferias" | "afastar" | "substituir" | "classificar" | "aumento" | "outro";
 
 export const DESTINOS_RAPIDOS: { id: DestinoRapido; rotulo: string; dica: string }[] = [
   { id: "demitir", rotulo: "Demitir", dica: "Desligamento do funcionário" },
@@ -31,6 +31,8 @@ export const DESTINOS_RAPIDOS: { id: DestinoRapido; rotulo: string; dica: string
   { id: "ferias", rotulo: "Dar férias", dica: "Programar férias" },
   { id: "afastar", rotulo: "Afastar", dica: "Afastamento (atestado, INSS, licença...)" },
   { id: "substituir", rotulo: "Substituir", dica: "Substituição por outro funcionário" },
+  { id: "classificar", rotulo: "Classificar", dica: "Nova classificação/função" },
+  { id: "aumento", rotulo: "Aumento salarial", dica: "Novo salário" },
   { id: "outro", rotulo: "Outro", dica: "Descreva o que vai acontecer" },
 ];
 
@@ -43,6 +45,10 @@ export type FormPendenciaRapida = {
   equipeSugerida?: string;
   substitutoSugerido?: string;
   outroTexto?: string;
+  classificacaoNova?: string;
+  novoSalario?: string;
+  observacaoExtra?: string;
+  origem?: "quadro_equipes" | "ficha";
 };
 
 export type NovaPendencia = {
@@ -57,10 +63,18 @@ const ROTULO_OUTROS: Record<string, string> = { alocar: "Alocar em equipe", feri
 
 /** Valida e converte o formulário rápido no registro a inserir. Lança Error com mensagem em português. */
 export function montarNovaPendencia(f: FormPendenciaRapida): NovaPendencia {
+  const r = montarBase(f);
+  const obs = f.observacaoExtra?.trim();
+  if (obs) r.payload.observacao_extra = obs;
+  if (f.destino === "alocar" || f.destino === "ferias" || f.destino === "afastar") r.payload.subtipo = f.destino;
+  return r;
+}
+
+function montarBase(f: FormPendenciaRapida): NovaPendencia {
   const justificativa = f.justificativa.trim();
   if (justificativa.length < 3) throw new Error("Informe o motivo (a justificativa é obrigatória)");
   if (f.dataEfetiva && !/^\d{4}-\d{2}-\d{2}$/.test(f.dataEfetiva)) throw new Error("Data prevista inválida");
-  const base = { prioridade: f.prioridade, justificativa, data_efetiva: f.dataEfetiva || null, origem: "quadro_equipes" };
+  const base = { prioridade: f.prioridade, justificativa, data_efetiva: f.dataEfetiva || null, origem: f.origem || "quadro_equipes" };
 
   if (f.destino === "demitir") {
     return { tipo: "demissao", prioridade: f.prioridade, justificativa, data_efetiva: base.data_efetiva,
@@ -69,6 +83,18 @@ export function montarNovaPendencia(f: FormPendenciaRapida): NovaPendencia {
   if (f.destino === "substituir") {
     return { tipo: "substituicao", prioridade: f.prioridade, justificativa, data_efetiva: base.data_efetiva,
       payload: { origem: base.origem, substituto_sugerido: f.substitutoSugerido?.trim().toUpperCase() || null } };
+  }
+  if (f.destino === "classificar") {
+    const nova = f.classificacaoNova?.trim().toUpperCase();
+    if (!nova) throw new Error("Informe a nova classificação");
+    return { tipo: "classificacao", prioridade: f.prioridade, justificativa, data_efetiva: base.data_efetiva,
+      payload: { origem: base.origem, classificacao_nova: nova } };
+  }
+  if (f.destino === "aumento") {
+    const valor = Number(String(f.novoSalario ?? "").replace(",", "."));
+    if (!valor || valor <= 0) throw new Error("Informe o novo salário");
+    return { tipo: "aumento_salarial", prioridade: f.prioridade, justificativa, data_efetiva: base.data_efetiva,
+      payload: { origem: base.origem, novo_salario: valor } };
   }
   if (f.destino === "outro") {
     const texto = f.outroTexto?.trim();
@@ -90,7 +116,7 @@ export function rotuloPendencia(p: Pick<PendenciaQuadro, "tipo" | "payload">): s
   switch (p.tipo) {
     case "demissao": return "Demitir";
     case "substituicao": return "Substituir";
-    case "classificacao": return "Reclassificar";
+    case "classificacao": return "Classificar";
     case "aumento_salarial": return "Aumento salarial";
     default: {
       const livre = String(p.payload?.outro_tipo_solicitacao ?? "").trim();

@@ -27,12 +27,14 @@ export default function PendenciaRapidaDialog({ pessoa, abertas, equipes, salvan
   const [equipeSugerida, setEquipeSugerida] = useState("");
   const [substituto, setSubstituto] = useState("");
   const [outroTexto, setOutroTexto] = useState("");
+  const [classificacaoNova, setClassificacaoNova] = useState("");
+  const [novoSalario, setNovoSalario] = useState("");
 
   useEffect(() => {
     if (!pessoa) return;
     setDestino(pessoa.equipe?.trim() ? "outro" : "alocar");
     setPrioridade("normal"); setDataEfetiva(""); setJustificativa(""); setTipoDemissao("sem_justa_causa");
-    setEquipeSugerida(""); setSubstituto(""); setOutroTexto("");
+    setEquipeSugerida(""); setSubstituto(""); setOutroTexto(""); setClassificacaoNova(""); setNovoSalario("");
   }, [pessoa?.id]);
 
   return (
@@ -90,6 +92,18 @@ export default function PendenciaRapidaDialog({ pessoa, abertas, equipes, salvan
               <input value={substituto} onChange={(e) => setSubstituto(e.target.value)} className={campo} placeholder="Nome (opcional)" />
             </div>
           )}
+          {destino === "classificar" && (
+            <div>
+              <label className={rotulo}>Nova classificação *</label>
+              <input value={classificacaoNova} onChange={(e) => setClassificacaoNova(e.target.value)} className={campo} placeholder="Ex: OPERADOR DE ROLO SR" />
+            </div>
+          )}
+          {destino === "aumento" && (
+            <div>
+              <label className={rotulo}>Novo salário (R$) *</label>
+              <input type="number" step="0.01" value={novoSalario} onChange={(e) => setNovoSalario(e.target.value)} className={campo} placeholder="Ex: 4200.00" />
+            </div>
+          )}
           {destino === "outro" && (
             <div>
               <label className={rotulo}>Descreva *</label>
@@ -124,7 +138,7 @@ export default function PendenciaRapidaDialog({ pessoa, abertas, equipes, salvan
           <button onClick={onFechar} disabled={salvando} className="h-9 px-3 rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50">Cancelar</button>
           <button
             disabled={salvando}
-            onClick={() => onSalvar({ destino, justificativa, prioridade, dataEfetiva, tipoDemissao, equipeSugerida, substitutoSugerido: substituto, outroTexto })}
+            onClick={() => onSalvar({ destino, justificativa, prioridade, dataEfetiva, tipoDemissao, equipeSugerida, substitutoSugerido: substituto, outroTexto, classificacaoNova, novoSalario })}
             className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50"
           >
             {salvando && <Loader2 size={14} className="animate-spin" />} Registrar pendência

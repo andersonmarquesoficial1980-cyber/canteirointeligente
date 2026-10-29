@@ -9,6 +9,21 @@ const form = (o: Partial<FormPendenciaRapida> = {}): FormPendenciaRapida =>
 const pend = (o: Partial<PendenciaQuadro> = {}): PendenciaQuadro =>
   ({ id: "p1", employee_id: "e1", tipo: "demissao", status: "aberta", prioridade: "normal", justificativa: "x", data_efetiva: null, payload: {}, ...o });
 
+describe("montarNovaPendencia · classificar/aumento/subtipo", () => {
+  it("classificar vira tipo classificacao em maiúsculas", () => {
+    expect(montarNovaPendencia(form({ destino: "classificar", classificacaoNova: "operador de rolo" }))).toMatchObject({ tipo: "classificacao", payload: { classificacao_nova: "OPERADOR DE ROLO" } });
+    expect(() => montarNovaPendencia(form({ destino: "classificar" }))).toThrow();
+  });
+  it("aumento exige valor e grava número", () => {
+    expect(montarNovaPendencia(form({ destino: "aumento", novoSalario: "4200,50" }))).toMatchObject({ tipo: "aumento_salarial", payload: { novo_salario: 4200.5 } });
+    expect(() => montarNovaPendencia(form({ destino: "aumento", novoSalario: "" }))).toThrow();
+  });
+  it("alocar/férias/afastar gravam subtipo e origem da ficha", () => {
+    expect(montarNovaPendencia(form({ destino: "ferias", origem: "ficha" })).payload).toMatchObject({ subtipo: "ferias", origem: "ficha" });
+    expect(rotuloPendencia({ tipo: "classificacao", payload: {} })).toBe("Classificar");
+  });
+});
+
 describe("montarNovaPendencia", () => {
   it("demitir usa o tipo estruturado 'demissao' e guarda o tipo de demissão", () => {
     const r = montarNovaPendencia(form({ tipoDemissao: "com_justa_causa", dataEfetiva: "2026-11-05" }));
