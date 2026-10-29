@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { TECHNICAL_QUANTITIES } from "@/lib/technicalProduction";
 const state = vi.hoisted(() => ({ companyId: "c1", extraProfiles: [] as Record<string, unknown>[], extraPending: [] as Record<string, unknown>[], fail: false, technical: null as Record<string, unknown>[] | null, queries: [] as { table: string; select?: string; filters: [string, unknown][] }[] }));
 vi.mock("@/hooks/useUserProfile", () => ({ useUserProfile: () => ({ profile: { company_id: state.companyId } }) }));
-vi.mock("recharts", () => ({ ResponsiveContainer: () => null, BarChart: () => null, Bar: () => null, XAxis: () => null, YAxis: () => null, Tooltip: () => null, CartesianGrid: () => null }));
+vi.mock("recharts", () => ({ ResponsiveContainer: () => null, BarChart: () => null, Bar: () => null, XAxis: () => null, YAxis: () => null, Tooltip: () => null, CartesianGrid: () => null, Legend: () => null }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   from: (table: string) => {
     const query: (typeof state.queries)[number] = { table, filters: [] }; state.queries.push(query);
@@ -136,7 +136,7 @@ describe("Dashboard Técnico — fase 2", () => {
     expect(screen.queryByTestId("total-fila-validacao")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Resumo Exec/ })).toBeDisabled();
     const botoes = within(nav()).getAllByRole("button");
-    expect(botoes).toHaveLength(10);
+    expect(botoes).toHaveLength(11);
     botoes.forEach(b => { expect(b).toHaveTextContent("—"); expect(b.textContent).not.toMatch(/\b0\b/); });
   });
 });
@@ -394,8 +394,10 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
     expect([...new Uint8Array(await downloads[0].arrayBuffer()).slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     const [head, ...data] = parseCsv((await downloads[0].text()).replace(/^﻿/, ""));
     expect(head.slice(0, 15)).toEqual(["Data", "OGS", "Status", "Engenheiro", "Equipe", "Localização", "Houve produção", "Tipo serviço", "Usina", "Usina atendeu", "Equipamentos conformes", "Houve ocorrência", "Motivo sem produção", "Descrição ocorrência", "Observações"]);
-    expect(head.slice(15)).toEqual(["ID do RDO", "Descrição de INFRA", ...TECHNICAL_QUANTITIES.map(q => q.label)]);
-    expect(head).toHaveLength(17 + TECHNICAL_QUANTITIES.length);
+    expect(head.slice(15)).toEqual(["ID do RDO", "Descrição de INFRA", ...TECHNICAL_QUANTITIES.map(q => q.label),
+      "Retrabalho", "Ofício do retrabalho", "Caminhão basculante (exceto massa)", "Autorização no horário", "Detalhes do atraso na autorização",
+      "Sinalização presente", "Nota sinalização (1-5)", "Controle tecnológico presente", "Nota sinalização vertical (1-5)"]);
+    expect(head).toHaveLength(26 + TECHNICAL_QUANTITIES.length);
     expect(data).toHaveLength(2);
     const byId = Object.fromEntries(data.map(r => [r[15], r]));
     const a = byId["csv-1"];
@@ -430,7 +432,7 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
 });
 
 describe("Dashboard Técnico — estrutura de uma seção por vez", () => {
-  it("abre na Visão geral, lista as 10 seções com contadores e mostra só a seção selecionada", async () => {
+  it("abre na Visão geral, lista as 11 seções com contadores e mostra só a seção selecionada", async () => {
     state.technical = [
       { ...prod, id: "n1", tipo_servico: "FRESAGEM", fresagem_m2: 10 },
       { ...prod, id: "n2", houve_producao: false, motivo_sem_producao: "Chuva", choveu: true },
@@ -440,7 +442,7 @@ describe("Dashboard Técnico — estrutura de uma seção por vez", () => {
     expect(botoes.map(b => b.textContent)).toEqual([
       expect.stringContaining("Visão geral"), expect.stringContaining("Produção"), expect.stringContaining("Preenchimento"),
       expect.stringContaining("Validações"), expect.stringContaining("Alertas"), expect.stringContaining("Clima"),
-      expect.stringContaining("Usina"), expect.stringContaining("Equipamentos"), expect.stringContaining("Ocorrências"), expect.stringContaining("Sem produção"),
+      expect.stringContaining("Usina"), expect.stringContaining("Equipamentos"), expect.stringContaining("Apoio e Qualidade"), expect.stringContaining("Ocorrências"), expect.stringContaining("Sem produção"),
     ]);
     expect(within(nav()).getByRole("button", { name: /^Visão geral/ })).toHaveAttribute("aria-current", "page");
     expect(within(nav()).getByRole("button", { name: /^Produção/ })).toHaveTextContent("1");
@@ -517,7 +519,7 @@ describe("Dashboard Técnico — visão geral compacta e navegação móvel", ()
     await mount();
     const seletor = screen.getByLabelText("Seção do Dashboard") as HTMLSelectElement;
     expect(seletor.tagName).toBe("SELECT");
-    expect(seletor.options).toHaveLength(10);
+    expect(seletor.options).toHaveLength(11);
     expect(seletor.value).toBe("geral");
     fireEvent.change(seletor, { target: { value: "alertas" } });
     expect(screen.getByRole("heading", { name: "Alertas operacionais dos RDOs Técnicos" })).toBeInTheDocument();
@@ -662,5 +664,55 @@ describe("Dashboard Técnico — Atividades qualitativas", () => {
     expect(screen.getByTestId("atividades-qualitativas")).not.toHaveTextContent("GEOGRELHA");
     irPara("Visão geral");
     expect(within(section("Comparativo com período anterior")).getByText("Produção (t)").parentElement).toHaveTextContent("0");
+  });
+});
+
+describe("Dashboard Técnico — Apoio e Qualidade", () => {
+  const apoio = { ...prod, equipe: "Equipe A", retrabalho: false, qtd_caminhoes_basculante: 5 };
+  it("mostra KPIs, gráficos e tabela com retrabalho, caminhões, autorização, sinalização e controle tecnológico", async () => {
+    state.technical = [
+      { ...apoio, id: "a1", autorizacao_no_horario: true, sinalizacao_presente: true, sinalizacao_nota: 5, controle_tecnologico_presente: true, sinalizacao_vertical_nota: 4 },
+      { ...apoio, id: "a2", qtd_caminhoes_basculante: 3, retrabalho: true, retrabalho_oficio: "77/2026", autorizacao_no_horario: false, autorizacao_atraso_detalhe: "Liberação às 9h",
+        sinalizacao_presente: false, controle_tecnologico_presente: false, sinalizacao_vertical_nota: 2 },
+      { ...prod, id: "a3", houve_producao: false, motivo_sem_producao: "Sem Atividade", qtd_caminhoes_basculante: 99 },
+    ];
+    await mount();
+    irPara("Apoio e Qualidade");
+    const kpis = within(screen.getByTestId("apoio-kpis"));
+    expect(kpis.getByText("Autorização no horário").closest("div")!.parentElement).toHaveTextContent("50%");
+    expect(kpis.getByText("Sinalização presente").closest("div")!.parentElement).toHaveTextContent("50%");
+    expect(kpis.getByText("Nota da sinalização").closest("div")!.parentElement).toHaveTextContent("5 / 5");
+    expect(kpis.getByText("Nota da sinalização vertical").closest("div")!.parentElement).toHaveTextContent("3 / 5");
+    expect(kpis.getByText("Retrabalhos").closest("div")!.parentElement).toHaveTextContent("1");
+    expect(kpis.getByText("Caminhões basculantes (exceto massa)").closest("div")!.parentElement).toHaveTextContent("8");
+    expect(screen.getByTestId("apoio-graficos")).toBeInTheDocument();
+    expect(screen.getByText("Retrabalho (ofício 77/2026) • 3 basculante(s) • Autorização fora do horário • Sinalização ausente • Controle tecnológico ausente • Vertical 2/5")).toBeInTheDocument();
+  });
+  it("gera alertas para autorização fora do horário, ausências, nota baixa e retrabalho — não para dia sem produção", async () => {
+    state.technical = [
+      { ...apoio, id: "b1", retrabalho: true, retrabalho_oficio: "9", autorizacao_no_horario: false, sinalizacao_presente: true, sinalizacao_nota: 1, controle_tecnologico_presente: false, sinalizacao_vertical_nota: 2 },
+      { ...prod, id: "b2", houve_producao: false, motivo_sem_producao: "Sem Atividade", autorizacao_no_horario: false },
+    ];
+    await mount();
+    irPara("Alertas");
+    ["Autorização fora do horário", "Sinalização com nota baixa", "Controle tecnológico ausente", "Sinalização vertical com nota baixa", "Retrabalho"].forEach(a =>
+      expect(screen.getByRole("cell", { name: a })).toBeInTheDocument());
+    expect(screen.queryByRole("cell", { name: "Sinalização ausente no horário" })).not.toBeInTheDocument();
+  });
+  it("exporta os novos campos no CSV", async () => {
+    const downloads = captureDownloads();
+    state.technical = [{ ...apoio, id: "c1", retrabalho: true, retrabalho_oficio: "55", autorizacao_no_horario: false, autorizacao_atraso_detalhe: "Chuva", sinalizacao_presente: true, sinalizacao_nota: 4, controle_tecnologico_presente: true, sinalizacao_vertical_nota: 3 }];
+    await mount();
+    fireEvent.click(screen.getByRole("button", { name: /CSV$/ }));
+    const [head, row] = parseCsv((await downloads[0].text()).replace(/^﻿/, ""));
+    const n = TECHNICAL_QUANTITIES.length;
+    expect(head.slice(17 + n)[0]).toBe("Retrabalho");
+    expect(row.slice(17 + n)).toEqual(["Sim", "55", "5", "Não", "Chuva", "Sim", "4", "Sim", "3"]);
+  });
+  it("sem produção por Usina Não Atendeu entra na aba Usina e no indicador", async () => {
+    state.technical = [{ ...prod, id: "u1", houve_producao: false, motivo_sem_producao: "Usina Não Atendeu" }];
+    await mount();
+    expect(screen.getByText(/Usina não atendeu: 1/)).toBeInTheDocument();
+    expect(within(nav()).getByRole("button", { name: /^Usina/ })).toHaveTextContent("1");
   });
 });

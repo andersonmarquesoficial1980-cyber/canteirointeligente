@@ -23,6 +23,7 @@ import {
   ClipboardCheck,
   ShieldCheck,
   Bell,
+  Star,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -32,6 +33,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  Legend,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,7 @@ import { getEngineeringMonitoringRoster } from "@/lib/engineeringMonitoringRoste
 import { ENGINEERING_VALIDATION_START, loadEngineeringQueue, filterEngineeringQueue } from "@/lib/engineeringQueue";
 import { toSaoPauloISODate } from "@/lib/date-local";
 import { classifyUnlinkedValidationRdos } from "@/lib/validationUnlinked";
+import { NOTA_BAIXA, computeApoioMetrics } from "@/lib/rdoTecnicoApoioMetrics";
 import { ENSAIOS_SERVICE, INFRA_SERVICE, TECHNICAL_QUANTITIES, hasServiceToken } from "@/lib/technicalProduction";
 import { Interpretar, Previa, TabelaPaginada, type Coluna } from "./rdoTecnicoDashboard/Tabela";
 
@@ -85,6 +88,15 @@ interface RdoTecnicoRow {
   fx_c_ton: number | null;
   demolicao_m: number | null;
   nivelamento_pv_un: number | null;
+  retrabalho: boolean | null;
+  retrabalho_oficio: string | null;
+  qtd_caminhoes_basculante: number | null;
+  autorizacao_no_horario: boolean | null;
+  autorizacao_atraso_detalhe: string | null;
+  sinalizacao_presente: boolean | null;
+  sinalizacao_nota: number | null;
+  controle_tecnologico_presente: boolean | null;
+  sinalizacao_vertical_nota: number | null;
   perc_conclusao_via: number | null;
 }
 
@@ -144,6 +156,7 @@ type AssuntoTab =
   | "meteo"
   | "usina"
   | "equipamentos"
+  | "apoio"
   | "ocorrencias"
   | "sem_producao";
 
@@ -158,6 +171,7 @@ const SECOES_META: { id: Secao; label: string; icon: any }[] = [
   { id: "meteo", label: "Clima", icon: CloudRain },
   { id: "usina", label: "Usina", icon: Building2 },
   { id: "equipamentos", label: "Equipamentos", icon: Gauge },
+  { id: "apoio", label: "Apoio e Qualidade", icon: Star },
   { id: "ocorrencias", label: "Ocorrências", icon: AlertTriangle },
   { id: "sem_producao", label: "Sem produção", icon: FileText },
 ];
@@ -167,6 +181,7 @@ const TITULO_ASSUNTO: Record<string, string> = {
   meteo: "Clima",
   usina: "Usina",
   equipamentos: "Equipamentos",
+  apoio: "Apoio e Qualidade na Obra",
   ocorrencias: "Ocorrências",
   sem_producao: "Sem produção",
 };
@@ -176,6 +191,7 @@ const RESUMO_ASSUNTO: Record<string, string> = {
   meteo: "RDOs com chuva registrada",
   usina: "RDOs com informação de usina",
   equipamentos: "RDOs com avaliação de conformidade",
+  apoio: "RDOs com retrabalho, caminhões ou avaliação de apoio",
   ocorrencias: "RDOs com ocorrência reportada",
   sem_producao: "RDOs sem produção no período",
 };
@@ -236,6 +252,19 @@ function motivoSemProducao(r: RdoTecnicoRow) {
     : (r.motivo_sem_producao || "Sem motivo");
 }
 
+function estrelas(n: number | null | undefined) {
+  return n ? `${"★".repeat(n)}${"☆".repeat(5 - n)} (${n}/5)` : "Não avaliado";
+}
+
+function usinaNaoAtendeuSemProducao(r: Pick<RdoTecnicoRow, "houve_producao" | "motivo_sem_producao">) {
+  return !r.houve_producao && r.motivo_sem_producao === "Usina Não Atendeu";
+}
+
+function temApoio(r: RdoTecnicoRow) {
+  return r.houve_producao && (!!r.retrabalho || r.qtd_caminhoes_basculante != null || r.autorizacao_no_horario != null
+    || r.sinalizacao_presente != null || r.controle_tecnologico_presente != null || !!r.sinalizacao_vertical_nota);
+}
+
 function simNao(v: boolean | null | undefined) {
   return v == null ? "Não avaliado" : v ? "Sim" : "Não";
 }
@@ -271,6 +300,17 @@ function camposDetalhe(r: RdoTecnicoRow, assunto: AssuntoTab, engMap: Record<str
     campos.push({ label: "Usina programada", value: r.usina_programada || "Sem usina" }, { label: "Usina atendeu", value: simNao(r.usina_atendeu) }, { label: "Motivo de não atendimento", value: r.usina_nao_atendeu_motivo || "-" });
   } else if (assunto === "equipamentos") {
     campos.push({ label: "Equipamentos conformes", value: simNao(r.equipamentos_conforme) }, { label: "Não conformidades", value: r.equipamentos_nao_conformes || "-" });
+  } else if (assunto === "apoio") {
+    campos.push(
+      { label: "Retrabalho", value: r.retrabalho ? `Sim — ofício ${r.retrabalho_oficio || "não informado"}` : "Não" },
+      { label: "Caminhão basculante (exceto massa)", value: r.qtd_caminhoes_basculante != null ? String(r.qtd_caminhoes_basculante) : "Não informado" },
+      { label: "Autorização no horário previsto", value: simNao(r.autorizacao_no_horario) },
+      { label: "Detalhes do atraso", value: r.autorizacao_atraso_detalhe || "-" },
+      { label: "Sinalização presente no horário", value: simNao(r.sinalizacao_presente) },
+      { label: "Qualidade da sinalização", value: estrelas(r.sinalizacao_nota) },
+      { label: "Controle tecnológico no horário", value: simNao(r.controle_tecnologico_presente) },
+      { label: "Sinalização vertical", value: estrelas(r.sinalizacao_vertical_nota) },
+    );
   } else if (assunto === "ocorrencias") {
     campos.push({ label: "Houve ocorrência", value: simNao(r.houve_ocorrencia) }, { label: "Descrição da ocorrência", value: r.descricao_ocorrencia || "Sem descrição" });
   } else if (assunto === "sem_producao") {
@@ -287,6 +327,13 @@ function detalheAssunto(tab: AssuntoTab, r: RdoTecnicoRow) {
       ? `Chuva ${r.intensidade_chuva || "não informada"}`
       : tab === "usina"
         ? `${r.usina_programada || "Sem usina"} • ${r.usina_atendeu === false ? `Não atendeu (${r.usina_nao_atendeu_motivo || "sem motivo"})` : "Atendeu/sem avaliação"}`
+        : tab === "apoio"
+          ? [r.retrabalho ? `Retrabalho (ofício ${r.retrabalho_oficio || "s/ nº"})` : null,
+              r.qtd_caminhoes_basculante != null ? `${r.qtd_caminhoes_basculante} basculante(s)` : null,
+              r.autorizacao_no_horario === false ? "Autorização fora do horário" : null,
+              r.sinalizacao_presente === false ? "Sinalização ausente" : r.sinalizacao_nota ? `Sinalização ${r.sinalizacao_nota}/5` : null,
+              r.controle_tecnologico_presente === false ? "Controle tecnológico ausente" : null,
+              r.sinalizacao_vertical_nota ? `Vertical ${r.sinalizacao_vertical_nota}/5` : null].filter(Boolean).join(" • ") || "Sem registros de apoio"
         : tab === "equipamentos"
           ? r.equipamentos_conforme
             ? "Conforme"
@@ -364,6 +411,8 @@ export default function RelatorioRdoTecnicoDashboard() {
           fresagem_m2, rap_espumado_m2, binder_ton, cbuq_fx3_ton,
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
           fx_c_ton, demolicao_m, nivelamento_pv_un,
+          retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe,
+          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, sinalizacao_vertical_nota,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
@@ -385,6 +434,8 @@ export default function RelatorioRdoTecnicoDashboard() {
           fresagem_m2, rap_espumado_m2, binder_ton, cbuq_fx3_ton,
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
           fx_c_ton, demolicao_m, nivelamento_pv_un,
+          retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe,
+          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, sinalizacao_vertical_nota,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
@@ -540,7 +591,7 @@ export default function RelatorioRdoTecnicoDashboard() {
     const folgasFeriados = linhasFiltradas.filter(isFolgaFeriado).length;
     const comOcorrencia = linhasFiltradas.filter(r => r.houve_ocorrencia).length;
     const comChuva = linhasFiltradas.filter(r => r.choveu).length;
-    const usinaNaoAtendeu = linhasFiltradas.filter(r => r.usina_atendeu === false).length;
+    const usinaNaoAtendeu = linhasFiltradas.filter(r => r.usina_atendeu === false || usinaNaoAtendeuSemProducao(r)).length;
     const naoConformeEquip = linhasFiltradas.filter(r => r.equipamentos_conforme === false).length;
 
     const conformeCount = linhasFiltradas.filter(r => r.equipamentos_conforme === true).length;
@@ -598,7 +649,7 @@ export default function RelatorioRdoTecnicoDashboard() {
     const semProducao = total - comProducao;
     const comOcorrencia = linhasPrevFiltradas.filter(r => r.houve_ocorrencia).length;
     const comChuva = linhasPrevFiltradas.filter(r => r.choveu).length;
-    const usinaNaoAtendeu = linhasPrevFiltradas.filter(r => r.usina_atendeu === false).length;
+    const usinaNaoAtendeu = linhasPrevFiltradas.filter(r => r.usina_atendeu === false || usinaNaoAtendeuSemProducao(r)).length;
     const naoConformeEquip = linhasPrevFiltradas.filter(r => r.equipamentos_conforme === false).length;
 
     const conformeCount = linhasPrevFiltradas.filter(r => r.equipamentos_conforme === true).length;
@@ -696,12 +747,15 @@ export default function RelatorioRdoTecnicoDashboard() {
     return {
       producao: linhasFiltradas.filter(r => r.houve_producao),
       meteo: linhasFiltradas.filter(r => r.choveu),
-      usina: linhasFiltradas.filter(r => r.usina_programada || r.usina_atendeu === false),
+      usina: linhasFiltradas.filter(r => r.usina_programada || r.usina_atendeu === false || usinaNaoAtendeuSemProducao(r)),
       equipamentos: linhasFiltradas.filter(r => r.equipamentos_conforme !== null),
+      apoio: linhasFiltradas.filter(temApoio),
       ocorrencias: linhasFiltradas.filter(r => r.houve_ocorrencia),
       sem_producao: linhasFiltradas.filter(r => !r.houve_producao),
     };
   }, [linhasFiltradas]);
+
+  const apoioMetrics = useMemo(() => computeApoioMetrics(linhasFiltradas), [linhasFiltradas]);
 
   const atividadesQualitativas = useMemo(() => {
     const produtivas = linhasFiltradas.filter(r => r.houve_producao);
@@ -755,6 +809,18 @@ export default function RelatorioRdoTecnicoDashboard() {
         });
       }
 
+      if (r.houve_producao) {
+        const apoio = (id: string, assunto: string, detalhe: string) => itens.push({
+          id: `${r.id}-${id}`, prioridade: "Média", prioridadePeso: 2, assunto, detalhe, tabDestino: "apoio", rdo: r,
+        });
+        if (r.autorizacao_no_horario === false) apoio("autorizacao", "Autorização fora do horário", r.autorizacao_atraso_detalhe || "Sem detalhes informados");
+        if (r.sinalizacao_presente === false) apoio("sinalizacao-ausente", "Sinalização ausente no horário", "Equipe de sinalização não estava presente");
+        else if (r.sinalizacao_nota && r.sinalizacao_nota <= NOTA_BAIXA) apoio("sinalizacao-nota", "Sinalização com nota baixa", `Nota ${r.sinalizacao_nota}/5`);
+        if (r.controle_tecnologico_presente === false) apoio("ct", "Controle tecnológico ausente", "Equipe de controle tecnológico não esteve presente no horário");
+        if (r.sinalizacao_vertical_nota && r.sinalizacao_vertical_nota <= NOTA_BAIXA) apoio("vertical", "Sinalização vertical com nota baixa", `Nota ${r.sinalizacao_vertical_nota}/5`);
+        if (r.retrabalho) apoio("retrabalho", "Retrabalho", `Ofício ${r.retrabalho_oficio || "não informado"}`);
+      }
+
       if (r.houve_ocorrencia) {
         itens.push({
           id: `${r.id}-ocorrencia`,
@@ -804,6 +870,15 @@ export default function RelatorioRdoTecnicoDashboard() {
       "ID do RDO",
       "Descrição de INFRA",
       ...TECHNICAL_QUANTITIES.map(q => q.label),
+      "Retrabalho",
+      "Ofício do retrabalho",
+      "Caminhão basculante (exceto massa)",
+      "Autorização no horário",
+      "Detalhes do atraso na autorização",
+      "Sinalização presente",
+      "Nota sinalização (1-5)",
+      "Controle tecnológico presente",
+      "Nota sinalização vertical (1-5)",
     ];
 
     const linhas = linhasFiltradas.map((r) => [
@@ -828,6 +903,15 @@ export default function RelatorioRdoTecnicoDashboard() {
         const valor = r[field as keyof RdoTecnicoRow] as number | null | undefined;
         return valor == null ? "" : String(valor).replace(".", ",");
       }),
+      r.houve_producao ? (r.retrabalho ? "Sim" : "Não") : "",
+      r.retrabalho_oficio || "",
+      r.qtd_caminhoes_basculante == null ? "" : String(r.qtd_caminhoes_basculante),
+      r.autorizacao_no_horario == null ? "" : r.autorizacao_no_horario ? "Sim" : "Não",
+      r.autorizacao_atraso_detalhe || "",
+      r.sinalizacao_presente == null ? "" : r.sinalizacao_presente ? "Sim" : "Não",
+      r.sinalizacao_nota == null ? "" : String(r.sinalizacao_nota),
+      r.controle_tecnologico_presente == null ? "" : r.controle_tecnologico_presente ? "Sim" : "Não",
+      r.sinalizacao_vertical_nota == null ? "" : String(r.sinalizacao_vertical_nota),
     ]);
 
     const csv = "﻿" + [head, ...linhas].map((l) => l.map(csvEscape).join(";")).join("\n");
@@ -906,6 +990,7 @@ export default function RelatorioRdoTecnicoDashboard() {
     meteo: pronto ? String(cardsAssunto.meteo.length) : "—",
     usina: pronto ? String(cardsAssunto.usina.length) : "—",
     equipamentos: pronto ? String(cardsAssunto.equipamentos.length) : "—",
+    apoio: pronto ? String(cardsAssunto.apoio.length) : "—",
     ocorrencias: pronto ? String(cardsAssunto.ocorrencias.length) : "—",
     sem_producao: pronto ? String(cardsAssunto.sem_producao.length) : "—",
   };
@@ -1010,6 +1095,7 @@ export default function RelatorioRdoTecnicoDashboard() {
         <button type="button" onClick={() => irSecao("alertas")} className="rounded-lg border border-red-300 bg-white px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">Alertas operacionais: {alertasOperacionais.length}</button>
         <button type="button" onClick={() => irSecao("validacoes")} className="rounded-lg border border-orange-300 bg-white px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-50">Validações pendentes ({rotuloFila}): {filaFiltrada.length}</button>
         <button type="button" onClick={() => irSecao("usina")} className="rounded-lg border border-orange-300 bg-white px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-50">Usina não atendeu: {kpis.usinaNaoAtendeu}</button>
+        <button type="button" onClick={() => irSecao("apoio")} className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50">Apoio e Qualidade: {cardsAssunto.apoio.length}{apoioMetrics.retrabalho.total > 0 ? ` · Retrabalhos: ${apoioMetrics.retrabalho.total}` : ""}</button>
         <button type="button" onClick={() => irSecao("equipamentos")} className="rounded-lg border border-yellow-300 bg-white px-2 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-50">Não conformidade de equipamentos: {kpis.naoConformeEquip}</button>
         <button type="button" onClick={() => irSecao("ocorrencias")} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Ocorrências: {kpis.comOcorrencia}</button>
         <span className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">Engenheiro sem identificação: {kpis.semNomeEng}</span>
@@ -1065,6 +1151,70 @@ export default function RelatorioRdoTecnicoDashboard() {
         )}
         <TabelaPaginada className="lg:flex-1" itens={lista} colunas={colunasAssunto(tab)} getKey={r => r.id}
           resetKey={`${tab}|${chaveTecnica}`} focusKey={foco} vazio="Nenhum lançamento para este assunto com os filtros atuais." rotulo="registros" minWidth={860} />
+      </SecaoShell>
+    );
+  };
+
+  const renderApoio = () => {
+    const m = apoioMetrics;
+    const pct = (v: number | null) => (v == null ? "—" : `${fmtNum(v, 0)}%`);
+    const nota = (v: number | null) => (v == null ? "—" : `${fmtNum(v, 1)} / 5`);
+    const lista = cardsAssunto.apoio;
+    const semDados = m.notaSinalizacao.avaliados === 0 && m.notaVertical.avaliados === 0;
+    const grafDist = (titulo: string, dados: { nota: string; value: number }[], cor: string) => (
+      <div className="min-w-0 rounded-xl border bg-white p-2">
+        <h3 className="text-xs font-bold text-muted-foreground">{titulo}</h3>
+        <div className="h-[150px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={dados} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="nota" tickFormatter={n => `${n}★`} tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} width={28} tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: number) => [`${v} RDO(s)`, "Quantidade"]} labelFormatter={n => `Nota ${n}`} />
+              <Bar dataKey="value" fill={cor} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+    return (
+      <SecaoShell titulo={TITULO_ASSUNTO.apoio} subtitulo={`${lista.length} registro(s) · ${RESUMO_ASSUNTO.apoio}`}>
+        <div data-testid="apoio-kpis" className="shrink-0 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+          <KpiCard icon={Activity} titulo="Autorização no horário" valor={pct(m.autorizacao.pct)} cor="text-emerald-600" subtitulo={`${m.autorizacao.nao} fora do horário · ${m.autorizacao.avaliados} avaliados`} />
+          <KpiCard icon={Users} titulo="Sinalização presente" valor={pct(m.sinalizacaoPresente.pct)} cor="text-blue-600" subtitulo={`${m.sinalizacaoPresente.nao} ausências · ${m.sinalizacaoPresente.avaliados} avaliados`} />
+          <KpiCard icon={Star} titulo="Nota da sinalização" valor={nota(m.notaSinalizacao.media)} cor="text-amber-500" subtitulo={`${m.notaSinalizacao.avaliados} avaliações`} />
+          <KpiCard icon={ClipboardCheck} titulo="Controle tecnológico presente" valor={pct(m.controleTecnologico.pct)} cor="text-violet-600" subtitulo={`${m.controleTecnologico.nao} ausências · ${m.controleTecnologico.avaliados} avaliados`} />
+          <KpiCard icon={Star} titulo="Nota da sinalização vertical" valor={nota(m.notaVertical.media)} cor="text-amber-500" subtitulo={`${m.notaVertical.avaliados} avaliações`} />
+          <KpiCard icon={AlertTriangle} titulo="Retrabalhos" valor={fmtNum(m.retrabalho.total)} cor="text-red-600" subtitulo={m.retrabalho.semOficio > 0 ? `${m.retrabalho.semOficio} sem nº de ofício` : "todos com ofício"} />
+          <KpiCard icon={Gauge} titulo="Caminhões basculantes (exceto massa)" valor={fmtNum(m.caminhoes.total)} cor="text-slate-600" subtitulo={m.caminhoes.mediaDia == null ? "sem registros" : `média de ${fmtNum(m.caminhoes.mediaDia, 1)} por RDO`} />
+        </div>
+        {!semDados && (
+          <div data-testid="apoio-graficos" className="shrink-0 grid grid-cols-1 gap-2 md:grid-cols-3">
+            {grafDist("Notas da equipe de sinalização", m.notaSinalizacao.distribuicao, "#f59e0b")}
+            {grafDist("Notas da sinalização vertical", m.notaVertical.distribuicao, "#2563eb")}
+            <div className="min-w-0 rounded-xl border bg-white p-2">
+              <h3 className="text-xs font-bold text-muted-foreground">Nota média por OGS</h3>
+              <div className="h-[150px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={m.notaPorOgs.map(o => ({ ...o, sinalizacao: o.sinalizacao ?? 0, vertical: o.vertical ?? 0 }))} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis domain={[0, 5]} allowDecimals={false} width={28} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(v: number) => (v ? `${fmtNum(v, 1)} / 5` : "sem nota")} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="sinalizacao" name="Sinalização" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="vertical" name="Vertical" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        )}
+        <Interpretar>
+          <p>Considera somente RDOs com produção nos filtros atuais; dia sem produção não preenche esta seção. Percentuais usam apenas os RDOs que responderam a pergunta (rascunhos incluídos). Notas de sinalização só existem quando a equipe estava presente. Nota baixa = {NOTA_BAIXA} ou menos e gera alerta, assim como autorização fora do horário, ausência de sinalização ou de controle tecnológico e retrabalho.</p>
+        </Interpretar>
+        <TabelaPaginada className="lg:flex-1" itens={lista} colunas={colunasAssunto("apoio")} getKey={r => r.id}
+          resetKey={`apoio|${chaveTecnica}`} focusKey={foco} vazio="Nenhum RDO com informações de apoio nos filtros atuais." rotulo="registros" minWidth={860} />
       </SecaoShell>
     );
   };
@@ -1160,6 +1310,7 @@ export default function RelatorioRdoTecnicoDashboard() {
     if (secao === "preenchimento") return renderPreenchimento();
     if (secao === "validacoes") return renderValidacoes();
     if (secao === "alertas") return renderAlertas();
+    if (secao === "apoio") return renderApoio();
     return renderAssunto(secao);
   };
 
