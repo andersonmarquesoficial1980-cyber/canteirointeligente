@@ -9,6 +9,7 @@ interface Equipe {
   responsavel: string | null;
   centro_custo: string | null;
   ativa: boolean;
+  exibir_rdo_tecnico?: boolean | null;
 }
 
 interface Membro {
@@ -39,6 +40,7 @@ export default function EquipesManager() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [centrosCusto, setCentrosCusto] = useState<CentroCusto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rdoToggleDisponivel, setRdoToggleDisponivel] = useState(true);
   const [expandedEquipe, setExpandedEquipe] = useState<string | null>(null);
 
   // Modal state
@@ -55,12 +57,19 @@ export default function EquipesManager() {
 
   async function load() {
     setLoading(true);
-    const [{ data: eqs }, { data: emps }, { data: ccs }] = await Promise.all([
-      (supabase as any).from("ci_equipes").select("id, nome, responsavel, centro_custo, ativa").order("nome"),
+    const [eqsRes, { data: emps }, { data: ccs }] = await Promise.all([
+      (supabase as any).from("ci_equipes").select("id, nome, responsavel, centro_custo, ativa, exibir_rdo_tecnico").order("nome"),
       (supabase as any).from("employees").select("id, name, matricula, role, equipe, funcoes(nome)").eq("status", "ativo").order("name"),
       (supabase as any).from("ci_centros_custo").select("id, nome").eq("ativo", true).order("nome"),
     ]);
 
+    let eqs = eqsRes.data;
+    if (eqsRes.error) {
+      // coluna exibir_rdo_tecnico ainda não existe no banco: carrega sem ela
+      const legacy = await (supabase as any).from("ci_equipes").select("id, nome, responsavel, centro_custo, ativa").order("nome");
+      eqs = legacy.data;
+      setRdoToggleDisponivel(false);
+    }
     setEquipes(eqs || []);
     setEmployees(emps || []);
     setCentrosCusto(ccs || []);
@@ -95,6 +104,16 @@ export default function EquipesManager() {
     setShowModal(false);
     setForm(EMPTY_FORM);
     setEditingId(null);
+  }
+
+  async function toggleRdoTecnico(eq: Equipe) {
+    const proximo = eq.exibir_rdo_tecnico === false;
+    const { error } = await (supabase as any).from("ci_equipes").update({ exibir_rdo_tecnico: proximo }).eq("id", eq.id);
+    if (error) {
+      toast({ title: "Erro ao atualizar equipe", description: error.message, variant: "destructive" });
+      return;
+    }
+    setEquipes(list => list.map(e => e.id === eq.id ? { ...e, exibir_rdo_tecnico: proximo } : e));
   }
 
   async function handleSalvar() {
@@ -187,6 +206,17 @@ export default function EquipesManager() {
                   </div>
                   {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                 </button>
+                {rdoToggleDisponivel && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 cursor-pointer" title="Exibir esta equipe no campo Equipe / Setor do RDO Técnico">
+                    <input
+                      type="checkbox"
+                      checked={equipe.exibir_rdo_tecnico !== false}
+                      onChange={() => toggleRdoTecnico(equipe)}
+                      className="w-4 h-4 accent-primary"
+                    />
+                    RDO Técnico
+                  </label>
+                )}
                 <button
                   onClick={() => openEdit(equipe)}
                   className="p-1.5 rounded-lg hover:bg-muted transition-colors shrink-0"

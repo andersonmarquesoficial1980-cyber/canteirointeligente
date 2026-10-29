@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
+import { loadRdoTecnicoTeams } from "@/lib/rdoTecnicoTeams";
 import { loadEngineeringPlants } from "@/lib/engineeringPlants";
 import { getTechnicalProductionError, TECHNICAL_QUANTITIES } from "@/lib/technicalProduction";
 
@@ -26,7 +27,7 @@ export default function EngRdoTecnicoEditar() {
   const [salvo, setSalvo] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
-  const motivosSemProducao = ["Chuva", "Sem Atividade", "Folga / Feriado", "Outro"];
+  const motivosSemProducao = ["Chuva", "Sem Atividade", "Folga / Feriado", "Usina Não Atendeu", "Outro"];
   const niveisChuva = ["Fraco", "Moderado", "Forte"];
   const tiposSecao = ["Funcional", "Intermediário", "Estrutural"];
 
@@ -156,12 +157,7 @@ export default function EngRdoTecnicoEditar() {
       }
 
       // Equipes e usinas
-      const { data: eqs } = await (supabase as any)
-        .from("ci_equipes")
-        .select("nome")
-        .eq("ativa", true)
-        .order("nome");
-      setEquipes((eqs || []).map((e: any) => e.nome));
+      setEquipes(await loadRdoTecnicoTeams());
       try {
         setUsinas(await loadEngineeringPlants());
       } catch (error) {
@@ -207,11 +203,7 @@ export default function EngRdoTecnicoEditar() {
       toast({ title: "Descreva o motivo em 'Outro'", variant: "destructive" });
       return;
     }
-    if (!form.houve_producao && form.motivo_sem_producao === "Chuva" && !form.choveu) {
-      toast({ title: "Para o motivo Chuva, informe que choveu no período", variant: "destructive" });
-      return;
-    }
-    if (form.choveu && !form.intensidade_chuva) {
+    if (form.houve_producao && form.choveu && !form.intensidade_chuva) {
       toast({ title: "Selecione a intensidade da chuva", variant: "destructive" });
       return;
     }
@@ -246,8 +238,8 @@ export default function EngRdoTecnicoEditar() {
       ogs_number: ogsSelecionada?.ogs_number,
       data: form.data,
       houve_producao: form.houve_producao,
-      choveu: form.choveu,
-      intensidade_chuva: form.choveu ? form.intensidade_chuva || null : null,
+      choveu: semProducao ? form.motivo_sem_producao === "Chuva" : form.choveu,
+      intensidade_chuva: !semProducao && form.choveu ? form.intensidade_chuva || null : null,
       tipo_secao: obraExigeSecao
         ? (form.tipo_secao.length > 0 ? form.tipo_secao.join(", ") : null)
         : null,
@@ -290,8 +282,8 @@ export default function EngRdoTecnicoEditar() {
         : form.equipamentos_conforme === "nao"
           ? form.equipamentos_nao_conformes.trim() || null
           : null,
-      houve_ocorrencia: form.houve_ocorrencia,
-      descricao_ocorrencia: form.houve_ocorrencia ? form.descricao_ocorrencia.trim() || null : null,
+      houve_ocorrencia: semProducao ? false : form.houve_ocorrencia,
+      descricao_ocorrencia: !semProducao && form.houve_ocorrencia ? form.descricao_ocorrencia.trim() || null : null,
       observacoes: form.observacoes || null,
       status,
       updated_at: new Date().toISOString(),
@@ -442,6 +434,7 @@ export default function EngRdoTecnicoEditar() {
         </div>
 
         {/* Seção 1.5 — Meteorologia */}
+        {form.houve_producao && (
           <div className={sectionCls}>
             <h2 className="text-sm font-bold text-foreground">Meteorologia</h2>
 
@@ -492,6 +485,8 @@ export default function EngRdoTecnicoEditar() {
               </div>
             )}
           </div>
+
+        )}
 
         {obraExigeSecao && (
           <div className={sectionCls}>
@@ -545,7 +540,7 @@ export default function EngRdoTecnicoEditar() {
                 <input type="number" value={form.cauq_programado} onChange={e => set("cauq_programado", e.target.value)} placeholder="0" className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Usina atendeu?</label>
+                <label className={labelCls}>Usina atendeu quantidade programada?</label>
                 <div className="flex gap-3">
                   {["sim", "nao"].map(opt => (
                     <button key={opt} type="button" onClick={() => setForm((current) => ({
@@ -700,6 +695,7 @@ export default function EngRdoTecnicoEditar() {
         )}
 
             {/* Seção 4 — Ocorrências */}
+            {form.houve_producao && (
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Ocorrências</h2>
               <div>
@@ -721,6 +717,8 @@ export default function EngRdoTecnicoEditar() {
                 </div>
               )}
             </div>
+
+        )}
 
         {/* Seção 5 — Observações */}
         <div className={sectionCls}>

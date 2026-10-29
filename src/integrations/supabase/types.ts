@@ -813,6 +813,7 @@ export type Database = {
       ci_equipes: {
         Row: {
           ativa: boolean | null
+          exibir_rdo_tecnico: boolean
           centro_custo: string | null
           created_at: string | null
           id: string
@@ -822,6 +823,7 @@ export type Database = {
         }
         Insert: {
           ativa?: boolean | null
+          exibir_rdo_tecnico?: boolean
           centro_custo?: string | null
           created_at?: string | null
           id?: string
@@ -831,6 +833,7 @@ export type Database = {
         }
         Update: {
           ativa?: boolean | null
+          exibir_rdo_tecnico?: boolean
           centro_custo?: string | null
           created_at?: string | null
           id?: string

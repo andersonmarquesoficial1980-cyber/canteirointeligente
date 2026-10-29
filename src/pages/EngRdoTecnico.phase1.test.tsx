@@ -112,14 +112,24 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
     expect(screen.queryByRole("heading", { name: "Quantitativos de Produção" })).not.toBeInTheDocument();
   });
 
-  it("exige intensidade de chuva também no dia parado", async () => {
+  it("oculta Meteorologia e Ocorrências quando não houve produção", async () => {
+    await mount(mode);
+    expect(screen.getByRole("heading", { name: "Meteorologia" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ocorrências" })).toBeInTheDocument();
+    fireEvent.click(question("Houve produção?").getByRole("button", { name: "Não" }));
+    expect(screen.queryByRole("heading", { name: "Meteorologia" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Ocorrências" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Choveu no período?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Houve ocorrência?")).not.toBeInTheDocument();
+  });
+
+  it("oferece o motivo Usina Não Atendeu e salva sem exigir meteorologia", async () => {
     await mount(mode);
     fireEvent.click(question("Houve produção?").getByRole("button", { name: "Não" }));
-    fireEvent.click(screen.getByRole("button", { name: "Chuva" }));
-    fireEvent.click(question("Choveu no período?").getByRole("button", { name: "Sim" }));
+    fireEvent.click(screen.getByRole("button", { name: "Usina Não Atendeu" }));
     await act(async () => { submit(mode); });
-    expect(state.write).not.toHaveBeenCalled();
-    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Selecione a intensidade da chuva" }));
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ houve_producao: false,
+      motivo_sem_producao: "Usina Não Atendeu", choveu: false, intensidade_chuva: null, houve_ocorrencia: false }));
   });
 
   it("mantém identificação e chuva ao alternar produção de volta para sim", async () => {
@@ -136,35 +146,31 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
       equipe: "Equipe teste", choveu: true, intensidade_chuva: "Moderado", motivo_sem_producao: null }));
   });
 
-  it("bloqueia motivo Chuva com meteorologia marcada como não", async () => {
+  it("motivo Chuva sem produção grava choveu=true sem pedir meteorologia", async () => {
     await mount(mode);
     fireEvent.click(question("Houve produção?").getByRole("button", { name: "Não" }));
     fireEvent.click(screen.getByRole("button", { name: "Chuva" }));
     await act(async () => { submit(mode); });
-    expect(state.write).not.toHaveBeenCalled();
-    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Para o motivo Chuva, informe que choveu no período", variant: "destructive" }));
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ houve_producao: false,
+      motivo_sem_producao: "Chuva", choveu: true, intensidade_chuva: null }));
   });
 
-  it("preserva meteorologia, equipe, localização e ocorrência ao mudar para sem produção", async () => {
+  it("não grava ocorrência preenchida antes de marcar sem produção, e restaura ao voltar para sim", async () => {
     await mount(mode);
     fireEvent.change(screen.getByText("Equipe / Setor").parentElement!.querySelector("select")!, { target: { value: "Equipe teste" } });
-    fireEvent.change(screen.getByPlaceholderText("Ex: Av. Paulista, 1000"), { target: { value: "Rua teste, 20" } });
-    fireEvent.click(question("Choveu no período?").getByRole("button", { name: "Sim" }));
-    fireEvent.click(screen.getByRole("button", { name: "Forte" }));
     fireEvent.click(question("Houve ocorrência?").getByRole("button", { name: "Sim" }));
     fireEvent.change(screen.getByPlaceholderText("Descreva o que aconteceu..."), { target: { value: "Acesso bloqueado" } });
     fireEvent.click(question("Houve produção?").getByRole("button", { name: "Não" }));
-    fireEvent.click(screen.getByRole("button", { name: "Chuva" }));
-    expect(screen.getByRole("heading", { name: "Meteorologia" })).toBeVisible();
-    expect(screen.getByDisplayValue("Rua teste, 20")).toBeVisible();
-    expect(screen.getByDisplayValue("Acesso bloqueado")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Sem Atividade" }));
     submit(mode);
     await waitFor(() => expect(state.write).toHaveBeenCalled());
-    expect(state.write.mock.calls[0][0]).toMatchObject({
-      houve_producao: false, motivo_sem_producao: "Chuva", choveu: true, intensidade_chuva: "Forte",
-      equipe: "Equipe teste", localizacao: "Rua teste, 20", houve_ocorrencia: true, descricao_ocorrencia: "Acesso bloqueado",
-      binder_ton: null, usina_programada: null, status: "enviado",
-    });
+    expect(state.write.mock.calls[0][0]).toMatchObject({ houve_producao: false, equipe: "Equipe teste",
+      houve_ocorrencia: false, descricao_ocorrencia: null });
+  });
+
+  it("usa o rótulo 'Usina atendeu quantidade programada?'", async () => {
+    await mount(mode);
+    expect(screen.getByText("Usina atendeu quantidade programada?")).toBeInTheDocument();
   });
 });
 
