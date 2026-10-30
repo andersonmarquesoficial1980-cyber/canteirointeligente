@@ -396,8 +396,8 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
     expect(head.slice(0, 15)).toEqual(["Data", "OGS", "Status", "Engenheiro", "Equipe", "Localização", "Houve produção", "Tipo serviço", "Usina", "Usina atendeu", "Equipamentos conformes", "Houve ocorrência", "Motivo sem produção", "Descrição ocorrência", "Observações"]);
     expect(head.slice(15)).toEqual(["ID do RDO", "Descrição de INFRA", ...TECHNICAL_QUANTITIES.map(q => q.label),
       "Retrabalho", "Ofício do retrabalho", "Caminhão basculante (exceto massa)", "Autorização no horário", "Detalhes do atraso na autorização",
-      "Sinalização presente", "Nota sinalização (1-5)", "Controle tecnológico presente", "Nota sinalização vertical (1-5)"]);
-    expect(head).toHaveLength(26 + TECHNICAL_QUANTITIES.length);
+      "Sinalização presente", "Nota sinalização (1-5)", "Controle tecnológico presente", "Nota sinalização vertical (1-5)", "Nota controle tecnológico (1-5)"]);
+    expect(head).toHaveLength(27 + TECHNICAL_QUANTITIES.length);
     expect(data).toHaveLength(2);
     const byId = Object.fromEntries(data.map(r => [r[15], r]));
     const a = byId["csv-1"];
@@ -686,7 +686,7 @@ describe("Dashboard Técnico — Apoio e Qualidade", () => {
     expect(kpis.getByText("Retrabalhos").closest("div")!.parentElement).toHaveTextContent("1");
     expect(kpis.getByText("Caminhões basculantes (exceto massa)").closest("div")!.parentElement).toHaveTextContent("8");
     expect(screen.getByTestId("apoio-graficos")).toBeInTheDocument();
-    expect(screen.getByText("Retrabalho (ofício 77/2026) • 3 basculante(s) • Autorização fora do horário • Sinalização ausente • Controle tecnológico ausente • Vertical 2/5")).toBeInTheDocument();
+    expect(screen.getByText("Retrabalho (77/2026) • 3 basculante(s) • Autorização fora do horário • Sinalização ausente • Controle tecnológico ausente • Vertical 2/5")).toBeInTheDocument();
   });
   it("gera alertas para autorização fora do horário, ausências, nota baixa e retrabalho — não para dia sem produção", async () => {
     state.technical = [
@@ -707,7 +707,7 @@ describe("Dashboard Técnico — Apoio e Qualidade", () => {
     const [head, row] = parseCsv((await downloads[0].text()).replace(/^﻿/, ""));
     const n = TECHNICAL_QUANTITIES.length;
     expect(head.slice(17 + n)[0]).toBe("Retrabalho");
-    expect(row.slice(17 + n)).toEqual(["Sim", "55", "5", "Não", "Chuva", "Sim", "4", "Sim", "3"]);
+    expect(row.slice(17 + n)).toEqual(["Sim", "55", "5", "Não", "Chuva", "Sim", "4", "Sim", "3", ""]);
   });
   it("sem produção por Usina Não Atendeu entra na aba Usina e no indicador", async () => {
     state.technical = [{ ...prod, id: "u1", houve_producao: false, motivo_sem_producao: "Usina Não Atendeu" }];

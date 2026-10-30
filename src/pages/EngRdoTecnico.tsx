@@ -29,7 +29,7 @@ export default function EngRdoTecnico() {
 
   const hoje = new Date().toISOString().split("T")[0];
 
-  const motivosSemProducao = ["Chuva", "Sem Atividade", "Folga / Feriado", "Usina Não Atendeu", "Outro"];
+  const motivosSemProducao = ["Chuva", "Sem Atividade", "Folga / Feriado", "Usina Não Atendeu", "Indisponibilidade de Equipamento", "Problema de Transporte", "Falha de Combustível", "Falta de Autorização", "Outro"];
   const niveisChuva = ["Fraco", "Moderado", "Forte"];
   const tiposSecao = ["Funcional", "Intermediário", "Estrutural"];
 
@@ -68,6 +68,7 @@ export default function EngRdoTecnico() {
     fx_c_ton: "",
     demolicao_m: "",
     nivelamento_pv_un: "",
+    massa_fria_sacos: "",
     ...TECHNICAL_EXTRAS_DEFAULTS,
     qtd_caminhoes_fresa: "",
     perc_conclusao_via: "",
@@ -159,13 +160,13 @@ export default function EngRdoTecnico() {
   }, [form.ogs_id]);
 
   const ogsSelecionada = minhasOgs.find(o => o.id === form.ogs_id);
-  const obraExigeSecao = !!ogsSelecionada?.client_name && /(MOTIVA|PMSP)/i.test(ogsSelecionada.client_name);
+  const obraExigeSecao = !!ogsSelecionada?.client_name && /PMSP/i.test(ogsSelecionada.client_name) && form.houve_producao;
 
   useEffect(() => {
     if (!obraExigeSecao && form.tipo_secao.length > 0) {
       set("tipo_secao", []);
     }
-  }, [obraExigeSecao]);
+  }, [obraExigeSecao, form.tipo_secao.length]);
 
   const handleSalvar = async (status: "rascunho" | "enviado") => {
     if (!form.ogs_id) { toast({ title: "Selecione uma OGS", variant: "destructive" }); return; }
@@ -266,6 +267,8 @@ export default function EngRdoTecnico() {
       fx_c_ton: semProducao ? null : toNum(form.fx_c_ton),
       demolicao_m: semProducao ? null : toNum(form.demolicao_m),
       nivelamento_pv_un: semProducao ? null : toNum(form.nivelamento_pv_un),
+      massa_fria_sacos: semProducao ? null : toNum(form.massa_fria_sacos),
+      controle_tecnologico_nota: !semProducao && form.controle_tecnologico_presente === "sim" ? form.controle_tecnologico_nota || null : null,
       retrabalho: semProducao ? false : form.retrabalho,
       retrabalho_oficio: !semProducao && form.retrabalho ? form.retrabalho_oficio.trim() || null : null,
       qtd_caminhoes_basculante: semProducao ? null : toIntOrNull(form.qtd_caminhoes_basculante),

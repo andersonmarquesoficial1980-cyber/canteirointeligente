@@ -97,6 +97,8 @@ interface RdoTecnicoRow {
   sinalizacao_nota: number | null;
   controle_tecnologico_presente: boolean | null;
   sinalizacao_vertical_nota: number | null;
+  controle_tecnologico_nota: number | null;
+  massa_fria_sacos: number | null;
   perc_conclusao_via: number | null;
 }
 
@@ -302,13 +304,14 @@ function camposDetalhe(r: RdoTecnicoRow, assunto: AssuntoTab, engMap: Record<str
     campos.push({ label: "Equipamentos conformes", value: simNao(r.equipamentos_conforme) }, { label: "Não conformidades", value: r.equipamentos_nao_conformes || "-" });
   } else if (assunto === "apoio") {
     campos.push(
-      { label: "Retrabalho", value: r.retrabalho ? `Sim — ofício ${r.retrabalho_oficio || "não informado"}` : "Não" },
+      { label: "Retrabalho", value: r.retrabalho ? `Sim — ${r.retrabalho_oficio || "sem observação"}` : "Não" },
       { label: "Caminhão basculante (exceto massa)", value: r.qtd_caminhoes_basculante != null ? String(r.qtd_caminhoes_basculante) : "Não informado" },
       { label: "Autorização no horário previsto", value: simNao(r.autorizacao_no_horario) },
       { label: "Detalhes do atraso", value: r.autorizacao_atraso_detalhe || "-" },
       { label: "Sinalização presente no horário", value: simNao(r.sinalizacao_presente) },
       { label: "Qualidade da sinalização", value: estrelas(r.sinalizacao_nota) },
       { label: "Controle tecnológico no horário", value: simNao(r.controle_tecnologico_presente) },
+      { label: "Qualidade do controle tecnológico", value: estrelas(r.controle_tecnologico_nota) },
       { label: "Sinalização vertical", value: estrelas(r.sinalizacao_vertical_nota) },
     );
   } else if (assunto === "ocorrencias") {
@@ -328,7 +331,7 @@ function detalheAssunto(tab: AssuntoTab, r: RdoTecnicoRow) {
       : tab === "usina"
         ? `${r.usina_programada || "Sem usina"} • ${r.usina_atendeu === false ? `Não atendeu (${r.usina_nao_atendeu_motivo || "sem motivo"})` : "Atendeu/sem avaliação"}`
         : tab === "apoio"
-          ? [r.retrabalho ? `Retrabalho (ofício ${r.retrabalho_oficio || "s/ nº"})` : null,
+          ? [r.retrabalho ? `Retrabalho (${r.retrabalho_oficio || "s/ obs"})` : null,
               r.qtd_caminhoes_basculante != null ? `${r.qtd_caminhoes_basculante} basculante(s)` : null,
               r.autorizacao_no_horario === false ? "Autorização fora do horário" : null,
               r.sinalizacao_presente === false ? "Sinalização ausente" : r.sinalizacao_nota ? `Sinalização ${r.sinalizacao_nota}/5` : null,
@@ -412,7 +415,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
           fx_c_ton, demolicao_m, nivelamento_pv_un,
           retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe,
-          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, sinalizacao_vertical_nota,
+          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, massa_fria_sacos,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
@@ -435,7 +438,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           gap_ton, bgs_ton, sma_ton, cauq_rima_ton, bm25_ton, egl_ton, rachao_ton,
           fx_c_ton, demolicao_m, nivelamento_pv_un,
           retrabalho, retrabalho_oficio, qtd_caminhoes_basculante, autorizacao_no_horario, autorizacao_atraso_detalhe,
-          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, sinalizacao_vertical_nota,
+          sinalizacao_presente, sinalizacao_nota, controle_tecnologico_presente, controle_tecnologico_nota, sinalizacao_vertical_nota, massa_fria_sacos,
           geogrelha_m2, bgtc_m3, macadame_m3,
           perc_conclusao_via
         `)
@@ -818,7 +821,8 @@ export default function RelatorioRdoTecnicoDashboard() {
         else if (r.sinalizacao_nota && r.sinalizacao_nota <= NOTA_BAIXA) apoio("sinalizacao-nota", "Sinalização com nota baixa", `Nota ${r.sinalizacao_nota}/5`);
         if (r.controle_tecnologico_presente === false) apoio("ct", "Controle tecnológico ausente", "Equipe de controle tecnológico não esteve presente no horário");
         if (r.sinalizacao_vertical_nota && r.sinalizacao_vertical_nota <= NOTA_BAIXA) apoio("vertical", "Sinalização vertical com nota baixa", `Nota ${r.sinalizacao_vertical_nota}/5`);
-        if (r.retrabalho) apoio("retrabalho", "Retrabalho", `Ofício ${r.retrabalho_oficio || "não informado"}`);
+        if (r.controle_tecnologico_nota && r.controle_tecnologico_nota <= NOTA_BAIXA) apoio("ct-nota", "Controle tecnológico com nota baixa", `Nota ${r.controle_tecnologico_nota}/5`);
+        if (r.retrabalho) apoio("retrabalho", "Retrabalho", r.retrabalho_oficio || "Sem observação");
       }
 
       if (r.houve_ocorrencia) {
@@ -879,6 +883,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       "Nota sinalização (1-5)",
       "Controle tecnológico presente",
       "Nota sinalização vertical (1-5)",
+      "Nota controle tecnológico (1-5)",
     ];
 
     const linhas = linhasFiltradas.map((r) => [
@@ -912,6 +917,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       r.sinalizacao_nota == null ? "" : String(r.sinalizacao_nota),
       r.controle_tecnologico_presente == null ? "" : r.controle_tecnologico_presente ? "Sim" : "Não",
       r.sinalizacao_vertical_nota == null ? "" : String(r.sinalizacao_vertical_nota),
+      r.controle_tecnologico_nota == null ? "" : String(r.controle_tecnologico_nota),
     ]);
 
     const csv = "﻿" + [head, ...linhas].map((l) => l.map(csvEscape).join(";")).join("\n");
@@ -1179,13 +1185,14 @@ export default function RelatorioRdoTecnicoDashboard() {
     );
     return (
       <SecaoShell titulo={TITULO_ASSUNTO.apoio} subtitulo={`${lista.length} registro(s) · ${RESUMO_ASSUNTO.apoio}`}>
-        <div data-testid="apoio-kpis" className="shrink-0 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+        <div data-testid="apoio-kpis" className="shrink-0 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
           <KpiCard icon={Activity} titulo="Autorização no horário" valor={pct(m.autorizacao.pct)} cor="text-emerald-600" subtitulo={`${m.autorizacao.nao} fora do horário · ${m.autorizacao.avaliados} avaliados`} />
           <KpiCard icon={Users} titulo="Sinalização presente" valor={pct(m.sinalizacaoPresente.pct)} cor="text-blue-600" subtitulo={`${m.sinalizacaoPresente.nao} ausências · ${m.sinalizacaoPresente.avaliados} avaliados`} />
           <KpiCard icon={Star} titulo="Nota da sinalização" valor={nota(m.notaSinalizacao.media)} cor="text-amber-500" subtitulo={`${m.notaSinalizacao.avaliados} avaliações`} />
           <KpiCard icon={ClipboardCheck} titulo="Controle tecnológico presente" valor={pct(m.controleTecnologico.pct)} cor="text-violet-600" subtitulo={`${m.controleTecnologico.nao} ausências · ${m.controleTecnologico.avaliados} avaliados`} />
+          <KpiCard icon={Star} titulo="Nota do controle tecnológico" valor={nota(m.notaCT.media)} cor="text-violet-600" subtitulo={`${m.notaCT.avaliados} avaliações`} />
           <KpiCard icon={Star} titulo="Nota da sinalização vertical" valor={nota(m.notaVertical.media)} cor="text-amber-500" subtitulo={`${m.notaVertical.avaliados} avaliações`} />
-          <KpiCard icon={AlertTriangle} titulo="Retrabalhos" valor={fmtNum(m.retrabalho.total)} cor="text-red-600" subtitulo={m.retrabalho.semOficio > 0 ? `${m.retrabalho.semOficio} sem nº de ofício` : "todos com ofício"} />
+          <KpiCard icon={AlertTriangle} titulo="Retrabalhos" valor={fmtNum(m.retrabalho.total)} cor="text-red-600" subtitulo={m.retrabalho.semOficio > 0 ? `${m.retrabalho.semOficio} sem observação` : "todos com observação"} />
           <KpiCard icon={Gauge} titulo="Caminhões basculantes (exceto massa)" valor={fmtNum(m.caminhoes.total)} cor="text-slate-600" subtitulo={m.caminhoes.mediaDia == null ? "sem registros" : `média de ${fmtNum(m.caminhoes.mediaDia, 1)} por RDO`} />
         </div>
         {!semDados && (

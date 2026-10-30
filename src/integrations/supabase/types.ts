@@ -6136,6 +6136,8 @@ export type Database = {
           fx_c_ton: number | null
           demolicao_m: number | null
           nivelamento_pv_un: number | null
+          massa_fria_sacos: number | null
+          controle_tecnologico_nota: number | null
           retrabalho: boolean | null
           retrabalho_oficio: string | null
           qtd_caminhoes_basculante: number | null
@@ -6203,6 +6205,8 @@ export type Database = {
           fx_c_ton?: number | null
           demolicao_m?: number | null
           nivelamento_pv_un?: number | null
+          massa_fria_sacos?: number | null
+          controle_tecnologico_nota?: number | null
           retrabalho?: boolean | null
           retrabalho_oficio?: string | null
           qtd_caminhoes_basculante?: number | null
@@ -6270,6 +6274,8 @@ export type Database = {
           fx_c_ton?: number | null
           demolicao_m?: number | null
           nivelamento_pv_un?: number | null
+          massa_fria_sacos?: number | null
+          controle_tecnologico_nota?: number | null
           retrabalho?: boolean | null
           retrabalho_oficio?: string | null
           qtd_caminhoes_basculante?: number | null

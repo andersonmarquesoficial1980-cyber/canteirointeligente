@@ -42,7 +42,7 @@ function Estrelas({ label, hint, value, onChange }: { label: string; hint?: stri
   );
 }
 
-/** Retrabalho + nº do ofício (dentro da seção Produção). */
+/** Retrabalho + Obs Retrabalho (dentro da seção Produção). */
 export function RetrabalhoFields({ form, set }: { form: { retrabalho: boolean; retrabalho_oficio: string }; set: Set }) {
   return (
     <>
@@ -59,8 +59,8 @@ export function RetrabalhoFields({ form, set }: { form: { retrabalho: boolean; r
       </div>
       {form.retrabalho && (
         <div>
-          <label className={labelCls}>Número do ofício *</label>
-          <input value={form.retrabalho_oficio} onChange={e => set("retrabalho_oficio", e.target.value)} placeholder="Ex: 123/2026" className={inputCls} />
+          <label className={labelCls}>Obs Retrabalho *</label>
+          <textarea value={form.retrabalho_oficio} onChange={e => set("retrabalho_oficio", e.target.value)} rows={2} placeholder="Ex: ofício 123/2026 — motivo do retrabalho" className={areaCls} />
         </div>
       )}
     </>
@@ -106,7 +106,12 @@ export function ApoioObraSection({ form, set }: { form: TechnicalExtrasForm; set
       <div className="border-t border-border" />
 
       <SimNao label="Equipe de controle tecnológico esteve presente e no horário na obra hoje?" value={form.controle_tecnologico_presente}
-        onChange={v => set("controle_tecnologico_presente", v)} />
+        onChange={v => { set("controle_tecnologico_presente", v); if (v === "nao") set("controle_tecnologico_nota", 0); }} />
+      {form.controle_tecnologico_presente === "sim" && (
+        <Estrelas label="Nível de qualidade, planejamento e disponibilidade da equipe de controle tecnológico *"
+          hint="5 estrelas = trabalho perfeito em qualidade, pontualidade, comunicação com a obra e velocidade na coleta de trabalho e dados."
+          value={form.controle_tecnologico_nota} onChange={n => set("controle_tecnologico_nota", n)} />
+      )}
 
       <div className="border-t border-border" />
 

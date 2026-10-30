@@ -10,6 +10,7 @@ export interface ApoioRow {
   sinalizacao_nota?: number | null;
   controle_tecnologico_presente?: boolean | null;
   sinalizacao_vertical_nota?: number | null;
+  controle_tecnologico_nota?: number | null;
 }
 
 export interface SimNaoStat { sim: number; nao: number; avaliados: number; pct: number | null }
@@ -26,6 +27,7 @@ export function computeApoioMetrics(all: ApoioRow[]) {
   const rows = all.filter(r => r.houve_producao);
   const notasSin = rows.map(r => r.sinalizacao_nota).filter((n): n is number => typeof n === "number" && n > 0);
   const notasVert = rows.map(r => r.sinalizacao_vertical_nota).filter((n): n is number => typeof n === "number" && n > 0);
+  const notasCT = rows.map(r => r.controle_tecnologico_nota).filter((n): n is number => typeof n === "number" && n > 0);
   const caminhoes = rows.map(r => r.qtd_caminhoes_basculante).filter((n): n is number => typeof n === "number");
   const porOgs = new Map<string, { ogs: string; sin: number[]; vert: number[] }>();
   rows.forEach(r => {
@@ -41,6 +43,7 @@ export function computeApoioMetrics(all: ApoioRow[]) {
     sinalizacaoPresente: stat(rows, r => r.sinalizacao_presente),
     controleTecnologico: stat(rows, r => r.controle_tecnologico_presente),
     notaSinalizacao: { media: media(notasSin), avaliados: notasSin.length, distribuicao: distribuicao(notasSin) },
+    notaCT: { media: media(notasCT), avaliados: notasCT.length, distribuicao: distribuicao(notasCT) },
     notaVertical: { media: media(notasVert), avaliados: notasVert.length, distribuicao: distribuicao(notasVert) },
     retrabalho: { total: rows.filter(r => r.retrabalho).length, semOficio: rows.filter(r => r.retrabalho && !r.retrabalho_oficio?.trim()).length },
     caminhoes: { total: caminhoes.reduce((a, b) => a + b, 0), registros: caminhoes.length, mediaDia: media(caminhoes) },

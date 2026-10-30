@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 const state = vi.hoisted(() => ({ write: vi.fn(), toast: vi.fn(), returned: true, error: null as null | { message: string }, reject: false, selectWrite: vi.fn() }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: state.toast }) }));
-vi.mock("@/hooks/useFilteredData", () => ({ useTiposServico: () => ({ data: ["DEMOLIÇÃO", "ENSAIOS E EXTRAÇÕES", "INFRA", "FRESAGEM", "APLICAÇÃO DE FX II - BINDER", "APLICAÇÃO DE FX C", "APLICAÇÃO DE CAUQ-HIMA", "NIVELAMENTO DE PV"].map(nome => ({ nome })) }) }));
+vi.mock("@/hooks/useFilteredData", () => ({ useTiposServico: () => ({ data: ["DEMOLIÇÃO", "ENSAIOS E EXTRAÇÕES", "INFRA", "FRESAGEM", "APLICAÇÃO DE FX II - BINDER", "APLICAÇÃO DE FX C", "APLICAÇÃO DE CAUQ-HIMA", "NIVELAMENTO DE PV", "MASSA FRIA"].map(nome => ({ nome })) }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   auth: { getUser: async () => ({ data: { user: { id: "eng-teste" } } }) },
   from: (table: string) => {
@@ -16,7 +16,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       : table === "fornecedores" ? [{ nome: "Usina atual", tipo_insumos: ["Massa Asfáltica"] }, { nome: "Usina legada", tipo_insumo: "Massa Asfáltica" }, { nome: "Óleo", tipo_insumos: ["Óleo Diesel"] }]
       : table === "rdo_engenheiro" ? {
         id: "rdo-teste", ogs_id: ogs.id, ogs_number: ogs.ogs_number, data: "2026-10-20",
-        houve_producao: true, choveu: false, equipamentos_conforme: true, autorizacao_no_horario: true, sinalizacao_presente: true, sinalizacao_nota: 4, controle_tecnologico_presente: true, sinalizacao_vertical_nota: 5, status: "enviado", usina_programada: "Usina histórica", tipo_servico: "ENSAIOS E EXTRAÇÕES",
+        houve_producao: true, choveu: false, equipamentos_conforme: true, autorizacao_no_horario: true, sinalizacao_presente: true, sinalizacao_nota: 4, controle_tecnologico_presente: true, controle_tecnologico_nota: 3, sinalizacao_vertical_nota: 5, status: "enviado", usina_programada: "Usina histórica", tipo_servico: "ENSAIOS E EXTRAÇÕES",
       } : [];
     const result = Promise.resolve({ data, error: null });
     let updating = false;
@@ -50,12 +50,14 @@ async function mount(mode: string) {
   }
 }
 const NOTA_SINALIZACAO = "Nível de qualidade, planejamento e disponibilidade da equipe de sinalização *";
+const NOTA_CT = "Nível de qualidade, planejamento e disponibilidade da equipe de controle tecnológico *";
 const NOTA_VERTICAL = "Qualidade da sinalização vertical (balizadores e placas) hoje *";
 function preencherApoio() {
   fireEvent.click(question("A autorização para iniciar os trabalhos ocorreu dentro do horário previsto?").getByRole("button", { name: "Sim" }));
   fireEvent.click(question("Equipe de sinalização presente na obra no horário programado?").getByRole("button", { name: "Sim" }));
   fireEvent.click(question(NOTA_SINALIZACAO).getByRole("button", { name: "4 estrelas" }));
   fireEvent.click(question("Equipe de controle tecnológico esteve presente e no horário na obra hoje?").getByRole("button", { name: "Sim" }));
+  fireEvent.click(question(NOTA_CT).getByRole("button", { name: "3 estrelas" }));
   fireEvent.click(question(NOTA_VERTICAL).getByRole("button", { name: "5 estrelas" }));
 }
 function question(name: string) { return within(screen.getByText(name).parentElement!); }
@@ -147,14 +149,14 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
     expect(screen.getByText("% conclusão da via")).toBeInTheDocument();
   });
 
-  it("retrabalho exige o número do ofício no envio e só grava o ofício quando marcado", async () => {
+  it("retrabalho exige Obs Retrabalho no envio e só grava a observação quando marcado", async () => {
     await mount(mode);
-    expect(screen.queryByText("Número do ofício *")).not.toBeInTheDocument();
+    expect(screen.queryByText("Obs Retrabalho *")).not.toBeInTheDocument();
     fireEvent.click(question("Este serviço é retrabalho?").getByRole("button", { name: "Sim" }));
     await act(async () => { submit(mode); });
     expect(state.write).not.toHaveBeenCalled();
-    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Informe o número do ofício do retrabalho" }));
-    fireEvent.change(screen.getByText("Número do ofício *").parentElement!.querySelector("input")!, { target: { value: " 123/2026 " } });
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Preencha a Obs Retrabalho" }));
+    fireEvent.change(screen.getByText("Obs Retrabalho *").parentElement!.querySelector("textarea")!, { target: { value: " 123/2026 " } });
     await act(async () => { submit(mode); });
     expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ retrabalho: true, retrabalho_oficio: "123/2026" }));
   });
@@ -196,6 +198,32 @@ describe.each(["criação", "edição"])("RDO Técnico — %s", (mode) => {
     fireEvent.click(screen.getByRole("button", { name: "Sem Atividade" }));
     await act(async () => { submit(mode, true); });
     expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ houve_producao: false, retrabalho: false, autorizacao_no_horario: null, sinalizacao_nota: null, qtd_caminhoes_basculante: null }));
+  });
+
+  it("oferece os novos motivos de dia sem produção", async () => {
+    await mount(mode);
+    fireEvent.click(question("Houve produção?").getByRole("button", { name: "Não" }));
+    for (const m of ["Indisponibilidade de Equipamento", "Problema de Transporte", "Falha de Combustível", "Falta de Autorização"]) expect(screen.getByRole("button", { name: m })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Falha de Combustível" }));
+    await act(async () => { submit(mode); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ houve_producao: false, motivo_sem_producao: "Falha de Combustível" }));
+  });
+
+  it("Seção da Obra só aparece para cliente PMSP com produção", async () => {
+    await mount(mode);
+    expect(screen.queryByText("Seção da Obra")).not.toBeInTheDocument();
+  });
+
+  it("serviço MASSA FRIA abre Massa Fria (sacos) e CT presente exige nota", async () => {
+    await mount(mode);
+    fireEvent.click(screen.getByRole("checkbox", { name: "MASSA FRIA" }));
+    fireEvent.change(screen.getByText("Massa Fria (sacos)").parentElement!.querySelector("input")!, { target: { value: "40" } });
+    fireEvent.click(question(NOTA_CT).getByRole("button", { name: "3 estrelas" })); // desmarca
+    await act(async () => { submit(mode); });
+    expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Avalie a equipe de controle tecnológico (1 a 5)" }));
+    fireEvent.click(question(NOTA_CT).getByRole("button", { name: "4 estrelas" }));
+    await act(async () => { submit(mode); });
+    expect(state.write).toHaveBeenCalledWith(expect.objectContaining({ massa_fria_sacos: 40, controle_tecnologico_nota: 4 }));
   });
 
   it("oculta Meteorologia e Ocorrências quando não houve produção", async () => {

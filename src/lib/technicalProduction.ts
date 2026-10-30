@@ -23,6 +23,7 @@ export const TECHNICAL_QUANTITIES = [
   { label: "RACHÃO (ton)", field: "rachao_ton", requiredType: "APLICAÇÃO DE RACHÃO" },
   { label: "FX C (ton)", field: "fx_c_ton", requiredType: "APLICAÇÃO DE FX C" },
   { label: "Demolição (m)", field: "demolicao_m", requiredType: "DEMOLIÇÃO" },
+  { label: "Massa Fria (sacos)", field: "massa_fria_sacos", requiredType: "MASSA FRIA" },
   { label: "Nivelamento de PV (un)", field: "nivelamento_pv_un", requiredType: "NIVELAMENTO DE PV" },
 ] as const;
 

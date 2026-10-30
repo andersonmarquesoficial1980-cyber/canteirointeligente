@@ -52,6 +52,8 @@ interface Rdo {
   sinalizacao_nota: number | null;
   controle_tecnologico_presente: boolean | null;
   sinalizacao_vertical_nota: number | null;
+  controle_tecnologico_nota: number | null;
+  massa_fria_sacos: number | null;
   qtd_caminhoes_fresa: number | null;
   perc_conclusao_via: number | null;
   equipamentos_conforme: boolean | null;
@@ -188,16 +190,18 @@ export default function EngRdoTecnicoDetalhe() {
         ["RACHÃO (ton)", fmtNum(rdo.rachao_ton)],
         ["FX C (ton)", fmtNum(rdo.fx_c_ton)],
         ["Demolição (m)", fmtNum(rdo.demolicao_m)],
+        ["Massa Fria (sacos)", fmtNum(rdo.massa_fria_sacos)],
         ["Nivelamento de PV (un)", fmtNum(rdo.nivelamento_pv_un)],
         ["% Conclusão Via", rdo.perc_conclusao_via != null ? `${rdo.perc_conclusao_via}%` : "—"],
         ["Equipamentos na Obra", rdo.equipamentos_conforme == null ? "—" : rdo.equipamentos_conforme ? "Conforme" : "Não Conforme"],
-        ["Retrabalho", rdo.retrabalho ? `Sim — ofício ${rdo.retrabalho_oficio || "não informado"}` : "Não"],
+        ["Retrabalho", rdo.retrabalho ? `Sim — ${rdo.retrabalho_oficio || "sem observação"}` : "Não"],
         ["Caminhão Basculante (Exceto Massa)", fmtNum(rdo.qtd_caminhoes_basculante)],
         ["Autorização no horário previsto", yn(rdo.autorizacao_no_horario)],
         ["Detalhes do atraso na autorização", rdo.autorizacao_atraso_detalhe || "—"],
         ["Sinalização presente no horário", yn(rdo.sinalizacao_presente)],
         ["Nota da equipe de sinalização (1-5)", rdo.sinalizacao_nota != null ? String(rdo.sinalizacao_nota) : "—"],
         ["Controle tecnológico presente no horário", yn(rdo.controle_tecnologico_presente)],
+        ["Nota do controle tecnológico (1-5)", rdo.controle_tecnologico_nota != null ? String(rdo.controle_tecnologico_nota) : "—"],
         ["Nota da sinalização vertical (1-5)", rdo.sinalizacao_vertical_nota != null ? String(rdo.sinalizacao_vertical_nota) : "—"],
         ["Equipamentos não conformes", rdo.equipamentos_nao_conformes || "—"],
       ] : []),
@@ -258,6 +262,7 @@ export default function EngRdoTecnicoDetalhe() {
     { label: "RACHÃO", value: rdo.rachao_ton != null ? `${fmtNum(rdo.rachao_ton)} ton` : null },
     { label: "FX C", value: rdo.fx_c_ton != null ? `${fmtNum(rdo.fx_c_ton)} ton` : null },
     { label: "Demolição", value: rdo.demolicao_m != null ? `${fmtNum(rdo.demolicao_m)} m` : null },
+    { label: "Massa Fria", value: rdo.massa_fria_sacos != null ? `${fmtNum(rdo.massa_fria_sacos)} sacos` : null },
     { label: "Nivelamento de PV", value: rdo.nivelamento_pv_un != null ? `${fmtNum(rdo.nivelamento_pv_un)} un` : null },
     { label: "% Conclusão Via", value: rdo.perc_conclusao_via != null ? `${rdo.perc_conclusao_via}%` : null },
   ].filter(q => q.value);
@@ -393,13 +398,14 @@ export default function EngRdoTecnicoDetalhe() {
             <Row label="Motivo de a usina não atender" value={rdo.usina_atendeu === false ? rdo.usina_nao_atendeu_motivo : null} />
             <Row label="Equipamentos na Obra" value={rdo.equipamentos_conforme == null ? null : rdo.equipamentos_conforme ? "Conforme" : "Não Conforme"} />
             <Row label="Equipamentos não conformes" value={rdo.equipamentos_nao_conformes} />
-            <Row label="Retrabalho" value={rdo.retrabalho ? `Sim — ofício ${rdo.retrabalho_oficio || "não informado"}` : rdo.retrabalho === false ? "Não" : null} />
+            <Row label="Retrabalho" value={rdo.retrabalho ? `Sim — ${rdo.retrabalho_oficio || "sem observação"}` : rdo.retrabalho === false ? "Não" : null} />
             <Row label="Caminhão Basculante (Exceto Massa)" value={rdo.qtd_caminhoes_basculante != null ? String(rdo.qtd_caminhoes_basculante) : null} />
             <Row label="Autorização no horário previsto" value={yn(rdo.autorizacao_no_horario) === "—" ? null : yn(rdo.autorizacao_no_horario)} />
             <Row label="Detalhes do atraso na autorização" value={rdo.autorizacao_atraso_detalhe} />
             <Row label="Sinalização presente no horário" value={yn(rdo.sinalizacao_presente) === "—" ? null : yn(rdo.sinalizacao_presente)} />
             <Row label="Nota da equipe de sinalização" value={rdo.sinalizacao_nota != null ? `${rdo.sinalizacao_nota} de 5` : null} />
             <Row label="Controle tecnológico presente no horário" value={yn(rdo.controle_tecnologico_presente) === "—" ? null : yn(rdo.controle_tecnologico_presente)} />
+            <Row label="Nota do controle tecnológico" value={rdo.controle_tecnologico_nota != null ? `${rdo.controle_tecnologico_nota} de 5` : null} />
             <Row label="Nota da sinalização vertical" value={rdo.sinalizacao_vertical_nota != null ? `${rdo.sinalizacao_vertical_nota} de 5` : null} />
 
             {quantitativos.length > 0 && (
