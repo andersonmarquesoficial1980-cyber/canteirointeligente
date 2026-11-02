@@ -396,8 +396,8 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
     expect(head.slice(0, 15)).toEqual(["Data", "OGS", "Status", "Engenheiro", "Equipe", "Localização", "Houve produção", "Tipo serviço", "Usina", "Usina atendeu", "Equipamentos conformes", "Houve ocorrência", "Motivo sem produção", "Descrição ocorrência", "Observações"]);
     expect(head.slice(15)).toEqual(["ID do RDO", "Descrição de INFRA", ...TECHNICAL_QUANTITIES.map(q => q.label),
       "Retrabalho", "Ofício do retrabalho", "Caminhão basculante (exceto massa)", "Autorização no horário", "Detalhes do atraso na autorização",
-      "Sinalização presente", "Nota sinalização (1-5)", "Controle tecnológico presente", "Nota sinalização vertical (1-5)", "Nota controle tecnológico (1-5)"]);
-    expect(head).toHaveLength(27 + TECHNICAL_QUANTITIES.length);
+      "Sinalização presente", "Nota sinalização (1-5)", "Controle tecnológico presente", "Nota sinalização vertical (1-5)", "Nota controle tecnológico (1-5)", "Seção da obra"]);
+    expect(head).toHaveLength(28 + TECHNICAL_QUANTITIES.length);
     expect(data).toHaveLength(2);
     const byId = Object.fromEntries(data.map(r => [r[15], r]));
     const a = byId["csv-1"];
@@ -484,7 +484,7 @@ describe("Dashboard Técnico — estrutura de uma seção por vez", () => {
 });
 
 describe("Dashboard Técnico — visão geral compacta e navegação móvel", () => {
-  it("visão geral usa linhas densas e chips, sem gráfico, mantendo comparativo de 7 linhas e m³", async () => {
+  it("visão geral usa linhas densas e chips, sem gráfico, mantendo comparativo de 12 linhas e m³", async () => {
     state.technical = [{ ...prod, id: "v1", tipo_servico: "BGTC", bgtc_m3: 12.5, usina_atendeu: false }];
     await mount();
     expect(screen.queryByText("Top engenheiros por RDOs enviados")).not.toBeInTheDocument();
@@ -498,7 +498,7 @@ describe("Dashboard Técnico — visão geral compacta e navegação móvel", ()
     expect(within(chips).getByRole("button", { name: /Validações pendentes.*: 4/ })).toBeInTheDocument();
     expect(within(chips).getByRole("button", { name: /Usina não atendeu: 1/ })).toBeInTheDocument();
     const comparison = section("Comparativo com período anterior");
-    expect(within(comparison).getAllByRole("row")).toHaveLength(8);
+    expect(within(comparison).getAllByRole("row")).toHaveLength(13);
     fireEvent.click(within(chips).getByRole("button", { name: /Alertas operacionais/ }));
     expect(screen.getByRole("heading", { name: "Alertas operacionais dos RDOs Técnicos" })).toBeInTheDocument();
   });
@@ -537,7 +537,7 @@ describe("Dashboard Técnico — paginação e detalhes", () => {
     const intervalo = () => screen.getByTestId("paginacao-intervalo");
     expect(intervalo()).toHaveTextContent("1–20 de 45 registros");
     expect(screen.getByTestId("paginacao-status")).toHaveTextContent("Página 1 de 3");
-    expect(screen.getAllByRole("row")).toHaveLength(21);
+    expect(screen.getAllByRole("row")).toHaveLength(23);
     expect(screen.getByRole("button", { name: "Página anterior" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Próxima página" }));
     fireEvent.click(screen.getByRole("button", { name: "Próxima página" }));
@@ -547,7 +547,7 @@ describe("Dashboard Técnico — paginação e detalhes", () => {
     busca("P-4");
     expect(intervalo()).toHaveTextContent("1–6 de 6 registros");
     expect(screen.getByTestId("paginacao-status")).toHaveTextContent("Página 1 de 1");
-    expect(screen.getAllByRole("row")).toHaveLength(7);
+    expect(screen.getAllByRole("row")).toHaveLength(9);
     busca("inexistente");
     expect(screen.queryByTestId("paginacao-intervalo")).not.toBeInTheDocument();
     expect(screen.getByText("Nenhum lançamento para este assunto com os filtros atuais.")).toBeInTheDocument();
@@ -707,12 +707,58 @@ describe("Dashboard Técnico — Apoio e Qualidade", () => {
     const [head, row] = parseCsv((await downloads[0].text()).replace(/^﻿/, ""));
     const n = TECHNICAL_QUANTITIES.length;
     expect(head.slice(17 + n)[0]).toBe("Retrabalho");
-    expect(row.slice(17 + n)).toEqual(["Sim", "55", "5", "Não", "Chuva", "Sim", "4", "Sim", "3", ""]);
+    expect(row.slice(17 + n)).toEqual(["Sim", "55", "5", "Não", "Chuva", "Sim", "4", "Sim", "3", "", ""]);
   });
   it("sem produção por Usina Não Atendeu entra na aba Usina e no indicador", async () => {
     state.technical = [{ ...prod, id: "u1", houve_producao: false, motivo_sem_producao: "Usina Não Atendeu" }];
     await mount();
     expect(screen.getByText(/Usina não atendeu: 1/)).toBeInTheDocument();
     expect(within(nav()).getByRole("button", { name: /^Usina/ })).toHaveTextContent("1");
+  });
+});
+
+describe("Dashboard Técnico — perdas, produção por serviço, resumo por OGS e clima", () => {
+  it("Sem produção separa dias perdidos (causa externa) de folga/sem atividade", async () => {
+    state.technical = [
+      { ...prod, id: "s1", houve_producao: false, motivo_sem_producao: "Falta de Autorização" },
+      { ...prod, id: "s2", houve_producao: false, motivo_sem_producao: "Problema de Transporte" },
+      { ...prod, id: "s3", houve_producao: false, motivo_sem_producao: "Folga / Feriado" },
+    ];
+    await mount();
+    irPara("Sem produção");
+    expect(screen.getByTestId("dias-perdidos")).toHaveTextContent("2");
+    expect(screen.getByTestId("perdas-extras")).toHaveTextContent("não são perda): 1");
+  });
+  it("Produção mostra Massa Fria, Demolição e PV nas próprias unidades", async () => {
+    state.technical = [{ ...prod, id: "p1", massa_fria_sacos: 40, demolicao_m: 12.5, nivelamento_pv_un: 3 }];
+    await mount();
+    irPara("Produção");
+    const t = within(screen.getByTestId("producao-por-servico"));
+    expect(t.getByText("Massa Fria").closest("tr")).toHaveTextContent("40sacos");
+    expect(t.getByText("Demolição").closest("tr")).toHaveTextContent("12,5m");
+    expect(screen.getByTestId("producao-extras")).toHaveTextContent("40 sacos");
+  });
+  it("Apoio traz retrabalho % por OGS com a observação", async () => {
+    state.technical = [
+      { ...prod, id: "r1", ogs_number: "900", retrabalho: true, retrabalho_oficio: "Refazer faixa 2", qtd_caminhoes_basculante: 4 },
+      { ...prod, id: "r2", ogs_number: "900", retrabalho: false, qtd_caminhoes_basculante: 2 },
+    ];
+    await mount();
+    irPara("Apoio e Qualidade");
+    const linha = within(screen.getByTestId("resumo-ogs")).getByText("900").closest("tr")!;
+    expect(linha).toHaveTextContent("50%");
+    expect(linha).toHaveTextContent("Refazer faixa 2");
+    expect(linha).toHaveTextContent("6");
+  });
+  it("Clima separa chuva que parou a obra de chuva em dia produtivo", async () => {
+    state.technical = [
+      { ...prod, id: "c1", houve_producao: false, motivo_sem_producao: "Chuva", choveu: true, intensidade_chuva: null },
+      { ...prod, id: "c2", choveu: true, intensidade_chuva: "Fraca" },
+    ];
+    await mount();
+    irPara("Clima");
+    expect(screen.getByTestId("clima-split")).toHaveTextContent("Chuva que parou a produção: 1");
+    expect(screen.getByTestId("clima-split")).toHaveTextContent("Chuva em dia produtivo: 1");
+    expect(screen.getByText("Chuva parou a produção")).toBeInTheDocument();
   });
 });

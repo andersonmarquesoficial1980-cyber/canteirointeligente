@@ -44,6 +44,7 @@ import { getEngineeringMonitoringRoster } from "@/lib/engineeringMonitoringRoste
 import { ENGINEERING_VALIDATION_START, loadEngineeringQueue, filterEngineeringQueue } from "@/lib/engineeringQueue";
 import { toSaoPauloISODate } from "@/lib/date-local";
 import { classifyUnlinkedValidationRdos } from "@/lib/validationUnlinked";
+import { climaSplit, equipesVisiveisFiltro, perdasPorMotivo, producaoPorServico, resumoPorOgs, secaoDaObra, somaCampo } from "@/lib/rdoTecnicoDashboardMetrics";
 import { NOTA_BAIXA, computeApoioMetrics } from "@/lib/rdoTecnicoApoioMetrics";
 import { ENSAIOS_SERVICE, INFRA_SERVICE, TECHNICAL_QUANTITIES, hasServiceToken } from "@/lib/technicalProduction";
 import { Interpretar, Previa, TabelaPaginada, type Coluna } from "./rdoTecnicoDashboard/Tabela";
@@ -88,6 +89,7 @@ interface RdoTecnicoRow {
   fx_c_ton: number | null;
   demolicao_m: number | null;
   nivelamento_pv_un: number | null;
+  tipo_secao: string | null;
   retrabalho: boolean | null;
   retrabalho_oficio: string | null;
   qtd_caminhoes_basculante: number | null;
@@ -297,7 +299,7 @@ function camposDetalhe(r: RdoTecnicoRow, assunto: AssuntoTab, engMap: Record<str
       if (v != null) campos.push({ label, value: String(v).replace(".", ",") });
     });
   } else if (assunto === "meteo") {
-    campos.push({ label: "Choveu", value: simNao(r.choveu) }, { label: "Intensidade da chuva", value: r.intensidade_chuva || "Não informada" });
+    campos.push({ label: "Choveu", value: simNao(r.choveu) }, { label: "Intensidade da chuva", value: r.intensidade_chuva || (r.houve_producao ? "Não informada" : "Não se aplica (dia sem produção)") });
   } else if (assunto === "usina") {
     campos.push({ label: "Usina programada", value: r.usina_programada || "Sem usina" }, { label: "Usina atendeu", value: simNao(r.usina_atendeu) }, { label: "Motivo de não atendimento", value: r.usina_nao_atendeu_motivo || "-" });
   } else if (assunto === "equipamentos") {
@@ -327,7 +329,7 @@ function detalheAssunto(tab: AssuntoTab, r: RdoTecnicoRow) {
   return tab === "producao"
     ? `${r.tipo_servico || "Sem tipo"} • Conclusão: ${r.perc_conclusao_via != null ? `${r.perc_conclusao_via}%` : "-"}`
     : tab === "meteo"
-      ? `Chuva ${r.intensidade_chuva || "não informada"}`
+      ? (r.houve_producao ? `Chuva ${r.intensidade_chuva || "não informada"}` : "Chuva parou a produção")
       : tab === "usina"
         ? `${r.usina_programada || "Sem usina"} • ${r.usina_atendeu === false ? `Não atendeu (${r.usina_nao_atendeu_motivo || "sem motivo"})` : "Atendeu/sem avaliação"}`
         : tab === "apoio"
@@ -380,7 +382,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [rowsPrev, setRowsPrev] = useState<RdoTecnicoRow[]>([]);
   const [ogsOptions, setOgsOptions] = useState<FiltroOption[]>([]);
   const [engMap, setEngMap] = useState<Record<string, string>>({});
-  const [equipesCadastro, setEquipesCadastro] = useState<string[]>([]);
+  const [equipesCadastro, setEquipesCadastro] = useState<{ nome: string; exibir?: boolean | null }[]>([]);
   const [engenheirosIdentificados, setEngenheirosIdentificados] = useState<EngenheiroIdentificado[]>([]);
   const [rdosApontador, setRdosApontador] = useState<RdoApontador[]>([]);
   const [erroCarga, setErroCarga] = useState("");
@@ -406,7 +408,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           .from("rdo_engenheiro")
           .select(`
           id, ogs_number, data, status, equipe, localizacao, engenheiro_id,
-          houve_producao, motivo_sem_producao, outro_motivo_sem_producao,
+          houve_producao, motivo_sem_producao, outro_motivo_sem_producao, tipo_secao,
           choveu, intensidade_chuva, tipo_servico, infra_descricao,
           usina_programada, usina_atendeu, usina_nao_atendeu_motivo,
           equipamentos_conforme, equipamentos_nao_conformes,
@@ -429,7 +431,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           .from("rdo_engenheiro")
           .select(`
           id, ogs_number, data, status, equipe, localizacao, engenheiro_id,
-          houve_producao, motivo_sem_producao, outro_motivo_sem_producao,
+          houve_producao, motivo_sem_producao, outro_motivo_sem_producao, tipo_secao,
           choveu, intensidade_chuva, tipo_servico, infra_descricao,
           usina_programada, usina_atendeu, usina_nao_atendeu_motivo,
           equipamentos_conforme, equipamentos_nao_conformes,
@@ -451,11 +453,15 @@ export default function RelatorioRdoTecnicoDashboard() {
         dataFim < ENGINEERING_VALIDATION_START ? Promise.resolve([])
           : loadEngineeringQueue(supabase, companyId, { from: inicioFila, to: dataFim }),
       ]);
-      const { data: eqsCad, error: erroEquipes } = await (supabase as any)
+      let { data: eqsCad, error: erroEquipes } = await (supabase as any)
         .from("ci_equipes")
-        .select("nome")
+        .select("nome, exibir_rdo_tecnico")
         .eq("ativa", true)
         .order("nome");
+      if (erroEquipes) {
+        // coluna exibir_rdo_tecnico ausente: volta ao comportamento anterior
+        ({ data: eqsCad, error: erroEquipes } = await (supabase as any).from("ci_equipes").select("nome").eq("ativa", true).order("nome"));
+      }
       if (erroEquipes) throw erroEquipes;
       const ogsUniques = [...new Set(lista.map(r => r.ogs_number).filter(Boolean) as string[])];
 
@@ -478,7 +484,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       setRows(lista as RdoTecnicoRow[]);
       setRowsPrev(listaPrev as RdoTecnicoRow[]);
       setRdosApontador(diariosApontador as RdoApontador[]);
-      setEquipesCadastro((eqsCad || []).map((e: any) => (e.nome || "").trim()).filter(Boolean));
+      setEquipesCadastro((eqsCad || []).map((e: any) => ({ nome: (e.nome || "").trim(), exibir: e.exibir_rdo_tecnico })).filter((e: { nome: string }) => e.nome));
       setOgsOptions(ogsUniques.sort((a, b) => Number(b) - Number(a)).map(o => ({ value: o, label: `OGS ${o}` })));
       setEngenheirosIdentificados(perfis);
       setEngMap(Object.fromEntries(perfis.map(p => [p.user_id, p.nome_completo || p.email || "Sem nome"])));
@@ -514,13 +520,7 @@ export default function RelatorioRdoTecnicoDashboard() {
 
   const equipesFiltro = useMemo(() => {
     const doHistorico = rows.map((r) => (r.equipe || "").trim()).filter(Boolean);
-    const base = [...equipesCadastro, ...doHistorico];
-
-    if (filtroEquipe && !base.some((e) => e.toLowerCase() === filtroEquipe.toLowerCase())) {
-      base.push(filtroEquipe);
-    }
-
-    return [...new Set(base)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return equipesVisiveisFiltro(equipesCadastro, doHistorico, filtroEquipe);
   }, [rows, equipesCadastro, filtroEquipe]);
 
   const linhasFiltradas = useMemo(() => {
@@ -640,6 +640,11 @@ export default function RelatorioRdoTecnicoDashboard() {
       toneladas,
       areaM2,
       volumeM3,
+      massaFria: somaCampo(linhasFiltradas, "massa_fria_sacos"),
+      demolicao: somaCampo(linhasFiltradas, "demolicao_m"),
+      nivelamentoPv: somaCampo(linhasFiltradas, "nivelamento_pv_un"),
+      caminhoes: somaCampo(linhasFiltradas, "qtd_caminhoes_basculante"),
+      retrabalhos: linhasFiltradas.filter(r => r.houve_producao && r.retrabalho).length,
       semNomeEng,
     };
   }, [linhasFiltradas, engMap]);
@@ -694,6 +699,11 @@ export default function RelatorioRdoTecnicoDashboard() {
       toneladas,
       areaM2,
       volumeM3,
+      massaFria: somaCampo(linhasPrevFiltradas, "massa_fria_sacos"),
+      demolicao: somaCampo(linhasPrevFiltradas, "demolicao_m"),
+      nivelamentoPv: somaCampo(linhasPrevFiltradas, "nivelamento_pv_un"),
+      caminhoes: somaCampo(linhasPrevFiltradas, "qtd_caminhoes_basculante"),
+      retrabalhos: linhasPrevFiltradas.filter(r => r.houve_producao && r.retrabalho).length,
     };
   }, [linhasPrevFiltradas]);
 
@@ -712,6 +722,11 @@ export default function RelatorioRdoTecnicoDashboard() {
       toneladas: calc(kpis.toneladas, kpisPrev.toneladas),
       areaM2: calc(kpis.areaM2, kpisPrev.areaM2),
       volumeM3: calc(kpis.volumeM3, kpisPrev.volumeM3),
+      massaFria: calc(kpis.massaFria, kpisPrev.massaFria),
+      demolicao: calc(kpis.demolicao, kpisPrev.demolicao),
+      nivelamentoPv: calc(kpis.nivelamentoPv, kpisPrev.nivelamentoPv),
+      caminhoes: calc(kpis.caminhoes, kpisPrev.caminhoes),
+      retrabalhos: calc(kpis.retrabalhos, kpisPrev.retrabalhos),
       chuva: calc(kpis.comChuva, kpisPrev.comChuva),
       ocorrencias: calc(kpis.comOcorrencia, kpisPrev.comOcorrencia),
       conformidade: calc(kpis.percConformeEquip, kpisPrev.percConformeEquip),
@@ -758,6 +773,11 @@ export default function RelatorioRdoTecnicoDashboard() {
     };
   }, [linhasFiltradas]);
 
+  const perdas = useMemo(() => perdasPorMotivo(linhasFiltradas), [linhasFiltradas]);
+  const prodServico = useMemo(() => producaoPorServico(linhasFiltradas), [linhasFiltradas]);
+  const secaoObra = useMemo(() => secaoDaObra(linhasFiltradas), [linhasFiltradas]);
+  const resumoOgs = useMemo(() => resumoPorOgs(linhasFiltradas), [linhasFiltradas]);
+  const clima = useMemo(() => climaSplit(linhasFiltradas), [linhasFiltradas]);
   const apoioMetrics = useMemo(() => computeApoioMetrics(linhasFiltradas), [linhasFiltradas]);
 
   const atividadesQualitativas = useMemo(() => {
@@ -884,6 +904,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       "Controle tecnológico presente",
       "Nota sinalização vertical (1-5)",
       "Nota controle tecnológico (1-5)",
+      "Seção da obra",
     ];
 
     const linhas = linhasFiltradas.map((r) => [
@@ -918,6 +939,7 @@ export default function RelatorioRdoTecnicoDashboard() {
       r.controle_tecnologico_presente == null ? "" : r.controle_tecnologico_presente ? "Sim" : "Não",
       r.sinalizacao_vertical_nota == null ? "" : String(r.sinalizacao_vertical_nota),
       r.controle_tecnologico_nota == null ? "" : String(r.controle_tecnologico_nota),
+      r.houve_producao ? r.tipo_secao || "" : "",
     ]);
 
     const csv = "﻿" + [head, ...linhas].map((l) => l.map(csvEscape).join(";")).join("\n");
@@ -939,6 +961,11 @@ export default function RelatorioRdoTecnicoDashboard() {
       ["RDOs não conformes (equipamentos)", kpis.naoConformeEquip, kpisPrev.naoConformeEquip, comparativo.naoConforme.delta, comparativo.naoConforme.perc ?? "Sem base percentual"],
       ["Produção (t)", kpis.toneladas, kpisPrev.toneladas, comparativo.toneladas.delta, comparativo.toneladas.perc ?? "Sem base percentual"],
       ["Produção (m²)", kpis.areaM2, kpisPrev.areaM2, comparativo.areaM2.delta, comparativo.areaM2.perc ?? "Sem base percentual"],
+      ["Massa Fria (sacos)", kpis.massaFria, kpisPrev.massaFria, comparativo.massaFria.delta, comparativo.massaFria.perc ?? "Sem base percentual"],
+      ["Demolição (m)", kpis.demolicao, kpisPrev.demolicao, comparativo.demolicao.delta, comparativo.demolicao.perc ?? "Sem base percentual"],
+      ["Nivelamento de PV (un)", kpis.nivelamentoPv, kpisPrev.nivelamentoPv, comparativo.nivelamentoPv.delta, comparativo.nivelamentoPv.perc ?? "Sem base percentual"],
+      ["Caminhões basculantes (exceto massa)", kpis.caminhoes, kpisPrev.caminhoes, comparativo.caminhoes.delta, comparativo.caminhoes.perc ?? "Sem base percentual"],
+      ["Retrabalhos", kpis.retrabalhos, kpisPrev.retrabalhos, comparativo.retrabalhos.delta, comparativo.retrabalhos.perc ?? "Sem base percentual"],
       ["Produção (m³)", kpis.volumeM3, kpisPrev.volumeM3, comparativo.volumeM3.delta, comparativo.volumeM3.perc ?? "Sem base percentual"],
       ["RDOs com chuva", kpis.comChuva, kpisPrev.comChuva, comparativo.chuva.delta, comparativo.chuva.perc ?? "Sem base percentual"],
       ["RDOs com ocorrência", kpis.comOcorrencia, kpisPrev.comOcorrencia, comparativo.ocorrencias.delta, comparativo.ocorrencias.perc ?? "Sem base percentual"],
@@ -1074,6 +1101,11 @@ export default function RelatorioRdoTecnicoDashboard() {
     { titulo: "Produção (t)", c: comparativo.toneladas, frac: 1 },
     { titulo: "Produção (m²)", c: comparativo.areaM2, frac: 1 },
     { titulo: "Produção (m³)", c: comparativo.volumeM3, frac: 1 },
+    { titulo: "Massa Fria (sacos)", c: comparativo.massaFria, frac: 0 },
+    { titulo: "Demolição (m)", c: comparativo.demolicao, frac: 1 },
+    { titulo: "Nivelamento de PV (un)", c: comparativo.nivelamentoPv, frac: 0 },
+    { titulo: "Caminhões basculantes (exceto massa)", c: comparativo.caminhoes, frac: 0 },
+    { titulo: "Retrabalhos", c: comparativo.retrabalhos, frac: 0, invert: true },
     { titulo: "Conformidade de equipamentos (%)", c: comparativo.conformidade, frac: 1 },
   ];
 
@@ -1155,6 +1187,89 @@ export default function RelatorioRdoTecnicoDashboard() {
             </details>
           </div>
         )}
+        {tab === "producao" && (
+          <div data-testid="producao-extras" className="shrink-0 space-y-2">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <KpiCard icon={Activity} titulo="Massa Fria" valor={`${fmtNum(kpis.massaFria)} sacos`} cor="text-sky-600" delta={comparativo.massaFria.delta} deltaPct={comparativo.massaFria.perc} />
+              <KpiCard icon={Activity} titulo="Demolição" valor={`${fmtNum(kpis.demolicao, 1)} m`} cor="text-orange-600" delta={comparativo.demolicao.delta} deltaPct={comparativo.demolicao.perc} />
+              <KpiCard icon={Activity} titulo="Nivelamento de PV" valor={`${fmtNum(kpis.nivelamentoPv)} un`} cor="text-emerald-600" delta={comparativo.nivelamentoPv.delta} deltaPct={comparativo.nivelamentoPv.perc} />
+              <KpiCard icon={Activity} titulo="Caminhões basculantes (exceto massa)" valor={fmtNum(kpis.caminhoes)} cor="text-slate-600" delta={comparativo.caminhoes.delta} deltaPct={comparativo.caminhoes.perc} />
+            </div>
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+              <div className="rounded-xl border bg-white p-2">
+                <h3 className="text-xs font-bold text-muted-foreground">Produção por tipo de serviço (cada um na sua unidade)</h3>
+                <div className="max-h-[210px] overflow-y-auto">
+                  <table data-testid="producao-por-servico" className="w-full text-sm">
+                    <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-0.5 pr-2">Serviço</th><th className="pr-2">Total</th><th className="pr-2">Unid.</th><th>RDOs</th></tr></thead>
+                    <tbody>
+                      {prodServico.length === 0 ? <tr><td colSpan={4} className="py-1 text-xs text-muted-foreground">Sem quantitativos nos filtros atuais.</td></tr>
+                        : prodServico.map(x => <tr key={x.field} className="border-t"><td className="py-0.5 pr-2">{x.servico}</td><td className="pr-2 font-bold">{fmtNum(x.total, 1)}</td><td className="pr-2">{x.unidade}</td><td>{x.rdos}</td></tr>)}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="rounded-xl border bg-white p-2" data-testid="secao-obra">
+                <h3 className="text-xs font-bold text-muted-foreground">Seção da obra (contratos PMSP) · {secaoObra.comSecao} RDO(s) com seção</h3>
+                <div className="h-[170px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={secaoObra.itens} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                      <YAxis allowDecimals={false} width={28} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(v: number) => [`${v} RDO(s)`, "Quantidade"]} />
+                      <Bar dataKey="value" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {tab === "sem_producao" && (
+          <div data-testid="perdas-extras" className="shrink-0 space-y-2">
+            <div className="flex flex-wrap gap-2 text-sm">
+              <span className="rounded-lg border border-red-300 bg-white px-2 py-0.5">Dias perdidos por causa externa: <strong data-testid="dias-perdidos">{perdas.diasPerdidos}</strong></span>
+              <span className="rounded-lg border bg-white px-2 py-0.5">Folga/feriado e sem atividade (não são perda): <strong>{perdas.diasNaoPerda}</strong></span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+              <div className="rounded-xl border bg-white p-2" data-testid="grafico-motivos">
+                <h3 className="text-xs font-bold text-muted-foreground">Dias sem produção por motivo</h3>
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={perdas.porMotivo} layout="vertical" margin={{ left: 10, right: 10, top: 4, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" width={170} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(v: number) => [`${v} RDO(s)`, "Quantidade"]} />
+                      <Bar dataKey="value" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div className="rounded-xl border bg-white p-2">
+                <h3 className="text-xs font-bold text-muted-foreground">OGS com mais dias perdidos (causa externa)</h3>
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={perdas.porOgs} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                      <YAxis allowDecimals={false} width={28} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(v: number) => [`${v} dia(s)`, "Perdidos"]} />
+                      <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {tab === "meteo" && (
+          <div data-testid="clima-split" className="shrink-0 flex flex-wrap gap-2 text-sm">
+            <span className="rounded-lg border border-blue-300 bg-white px-2 py-0.5">Chuva que parou a produção: <strong>{clima.pararam}</strong></span>
+            <span className="rounded-lg border bg-white px-2 py-0.5">Chuva em dia produtivo: <strong>{clima.comProducao}</strong></span>
+            {clima.semIntensidadeComProducao > 0 && <span className="rounded-lg border border-amber-300 bg-white px-2 py-0.5 text-amber-800">{clima.semIntensidadeComProducao} sem intensidade informada</span>}
+          </div>
+        )}
         <TabelaPaginada className="lg:flex-1" itens={lista} colunas={colunasAssunto(tab)} getKey={r => r.id}
           resetKey={`${tab}|${chaveTecnica}`} focusKey={foco} vazio="Nenhum lançamento para este assunto com os filtros atuais." rotulo="registros" minWidth={860} />
       </SecaoShell>
@@ -1217,6 +1332,24 @@ export default function RelatorioRdoTecnicoDashboard() {
             </div>
           </div>
         )}
+        <div data-testid="resumo-ogs" className="shrink-0 rounded-xl border bg-white p-2">
+          <h3 className="text-xs font-bold text-muted-foreground">Resumo por OGS: retrabalho, caminhões e conclusão da via</h3>
+          <div className="max-h-[220px] overflow-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-0.5 pr-2">OGS</th><th className="pr-2">RDOs c/ produção</th><th className="pr-2">Retrabalhos</th><th className="pr-2">% retrabalho</th><th className="pr-2">Caminhões</th><th className="pr-2">Conclusão da via</th><th>Obs Retrabalho</th></tr></thead>
+              <tbody>
+                {resumoOgs.length === 0 ? <tr><td colSpan={7} className="py-1 text-xs text-muted-foreground">Sem RDOs com produção nos filtros atuais.</td></tr>
+                  : resumoOgs.map(o => (
+                    <tr key={o.ogs} className="border-t align-top">
+                      <td className="py-0.5 pr-2 font-semibold">{o.ogs}</td><td className="pr-2">{o.rdos}</td>
+                      <td className="pr-2 font-bold">{o.retrabalhos}</td><td className="pr-2">{o.retrabalhos ? `${fmtNum(o.pctRetrabalho, 0)}%` : "—"}</td>
+                      <td className="pr-2">{o.caminhoes}</td><td className="pr-2">{o.conclusao != null ? `${o.conclusao}%` : "—"}</td>
+                      <td className="text-xs text-muted-foreground">{o.obs.length ? o.obs.join(" · ") : "—"}</td>
+                    </tr>))}
+              </tbody>
+            </table>
+          </div>
+        </div>
         <Interpretar>
           <p>Considera somente RDOs com produção nos filtros atuais; dia sem produção não preenche esta seção. Percentuais usam apenas os RDOs que responderam a pergunta (rascunhos incluídos). Notas de sinalização só existem quando a equipe estava presente. Nota baixa = {NOTA_BAIXA} ou menos e gera alerta, assim como autorização fora do horário, ausência de sinalização ou de controle tecnológico e retrabalho.</p>
         </Interpretar>
