@@ -44,13 +44,14 @@ Regras:
 ## 0) RDO-FREMIX (ADM Engenharia)
 `report_key`: `rdo-fremix`
 
-API consolidada para o ADM da Engenharia com 6 blocos:
+API consolidada para o ADM da Engenharia com 7 blocos:
 - medições de terceiros (`terceiros_medicoes`)
 - notas fiscais de massa (`rdo_nf_massa`)
 - notas fiscais de concreto (`rdo_nf_concreto`)
 - produções dos RDOs (`rdo_producao`)
 - equipamentos do módulo geral (`equipment_diaries`)
 - equipamentos vinculados no RDO (`rdo_equipamentos`)
+- RDO Técnico do WF Engenharia (`rdo_engenheiro`) — motivo de dias sem produção, clima e ocorrências
 
 Retorno: objeto `secoes` com totais e linhas por bloco.
 
@@ -135,6 +136,18 @@ Campos da seção `equipamentos_rdo.rows` (equipamentos vinculados ao RDO):
 - `equipamento`
 - `modelo_placa`
 - `empresa`
+
+Campos da seção `rdo_tecnico.rows` (RDO Técnico, somente status diferente de rascunho; um registro por obra/equipe/dia):
+- `id`, `data`, `ogs`, `contratante`, `equipe` (pode vir `null` em registros antigos), `status`
+- `houve_producao` (`false` = dia sem produção)
+- `motivo_sem_producao`: Chuva, Sem Atividade, Folga / Feriado, Usina Não Atendeu, Indisponibilidade de Equipamento, Problema de Transporte, Falha de Combustível, Falta de Autorização ou Outro (preenchido só quando `houve_producao = false`)
+- `motivo_outro` (texto livre quando o motivo é "Outro")
+- `choveu`, `intensidade_chuva`
+- `houve_ocorrencia`, `descricao_ocorrencia`
+- `usina_atendeu`, `usina_nao_atendeu_motivo`
+- `observacoes`, `created_at`, `updated_at`
+- `secoes.rdo_tecnico.total_sem_producao`: dias sem produção na página atual
+- Filtra por `start_date`/`end_date` e paginação padrão; o filtro `tipo_rdo` não se aplica a esta seção.
 
 ## 1) RDO Summary
 `report_key`: `rdo/summary`

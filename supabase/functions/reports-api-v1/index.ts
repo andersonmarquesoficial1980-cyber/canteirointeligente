@@ -520,6 +520,48 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     };
   });
 
+  // RDO Técnico (WF Engenharia): motivo de dias sem produção, clima e ocorrências (somente enviados)
+  const tecnicoResp = await sb
+    .from("rdo_engenheiro")
+    .select("id,data,ogs_id,ogs_number,equipe,status,houve_producao,motivo_sem_producao,outro_motivo_sem_producao,choveu,intensidade_chuva,houve_ocorrencia,descricao_ocorrencia,usina_atendeu,usina_nao_atendeu_motivo,observacoes,created_at,updated_at", { count: "exact" })
+    .eq("company_id", companyId)
+    .gte("data", start)
+    .lte("data", end)
+    .neq("status", "rascunho")
+    .order("data", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + pageSize - 1);
+  if (tecnicoResp.error) throw new Error(tecnicoResp.error.message);
+  const tecnicoOgsIds = [...new Set((tecnicoResp.data || []).map((r: any) => r.ogs_id).filter(Boolean))];
+  const tecnicoOgsResp = tecnicoOgsIds.length
+    ? await sb.from("ogs_reference").select("id,ogs_number,client_name").eq("company_id", companyId).in("id", tecnicoOgsIds)
+    : ({ data: [], error: null } as any);
+  if (tecnicoOgsResp.error) throw new Error(tecnicoOgsResp.error.message);
+  const tecnicoOgsMap = new Map<string, any>((tecnicoOgsResp.data || []).map((o: any) => [o.id, o]));
+  const rdoTecnicoRows = (tecnicoResp.data || []).map((row: any) => {
+    const ogs = tecnicoOgsMap.get(row.ogs_id);
+    return {
+      id: row.id,
+      data: row.data,
+      ogs: row.ogs_number || ogs?.ogs_number || null,
+      contratante: ogs?.client_name || null,
+      equipe: normalizeString(row.equipe) || null,
+      status: row.status,
+      houve_producao: row.houve_producao,
+      motivo_sem_producao: row.houve_producao ? null : (row.motivo_sem_producao || null),
+      motivo_outro: row.houve_producao ? null : (row.outro_motivo_sem_producao || null),
+      choveu: row.choveu,
+      intensidade_chuva: row.intensidade_chuva || null,
+      houve_ocorrencia: row.houve_ocorrencia,
+      descricao_ocorrencia: row.descricao_ocorrencia || null,
+      usina_atendeu: row.usina_atendeu,
+      usina_nao_atendeu_motivo: row.usina_nao_atendeu_motivo || null,
+      observacoes: row.observacoes || null,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  });
+
   const equipamentosRdoRows = (equipamentosRdoResp.data || []).map((row: any) => {
     const rdo = rdoMap.get(row.rdo_id);
     const ogs = obrasByNumberMap.get(rdo?.obra_nome);
@@ -591,6 +633,11 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       equipamentos_rdo: {
         total: equipamentosRdoResp.count ?? 0,
         rows: equipamentosRdoRows,
+      },
+      rdo_tecnico: {
+        total: tecnicoResp.count ?? 0,
+        total_sem_producao: rdoTecnicoRows.filter((r: any) => r.houve_producao === false).length,
+        rows: rdoTecnicoRows,
       },
     },
   };
