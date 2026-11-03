@@ -280,6 +280,15 @@ export default function EquipmentHome() {
         <Button
           variant="outline"
           className="w-full h-12 gap-2 text-sm font-semibold"
+          onClick={() => navigate("/equipamentos/diario-lote")}
+        >
+          <ClipboardList className="w-5 h-5" />
+          Lançamento em Lote (Disposição / Folga / Manutenção)
+        </Button>
+
+        <Button
+          variant="outline"
+          className="w-full h-12 gap-2 text-sm font-semibold"
           onClick={() => navigate("/meus-lancamentos")}
         >
           <ClipboardList className="w-5 h-5" />

@@ -37,6 +37,7 @@ import Diretorio from "./pages/Diretorio";
 import DocumentosHome from "./pages/DocumentosHome";
 import DocumentosIntegracao from "./pages/DocumentosIntegracao";
 import EquipmentDiaryForm from "./pages/EquipmentDiaryForm";
+import EquipmentDiaryBatch from "./pages/EquipmentDiaryBatch";
 import EquipmentHome from "./pages/EquipmentHome";
 import EspelhoPonto from "./pages/EspelhoPonto";
 import PontoSolicitacoes from "./pages/PontoSolicitacoes";
@@ -385,6 +386,7 @@ function AppRoutes() {
         <Route path="/equipamentos" element={<RequireModule moduleId="equipamentos"><EquipmentHome /></RequireModule>} />
         <Route path="/equipamentos/frota" element={<RequireModule moduleId="equipamentos"><AppLayout><FrotaNovo /></AppLayout></RequireModule>} />
         <Route path="/equipamentos/diario" element={<RequireModule moduleId="equipamentos"><EquipmentDiaryForm /></RequireModule>} />
+        <Route path="/equipamentos/diario-lote" element={<RequireModule moduleId="equipamentos"><EquipmentDiaryBatch /></RequireModule>} />
         <Route path="/meus-lancamentos" element={<MeusLancamentos />} />
         <Route path="/visualizar-lancamento/:id" element={<VisualizarLancamento />} />
         <Route path="/visualizar-rdo/:id" element={<VisualizarRdo />} />
