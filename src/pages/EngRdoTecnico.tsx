@@ -6,7 +6,7 @@ import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
 import { ApoioObraSection, CaminhoesBasculanteField, RetrabalhoFields } from "@/components/rdo/RdoTecnicoExtras";
-import { TECHNICAL_EXTRAS_DEFAULTS, boolToSimNao, getTechnicalExtrasError, simNaoToBool, toIntOrNull } from "@/lib/rdoTecnicoExtras";
+import { TECHNICAL_EXTRAS_DEFAULTS, boolToSimNao, getTechnicalExtrasError, isOgsRdoSimplificada, OGS_SIMPLIFICADA_PAYLOAD_RESET, simNaoToBool, toIntOrNull } from "@/lib/rdoTecnicoExtras";
 import { loadRdoTecnicoTeams } from "@/lib/rdoTecnicoTeams";
 import { loadEngineeringPlants } from "@/lib/engineeringPlants";
 import { getTechnicalProductionError, TECHNICAL_QUANTITIES } from "@/lib/technicalProduction";
@@ -160,6 +160,7 @@ export default function EngRdoTecnico() {
   }, [form.ogs_id]);
 
   const ogsSelecionada = minhasOgs.find(o => o.id === form.ogs_id);
+  const obraSimplificada = isOgsRdoSimplificada(ogsSelecionada?.ogs_number);
   const obraExigeSecao = !!ogsSelecionada?.client_name && /PMSP/i.test(ogsSelecionada.client_name) && form.houve_producao;
 
   useEffect(() => {
@@ -193,12 +194,12 @@ export default function EngRdoTecnico() {
       return;
     }
 
-    const erroExtras = getTechnicalExtrasError(form, status);
+    const erroExtras = getTechnicalExtrasError(form, status, { simplificado: obraSimplificada });
     if (erroExtras) {
       toast({ title: erroExtras, variant: "destructive" });
       return;
     }
-    if (form.houve_producao && form.usina_atendeu === "nao" && !form.usina_nao_atendeu_motivo.trim()) {
+    if (form.houve_producao && !obraSimplificada && form.usina_atendeu === "nao" && !form.usina_nao_atendeu_motivo.trim()) {
       toast({ title: "Descreva o motivo de a usina não ter atendido", variant: "destructive" });
       return;
     }
@@ -291,6 +292,8 @@ export default function EngRdoTecnico() {
       observacoes: form.observacoes || null,
       status,
     };
+    // OGS 2339 (simplificada): campos de usina, retrabalho, caminhões, % via e apoio/qualidade não se aplicam
+    if (obraSimplificada) Object.assign(payload as any, OGS_SIMPLIFICADA_PAYLOAD_RESET);
 
     const { error } = await (supabase as any).from("rdo_engenheiro").insert(payload);
     setSalvando(false);
@@ -542,6 +545,7 @@ export default function EngRdoTecnico() {
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Produção</h2>
 
+              {!obraSimplificada && (<>
               <div>
                 <label className={labelCls}>Usina Programada</label>
                 <select value={form.usina_programada} onChange={e => set("usina_programada", e.target.value)} className={inputCls}>
@@ -585,6 +589,7 @@ export default function EngRdoTecnico() {
               )}
               <RetrabalhoFields form={form} set={set} />
               <CaminhoesBasculanteField value={form.qtd_caminhoes_basculante} set={set} />
+              </>)}
 
               <div>
                 <label className={labelCls}>Tipo de Serviço</label>
@@ -677,6 +682,7 @@ export default function EngRdoTecnico() {
             </div>
 
             {/* Seção 3b — Informações Adicionais */}
+            {!obraSimplificada && (
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Informações Adicionais</h2>
 
@@ -693,6 +699,7 @@ export default function EngRdoTecnico() {
                   />
                 </div>
             </div>
+            )}
 
             {/* Seção 3c — Equipamentos na Obra */}
             <div className={sectionCls}>
@@ -739,7 +746,7 @@ export default function EngRdoTecnico() {
               )}
             </div>
 
-            <ApoioObraSection form={form} set={set} />
+            {!obraSimplificada && <ApoioObraSection form={form} set={set} />}
 
           </>
         )}

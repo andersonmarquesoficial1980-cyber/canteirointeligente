@@ -6,7 +6,7 @@ import { ArrowLeft, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTiposServico } from "@/hooks/useFilteredData";
 import { ApoioObraSection, CaminhoesBasculanteField, RetrabalhoFields } from "@/components/rdo/RdoTecnicoExtras";
-import { TECHNICAL_EXTRAS_DEFAULTS, boolToSimNao, getTechnicalExtrasError, simNaoToBool, toIntOrNull } from "@/lib/rdoTecnicoExtras";
+import { TECHNICAL_EXTRAS_DEFAULTS, boolToSimNao, getTechnicalExtrasError, isOgsRdoSimplificada, OGS_SIMPLIFICADA_PAYLOAD_RESET, simNaoToBool, toIntOrNull } from "@/lib/rdoTecnicoExtras";
 import { loadRdoTecnicoTeams } from "@/lib/rdoTecnicoTeams";
 import { loadEngineeringPlants } from "@/lib/engineeringPlants";
 import { getTechnicalProductionError, TECHNICAL_QUANTITIES } from "@/lib/technicalProduction";
@@ -205,6 +205,7 @@ export default function EngRdoTecnicoEditar() {
   }, [form.ogs_id]);
 
   const ogsSelecionada = minhasOgs.find(o => o.id === form.ogs_id);
+  const obraSimplificada = isOgsRdoSimplificada(ogsSelecionada?.ogs_number);
   const obraExigeSecao = !!ogsSelecionada?.client_name && /PMSP/i.test(ogsSelecionada.client_name) && form.houve_producao;
 
   useEffect(() => {
@@ -238,12 +239,12 @@ export default function EngRdoTecnicoEditar() {
       return;
     }
 
-    const erroExtras = getTechnicalExtrasError(form, status);
+    const erroExtras = getTechnicalExtrasError(form, status, { simplificado: obraSimplificada });
     if (erroExtras) {
       toast({ title: erroExtras, variant: "destructive" });
       return;
     }
-    if (form.houve_producao && form.usina_atendeu === "nao" && !form.usina_nao_atendeu_motivo.trim()) {
+    if (form.houve_producao && !obraSimplificada && form.usina_atendeu === "nao" && !form.usina_nao_atendeu_motivo.trim()) {
       toast({ title: "Descreva o motivo de a usina não ter atendido", variant: "destructive" });
       return;
     }
@@ -568,6 +569,7 @@ export default function EngRdoTecnicoEditar() {
             {/* Seção 2 — Produção */}
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Produção</h2>
+              {!obraSimplificada && (<>
               <div>
                 <label className={labelCls}>Usina Programada</label>
                 <select value={form.usina_programada} onChange={e => set("usina_programada", e.target.value)} className={inputCls}>
@@ -608,6 +610,7 @@ export default function EngRdoTecnicoEditar() {
               )}
               <RetrabalhoFields form={form} set={set} />
               <CaminhoesBasculanteField value={form.qtd_caminhoes_basculante} set={set} />
+              </>)}
 
               <div>
                 <label className={labelCls}>Tipo de Serviço</label>
@@ -673,6 +676,7 @@ export default function EngRdoTecnicoEditar() {
             </div>
 
             {/* Seção 3b — Informações Adicionais */}
+            {!obraSimplificada && (
             <div className={sectionCls}>
               <h2 className="text-sm font-bold text-foreground">Informações Adicionais</h2>
 
@@ -682,6 +686,7 @@ export default function EngRdoTecnicoEditar() {
                     placeholder="0" min={0} max={100} className={inputCls} />
                 </div>
             </div>
+            )}
 
             {/* Seção 3c — Equipamentos na Obra */}
             <div className={sectionCls}>
@@ -728,7 +733,7 @@ export default function EngRdoTecnicoEditar() {
               )}
             </div>
 
-            <ApoioObraSection form={form} set={set} />
+            {!obraSimplificada && <ApoioObraSection form={form} set={set} />}
 
           </>
         )}

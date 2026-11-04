@@ -29,8 +29,12 @@ export const simNaoToBool = (v: string): boolean | null => (v === "sim" ? true :
 export const boolToSimNao = (v: boolean | null | undefined): "" | "sim" | "nao" => (v == null ? "" : v ? "sim" : "nao");
 
 /** Exigências só no envio de dia produtivo; rascunho nunca é bloqueado. */
-export function getTechnicalExtrasError(form: TechnicalExtrasForm, status: "enviado" | "rascunho"): string | null {
-  if (status !== "enviado" || !form.houve_producao) return null;
+export function getTechnicalExtrasError(
+  form: TechnicalExtrasForm,
+  status: "enviado" | "rascunho",
+  opts?: { simplificado?: boolean },
+): string | null {
+  if (status !== "enviado" || !form.houve_producao || opts?.simplificado) return null;
   if (form.retrabalho && !form.retrabalho_oficio.trim()) return "Preencha a Obs Retrabalho";
   if (form.autorizacao_no_horario === "") return "Informe se a autorização para iniciar ocorreu no horário previsto";
   if (form.autorizacao_no_horario === "nao" && !form.autorizacao_atraso_detalhe.trim()) return "Descreva os detalhes do atraso na autorização";
@@ -45,4 +49,29 @@ export function getTechnicalExtrasError(form: TechnicalExtrasForm, status: "envi
 export const toIntOrNull = (v: string): number | null => {
   const n = Number(String(v).trim().replace(",", "."));
   return v.trim() === "" || !Number.isFinite(n) ? null : Math.max(0, Math.trunc(n));
+};
+
+
+/** OGS com formulário simplificado (sem usina, retrabalho, caminhões, % conclusão e apoio/qualidade). */
+export const OGS_RDO_SIMPLIFICADAS = ["2339"];
+export const isOgsRdoSimplificada = (ogsNumber?: string | null): boolean =>
+  !!ogsNumber && OGS_RDO_SIMPLIFICADAS.includes(String(ogsNumber).trim());
+
+/** Valores gravados quando a OGS é simplificada (campos ocultos não carregam dado antigo). */
+export const OGS_SIMPLIFICADA_PAYLOAD_RESET = {
+  usina_programada: null,
+  cauq_programado: null,
+  usina_atendeu: null,
+  usina_nao_atendeu_motivo: null,
+  retrabalho: false,
+  retrabalho_oficio: null,
+  qtd_caminhoes_basculante: null,
+  perc_conclusao_via: null,
+  autorizacao_no_horario: null,
+  autorizacao_atraso_detalhe: null,
+  sinalizacao_presente: null,
+  sinalizacao_nota: null,
+  controle_tecnologico_presente: null,
+  controle_tecnologico_nota: null,
+  sinalizacao_vertical_nota: null,
 };
