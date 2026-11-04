@@ -523,7 +523,7 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
   // RDO Técnico (WF Engenharia): motivo de dias sem produção, clima e ocorrências (somente enviados)
   const tecnicoResp = await sb
     .from("rdo_engenheiro")
-    .select("id,data,ogs_id,ogs_number,equipe,status,houve_producao,motivo_sem_producao,outro_motivo_sem_producao,choveu,intensidade_chuva,houve_ocorrencia,descricao_ocorrencia,usina_atendeu,usina_nao_atendeu_motivo,observacoes,created_at,updated_at", { count: "exact" })
+    .select("id,data,engenheiro_id,ogs_id,ogs_number,equipe,status,houve_producao,motivo_sem_producao,outro_motivo_sem_producao,choveu,intensidade_chuva,houve_ocorrencia,descricao_ocorrencia,usina_atendeu,usina_nao_atendeu_motivo,observacoes,created_at,updated_at", { count: "exact" })
     .eq("company_id", companyId)
     .gte("data", start)
     .lte("data", end)
@@ -537,6 +537,12 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
     ? await sb.from("ogs_reference").select("id,ogs_number,client_name").eq("company_id", companyId).in("id", tecnicoOgsIds)
     : ({ data: [], error: null } as any);
   if (tecnicoOgsResp.error) throw new Error(tecnicoOgsResp.error.message);
+  const tecnicoEngIds = [...new Set((tecnicoResp.data || []).map((r: any) => r.engenheiro_id).filter(Boolean))];
+  const tecnicoEngResp = tecnicoEngIds.length
+    ? await sb.from("profiles").select("user_id,nome_completo").in("user_id", tecnicoEngIds)
+    : ({ data: [], error: null } as any);
+  if (tecnicoEngResp.error) throw new Error(tecnicoEngResp.error.message);
+  const tecnicoEngMap = new Map<string, string>((tecnicoEngResp.data || []).map((p: any) => [p.user_id, normalizeString(p.nome_completo)]));
   const tecnicoOgsMap = new Map<string, any>((tecnicoOgsResp.data || []).map((o: any) => [o.id, o]));
   const rdoTecnicoRows = (tecnicoResp.data || []).map((row: any) => {
     const ogs = tecnicoOgsMap.get(row.ogs_id);
@@ -545,6 +551,8 @@ async function handleRdoFremix(sb: ReturnType<typeof createClient>, companyId: s
       data: row.data,
       ogs: row.ogs_number || ogs?.ogs_number || null,
       contratante: ogs?.client_name || null,
+      engenheiro_nome: tecnicoEngMap.get(row.engenheiro_id) || null,
+      criado_por: tecnicoEngMap.get(row.engenheiro_id) || null,
       equipe: normalizeString(row.equipe) || null,
       status: row.status,
       houve_producao: row.houve_producao,

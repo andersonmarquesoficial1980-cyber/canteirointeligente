@@ -138,6 +138,7 @@ Campos da seção `equipamentos_rdo.rows` (equipamentos vinculados ao RDO):
 - `empresa`
 
 Campos da seção `rdo_tecnico.rows` (RDO Técnico, somente status diferente de rascunho; um registro por obra/equipe/dia):
+- `engenheiro_nome` / `criado_por` (nome de quem preencheu o RDO Técnico; alias do mesmo valor)
 - `id`, `data`, `ogs`, `contratante`, `equipe` (pode vir `null` em registros antigos), `status`
 - `houve_producao` (`false` = dia sem produção)
 - `motivo_sem_producao`: Chuva, Sem Atividade, Folga / Feriado, Usina Não Atendeu, Indisponibilidade de Equipamento, Problema de Transporte, Falha de Combustível, Falta de Autorização ou Outro (preenchido só quando `houve_producao = false`)
