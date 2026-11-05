@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   Bell,
   Star,
+  CalendarDays,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -48,6 +49,7 @@ import { climaSplit, equipesVisiveisFiltro, perdasPorMotivo, producaoPorServico,
 import { NOTA_BAIXA, computeApoioMetrics } from "@/lib/rdoTecnicoApoioMetrics";
 import { ENSAIOS_SERVICE, INFRA_SERVICE, TECHNICAL_QUANTITIES, hasServiceToken } from "@/lib/technicalProduction";
 import { Interpretar, Previa, TabelaPaginada, type Coluna } from "./rdoTecnicoDashboard/Tabela";
+import { DiasObraPainel } from "./rdoTecnicoDashboard/DiasObraPainel";
 
 interface RdoTecnicoRow {
   id: string;
@@ -164,9 +166,10 @@ type AssuntoTab =
   | "ocorrencias"
   | "sem_producao";
 
-type Secao = AssuntoTab | "preenchimento" | "validacoes" | "alertas";
+type Secao = AssuntoTab | "dias_obra" | "preenchimento" | "validacoes" | "alertas";
 
 const SECOES_META: { id: Secao; label: string; icon: any }[] = [
+  { id: "dias_obra", label: "Dias da Obra", icon: CalendarDays },
   { id: "geral", label: "Visão geral", icon: BarChart3 },
   { id: "producao", label: "Produção", icon: Activity },
   { id: "preenchimento", label: "Preenchimento", icon: ClipboardCheck },
@@ -370,7 +373,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [engenheiroFila, setEngenheiroFila] = useState("");
   const [buscaFila, setBuscaFila] = useState("");
 
-  const [secao, setSecao] = useState<Secao>("geral");
+  const [secao, setSecao] = useState<Secao>("dias_obra");
   const [maisFiltros, setMaisFiltros] = useState(false);
   const [foco, setFoco] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<{ rdo: RdoTecnicoRow; assunto: AssuntoTab; alerta?: AlertaOperacional } | null>(null);
@@ -1015,6 +1018,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const rotuloFila = periodoFila === "acumulado" ? `acumulada desde ${fmtDate(ENGINEERING_VALIDATION_START)}` : `somente ${fmtDate(inicioFila)} a ${fmtDate(dataFim)}`;
 
   const contadores: Record<Secao, string> = {
+    dias_obra: "",
     geral: pronto ? fmtNum(kpis.total) : "—",
     producao: pronto ? String(cardsAssunto.producao.length) : "—",
     preenchimento: pronto ? String(lancamentosEngenheiros.length) : "—",
@@ -1446,6 +1450,10 @@ export default function RelatorioRdoTecnicoDashboard() {
   );
 
   const renderSecao = () => {
+    if (secao === "dias_obra") return (
+      <DiasObraPainel rows={rows as any} rowsPrev={rowsPrev as any} engMap={engMap} dataIni={dataIni} dataFim={dataFim} hojeISO={hojeISO} ogsInicial={filtroOgs}
+        onAbrirRdo={(id) => { const r = rows.find(x => x.id === id); if (r) abrirDetalhe(r, r.houve_producao ? "producao" : "sem_producao"); }} />
+    );
     if (secao === "geral") return renderGeral();
     if (secao === "preenchimento") return renderPreenchimento();
     if (secao === "validacoes") return renderValidacoes();
@@ -1525,19 +1533,19 @@ export default function RelatorioRdoTecnicoDashboard() {
         )}
       </div>
 
-      <div data-testid="faixa-kpis" className="grid shrink-0 grid-cols-3 gap-1.5 px-3 py-1.5 lg:grid-cols-6 lg:gap-2 lg:py-2">
+      {secao !== "dias_obra" && <div data-testid="faixa-kpis" className="grid shrink-0 grid-cols-3 gap-1.5 px-3 py-1.5 lg:grid-cols-6 lg:gap-2 lg:py-2">
         <KpiCard icon={ClipboardList} titulo="Total de RDOs" subtitulo={pronto ? <><span className="block">{fmtNum(kpis.enviados)} enviados</span><span className="block">{fmtNum(kpis.rascunhos)} rascunhos</span></> : "—"} valor={pronto ? fmtNum(kpis.total) : "—"} cor="text-slate-700"delta={pronto ? comparativo.total.delta : undefined} deltaPct={pronto ? comparativo.total.perc : undefined} />
         <KpiCard icon={BarChart3} titulo="RDOs com produção" valor={pronto ? fmtNum(kpis.comProducao) : "—"} cor="text-blue-700" delta={pronto ? comparativo.comProducao.delta : undefined} deltaPct={pronto ? comparativo.comProducao.perc : undefined} />
         <KpiCard icon={AlertTriangle} titulo="RDOs sem produção" valor={pronto ? fmtNum(kpis.semProducao) : "—"} cor="text-red-700" delta={pronto ? comparativo.semProducao.delta : undefined} deltaPct={pronto ? comparativo.semProducao.perc : undefined} invert />
         <KpiCard icon={Gauge} titulo="Problemas em equipamentos" subtitulo={pronto ? "Contagem de RDOs" : "—"} valor={pronto ? fmtNum(kpis.naoConformeEquip) : "—"} cor="text-orange-700" delta={pronto ? comparativo.naoConforme.delta : undefined} deltaPct={pronto ? comparativo.naoConforme.perc : undefined} invert />
         <KpiCard icon={Users} titulo="Produção em toneladas" valor={pronto ? fmtNum(kpis.toneladas, 1) : "—"} cor="text-emerald-700" delta={pronto ? comparativo.toneladas.delta : undefined} deltaPct={pronto ? comparativo.toneladas.perc : undefined} />
         <KpiCard icon={Activity} titulo="Área produzida (m²)" valor={pronto ? fmtNum(kpis.areaM2, 1) : "—"} cor="text-indigo-700" delta={pronto ? comparativo.areaM2.delta : undefined} deltaPct={pronto ? comparativo.areaM2.perc : undefined} />
-      </div>
+      </div>}
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 lg:flex-row">
         <label className="shrink-0 text-xs font-semibold text-muted-foreground lg:hidden">Seção
           <select aria-label="Seção do Dashboard" value={secao} onChange={(e) => irSecao(e.target.value as Secao)} className="mt-0.5 h-10 w-full rounded-lg border bg-white px-2 text-sm font-semibold text-foreground">
-            {SECOES_META.map(({ id, label }) => <option key={id} value={id}>{`${label} (${contadores[id]})`}</option>)}
+            {SECOES_META.map(({ id, label }) => <option key={id} value={id}>{contadores[id] ? `${label} (${contadores[id]})` : label}</option>)}
           </select>
         </label>
         <nav aria-label="Seções do Dashboard" className="hidden shrink-0 gap-1.5 rounded-xl border bg-white p-2 lg:flex lg:w-56 lg:flex-col lg:flex-nowrap lg:overflow-y-auto">
@@ -1551,7 +1559,7 @@ export default function RelatorioRdoTecnicoDashboard() {
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span className="truncate">{label}</span>
-              <span className={`ml-auto rounded-full px-2 text-xs ${secao === id ? "bg-white/25" : "bg-muted text-muted-foreground"}`}>{contadores[id]}</span>
+              {contadores[id] && <span className={`ml-auto rounded-full px-2 text-xs ${secao === id ? "bg-white/25" : "bg-muted text-muted-foreground"}`}>{contadores[id]}</span>}
             </button>
           ))}
         </nav>

@@ -37,10 +37,17 @@ const nav = () => screen.getByRole("navigation", { name: "Seções do Dashboard"
 const irPara = (nome: string) => fireEvent.click(within(nav()).getByRole("button", { name: new RegExp(`^${nome}`) }));
 const abrirMaisFiltros = () => fireEvent.click(screen.getByRole("button", { name: /Mais filtros/ }));
 const busca = (valor: string) => fireEvent.change(screen.getByLabelText("Busca rápida"), { target: { value: valor } });
-async function mount() { await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>); }); }
+async function mount(secaoInicial: string | null = "Visão geral") { await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>); }); if (secaoInicial) irPara(secaoInicial); }
 beforeEach(() => { state.companyId = "c1"; state.extraProfiles = []; state.extraPending = []; state.fail = false; state.technical = null; state.queries = []; vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-20T15:00:00Z")); });
 afterEach(() => { cleanup(); vi.useRealTimers(); sessionStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe("Dashboard Técnico — fase 2", () => {
+  it("abre em Dias da Obra, sem a faixa de KPIs genéricos", async () => {
+    state.technical = [{ id: "d1", company_id: "c1", engenheiro_id: "e1", status: "enviado", data: "2026-10-05", ogs_number: "2539", houve_producao: false, motivo_sem_producao: "Chuva" }];
+    await mount(null);
+    expect(screen.getByTestId("dias-obra-geral")).toBeInTheDocument();
+    expect(screen.queryByTestId("faixa-kpis")).not.toBeInTheDocument();
+    expect(within(nav()).getByRole("button", { name: /^Dias da Obra/ })).toHaveAttribute("aria-current", "page");
+  });
   it("retira Igor somente do acompanhamento, preservando RDO, tonelagem, autoria e pendência vinculada", async () => {
     state.companyId = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
     const igor = "27c76763-85b9-4f95-82bc-ef20cc3cd471";
@@ -135,7 +142,7 @@ describe("Dashboard Técnico — fase 2", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Nenhum total parcial foi exibido");
     expect(screen.queryByTestId("total-fila-validacao")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Resumo Exec/ })).toBeDisabled();
-    const botoes = within(nav()).getAllByRole("button");
+    const botoes = within(nav()).getAllByRole("button").filter(b => !/^Dias da Obra/.test(b.textContent || ""));
     expect(botoes).toHaveLength(11);
     botoes.forEach(b => { expect(b).toHaveTextContent("—"); expect(b.textContent).not.toMatch(/\b0\b/); });
   });
@@ -199,6 +206,7 @@ describe("Dashboard Técnico — clareza dos KPIs do topo", () => {
   });
   it("em carregamento inicial mostra — sem contagem", () => {
     render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>);
+    irPara("Visão geral");
     const c = kpi("Total de RDOs");
     expect(c).toHaveTextContent("—");
     expect(c.textContent).not.toMatch(/\d/);
@@ -432,7 +440,7 @@ describe("Dashboard Técnico — CSV geral e busca por INFRA", () => {
 });
 
 describe("Dashboard Técnico — estrutura de uma seção por vez", () => {
-  it("abre na Visão geral, lista as 11 seções com contadores e mostra só a seção selecionada", async () => {
+  it("abre na Visão geral, lista as 12 seções com contadores e mostra só a seção selecionada", async () => {
     state.technical = [
       { ...prod, id: "n1", tipo_servico: "FRESAGEM", fresagem_m2: 10 },
       { ...prod, id: "n2", houve_producao: false, motivo_sem_producao: "Chuva", choveu: true },
@@ -440,7 +448,7 @@ describe("Dashboard Técnico — estrutura de uma seção por vez", () => {
     await mount();
     const botoes = within(nav()).getAllByRole("button");
     expect(botoes.map(b => b.textContent)).toEqual([
-      expect.stringContaining("Visão geral"), expect.stringContaining("Produção"), expect.stringContaining("Preenchimento"),
+      expect.stringContaining("Dias da Obra"), expect.stringContaining("Visão geral"), expect.stringContaining("Produção"), expect.stringContaining("Preenchimento"),
       expect.stringContaining("Validações"), expect.stringContaining("Alertas"), expect.stringContaining("Clima"),
       expect.stringContaining("Usina"), expect.stringContaining("Equipamentos"), expect.stringContaining("Apoio e Qualidade"), expect.stringContaining("Ocorrências"), expect.stringContaining("Sem produção"),
     ]);
@@ -519,12 +527,12 @@ describe("Dashboard Técnico — visão geral compacta e navegação móvel", ()
     await mount();
     const seletor = screen.getByLabelText("Seção do Dashboard") as HTMLSelectElement;
     expect(seletor.tagName).toBe("SELECT");
-    expect(seletor.options).toHaveLength(11);
+    expect(seletor.options).toHaveLength(12);
     expect(seletor.value).toBe("geral");
     fireEvent.change(seletor, { target: { value: "alertas" } });
     expect(screen.getByRole("heading", { name: "Alertas operacionais dos RDOs Técnicos" })).toBeInTheDocument();
     expect(within(nav()).getByRole("button", { name: /^Alertas/ })).toHaveAttribute("aria-current", "page");
-    expect(seletor.options[4].textContent).toMatch(/Alertas \(\d+\)/);
+    expect(seletor.options[5].textContent).toMatch(/Alertas \(\d+\)/);
   });
 });
 
