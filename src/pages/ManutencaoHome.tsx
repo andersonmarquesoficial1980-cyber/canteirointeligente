@@ -156,6 +156,9 @@ export default function ManutencaoHome() {
         <Button size="sm" variant="outline" onClick={() => navigate(`/manutencao/ocorrencias${origemQuery}`)} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
           <AlertTriangle className="w-4 h-4" /> Ocorrências
         </Button>
+        <Button size="sm" variant="outline" onClick={() => navigate(`/manutencao/falhas${origemQuery}`)} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
+          <Wrench className="w-4 h-4" /> Falhas e reparos
+        </Button>
         <Button size="sm" variant="outline" onClick={() => navigate(`/manutencao/fila${origemQuery}`)} className="bg-white/10 hover:bg-white/20 text-white border-white/30 gap-1">
           <Tv className="w-4 h-4" /> Fila de Manutenção
         </Button>

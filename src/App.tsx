@@ -57,6 +57,8 @@ import GestaoFrotasMultas from "./pages/GestaoFrotasMultas";
 import GestaoFrotasVeiculo from "./pages/GestaoFrotasVeiculo";
 import EquipamentoProntuario from "./pages/EquipamentoProntuario";
 import EquipamentoOcorrencias from "./pages/EquipamentoOcorrencias";
+import ManutencaoFalhas from "./pages/ManutencaoFalhas";
+import ManutencaoHorarios from "./pages/ManutencaoHorarios";
 import OcorrenciaDetalhe from "./pages/OcorrenciaDetalhe";
 import MedicoesTerceiros from "./pages/MedicoesTerceiros";
 import GestaoPessoasDashboard from "./pages/GestaoPessoasDashboard";
@@ -458,6 +460,8 @@ function AppRoutes() {
         <Route path="/gestao-frotas/documentos" element={<RequireModule moduleId="gestao-frotas"><ManutencaoDocumentos /></RequireModule>} />
         <Route path="/equipamentos/prontuario/:id" element={<RequireModule moduleId="equipamentos"><EquipamentoProntuario /></RequireModule>} />
         <Route path="/manutencao/ocorrencias" element={<RequireModule moduleId="manutencao"><EquipamentoOcorrencias /></RequireModule>} />
+        <Route path="/manutencao/falhas" element={<RequireModule moduleId="manutencao"><ManutencaoFalhas /></RequireModule>} />
+        <Route path="/manutencao/horarios" element={<RequireModule moduleId="manutencao"><ManutencaoHorarios /></RequireModule>} />
         <Route path="/manutencao/ocorrencia/:id" element={<RequireModule moduleId="manutencao"><OcorrenciaDetalhe /></RequireModule>} />
         <Route path="/medicoes/terceiros" element={<RequireModule moduleId="medicoes"><MedicoesTerceiros /></RequireModule>} />
         <Route path="/gestao-pessoas" element={<RequireModule moduleId="gestao-pessoas"><GestaoPessoasDashboard /></RequireModule>} />

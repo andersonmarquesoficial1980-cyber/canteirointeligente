@@ -47,6 +47,7 @@ import { Label } from "@/components/ui/label";
 import { compressImage } from "@/lib/imageCompression";
 import { generateKmaPdf } from "@/lib/generateKmaPdf";
 import { generateComboioPdf } from "@/lib/generateComboioPdf";
+import RegistrarFalhaModal from "@/components/manutencao/RegistrarFalhaModal";
 import { buildComboioEmailReport, buildCarretaEmailReport } from "@/lib/buildEquipmentEmailReport";
 
 const WORK_STATUSES = ["Disposição", "Trabalhando", "Folga", "Manutenção", "Cancelou", "Em Transporte"] as const;
@@ -322,6 +323,7 @@ export default function EquipmentDiaryForm() {
   const isModoSimples = workStatus === "Folga" || workStatus === "Cancelou" || workStatus === "Disposição" || isStatusManutencao;
   const [cancelouMotivo, setCancellouMotivo] = useState("");
   const [ogsNumber, setOgsNumber] = useState("");
+  const [falhaModalAberto, setFalhaModalAberto] = useState(false);
   const [ogsSugerida, setOgsSugerida] = useState<{ ogs: string; equipe: string; local: string | null; cliente: string | null } | null>(null);
   const [ogsSugeridaDismissed, setOgsSugeridaDismissed] = useState(false);
   const isPatioMode = ogsNumber === "BASE / PÁTIO CENTRAL";
@@ -3376,6 +3378,23 @@ export default function EquipmentDiaryForm() {
               </SelectContent>
             </Select>
           </Field>
+
+          {selectedFleet && (
+            <div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setFalhaModalAberto(true)}>
+                ⚠️ Registrar falha deste equipamento
+              </Button>
+              <p className="text-[11px] text-muted-foreground mt-1">Use quando o equipamento parou por quebra. Informe o horário da parada e do retorno.</p>
+              {falhaModalAberto && (
+                <RegistrarFalhaModal
+                  open
+                  onClose={() => setFalhaModalAberto(false)}
+                  onSaved={() => undefined}
+                  defaults={{ frota: selectedFleet, ogs: (ogsNumber || "").split(/[|—]/)[0].trim(), diaryId: editId || undefined }}
+                />
+              )}
+            </div>
+          )}
 
           {/* Motivo do cancelamento — aparece só quando Cancelou */}
           {workStatus === "Cancelou" && (
