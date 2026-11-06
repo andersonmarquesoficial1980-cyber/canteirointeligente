@@ -34,3 +34,8 @@ CREATE FUNCTION public.auth_profile_company_id() RETURNS uuid LANGUAGE sql STABL
 CREATE FUNCTION public.has_role(_user_id uuid, _role text) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
   SET search_path TO 'public' AS $$ SELECT exists (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = _user_id AND ur.role = _role) $$;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
+
+-- Fase 3 (apontamento de produção)
+CREATE TABLE IF NOT EXISTS public.equipment_production_areas (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid, diary_id uuid, length_m numeric, width_m numeric, thickness_cm numeric);
+GRANT SELECT ON public.equipment_production_areas TO authenticated;

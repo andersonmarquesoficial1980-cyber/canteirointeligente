@@ -1032,6 +1032,17 @@ export default function GestaoFrotasHome() {
             <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
           </button>
 
+          <button onClick={() => navigate(withReturnTo("/gestao-frotas/producao"))} className="w-full rdo-card border-l-4 border-l-purple-400 hover:shadow-md transition-all flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
+              <BarChart3 className="w-5 h-5 text-purple-500" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-display font-bold text-sm">Apontamento de Produção</p>
+              <p className="text-xs text-muted-foreground">Vibroacabadora (t) e fresadora (m) por obra e turno</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+          </button>
+
           <button onClick={() => navigate(withReturnTo("/gestao-frotas/dashboard-rdo"))} className="w-full rdo-card border-l-4 border-l-green-400 hover:shadow-md transition-all flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
               <MapPin className="w-5 h-5 text-green-500" />
