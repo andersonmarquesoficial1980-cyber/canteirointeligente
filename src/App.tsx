@@ -59,6 +59,7 @@ import EquipamentoProntuario from "./pages/EquipamentoProntuario";
 import EquipamentoOcorrencias from "./pages/EquipamentoOcorrencias";
 import ManutencaoFalhas from "./pages/ManutencaoFalhas";
 import GestaoFrotasProducao from "./pages/GestaoFrotasProducao";
+import DashboardConfiabilidade from "./pages/DashboardConfiabilidade";
 import ManutencaoHorarios from "./pages/ManutencaoHorarios";
 import OcorrenciaDetalhe from "./pages/OcorrenciaDetalhe";
 import MedicoesTerceiros from "./pages/MedicoesTerceiros";
@@ -440,6 +441,7 @@ function AppRoutes() {
         <Route path="/relatorios/dashboards-obras" element={<RequireModule moduleId="relatorios"><WFDashboards /></RequireModule>} />
         <Route path="/relatorios/dashboards-obras/obras" element={<RequireModule moduleId="relatorios"><DashboardObras /></RequireModule>} />
         <Route path="/relatorios/dashboards-obras/manutencao" element={<RequireModule moduleId="relatorios"><DashboardManutencao /></RequireModule>} />
+        <Route path="/relatorios/dashboards-obras/confiabilidade" element={<RequireModule moduleId="relatorios"><DashboardConfiabilidade /></RequireModule>} />
         <Route path="/relatorios/dashboards-obras/frota" element={<RequireModule moduleId="relatorios"><DashboardFrota /></RequireModule>} />
 
         {/* Legacy aliases — manter compatibilidade de links antigos */}

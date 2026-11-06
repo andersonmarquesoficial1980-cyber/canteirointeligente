@@ -4,7 +4,7 @@
  * Design: Dark, premium, com cards animados.
  */
 import { useNavigate, useLocation } from "react-router-dom";
-import { HardHat, Wrench, Truck, Monitor, Maximize2, ArrowLeft, LayoutDashboard } from "lucide-react";
+import { HardHat, Wrench, Truck, Monitor, Maximize2, ArrowLeft, LayoutDashboard, Gauge } from "lucide-react";
 import logoCi from "@/assets/logo-workflux.png";
 import { useSmartBack } from "@/hooks/useSmartBack";
 
@@ -45,6 +45,18 @@ const DASHBOARDS: DashOption[] = [
     gradient: "from-orange-600/20 to-red-600/10",
     audience: "🛠️ Planejamento de Manutenção",
     badge: "Operacional",
+  },
+  {
+    id: "confiabilidade",
+    route: "/relatorios/dashboards-obras/confiabilidade",
+    title: "Disponibilidade e Confiabilidade",
+    subtitle: "Painel de Equipamentos",
+    description: "Disponibilidade operacional, MTBF, MTTR, falhas, tempo parado e produção × disponibilidade por equipamento e obra.",
+    icon: Gauge,
+    color: "#8b5cf6",
+    gradient: "from-violet-600/20 to-fuchsia-600/10",
+    audience: "🔧 Manutenção e Gestão de Frotas",
+    badge: "Confiabilidade",
   },
   {
     id: "frota",
