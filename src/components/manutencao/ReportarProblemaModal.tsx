@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useEquipamentos, type Equipamento } from "@/hooks/useEquipamentos";
 import { TriangleAlert, X, Camera, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -45,7 +46,22 @@ export default function ReportarProblemaModal({ onClose, profile: profileProp, o
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [frota, setFrota] = useState(frotaInicial);
+  const { equipamentos, loading: carregandoFrotas } = useEquipamentos();
+  const [buscaFrota, setBuscaFrota] = useState(frotaInicial);
+  const [equip, setEquip] = useState<Equipamento | null>(null);
+  const [listaAberta, setListaAberta] = useState(false);
+  const rotulo = (e: Equipamento) => `${e.frota}${e.nome || e.modelo_completo ? ` — ${e.nome || e.modelo_completo}` : ""}`;
+  // frota pré-preenchida: seleciona quando a lista carregar
+  useEffect(() => {
+    if (!frotaInicial || equip) return;
+    const achou = equipamentos.find(e => e.frota.toUpperCase() === frotaInicial.trim().toUpperCase());
+    if (achou) { setEquip(achou); setBuscaFrota(rotulo(achou)); }
+  }, [equipamentos]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sugestoes = useMemo(() => {
+    const q = buscaFrota.trim().toLowerCase();
+    const base = q ? equipamentos.filter(e => `${e.frota} ${e.nome || ""} ${e.modelo_completo || ""} ${e.placa || ""}`.toLowerCase().includes(q)) : equipamentos;
+    return base.slice(0, 30);
+  }, [equipamentos, buscaFrota]);
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [tipo, setTipo] = useState("OCORRÊNCIA");
@@ -58,26 +74,19 @@ export default function ReportarProblemaModal({ onClose, profile: profileProp, o
       toast({ title: "Informe o que aconteceu", variant: "destructive" });
       return;
     }
+    if (buscaFrota.trim() && !equip) {
+      toast({ title: "Escolha a frota na lista", description: "Selecione um equipamento cadastrado ou limpe o campo.", variant: "destructive" });
+      return;
+    }
     setSalvando(true);
     try {
-      let equipamentoId = null;
-      if (frota.trim()) {
-        const { data: equip } = await (supabase as any)
-          .from("equipamentos")
-          .select("id")
-          .eq("frota", frota.trim().toUpperCase())
-          .eq("company_id", profile?.company_id || "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
-          .maybeSingle();
-        equipamentoId = equip?.id || null;
-      }
-
       let fotoUrl = null;
       if (foto) fotoUrl = await uploadFoto(foto);
 
       const { error } = await (supabase as any).from("equipamentos_ocorrencias").insert({
-        equipamento_id: equipamentoId,
+        equipamento_id: equip?.id || null,
         company_id: profile?.company_id || null,
-        frota: frota.trim().toUpperCase() || null,
+        frota: equip?.frota || null,
         titulo: titulo.trim(),
         descricao: [descricao.trim(), contexto ? `[${contexto}]` : ""].filter(Boolean).join("\n") || null,
         tipo,
@@ -118,15 +127,30 @@ export default function ReportarProblemaModal({ onClose, profile: profileProp, o
           </button>
         </div>
 
-        {/* Frota */}
-        <div className="space-y-1">
+        {/* Frota — lista de equipamentos cadastrados */}
+        <div className="space-y-1 relative">
           <Label className="text-xs text-muted-foreground">Frota do Equipamento (opcional)</Label>
           <input
-            value={frota}
-            onChange={e => setFrota(e.target.value)}
-            className="w-full h-11 rounded-xl border border-border bg-secondary px-3 text-sm uppercase"
-            placeholder="Ex: 1234, FRE-01..."
+            value={buscaFrota}
+            onChange={e => { setBuscaFrota(e.target.value); setEquip(null); setListaAberta(true); }}
+            onFocus={() => setListaAberta(true)}
+            className={`w-full h-11 rounded-xl border bg-secondary px-3 text-sm ${equip ? "border-green-500" : "border-border"}`}
+            placeholder={carregandoFrotas ? "Carregando frotas..." : "Busque por frota, nome ou placa"}
+            aria-label="Frota do equipamento"
+            autoComplete="off"
           />
+          {listaAberta && !equip && (
+            <ul role="listbox" className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border bg-background shadow-lg">
+              {sugestoes.length === 0 && <li className="px-3 py-2 text-xs text-muted-foreground">{carregandoFrotas ? "Carregando..." : "Nenhuma frota cadastrada encontrada"}</li>}
+              {sugestoes.map(e => (
+                <li key={e.id} role="option" aria-selected={false} className="cursor-pointer px-3 py-2 text-sm hover:bg-secondary"
+                  onMouseDown={ev => { ev.preventDefault(); setEquip(e); setBuscaFrota(rotulo(e)); setListaAberta(false); }}>
+                  <span className="font-bold">{e.frota}</span>{e.nome || e.modelo_completo ? <span className="text-muted-foreground"> — {e.nome || e.modelo_completo}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          {equip && <p className="text-[11px] text-green-600">Equipamento vinculado: {rotulo(equip)}</p>}
         </div>
 
         {/* Título */}
