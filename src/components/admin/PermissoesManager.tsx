@@ -62,7 +62,8 @@ const TIPOS_RELATORIO_PERM = [
   { id: "producao_pavimentacao", label: "🛣️ Produção de Pavimentação (RDO)" },
   { id: "controle_lancamentos", label: "📊 Controle de Lançamentos" },
   { id: "divergencias_rdo_diarios", label: "🔎 Divergências RDO × Diários" },
-  { id: "rdo_tecnico_dashboard", label: "🧠 Dashboard RDO Técnico" },
+  { id: "rdo_tecnico_dashboard", label: "🧠 Dashboard RDO Técnico — Obra" },
+  { id: "rdo_tecnico_controle", label: "🗂️ Controle de Preenchimento RDO Técnico" },
   { id: "dashboards_obras", label: "📺 Dashboards Obras" },
 ];
 

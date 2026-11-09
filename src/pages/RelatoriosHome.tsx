@@ -31,7 +31,8 @@ const TIPOS_RELATORIO = [
   { id: "producao_pavimentacao", label: "Produção de Pavimentação (RDO)", icon: Route, desc: "Produção de pavimentação por período, OGS e apontador" },
   { id: "controle_lancamentos", label: "Controle de Lançamentos", icon: ListChecks, desc: "Visão gerencial dos diários por usuário e por equipamento" },
   { id: "divergencias_rdo_diarios", label: "Divergências RDO × Diários", icon: ScanSearch, desc: "Conferir equipamentos e operadores por data ou período" },
-  { id: "rdo_tecnico_dashboard", label: "Dashboard RDO Técnico", icon: LayoutDashboard, desc: "Visão executiva do RDO Técnico com botões por assunto" },
+  { id: "rdo_tecnico_dashboard", label: "Dashboard RDO Técnico — Obra", icon: LayoutDashboard, desc: "O que aconteceu na obra: dias trabalhados, produção, motivos de não produção, clima, usina" },
+  { id: "rdo_tecnico_controle", label: "Controle de Preenchimento RDO Técnico", icon: ListChecks, desc: "Quem lançou ou não o RDO e fila de validações dos apontadores" },
   { id: "dashboards_obras", label: "Dashboards Obras", icon: Monitor, desc: "Hub único com todos os dashboards operacionais de Obras" },
 ];
 
@@ -303,7 +304,7 @@ export default function RelatoriosHome() {
     return Array.from(setFrotas).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [categorias, frotasPorTipo]);
 
-  const visibleReports = TIPOS_RELATORIO.filter(t => isAdmin || !relatoriosPermitidos || relatoriosPermitidos.includes(t.id))
+  const visibleReports = TIPOS_RELATORIO.filter(t => isAdmin || !relatoriosPermitidos || relatoriosPermitidos.includes(t.id) || (t.id === "rdo_tecnico_controle" && relatoriosPermitidos.includes("rdo_tecnico_dashboard")))
     .filter(t => !isDesktop || normTxt(`${t.label} ${t.desc}`).includes(normTxt(reportSearch)));
 
   const page = (
@@ -411,6 +412,7 @@ export default function RelatoriosHome() {
                   if (t.id === "producao_pavimentacao") { navigate(withReturnTo(`/relatorios/producao-pavimentacao${origemQueryPrefix}`)); return; }
                   if (t.id === "controle_lancamentos") { navigate(withReturnTo(`/relatorios/controle-lancamentos${origemQueryPrefix}`)); return; }
                   if (t.id === "divergencias_rdo_diarios") { navigate(withReturnTo(`/relatorios/divergencias-rdo-diarios${origemQueryPrefix}`)); return; }
+                  if (t.id === "rdo_tecnico_controle") { navigate(withReturnTo(`/relatorios/rdo-tecnico-controle${origemQueryPrefix}`)); return; }
                   if (t.id === "rdo_tecnico_dashboard") { navigate(withReturnTo(`/relatorios/rdo-tecnico-dashboard${origemQueryPrefix}`)); return; }
                   if (t.id === "dashboards_obras") { navigate(withReturnTo(`/relatorios/dashboards-obras${origemQueryPrefix}`)); return; }
                   if (t.id === "abastecimento") {

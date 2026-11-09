@@ -41,7 +41,7 @@ const irPara = (nome: string) => {
 };
 const abrirMaisFiltros = () => fireEvent.click(screen.getByRole("button", { name: /Mais filtros/ }));
 const busca = (valor: string) => fireEvent.change(screen.getByLabelText("Busca rápida"), { target: { value: valor } });
-async function mount(secaoInicial: string | null = "Visão geral") { await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>); }); if (secaoInicial) irPara(secaoInicial); if (secaoInicial === "Visão geral") { const b = screen.queryByRole("button", { name: "Comparar com período anterior" }); if (b) fireEvent.click(b); } }
+async function mount(secaoInicial: string | null = "Visão geral") { await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard modo="completo" /></MemoryRouter>); }); if (secaoInicial) irPara(secaoInicial); if (secaoInicial === "Visão geral") { const b = screen.queryByRole("button", { name: "Comparar com período anterior" }); if (b) fireEvent.click(b); } }
 beforeEach(() => { state.companyId = "c1"; state.extraProfiles = []; state.extraPending = []; state.fail = false; state.technical = null; state.queries = []; vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-20T15:00:00Z")); });
 afterEach(() => { cleanup(); vi.useRealTimers(); sessionStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe("Dashboard Técnico — fase 2", () => {
@@ -204,7 +204,7 @@ describe("Dashboard Técnico — clareza dos KPIs do topo", () => {
     }
   });
   it("em carregamento inicial mostra — sem contagem", () => {
-    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>);
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard modo="completo" /></MemoryRouter>);
     irPara("Visão geral");
     const c = kpi("Total de RDOs");
     expect(c).toHaveTextContent("—");
@@ -769,5 +769,25 @@ describe("Dashboard Técnico — perdas, produção por serviço, resumo por OGS
     expect(screen.getByTestId("clima-split")).toHaveTextContent("Chuva que parou a produção: 1");
     expect(screen.getByTestId("clima-split")).toHaveTextContent("Chuva em dia produtivo: 1");
     expect(screen.getByText("Chuva parou a produção")).toBeInTheDocument();
+  });
+});
+
+describe("Dashboard Técnico — separação Obra x Controle de Preenchimento", () => {
+  const botoes = () => within(nav()).getAllByRole("button").map(b => b.textContent || "");
+  it("modo obra não traz Preenchimento nem Validações", async () => {
+    await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard modo="obra" /></MemoryRouter>); });
+    expect(screen.getByTestId("dias-obra-geral")).toBeInTheDocument();
+    const t = botoes().join("|");
+    expect(t).toContain("Dias da Obra");
+    expect(t).not.toMatch(/Preenchimento|Validações/);
+    expect(screen.queryByRole("button", { name: /Validações pendentes/ })).not.toBeInTheDocument();
+  });
+  it("modo controle abre em Preenchimento e só tem Preenchimento e Validações", async () => {
+    await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard modo="controle" /></MemoryRouter>); });
+    const t = botoes();
+    expect(t).toHaveLength(2);
+    expect(within(nav()).getByRole("button", { name: /^Preenchimento/ })).toHaveAttribute("aria-current", "page");
+    expect(t.join("|")).toContain("Validações");
+    expect(screen.queryByTestId("faixa-kpis")).not.toBeInTheDocument();
   });
 });

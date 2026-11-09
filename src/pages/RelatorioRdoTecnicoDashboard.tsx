@@ -186,6 +186,11 @@ const SECOES_META: { id: Secao; label: string; icon: any }[] = [
   { id: "sem_producao", label: "Sem produção", icon: FileText },
 ];
 
+/** Dois dashboards, mesmo motor: "obra" (o que aconteceu na obra) e "controle" (quem preencheu / validações). */
+/** "completo" = todas as seções juntas (uso interno/testes). */
+export type ModoDashboardRdo = "obra" | "controle" | "completo";
+const SECOES_CONTROLE: Secao[] = ["preenchimento", "validacoes"];
+
 /** Seções sempre à vista; as demais ficam em "Mais análises". */
 const SECOES_PRINCIPAIS: Secao[] = ["dias_obra", "producao", "sem_producao"];
 
@@ -359,7 +364,11 @@ function detalheAssunto(tab: AssuntoTab, r: RdoTecnicoRow) {
               : "-";
 }
 
-export default function RelatorioRdoTecnicoDashboard() {
+export default function RelatorioRdoTecnicoDashboard({ modo = "obra" }: { modo?: ModoDashboardRdo } = {}) {
+  const ehControle = modo === "controle";
+  const completo = modo === "completo";
+  const secoesModo = SECOES_META.filter(m => completo || (SECOES_CONTROLE.includes(m.id)) === ehControle);
+  const principaisModo = ehControle ? SECOES_CONTROLE : SECOES_PRINCIPAIS;
   const navigate = useNavigate();
   const goBack = useSmartBack("/relatorios");
   const { profile } = useUserProfile();
@@ -379,7 +388,7 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [engenheiroFila, setEngenheiroFila] = useState("");
   const [buscaFila, setBuscaFila] = useState("");
 
-  const [secao, setSecao] = useState<Secao>("dias_obra");
+  const [secao, setSecao] = useState<Secao>(modo === "controle" ? "preenchimento" : "dias_obra");
   const [mostrarComparativo, setMostrarComparativo] = useState(false);
   const [maisAnalises, setMaisAnalises] = useState(false);
   const [maisFiltros, setMaisFiltros] = useState(false);
@@ -1149,13 +1158,13 @@ export default function RelatorioRdoTecnicoDashboard() {
       </div>
       <div data-testid="chips-operacionais" className="flex flex-wrap gap-1.5">
         <button type="button" onClick={() => irSecao("alertas")} className="rounded-lg border border-red-300 bg-white px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">Alertas operacionais: {alertasOperacionais.length}</button>
-        <button type="button" onClick={() => irSecao("validacoes")} className="rounded-lg border border-orange-300 bg-white px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-50">Validações pendentes ({rotuloFila}): {filaFiltrada.length}</button>
+                {completo && <button type="button" onClick={() => irSecao("validacoes")} className="rounded-lg border border-orange-300 bg-white px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-50">Validações pendentes ({rotuloFila}): {filaFiltrada.length}</button>}
         <button type="button" onClick={() => irSecao("usina")} className="rounded-lg border border-orange-300 bg-white px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-50">Usina não atendeu: {kpis.usinaNaoAtendeu}</button>
         <button type="button" onClick={() => irSecao("apoio")} className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50">Apoio e Qualidade: {cardsAssunto.apoio.length}{apoioMetrics.retrabalho.total > 0 ? ` · Retrabalhos: ${apoioMetrics.retrabalho.total}` : ""}</button>
         <button type="button" onClick={() => irSecao("equipamentos")} className="rounded-lg border border-yellow-300 bg-white px-2 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-50">Não conformidade de equipamentos: {kpis.naoConformeEquip}</button>
+        {completo && <span className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">Engenheiro sem identificação: {kpis.semNomeEng}</span>}
         <button type="button" onClick={() => irSecao("ocorrencias")} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Ocorrências: {kpis.comOcorrencia}</button>
-        <span className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">Engenheiro sem identificação: {kpis.semNomeEng}</span>
-      </div>
+              </div>
       <div>
         <button type="button" aria-expanded={mostrarComparativo} onClick={() => setMostrarComparativo(v => !v)}
           className="mb-2 rounded-lg border bg-white px-3 py-1.5 text-sm font-semibold hover:bg-muted">
@@ -1503,7 +1512,7 @@ export default function RelatorioRdoTecnicoDashboard() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="min-w-0 flex-1">
-          <span className="block font-display text-sm font-extrabold text-primary-foreground">Dashboard RDO Técnico</span>
+          <span className="block font-display text-sm font-extrabold text-primary-foreground">{ehControle ? "Controle de Preenchimento — RDO Técnico" : "Dashboard RDO Técnico — Obra"}</span>
           <span className="sr-only">CSV exporta todos os RDOs dos filtros gerais, independentemente da aba de assunto.</span>
         </div>
         <div className="flex items-center gap-2">
@@ -1562,7 +1571,7 @@ export default function RelatorioRdoTecnicoDashboard() {
         )}
       </div>
 
-      {secao !== "dias_obra" && <div data-testid="faixa-kpis" className="grid shrink-0 grid-cols-2 gap-1.5 px-3 py-1.5 lg:grid-cols-4 lg:gap-2 lg:py-2">
+      {!ehControle && secao !== "dias_obra" && <div data-testid="faixa-kpis" className="grid shrink-0 grid-cols-2 gap-1.5 px-3 py-1.5 lg:grid-cols-4 lg:gap-2 lg:py-2">
         <KpiCard icon={ClipboardList} titulo="Total de RDOs" subtitulo={pronto ? <><span className="block">{fmtNum(kpis.enviados)} enviados</span><span className="block">{fmtNum(kpis.rascunhos)} rascunhos</span></> : "—"} valor={pronto ? fmtNum(kpis.total) : "—"} cor="text-slate-700" />
         <KpiCard icon={AlertTriangle} titulo="RDOs sem produção" subtitulo={pronto ? `${fmtNum(kpis.comProducao)} com produção` : "—"} valor={pronto ? fmtNum(kpis.semProducao) : "—"} cor="text-red-700" />
         <KpiCard icon={Users} titulo="Produção em toneladas" valor={pronto ? fmtNum(kpis.toneladas, 1) : "—"} cor="text-emerald-700" />
@@ -1572,13 +1581,13 @@ export default function RelatorioRdoTecnicoDashboard() {
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 lg:flex-row">
         <label className="shrink-0 text-xs font-semibold text-muted-foreground lg:hidden">Seção
           <select aria-label="Seção do Dashboard" value={secao} onChange={(e) => irSecao(e.target.value as Secao)} className="mt-0.5 h-10 w-full rounded-lg border bg-white px-2 text-sm font-semibold text-foreground">
-            {SECOES_META.map(({ id, label }) => <option key={id} value={id}>{contadores[id] ? `${label} (${contadores[id]})` : label}</option>)}
+            {secoesModo.map(({ id, label }) => <option key={id} value={id}>{contadores[id] ? `${label} (${contadores[id]})` : label}</option>)}
           </select>
         </label>
         <nav aria-label="Seções do Dashboard" className="hidden shrink-0 gap-1.5 rounded-xl border bg-white p-2 lg:flex lg:w-56 lg:flex-col lg:flex-nowrap lg:overflow-y-auto">
-          {[...SECOES_META.filter(m => SECOES_PRINCIPAIS.includes(m.id)), ...(maisAnalises || !SECOES_PRINCIPAIS.includes(secao) ? SECOES_META.filter(m => !SECOES_PRINCIPAIS.includes(m.id)) : [])].map(({ id, label, icon: Icon }, idx, arr) => (
+          {[...secoesModo.filter(m => principaisModo.includes(m.id)), ...(maisAnalises || !principaisModo.includes(secao) ? secoesModo.filter(m => !principaisModo.includes(m.id)) : [])].map(({ id, label, icon: Icon }, idx, arr) => (
             <Fragment key={id}>
-              {idx === SECOES_PRINCIPAIS.length && <div className="mt-1 border-t px-1 pt-2 text-xs font-bold text-muted-foreground">Mais análises</div>}
+              {idx === principaisModo.length && <div className="mt-1 border-t px-1 pt-2 text-xs font-bold text-muted-foreground">Mais análises</div>}
             <button
               key={id}
               type="button"
@@ -1592,10 +1601,10 @@ export default function RelatorioRdoTecnicoDashboard() {
             </button>
             </Fragment>
           ))}
-          {SECOES_PRINCIPAIS.includes(secao) && (
+          {!ehControle && SECOES_PRINCIPAIS.includes(secao) && (
             <button type="button" aria-expanded={maisAnalises} onClick={() => setMaisAnalises(v => !v)}
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-dashed px-3 text-sm font-semibold text-muted-foreground hover:bg-muted lg:w-full">
-              {maisAnalises ? "Menos análises" : `Mais análises (${SECOES_META.length - SECOES_PRINCIPAIS.length})`}
+              {maisAnalises ? "Menos análises" : `Mais análises (${secoesModo.length - SECOES_PRINCIPAIS.length})`}
             </button>
           )}
         </nav>

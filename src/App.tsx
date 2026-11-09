@@ -575,6 +575,7 @@ function AppRoutes() {
         <Route path="/relatorios/checklist" element={<RequireModule moduleId="relatorios"><RelatorioChecklist /></RequireModule>} />
         <Route path="/relatorios/controle-lancamentos" element={<RequireModule moduleId="relatorios"><RelatorioControleLancamentos /></RequireModule>} />
         <Route path="/relatorios/divergencias-rdo-diarios" element={<RequireModule moduleId="relatorios"><RelatorioDivergenciasRdoDiarios /></RequireModule>} />
+        <Route path="/relatorios/rdo-tecnico-controle" element={<RequireModule moduleId="relatorios"><RelatorioRdoTecnicoDashboard modo="controle" /></RequireModule>} />
         <Route path="/relatorios/rdo-tecnico-dashboard" element={<RequireModule moduleId="relatorios"><RelatorioRdoTecnicoDashboard /></RequireModule>} />
 
         <Route path="*" element={<NotFound />} />
