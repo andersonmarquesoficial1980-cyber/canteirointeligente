@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
@@ -135,6 +135,9 @@ export default function RelatorioFuncionario() {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [searched, setSearched] = useState(false);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const [tableWidth, setTableWidth] = useState(0);
   const [messageNoData, setMessageNoData] = useState("");
 
   // Autocomplete de funcionários (cadastro único)
@@ -349,7 +352,8 @@ export default function RelatorioFuncionario() {
           // nome pode conter múltiplos nomes separados por "|||"
           const nomes = (r.nome || "").split("|||").map((n: string) => n.trim()).filter(Boolean);
           const lista = nomes.length > 0 ? nomes : [""];
-          lista.forEach((n: string) => {
+          const matsRow = (r.matricula || "").split("|||").map((m: string) => m.trim());
+          lista.forEach((n: string, li: number) => {
             result.push({
               nome: n,
               data: r.rdo_diarios?.data || "",
@@ -362,7 +366,7 @@ export default function RelatorioFuncionario() {
               clima: r.rdo_diarios?.clima || null,
               contratante: null,
               local: null,
-              matricula: r.matricula || null,
+              matricula: (nomes.length > 1 ? matsRow[li] : r.matricula) || null,
               equipe: r.rdo_diarios?.equipe || null,
               responsavel: r.rdo_diarios?.responsavel || null,
               preenchido_por: r.rdo_diarios?.preenchido_por || null,
@@ -423,7 +427,8 @@ export default function RelatorioFuncionario() {
           // nome pode conter múltiplos nomes separados por "|||"
           const nomes = (r.nome || "").split("|||").map((n: string) => n.trim()).filter(Boolean);
           const lista = nomes.length > 0 ? nomes : [""];
-          lista.forEach((n: string) => {
+          const matsRow = (r.matricula || "").split("|||").map((m: string) => m.trim());
+          lista.forEach((n: string, li: number) => {
             result.push({
               nome: n,
               data: rdo?.data || "",
@@ -436,7 +441,7 @@ export default function RelatorioFuncionario() {
               clima: rdo?.clima || null,
               contratante: null,
               local: null,
-              matricula: r.matricula || null,
+              matricula: (nomes.length > 1 ? matsRow[li] : r.matricula) || null,
               equipe: rdo?.equipe || null,
               responsavel: rdo?.responsavel || null,
               preenchido_por: rdo?.preenchido_por || null,
@@ -485,13 +490,17 @@ export default function RelatorioFuncionario() {
       (contagemDia[k] ||= new Set()).add(r.rdo_id);
     });
 
-    // Equipe: usa a do RDO; se vazia, usa a do cadastro do funcionário
-    const nomesSemEquipe = Array.from(new Set(result.filter(r => !r.equipe && r.nome).map(r => r.nome)));
-    const equipePorNome: Record<string, string> = {};
-    if (nomesSemEquipe.length > 0) {
+    // Equipe: a do RDO; se vazia, a do encarregado do RDO (equipe que de fato comandou o dia).
+    // Equipe do cadastro do funcionário só entra como comparação (alerta "equipe de cadastro diferente").
+    const nomesBusca = Array.from(new Set([
+      ...result.map(r => r.nome),
+      ...result.filter(r => !r.equipe).map(r => r.encarregado || ""),
+    ].filter(Boolean)));
+    const equipeCadastro: Record<string, string> = {};
+    for (let i = 0; i < nomesBusca.length; i += 150) {
       const { data } = await (supabase as any)
-        .from("employees").select("name, equipe").eq("company_id", companyId).in("name", nomesSemEquipe.slice(0, 300));
-      (data || []).forEach((e: any) => { if (e.equipe) equipePorNome[norm(e.name)] = e.equipe; });
+        .from("employees").select("name, equipe").eq("company_id", companyId).in("name", nomesBusca.slice(i, i + 150));
+      (data || []).forEach((e: any) => { if (e.equipe) equipeCadastro[norm(e.name)] = e.equipe; });
     }
 
     return result.map(r => {
@@ -504,9 +513,12 @@ export default function RelatorioFuncionario() {
         else if (sai === ent) alertas.push("Entrada = saída");
       }
       if ((contagemDia[`${norm(r.nome)}|${r.data}`]?.size || 0) > 1) alertas.push("Mais de um RDO no dia");
+      const equipeDia = r.equipe || equipeCadastro[norm(r.encarregado)] || null;
+      const eqCad = equipeCadastro[norm(r.nome)];
+      if (eqCad && equipeDia && norm(eqCad) !== norm(equipeDia)) alertas.push(`Cadastro em outra equipe: ${eqCad}`);
       const hs = horariosPorRdo[r.rdo_id];
       const origem = !ent && !sai ? "Não informado" : hs && hs.size > 1 ? "Individual" : "Padrão do RDO";
-      return { ...r, alertas, origem_horario: origem, equipe: r.equipe || equipePorNome[norm(r.nome)] || null };
+      return { ...r, alertas, origem_horario: origem, equipe: equipeDia };
     });
   };
 
@@ -530,6 +542,18 @@ export default function RelatorioFuncionario() {
     }));
   };
 
+  // Barra de rolagem horizontal espelhada no topo (suspensa) — mede a largura real da tabela
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const measure = () => setTableWidth(el.scrollWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, [rows, loading]);
+
   const resetFilters = (type: FilterType) => {
     setFilterType(type);
     setBusca(""); setFuncao(""); setNome(""); setNomesSelecionaveis([]);
@@ -540,7 +564,7 @@ export default function RelatorioFuncionario() {
   return (
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
+        <div className="max-w-[1800px] mx-auto px-4 py-4 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={goBack}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -549,7 +573,7 @@ export default function RelatorioFuncionario() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
+      <div className="max-w-[1800px] mx-auto px-4 py-4 space-y-4">
 
         {/* Seletor de tipo de filtro */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
@@ -701,47 +725,59 @@ export default function RelatorioFuncionario() {
             ) : (
               <>
                 <p className="text-xs text-muted-foreground px-1">{rows.length} registro(s) encontrado(s)</p>
-                <div className="bg-card rounded-xl border border-border overflow-x-auto">
-                  <table className="w-full text-xs">
+                <div
+                  ref={topScrollRef}
+                  onScroll={e => { if (tableScrollRef.current) tableScrollRef.current.scrollLeft = e.currentTarget.scrollLeft; }}
+                  className="sticky top-[64px] z-30 overflow-x-auto overflow-y-hidden rounded-md border border-border bg-card shadow-sm"
+                  style={{ height: 16 }}
+                >
+                  <div style={{ width: tableWidth, height: 1 }} />
+                </div>
+                <div
+                  ref={tableScrollRef}
+                  onScroll={e => { if (topScrollRef.current) topScrollRef.current.scrollLeft = e.currentTarget.scrollLeft; }}
+                  className="bg-card rounded-xl border border-border overflow-x-auto"
+                >
+                  <table className="w-full text-[11px]">
                     <thead className="bg-muted/50 sticky top-0">
 <tr>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Data</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Funcionário</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Função</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">OGS / Contratante</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Equipe</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Encarregado</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Preenchido por</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Turno</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Entrada</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Saída</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Origem do horário</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Alertas</th>
-<th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Data</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Funcionário</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Função</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">OGS / Contratante</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Equipe</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Encarregado</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Preenchido por</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Turno</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Entrada</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Saída</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Origem do horário</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Alertas</th>
+<th className="text-left px-2 py-1.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</th>
 </tr>
 </thead>
 <tbody>
 {rows.map((r, i) => (
   <tr key={`${r.rdo_id}-${i}`} className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}>
-    <td className="px-3 py-2 font-medium whitespace-nowrap">{fmtDate(r.data)}</td>
-    <td className="px-3 py-2 font-semibold whitespace-nowrap">{r.nome || "-"}{r.matricula && <span className="block text-[10px] font-normal text-muted-foreground">Mat. {r.matricula}</span>}</td>
-    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.funcao || "-"}</td>
-    <td className="px-3 py-2 whitespace-nowrap"><span className="text-primary font-semibold">{r.obra_nome || "-"}</span>{r.contratante && <span className="block text-[10px] text-muted-foreground">{r.contratante}</span>}</td>
-    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.equipe || "-"}</td>
-    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.encarregado || "-"}</td>
-    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{r.preenchido_por || "-"}</td>
-    <td className="px-3 py-2 text-xs capitalize whitespace-nowrap">{r.turno || "-"}</td>
-    <td className="px-3 py-2 font-mono font-semibold whitespace-nowrap">{hhmm(r.entrada) || "-"}</td>
-    <td className="px-3 py-2 font-mono font-semibold whitespace-nowrap">{hhmm(r.saida) || "-"}</td>
-    <td className="px-3 py-2 whitespace-nowrap">
+    <td className="px-2 py-1.5 font-medium whitespace-nowrap">{fmtDate(r.data)}</td>
+    <td className="px-2 py-1.5 font-semibold min-w-[150px]">{r.nome || "-"}{r.matricula && <span className="block text-[10px] font-normal text-muted-foreground">Mat. {r.matricula}</span>}</td>
+    <td className="px-2 py-1.5 text-muted-foreground min-w-[110px]">{r.funcao || "-"}</td>
+    <td className="px-2 py-1.5"><span className="text-primary font-semibold">{r.obra_nome || "-"}</span>{r.contratante && <span className="block text-[10px] text-muted-foreground">{r.contratante}</span>}</td>
+    <td className="px-2 py-1.5 text-muted-foreground min-w-[110px]">{r.equipe || "-"}</td>
+    <td className="px-2 py-1.5 text-muted-foreground min-w-[110px]">{r.encarregado || "-"}</td>
+    <td className="px-2 py-1.5 text-muted-foreground min-w-[110px]">{r.preenchido_por || "-"}</td>
+    <td className="px-2 py-1.5 text-xs capitalize whitespace-nowrap">{r.turno || "-"}</td>
+    <td className="px-2 py-1.5 font-mono font-semibold whitespace-nowrap">{hhmm(r.entrada) || "-"}</td>
+    <td className="px-2 py-1.5 font-mono font-semibold whitespace-nowrap">{hhmm(r.saida) || "-"}</td>
+    <td className="px-2 py-1.5 whitespace-nowrap">
       <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${r.origem_horario === "Individual" ? "bg-blue-100 text-blue-700" : r.origem_horario === "Não informado" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>{r.origem_horario}</span>
     </td>
-    <td className="px-3 py-2 whitespace-nowrap">
+    <td className="px-2 py-1.5 min-w-[140px]">
       {r.alertas.length === 0 ? <span className="text-muted-foreground">-</span> : r.alertas.map(a => (
-        <span key={a} className="mr-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">{a}</span>
+        <span key={a} className="mr-1 mb-0.5 inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">{a}</span>
       ))}
     </td>
-    <td className="px-3 py-2 whitespace-nowrap">
+    <td className="px-2 py-1.5 whitespace-nowrap">
       <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
         r.clima === "Cancelou" ? "bg-red-100 text-red-700" :
         r.clima === "Folga" ? "bg-yellow-100 text-yellow-700" :
