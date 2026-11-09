@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ReportarProblemaModal from "./ReportarProblemaModal";
 
 const state = vi.hoisted(() => ({ insert: vi.fn(async () => ({ error: null })), toast: vi.fn() }));
@@ -10,7 +10,7 @@ const EQUIPS = [
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: state.toast }) }));
 vi.mock("@/hooks/useEquipamentos", () => ({ useEquipamentos: () => ({ equipamentos: EQUIPS, loading: false, refetch: vi.fn() }) }));
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { from: () => ({ insert: state.insert }), storage: { from: () => ({}) }, auth: { getUser: async () => ({ data: { user: null } }) } },
+  supabase: { from: (t: string) => t === "equipment_diaries" ? { select: () => ({ eq: () => ({ gte: () => ({ lte: async () => ({ data: [{ equipment_fleet: "VA01" }] }) }) }) }) } : ({ insert: state.insert }), storage: { from: () => ({}) }, auth: { getUser: async () => ({ data: { user: null } }) } },
 }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -43,5 +43,27 @@ describe("ReportarProblemaModal — lista de frotas cadastradas", () => {
     fireEvent.change(screen.getByPlaceholderText(/Motor fazendo barulho/), { target: { value: "Problema geral" } });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Registrar Ocorrência" })); });
     expect(state.insert).toHaveBeenCalledWith(expect.objectContaining({ equipamento_id: null, frota: null, origem: "encarregado" }));
+  });
+
+  it("frotas que lançaram diário na obra aparecem primeiro e marcadas", async () => {
+    render(<ReportarProblemaModal profile={profile} ogsNumber="2539" dataReferencia="2026-11-09" onClose={vi.fn()} />);
+    fireEvent.focus(screen.getByLabelText("Frota do equipamento"));
+    await waitFor(() => expect(screen.getAllByRole("option")[0]).toHaveTextContent("VA01"));
+    const opcoes = screen.getAllByRole("option");
+    expect(opcoes[0]).toHaveTextContent("na obra 2539");
+    expect(opcoes[1]).toHaveTextContent("CB027");
+    expect(opcoes[1]).not.toHaveTextContent("na obra");
+  });
+
+  it("pré-seleciona a frota citada no texto de não conformes e usa o texto como descrição", async () => {
+    render(<ReportarProblemaModal profile={profile} textoInicial="Vibroacabadora VA01 com sensor quebrado" onClose={vi.fn()} />);
+    expect(await screen.findByText(/Equipamento vinculado: VA01/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Vibroacabadora VA01 com sensor quebrado")).toBeInTheDocument();
+  });
+
+  it("não adivinha quando o texto cita mais de uma frota", async () => {
+    render(<ReportarProblemaModal profile={profile} textoInicial="VA01 e CB027 com problema" onClose={vi.fn()} />);
+    await act(async () => {});
+    expect(screen.queryByText(/Equipamento vinculado/)).not.toBeInTheDocument();
   });
 });
