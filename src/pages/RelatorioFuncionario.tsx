@@ -728,7 +728,7 @@ export default function RelatorioFuncionario() {
                 <div
                   ref={topScrollRef}
                   onScroll={e => { if (tableScrollRef.current) tableScrollRef.current.scrollLeft = e.currentTarget.scrollLeft; }}
-                  className="sticky top-[64px] z-30 overflow-x-auto overflow-y-hidden rounded-md border border-border bg-card shadow-sm"
+                  className="sticky top-[72px] z-30 overflow-x-auto overflow-y-hidden rounded-md border border-border bg-card shadow-sm"
                   style={{ height: 16 }}
                 >
                   <div style={{ width: tableWidth, height: 1 }} />
