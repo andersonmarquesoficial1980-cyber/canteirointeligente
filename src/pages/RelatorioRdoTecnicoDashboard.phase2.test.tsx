@@ -34,10 +34,14 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
 import Dashboard from "./RelatorioRdoTecnicoDashboard";
 const section = (name: string | RegExp) => screen.getByRole("heading", { name }).closest("section")!;
 const nav = () => screen.getByRole("navigation", { name: "Seções do Dashboard" });
-const irPara = (nome: string) => fireEvent.click(within(nav()).getByRole("button", { name: new RegExp(`^${nome}`) }));
+const irPara = (nome: string) => {
+  // seções fora das 3 principais ficam em "Mais análises"
+  if (!within(nav()).queryByRole("button", { name: new RegExp(`^${nome}`) })) fireEvent.click(within(nav()).getByRole("button", { name: /^Mais análises/ }));
+  fireEvent.click(within(nav()).getByRole("button", { name: new RegExp(`^${nome}`) }));
+};
 const abrirMaisFiltros = () => fireEvent.click(screen.getByRole("button", { name: /Mais filtros/ }));
 const busca = (valor: string) => fireEvent.change(screen.getByLabelText("Busca rápida"), { target: { value: valor } });
-async function mount(secaoInicial: string | null = "Visão geral") { await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>); }); if (secaoInicial) irPara(secaoInicial); }
+async function mount(secaoInicial: string | null = "Visão geral") { await act(async () => { render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Dashboard /></MemoryRouter>); }); if (secaoInicial) irPara(secaoInicial); if (secaoInicial === "Visão geral") { const b = screen.queryByRole("button", { name: "Comparar com período anterior" }); if (b) fireEvent.click(b); } }
 beforeEach(() => { state.companyId = "c1"; state.extraProfiles = []; state.extraPending = []; state.fail = false; state.technical = null; state.queries = []; vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-20T15:00:00Z")); });
 afterEach(() => { cleanup(); vi.useRealTimers(); sessionStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe("Dashboard Técnico — fase 2", () => {
@@ -152,7 +156,7 @@ describe("Dashboard Técnico — fase 2", () => {
 describe("Dashboard Técnico — clareza dos KPIs do topo", () => {
   const base = { company_id: "c1", engenheiro_id: "ana", ogs_number: "2539", houve_producao: true, data: "2026-10-01" };
   const kpi = (nome: string) => within(screen.getByTestId("faixa-kpis")).getByText(nome).closest("div.min-w-0")! as HTMLElement;
-  it("rotula Total de RDOs com enviados · rascunhos e Problemas em equipamentos contando RDOs com false", async () => {
+  it("rotula Total de RDOs com enviados · rascunhos", async () => {
     state.technical = [
       { ...base, id: "a", status: "enviado", equipamentos_conforme: false },
       { ...base, id: "b", status: "enviado", equipamentos_conforme: true },
@@ -172,16 +176,11 @@ describe("Dashboard Técnico — clareza dos KPIs do topo", () => {
       expect(p.className).toContain("text-xs");
       expect(p.className).not.toMatch(/text-\[\d+px\]/);
     }
-    const prob = kpi("Problemas em equipamentos");
-    expect(prob).toHaveTextContent("Contagem de RDOs");
-    expect(prob).not.toHaveTextContent("problema informado");
-    expect(prob.querySelector("p")).toHaveTextContent("1");
-    expect(within(screen.getByTestId("faixa-kpis")).queryByText("Não conformes")).not.toBeInTheDocument();
   });
-  it("usa os seis títulos claros na faixa de KPIs", async () => {
+  it("usa os quatro títulos claros na faixa de KPIs, sem pílulas de variação", async () => {
     await mount();
     const faixa = within(screen.getByTestId("faixa-kpis"));
-    for (const t of ["Total de RDOs", "RDOs com produção", "RDOs sem produção", "Problemas em equipamentos", "Produção em toneladas", "Área produzida (m²)"]) {
+    for (const t of ["Total de RDOs", "RDOs sem produção", "Produção em toneladas", "Área produzida (m²)"]) {
       expect(faixa.getByText(t)).toBeInTheDocument();
     }
     for (const antigo of ["RDOs (inclui rascunhos)", "Com produção", "Sem produção", "Não conformes", "Produção (t)", "Produção (m²)"]) {
@@ -198,7 +197,7 @@ describe("Dashboard Técnico — clareza dos KPIs do topo", () => {
   it("em erro ou carregamento mostra — sem contagem antiga ou zero", async () => {
     state.fail = true; vi.spyOn(console, "error").mockImplementation(() => {});
     await mount();
-    for (const nome of ["Total de RDOs", "Problemas em equipamentos"]) {
+    for (const nome of ["Total de RDOs", "RDOs sem produção"]) {
       const c = kpi(nome);
       expect(c).toHaveTextContent("—");
       expect(c.textContent).not.toMatch(/\d/);
@@ -449,9 +448,10 @@ describe("Dashboard Técnico — estrutura de uma seção por vez", () => {
     await mount();
     const botoes = within(nav()).getAllByRole("button");
     expect(botoes.map(b => b.textContent)).toEqual([
-      expect.stringContaining("Dias da Obra"), expect.stringContaining("Visão geral"), expect.stringContaining("Produção"), expect.stringContaining("Preenchimento"),
+      expect.stringContaining("Dias da Obra"), expect.stringContaining("Produção"), expect.stringContaining("Sem produção"),
+      expect.stringContaining("Visão geral"), expect.stringContaining("Preenchimento"),
       expect.stringContaining("Validações"), expect.stringContaining("Alertas"), expect.stringContaining("Clima"),
-      expect.stringContaining("Usina"), expect.stringContaining("Equipamentos"), expect.stringContaining("Apoio e Qualidade"), expect.stringContaining("Ocorrências"), expect.stringContaining("Sem produção"),
+      expect.stringContaining("Usina"), expect.stringContaining("Equipamentos"), expect.stringContaining("Apoio e Qualidade"), expect.stringContaining("Ocorrências"),
     ]);
     expect(within(nav()).getByRole("button", { name: /^Visão geral/ })).toHaveAttribute("aria-current", "page");
     expect(within(nav()).getByRole("button", { name: /^Produção/ })).toHaveTextContent("1");

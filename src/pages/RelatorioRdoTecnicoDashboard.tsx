@@ -186,6 +186,9 @@ const SECOES_META: { id: Secao; label: string; icon: any }[] = [
   { id: "sem_producao", label: "Sem produção", icon: FileText },
 ];
 
+/** Seções sempre à vista; as demais ficam em "Mais análises". */
+const SECOES_PRINCIPAIS: Secao[] = ["dias_obra", "producao", "sem_producao"];
+
 const TITULO_ASSUNTO: Record<string, string> = {
   producao: "Produção",
   meteo: "Clima",
@@ -377,6 +380,8 @@ export default function RelatorioRdoTecnicoDashboard() {
   const [buscaFila, setBuscaFila] = useState("");
 
   const [secao, setSecao] = useState<Secao>("dias_obra");
+  const [mostrarComparativo, setMostrarComparativo] = useState(false);
+  const [maisAnalises, setMaisAnalises] = useState(false);
   const [maisFiltros, setMaisFiltros] = useState(false);
   const [foco, setFoco] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<{ rdo: RdoTecnicoRow; assunto: AssuntoTab; alerta?: AlertaOperacional } | null>(null);
@@ -1152,7 +1157,11 @@ export default function RelatorioRdoTecnicoDashboard() {
         <span className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">Engenheiro sem identificação: {kpis.semNomeEng}</span>
       </div>
       <div>
-        <section className="rounded-lg border px-3 py-2">
+        <button type="button" aria-expanded={mostrarComparativo} onClick={() => setMostrarComparativo(v => !v)}
+          className="mb-2 rounded-lg border bg-white px-3 py-1.5 text-sm font-semibold hover:bg-muted">
+          {mostrarComparativo ? "Ocultar comparação com período anterior" : "Comparar com período anterior"}
+        </button>
+        {mostrarComparativo && <section className="rounded-lg border px-3 py-2">
           <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-bold">Comparativo com período anterior</h3>
             <p className="text-xs text-muted-foreground">
@@ -1179,7 +1188,8 @@ export default function RelatorioRdoTecnicoDashboard() {
               </tbody>
             </table>
           </div>
-        </section>
+          <p className="mt-2 text-xs text-muted-foreground">Verde = melhorou, vermelho = piorou frente ao período anterior (para "sem produção" e retrabalho, menos é melhor). Não indica causa: chuva, feriado e liberação atrasada também entram.</p>
+        </section>}
       </div>
     </section>
   );
@@ -1542,13 +1552,11 @@ export default function RelatorioRdoTecnicoDashboard() {
         )}
       </div>
 
-      {secao !== "dias_obra" && <div data-testid="faixa-kpis" className="grid shrink-0 grid-cols-3 gap-1.5 px-3 py-1.5 lg:grid-cols-6 lg:gap-2 lg:py-2">
-        <KpiCard icon={ClipboardList} titulo="Total de RDOs" subtitulo={pronto ? <><span className="block">{fmtNum(kpis.enviados)} enviados</span><span className="block">{fmtNum(kpis.rascunhos)} rascunhos</span></> : "—"} valor={pronto ? fmtNum(kpis.total) : "—"} cor="text-slate-700"delta={pronto ? comparativo.total.delta : undefined} deltaPct={pronto ? comparativo.total.perc : undefined} />
-        <KpiCard icon={BarChart3} titulo="RDOs com produção" valor={pronto ? fmtNum(kpis.comProducao) : "—"} cor="text-blue-700" delta={pronto ? comparativo.comProducao.delta : undefined} deltaPct={pronto ? comparativo.comProducao.perc : undefined} />
-        <KpiCard icon={AlertTriangle} titulo="RDOs sem produção" valor={pronto ? fmtNum(kpis.semProducao) : "—"} cor="text-red-700" delta={pronto ? comparativo.semProducao.delta : undefined} deltaPct={pronto ? comparativo.semProducao.perc : undefined} invert />
-        <KpiCard icon={Gauge} titulo="Problemas em equipamentos" subtitulo={pronto ? "Contagem de RDOs" : "—"} valor={pronto ? fmtNum(kpis.naoConformeEquip) : "—"} cor="text-orange-700" delta={pronto ? comparativo.naoConforme.delta : undefined} deltaPct={pronto ? comparativo.naoConforme.perc : undefined} invert />
-        <KpiCard icon={Users} titulo="Produção em toneladas" valor={pronto ? fmtNum(kpis.toneladas, 1) : "—"} cor="text-emerald-700" delta={pronto ? comparativo.toneladas.delta : undefined} deltaPct={pronto ? comparativo.toneladas.perc : undefined} />
-        <KpiCard icon={Activity} titulo="Área produzida (m²)" valor={pronto ? fmtNum(kpis.areaM2, 1) : "—"} cor="text-indigo-700" delta={pronto ? comparativo.areaM2.delta : undefined} deltaPct={pronto ? comparativo.areaM2.perc : undefined} />
+      {secao !== "dias_obra" && <div data-testid="faixa-kpis" className="grid shrink-0 grid-cols-2 gap-1.5 px-3 py-1.5 lg:grid-cols-4 lg:gap-2 lg:py-2">
+        <KpiCard icon={ClipboardList} titulo="Total de RDOs" subtitulo={pronto ? <><span className="block">{fmtNum(kpis.enviados)} enviados</span><span className="block">{fmtNum(kpis.rascunhos)} rascunhos</span></> : "—"} valor={pronto ? fmtNum(kpis.total) : "—"} cor="text-slate-700" />
+        <KpiCard icon={AlertTriangle} titulo="RDOs sem produção" subtitulo={pronto ? `${fmtNum(kpis.comProducao)} com produção` : "—"} valor={pronto ? fmtNum(kpis.semProducao) : "—"} cor="text-red-700" />
+        <KpiCard icon={Users} titulo="Produção em toneladas" valor={pronto ? fmtNum(kpis.toneladas, 1) : "—"} cor="text-emerald-700" />
+        <KpiCard icon={Activity} titulo="Área produzida (m²)" subtitulo="fresagem + RAP + geogrelha" valor={pronto ? fmtNum(kpis.areaM2, 1) : "—"} cor="text-indigo-700" />
       </div>}
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 lg:flex-row">
@@ -1558,7 +1566,9 @@ export default function RelatorioRdoTecnicoDashboard() {
           </select>
         </label>
         <nav aria-label="Seções do Dashboard" className="hidden shrink-0 gap-1.5 rounded-xl border bg-white p-2 lg:flex lg:w-56 lg:flex-col lg:flex-nowrap lg:overflow-y-auto">
-          {SECOES_META.map(({ id, label, icon: Icon }) => (
+          {[...SECOES_META.filter(m => SECOES_PRINCIPAIS.includes(m.id)), ...(maisAnalises || !SECOES_PRINCIPAIS.includes(secao) ? SECOES_META.filter(m => !SECOES_PRINCIPAIS.includes(m.id)) : [])].map(({ id, label, icon: Icon }, idx, arr) => (
+            <Fragment key={id}>
+              {idx === SECOES_PRINCIPAIS.length && <div className="mt-1 border-t px-1 pt-2 text-xs font-bold text-muted-foreground">Mais análises</div>}
             <button
               key={id}
               type="button"
@@ -1570,7 +1580,14 @@ export default function RelatorioRdoTecnicoDashboard() {
               <span className="truncate">{label}</span>
               {contadores[id] && <span className={`ml-auto rounded-full px-2 text-xs ${secao === id ? "bg-white/25" : "bg-muted text-muted-foreground"}`}>{contadores[id]}</span>}
             </button>
+            </Fragment>
           ))}
+          {SECOES_PRINCIPAIS.includes(secao) && (
+            <button type="button" aria-expanded={maisAnalises} onClick={() => setMaisAnalises(v => !v)}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-dashed px-3 text-sm font-semibold text-muted-foreground hover:bg-muted lg:w-full">
+              {maisAnalises ? "Menos análises" : `Mais análises (${SECOES_META.length - SECOES_PRINCIPAIS.length})`}
+            </button>
+          )}
         </nav>
 
         <main ref={painelRef} data-testid="painel-secao" className="min-h-0 min-w-0 flex-1 overflow-y-auto rounded-xl border bg-white p-3">

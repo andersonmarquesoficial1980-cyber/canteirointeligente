@@ -119,6 +119,20 @@ export function DiasObraPainel({ rows, rowsPrev, engMap, dataIni, dataFim, hojeI
             <Button type="button" variant="outline" size="sm" className="h-10" disabled={!obras.length} onClick={() => baixarCsv(obras)}><Download className="mr-1 h-4 w-4" /> CSV</Button>
           </div>
         </div>
+        {obras.length > 0 && (() => {
+          const tot = obras.reduce((a, o) => ({ trab: a.trab + o.diasTrabalhados, sem: a.sem + o.diasSemProducao, ton: a.ton + o.producao.ton, m2: a.m2 + o.producao.m2 }), { trab: 0, sem: 0, ton: 0, m2: 0 });
+          const cats = new Map<string, number>();
+          obras.forEach(o => o.porCategoria.forEach(c => cats.set(c.categoria, (cats.get(c.categoria) || 0) + c.dias)));
+          const principal = [...cats].sort((a, b) => b[1] - a[1])[0];
+          return (
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4" data-testid="resumo-dias-obra">
+              <div className="rounded-xl border bg-white p-3"><div className="text-xs font-bold text-muted-foreground">Dias trabalhados</div><div className="text-2xl font-black text-emerald-700">{tot.trab}</div><div className="text-xs text-muted-foreground">soma das obras</div></div>
+              <div className="rounded-xl border bg-white p-3"><div className="text-xs font-bold text-muted-foreground">Dias sem produção</div><div className="text-2xl font-black text-amber-700">{tot.sem}</div><div className="text-xs text-muted-foreground">{principal ? `principal: ${principal[0]} (${principal[1]})` : "nenhum"}</div></div>
+              <div className="rounded-xl border bg-white p-3"><div className="text-xs font-bold text-muted-foreground">Toneladas</div><div className="text-2xl font-black text-foreground">{tot.ton > 0 ? `${fmt(tot.ton)} t` : "—"}</div></div>
+              <div className="rounded-xl border bg-white p-3"><div className="text-xs font-bold text-muted-foreground">Área (fresagem, RAP, geogrelha)</div><div className="text-2xl font-black text-foreground">{tot.m2 > 0 ? `${fmt(tot.m2)} m²` : "—"}</div></div>
+            </div>
+          );
+        })()}
         {obras.length === 0 ? <p className="rounded-xl border p-6 text-center text-sm text-muted-foreground">Nenhum RDO no período.</p> : (
           <div className="overflow-x-auto rounded-xl border">
             <table className="w-full min-w-[820px] text-sm">
